@@ -199,19 +199,6 @@ class Scorer:
         # the Arabic spelling is passed so the heard line follows the answer's conventions (ק for ق, silent ל)
         return [word_to_hebrew(" ".join(phs), ar_words[w] if w < len(ar_words) else "") for w, phs in enumerate(heard)]
 
-    def pick(self, wav: np.ndarray, options: dict[str, str]) -> str | None:
-        """Which of a few short utterances (name -> IPA) the audio fits best; None if it fits none.
-
-        Driving mode's spoken yes/no: no speech recogniser needed, the phoneme model decides.
-        """
-        logp = self.vocab.merge(self.emit(wav))
-        best = None
-        for name, ipa in options.items():
-            al = ctc_viterbi(logp, [t.id for t in self._targets(ipa)], self.vocab.blank)
-            if al and (best is None or al.total_logp > best[1]):
-                best = (name, al.total_logp)
-        return best[0] if best else None
-
     def score_logp(self, logp: np.ndarray, phrase: dict) -> dict:
         blank = self.vocab.blank
         logp = self.vocab.merge(logp)

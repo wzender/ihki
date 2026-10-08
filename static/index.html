@@ -263,7 +263,6 @@ function render(r){
 
 /* ---------- recording ---------- */
 let rec=null, chunks=[], stopTimer=null, vad=null;
-let recMode="answer";   // "yesno": the recording is a spoken yes/no, not an answer to grade
 let recDone=null, recCancel=false;   // driving mode: resolver for the attempt in progress / drop it without scoring
 const finishRec=out=>{ const f=recDone; recDone=null; if(f) f(out); };
 
@@ -285,7 +284,7 @@ function startVad(stream, onEnd){
     if(isSpeech){ quiet=0; if(++loud>=VAD.startFrames) spoke=true; }
     else{ loud=0; if(spoke) quiet+=VAD.frame; }
     if(spoke && quiet>=VAD.endSilence) onEnd(true);
-    else if(!spoke && t>=(driving&&recMode!=="yesno"?VAD.noSpeechDriving:VAD.noSpeech)) onEnd(false);   // driving: time to think
+    else if(!spoke && t>=(driving?VAD.noSpeechDriving:VAD.noSpeech)) onEnd(false);   // driving: time to think
   },VAD.frame);
   return {stop(){ clearInterval(timer); ctx.close().catch(()=>{}); }};
 }
@@ -307,27 +306,17 @@ mic.onclick=async()=>{
   rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
   let heardSpeech=true;   // false only when the VAD gave up waiting for speech
   rec.onstart=()=>{
-    mic.classList.add("live"); if(recMode!=="yesno") $("result").hidden=true;
+    mic.classList.add("live"); $("result").hidden=true;
     stopTimer=setTimeout(()=>rec.state==="recording"&&rec.stop(),driving?20000:10000);
     vad=startVad(stream, spoke=>{ heardSpeech=spoke; if(rec.state==="recording") rec.stop(); });
-    if(recMode!=="yesno") $("status").textContent=vad?"מקליט… דברו, ההקלטה תיעצר לבד (או לחצו לסיום)":"מקליט… לחצו שוב לסיום";
+    $("status").textContent=vad?"מקליט… דברו, ההקלטה תיעצר לבד (או לחצו לסיום)":"מקליט… לחצו שוב לסיום";
   };
   rec.onstop=async()=>{
     clearTimeout(stopTimer); if(vad){ vad.stop(); vad=null; }
     mic.classList.remove("live"); stream.getTracks().forEach(t=>t.stop());
-    if(recMode==="yesno"&&(recCancel||!heardSpeech)){ const kind=recCancel?"cancel":"nospeech"; recMode="answer"; recCancel=false; finishRec({kind}); return; }
     if(recCancel){ recCancel=false; finishRec({kind:"cancel"}); return; }
     if(!heardSpeech){ $("status").textContent="לא נשמע דיבור. לחצו ונסו שוב, קרוב יותר למיקרופון."; finishRec({kind:"nospeech"}); return; }
     const blob=new Blob(chunks,{type:rec.mimeType||"audio/webm"});
-    if(recMode==="yesno"){
-      recMode="answer";
-      try{
-        const fd=new FormData(); fd.append("audio",blob,"rec");
-        const res=await fetch("/api/yesno",{method:"POST",body:fd});
-        finishRec({kind:"yesno",answer:res.ok?(await res.json()).answer:null});
-      }catch{ finishRec({kind:"yesno",answer:null}); }
-      return;
-    }
     if(myAudioUrl) URL.revokeObjectURL(myAudioUrl);
     myAudioUrl=URL.createObjectURL(blob); $("playMine").disabled=false;
     mic.disabled=true; $("status").textContent="מנתח…";
@@ -390,8 +379,8 @@ $("speakBtn").onclick=async()=>{
 
 /* ---------- driving mode: hands-free loop ----------
    say the Hebrew sentence -> listen (the VAD ends the recording) -> grade ->
-   say the answer in Arabic, then the score and the two most crucial tips ->
-   under 30: ask whether to try again and listen for yes/no -> next sentence. */
+   80 or more: next sentence. Less: say the correct answer in Arabic and try the same sentence again,
+   three attempts at most. */
 let driveRun=0, driveAudio=null, driveAudioDone=null, wakeLock=null;
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 function playUrl(url){
@@ -415,17 +404,11 @@ async function sayHe(text){
   await speakLocal(text,"he-IL");
 }
 const speakable=s=>s.replace(/\s*\([^)]*\)/g,"").replace(/[\u0600-\u06FF]/g,"").replace(/\s+/g," ").trim();
-// Spoken after the Arabic answer: "ציון <score>. <the two most crucial tips>".
-// The server sends the tips worst sound first; only the first sentence of each is spoken.
-function assessment(r){
-  const tips=(r.unrelated?[]:r.tips.slice(0,2)).map(t=>`${speakable(t.title)}: ${speakable(t.text).split(/(?<=\.)\s/)[0]}`);
-  return [`ציון ${r.score}.`, ...tips].join(" ").slice(0,390);
-}
-// One hands-free recording. "answer" grades it against the sentence; "yesno" asks the server whether it was כן or לא.
-function recordOnce(mode="answer"){ return new Promise(res=>{ recDone=res; recMode=mode; mic.onclick(); }); }
+function recordOnce(){ return new Promise(res=>{ recDone=res; mic.onclick(); }); }
+const DRIVE={pass:80, tries:3};   // a grade of `pass` moves on; below it the sentence is tried again, `tries` times at most
 async function drive(){
   const run=++driveRun, on=()=>driving&&run===driveRun, st=t=>{ $("status").textContent=t; };
-  let retries=0;
+  let tries=0;   // attempts at the current sentence, unheard ones included
   while(on()){
     const id=cur.id;
     st("🔊 הקשיבו למשפט");
@@ -435,26 +418,20 @@ async function drive(){
     await pause(250);                       // let the loudspeaker go quiet before listening
     const out=await recordOnce(); if(!on()) break;
     if(out.kind==="nomic"){ await sayHe("אין גישה למיקרופון. מצב נסיעה הופסק."); stopDrive(); break; }
+    tries++;
+    let passed=false;
     if(out.kind!=="result"){
-      if(++retries<=1){ st("לא שמעתי, ננסה שוב"); await sayHe("לא שמעתי. ננסה שוב."); continue; }
-      st("עוברים למשפט הבא"); await sayHe("נעבור למשפט הבא.");
-    }else{
-      const r=out.r;
-      st(`ציון ${r.score}`);
-      const a=await answerAudio(id); if(!on()) break;   // first the correct answer in Arabic ...
+      st("לא שמעתי"); await sayHe(tries<DRIVE.tries?"לא שמעתי. ננסה שוב.":"לא שמעתי. נעבור למשפט הבא.");
+    }else if(out.r.score>=DRIVE.pass){
+      passed=true; st(`ציון ${out.r.score} ✓`);
+    }else{                                  // not there yet: the only feedback is the correct answer, in Arabic
+      st(`ציון ${out.r.score} · התשובה הנכונה`);
+      const a=await answerAudio(id); if(!on()) break;
       if(a){ ttsInfo(a.label); await playUrl(a.url); } else await speakLocal(PHRASES[id].ar,"ar");   // device voice when Sawtak is unavailable
-      if(!on()) break;
-      await sayHe(assessment(r)); if(!on()) break;      // ... then the grade and the tips
-      if(r.score<30){                       // a poor attempt: offer another go at the same sentence
-        await sayHe("רוצה לנסות שוב?"); if(!on()) break;
-        await pause(250); st("🎤 אמרו כן או לא");
-        const reply=await recordOnce("yesno"); if(!on()) break;
-        if(reply.kind==="yesno"&&reply.answer==="yes"){ retries=0; continue; }   // "לא" or silence: move on
-      }
     }
     if(!on()) break;
-    retries=0; await pause(700); if(!on()) break;
-    nextPhrase();
+    await pause(700); if(!on()) break;
+    if(passed||tries>=DRIVE.tries){ tries=0; nextPhrase(); }
   }
 }
 function stopDrive(){
