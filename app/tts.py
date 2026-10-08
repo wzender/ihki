@@ -73,13 +73,16 @@ class SawtakTTS:
                      (voices[0].get("labels") or {}).get("dialect"))
         return self.voice_id
 
-    def wav(self, text: str) -> bytes:
-        """WAV for `text`, from the cache when this voice has said it before."""
+    def wav(self, text: str, voice: str = "") -> tuple[bytes, str]:
+        """(WAV, voice id) for `text`, from the cache when this voice has said it before.
+
+        `voice` overrides the configured voice for this call (the page's debug voice box).
+        """
         with self._lock:
-            voice = self._voice()
+            voice = voice or self._voice()
             path = self.cache_dir / (hashlib.sha1(f"{MODEL}|{voice}|{text}".encode()).hexdigest() + ".wav")
             if path.exists():
-                return path.read_bytes()
+                return path.read_bytes(), voice
             # enhance_pronunciation: the phrase bank is unvowelled, so let the voice's dialect add the tashkeel
             with self._request("/audio/speech", {"model": MODEL, "voice": voice, "input": text,
                                                  "response_format": "pcm", "enhance_pronunciation": True}) as res:
@@ -98,7 +101,7 @@ class SawtakTTS:
             tmp = path.with_suffix(".tmp")
             tmp.write_bytes(data)
             tmp.replace(path)
-            return data
+            return data, voice
 
 
 def load_tts() -> SawtakTTS | None:

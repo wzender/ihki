@@ -162,14 +162,16 @@ def test_tts_endpoint_serves_phrase_audio_and_503_without_key():
     class FakeTTS:
         voice_id, voice_name = "v-123", "ليلى"
 
-        def wav(self, text):
+        def wav(self, text, voice=""):
             assert text == PHRASES[0]["variants"][0][0]
-            return b"RIFFfake"
+            return b"RIFFfake", voice or self.voice_id
 
     with TestClient(create_app(scorer_for(emissions(["w"])), FakeTTS())) as c:
         r = c.get("/api/tts/0")
         assert r.status_code == 200 and r.headers["content-type"] == "audio/wav" and r.content == b"RIFFfake"
         assert r.headers["x-tts-provider"] == "sawtakarabi.ai" and r.headers["x-tts-voice-id"] == "v-123"
+        assert c.get("/api/tts/0?voice=other-voice_1").headers["x-tts-voice-id"] == "other-voice_1"
+        assert c.get("/api/tts/0?voice=..%2Fx").status_code == 400
         assert c.get("/api/tts/9999").status_code == 404
         assert c.get("/api/health").json()["tts"] is True
 

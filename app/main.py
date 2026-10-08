@@ -10,13 +10,14 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import re
 import time
 import urllib.parse
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import HTMLResponse, Response
 
 from .phrases import CATEGORIES, PHRASES, public_phrases
@@ -65,21 +66,26 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
                 "phoneme_fallbacks": s.vocab.downgraded}
 
     @app.get("/api/tts/{phrase_id}")
-    def tts_phrase(phrase_id: int):
-        """The model answer (first variant) spoken by the TTS voice. 503 tells the page to use the device voice."""
+    def tts_phrase(phrase_id: int, voice: str = Query("", max_length=64)):
+        """The model answer (first variant) spoken by the TTS voice. 503 tells the page to use the device voice.
+
+        `voice` (debug) tries another voice id from the provider's catalog instead of the configured one.
+        """
+        if voice and not re.fullmatch(r"[A-Za-z0-9_-]+", voice):
+            raise HTTPException(400, "bad voice id")
         if not 0 <= phrase_id < len(PHRASES):
             raise HTTPException(404, "unknown phrase")
         if app.state.tts is None:
             raise HTTPException(503, "tts not configured")
         try:
-            data = app.state.tts.wav(PHRASES[phrase_id]["variants"][0][0])
+            data, used = app.state.tts.wav(PHRASES[phrase_id]["variants"][0][0], voice)
         except TTSUnavailable as e:
             raise HTTPException(503, str(e))
         tts = app.state.tts  # debug: lets the page show which voice spoke
         return Response(data, media_type="audio/wav", headers={
             "Cache-Control": "private, max-age=86400", "X-TTS-Provider": "sawtakarabi.ai",
-            "X-TTS-Voice-Id": urllib.parse.quote(getattr(tts, "voice_id", "")),
-            "X-TTS-Voice-Name": urllib.parse.quote(getattr(tts, "voice_name", ""))})
+            "X-TTS-Voice-Id": urllib.parse.quote(used),
+            "X-TTS-Voice-Name": urllib.parse.quote("" if voice else getattr(tts, "voice_name", ""))})
 
     @app.post("/api/score")
     def score(phrase_id: int = Form(...), audio: UploadFile = File(...)):
