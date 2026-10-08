@@ -28,7 +28,8 @@ app/
   align.py     CTC Viterbi alignment, GOP, greedy decode, edit distance (no torch)
   scorer.py    model wrapper, IPA → vocab mapping with fallbacks, result assembly, ffmpeg decode
   tips.py      Hebrew feedback keyed by (expected, heard) phoneme pairs
-  phrases.py   25 phrases × accepted variants (Arabic + IPA)
+  phrases.py   phrase bank: accepted variants (Arabic + IPA) per phrase
+  grammar.py   day-2 sentences as grammar: every pronoun × positive/negative, for the negation and conjugation buttons
   main.py      FastAPI: GET / (page), GET /api/phrases, GET /api/health, POST /api/score
 static/index.html   frontend (MediaRecorder → /api/score)
 train/finetune.py   CTC fine-tuning on your own recordings

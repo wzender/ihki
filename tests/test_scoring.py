@@ -211,3 +211,20 @@ def test_heard_is_reported_per_word_in_hebrew():
     assert r["words"][0]["heard_tr"] == r["words"][0]["tr"]
     assert [w["heard_tr"] for w in r["words"]] == to_hebrew("w eː n | i l x a m m aː m")
     assert r["words"][1]["tr"] != r["words"][1]["heard_tr"]
+
+
+def test_day2_grammar_reaches_every_pronoun_and_negation():
+    from app.grammar import PRONOUNS, SENTENCES
+    from app.phrases import public_phrases
+
+    day2 = [p for p in public_phrases() if p["cat"] == "day2"]
+    listed = [p for p in day2 if p["listed"]]
+    assert len(listed) == len(SENTENCES) and not any(p["neg"] for p in listed)
+    for p in listed:  # each taught sentence has its negation and the other seven subjects
+        same = [q for q in day2 if q["grp"] == p["grp"]]
+        assert len(same) == 2 * len(PRONOUNS)
+        neg = next(q for q in same if q["pron"] == p["pron"] and q["neg"])
+        assert " לא " in neg["he"] and " ما " in neg["ar"] and " מַא " in neg["tr"]
+    she = next(p for p in day2 if p["he"] == "היא לא פתחה את הדלת ולא אכלה עם אחמד")
+    assert she["ar"] == "هيّ ما فتحت الباب وما اكلت مع احمد"
+    assert PHRASES[she["id"]]["variants"][0][1] == "h i j j e | m a | f a t ħ a t | i l b aː b | u m a | ʔ a k l a t | m a ʕ | ʔ a ħ m a d"

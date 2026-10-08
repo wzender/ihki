@@ -115,6 +115,8 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
     </section>
 
     <div class="row">
+      <button class="btn" id="negBtn" hidden title="אותו משפט בשלילה">שלילה</button>
+      <button class="btn" id="conjBtn" hidden title="אותו משפט עם גוף אחר, אקראי">הטיית פעלים</button>
       <button class="btn" id="hintBtn">רמז</button>
       <button class="btn" id="answerBtn">הצג תשובה</button>
       <button class="btn" id="speakBtn">🔊 השמע</button>
@@ -147,9 +149,19 @@ function buildCats(){
     box.appendChild(b);
   }
 }
-function startCat(){ order=shuffle(PHRASES.filter(p=>p.cat===cat).map(p=>p.id)); pos=0; show(); }
-function show(){
-  cur=PHRASES[order[pos]];
+function startCat(){ order=shuffle(PHRASES.filter(p=>p.cat===cat&&p.listed!==false).map(p=>p.id)); pos=0; show(); }
+// Grammar-built phrases (grp set) exist for every pronoun, positive and negative: the two buttons move between them.
+function variation(kind){
+  if(cur.grp==null) return;
+  const same=PHRASES.filter(p=>p.cat===cur.cat&&p.grp===cur.grp);
+  const next=kind==="negate" ? same.filter(p=>p.pron===cur.pron&&p.neg!==cur.neg)
+                             : shuffle(same.filter(p=>p.neg===cur.neg&&p.pron!==cur.pron));
+  if(next.length) show(next[0]);
+}
+function show(p){
+  cur=p||PHRASES[order[pos]];
+  $("negBtn").hidden=$("conjBtn").hidden=cur.grp==null;
+  $("negBtn").textContent=cur.neg?"חיוב":"שלילה";
   $("prompt").textContent=cur.he;
   $("catName").textContent=CATS.find(c=>c.id===cat).name;
   const b=best[cur.id];
@@ -279,6 +291,8 @@ $("playMine").onclick=()=>{ if(myAudioUrl) new Audio(myAudioUrl).play(); };
 /* ---------- hint, answer, TTS ---------- */
 $("hintBtn").onclick=()=>{ $("hintTr").textContent=cur.tr; $("hint").hidden=false; };
 $("answerBtn").onclick=()=>{ $("hintTr").textContent=cur.tr; $("hintAr").textContent=cur.ar; $("hint").hidden=false; $("hintAr").hidden=false; };
+$("negBtn").onclick=()=>variation("negate");
+$("conjBtn").onclick=()=>variation("conjugate");
 $("nextBtn").onclick=()=>{ pos=(pos+1)%order.length; if(pos===0) shuffle(order); show(); };
 function arVoice(){ const vs=speechSynthesis.getVoices(); return vs.find(v=>/^ar[-_](PS|JO|LB|SY|IL)/i.test(v.lang))||vs.find(v=>/^ar/i.test(v.lang)); }
 if("speechSynthesis" in window) speechSynthesis.getVoices();
