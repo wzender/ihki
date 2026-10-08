@@ -43,7 +43,9 @@ class SawtakTTS:
         req = urllib.request.Request(
             BASE_URL + path,
             data=json.dumps(body).encode() if body is not None else None,
-            headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
+            # explicit User-Agent: the provider's CDN answers Python's default one with 403 (error 1010)
+            headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json",
+                     "User-Agent": "ihki/1.0"},
         )
         try:
             return urllib.request.urlopen(req, timeout=TIMEOUT)
