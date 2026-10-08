@@ -1,0 +1,136 @@
+"""Tests with synthetic CTC emissions: no model download needed."""
+import io
+import wave
+
+import numpy as np
+import pytest
+
+from app.align import ctc_viterbi, greedy_decode
+from app.phrases import PHRASES
+from app.scorer import Scorer, Vocab, tokenize
+
+SYMS = ["<pad>", "w", "eː", "n", "i", "l", "ħ", "a", "m", "aː", "χ", "h", "k", "ʔ", "d", "ʃ", "s", "ʕ", "q", "e"]
+VOCAB = {s: i for i, s in enumerate(SYMS)}
+
+
+def emissions(phones, frames=3, gap=2, peak=0.9):
+    """Log-posteriors where each phone peaks for `frames` frames, separated by blanks."""
+    V = len(SYMS)
+    rows = []
+
+    def row(sym, p):
+        r = np.full(V, (1 - p) / (V - 1))
+        r[VOCAB[sym]] = p
+        return r
+
+    for _ in range(gap):
+        rows.append(row("<pad>", 0.95))
+    for ph in phones:
+        for _ in range(frames):
+            rows.append(row(ph, peak))
+        for _ in range(gap):
+            rows.append(row("<pad>", 0.95))
+    return np.log(np.array(rows))
+
+
+def find(he):
+    return next(p for p in PHRASES if p["he"] == he)
+
+
+def scorer_for(logp):
+    return Scorer(lambda wav: logp, Vocab(VOCAB))
+
+
+TOILET = find("איפה השירותים?")          # وين الحمام  w eː n | i l ħ a m m aː m
+TIME = find("מה השעה?")                   # قديش الساعة
+
+
+def test_viterbi_spans_cover_every_token():
+    toks = [VOCAB[s] for s in ["w", "eː", "n"]]
+    logp = emissions(["w", "eː", "n"])
+    al = ctc_viterbi(logp, toks, 0)
+    assert al is not None
+    assert all(0 <= a < b for a, b in al.spans)
+    assert [a for a, _ in al.spans] == sorted(a for a, _ in al.spans)
+    assert greedy_decode(logp, 0) == toks
+
+
+def test_too_short_returns_none():
+    logp = emissions(["w"], frames=1, gap=0)
+    assert ctc_viterbi(logp, [VOCAB["w"], VOCAB["eː"], VOCAB["n"]], 0) is None
+
+
+def test_geminates_collapse():
+    toks = tokenize("i l ħ a m m aː m", Vocab(VOCAB))
+    assert [t.phoneme for t in toks] == ["i", "l", "ħ", "a", "m", "aː", "m"]
+
+
+def test_correct_pronunciation_scores_high():
+    logp = emissions(["w", "eː", "n", "i", "l", "ħ", "a", "m", "aː", "m"])
+    r = scorer_for(logp).score(None, TOILET)
+    assert r["score"] >= 90
+    assert r["tips"] == []
+    assert not r["unrelated"]
+
+
+def test_hebrew_chet_flagged_on_hammam():
+    # ħ said as the Hebrew uvular χ
+    logp = emissions(["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"])
+    r = scorer_for(logp).score(None, TOILET)
+    word = r["words"][1]
+    h = next(p for p in word["phonemes"] if p["ipa"] == "ħ")
+    assert h["flagged"] and h["heard"] == "χ"
+    assert r["words"][0]["score"] > 90          # وين is fine
+    assert r["tips"][0]["key"] == "ħ>x"
+    assert r["tips"][0]["word"] == "الحمام"
+    assert 50 <= r["score"] < 85              # one wrong consonant: "almost", not "excellent"
+
+
+def test_h_instead_of_pharyngeal():
+    logp = emissions(["w", "eː", "n", "i", "l", "h", "a", "m", "aː", "m"])
+    r = scorer_for(logp).score(None, TOILET)
+    assert r["tips"][0]["key"] == "ħ>h"
+
+
+def test_k_for_urban_qaf_picks_closest_variant_and_tips():
+    # learner says "kaddeesh" for قديش: closest variant is the glottal-stop one, ʔ flagged as k
+    logp = emissions(["k", "a", "d", "eː", "ʃ", "i", "s", "aː", "ʕ", "a"])
+    r = scorer_for(logp).score(None, TIME)
+    keys = [t["key"] for t in r["tips"]]
+    assert r["variant"]["ipa"].startswith("ʔ")
+    assert "ʔ>k" in keys
+
+
+def test_unrelated_sentence():
+    logp = emissions(["ʃ", "a", "l", "a", "m"])
+    r = scorer_for(logp).score(None, TOILET)
+    assert r["unrelated"] and r["score"] <= 30
+
+
+@pytest.mark.parametrize("p", PHRASES, ids=lambda p: p["he"])
+def test_phrase_bank_word_counts_match(p):
+    for ar, ipa in p["variants"]:
+        assert len(ar.split()) == len(ipa.split("|")), (ar, ipa)
+
+
+def test_api_end_to_end_with_stub_model():
+    from fastapi.testclient import TestClient
+    from app.main import create_app
+
+    logp = emissions(["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"])
+    app = create_app(scorer_for(logp))
+    # 1 s of a 220 Hz tone as a WAV upload, so ffmpeg decoding is exercised
+    t = np.arange(16000) / 16000
+    pcm = (0.3 * np.sin(2 * np.pi * 220 * t) * 32767).astype("<i2").tobytes()
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000); w.writeframes(pcm)
+
+    with TestClient(app) as c:
+        assert c.get("/").status_code == 200
+        ph = c.get("/api/phrases").json()
+        assert len(ph["phrases"]) == len(PHRASES) and "ipa" not in ph["phrases"][0]
+        pid = PHRASES.index(TOILET)
+        r = c.post("/api/score", data={"phrase_id": pid}, files={"audio": ("a.wav", buf.getvalue(), "audio/wav")})
+        assert r.status_code == 200, r.text
+        assert r.json()["tips"][0]["key"] == "ħ>x"

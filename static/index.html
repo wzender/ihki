@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>احكي · אחכי</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Secular+One&family=Noto+Naskh+Arabic:wght@500;700&family=Noto+Sans+Mono&display=swap">
+<style>
+/* Layout: one practice card, prompt on top, mic in the middle, per-word / per-phoneme feedback below. RTL. */
+:root{
+  --bg:#EEF0E8; --surface:#FAFBF6; --ink:#1C241D; --muted:#5E685C; --line:#D5DACB;
+  --olive:#4B6A2C; --on-olive:#FFFFFF; --olive-soft:#E3EAD6;
+  --sumac:#A3303F; --sumac-bg:#F6E3E3; --ok:#2F7A4A; --ok-bg:#E1F0E4; --amber:#8A5E0E; --amber-bg:#F5ECD8;
+  --f-display:"Secular One","Assistant",system-ui,sans-serif;
+  --f-body:"Assistant",system-ui,"Segoe UI",Arial,sans-serif;
+  --f-ar:"Noto Naskh Arabic","Geeza Pro","Arabic Typesetting","Traditional Arabic",serif;
+  --f-ipa:"Noto Sans Mono","DejaVu Sans Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#141915; --surface:#1D241F; --ink:#E7EBE2; --muted:#9AA595; --line:#2F3830;
+  --olive:#93B85F; --on-olive:#10150F; --olive-soft:#26301F;
+  --sumac:#E77B87; --sumac-bg:#3A1E23; --ok:#6CC08A; --ok-bg:#1C3324; --amber:#E0B45A; --amber-bg:#3A2F17;
+  color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 17px/1.55 var(--f-body);padding:20px 16px 48px;min-height:100vh}
+.wrap{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.brand{font:400 30px/1 var(--f-display)}
+.brand .ar{font-family:var(--f-ar);font-weight:700;color:var(--olive);margin-inline-start:8px}
+.sub{color:var(--muted);font-size:14px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:transparent;color:var(--ink);font:600 14px var(--f-body);padding:6px 12px;border-radius:999px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 20px;display:flex;flex-direction:column;gap:18px}
+.meta{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.prompt{font:400 clamp(26px,6vw,36px)/1.25 var(--f-display);text-wrap:balance;margin:0}
+.task{color:var(--muted);font-size:15px;margin:-10px 0 0}
+.hint{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:10px;background:var(--olive-soft)}
+.hint .tr{font-size:20px;font-weight:600}
+.hint .arline{font:700 28px/1.5 var(--f-ar)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{font:600 15px var(--f-body);border-radius:10px;padding:9px 14px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink)}
+.btn.primary{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
+.btn:disabled{opacity:.45;cursor:default}
+:focus-visible{outline:3px solid var(--olive);outline-offset:2px}
+.mic-zone{display:flex;flex-direction:column;align-items:center;gap:10px;padding:6px 0}
+.mic{width:92px;height:92px;border-radius:50%;border:0;background:var(--olive);color:var(--on-olive);cursor:pointer;display:grid;place-items:center;position:relative}
+.mic svg{width:38px;height:38px}
+.mic.live{background:var(--sumac)}
+.mic.live::after{content:"";position:absolute;inset:-8px;border-radius:50%;border:3px solid var(--sumac);opacity:.5;animation:pulse 1.2s ease-out infinite}
+.mic:disabled{opacity:.5;cursor:progress}
+@keyframes pulse{from{transform:scale(.9);opacity:.6}to{transform:scale(1.15);opacity:0}}
+@media (prefers-reduced-motion:reduce){.mic.live::after{animation:none}}
+.status{color:var(--muted);font-size:14px;min-height:1.5em;text-align:center}
+.result{display:flex;flex-direction:column;gap:16px;border-top:1px solid var(--line);padding-top:18px}
+.verdict{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.score{font:400 34px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.pill{font:700 13px var(--f-body);padding:4px 10px;border-radius:999px}
+.good{background:var(--ok-bg);color:var(--ok)} .mid{background:var(--amber-bg);color:var(--amber)} .bad{background:var(--sumac-bg);color:var(--sumac)}
+.label{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin-bottom:6px}
+.words{display:flex;flex-wrap:wrap;gap:14px 18px;direction:rtl}
+.word{display:flex;flex-direction:column;align-items:center;gap:6px}
+.word .w{font:700 30px/1.4 var(--f-ar)}
+.word .w.bad{background:none;color:var(--sumac)} .word .w.mid{background:none;color:var(--amber)} .word .w.good{background:none;color:var(--ink)}
+.phs{display:flex;gap:3px;direction:ltr;flex-wrap:wrap;justify-content:center}
+.ph{font:500 14px/1 var(--f-ipa);padding:5px 6px;border-radius:6px;min-width:22px;text-align:center;font-variant-numeric:tabular-nums}
+.heard{font:500 15px/1.6 var(--f-ipa);direction:ltr;text-align:left;overflow-x:auto;color:var(--muted)}
+.tips{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.tips li{padding:10px 12px;border-radius:10px;border:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
+.tips .what{font-weight:700}
+.tips .what .ar{font-family:var(--f-ar);font-size:20px}
+.note{font-size:13px;color:var(--muted);max-width:65ch}
+.warn{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:10px 12px;font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">אחכי<span class="ar">احكي</span></div>
+    <div class="sub">תרגמו לערבית מדוברת ואמרו בקול</div>
+  </header>
+
+  <div class="chips" id="cats" role="group" aria-label="נושא"></div>
+  <div id="envWarn" class="warn" hidden></div>
+
+  <main class="card" aria-live="polite">
+    <div class="meta"><span id="catName"></span><span id="counter"></span></div>
+    <h1 class="prompt" id="prompt">טוען…</h1>
+    <p class="task">איך אומרים את זה בערבית פלסטינית?</p>
+
+    <div class="mic-zone">
+      <button class="mic" id="mic" aria-label="הקליטו את התשובה">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></svg>
+      </button>
+      <div class="status" id="status">לחצו, דברו, ולחצו שוב לסיום</div>
+    </div>
+
+    <div class="row">
+      <button class="btn" id="hintBtn">רמז</button>
+      <button class="btn" id="answerBtn">הצג תשובה</button>
+      <button class="btn" id="speakBtn">🔊 השמע</button>
+      <button class="btn" id="playMine" disabled>▶ ההקלטה שלי</button>
+      <span style="flex:1"></span>
+      <button class="btn primary" id="nextBtn">המשפט הבא ←</button>
+    </div>
+
+    <div class="hint" id="hint" hidden>
+      <div class="tr" id="hintTr"></div>
+      <div class="arline" id="hintAr" lang="ar" hidden></div>
+    </div>
+
+    <section class="result" id="result" hidden>
+      <div class="verdict"><span class="score" id="score"></span><span class="pill" id="pill"></span></div>
+      <div>
+        <div class="label">ציון לכל מילה ולכל הגה</div>
+        <div class="words" id="words"></div>
+      </div>
+      <ul class="tips" id="tips"></ul>
+      <div>
+        <div class="label">ההגאים שהמודל זיהה</div>
+        <div class="heard" id="heard"></div>
+      </div>
+    </section>
+  </main>
+
+  <p class="note">הניתוח נעשה ברמת ההגה: מודל זיהוי הגאים מיישר את ההקלטה מול רצף ההגאים הצפוי ובודק כמה בטוח הוא בכל הגה, ואיזה הגה אחר נשמע במקומו. ההשמעה משתמשת בקול ערבי של המכשיר, שבדרך כלל אינו במבטא פלסטיני.</p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+let CATS=[], PHRASES=[], cat=store.get("ihki.cat","meet"), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
+let myAudioUrl=null;
+
+const VOWELS=new Set(["a","i","u","e","o","aː","iː","uː","eː","oː"]);
+const band=s=>s>=75?"good":s>=50?"mid":"bad";
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
+function buildCats(){
+  const box=$("cats"); box.innerHTML="";
+  for(const c of CATS){
+    const b=document.createElement("button"); b.className="chip"; b.textContent=c.name;
+    b.setAttribute("aria-pressed", c.id===cat);
+    b.onclick=()=>{cat=c.id; store.set("ihki.cat",cat); buildCats(); startCat();};
+    box.appendChild(b);
+  }
+}
+function startCat(){ order=shuffle(PHRASES.filter(p=>p.cat===cat).map(p=>p.id)); pos=0; show(); }
+function show(){
+  cur=PHRASES[order[pos]];
+  $("prompt").textContent=cur.he;
+  $("catName").textContent=CATS.find(c=>c.id===cat).name;
+  const b=best[cur.id];
+  $("counter").textContent=`${pos+1} / ${order.length}`+(b!=null?` · שיא: ${b}`:"");
+  $("hint").hidden=true; $("hintAr").hidden=true; $("result").hidden=true;
+  $("status").textContent="לחצו, דברו, ולחצו שוב לסיום";
+  $("playMine").disabled=true;
+}
+
+function render(r){
+  if(r.error){ $("status").textContent=r.message; return; }
+  $("status").textContent="לחצו כדי לנסות שוב";
+  $("score").textContent=r.score;
+  const pill=$("pill"); const s=r.score;
+  pill.className="pill "+(s>=85?"good":s>=60?"mid":"bad");
+  pill.textContent= r.unrelated ? "משפט אחר?" : s>=85?"מצוין": s>=60?"כמעט":"נסו שוב";
+
+  const words=$("words"); words.innerHTML="";
+  for(const w of r.words){
+    const box=document.createElement("div"); box.className="word";
+    const ar=document.createElement("div"); ar.className="w "+band(w.score); ar.lang="ar"; ar.textContent=w.ar;
+    const phs=document.createElement("div"); phs.className="phs";
+    for(const p of w.phonemes){
+      const c=document.createElement("span"); c.className="ph "+band(p.score); c.textContent=p.ipa;
+      c.title=`${p.ipa}: ${Math.round(p.score)}`+(p.heard?` (נשמע: ${p.heard})`:"");
+      phs.appendChild(c);
+    }
+    box.append(ar,phs); words.appendChild(box);
+  }
+
+  const tips=$("tips"); tips.innerHTML="";
+  if(r.unrelated){
+    const li=document.createElement("li");
+    li.innerHTML='<span class="what">ההקלטה לא דומה למשפט הצפוי</span><span>ייתכן שבחרתם ניסוח אחר. לחצו "הצג תשובה" ונסו את הנוסח המוצע.</span>';
+    tips.appendChild(li);
+  }
+  for(const t of r.tips){
+    const li=document.createElement("li");
+    const what=document.createElement("span"); what.className="what";
+    what.append(t.title+" במילה ");
+    const w=document.createElement("span"); w.className="ar"; w.textContent=t.word; what.append(w);
+    const body=document.createElement("span"); body.textContent=t.text;
+    li.append(what,body); tips.appendChild(li);
+  }
+  if(!r.unrelated && !r.tips.length && s>=85){
+    const li=document.createElement("li"); li.innerHTML='<span class="what">כל העיצורים נשמעו נכון</span><span>נסו לומר את המשפט בקצב דיבור טבעי.</span>';
+    tips.appendChild(li);
+  }
+  $("heard").textContent="/"+r.heard_ipa+"/";
+  $("result").hidden=false;
+  if(best[cur.id]==null||s>best[cur.id]){best[cur.id]=s; store.set("ihki.best2",best);}
+}
+
+/* ---------- recording ---------- */
+let rec=null, chunks=[], stopTimer=null;
+const mic=$("mic");
+function pickType(){ for(const t of ["audio/webm;codecs=opus","audio/ogg;codecs=opus","audio/mp4","audio/webm"]) if(window.MediaRecorder&&MediaRecorder.isTypeSupported(t)) return t; return ""; }
+
+if(!navigator.mediaDevices||!window.MediaRecorder){
+  const w=$("envWarn"); w.textContent="הדפדפן הזה לא תומך בהקלטה. השתמשו ב־Chrome, Edge, Firefox או Safari עדכניים, בכתובת https."; w.hidden=false; mic.disabled=true;
+}
+
+mic.onclick=async()=>{
+  if(rec&&rec.state==="recording"){ rec.stop(); return; }
+  let stream;
+  try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
+  catch{ $("status").textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."; return; }
+  const type=pickType();
+  rec=new MediaRecorder(stream, type?{mimeType:type}:{}); chunks=[];
+  rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+  rec.onstart=()=>{ mic.classList.add("live"); $("status").textContent="מקליט… לחצו שוב לסיום"; $("result").hidden=true; stopTimer=setTimeout(()=>rec.state==="recording"&&rec.stop(),10000); };
+  rec.onstop=async()=>{
+    clearTimeout(stopTimer); mic.classList.remove("live"); stream.getTracks().forEach(t=>t.stop());
+    const blob=new Blob(chunks,{type:rec.mimeType||"audio/webm"});
+    if(myAudioUrl) URL.revokeObjectURL(myAudioUrl);
+    myAudioUrl=URL.createObjectURL(blob); $("playMine").disabled=false;
+    mic.disabled=true; $("status").textContent="מנתח…";
+    try{
+      const fd=new FormData(); fd.append("phrase_id",cur.id); fd.append("audio",blob,"rec");
+      const res=await fetch("/api/score",{method:"POST",body:fd});
+      if(!res.ok) throw new Error(res.status);
+      render(await res.json());
+    }catch(err){ $("status").textContent="הניתוח נכשל ("+err.message+"). נסו שוב."; }
+    finally{ mic.disabled=false; }
+  };
+  rec.start();
+};
+$("playMine").onclick=()=>{ if(myAudioUrl) new Audio(myAudioUrl).play(); };
+
+/* ---------- hint, answer, TTS ---------- */
+$("hintBtn").onclick=()=>{ $("hintTr").textContent=cur.tr; $("hint").hidden=false; };
+$("answerBtn").onclick=()=>{ $("hintTr").textContent=cur.tr; $("hintAr").textContent=cur.ar; $("hint").hidden=false; $("hintAr").hidden=false; };
+$("nextBtn").onclick=()=>{ pos=(pos+1)%order.length; if(pos===0) shuffle(order); show(); };
+function arVoice(){ const vs=speechSynthesis.getVoices(); return vs.find(v=>/^ar[-_](PS|JO|LB|SY|IL)/i.test(v.lang))||vs.find(v=>/^ar/i.test(v.lang)); }
+if("speechSynthesis" in window) speechSynthesis.getVoices();
+$("speakBtn").onclick=()=>{
+  if(!("speechSynthesis" in window)) return;
+  const u=new SpeechSynthesisUtterance(cur.ar); const v=arVoice();
+  if(v){u.voice=v;u.lang=v.lang;} else u.lang="ar-SA";
+  u.rate=.85; speechSynthesis.cancel(); speechSynthesis.speak(u);
+};
+
+fetch("/api/phrases").then(r=>r.json()).then(d=>{
+  CATS=d.categories; PHRASES=d.phrases;
+  if(!CATS.some(c=>c.id===cat)) cat=CATS[0].id;
+  buildCats(); startCat();
+}).catch(()=>{ $("prompt").textContent="השרת לא זמין."; });
+</script>
+</body>
+</html>
