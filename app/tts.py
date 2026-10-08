@@ -28,7 +28,7 @@ PALESTINIAN = ["ps", "ps-central", "ps-westbank", "ps-north", "ps-nablus", "ps-g
 TIMEOUT = 60
 # Voices the page offers in its drop-down (name shown -> Sawtak voice id). Only these can be requested.
 VOICES = {
-    "אמיר": "0191d689-bfca-435b-944e-f989c2a108ee",
+    "אמיר": "5db8ef83-ac37-4a17-be23-e20446290367",
     "רַאאִף": "273d81b2-991b-5b76-8525-eeacc6a3d759",
     "חנאן": "e41781f5-127c-5eb0-b83c-50bf52a64caf",
 }

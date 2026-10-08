@@ -101,7 +101,7 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
       <button class="mic" id="mic" aria-label="הקליטו את התשובה">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></svg>
       </button>
-      <div class="status" id="status">לחצו, דברו, ולחצו שוב לסיום</div>
+      <div class="status" id="status">לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים</div>
     </div>
 
     <div class="hint" id="hint" hidden>
@@ -155,7 +155,7 @@ function show(){
   const b=best[cur.id];
   $("counter").textContent=`${pos+1} / ${order.length}`+(b!=null?` · שיא: ${b}`:"");
   $("hint").hidden=true; $("hintAr").hidden=true; $("result").hidden=true;
-  $("status").textContent="לחצו, דברו, ולחצו שוב לסיום";
+  $("status").textContent="לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים";
   $("playMine").disabled=true;
 }
 
@@ -210,7 +210,30 @@ function render(r){
 }
 
 /* ---------- recording ---------- */
-let rec=null, chunks=[], stopTimer=null;
+let rec=null, chunks=[], stopTimer=null, vad=null;
+
+/* Voice activity detection: stops the recording by itself once the speaker has gone quiet.
+   Energy based: the level must rise clearly above the room noise measured in the first frames. */
+const VAD={frame:50, startFrames:3, endSilence:1000, noSpeech:6000, minLevel:.012, ratio:3};
+function startVad(stream, onEnd){
+  const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null;   // no Web Audio: manual stop only
+  const ctx=new AC(), an=ctx.createAnalyser(); an.fftSize=1024;
+  ctx.createMediaStreamSource(stream).connect(an);
+  const buf=new Float32Array(an.fftSize);
+  let noise=null, n=0, loud=0, spoke=false, quiet=0, t=0;
+  const timer=setInterval(()=>{
+    an.getFloatTimeDomainData(buf);
+    let sum=0; for(const x of buf) sum+=x*x;
+    const level=Math.sqrt(sum/buf.length); t+=VAD.frame;
+    if(n<6){ noise=noise==null?level:Math.min(noise,level); n++; }   // first 300 ms: learn the room noise
+    const isSpeech=level>Math.max(VAD.minLevel,(noise||0)*VAD.ratio);
+    if(isSpeech){ quiet=0; if(++loud>=VAD.startFrames) spoke=true; }
+    else{ loud=0; if(spoke) quiet+=VAD.frame; }
+    if(spoke && quiet>=VAD.endSilence) onEnd(true);
+    else if(!spoke && t>=VAD.noSpeech) onEnd(false);
+  },VAD.frame);
+  return {stop(){ clearInterval(timer); ctx.close().catch(()=>{}); }};
+}
 const mic=$("mic");
 function pickType(){ for(const t of ["audio/webm;codecs=opus","audio/ogg;codecs=opus","audio/mp4","audio/webm"]) if(window.MediaRecorder&&MediaRecorder.isTypeSupported(t)) return t; return ""; }
 
@@ -226,9 +249,17 @@ mic.onclick=async()=>{
   const type=pickType();
   rec=new MediaRecorder(stream, type?{mimeType:type}:{}); chunks=[];
   rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
-  rec.onstart=()=>{ mic.classList.add("live"); $("status").textContent="מקליט… לחצו שוב לסיום"; $("result").hidden=true; stopTimer=setTimeout(()=>rec.state==="recording"&&rec.stop(),10000); };
+  let heardSpeech=true;   // false only when the VAD gave up waiting for speech
+  rec.onstart=()=>{
+    mic.classList.add("live"); $("result").hidden=true;
+    stopTimer=setTimeout(()=>rec.state==="recording"&&rec.stop(),10000);
+    vad=startVad(stream, spoke=>{ heardSpeech=spoke; if(rec.state==="recording") rec.stop(); });
+    $("status").textContent=vad?"מקליט… דברו, ההקלטה תיעצר לבד (או לחצו לסיום)":"מקליט… לחצו שוב לסיום";
+  };
   rec.onstop=async()=>{
-    clearTimeout(stopTimer); mic.classList.remove("live"); stream.getTracks().forEach(t=>t.stop());
+    clearTimeout(stopTimer); if(vad){ vad.stop(); vad=null; }
+    mic.classList.remove("live"); stream.getTracks().forEach(t=>t.stop());
+    if(!heardSpeech){ $("status").textContent="לא נשמע דיבור. לחצו ונסו שוב, קרוב יותר למיקרופון."; return; }
     const blob=new Blob(chunks,{type:rec.mimeType||"audio/webm"});
     if(myAudioUrl) URL.revokeObjectURL(myAudioUrl);
     myAudioUrl=URL.createObjectURL(blob); $("playMine").disabled=false;
