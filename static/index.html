@@ -63,7 +63,7 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 .words{display:flex;flex-wrap:wrap;gap:4px 14px;direction:rtl}
 .word{display:flex;flex-direction:column;align-items:center}
 .word .w{font:700 26px/1.3 var(--f-ar)}
-.word .n{font-size:12px;line-height:1;color:var(--muted);font-variant-numeric:tabular-nums}
+.word .n{font-size:14px;line-height:1.5;color:var(--muted);font-variant-numeric:tabular-nums}
 .word .w.bad{background:none;color:var(--sumac)} .word .w.mid{background:none;color:var(--amber)} .word .w.good{background:none;color:var(--ink)}
 .tips{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .tips li{padding:6px 10px;border-radius:10px;border:1px solid var(--line);font-size:15px;line-height:1.4}
@@ -163,7 +163,7 @@ function render(r){
   for(const w of r.words){
     const box=document.createElement("div"); box.className="word";
     const ar=document.createElement("div"); ar.className="w "+band(w.score); ar.lang="ar"; ar.textContent=w.ar;
-    const n=document.createElement("div"); n.className="n"; n.textContent=Math.round(w.score);
+    const n=document.createElement("div"); n.className="n"; n.textContent=`${w.tr} · ${Math.round(w.score)}`;
     box.append(ar,n); words.appendChild(box);
   }
 
@@ -177,7 +177,7 @@ function render(r){
     const li=document.createElement("li");
     const what=document.createElement("span"); what.className="what";
     what.append(t.title+" במילה ");
-    const w=document.createElement("span"); w.className="ar"; w.textContent=t.word; what.append(w);
+    const w=document.createElement("span"); w.className="ar"; w.lang="ar"; w.textContent=t.word; what.append(w); if(t.word_tr) what.append(` (${t.word_tr})`);
     const body=document.createElement("span"); body.textContent=t.text;
     li.append(what,body); tips.appendChild(li);
   }

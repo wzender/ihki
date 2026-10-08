@@ -12,6 +12,7 @@ import numpy as np
 
 from .align import GopConfig, ctc_viterbi, edit_distance, greedy_decode, score_tokens
 from .tips import VOWELS, tip_for
+from .translit import to_hebrew
 
 log = logging.getLogger("ihki.scorer")
 
@@ -115,6 +116,7 @@ class Scorer:
 
         phonemes, tips, seen = [], [], set()
         ar_words = ar.split()
+        tr_words = to_hebrew(ipa, ar)
         for tok, sc in zip(toks, scores):
             heard_ph = "_" if sc.deleted else (self.vocab.i2t.get(sc.competitor) if sc.competitor is not None else None)
             flagged = bool(sc.score < self.cfg.flag_below) and tok.phoneme not in VOWELS
@@ -125,13 +127,14 @@ class Scorer:
                 if tip and tip["key"] not in seen:
                     seen.add(tip["key"])
                     tip["word"] = ar_words[tok.word] if tok.word < len(ar_words) else ""
+                    tip["word_tr"] = tr_words[tok.word]
                     tips.append(tip)
 
         n_words = len(ipa.split("|"))
         words = []
         for w in range(n_words):
             ws = [p["score"] for p in phonemes if p["word"] == w]
-            words.append({"ar": ar_words[w] if w < len(ar_words) else "",
+            words.append({"ar": ar_words[w] if w < len(ar_words) else "", "tr": tr_words[w],
                           "score": round(min(ws), 1) if ws else 0.0,
                           "phonemes": [p for p in phonemes if p["word"] == w]})
 
@@ -141,7 +144,7 @@ class Scorer:
         overall = 0.5 * phone_mean + 0.5 * word_mean  # one wrong consonant must pull the sentence down
         if unrelated:
             overall = min(overall, 30.0)
-        return {"score": round(overall), "variant": {"ar": ar, "ipa": ipa}, "heard_ipa": heard,
+        return {"score": round(overall), "variant": {"ar": ar, "tr": " ".join(tr_words), "ipa": ipa}, "heard_ipa": heard,
                 "unrelated": unrelated, "words": words, "tips": tips[:4]}
 
 

@@ -3,6 +3,7 @@
 Keys are (expected phoneme, heard phoneme); "_" means the expected phoneme was missing.
 Phonemes are in the IPA used by phrases.py; HEARD_ALIASES maps model outputs onto those symbols.
 """
+import re
 
 NAMES = {
     "ħ": "ח (ح)", "ʕ": "ע (ع)", "x": "ח' (خ)", "ɣ": "ע' (غ)", "r": "ר (ر)",
@@ -46,6 +47,15 @@ TIPS = {
     ("ðˤ", "ð"): "נהגתה בלי הדגשה. ظ היא עיצור מודגש: " + _EMPH,
 }
 
+# bare Arabic letter in a tip text -> "Hebrew (Arabic)", so Arabic never appears without a Hebrew reading
+_PAIRED = {name[name.index("(") + 1]: name for name in NAMES.values() if "/" not in name}
+_BARE_AR = re.compile(r"(?<!\()[\u0621-\u064a](?![\u0621-\u064a])")
+
+
+def with_hebrew(text: str) -> str:
+    return _BARE_AR.sub(lambda m: _PAIRED.get(m.group(), m.group()), text)
+
+
 VOWELS = {"a", "i", "u", "e", "o", "aː", "iː", "uː", "eː", "oː"}
 # the urban glottal stop is often dropped by natives too; don't nag about it
 NO_DELETION_TIP = {"ʔ"}
@@ -61,7 +71,7 @@ def tip_for(expected: str, heard: str | None) -> dict | None:
     name = NAMES.get(expected, expected)
     text = TIPS.get((expected, heard))
     if text:
-        return {"title": name, "text": text, "key": f"{expected}>{heard}"}
+        return {"title": name, "text": with_hebrew(text), "key": f"{expected}>{heard}"}
     if heard == "_":
         return {"title": name, "text": "לא נשמעה בבירור.", "key": f"{expected}>_"}
     text = f"נשמעה כמו {NAMES[heard]}." if heard in NAMES else "נשמעה אחרת מהצפוי."
