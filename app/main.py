@@ -2,6 +2,8 @@
 
 Run:  uvicorn app.main:app --host 0.0.0.0 --port 7860
 Env:  MODEL_ID  (default facebook/wav2vec2-xlsr-53-espeak-cv-ft, or a path to a fine-tuned checkpoint)
+      SAWTAK_API_KEY, SAWTAK_VOICE_ID  (model-answer playback, see app/tts.py)
+A local .env file is loaded if present; real environment variables win over it.
 """
 from __future__ import annotations
 
@@ -12,14 +14,17 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from .phrases import CATEGORIES, PHRASES, public_phrases
 from .scorer import Scorer, decode_audio, load_scorer
+from .tts import SawtakTTS, TTSUnavailable, load_tts
 
 logging.basicConfig(level=logging.INFO)
 STATIC = Path(__file__).resolve().parent.parent / "static"
+load_dotenv(STATIC.parent / ".env")
 MODEL_ID = os.environ.get("MODEL_ID", "facebook/wav2vec2-xlsr-53-espeak-cv-ft")
 MAX_UPLOAD = 2_000_000  # bytes; 15 s of opus is ~100 KB
 
@@ -34,10 +39,11 @@ def build_version() -> str:
     return f"{h.hexdigest()[:7]} · {time.strftime('%Y-%m-%d %H:%M', time.gmtime(newest))} UTC"
 
 
-def create_app(scorer: Scorer | None = None) -> FastAPI:
+def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.scorer = scorer or load_scorer(MODEL_ID)
+        app.state.tts = tts or load_tts()
         yield
 
     app = FastAPI(title="ihki", lifespan=lifespan)
@@ -54,7 +60,21 @@ def create_app(scorer: Scorer | None = None) -> FastAPI:
     @app.get("/api/health")
     def health():
         s: Scorer = app.state.scorer
-        return {"version": build_version(), "model": MODEL_ID, "phoneme_fallbacks": s.vocab.downgraded}
+        return {"version": build_version(), "model": MODEL_ID, "tts": app.state.tts is not None,
+                "phoneme_fallbacks": s.vocab.downgraded}
+
+    @app.get("/api/tts/{phrase_id}")
+    def tts_phrase(phrase_id: int):
+        """The model answer (first variant) spoken by the TTS voice. 503 tells the page to use the device voice."""
+        if not 0 <= phrase_id < len(PHRASES):
+            raise HTTPException(404, "unknown phrase")
+        if app.state.tts is None:
+            raise HTTPException(503, "tts not configured")
+        try:
+            data = app.state.tts.wav(PHRASES[phrase_id]["variants"][0][0])
+        except TTSUnavailable as e:
+            raise HTTPException(503, str(e))
+        return Response(data, media_type="audio/wav", headers={"Cache-Control": "private, max-age=86400"})
 
     @app.post("/api/score")
     def score(phrase_id: int = Form(...), audio: UploadFile = File(...)):

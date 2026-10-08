@@ -5,3 +5,8 @@ tests
 train
 data
 checkpoints
+.env
+.env.*
+.git
+*.mp3
+*.pcm

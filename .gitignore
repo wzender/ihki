@@ -1,3 +1,7 @@
-*__pycache__**/
+__pycache__/
+*.pyc
+.pytest_cache/
 *.mp3
 *.pcm
+# secrets: never commit; on Hugging Face they are Space secrets
+.env

@@ -88,3 +88,12 @@ The script reports phoneme error rate (PER) before and after training. A GPU is 
 - `GopConfig.*`: the deletion thresholds, and the target posterior at which confidence stops lowering the score.
 
 Tune them on a handful of labelled learner recordings. A useful target is that natives score ≥ 85 and known ħ→χ errors get flagged.
+
+## Playback voice (Sawtak Arabi)
+
+"🔊 השמע" plays the model answer through `GET /api/tts/{phrase_id}`, which calls the [Sawtak Arabi](https://sawtakarabi.ai/docs) TTS API server-side and caches each phrase on disk. The key never reaches the browser.
+
+- Local: `cp .env.example .env` and set `SAWTAK_API_KEY` (`.env` is git-ignored and excluded from the Docker image).
+- Hugging Face: add `SAWTAK_API_KEY` as a Space **secret** (Settings → Variables and secrets). It is injected as an environment variable at runtime.
+- `SAWTAK_VOICE_ID` is optional; by default the most liked ready Palestinian voice is used.
+- Without a key the endpoint answers 503 and the page falls back to the device's Arabic voice.

@@ -152,3 +152,20 @@ def test_dropped_glottal_stop_is_not_an_error():
     r = scorer_for(emissions(["a", "h", "l", "a"])).score(None, phrase)
     assert r["words"][0]["score"] >= 90 and r["score"] >= 90
     assert not r["tips"] and not any("עצירה" in i["sound"] for i in r["issues"])
+
+
+def test_tts_endpoint_serves_phrase_audio_and_503_without_key():
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    class FakeTTS:
+        def wav(self, text):
+            assert text == PHRASES[0]["variants"][0][0]
+            return b"RIFFfake"
+
+    with TestClient(create_app(scorer_for(emissions(["w"])), FakeTTS())) as c:
+        r = c.get("/api/tts/0")
+        assert r.status_code == 200 and r.headers["content-type"] == "audio/wav" and r.content == b"RIFFfake"
+        assert c.get("/api/tts/9999").status_code == 404
+        assert c.get("/api/health").json()["tts"] is True
