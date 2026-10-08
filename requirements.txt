@@ -6,3 +6,5 @@ transformers>=4.41
 huggingface_hub>=0.23
 # torch: CPU build installed separately in the Dockerfile (see README for local installs)
 python-dotenv>=1.0
+edge-tts>=7.0
+gTTS>=2.5

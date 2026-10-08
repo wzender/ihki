@@ -76,7 +76,9 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 .tips .what{font-weight:700}
 .tips .what .ar{font-family:var(--f-ar);font-size:14px;font-weight:400;color:var(--muted)}
 .version{position:fixed;bottom:4px;left:6px;z-index:9;font:500 11px/1 var(--f-ipa);direction:ltr;padding:3px 6px;border-radius:6px;background:var(--amber-bg);color:var(--amber);opacity:.85;pointer-events:none}
-.voicebox{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.voicebox{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.voicebox label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.voicebox .sep{flex:1}
 .voicebox select{font:600 14px var(--f-body);padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
 .note{font-size:12px;margin:0;color:var(--muted);max-width:65ch}
 .warn{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:10px 12px;font-size:14px}
@@ -117,7 +119,6 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
     <div class="row">
       <button class="btn" id="negBtn" hidden title="אותו משפט בשלילה">שלילה</button>
       <button class="btn" id="conjBtn" hidden title="אותו משפט עם גוף אחר, אקראי">הטיית פעלים</button>
-      <button class="btn" id="hintBtn">רמז</button>
       <button class="btn" id="answerBtn">הצג תשובה</button>
       <button class="btn" id="speakBtn">🔊 השמע</button>
       <button class="btn" id="playMine" disabled>▶ ההקלטה שלי</button>
@@ -126,10 +127,10 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
     </div>
   </main>
 
-  <label class="voicebox">קול ההשמעה<select id="voiceId"></select></label>
+  <div class="voicebox"><label>קול ההשמעה<select id="voiceId"></select></label><span class="sep"></span><label><input type="checkbox" id="readHe">הקראת המשפט בעברית</label></div>
   <p class="note">הניתוח נעשה ברמת ההגה. ההשמעה נוצרת בקול ערבי פלסטיני של Sawtak Arabi; אם השירות אינו זמין, נעשה שימוש בקול הערבי של המכשיר.</p>
 </div>
-<div class="version" title="גרסת debug">v __VERSION__<span id="ttsInfo"></span></div>
+<div class="version" title="גרסת debug">v __VERSION__<span id="heInfo"></span><span id="ttsInfo"></span></div>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -158,8 +159,33 @@ function variation(kind){
                              : shuffle(same.filter(p=>p.neg===cur.neg&&p.pron!==cur.pron));
   if(next.length) show(next[0]);
 }
+/* Hebrew prompt read aloud on every new sentence (option): edge-tts in Edge, gTTS in other browsers. */
+const heEngine=/\bEdg\//.test(navigator.userAgent)?"edge":"gtts";
+const heUrls={};   // phrase id -> object URL
+let heAudio=null, hePending=null;
+async function readPrompt(){
+  if(heAudio){ heAudio.pause(); heAudio=null; }
+  if(!$("readHe").checked||!cur) return;
+  const id=cur.id;
+  if(!heUrls[id]){
+    try{
+      const res=await fetch(`/api/prompt-audio/${id}?engine=${heEngine}`);
+      if(!res.ok) return;
+      heUrls[id]=URL.createObjectURL(await res.blob());
+      $("heInfo").textContent=" · 🗣 "+(res.headers.get("X-TTS-Engine")==="edge"?"edge-tts":"gTTS");
+    }catch{ return; }
+  }
+  if(!cur||cur.id!==id) return;   // moved on while it was loading
+  heAudio=new Audio(heUrls[id]);
+  // browsers block sound before the first click or key press: play then instead
+  heAudio.play().catch(()=>{ hePending=id; });
+}
+for(const ev of ["pointerdown","keydown"]) addEventListener(ev,()=>{
+  if(hePending!=null){ const id=hePending; hePending=null; if(cur&&cur.id===id&&heAudio) heAudio.play().catch(()=>{}); }
+},true);
 function show(p){
   cur=p||PHRASES[order[pos]];
+  readPrompt();
   $("negBtn").hidden=$("conjBtn").hidden=cur.grp==null;
   $("negBtn").textContent=cur.neg?"חיוב":"שלילה";
   $("prompt").textContent=cur.he;
@@ -254,6 +280,7 @@ if(!navigator.mediaDevices||!window.MediaRecorder){
 }
 
 mic.onclick=async()=>{
+  hePending=null; if(heAudio) heAudio.pause();   // never record the prompt being read out
   if(rec&&rec.state==="recording"){ rec.stop(); return; }
   let stream;
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
@@ -289,7 +316,6 @@ mic.onclick=async()=>{
 $("playMine").onclick=()=>{ if(myAudioUrl) new Audio(myAudioUrl).play(); };
 
 /* ---------- hint, answer, TTS ---------- */
-$("hintBtn").onclick=()=>{ $("hintTr").textContent=cur.tr; $("hint").hidden=false; };
 $("answerBtn").onclick=()=>{ $("hintTr").textContent=cur.tr; $("hintAr").textContent=cur.ar; $("hint").hidden=false; $("hintAr").hidden=false; };
 $("negBtn").onclick=()=>variation("negate");
 $("conjBtn").onclick=()=>variation("conjugate");
@@ -297,6 +323,8 @@ $("nextBtn").onclick=()=>{ pos=(pos+1)%order.length; if(pos===0) shuffle(order);
 function arVoice(){ const vs=speechSynthesis.getVoices(); return vs.find(v=>/^ar[-_](PS|JO|LB|SY|IL)/i.test(v.lang))||vs.find(v=>/^ar/i.test(v.lang)); }
 if("speechSynthesis" in window) speechSynthesis.getVoices();
 const ttsUrls={};   // "phrase id|voice" -> {url, voice label} of the server-generated answer
+$("readHe").checked=store.get("ihki.readHe",true);
+$("readHe").onchange=()=>{ store.set("ihki.readHe",$("readHe").checked); readPrompt(); };
 $("voiceId").onchange=()=>store.set("ihki.voice",$("voiceId").value);   // Sawtak voice of the playback; options come from the server
 let ttsVoice="";   // debug: why the server voice was not used, shown in the version badge
 const ttsInfo=t=>{ $("ttsInfo").textContent=" · 🔊 "+t; };

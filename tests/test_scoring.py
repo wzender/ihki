@@ -228,3 +228,29 @@ def test_day2_grammar_reaches_every_pronoun_and_negation():
     she = next(p for p in day2 if p["he"] == "היא לא פתחה את הדלת ולא אכלה עם אחמד")
     assert she["ar"] == "هيّ ما فتحت الباب وما اكلت مع احمد"
     assert PHRASES[she["id"]]["variants"][0][1] == "h i j j e | m a | f a t ħ a t | i l b aː b | u m a | ʔ a k l a t | m a ʕ | ʔ a ħ m a d"
+
+
+def test_hebrew_prompt_audio_uses_requested_engine_and_falls_back(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import prompt_tts
+    from app.main import create_app
+
+    said = []
+
+    def broken(text):
+        raise OSError("blocked")
+
+    monkeypatch.setenv("TTS_CACHE_DIR", str(tmp_path))
+    monkeypatch.setitem(prompt_tts._SYNTH, "edge", lambda text: said.append(("edge", text)) or b"EDGE")
+    monkeypatch.setitem(prompt_tts._SYNTH, "gtts", broken)
+    pid = PHRASES.index(find("מה שלומך? (לגבר)"))
+    with TestClient(create_app(scorer_for(emissions(["w"])))) as c:
+        r = c.get(f"/api/prompt-audio/{pid}?engine=edge")
+        assert r.status_code == 200 and r.content == b"EDGE" and r.headers["x-tts-engine"] == "edge"
+        assert said == [("edge", "מה שלומך?")]                       # the bracketed note is not read out
+        r = c.get(f"/api/prompt-audio/{pid}?engine=gtts")             # gTTS down: served by the other engine
+        assert r.status_code == 200 and r.headers["x-tts-engine"] == "edge" and len(said) == 1  # ... from cache
+        assert c.get(f"/api/prompt-audio/{pid}?engine=other").status_code == 400
+        monkeypatch.setitem(prompt_tts._SYNTH, "edge", broken)
+        assert c.get("/api/prompt-audio/0?engine=edge").status_code == 503

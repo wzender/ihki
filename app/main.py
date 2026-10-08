@@ -20,6 +20,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import HTMLResponse, Response
 
 from .phrases import CATEGORIES, PHRASES, public_phrases
+from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .scorer import Scorer, decode_audio, load_scorer
 from .tts import VOICES, SawtakTTS, TTSUnavailable, load_tts
 
@@ -87,6 +88,20 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
             "Cache-Control": "private, max-age=86400", "X-TTS-Provider": "sawtakarabi.ai",
             "X-TTS-Voice-Id": urllib.parse.quote(used),
             "X-TTS-Voice-Name": urllib.parse.quote(names.get(used) or getattr(tts, "voice_name", ""))})
+
+    @app.get("/api/prompt-audio/{phrase_id}")
+    def prompt_audio(phrase_id: int, engine: str = "gtts"):
+        """The Hebrew prompt read aloud (edge-tts or gTTS). 503 tells the page to stay silent."""
+        if not 0 <= phrase_id < len(PHRASES):
+            raise HTTPException(404, "unknown phrase")
+        if engine not in ENGINES:
+            raise HTTPException(400, "unknown engine")
+        try:
+            data, used = hebrew_mp3(PHRASES[phrase_id]["he"], engine)
+        except PromptTTSUnavailable as e:
+            raise HTTPException(503, str(e))
+        return Response(data, media_type="audio/mpeg", headers={
+            "Cache-Control": "private, max-age=86400", "X-TTS-Engine": used})
 
     @app.post("/api/score")
     def score(phrase_id: int = Form(...), audio: UploadFile = File(...)):
