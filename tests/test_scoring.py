@@ -258,3 +258,12 @@ def test_hebrew_prompt_audio_uses_requested_engine_and_falls_back(tmp_path, monk
         assert c.get("/api/say", params={"text": "hello"}).status_code == 400
         monkeypatch.setitem(prompt_tts._SYNTH, "edge", broken)
         assert c.get("/api/prompt-audio/0?engine=edge").status_code == 503
+
+
+def test_tips_come_most_crucial_first():
+    # ħ badly wrong (χ), ʕ only swallowed into the vowel... both flagged: the worse sound leads
+    phrase = {"variants": [("ساعة الحمام", "s aː ʕ a | i l ħ a m aː m")]}
+    r = scorer_for(emissions(["s", "aː", "ʔ", "a", "i", "l", "χ", "a", "m", "aː", "m"])).score(None, phrase)
+    assert len(r["tips"]) == 2
+    assert [t["score"] for t in r["tips"]] == sorted(t["score"] for t in r["tips"])
+    assert all("idx" not in t for t in r["tips"])

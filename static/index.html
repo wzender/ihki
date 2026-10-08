@@ -213,7 +213,7 @@ function show(p){
 
 function render(r){
   if(r.error){ $("status").textContent=r.message; return; }
-  $("status").textContent="לחצו כדי לנסות שוב";
+  $("status").textContent=r.score<30?"רוצים לנסות שוב? לחצו על המיקרופון":"לחצו כדי לנסות שוב";
   $("score").textContent=r.score;
   const pill=$("pill"); const s=r.score;
   pill.className="pill "+(s>=85?"good":s>=60?"mid":"bad");
@@ -379,7 +379,8 @@ $("speakBtn").onclick=async()=>{
 
 /* ---------- driving mode: hands-free loop ----------
    say the Hebrew sentence -> listen (the VAD ends the recording) -> grade ->
-   say "<score>, התשובה הנכונה היא" and the answer in Arabic -> next sentence. */
+   say the score, the two most crucial tips, "התשובה הנכונה היא" and the answer in Arabic ->
+   under 30: ask whether to try again and listen for yes/no -> next sentence. */
 let driveRun=0, driveAudio=null, driveAudioDone=null, wakeLock=null;
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 function playUrl(url){
@@ -403,7 +404,29 @@ async function sayHe(text){
   await speakLocal(text,"he-IL");
 }
 const speakable=s=>s.replace(/\s*\([^)]*\)/g,"").replace(/[\u0600-\u06FF]/g,"").replace(/\s+/g," ").trim();
-const assessment=r=>`${r.score}, התשובה הנכונה היא`;   // the Arabic answer is played right after it
+// "<score>. <the two most crucial tips>. התשובה הנכונה היא" - the Arabic answer is played right after it.
+// The server sends the tips worst sound first; only the first sentence of each is spoken.
+function assessment(r){
+  const tips=(r.unrelated?[]:r.tips.slice(0,2)).map(t=>`${speakable(t.title)}: ${speakable(t.text).split(/(?<=\.)\s/)[0]}`);
+  return [r.score+".", ...tips, "התשובה הנכונה היא"].join(" ").slice(0,390);
+}
+// Spoken yes/no through the browser's speech recognition (Chrome, Edge, Safari). null = not available here.
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let stopAsking=null;
+function hearYes(){
+  return new Promise(res=>{
+    if(!SR) return res(null);
+    const r=new SR(); r.lang="he-IL"; r.maxAlternatives=3;
+    let done=false;
+    const end=v=>{ if(done) return; done=true; clearTimeout(t); stopAsking=null; try{ r.abort(); }catch{} res(v); };
+    const t=setTimeout(()=>end(false),6000);
+    stopAsking=()=>end(false);
+    r.onresult=e=>end([...e.results[0]].some(a=>/(^|\s)(כן|בטח|שוב|יאללה|yes)(\s|$)/i.test(a.transcript.trim())));
+    r.onerror=e=>end(e.error==="no-speech"||e.error==="aborted"?false:null);
+    r.onend=()=>end(false);
+    try{ r.start(); }catch{ end(null); }
+  });
+}
 function recordOnce(){ return new Promise(res=>{ recDone=res; mic.onclick(); }); }
 async function drive(){
   const run=++driveRun, on=()=>driving&&run===driveRun, st=t=>{ $("status").textContent=t; };
@@ -427,6 +450,12 @@ async function drive(){
       await sayHe(assessment(r)); if(!on()) break;
       const a=await answer; if(!on()) break;
       if(a){ ttsInfo(a.label); await playUrl(a.url); } else await speakLocal(ar,"ar");   // device voice when Sawtak is unavailable
+      if(!on()) break;
+      if(r.score<30 && SR){                 // a poor attempt: offer another go at the same sentence
+        st("רוצה לנסות שוב? אמרו כן או לא"); await sayHe("רוצה לנסות שוב?"); if(!on()) break;
+        const yes=await hearYes(); if(!on()) break;
+        if(yes){ retries=0; continue; }
+      }
     }
     if(!on()) break;
     retries=0; await pause(700); if(!on()) break;
@@ -437,6 +466,7 @@ function stopDrive(){
   driving=false; driveRun++; document.body.classList.remove("driving"); $("driveBtn").textContent="🚗 נסיעה";
   if(driveAudio) driveAudio.pause(); if(driveAudioDone) driveAudioDone();
   if("speechSynthesis" in window) speechSynthesis.cancel();
+  if(stopAsking) stopAsking();
   if(rec&&rec.state==="recording"){ recCancel=true; rec.stop(); }
   if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock=null; }
   $("status").textContent="לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים";

@@ -244,6 +244,7 @@ class Scorer:
                     tip["word"] = ar_words[tok.word] if tok.word < len(ar_words) else ""
                     tip["word_tr"] = tr_words[tok.word]
                     tip["idx"] = idx
+                    tip["score"] = round(sc.score)
                     tips.append(tip)
 
         n_words = len(ipa.split("|"))
@@ -261,7 +262,7 @@ class Scorer:
         overall = 0.5 * phone_mean + 0.5 * word_mean  # one wrong consonant must pull the sentence down
         if unrelated:
             overall = min(overall, 30.0)
-        tips = tips[:4]
+        tips = sorted(tips, key=lambda t: t["score"])[:4]  # most crucial first: the worst-scoring sounds
 
         # Anything short of 100 must say why: every imprecise sound that did not get a full tip,
         # weakest first. If nothing is clearly off, name the weakest few.
