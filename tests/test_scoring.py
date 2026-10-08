@@ -172,3 +172,34 @@ def test_tts_endpoint_serves_phrase_audio_and_503_without_key():
         assert r.headers["x-tts-provider"] == "sawtakarabi.ai" and r.headers["x-tts-voice-id"] == "v-123"
         assert c.get("/api/tts/9999").status_code == 404
         assert c.get("/api/health").json()["tts"] is True
+
+
+def test_spelling_variants_of_a_sound_are_not_errors():
+    # the multilingual vocab spells one sound several ways; the model saying t̪ / ɾ / æ for t / r / a is not a mistake
+    syms = SYMS + ["t", "t̪", "tː", "r", "ɾ", "æ", "b"]
+    vocab = {s: i for i, s in enumerate(syms)}
+    V = len(syms)
+
+    def row(sym, p):
+        r = np.full(V, (1 - p) / (V - 1))
+        r[vocab[sym]] = p
+        return r
+
+    rows = [row("<pad>", 0.95)] * 2
+    for ph in ["m", "æ", "ɾ", "ħ", "æ", "b", "æ"]:   # مرحبا as the model may spell it
+        rows += [row(ph, 0.9)] * 3 + [row("<pad>", 0.95)] * 2
+    phrase = {"variants": [("مرحبا", "m a r ħ a b a")]}
+    r = Scorer(lambda wav: np.log(np.array(rows)), Vocab(vocab)).score(None, phrase)
+    assert r["score"] >= 95 and not r["unrelated"] and not r["tips"]
+    import unicodedata
+    assert unicodedata.normalize("NFC", r["heard_tr"]) == unicodedata.normalize("NFC", "מַרְחַבַּא")
+    assert r["words"][0]["heard_tr"] == r["heard_tr"]
+
+
+def test_heard_is_reported_per_word_in_hebrew():
+    # ħ said as χ: the second word shows the ח' the model heard
+    r = scorer_for(emissions(["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"])).score(None, TOILET)
+    from app.translit import to_hebrew
+    assert r["words"][0]["heard_tr"] == r["words"][0]["tr"]
+    assert [w["heard_tr"] for w in r["words"]] == to_hebrew("w eː n | i l x a m m aː m")
+    assert r["words"][1]["tr"] != r["words"][1]["heard_tr"]

@@ -39,8 +39,8 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 .prompt{font:400 clamp(22px,5vw,30px)/1.2 var(--f-display);text-wrap:balance;margin:0}
 .task{color:var(--muted);font-size:14px;margin:-6px 0 0}
 .hint{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 16px;padding:6px 12px;border-radius:10px;background:var(--olive-soft)}
-.hint .tr{font-size:18px;font-weight:600}
-.hint .arline{font:700 24px/1.4 var(--f-ar)}
+.hint .tr{font-size:22px;font-weight:700}
+.hint .arline{font:500 16px/1.4 var(--f-ar);color:var(--muted)}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .btn{font:600 15px var(--f-body);border-radius:10px;padding:6px 12px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink)}
 .btn.primary{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
@@ -60,16 +60,21 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 .score{font:400 28px/1 var(--f-display);font-variant-numeric:tabular-nums}
 .pill{font:700 13px var(--f-body);padding:4px 10px;border-radius:999px}
 .good{background:var(--ok-bg);color:var(--ok)} .mid{background:var(--amber-bg);color:var(--amber)} .bad{background:var(--sumac-bg);color:var(--sumac)}
-.words{display:flex;flex-wrap:wrap;gap:4px 14px;direction:rtl}
+.words{display:flex;flex-wrap:wrap;gap:6px 14px;direction:rtl;align-items:flex-start}
 .word{display:flex;flex-direction:column;align-items:center}
-.word .w{font:700 26px/1.3 var(--f-ar)}
-.word .n{font-size:14px;line-height:1.5;color:var(--muted);font-variant-numeric:tabular-nums}
+.word .w{font:700 24px/1.4 var(--f-body)}
+.word .h{font-size:17px;line-height:1.4;color:var(--muted);min-height:1.4em}
+.word.legend{align-items:flex-start;color:var(--muted);font-size:12px;font-weight:700}
+.word.legend .w,.word.legend .h{font:inherit;line-height:33.6px;color:inherit;min-height:0}
+.word.legend .h{line-height:23.8px}
+.word .n{font-size:12px;line-height:1.5;color:var(--muted);font-variant-numeric:tabular-nums}
+.word .n [lang=ar]{font-family:var(--f-ar);font-size:14px}
 .word .w.bad{background:none;color:var(--sumac)} .word .w.mid{background:none;color:var(--amber)} .word .w.good{background:none;color:var(--ink)}
 .tips{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .tips li{padding:6px 10px;border-radius:10px;border:1px solid var(--line);font-size:15px;line-height:1.4}
 .tips .what::after{content:" · "}
 .tips .what{font-weight:700}
-.tips .what .ar{font-family:var(--f-ar);font-size:18px}
+.tips .what .ar{font-family:var(--f-ar);font-size:14px;font-weight:400;color:var(--muted)}
 .version{position:fixed;bottom:4px;left:6px;z-index:9;font:500 11px/1 var(--f-ipa);direction:ltr;padding:3px 6px;border-radius:6px;background:var(--amber-bg);color:var(--amber);opacity:.85;pointer-events:none}
 .note{font-size:12px;margin:0;color:var(--muted);max-width:65ch}
 .warn{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:10px 12px;font-size:14px}
@@ -160,11 +165,15 @@ function render(r){
   pill.textContent= r.unrelated ? "משפט אחר?" : s>=85?"מצוין": s>=60?"כמעט":"נסו שוב";
 
   const words=$("words"); words.innerHTML="";
+  const legend=document.createElement("div"); legend.className="word legend";
+  legend.innerHTML='<div class="w">הנכון</div><div class="h">נשמע</div>'; words.appendChild(legend);
   for(const w of r.words){
     const box=document.createElement("div"); box.className="word";
-    const ar=document.createElement("div"); ar.className="w "+band(w.score); ar.lang="ar"; ar.textContent=w.ar;
-    const n=document.createElement("div"); n.className="n"; n.textContent=`${w.tr} · ${Math.round(w.score)}`;
-    box.append(ar,n); words.appendChild(box);
+    const ar=document.createElement("div"); ar.className="w "+band(w.score); ar.textContent=w.tr;
+    const hd=document.createElement("div"); hd.className="h"; hd.textContent=w.heard_tr||"–";
+    const n=document.createElement("div"); n.className="n"; n.textContent=Math.round(w.score)+" · ";
+    const a=document.createElement("span"); a.lang="ar"; a.textContent=w.ar; n.append(a);
+    box.append(ar,hd,n); words.appendChild(box);
   }
 
   const tips=$("tips"); tips.innerHTML="";
@@ -176,8 +185,8 @@ function render(r){
   for(const t of r.tips){
     const li=document.createElement("li");
     const what=document.createElement("span"); what.className="what";
-    what.append(t.title+" במילה ");
-    const w=document.createElement("span"); w.className="ar"; w.lang="ar"; w.textContent=t.word; what.append(w); if(t.word_tr) what.append(` (${t.word_tr})`);
+    what.append(t.title+" במילה "+(t.word_tr||"")+" ");
+    const w=document.createElement("span"); w.className="ar"; w.lang="ar"; w.textContent=t.word; what.append(w);
     const body=document.createElement("span"); body.textContent=t.text;
     li.append(what,body); tips.appendChild(li);
   }
