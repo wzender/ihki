@@ -119,7 +119,7 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 
   <p class="note">הניתוח נעשה ברמת ההגה. ההשמעה נוצרת בקול ערבי פלסטיני של Sawtak Arabi; אם השירות אינו זמין, נעשה שימוש בקול הערבי של המכשיר.</p>
 </div>
-<div class="version" title="גרסת debug">v __VERSION__</div>
+<div class="version" title="גרסת debug">v __VERSION__<span id="ttsInfo"></span></div>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -240,6 +240,8 @@ $("nextBtn").onclick=()=>{ pos=(pos+1)%order.length; if(pos===0) shuffle(order);
 function arVoice(){ const vs=speechSynthesis.getVoices(); return vs.find(v=>/^ar[-_](PS|JO|LB|SY|IL)/i.test(v.lang))||vs.find(v=>/^ar/i.test(v.lang)); }
 if("speechSynthesis" in window) speechSynthesis.getVoices();
 const ttsUrls={};   // phrase id -> object URL of the server-generated answer
+let ttsVoice="";   // debug: voice the server used, shown in the version badge
+const ttsInfo=t=>{ $("ttsInfo").textContent=" · 🔊 "+t; };
 let ttsOff=false;   // server has no TTS key: stop asking
 $("speakBtn").onclick=async()=>{
   const id=cur.id, btn=$("speakBtn");
@@ -247,16 +249,21 @@ $("speakBtn").onclick=async()=>{
     btn.disabled=true;
     try{
       const res=await fetch("/api/tts/"+id);
-      if(res.ok) ttsUrls[id]=URL.createObjectURL(await res.blob());
-      else if(res.status===503) ttsOff=true;
+      if(res.ok){
+        ttsUrls[id]=URL.createObjectURL(await res.blob());
+        const h=k=>decodeURIComponent(res.headers.get(k)||""), name=h("X-TTS-Voice-Name");
+        ttsVoice=(h("X-TTS-Provider")||"sawtakarabi.ai")+" · voice "+(name?name+" ":"")+h("X-TTS-Voice-Id");
+      }
+      else if(res.status===503){ ttsOff=true; ttsVoice="tts off: "+((await res.json().catch(()=>({}))).detail||503); }
     }catch{}
     btn.disabled=false;
   }
-  if(ttsUrls[id]){ if(cur.id===id) new Audio(ttsUrls[id]).play(); return; }
-  if(!("speechSynthesis" in window)) return;
+  if(ttsUrls[id]){ if(cur.id===id){ new Audio(ttsUrls[id]).play(); ttsInfo(ttsVoice); } return; }
+  if(!("speechSynthesis" in window)){ ttsInfo("no voice available"); return; }
   const u=new SpeechSynthesisUtterance(cur.ar); const v=arVoice();
   if(v){u.voice=v;u.lang=v.lang;} else u.lang="ar-SA";
   u.rate=.85; speechSynthesis.cancel(); speechSynthesis.speak(u);
+  ttsInfo("device voice"+(v?" "+v.name:"")+(ttsOff&&ttsVoice?" ("+ttsVoice+")":""));
 };
 
 fetch("/api/phrases").then(r=>r.json()).then(d=>{

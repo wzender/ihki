@@ -35,6 +35,7 @@ class TTSUnavailable(Exception):
 class SawtakTTS:
     def __init__(self, api_key: str, voice_id: str = "", cache_dir: Path | None = None):
         self.api_key, self.voice_id = api_key, voice_id
+        self.voice_name = ""  # known only when the voice was picked from the catalog
         self.cache_dir = cache_dir or Path.home() / ".cache" / "ihki-tts"
         self._lock = threading.Lock()  # one generation at a time; also guards the voice lookup
 
@@ -65,7 +66,7 @@ class SawtakTTS:
                 voices = [v for v in json.load(res).get("data", []) if v.get("status") == "ready"]
             if not voices:
                 raise TTSUnavailable("no Palestinian voice in the catalog; set SAWTAK_VOICE_ID")
-            self.voice_id = voices[0]["id"]
+            self.voice_id, self.voice_name = voices[0]["id"], voices[0].get("name") or ""
             log.info("sawtak voice: %s (%s, %s)", voices[0].get("name"), self.voice_id,
                      (voices[0].get("labels") or {}).get("dialect"))
         return self.voice_id

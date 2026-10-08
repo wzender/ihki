@@ -18,7 +18,8 @@ The service replaces the browser speech-recognition diff with phoneme-level scor
 3. **GOP per phoneme.** Inside each phoneme's window (the frames between its neighbours), the scorer compares the target's peak posterior with the strongest competing phoneme.
    - Example: for وين الحمام said with a Hebrew ח, the window of `ħ` is dominated by `χ`. The result is `ħ` score ≈ 0, `heard: χ`, and the Hebrew tip for ح→خ.
 4. **Scoring.**
-   - A word scores as its weakest phoneme.
+   - A phoneme's score is a softened target/competitor ratio (`GopConfig.leniency`); a vowel heard as its neighbour (i/e, u/o, short/long) scores at least 90; a dropped glottal stop is free.
+   - A word scores halfway between its weakest phoneme and the mean of its phonemes.
    - The sentence score averages the phoneme mean and the word mean, so one wrong consonant moves "excellent" down to "almost".
    - If the greedy phoneme decode is far from every variant, the response says "different sentence?" instead of listing tips.
 

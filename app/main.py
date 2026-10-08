@@ -11,6 +11,7 @@ import hashlib
 import logging
 import os
 import time
+import urllib.parse
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -74,7 +75,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
             data = app.state.tts.wav(PHRASES[phrase_id]["variants"][0][0])
         except TTSUnavailable as e:
             raise HTTPException(503, str(e))
-        return Response(data, media_type="audio/wav", headers={"Cache-Control": "private, max-age=86400"})
+        tts = app.state.tts  # debug: lets the page show which voice spoke
+        return Response(data, media_type="audio/wav", headers={
+            "Cache-Control": "private, max-age=86400", "X-TTS-Provider": "sawtakarabi.ai",
+            "X-TTS-Voice-Id": urllib.parse.quote(getattr(tts, "voice_id", "")),
+            "X-TTS-Voice-Name": urllib.parse.quote(getattr(tts, "voice_name", ""))})
 
     @app.post("/api/score")
     def score(phrase_id: int = Form(...), audio: UploadFile = File(...)):

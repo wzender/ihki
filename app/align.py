@@ -80,6 +80,9 @@ class GopConfig:
     deleted_peak: float = float(np.log(0.05))    # target this weak ...
     deleted_comp: float = float(np.log(0.20))    # ... and no strong competitor -> deletion
     confident_peak: float = 0.30                 # target posterior at which the peak no longer lowers the score
+    # Softens the target/competitor ratio: at 0.5 a competitor twice as likely still scores 71, not 50.
+    # The zero-shot model is noisy on accented speech, so a linear ratio punishes its own uncertainty.
+    leniency: float = 0.5
 
 
 def score_tokens(logp: np.ndarray, align: Alignment, tokens: list[int], blank: int,
@@ -111,7 +114,7 @@ def score_tokens(logp: np.ndarray, align: Alignment, tokens: list[int], blank: i
         gop = peak - max(peak, comp_peak)
         deleted = bool(peak < cfg.deleted_peak and comp_peak < cfg.deleted_comp)
         confidence = min(1.0, float(np.exp(peak)) / cfg.confident_peak)
-        score = 100.0 * float(np.exp(gop)) * float(np.sqrt(confidence))
+        score = 100.0 * float(np.exp(gop * cfg.leniency)) * float(np.sqrt(confidence))
         out.append(TokenScore(round(score, 1), round(gop, 3), round(peak, 3),
                               comp if comp_peak > NEG / 2 else None, deleted))
     return out

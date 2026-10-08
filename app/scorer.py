@@ -79,12 +79,25 @@ def tokenize(ipa: str, vocab: Vocab) -> list[TargetToken]:
     return out
 
 
+_VOWEL_GROUPS = [set("iɪeɛ"), set("uʊoɔ"), set("aæɐɑəɛ")]
+
+
+def near_vowels(expected: str, heard: str | None) -> bool:
+    """Same vowel with another length, or the neighbouring quality (i/e, u/o, a/ə)."""
+    if expected not in VOWELS or not heard:
+        return False
+    e, h = expected.rstrip("ː"), heard.rstrip("ː")
+    return any(e in g and h in g for g in _VOWEL_GROUPS)
+
+
 @dataclass
 class ScorerConfig:
     flag_below: float = 50.0        # phoneme score under which a consonant gets a tip
     unrelated_ratio: float = 0.65   # normalised edit distance above which we say "different sentence"
     issue_below: float = 90.0       # phoneme score under which it is listed as imprecise
     max_issues: int = 8
+    near_vowel_floor: float = 90.0  # a vowel heard as its neighbour (i/e, u/o, a/ə, short/long) scores at least this
+    word_min_weight: float = 0.5    # word score = this much weakest phoneme, the rest the mean of its phonemes
     gop: GopConfig = field(default_factory=GopConfig)
 
 
@@ -118,6 +131,11 @@ class Scorer:
         # One replaced by another consonant (ق said as k) still counts.
         scores = [replace(sc, score=100.0) if sc.deleted and t.phoneme in NO_DELETION_TIP else sc
                   for t, sc in zip(toks, scores)]
+        # Neighbouring vowel qualities and vowel length vary between speakers and towns (il / el),
+        # and the model confuses them on its own: not worth marking a word down for.
+        scores = [replace(sc, score=max(sc.score, self.cfg.near_vowel_floor))
+                  if sc.competitor is not None and near_vowels(t.phoneme, self.vocab.i2t.get(sc.competitor)) else sc
+                  for t, sc in zip(toks, scores)]
         unrelated = bool(edit_distance(heard_ids, ids) / max(1, len(ids)) > self.cfg.unrelated_ratio)
 
         phonemes, tips, seen = [], [], set()
@@ -138,16 +156,16 @@ class Scorer:
                     tips.append(tip)
 
         n_words = len(ipa.split("|"))
-        words = []
+        words, k = [], self.cfg.word_min_weight
         for w in range(n_words):
             ws = [p["score"] for p in phonemes if p["word"] == w]
             words.append({"ar": ar_words[w] if w < len(ar_words) else "", "tr": tr_words[w],
-                          "score": round(min(ws), 1) if ws else 0.0,
+                          "score": round(k * min(ws) + (1 - k) * float(np.mean(ws)), 1) if ws else 0.0,
                           "phonemes": [p for p in phonemes if p["word"] == w]})
 
         weights = np.array([0.5 if p["ipa"] in VOWELS else 1.0 for p in phonemes])
         phone_mean = float(np.dot(weights, [p["score"] for p in phonemes]) / weights.sum())
-        word_mean = float(np.mean([w["score"] for w in words]))  # a word scores as its weakest phoneme
+        word_mean = float(np.mean([w["score"] for w in words]))
         overall = 0.5 * phone_mean + 0.5 * word_mean  # one wrong consonant must pull the sentence down
         if unrelated:
             overall = min(overall, 30.0)
