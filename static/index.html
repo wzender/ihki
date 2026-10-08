@@ -378,8 +378,8 @@ $("speakBtn").onclick=async()=>{
 };
 
 /* ---------- driving mode: hands-free loop ----------
-   say the Hebrew sentence -> listen (the VAD ends the recording) -> grade -> say the assessment in Hebrew
-   (and the correct answer in Arabic when it was not excellent) -> next sentence. */
+   say the Hebrew sentence -> listen (the VAD ends the recording) -> grade ->
+   say "<score>, התשובה הנכונה היא" and the answer in Arabic -> next sentence. */
 let driveRun=0, driveAudio=null, driveAudioDone=null, wakeLock=null;
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 function playUrl(url){
@@ -403,15 +403,7 @@ async function sayHe(text){
   await speakLocal(text,"he-IL");
 }
 const speakable=s=>s.replace(/\s*\([^)]*\)/g,"").replace(/[\u0600-\u06FF]/g,"").replace(/\s+/g," ").trim();
-function assessment(r){
-  if(r.unrelated) return "זה לא נשמע כמו המשפט המבוקש. התשובה הנכונה היא:";
-  const s=r.score;
-  let t=`ציון ${s}. ${s>=85?"מצוין":s>=60?"כמעט":"צריך עוד תרגול"}.`;
-  const tip=r.tips[0];
-  if(tip) t+=` ${speakable(tip.title)}: ${speakable(tip.text)}`;
-  if(s<85) t=t.slice(0,360)+" התשובה הנכונה היא:";
-  return t;
-}
+const assessment=r=>`${r.score}, התשובה הנכונה היא`;   // the Arabic answer is played right after it
 function recordOnce(){ return new Promise(res=>{ recDone=res; mic.onclick(); }); }
 async function drive(){
   const run=++driveRun, on=()=>driving&&run===driveRun, st=t=>{ $("status").textContent=t; };
@@ -430,8 +422,11 @@ async function drive(){
       st("עוברים למשפט הבא"); await sayHe("נעבור למשפט הבא.");
     }else{
       const r=out.r;
-      st(`ציון ${r.score}`); await sayHe(assessment(r)); if(!on()) break;
-      if(r.unrelated||r.score<85){ const a=await answerAudio(id); if(!on()) break; if(a){ ttsInfo(a.label); await playUrl(a.url); } }
+      st(`ציון ${r.score}`);
+      const ar=PHRASES[id].ar, answer=answerAudio(id);   // fetch the answer while the score is being said
+      await sayHe(assessment(r)); if(!on()) break;
+      const a=await answer; if(!on()) break;
+      if(a){ ttsInfo(a.label); await playUrl(a.url); } else await speakLocal(ar,"ar");   // device voice when Sawtak is unavailable
     }
     if(!on()) break;
     retries=0; await pause(700); if(!on()) break;
