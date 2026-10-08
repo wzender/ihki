@@ -169,7 +169,7 @@ class Scorer:
             return [t.phoneme for t in toks]  # tokens merged across a boundary: no geminate info
         return [" ".join([ph] * n) for _, ph, n in runs]
 
-    def _heard_hebrew(self, logp: np.ndarray, toks: list[TargetToken], al, ipa: str) -> list[str]:
+    def _heard_hebrew(self, logp: np.ndarray, toks: list[TargetToken], al, ipa: str, ar_words: list[str]) -> list[str]:
         """What the model heard, in Hebrew letters, cut at the times where the expected words begin.
 
         A sound heard as expected is written the way the answer writes it (length, gemination, emphasis:
@@ -196,7 +196,8 @@ class Scorer:
                 elif ph in HEBREW_SOUNDS:
                     heard[w].append(ph)
             prev = i
-        return [word_to_hebrew(" ".join(phs)) for phs in heard]
+        # the Arabic spelling is passed so the heard line follows the answer's conventions (ק for ق, silent ל)
+        return [word_to_hebrew(" ".join(phs), ar_words[w] if w < len(ar_words) else "") for w, phs in enumerate(heard)]
 
     def score_logp(self, logp: np.ndarray, phrase: dict) -> dict:
         blank = self.vocab.blank
@@ -246,7 +247,7 @@ class Scorer:
                     tips.append(tip)
 
         n_words = len(ipa.split("|"))
-        heard_words = self._heard_hebrew(logp, toks, al, ipa)
+        heard_words = self._heard_hebrew(logp, toks, al, ipa, ar_words)
         words, k = [], self.cfg.word_min_weight
         for w in range(n_words):
             ws = [p["score"] for p in phonemes if p["word"] == w]

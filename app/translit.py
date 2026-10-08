@@ -29,11 +29,15 @@ def _letter(base: str, marks: str) -> str:
 
 def word_to_hebrew(ipa_word: str, ar_word: str = "") -> str:
     """The Arabic spelling, when given, settles what the IPA cannot: an urban ʔ that is written ق
-    stays ק (as in the hand-written hints), and a final a written ة/ه ends in ה."""
+    stays ק (as in the hand-written hints), a final a written ة/ه ends in ה, and the ل of the
+    article ال that is swallowed by the next consonant is shown in brackets: אִ(ל)דַّכְּתוֹר."""
     phs = ipa_word.split()
     if "ق" in ar_word:
         phs = ["q" if ph == "ʔ" else ph for ph in phs]
     final_a = "ה" if ar_word.endswith(("ة", "ه")) else "א"
+    # written ال, said as a vowel + doubled consonant: the ل is silent
+    silent_l = (ar_word.startswith("ال") and len(phs) > 2 and phs[0] in VOWELS
+                and phs[1] == phs[2] and phs[1] != "l")
     out, i = [], 0
     if len(phs) > 1 and phs[0] == "u":  # the conjunction و before a word: וּ, not an alef
         out, i = ["וּ"], 1
@@ -54,6 +58,8 @@ def word_to_hebrew(ipa_word: str, ar_word: str = "") -> str:
             if vowel == "a" and after:
                 after = final_a
             out.append(_letter(base, mark + shadda) + after)
+            if silent_l and i == 1:
+                out.append("(ל)")
         elif i < len(phs):
             out.append(_letter(base, SHVA + shadda))
         else:

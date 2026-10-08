@@ -82,7 +82,7 @@ def test_hebrew_chet_flagged_on_hammam():
     assert h["flagged"] and h["heard"] == "χ"
     assert r["words"][0]["score"] > 90          # وين is fine
     assert r["tips"][0]["key"] == "ħ>x"
-    assert r["tips"][0]["word"] == "الحمام"
+    assert r["tips"][0]["word"] == "الحمّام"
     assert 50 <= r["score"] < 85              # one wrong consonant: "almost", not "excellent"
 
 
