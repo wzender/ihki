@@ -2,7 +2,8 @@
 
 Used wherever Arabic is shown for a specific variant or word, so every variant gets a reading
 without hand-writing one. Follows the conventions of the hand-written `tr` hints: pointed Hebrew,
-geresh for sounds Hebrew lacks (ח' ע' ג' ד' ט'), dagesh for geminates.
+geresh for sounds Hebrew lacks (ח' ע' ג' ד' ט'), and the Arabic shadda (ّ, the small w above
+the letter) for geminates, as the course material writes it. A dagesh only marks the stops בּ כּ.
 """
 
 CONSONANTS = {
@@ -18,8 +19,7 @@ VOWELS = {
     "eː": (("ֵ", "י"),) * 2, "oː": (("", "וֹ"),) * 2,
 }
 FINALS = {"מ": "ם", "נ": "ן", "צ": "ץ", "פ": "ף"}
-NO_DAGESH = set("אהחער")
-DAGESH, SHVA = "ּ", "ְ"
+SHADDA, SHVA = "\u0651", "\u05b0"
 
 
 def _letter(base: str, marks: str) -> str:
@@ -40,13 +40,12 @@ def word_to_hebrew(ipa_word: str, ar_word: str = "") -> str:
     while i < len(phs):
         ph = phs[i]
         if ph in VOWELS:  # vowel with no consonant before it (word-initial): carry it on an alef
-            base, marks = "א", ""
+            base, shadda = "א", ""
         else:
-            base, marks = CONSONANTS.get(ph, ph), ""
+            base, shadda = CONSONANTS.get(ph, ph), ""
             i += 1
             if i < len(phs) and phs[i] == ph:  # geminate
-                if base[0] not in NO_DAGESH and DAGESH not in base:
-                    marks += DAGESH
+                shadda = SHADDA
                 i += 1
         if i < len(phs) and phs[i] in VOWELS:
             vowel = phs[i]
@@ -54,11 +53,11 @@ def word_to_hebrew(ipa_word: str, ar_word: str = "") -> str:
             mark, after = VOWELS[vowel][i == len(phs)]
             if vowel == "a" and after:
                 after = final_a
-            out.append(_letter(base, marks + mark) + after)
+            out.append(_letter(base, mark + shadda) + after)
         elif i < len(phs):
-            out.append(_letter(base, marks + SHVA))
+            out.append(_letter(base, SHVA + shadda))
         else:
-            out.append(FINALS.get(base, base) if not marks else _letter(base, marks))
+            out.append(_letter(FINALS.get(base, base), shadda))
     return "".join(out)
 
 
