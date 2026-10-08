@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import re
 import time
 import urllib.parse
 from contextlib import asynccontextmanager
@@ -102,6 +103,19 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
             raise HTTPException(503, str(e))
         return Response(data, media_type="audio/mpeg", headers={
             "Cache-Control": "private, max-age=86400", "X-TTS-Engine": used})
+
+    @app.get("/api/say")
+    def say(text: str = Query(..., min_length=1, max_length=400), engine: str = "gtts"):
+        """A short Hebrew text read aloud: the spoken assessment of driving mode."""
+        if engine not in ENGINES:
+            raise HTTPException(400, "unknown engine")
+        if not re.search(r"[\u05d0-\u05ea]", text) or re.search(r"[A-Za-z\x00-\x1f]", text):
+            raise HTTPException(400, "hebrew text only")
+        try:
+            data, used = hebrew_mp3(text, engine, cache_it=False)
+        except PromptTTSUnavailable as e:
+            raise HTTPException(503, str(e))
+        return Response(data, media_type="audio/mpeg", headers={"Cache-Control": "no-store", "X-TTS-Engine": used})
 
     @app.post("/api/score")
     def score(phrase_id: int = Form(...), audio: UploadFile = File(...)):

@@ -252,5 +252,9 @@ def test_hebrew_prompt_audio_uses_requested_engine_and_falls_back(tmp_path, monk
         r = c.get(f"/api/prompt-audio/{pid}?engine=gtts")             # gTTS down: served by the other engine
         assert r.status_code == 200 and r.headers["x-tts-engine"] == "edge" and len(said) == 1  # ... from cache
         assert c.get(f"/api/prompt-audio/{pid}?engine=other").status_code == 400
+        r = c.get("/api/say", params={"text": "ציון 82. כמעט.", "engine": "edge"})   # driving mode's spoken assessment
+        assert r.status_code == 200 and said[-1] == ("edge", "ציון 82. כמעט.") and not list(tmp_path.rglob("*82*"))
+        assert len(list((tmp_path / "he").glob("*.mp3"))) == 1                         # ... is not cached
+        assert c.get("/api/say", params={"text": "hello"}).status_code == 400
         monkeypatch.setitem(prompt_tts._SYNTH, "edge", broken)
         assert c.get("/api/prompt-audio/0?engine=edge").status_code == 503

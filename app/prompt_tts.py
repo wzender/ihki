@@ -58,15 +58,18 @@ def spoken(he: str) -> str:
     return re.sub(r"\s*\([^)]*\)", "", he).strip()
 
 
-def hebrew_mp3(he: str, engine: str) -> tuple[bytes, str]:
-    """(MP3, engine that produced it) for a Hebrew prompt; `engine` is tried first, then the other."""
+def hebrew_mp3(he: str, engine: str, cache_it: bool = True) -> tuple[bytes, str]:
+    """(MP3, engine that produced it) for a Hebrew text; `engine` is tried first, then the other.
+
+    Prompts are cached; one-off texts (the spoken assessment of driving mode) pass cache_it=False.
+    """
     text = spoken(he)
     cache = Path(os.environ.get("TTS_CACHE_DIR", "").strip() or Path.home() / ".cache" / "ihki-tts") / "he"
     order = [engine] + [e for e in ENGINES if e != engine]
     with _lock:
         for name in order:
             path = cache / f"{name}-{hashlib.sha1(text.encode()).hexdigest()}.mp3"
-            if path.exists():
+            if cache_it and path.exists():
                 return path.read_bytes(), name
             try:
                 data = _SYNTH[name](text)
@@ -75,6 +78,8 @@ def hebrew_mp3(he: str, engine: str) -> tuple[bytes, str]:
                 continue
             if not data:
                 continue
+            if not cache_it:
+                return data, name
             cache.mkdir(parents=True, exist_ok=True)
             tmp = path.with_suffix(".tmp")
             tmp.write_bytes(data)

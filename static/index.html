@@ -76,6 +76,14 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 .tips .what{font-weight:700}
 .tips .what .ar{font-family:var(--f-ar);font-size:14px;font-weight:400;color:var(--muted)}
 .version{position:fixed;bottom:4px;left:6px;z-index:9;font:500 11px/1 var(--f-ipa);direction:ltr;padding:3px 6px;border-radius:6px;background:var(--amber-bg);color:var(--amber);opacity:.85;pointer-events:none}
+header .sub{flex:1}
+.drive{font:700 15px var(--f-body);border-radius:999px;padding:6px 14px;cursor:pointer;border:1px solid var(--olive);background:transparent;color:var(--olive)}
+body.driving .drive{background:var(--sumac);border-color:var(--sumac);color:#fff}
+/* driving mode: nothing to read or press but the stop button */
+body.driving .chips,body.driving .row,body.driving .voicebox,body.driving .note,body.driving .task{display:none}
+body.driving .prompt{font-size:clamp(30px,8vw,48px)}
+body.driving .status{font-size:20px;font-weight:700;color:var(--ink)}
+body.driving .mic{width:84px;height:84px}
 .voicebox{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);flex-wrap:wrap}
 .voicebox label{display:flex;align-items:center;gap:6px;cursor:pointer}
 .voicebox .sep{flex:1}
@@ -89,6 +97,7 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
   <header>
     <div class="brand">אחכי<span class="ar">احكي</span></div>
     <div class="sub">תרגמו לערבית מדוברת ואמרו בקול</div>
+    <button class="drive" id="driveBtn" title="מצב נסיעה: האפליקציה מקריאה, מקשיבה ואומרת את ההערכה בקול">🚗 נסיעה</button>
   </header>
 
   <div class="chips" id="cats" role="group" aria-label="נושא"></div>
@@ -135,6 +144,7 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 <script>
 const $=id=>document.getElementById(id);
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+let driving=false;
 let CATS=[], PHRASES=[], cat=store.get("ihki.cat","meet"), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
 let myAudioUrl=null;
 
@@ -163,18 +173,22 @@ function variation(kind){
 const heEngine=/\bEdg\//.test(navigator.userAgent)?"edge":"gtts";
 const heUrls={};   // phrase id -> object URL
 let heAudio=null, hePending=null;
-async function readPrompt(){
-  if(heAudio){ heAudio.pause(); heAudio=null; }
-  if(!$("readHe").checked||!cur) return;
-  const id=cur.id;
+async function promptUrl(id){
   if(!heUrls[id]){
     try{
       const res=await fetch(`/api/prompt-audio/${id}?engine=${heEngine}`);
-      if(!res.ok) return;
+      if(!res.ok) return null;
       heUrls[id]=URL.createObjectURL(await res.blob());
       $("heInfo").textContent=" · 🗣 "+(res.headers.get("X-TTS-Engine")==="edge"?"edge-tts":"gTTS");
-    }catch{ return; }
+    }catch{ return null; }
   }
+  return heUrls[id];
+}
+async function readPrompt(){
+  if(heAudio){ heAudio.pause(); heAudio=null; }
+  if(driving||!$("readHe").checked||!cur) return;   // driving mode reads the prompt itself, in sequence
+  const id=cur.id;
+  if(!await promptUrl(id)) return;
   if(!cur||cur.id!==id) return;   // moved on while it was loading
   heAudio=new Audio(heUrls[id]);
   // browsers block sound before the first click or key press: play then instead
@@ -249,6 +263,8 @@ function render(r){
 
 /* ---------- recording ---------- */
 let rec=null, chunks=[], stopTimer=null, vad=null;
+let recDone=null, recCancel=false;   // driving mode: resolver for the attempt in progress / drop it without scoring
+const finishRec=out=>{ const f=recDone; recDone=null; if(f) f(out); };
 
 /* Voice activity detection: stops the recording by itself once the speaker has gone quiet.
    Energy based: the level must rise clearly above the room noise measured in the first frames. */
@@ -284,7 +300,7 @@ mic.onclick=async()=>{
   if(rec&&rec.state==="recording"){ rec.stop(); return; }
   let stream;
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
-  catch{ $("status").textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."; return; }
+  catch{ $("status").textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."; finishRec({kind:"nomic"}); return; }
   const type=pickType();
   rec=new MediaRecorder(stream, type?{mimeType:type}:{}); chunks=[];
   rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
@@ -298,7 +314,8 @@ mic.onclick=async()=>{
   rec.onstop=async()=>{
     clearTimeout(stopTimer); if(vad){ vad.stop(); vad=null; }
     mic.classList.remove("live"); stream.getTracks().forEach(t=>t.stop());
-    if(!heardSpeech){ $("status").textContent="לא נשמע דיבור. לחצו ונסו שוב, קרוב יותר למיקרופון."; return; }
+    if(recCancel){ recCancel=false; finishRec({kind:"cancel"}); return; }
+    if(!heardSpeech){ $("status").textContent="לא נשמע דיבור. לחצו ונסו שוב, קרוב יותר למיקרופון."; finishRec({kind:"nospeech"}); return; }
     const blob=new Blob(chunks,{type:rec.mimeType||"audio/webm"});
     if(myAudioUrl) URL.revokeObjectURL(myAudioUrl);
     myAudioUrl=URL.createObjectURL(blob); $("playMine").disabled=false;
@@ -307,9 +324,9 @@ mic.onclick=async()=>{
       const fd=new FormData(); fd.append("phrase_id",cur.id); fd.append("audio",blob,"rec");
       const res=await fetch("/api/score",{method:"POST",body:fd});
       if(!res.ok) throw new Error(res.status);
-      render(await res.json());
-    }catch(err){ $("status").textContent="הניתוח נכשל ("+err.message+"). נסו שוב."; }
-    finally{ mic.disabled=false; }
+      const r=await res.json();
+      render(r); mic.disabled=false; finishRec(r.error?{kind:"nospeech"}:{kind:"result",r});
+    }catch(err){ $("status").textContent="הניתוח נכשל ("+err.message+"). נסו שוב."; mic.disabled=false; finishRec({kind:"fail"}); }
   };
   rec.start();
 };
@@ -319,7 +336,8 @@ $("playMine").onclick=()=>{ if(myAudioUrl) new Audio(myAudioUrl).play(); };
 $("answerBtn").onclick=()=>{ $("hintTr").textContent=cur.tr; $("hintAr").textContent=cur.ar; $("hint").hidden=false; $("hintAr").hidden=false; };
 $("negBtn").onclick=()=>variation("negate");
 $("conjBtn").onclick=()=>variation("conjugate");
-$("nextBtn").onclick=()=>{ pos=(pos+1)%order.length; if(pos===0) shuffle(order); show(); };
+const nextPhrase=()=>{ pos=(pos+1)%order.length; if(pos===0) shuffle(order); show(); };
+$("nextBtn").onclick=nextPhrase;
 function arVoice(){ const vs=speechSynthesis.getVoices(); return vs.find(v=>/^ar[-_](PS|JO|LB|SY|IL)/i.test(v.lang))||vs.find(v=>/^ar/i.test(v.lang)); }
 if("speechSynthesis" in window) speechSynthesis.getVoices();
 const ttsUrls={};   // "phrase id|voice" -> {url, voice label} of the server-generated answer
@@ -329,11 +347,10 @@ $("voiceId").onchange=()=>store.set("ihki.voice",$("voiceId").value);   // Sawta
 let ttsVoice="";   // debug: why the server voice was not used, shown in the version badge
 const ttsInfo=t=>{ $("ttsInfo").textContent=" · 🔊 "+t; };
 let ttsOff=false;   // server has no TTS key: stop asking
-$("speakBtn").onclick=async()=>{
-  const id=cur.id, btn=$("speakBtn"), voice=$("voiceId").value, key=id+"|"+voice;
+async function answerAudio(id){   // {url,label} of the Sawtak answer, or null when the server voice is unavailable
+  const voice=$("voiceId").value, key=id+"|"+voice;
   ttsVoice="";
   if(!ttsOff && !ttsUrls[key]){
-    btn.disabled=true;
     try{
       const res=await fetch("/api/tts/"+id+(voice?"?voice="+encodeURIComponent(voice):""));
       if(res.ok){
@@ -346,14 +363,96 @@ $("speakBtn").onclick=async()=>{
         if(detail==="tts not configured") ttsOff=true;   // no key on the server: stop asking
       }
     }catch{}
-    btn.disabled=false;
   }
-  if(ttsUrls[key]){ if(cur.id===id){ new Audio(ttsUrls[key].url).play(); ttsInfo(ttsUrls[key].label); } return; }
+  return ttsUrls[key]||null;
+}
+$("speakBtn").onclick=async()=>{
+  const id=cur.id, btn=$("speakBtn");
+  btn.disabled=true; const a=await answerAudio(id); btn.disabled=false;
+  if(a){ if(cur.id===id){ new Audio(a.url).play(); ttsInfo(a.label); } return; }
   if(!("speechSynthesis" in window)){ ttsInfo("no voice available"); return; }
   const u=new SpeechSynthesisUtterance(cur.ar); const v=arVoice();
   if(v){u.voice=v;u.lang=v.lang;} else u.lang="ar-SA";
   u.rate=.85; speechSynthesis.cancel(); speechSynthesis.speak(u);
   ttsInfo("device voice"+(v?" "+v.name:"")+(ttsOff?" (tts not configured)":ttsVoice?" ("+ttsVoice+")":""));
+};
+
+/* ---------- driving mode: hands-free loop ----------
+   say the Hebrew sentence -> listen (the VAD ends the recording) -> grade -> say the assessment in Hebrew
+   (and the correct answer in Arabic when it was not excellent) -> next sentence. */
+let driveRun=0, driveAudio=null, driveAudioDone=null, wakeLock=null;
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+function playUrl(url){
+  return new Promise(res=>{
+    const a=new Audio(url); driveAudio=a; driveAudioDone=res;
+    a.onended=a.onerror=()=>res(); a.play().catch(()=>res());
+  });
+}
+function speakLocal(text,lang){   // device voice, when the server could not speak
+  return new Promise(res=>{
+    if(!("speechSynthesis" in window)) return res();
+    const u=new SpeechSynthesisUtterance(text); u.lang=lang; u.onend=u.onerror=()=>res();
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  });
+}
+async function sayHe(text){
+  try{
+    const res=await fetch(`/api/say?engine=${heEngine}&text=${encodeURIComponent(text)}`);
+    if(res.ok){ const url=URL.createObjectURL(await res.blob()); await playUrl(url); URL.revokeObjectURL(url); return; }
+  }catch{}
+  await speakLocal(text,"he-IL");
+}
+const speakable=s=>s.replace(/\s*\([^)]*\)/g,"").replace(/[\u0600-\u06FF]/g,"").replace(/\s+/g," ").trim();
+function assessment(r){
+  if(r.unrelated) return "זה לא נשמע כמו המשפט המבוקש. התשובה הנכונה היא:";
+  const s=r.score;
+  let t=`ציון ${s}. ${s>=85?"מצוין":s>=60?"כמעט":"צריך עוד תרגול"}.`;
+  const tip=r.tips[0];
+  if(tip) t+=` ${speakable(tip.title)}: ${speakable(tip.text)}`;
+  if(s<85) t=t.slice(0,360)+" התשובה הנכונה היא:";
+  return t;
+}
+function recordOnce(){ return new Promise(res=>{ recDone=res; mic.onclick(); }); }
+async function drive(){
+  const run=++driveRun, on=()=>driving&&run===driveRun, st=t=>{ $("status").textContent=t; };
+  let retries=0;
+  while(on()){
+    const id=cur.id;
+    st("🔊 הקשיבו למשפט");
+    const url=await promptUrl(id); if(!on()) break;
+    if(url) await playUrl(url); else await speakLocal(speakable(cur.he),"he-IL");
+    if(!on()) break;
+    await pause(250);                       // let the loudspeaker go quiet before listening
+    const out=await recordOnce(); if(!on()) break;
+    if(out.kind==="nomic"){ await sayHe("אין גישה למיקרופון. מצב נסיעה הופסק."); stopDrive(); break; }
+    if(out.kind!=="result"){
+      if(++retries<=1){ st("לא שמעתי, ננסה שוב"); await sayHe("לא שמעתי. ננסה שוב."); continue; }
+      st("עוברים למשפט הבא"); await sayHe("נעבור למשפט הבא.");
+    }else{
+      const r=out.r;
+      st(`ציון ${r.score}`); await sayHe(assessment(r)); if(!on()) break;
+      if(r.unrelated||r.score<85){ const a=await answerAudio(id); if(!on()) break; if(a){ ttsInfo(a.label); await playUrl(a.url); } }
+    }
+    if(!on()) break;
+    retries=0; await pause(700); if(!on()) break;
+    nextPhrase();
+  }
+}
+function stopDrive(){
+  driving=false; driveRun++; document.body.classList.remove("driving"); $("driveBtn").textContent="🚗 נסיעה";
+  if(driveAudio) driveAudio.pause(); if(driveAudioDone) driveAudioDone();
+  if("speechSynthesis" in window) speechSynthesis.cancel();
+  if(rec&&rec.state==="recording"){ recCancel=true; rec.stop(); }
+  if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock=null; }
+  $("status").textContent="לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים";
+}
+$("driveBtn").onclick=async()=>{
+  if(driving){ stopDrive(); return; }
+  if(!cur||mic.disabled) return;
+  driving=true; document.body.classList.add("driving"); $("driveBtn").textContent="⏹ סיום נסיעה";
+  hePending=null; if(heAudio) heAudio.pause();
+  try{ wakeLock=await navigator.wakeLock.request("screen"); }catch{}   // keep the screen on, where supported
+  drive();
 };
 
 fetch("/api/phrases").then(r=>r.json()).then(d=>{
