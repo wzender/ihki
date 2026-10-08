@@ -170,8 +170,14 @@ def test_tts_endpoint_serves_phrase_audio_and_503_without_key():
         r = c.get("/api/tts/0")
         assert r.status_code == 200 and r.headers["content-type"] == "audio/wav" and r.content == b"RIFFfake"
         assert r.headers["x-tts-provider"] == "sawtakarabi.ai" and r.headers["x-tts-voice-id"] == "v-123"
-        assert c.get("/api/tts/0?voice=other-voice_1").headers["x-tts-voice-id"] == "other-voice_1"
-        assert c.get("/api/tts/0?voice=..%2Fx").status_code == 400
+        from urllib.parse import unquote
+
+        from app.tts import VOICES
+        voices = c.get("/api/phrases").json()["voices"]
+        assert [v["name"] for v in voices] == list(VOICES)
+        r = c.get("/api/tts/0?voice=" + voices[1]["id"])
+        assert r.headers["x-tts-voice-id"] == voices[1]["id"] and unquote(r.headers["x-tts-voice-name"]) == voices[1]["name"]
+        assert c.get("/api/tts/0?voice=not-in-the-list").status_code == 400
         assert c.get("/api/tts/9999").status_code == 404
         assert c.get("/api/health").json()["tts"] is True
 

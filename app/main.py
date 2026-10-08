@@ -10,7 +10,6 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
-import re
 import time
 import urllib.parse
 from contextlib import asynccontextmanager
@@ -22,7 +21,7 @@ from fastapi.responses import HTMLResponse, Response
 
 from .phrases import CATEGORIES, PHRASES, public_phrases
 from .scorer import Scorer, decode_audio, load_scorer
-from .tts import SawtakTTS, TTSUnavailable, load_tts
+from .tts import VOICES, SawtakTTS, TTSUnavailable, load_tts
 
 logging.basicConfig(level=logging.INFO)
 STATIC = Path(__file__).resolve().parent.parent / "static"
@@ -57,7 +56,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
 
     @app.get("/api/phrases")
     def phrases():
-        return {"categories": CATEGORIES, "phrases": public_phrases()}
+        return {"categories": CATEGORIES, "phrases": public_phrases(),
+                "voices": [{"id": i, "name": n} for n, i in VOICES.items()]}
 
     @app.get("/api/health")
     def health():
@@ -69,10 +69,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
     def tts_phrase(phrase_id: int, voice: str = Query("", max_length=64)):
         """The model answer (first variant) spoken by the TTS voice. 503 tells the page to use the device voice.
 
-        `voice` (debug) tries another voice id from the provider's catalog instead of the configured one.
+        `voice` picks one of the voices in tts.VOICES instead of the configured one.
         """
-        if voice and not re.fullmatch(r"[A-Za-z0-9_-]+", voice):
-            raise HTTPException(400, "bad voice id")
+        names = {i: n for n, i in VOICES.items()}
+        if voice and voice not in names:
+            raise HTTPException(400, "unknown voice")
         if not 0 <= phrase_id < len(PHRASES):
             raise HTTPException(404, "unknown phrase")
         if app.state.tts is None:
@@ -85,7 +86,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
         return Response(data, media_type="audio/wav", headers={
             "Cache-Control": "private, max-age=86400", "X-TTS-Provider": "sawtakarabi.ai",
             "X-TTS-Voice-Id": urllib.parse.quote(used),
-            "X-TTS-Voice-Name": urllib.parse.quote("" if voice else getattr(tts, "voice_name", ""))})
+            "X-TTS-Voice-Name": urllib.parse.quote(names.get(used) or getattr(tts, "voice_name", ""))})
 
     @app.post("/api/score")
     def score(phrase_id: int = Form(...), audio: UploadFile = File(...)):

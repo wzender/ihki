@@ -26,6 +26,12 @@ BASE_URL = "https://api.sawtakarabi.ai/v1"
 MODEL = "arabic-tts-1"
 PALESTINIAN = ["ps", "ps-central", "ps-westbank", "ps-north", "ps-nablus", "ps-galilee", "ps-hebron", "ps-south", "ps-gaza"]
 TIMEOUT = 60
+# Voices the page offers in its drop-down (name shown -> Sawtak voice id). Only these can be requested.
+VOICES = {
+    "אמיר": "0191d689-bfca-435b-944e-f989c2a108ee",
+    "רַאאִף": "273d81b2-991b-5b76-8525-eeacc6a3d759",
+    "חנאן": "e41781f5-127c-5eb0-b83c-50bf52a64caf",
+}
 
 
 class TTSUnavailable(Exception):
@@ -76,7 +82,7 @@ class SawtakTTS:
     def wav(self, text: str, voice: str = "") -> tuple[bytes, str]:
         """(WAV, voice id) for `text`, from the cache when this voice has said it before.
 
-        `voice` overrides the configured voice for this call (the page's debug voice box).
+        `voice` overrides the configured voice for this call (the page's voice drop-down).
         """
         with self._lock:
             voice = voice or self._voice()
