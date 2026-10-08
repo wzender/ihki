@@ -64,4 +64,5 @@ def tip_for(expected: str, heard: str | None) -> dict | None:
         return {"title": name, "text": text, "key": f"{expected}>{heard}"}
     if heard == "_":
         return {"title": name, "text": "לא נשמעה בבירור.", "key": f"{expected}>_"}
-    return {"title": name, "text": f"נשמעה כמו [{heard}].", "key": f"{expected}>{heard}"}
+    text = f"נשמעה כמו {NAMES[heard]}." if heard in NAMES else "נשמעה אחרת מהצפוי."
+    return {"title": name, "text": text, "key": f"{expected}>{heard}"}
