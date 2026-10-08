@@ -263,12 +263,13 @@ function render(r){
 
 /* ---------- recording ---------- */
 let rec=null, chunks=[], stopTimer=null, vad=null;
+let recMode="answer";   // "yesno": the recording is a spoken yes/no, not an answer to grade
 let recDone=null, recCancel=false;   // driving mode: resolver for the attempt in progress / drop it without scoring
 const finishRec=out=>{ const f=recDone; recDone=null; if(f) f(out); };
 
 /* Voice activity detection: stops the recording by itself once the speaker has gone quiet.
    Energy based: the level must rise clearly above the room noise measured in the first frames. */
-const VAD={frame:50, startFrames:3, endSilence:1000, noSpeech:6000, minLevel:.012, ratio:3};
+const VAD={frame:50, startFrames:3, endSilence:1000, noSpeech:6000, noSpeechDriving:12000, minLevel:.012, ratio:3};
 function startVad(stream, onEnd){
   const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null;   // no Web Audio: manual stop only
   const ctx=new AC(), an=ctx.createAnalyser(); an.fftSize=1024;
@@ -284,7 +285,7 @@ function startVad(stream, onEnd){
     if(isSpeech){ quiet=0; if(++loud>=VAD.startFrames) spoke=true; }
     else{ loud=0; if(spoke) quiet+=VAD.frame; }
     if(spoke && quiet>=VAD.endSilence) onEnd(true);
-    else if(!spoke && t>=VAD.noSpeech) onEnd(false);
+    else if(!spoke && t>=(driving&&recMode!=="yesno"?VAD.noSpeechDriving:VAD.noSpeech)) onEnd(false);   // driving: time to think
   },VAD.frame);
   return {stop(){ clearInterval(timer); ctx.close().catch(()=>{}); }};
 }
@@ -306,17 +307,27 @@ mic.onclick=async()=>{
   rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
   let heardSpeech=true;   // false only when the VAD gave up waiting for speech
   rec.onstart=()=>{
-    mic.classList.add("live"); $("result").hidden=true;
-    stopTimer=setTimeout(()=>rec.state==="recording"&&rec.stop(),10000);
+    mic.classList.add("live"); if(recMode!=="yesno") $("result").hidden=true;
+    stopTimer=setTimeout(()=>rec.state==="recording"&&rec.stop(),driving?20000:10000);
     vad=startVad(stream, spoke=>{ heardSpeech=spoke; if(rec.state==="recording") rec.stop(); });
-    $("status").textContent=vad?"מקליט… דברו, ההקלטה תיעצר לבד (או לחצו לסיום)":"מקליט… לחצו שוב לסיום";
+    if(recMode!=="yesno") $("status").textContent=vad?"מקליט… דברו, ההקלטה תיעצר לבד (או לחצו לסיום)":"מקליט… לחצו שוב לסיום";
   };
   rec.onstop=async()=>{
     clearTimeout(stopTimer); if(vad){ vad.stop(); vad=null; }
     mic.classList.remove("live"); stream.getTracks().forEach(t=>t.stop());
+    if(recMode==="yesno"&&(recCancel||!heardSpeech)){ const kind=recCancel?"cancel":"nospeech"; recMode="answer"; recCancel=false; finishRec({kind}); return; }
     if(recCancel){ recCancel=false; finishRec({kind:"cancel"}); return; }
     if(!heardSpeech){ $("status").textContent="לא נשמע דיבור. לחצו ונסו שוב, קרוב יותר למיקרופון."; finishRec({kind:"nospeech"}); return; }
     const blob=new Blob(chunks,{type:rec.mimeType||"audio/webm"});
+    if(recMode==="yesno"){
+      recMode="answer";
+      try{
+        const fd=new FormData(); fd.append("audio",blob,"rec");
+        const res=await fetch("/api/yesno",{method:"POST",body:fd});
+        finishRec({kind:"yesno",answer:res.ok?(await res.json()).answer:null});
+      }catch{ finishRec({kind:"yesno",answer:null}); }
+      return;
+    }
     if(myAudioUrl) URL.revokeObjectURL(myAudioUrl);
     myAudioUrl=URL.createObjectURL(blob); $("playMine").disabled=false;
     mic.disabled=true; $("status").textContent="מנתח…";
@@ -410,24 +421,8 @@ function assessment(r){
   const tips=(r.unrelated?[]:r.tips.slice(0,2)).map(t=>`${speakable(t.title)}: ${speakable(t.text).split(/(?<=\.)\s/)[0]}`);
   return [r.score+".", ...tips, "התשובה הנכונה היא"].join(" ").slice(0,390);
 }
-// Spoken yes/no through the browser's speech recognition (Chrome, Edge, Safari). null = not available here.
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-let stopAsking=null;
-function hearYes(){
-  return new Promise(res=>{
-    if(!SR) return res(null);
-    const r=new SR(); r.lang="he-IL"; r.maxAlternatives=3;
-    let done=false;
-    const end=v=>{ if(done) return; done=true; clearTimeout(t); stopAsking=null; try{ r.abort(); }catch{} res(v); };
-    const t=setTimeout(()=>end(false),6000);
-    stopAsking=()=>end(false);
-    r.onresult=e=>end([...e.results[0]].some(a=>/(^|\s)(כן|בטח|שוב|יאללה|yes)(\s|$)/i.test(a.transcript.trim())));
-    r.onerror=e=>end(e.error==="no-speech"||e.error==="aborted"?false:null);
-    r.onend=()=>end(false);
-    try{ r.start(); }catch{ end(null); }
-  });
-}
-function recordOnce(){ return new Promise(res=>{ recDone=res; mic.onclick(); }); }
+// One hands-free recording. "answer" grades it against the sentence; "yesno" asks the server whether it was כן or לא.
+function recordOnce(mode="answer"){ return new Promise(res=>{ recDone=res; recMode=mode; mic.onclick(); }); }
 async function drive(){
   const run=++driveRun, on=()=>driving&&run===driveRun, st=t=>{ $("status").textContent=t; };
   let retries=0;
@@ -451,10 +446,11 @@ async function drive(){
       const a=await answer; if(!on()) break;
       if(a){ ttsInfo(a.label); await playUrl(a.url); } else await speakLocal(ar,"ar");   // device voice when Sawtak is unavailable
       if(!on()) break;
-      if(r.score<30 && SR){                 // a poor attempt: offer another go at the same sentence
-        st("רוצה לנסות שוב? אמרו כן או לא"); await sayHe("רוצה לנסות שוב?"); if(!on()) break;
-        const yes=await hearYes(); if(!on()) break;
-        if(yes){ retries=0; continue; }
+      if(r.score<30){                       // a poor attempt: offer another go at the same sentence
+        await sayHe("רוצה לנסות שוב?"); if(!on()) break;
+        await pause(250); st("🎤 אמרו כן או לא");
+        const reply=await recordOnce("yesno"); if(!on()) break;
+        if(reply.kind==="yesno"&&reply.answer==="yes"){ retries=0; continue; }   // "לא" or silence: move on
       }
     }
     if(!on()) break;
@@ -466,7 +462,6 @@ function stopDrive(){
   driving=false; driveRun++; document.body.classList.remove("driving"); $("driveBtn").textContent="🚗 נסיעה";
   if(driveAudio) driveAudio.pause(); if(driveAudioDone) driveAudioDone();
   if("speechSynthesis" in window) speechSynthesis.cancel();
-  if(stopAsking) stopAsking();
   if(rec&&rec.state==="recording"){ recCancel=true; rec.stop(); }
   if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock=null; }
   $("status").textContent="לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים";

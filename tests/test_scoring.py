@@ -267,3 +267,20 @@ def test_tips_come_most_crucial_first():
     assert len(r["tips"]) == 2
     assert [t["score"] for t in r["tips"]] == sorted(t["score"] for t in r["tips"])
     assert all("idx" not in t for t in r["tips"])
+
+
+def test_spoken_yes_or_no_is_picked_by_the_phoneme_model():
+    syms = SYMS + ["o"]
+    vocab = {s: i for i, s in enumerate(syms)}
+
+    def scorer(phones):
+        V, rows = len(syms), []
+        for ph in ["<pad>"] + [x for p in phones for x in (p, p, p, "<pad>")]:
+            r = np.full(V, 0.1 / (V - 1))
+            r[vocab[ph]] = 0.9
+            rows.append(r)
+        return Scorer(lambda wav: np.log(np.array(rows)), Vocab(vocab))
+
+    from app.main import YES_NO
+    assert scorer(["k", "e", "n"]).pick(None, YES_NO) == "yes"
+    assert scorer(["l", "o"]).pick(None, YES_NO) == "no"

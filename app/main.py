@@ -29,6 +29,7 @@ logging.basicConfig(level=logging.INFO)
 STATIC = Path(__file__).resolve().parent.parent / "static"
 load_dotenv(STATIC.parent / ".env")
 MODEL_ID = os.environ.get("MODEL_ID", "facebook/wav2vec2-xlsr-53-espeak-cv-ft")
+YES_NO = {"yes": "k e n", "no": "l o"}  # Hebrew כן / לא, in the scorer's IPA
 MAX_UPLOAD = 2_000_000  # bytes; 15 s of opus is ~100 KB
 
 
@@ -116,6 +117,20 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
         except PromptTTSUnavailable as e:
             raise HTTPException(503, str(e))
         return Response(data, media_type="audio/mpeg", headers={"Cache-Control": "no-store", "X-TTS-Engine": used})
+
+    @app.post("/api/yesno")
+    def yesno(audio: UploadFile = File(...)):
+        """Driving mode's "try again?": whether the recording sounds more like כן or like לא."""
+        data = audio.file.read(MAX_UPLOAD + 1)
+        if len(data) > MAX_UPLOAD:
+            raise HTTPException(413, "recording too long")
+        try:
+            wav = decode_audio(data)
+        except ValueError:
+            raise HTTPException(400, "could not decode audio")
+        if wav.size < 16_000 * 0.2:
+            return {"answer": None}
+        return {"answer": app.state.scorer.pick(wav, YES_NO)}
 
     @app.post("/api/score")
     def score(phrase_id: int = Form(...), audio: UploadFile = File(...)):
