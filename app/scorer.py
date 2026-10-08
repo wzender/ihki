@@ -5,13 +5,13 @@ import json
 import logging
 import os
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable, Protocol
 
 import numpy as np
 
 from .align import GopConfig, ctc_viterbi, edit_distance, greedy_decode, score_tokens
-from .tips import VOWELS, sound_name, tip_for
+from .tips import NO_DELETION_TIP, VOWELS, sound_name, tip_for
 from .translit import to_hebrew
 
 log = logging.getLogger("ihki.scorer")
@@ -114,6 +114,10 @@ class Scorer:
         ar, ipa, toks, al = best
         ids = [t.id for t in toks]
         scores = score_tokens(logp, al, ids, blank, self.cfg.gop)
+        # A glottal stop that is simply not there is how natives say it too (انا, اهلا): not an error.
+        # One replaced by another consonant (ق said as k) still counts.
+        scores = [replace(sc, score=100.0) if sc.deleted and t.phoneme in NO_DELETION_TIP else sc
+                  for t, sc in zip(toks, scores)]
         unrelated = bool(edit_distance(heard_ids, ids) / max(1, len(ids)) > self.cfg.unrelated_ratio)
 
         phonemes, tips, seen = [], [], set()

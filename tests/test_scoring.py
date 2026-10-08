@@ -144,3 +144,11 @@ def test_anything_below_100_says_what_was_wrong():
         assert r["score"] == 100 or r["unrelated"] or r["tips"] or r["issues"], phones
         for i in r["issues"]:
             assert i["word_tr"] and i["sound"] and not i["sound"].isascii()
+
+
+def test_dropped_glottal_stop_is_not_an_error():
+    # اهلا said without the initial ʔ, as natives do
+    phrase = {"variants": [("اهلا", "ʔ a h l a")]}
+    r = scorer_for(emissions(["a", "h", "l", "a"])).score(None, phrase)
+    assert r["words"][0]["score"] >= 90 and r["score"] >= 90
+    assert not r["tips"] and not any("עצירה" in i["sound"] for i in r["issues"])

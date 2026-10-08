@@ -35,6 +35,8 @@ def word_to_hebrew(ipa_word: str, ar_word: str = "") -> str:
         phs = ["q" if ph == "ʔ" else ph for ph in phs]
     final_a = "ה" if ar_word.endswith(("ة", "ه")) else "א"
     out, i = [], 0
+    if len(phs) > 1 and phs[0] == "u":  # the conjunction و before a word: וּ, not an alef
+        out, i = ["וּ"], 1
     while i < len(phs):
         ph = phs[i]
         if ph in VOWELS:  # vowel with no consonant before it (word-initial): carry it on an alef
