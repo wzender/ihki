@@ -70,6 +70,7 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 .tips .what::after{content:" · "}
 .tips .what{font-weight:700}
 .tips .what .ar{font-family:var(--f-ar);font-size:18px}
+.version{position:fixed;bottom:4px;left:6px;z-index:9;font:500 11px/1 var(--f-ipa);direction:ltr;padding:3px 6px;border-radius:6px;background:var(--amber-bg);color:var(--amber);opacity:.85;pointer-events:none}
 .note{font-size:12px;margin:0;color:var(--muted);max-width:65ch}
 .warn{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:10px 12px;font-size:14px}
 </style>
@@ -118,6 +119,7 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 
   <p class="note">הניתוח נעשה ברמת ההגה. ההשמעה משתמשת בקול ערבי של המכשיר, שבדרך כלל אינו במבטא פלסטיני.</p>
 </div>
+<div class="version" title="גרסת debug">v __VERSION__</div>
 
 <script>
 const $=id=>document.getElementById(id);
