@@ -181,7 +181,14 @@ function render(r){
     const body=document.createElement("span"); body.textContent=t.text;
     li.append(what,body); tips.appendChild(li);
   }
-  if(!r.unrelated && !r.tips.length && s>=85){
+  if(r.issues.length){
+    const li=document.createElement("li");
+    const what=document.createElement("span"); what.className="what"; what.textContent=r.tips.length?"עוד הגאים לא מדויקים":"מה לא היה מדויק";
+    const body=document.createElement("span");
+    body.textContent=r.issues.map(i=>`${i.sound} ב״${i.word_tr}״ (${i.score})`+(i.missing?" – לא נשמעה":i.heard?` – נשמע כמו ${i.heard}`:"")).join(" · ");
+    li.append(what,body); tips.appendChild(li);
+  }
+  if(!r.unrelated && !r.tips.length && !r.issues.length){
     const li=document.createElement("li"); li.innerHTML='<span class="what">כל העיצורים נשמעו נכון</span><span>נסו לומר את המשפט בקצב דיבור טבעי.</span>';
     tips.appendChild(li);
   }

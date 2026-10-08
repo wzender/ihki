@@ -56,6 +56,19 @@ def with_hebrew(text: str) -> str:
     return _BARE_AR.sub(lambda m: _PAIRED.get(m.group(), m.group()), text)
 
 
+VOWEL_NAMES = {
+    "a": "תנועת אַ", "i": "תנועת אִ", "u": "תנועת אֻ", "e": "תנועת אֶ", "o": "תנועת אוֹ",
+    "aː": "תנועה ארוכה אַא", "iː": "תנועה ארוכה אִי", "uː": "תנועה ארוכה אוּ",
+    "eː": "תנועה ארוכה אֵי", "oː": "תנועה ארוכה אוֹ",
+}
+
+
+def sound_name(phoneme: str | None) -> str | None:
+    """Hebrew name of a phoneme (expected or heard), or None if we have no name for it."""
+    phoneme = HEARD_ALIASES.get(phoneme, phoneme)
+    return NAMES.get(phoneme) or VOWEL_NAMES.get(phoneme)
+
+
 VOWELS = {"a", "i", "u", "e", "o", "aː", "iː", "uː", "eː", "oː"}
 # the urban glottal stop is often dropped by natives too; don't nag about it
 NO_DELETION_TIP = {"ʔ"}

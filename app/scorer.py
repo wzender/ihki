@@ -11,7 +11,7 @@ from typing import Callable, Protocol
 import numpy as np
 
 from .align import GopConfig, ctc_viterbi, edit_distance, greedy_decode, score_tokens
-from .tips import VOWELS, tip_for
+from .tips import VOWELS, sound_name, tip_for
 from .translit import to_hebrew
 
 log = logging.getLogger("ihki.scorer")
@@ -83,6 +83,8 @@ def tokenize(ipa: str, vocab: Vocab) -> list[TargetToken]:
 class ScorerConfig:
     flag_below: float = 50.0        # phoneme score under which a consonant gets a tip
     unrelated_ratio: float = 0.65   # normalised edit distance above which we say "different sentence"
+    issue_below: float = 90.0       # phoneme score under which it is listed as imprecise
+    max_issues: int = 8
     gop: GopConfig = field(default_factory=GopConfig)
 
 
@@ -117,7 +119,7 @@ class Scorer:
         phonemes, tips, seen = [], [], set()
         ar_words = ar.split()
         tr_words = to_hebrew(ipa, ar)
-        for tok, sc in zip(toks, scores):
+        for idx, (tok, sc) in enumerate(zip(toks, scores)):
             heard_ph = "_" if sc.deleted else (self.vocab.i2t.get(sc.competitor) if sc.competitor is not None else None)
             flagged = bool(sc.score < self.cfg.flag_below) and tok.phoneme not in VOWELS
             phonemes.append({"ipa": tok.phoneme, "word": tok.word, "score": sc.score,
@@ -128,6 +130,7 @@ class Scorer:
                     seen.add(tip["key"])
                     tip["word"] = ar_words[tok.word] if tok.word < len(ar_words) else ""
                     tip["word_tr"] = tr_words[tok.word]
+                    tip["idx"] = idx
                     tips.append(tip)
 
         n_words = len(ipa.split("|"))
@@ -144,8 +147,28 @@ class Scorer:
         overall = 0.5 * phone_mean + 0.5 * word_mean  # one wrong consonant must pull the sentence down
         if unrelated:
             overall = min(overall, 30.0)
+        tips = tips[:4]
+
+        # Anything short of 100 must say why: every imprecise sound that did not get a full tip,
+        # weakest first. If nothing is clearly off, name the weakest few.
+        issues = []
+        if round(overall) < 100 and not unrelated:
+            tipped = {t.pop("idx") for t in tips}
+            rest = sorted((i for i in range(len(toks)) if i not in tipped and scores[i].score < 100),
+                          key=lambda i: scores[i].score)
+            picked = [i for i in rest if scores[i].score < self.cfg.issue_below]
+            if not picked and not tips:
+                picked = rest[:3]
+            for i in picked[:self.cfg.max_issues]:
+                tok, sc = toks[i], scores[i]
+                comp = self.vocab.i2t.get(sc.competitor) if sc.competitor is not None else None
+                issues.append({"sound": sound_name(tok.phoneme) or tok.phoneme, "word_tr": tr_words[tok.word],
+                               "score": round(sc.score), "missing": bool(sc.deleted),
+                               "heard": None if sc.deleted else sound_name(comp)})
+        for t in tips:
+            t.pop("idx", None)
         return {"score": round(overall), "variant": {"ar": ar, "tr": " ".join(tr_words), "ipa": ipa}, "heard_ipa": heard,
-                "unrelated": unrelated, "words": words, "tips": tips[:4]}
+                "unrelated": unrelated, "words": words, "tips": tips, "issues": issues}
 
 
 # ---------- real model ----------

@@ -134,3 +134,13 @@ def test_api_end_to_end_with_stub_model():
         r = c.post("/api/score", data={"phrase_id": pid}, files={"audio": ("a.wav", buf.getvalue(), "audio/wav")})
         assert r.status_code == 200, r.text
         assert r.json()["tips"][0]["key"] == "ħ>x"
+
+
+def test_anything_below_100_says_what_was_wrong():
+    for phones in (["w", "eː", "n", "i", "l", "ħ", "a", "m", "aː", "m"],      # clean
+                   ["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"],      # wrong consonant
+                   ["w", "e", "n", "i", "l", "ħ", "a", "m", "a", "m"]):       # short vowels
+        r = scorer_for(emissions(phones)).score(None, TOILET)
+        assert r["score"] == 100 or r["unrelated"] or r["tips"] or r["issues"], phones
+        for i in r["issues"]:
+            assert i["word_tr"] and i["sound"] and not i["sound"].isascii()
