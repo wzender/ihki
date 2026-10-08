@@ -390,7 +390,7 @@ $("speakBtn").onclick=async()=>{
 
 /* ---------- driving mode: hands-free loop ----------
    say the Hebrew sentence -> listen (the VAD ends the recording) -> grade ->
-   say the score, the two most crucial tips, "התשובה הנכונה היא" and the answer in Arabic ->
+   say the answer in Arabic, then the score and the two most crucial tips ->
    under 30: ask whether to try again and listen for yes/no -> next sentence. */
 let driveRun=0, driveAudio=null, driveAudioDone=null, wakeLock=null;
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
@@ -415,11 +415,11 @@ async function sayHe(text){
   await speakLocal(text,"he-IL");
 }
 const speakable=s=>s.replace(/\s*\([^)]*\)/g,"").replace(/[\u0600-\u06FF]/g,"").replace(/\s+/g," ").trim();
-// "<score>. <the two most crucial tips>. התשובה הנכונה היא" - the Arabic answer is played right after it.
+// Spoken after the Arabic answer: "ציון <score>. <the two most crucial tips>".
 // The server sends the tips worst sound first; only the first sentence of each is spoken.
 function assessment(r){
   const tips=(r.unrelated?[]:r.tips.slice(0,2)).map(t=>`${speakable(t.title)}: ${speakable(t.text).split(/(?<=\.)\s/)[0]}`);
-  return [r.score+".", ...tips, "התשובה הנכונה היא"].join(" ").slice(0,390);
+  return [`ציון ${r.score}.`, ...tips].join(" ").slice(0,390);
 }
 // One hands-free recording. "answer" grades it against the sentence; "yesno" asks the server whether it was כן or לא.
 function recordOnce(mode="answer"){ return new Promise(res=>{ recDone=res; recMode=mode; mic.onclick(); }); }
@@ -441,11 +441,10 @@ async function drive(){
     }else{
       const r=out.r;
       st(`ציון ${r.score}`);
-      const ar=PHRASES[id].ar, answer=answerAudio(id);   // fetch the answer while the score is being said
-      await sayHe(assessment(r)); if(!on()) break;
-      const a=await answer; if(!on()) break;
-      if(a){ ttsInfo(a.label); await playUrl(a.url); } else await speakLocal(ar,"ar");   // device voice when Sawtak is unavailable
+      const a=await answerAudio(id); if(!on()) break;   // first the correct answer in Arabic ...
+      if(a){ ttsInfo(a.label); await playUrl(a.url); } else await speakLocal(PHRASES[id].ar,"ar");   // device voice when Sawtak is unavailable
       if(!on()) break;
+      await sayHe(assessment(r)); if(!on()) break;      // ... then the grade and the tips
       if(r.score<30){                       // a poor attempt: offer another go at the same sentence
         await sayHe("רוצה לנסות שוב?"); if(!on()) break;
         await pause(250); st("🎤 אמרו כן או לא");
