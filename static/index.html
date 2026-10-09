@@ -99,16 +99,18 @@ body.driving .mic{width:84px;height:84px}
 .voicebox select{font:600 14px var(--f-body);padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
 .note{font-size:12px;margin:0;color:var(--muted);max-width:65ch}
 .warn{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:10px 12px;font-size:14px}
-/* Opening splash: the ornament is sketched in lines that resolve into the logo (the animation lives in logo-intro.svg), then the overlay fades out. Skipped for reduced motion. */
-#logo-splash{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:white;pointer-events:none;animation:splash-out .35s ease 3s forwards}
+/* Opening screen: the ornament is sketched in lines that resolve into the logo (the animation lives in logo-intro.svg), then the start button appears; pressing it fades the screen out. */
+#logo-splash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:white;transition:opacity .35s ease,visibility .35s ease}
+#logo-splash.done{opacity:0;visibility:hidden;pointer-events:none}
 #logo-splash img{width:min(82vw,620px);height:auto}
-@keyframes splash-out{to{opacity:0;visibility:hidden}}
-@media (prefers-reduced-motion:reduce){#logo-splash{animation:none;display:none}}
+#startBtn{font:400 24px/1 var(--f-display);padding:14px 34px;border-radius:14px;border:0;cursor:pointer;background:#4B6A2C;color:#fff;opacity:0;animation:start-in .45s ease-out 2.1s forwards}
+@keyframes start-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){#startBtn{animation:none;opacity:1}#logo-splash{transition:none}}
 </style>
 </head>
 <body>
-<div id="logo-splash" aria-hidden="true"><img src="static/logo-intro.svg" alt="" width="489" height="225"></div>
-<div class="wrap">
+<div id="logo-splash"><img src="static/logo-intro.svg" alt="אהלא וסהלא, בית הספר ללימוד השפה הערבית" width="489" height="225"><button id="startBtn">יאללה נבלש</button></div>
+<div class="wrap" id="wrap" inert>
   <header>
     <div class="brand">אהלא וסהלא</div>
     <div class="sub">תרגמו לערבית מדוברת ואמרו בקול</div>
@@ -505,8 +507,12 @@ fetch("/api/phrases").then(r=>r.json()).then(d=>{
 }).catch(()=>{ $("prompt").textContent="השרת לא זמין."; });
 </script>
 <script>
-/* Removal is cleanup only; CSS completes the intro even if JS is unavailable. */
-setTimeout(()=>document.getElementById('logo-splash')?.remove(),3450);
+/* The opening screen stays until the start button is pressed. */
+$("startBtn").onclick=()=>{
+  const splash=$("logo-splash");
+  $("wrap").inert=false; splash.classList.add("done"); setTimeout(()=>splash.remove(),400);
+};
+$("startBtn").focus({preventScroll:true});
 </script>
 </body>
 </html>
