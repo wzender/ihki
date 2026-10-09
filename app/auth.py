@@ -20,12 +20,15 @@ import re
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 log = logging.getLogger("ihki.auth")
 TIMEOUT = 10
 CACHE_TTL = 300  # seconds a checked token is trusted without asking again
 CACHE_MAX = 2000
+PAGE = 1000  # rows per request: Supabase's default ceiling
+MAX_ATTEMPTS = 20_000  # of one student, read for their progress
 
 
 class AuthUnavailable(RuntimeError):
@@ -79,6 +82,28 @@ class SupabaseAuth:
             urllib.request.urlopen(req, timeout=TIMEOUT).close()
         except (urllib.error.URLError, TimeoutError) as e:  # HTTPError is a URLError
             log.warning("attempt not recorded: %s", e)
+
+    def attempts(self, token: str) -> list[dict]:
+        """The student's attempts, newest first, without the "different sentence" ones: cat, phrase, score,
+        created_at. Row-level security limits them to the token's student. What cannot be read is logged."""
+        rows: list[dict] = []
+        while len(rows) < MAX_ATTEMPTS:
+            query = urllib.parse.urlencode({"select": "cat,phrase,score,created_at", "unrelated": "is.false",
+                                            "order": "created_at.desc", "limit": PAGE, "offset": len(rows)})
+            req = urllib.request.Request(
+                f"{self.url}/rest/v1/attempts?{query}",
+                headers={"Authorization": f"Bearer {token}", "apikey": self.key, "User-Agent": "ihki/1.0"},
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
+                    batch = json.load(res)
+            except (urllib.error.URLError, TimeoutError, ValueError) as e:
+                log.warning("attempts not read: %s", e)
+                break
+            rows += batch
+            if len(batch) < PAGE:
+                break
+        return rows
 
 
 def load_auth() -> SupabaseAuth | None:

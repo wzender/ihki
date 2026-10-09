@@ -128,18 +128,11 @@ PHRASES += day2_phrases()
 # ---- שיעורים ---- the workbook's translation exercises, lesson by lesson (see workbook.py)
 PHRASES += workbook_phrases()
 
-# The page asks for a lesson first, then one of its categories: the course's lessons (workbook.py)
-# and, last, the phrases that belong to no lesson.
-FREE = "free"
-LESSONS = [*LESSON_TABS, {"id": FREE, "name": "תרגול חופשי"}]
-CATEGORIES = [
-    *WORKBOOK_CATEGORIES,
-    {"id": "meet", "name": "היכרות", "lesson": FREE},
-    {"id": "talk", "name": "שיחה", "lesson": FREE},
-    {"id": "city", "name": "בעיר", "lesson": FREE},
-    {"id": "food", "name": "אוכל וקניות", "lesson": FREE},
-    {"id": "day2", "name": "יום 2", "lesson": FREE},
-]
+# The page asks for a lesson first, then one of its categories: the course's lessons (workbook.py).
+# The phrases that belong to no lesson (meet, talk, city, food, day2) have no tab. They stay in the
+# bank, so phrase ids and the attempts recorded on them hold; public_phrases leaves them out.
+LESSONS = [*LESSON_TABS]
+CATEGORIES = [*WORKBOOK_CATEGORIES]
 
 
 def public_phrases():
@@ -149,8 +142,9 @@ def public_phrases():
     category's `listed` phrases, in `seq` order, and reaches the others with its negation and
     conjugation buttons. Workbook phrases carry seq and read (see workbook.py).
     """
+    shown = {c["id"] for c in CATEGORIES}
     return [
         {"id": i, "cat": p["cat"], "he": p["he"], "tr": p["tr"], "ar": p["variants"][0][0],
          **{k: p[k] for k in ("grp", "pron", "neg", "listed", "seq", "read") if k in p}}
-        for i, p in enumerate(PHRASES)
+        for i, p in enumerate(PHRASES) if p["cat"] in shown
     ]

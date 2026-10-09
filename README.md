@@ -94,6 +94,8 @@ create policy "students read their own attempts" on public.attempts
   for select to authenticated using (user_id = auth.uid());
 ```
 
+The page's "ההתקדמות שלי" button reads these rows back through `GET /api/progress` (best score and tries per phrase, recordings, days practised) and shows them per topic; the best scores then follow the student between devices.
+
 The teacher's view, also in the SQL editor (it runs as the owner, so it sees every student):
 
 ```sql

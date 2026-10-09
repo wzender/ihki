@@ -129,7 +129,9 @@ def test_api_end_to_end_with_stub_model():
     with TestClient(app) as c:
         assert c.get("/").status_code == 200
         ph = c.get("/api/phrases").json()
-        assert len(ph["phrases"]) == len(PHRASES) and "ipa" not in ph["phrases"][0]
+        shown = {c["id"] for c in ph["categories"]}   # the phrases of no lesson are in the bank, not on the page
+        assert len(ph["phrases"]) == sum(p["cat"] in shown for p in PHRASES) and "ipa" not in ph["phrases"][0]
+        assert TOILET["cat"] not in shown and [l["id"] for l in ph["lessons"]] == ["1", "2"]
         pid = PHRASES.index(TOILET)
         r = c.post("/api/score", data={"phrase_id": pid}, files={"audio": ("a.wav", buf.getvalue(), "audio/wav")})
         assert r.status_code == 200, r.text
@@ -215,9 +217,8 @@ def test_heard_is_reported_per_word_in_hebrew():
 
 def test_day2_grammar_reaches_every_pronoun_and_negation():
     from app.grammar import PRONOUNS, SENTENCES
-    from app.phrases import public_phrases
-
-    day2 = [p for p in public_phrases() if p["cat"] == "day2"]
+    # day 2 has no tab on the page, so the bank is read directly, in the page's shape
+    day2 = [{**p, "id": i, "ar": p["variants"][0][0]} for i, p in enumerate(PHRASES) if p["cat"] == "day2"]
     listed = [p for p in day2 if p["listed"]]
     assert len(listed) == len(SENTENCES) and not any(p["neg"] for p in listed)
     for p in listed:  # each taught sentence has its negation and the other seven subjects
@@ -353,7 +354,7 @@ def test_references_use_one_generated_voice_and_any_cached_one():
 def test_workbook_lesson_1():
     from app.phrases import CATEGORIES, LESSONS, public_phrases
 
-    assert [l["id"] for l in LESSONS] == ["1", "2", "free"]
+    assert [l["id"] for l in LESSONS] == ["1", "2"]
     assert [c["id"] for c in CATEGORIES if c["lesson"] == "1"] == ["l1-pron", "l1-verbs", "l1-past", "l1-say", "l1-read"]
     pub = public_phrases()
     count = lambda cat: sum(p["cat"] == cat for p in pub)
@@ -412,6 +413,8 @@ def test_sign_in_guards_the_practice_endpoints():
 
     from app.main import create_app
 
+    VERB = next(p for p in PHRASES if p["cat"] == "l1-verbs")
+
     class FakeAuth:
         url, key, allowed = "https://proj.supabase.co", "sb_publishable_x", frozenset()
 
@@ -423,6 +426,11 @@ def test_sign_in_guards_the_practice_endpoints():
 
         def record(self, token, row):
             self.rows.append((token, row))
+
+        def attempts(self, token):   # two tries of one sentence on one Israeli day (across midnight UTC), one unlisted sentence
+            return [{"cat": VERB["cat"], "phrase": VERB["he"], "score": 62, "created_at": "2026-10-08T21:30:00.5+00:00"},
+                    {"cat": VERB["cat"], "phrase": VERB["he"], "score": 88, "created_at": "2026-10-09T10:00:00+00:00"},
+                    {"cat": TOILET["cat"], "phrase": TOILET["he"], "score": 90, "created_at": "2026-10-01T10:00:00.123456+00:00"}]
 
     with TestClient(create_app(scorer_for(emissions(["w"])), auth=FakeAuth())) as c:
         page = c.get("/").text
@@ -452,5 +460,10 @@ def test_sign_in_guards_the_practice_endpoints():
         (token, row), = auth.rows
         assert token == "good" and row["phrase"] == TOILET["he"] and row["cat"] == TOILET["cat"]
         assert row["score"] == round(r.json()["score"]) and row["unrelated"] is False
+        assert c.get("/api/progress").status_code == 401
+        assert c.get("/api/progress", headers={"Authorization": "Bearer good"}).json() == {
+            "best": {str(PHRASES.index(VERB)): 88}, "tries": {str(PHRASES.index(VERB)): 2}, "recordings": 3, "days": 2}
+    with TestClient(create_app(scorer_for(emissions(["w"])))) as c:   # no sign-in: nothing to show
+        assert c.get("/api/progress").json() == {"best": {}, "tries": {}, "recordings": 0, "days": 0}
     with TestClient(create_app(scorer_for(emissions(["w"])))) as c:   # not configured: open, as before
         assert 'AUTH_URL=""' in c.get("/").text and c.get("/api/tts/0").status_code == 503

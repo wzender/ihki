@@ -15,7 +15,9 @@ import re
 import time
 import urllib.parse
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
@@ -33,6 +35,7 @@ logging.basicConfig(level=logging.INFO)
 STATIC = Path(__file__).resolve().parent.parent / "static"
 load_dotenv(STATIC.parent / ".env")
 MODEL_ID = os.environ.get("MODEL_ID", "facebook/wav2vec2-xlsr-53-espeak-cv-ft")
+LOCAL_TZ = ZoneInfo("Asia/Jerusalem")  # a day of practice is the students' calendar day
 MAX_UPLOAD = 2_000_000  # bytes; 15 s of opus is ~100 KB
 
 
@@ -91,6 +94,25 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def me(user: dict | None = Depends(signed_in)):
         """Who is signed in; the page asks this right after sign-in to learn whether the account is let in."""
         return {"email": user["email"] if user else ""}
+
+    @app.get("/api/progress")
+    def progress(user: dict | None = Depends(signed_in)):
+        """The signed-in student's progress: best score and tries per phrase id, recordings, days practised."""
+        best: dict[int, int] = {}
+        tries: dict[int, int] = {}
+        days = set()
+        rows = app.state.auth.attempts(user["token"]) if user else []
+        shown = {c["id"] for c in CATEGORIES}
+        ids = {(p["cat"], p["he"]): i for i, p in enumerate(PHRASES) if p["cat"] in shown}
+        for r in rows:
+            # the seconds part only: the fraction's length varies, which Python 3.10 does not parse
+            at = datetime.strptime(r["created_at"][:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+            days.add(at.astimezone(LOCAL_TZ).date())
+            i = ids.get((r["cat"], r["phrase"]))
+            if i is not None:   # a sentence the page no longer lists still counts as a recording
+                best[i] = max(best.get(i, 0), r["score"])
+                tries[i] = tries.get(i, 0) + 1
+        return {"best": best, "tries": tries, "recordings": len(rows), "days": len(days)}
 
     @app.get("/api/phrases")
     def phrases():

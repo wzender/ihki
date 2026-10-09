@@ -8,3 +8,4 @@ huggingface_hub>=0.23
 python-dotenv>=1.0
 edge-tts>=7.0
 gTTS>=2.5
+tzdata>=2024.1  # time zones for zoneinfo: the slim image may not carry the system ones
