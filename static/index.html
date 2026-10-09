@@ -104,12 +104,11 @@ body.home #practice,body.home #driveBtn,body:not(.home) #path{display:none}
 #denied{text-align:center;font:600 18px/1.5 var(--f-body);color:#1C241D;padding:0 20px}
 #denied button{display:block;margin:12px auto 0;font:600 16px/1 var(--f-body);padding:10px 22px;border-radius:10px;border:1px solid #4B6A2C;background:#fff;color:#4B6A2C;cursor:pointer}
 #logoutBtn{position:fixed;bottom:4px;right:6px;z-index:9;font:500 11px/1 var(--f-body);padding:3px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
-.version{position:fixed;bottom:4px;left:6px;z-index:9;font:500 11px/1 var(--f-ipa);direction:ltr;padding:3px 6px;border-radius:6px;background:var(--amber-bg);color:var(--amber);opacity:.85;pointer-events:none}
 header .sub{flex:1}
 .drive{font:700 15px var(--f-body);border-radius:999px;padding:6px 14px;cursor:pointer;border:1px solid var(--olive);background:transparent;color:var(--olive)}
 body.driving .drive{background:var(--sumac);border-color:var(--sumac);color:#fff}
 /* driving mode: nothing to read or press but the stop button */
-body.driving .roundbar,body.driving .row,body.driving .voicebox,body.driving .note,body.driving .task{display:none}
+body.driving .roundbar,body.driving .row,body.driving .voicebox,body.driving .task{display:none}
 body.driving .prompt{font-size:clamp(30px,8vw,48px)}
 body.driving .status{font-size:20px;font-weight:700;color:var(--ink)}
 body.driving .mic{width:84px;height:84px}
@@ -117,7 +116,6 @@ body.driving .mic{width:84px;height:84px}
 .voicebox label{display:flex;align-items:center;gap:6px;cursor:pointer}
 .voicebox .sep{flex:1}
 .voicebox select{font:600 14px var(--f-body);padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
-.note{font-size:12px;margin:0;color:var(--muted);max-width:65ch}
 .warn{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:10px 12px;font-size:14px}
 /* A topic opens on the sentences not practised yet; the box brings the practised ones back, each with its best score. */
 .roundbar{display:flex;align-items:center;justify-content:space-between;gap:6px 12px;flex-wrap:wrap}
@@ -213,23 +211,21 @@ body.driving .card.storymode .prompt{display:block}
       <button class="btn" id="negBtn" hidden title="אותו משפט בשלילה">שלילה</button>
       <button class="btn" id="conjBtn" hidden title="אותו משפט עם גוף אחר, אקראי">הטיית פעלים</button>
       <button class="btn" id="answerBtn">הצג תשובה</button>
-      <button class="btn" id="speakBtn">🔊 השמע</button>
-      <button class="btn" id="playMine" disabled>▶ ההקלטה שלי</button>
+      <button class="btn" id="speakBtn" title="השמע" aria-label="השמע">🔊</button>
+      <button class="btn" id="playMine" title="ההקלטה שלי" aria-label="ההקלטה שלי" disabled>▶</button>
       <span style="flex:1"></span>
-      <button class="btn" id="prevBtn">→ המשפט הקודם</button>
-      <button class="btn primary" id="nextBtn">המשפט הבא ←</button>
+      <button class="btn" id="prevBtn" title="המשפט הקודם" aria-label="המשפט הקודם">→</button>
+      <button class="btn primary" id="nextBtn" title="המשפט הבא" aria-label="המשפט הבא">←</button>
     </div>
   </main>
 
   <div class="voicebox"><label>קול ההשמעה<select id="voiceId"></select></label><label>מהירות<select id="speed"><option value="0.8">x0.8</option><option value="1">x1</option><option value="1.5">x1.5</option></select></label><span class="sep"></span><label><input type="checkbox" id="readHe">הקראת המשפט בעברית</label></div>
-  <p class="note">הניתוח נעשה ברמת ההגה. ההשמעה נוצרת בקול של ערבית מדוברת מ-Sawtak Arabi; אם השירות אינו זמין, נעשה שימוש בקול הערבי של המכשיר.</p>
   </div>
 </div>
 <dialog id="listDlg" aria-labelledby="listTitle">
   <div class="dlg-head"><h2 id="listTitle"></h2><button class="btn" id="listClose">סגירה</button></div>
   <ol class="plist" id="plist"></ol>
 </dialog>
-<div class="version" title="גרסת debug">v __VERSION__<span id="heInfo"></span><span id="ttsInfo"></span></div>
 <button id="logoutBtn" hidden>יציאה</button>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -398,7 +394,6 @@ async function promptUrl(id){
       const res=await api(`/api/prompt-audio/${id}?engine=${heEngine}`);
       if(!res.ok) return null;
       heUrls[id]=URL.createObjectURL(await res.blob());
-      $("heInfo").textContent=" · 🗣 "+(res.headers.get("X-TTS-Engine")==="edge"?"edge-tts":"gTTS");
     }catch{ return null; }
   }
   return heUrls[id];
@@ -433,13 +428,13 @@ for(const ev of ["pointerdown","keydown"]) addEventListener(ev,()=>{
 },true);
 // A grade above AUTO_NEXT moves on by itself after the grade has been seen for a moment; show() then reads the next prompt.
 // The seconds left are counted down on the "next sentence" button.
-const AUTO_NEXT={above:80, seconds:3}, NEXT_LABEL="המשפט הבא";
+const AUTO_NEXT={above:80, seconds:3};
 let autoNext=null;
-function cancelAutoNext(){ clearInterval(autoNext); autoNext=null; $("nextBtn").textContent=NEXT_LABEL+" ←"; }
+function cancelAutoNext(){ clearInterval(autoNext); autoNext=null; $("nextBtn").textContent="←"; }
 function startAutoNext(){
   cancelAutoNext();
   let left=AUTO_NEXT.seconds;
-  const tick=()=>{ if(left>0) $("nextBtn").textContent=`${NEXT_LABEL} (${left--}) ←`; else nextPhrase(); };
+  const tick=()=>{ if(left>0) $("nextBtn").textContent=`(${left--}) ←`; else nextPhrase(); };
   tick(); autoNext=setInterval(tick,1000);
 }
 /* Story topics (a category with `story`): the teacher goes down the conversation line by line. The student says
@@ -492,7 +487,7 @@ async function storyRetry(){   // the grade did not pass: the answer is played, 
   const last=++storyTries>=STORY.tries;
   $("status").textContent=`ניסיון ${storyTries} מתוך ${STORY.tries} · הקשיבו לתשובה`;
   const a=await answerAudio(id); if(!on()) return;
-  if(a){ ttsInfo(a.label); await playUrl(a.url,true); } else await speakLocal(cur.ar,"ar");   // device voice when Sawtak is unavailable
+  if(a) await playUrl(a.url,true); else await speakLocal(cur.ar,"ar");   // device voice when Sawtak is unavailable
   if(!on()) return;
   await pause(300); if(!on()) return;           // let the loudspeaker go quiet before listening
   if(last){ nextPhrase(); return; }
@@ -712,7 +707,7 @@ $("prevBtn").onclick=()=>{   // the sentence before this one in the topic, pract
 };
 function arVoice(){ const vs=speechSynthesis.getVoices(); return vs.find(v=>/^ar[-_](PS|JO|LB|SY|IL)/i.test(v.lang))||vs.find(v=>/^ar/i.test(v.lang)); }
 if("speechSynthesis" in window) speechSynthesis.getVoices();
-const ttsUrls={};   // "phrase id|voice" -> {url, voice label} of the server-generated answer
+const ttsUrls={};   // "phrase id|voice" -> {url} of the server-generated answer
 $("readHe").checked=store.get("ihki.readHe",false);
 $("readHe").onchange=()=>{
   store.set("ihki.readHe",$("readHe").checked);
@@ -724,22 +719,16 @@ $("speed").value=String(store.get("ihki.speed",1)); if(!$("speed").value) $("spe
 $("speed").onchange=()=>store.set("ihki.speed",+$("speed").value);
 const answerRate=()=>+$("speed").value||1;
 function answerPlayer(url){ const a=new Audio(url); a.preservesPitch=true; a.playbackRate=answerRate(); return a; }
-let ttsVoice="";   // debug: why the server voice was not used, shown in the version badge
-const ttsInfo=t=>{ $("ttsInfo").textContent=" · 🔊 "+t; };
 let ttsOff=false;   // server has no TTS key: stop asking
-async function answerAudio(id){   // {url,label} of the Sawtak answer, or null when the server voice is unavailable
+async function answerAudio(id){   // {url} of the Sawtak answer, or null when the server voice is unavailable
   const voice=$("voiceId").value, key=id+"|"+voice;
-  ttsVoice="";
   if(!ttsOff && !ttsUrls[key]){
     try{
       const res=await api("/api/tts/"+id+(voice?"?voice="+encodeURIComponent(voice):""));
       if(res.ok){
-        const h=k=>decodeURIComponent(res.headers.get(k)||""), name=h("X-TTS-Voice-Name");
-        ttsUrls[key]={url:URL.createObjectURL(await res.blob()),
-          label:(h("X-TTS-Provider")||"sawtakarabi.ai")+" · voice "+(name?name+" ":"")+h("X-TTS-Voice-Id")};
+        ttsUrls[key]={url:URL.createObjectURL(await res.blob())};
       }else{
         const detail=(await res.json().catch(()=>({}))).detail||res.status;
-        ttsVoice="tts failed: "+detail;
         if(detail==="tts not configured") ttsOff=true;   // no key on the server: stop asking
       }
     }catch{}
@@ -749,12 +738,11 @@ async function answerAudio(id){   // {url,label} of the Sawtak answer, or null w
 $("speakBtn").onclick=async()=>{
   const id=cur.id, btn=$("speakBtn");
   btn.disabled=true; const a=await answerAudio(id); btn.disabled=false;
-  if(a){ if(cur.id===id){ answerPlayer(a.url).play(); ttsInfo(a.label); } return; }
-  if(!("speechSynthesis" in window)){ ttsInfo("no voice available"); return; }
+  if(a){ if(cur.id===id){ answerPlayer(a.url).play(); } return; }
+  if(!("speechSynthesis" in window)) return;
   const u=new SpeechSynthesisUtterance(cur.ar); const v=arVoice();
   if(v){u.voice=v;u.lang=v.lang;} else u.lang="ar-SA";
   u.rate=.85*answerRate(); speechSynthesis.cancel(); speechSynthesis.speak(u);
-  ttsInfo("device voice"+(v?" "+v.name:"")+(ttsOff?" (tts not configured)":ttsVoice?" ("+ttsVoice+")":""));
 };
 
 /* ---------- driving mode: hands-free loop ----------
@@ -807,7 +795,7 @@ async function drive(){
     }else{                                  // not there yet: the only feedback is the correct answer, in Arabic
       st(`ציון ${out.r.score} · התשובה הנכונה`);
       const a=await answerAudio(id); if(!on()) break;
-      if(a){ ttsInfo(a.label); await playUrl(a.url,true); } else await speakLocal(phraseOf(id).ar,"ar");   // device voice when Sawtak is unavailable
+      if(a) await playUrl(a.url,true); else await speakLocal(phraseOf(id).ar,"ar");   // device voice when Sawtak is unavailable
     }
     if(!on()) break;
     await pause(700); if(!on()) break;
