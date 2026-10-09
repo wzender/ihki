@@ -146,14 +146,21 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .mtitle{font:400 24px/1 var(--f-display);margin:0}
 #mList{display:flex;flex-direction:column;gap:10px}
 .stu{display:block;padding:0}
-.stu summary{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;padding:12px 16px;cursor:pointer;list-style:none}
+.stu summary{cursor:pointer;list-style:none}
+.stu>summary{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;padding:12px 16px}
 .stu summary::-webkit-details-marker{display:none}
 .stu .who{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
 .stu .who b{font-weight:700;overflow-wrap:anywhere}
 .stu .who small,.stu .stats{color:var(--muted);font-size:14px}
 .stu .none{color:var(--muted);font-size:13px}
 .stu .stats,.stu .progress{grid-column:1/-1;margin:0}
-.stu h3{margin:0;padding:8px 16px 2px;border-top:1px solid var(--line);font:700 13px/1.4 var(--f-body);color:var(--muted)}
+/* inside a student, each part (the best sentences, the weakest, every lesson) opens and closes on its heading */
+.sec>summary{display:grid;grid-template-columns:1fr auto 3em;gap:4px 10px;align-items:center;padding:8px 16px;border-top:1px solid var(--line);font:700 15px/1.4 var(--f-body)}
+.sec>summary>:first-child::before{content:"◂";display:inline-block;margin-inline-end:6px;color:var(--muted);transition:transform .12s}
+.sec[open]>summary>:first-child::before{transform:rotate(-90deg)}
+.sec>summary small{font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.sec>summary .pill,.sec>summary .none{justify-self:end}
+.sec[open]{padding-bottom:6px}
 .trow{display:grid;grid-template-columns:1fr auto auto 3em;gap:10px;align-items:center;padding:5px 16px;font-size:15px}
 .trow small{color:var(--muted);font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .trow .pill,.trow .none{justify-self:end}
@@ -162,7 +169,8 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .hard h2{margin:0;padding:0 16px 6px;font:400 19px/1.2 var(--f-display)}
 .hard h2 small{display:block;margin-top:2px;font:600 13px/1.3 var(--f-body);color:var(--muted)}
 .hard .trow{grid-template-columns:1fr auto auto 3em;border-top:1px solid var(--line);padding-block:7px}
-.hard .trow span:first-child{display:flex;flex-direction:column;font-weight:600}
+.trow .two{display:flex;flex-direction:column;font-weight:600}
+.stu .trow.s3{grid-template-columns:1fr auto 3em}
 #logoutBtn{position:fixed;bottom:4px;right:6px;z-index:9;font:500 11px/1 var(--f-body);padding:3px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
 .drive{margin-inline-start:auto;font:700 15px var(--f-body);border-radius:999px;padding:6px 14px;cursor:pointer;border:1px solid var(--olive);background:transparent;color:var(--olive)}
 body.driving .drive{background:var(--sumac);border-color:var(--sumac);color:#fff}
@@ -1046,6 +1054,10 @@ $("toManage").onclick=$("mRefresh").onclick=showManage;
 $("mPractice").onclick=()=>{ document.body.classList.remove("manage"); drawPath(); };   // the path was not laid out while hidden
 const grade=n=>mark("pill "+(n>=EXCELLENT?"good":n>=60?"mid":"bad"),n);
 const mean=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):null;
+function sentence(p,under){   // a sentence as the student sees it, and a small line under it
+  const text=mark("two",""), name=document.createElement("span");
+  setTr(name,p.read?p.tr:p.he); text.append(name,mark("",under,"small")); return text;
+}
 async function loadManage(){
   const state=$("mState"), box=$("mList"), hard=$("mHard");
   state.textContent="טוען…"; box.innerHTML=""; hard.hidden=true;
@@ -1072,12 +1084,13 @@ async function loadManage(){
   if(worst.length){
     const h=mark("","המשפטים הקשים ביותר","h2"); h.append(mark("","הממוצע הנמוך ביותר של הציון הטוב של כל תלמיד","small")); hard.append(h);
     for(const x of worst){
-      const row=mark("trow",""), text=document.createElement("span"), name=document.createElement("b"), c=CATS.find(c=>c.id===x.p.cat);
-      name.style.fontWeight="inherit"; setTr(name,x.p.read?x.p.tr:x.p.he); text.append(name,mark("",c?c.name:"","small"));
-      const l=c&&LESSONS.find(l=>l.id===c.lesson);
-      row.append(text,mark("",l?l.name:"","small"),mark("",`${x.k} תלמידים`,"small"),grade(x.avg)); hard.append(row);
+      const row=mark("trow",""), c=CATS.find(c=>c.id===x.p.cat), l=c&&LESSONS.find(l=>l.id===c.lesson);
+      row.append(sentence(x.p,c?c.name:""),mark("",l?l.name:"","small"),mark("",`${x.k} תלמידים`,"small"),grade(x.avg)); hard.append(row);
     }
   }
+  const ratio=t=>{ const m=document.createElement("small"), n=document.createElement("bdi"); n.dir="ltr"; n.textContent=`${t.done}/${t.n}`; m.append(n); return m; };
+  const part=into=>{ const d=document.createElement("details"); d.className="sec"; d.append(document.createElement("summary")); into.append(d); return d; };   // a closed part of a student's card
+  const place=p=>{ const c=CATS.find(c=>c.id===p.cat), l=c&&LESSONS.find(l=>l.id===c.lesson); return [l&&l.name,c&&c.name].filter(Boolean).join(" · "); };
   for(const s of all){
     const det=document.createElement("details"), sum=document.createElement("summary"), who=mark("who",""), bar=mark("progress",""), fill=document.createElement("i");
     det.className="card stu";
@@ -1088,13 +1101,24 @@ async function loadManage(){
     if(s.avg!=null) sum.lastChild.title="ממוצע הציונים הטובים ביותר";
     sum.append(mark("stats",`תורגלו ${s.done} מתוך ${s.n} משפטים · ${s.recordings} הקלטות, ${s.week} מהן בשבוע האחרון · ${s.days} ימי תרגול`+(when?` · לאחרונה ${when}`:"")),bar);
     det.append(sum);
-    for(const l of LESSONS){
-      det.append(mark("",l.name,"h3"));
-      for(const c of CATS.filter(c=>c.lesson===l.id)){
-        const t=tally(s,listed.filter(p=>p.cat===c.id)), row=mark("trow"+(t.done?"":" untouched"),""), n=document.createElement("bdi");
-        n.dir="ltr"; n.textContent=`${t.done}/${t.n}`;
-        row.append(mark("",c.name),mark("",t.tries?`${t.tries} ניסיונות`:"","small"),mark("","","small"),t.avg!=null?grade(t.avg):mark("none","–"));
-        row.children[2].append(n); det.append(row);
+    // the student's best and weakest sentences, by their best score; a sentence is in one list only
+    const got=listed.filter(p=>s.best[p.id]!=null).sort((a,b)=>s.best[b.id]-s.best[a.id]), top=got.slice(0,5), low=got.slice(5).slice(-5).reverse();
+    for(const [title,list] of [["5 המשפטים הטובים ביותר",top],["5 המשפטים החלשים ביותר",low]]){
+      if(!list.length) continue;
+      const sec=part(det); sec.firstChild.append(mark("",title));
+      for(const p of list){
+        const row=mark("trow s3",""), n=s.tries[p.id]||0;
+        row.append(sentence(p,place(p)),mark("",n>1?`${n} ניסיונות`:"","small"),grade(s.best[p.id])); sec.append(row);
+      }
+    }
+    for(const l of LESSONS){   // a lesson: how much of it was practised and its grade, then its topics
+      const cats=CATS.filter(c=>c.lesson===l.id), t=tally(s,listed.filter(p=>cats.some(c=>c.id===p.cat)));
+      const sec=part(det), bar=mark("progress",""), fill=document.createElement("i");
+      fill.style.width=`${t.n?t.done/t.n*100:0}%`; bar.append(fill);
+      sec.firstChild.append(mark("",l.name),ratio(t),t.avg!=null?grade(t.avg):mark("none","–"),bar);
+      for(const c of cats){
+        const t=tally(s,listed.filter(p=>p.cat===c.id)), row=mark("trow"+(t.done?"":" untouched"),"");
+        row.append(mark("",c.name),mark("",t.tries?`${t.tries} ניסיונות`:"","small"),ratio(t),t.avg!=null?grade(t.avg):mark("none","–")); sec.append(row);
       }
     }
     box.append(det);
