@@ -69,6 +69,10 @@ body.home #practice,body.home #driveBtn,body:not(.home) #path{display:none}
 .hint .arline{font:500 16px/1.4 var(--f-ar);color:var(--muted)}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .btn{font:600 15px var(--f-body);border-radius:10px;padding:6px 12px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink)}
+/* the card's action bar: one line on a phone, the same gap between all its buttons; the icon ones share the width left */
+.bar{flex-wrap:nowrap}
+.bar .btn{flex:1 1 0;min-width:0;padding:6px 4px;white-space:nowrap}
+.bar #answerBtn{flex:0 0 auto;padding:6px 12px}
 .btn.primary{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
 .btn:disabled{opacity:.45;cursor:default}
 :focus-visible{outline:3px solid var(--olive);outline-offset:2px}
@@ -207,13 +211,14 @@ body.driving .card.storymode .prompt{display:block}
       <ul class="tips" id="tips"></ul>
     </section>
 
-    <div class="row">
-      <button class="btn" id="negBtn" hidden title="אותו משפט בשלילה">שלילה</button>
-      <button class="btn" id="conjBtn" hidden title="אותו משפט עם גוף אחר, אקראי">הטיית פעלים</button>
+    <div class="row" id="varRow" hidden>
+      <button class="btn" id="negBtn" title="אותו משפט בשלילה">שלילה</button>
+      <button class="btn" id="conjBtn" title="אותו משפט עם גוף אחר, אקראי">הטיית פעלים</button>
+    </div>
+    <div class="row bar">
       <button class="btn" id="answerBtn">הצג תשובה</button>
       <button class="btn" id="speakBtn" title="השמע" aria-label="השמע">🔊</button>
       <button class="btn" id="playMine" title="ההקלטה שלי" aria-label="ההקלטה שלי" disabled>▶</button>
-      <span style="flex:1"></span>
       <button class="btn" id="prevBtn" title="המשפט הקודם" aria-label="המשפט הקודם">→</button>
       <button class="btn primary" id="nextBtn" title="המשפט הבא" aria-label="המשפט הבא">←</button>
     </div>
@@ -434,7 +439,7 @@ function cancelAutoNext(){ clearInterval(autoNext); autoNext=null; $("nextBtn").
 function startAutoNext(){
   cancelAutoNext();
   let left=AUTO_NEXT.seconds;
-  const tick=()=>{ if(left>0) $("nextBtn").textContent=`(${left--}) ←`; else nextPhrase(); };
+  const tick=()=>{ if(left>0) $("nextBtn").textContent=`${left--} ←`; else nextPhrase(); };
   tick(); autoNext=setInterval(tick,1000);
 }
 /* Story topics (a category with `story`): the teacher goes down the conversation line by line. The student says
@@ -505,7 +510,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   $("card").classList.toggle("storymode",story); $("story").hidden=!story;
   if(story) drawStory(); else seatMic();
   promptRead=readPrompt();
-  $("negBtn").hidden=$("conjBtn").hidden=cur.grp==null;
+  $("varRow").hidden=cur.grp==null;
   $("negBtn").textContent=cur.neg?"חיוב":"שלילה";
   // read phrases (workbook, Arabic -> Hebrew): the transliteration is the prompt and the Hebrew is the answer
   setTr($("prompt"),cur.read?cur.tr:cur.he);
