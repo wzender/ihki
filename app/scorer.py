@@ -13,7 +13,7 @@ import numpy as np
 
 from .align import GopConfig, ctc_viterbi, edit_distance, greedy_decode, score_tokens
 from .tips import NO_DELETION_TIP, VOWELS, sound_name, tip_for
-from .translit import CONSONANTS as _HEB_C, VOWELS as _HEB_V, to_hebrew, word_to_hebrew
+from .translit import CONSONANTS as _HEB_C, VOWELS as _HEB_V, to_hebrew, word_letters, word_to_hebrew
 
 HEBREW_SOUNDS = set(_HEB_C) | set(_HEB_V)
 
@@ -190,6 +190,23 @@ class Scorer:
                     out[b + k] = ref.scores[a + k] if out[b + k] is None else min(out[b + k], ref.scores[a + k])
         return out
 
+    def _carriers(self, ipa: str) -> list[list[list[int]]]:
+        """For each word, for each of its phonemes, the indexes in _targets(ipa) of the tokens that carry it.
+        A phoneme that collapsed into its neighbour (a geminate, a merged sound) shares the neighbour's token."""
+        out, n, last = [], -1, None
+        for word in ipa.split("|"):
+            row = []
+            for ph in word.split():
+                idx = []
+                for tid in self.vocab.resolve(ph):
+                    tid = self.vocab.canon[tid]
+                    if tid != last:
+                        n, last = n + 1, tid
+                    idx.append(n)
+                row.append(sorted(set(idx)))
+            out.append(row)
+        return out
+
     def _targets(self, ipa: str) -> list[TargetToken]:
         """Target tokens on the merged sound classes (two neighbours that became one sound collapse, as in CTC)."""
         out: list[TargetToken] = []
@@ -310,13 +327,19 @@ class Scorer:
         n_words = len(ipa.split("|"))
         heard_words = self._heard_hebrew(logp, toks, al, ipa, ar_words)
         words, k = [], self.cfg.word_min_weight
+        carriers, ipa_words = self._carriers(ipa), ipa.split("|")
         for w in range(n_words):
             ws = [p["score"] for p in phonemes if p["word"] == w]
+            # the transliteration letter by letter, each with the weakest score among its sounds
+            letters = []
+            for text, at in word_letters(ipa_words[w], ar_words[w] if w < len(ar_words) else ""):
+                got = [phonemes[i]["score"] for j in at for i in carriers[w][j] if 0 <= i < len(phonemes)]
+                letters.append({"t": text, "score": min(got) if got else None})
             if w in forgiven and min(ws) >= self.cfg.issue_below:
                 heard_words[w] = tr_words[w]  # what differs from the answer here is what a native voice gets too
             words.append({"ar": ar_words[w] if w < len(ar_words) else "", "tr": tr_words[w], "heard_tr": heard_words[w],
                           "score": round(k * min(ws) + (1 - k) * float(np.mean(ws)), 1) if ws else 0.0,
-                          "phonemes": [p for p in phonemes if p["word"] == w]})
+                          "letters": letters, "phonemes": [p for p in phonemes if p["word"] == w]})
 
         weights = np.array([0.5 if p["ipa"] in VOWELS else 1.0 for p in phonemes])
         phone_mean = float(np.dot(weights, [p["score"] for p in phonemes]) / weights.sum())

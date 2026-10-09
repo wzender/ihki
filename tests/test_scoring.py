@@ -467,3 +467,27 @@ def test_sign_in_guards_the_practice_endpoints():
         assert c.get("/api/progress").json() == {"best": {}, "tries": {}, "recordings": 0, "days": 0}
     with TestClient(create_app(scorer_for(emissions(["w"])))) as c:   # not configured: open, as before
         assert 'AUTH_URL=""' in c.get("/").text and c.get("/api/tts/0").status_code == 503
+
+
+@pytest.mark.parametrize("p", PHRASES, ids=lambda p: p["he"])
+def test_letters_cover_the_word_and_its_phonemes(p):
+    from app.translit import word_letters, word_to_hebrew
+
+    for ar, ipa in p["variants"]:
+        for a, w in zip(ar.split(), ipa.split("|")):
+            letters = word_letters(w, a)
+            assert "".join(t for t, _ in letters) == word_to_hebrew(w, a)
+            assert [j for _, at in letters for j in at] == list(range(len(w.split())))   # each phoneme once, in order
+
+
+def test_result_scores_each_letter():
+    # ħ said as χ: of الحمام, the ח is the weak letter and the rest are fine
+    s = scorer_for(emissions(["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"]))
+    for _, ipa in TOILET["variants"]:   # every target token is some phoneme's, the doubled م sharing one
+        carried = [i for word in s._carriers(ipa) for idx in word for i in idx]
+        assert sorted(set(carried)) == list(range(len(s._targets(ipa))))
+    r = s.score(None, TOILET)
+    for w in r["words"]:
+        assert "".join(l["t"] for l in w["letters"]) == w["tr"]
+    by = {l["t"][0]: l["score"] for l in r["words"][1]["letters"] if l["score"] is not None}
+    assert by["ח"] < 50 and by["מ"] > 75

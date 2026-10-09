@@ -27,8 +27,12 @@ def _letter(base: str, marks: str) -> str:
     return base[0] + marks + base[1:] if base.endswith("'") else base + marks
 
 
-def word_to_hebrew(ipa_word: str, ar_word: str = "") -> str:
-    """The Arabic spelling, when given, settles what the IPA cannot: an urban ʔ that is written ق
+def word_letters(ipa_word: str, ar_word: str = "") -> list[tuple[str, list[int]]]:
+    """The word letter by letter: each Hebrew letter (with its points) and the positions, in the IPA word,
+    of the phonemes it stands for, so that a score per phoneme can colour the letters. The bracketed
+    silent ל stands for none.
+
+    The Arabic spelling, when given, settles what the IPA cannot: an urban ʔ that is written ق
     stays ק (as in the hand-written hints), a final a written ة/ه ends in ה, and the ل of the
     article ال that is swallowed by the next consonant is shown in brackets: אִ(ל)דַّכְּתוֹר."""
     phs = ipa_word.split()
@@ -38,11 +42,12 @@ def word_to_hebrew(ipa_word: str, ar_word: str = "") -> str:
     # written ال, said as a vowel + doubled consonant: the ل is silent
     silent_l = (ar_word.startswith("ال") and len(phs) > 2 and phs[0] in VOWELS
                 and phs[1] == phs[2] and phs[1] != "l")
-    out, i = [], 0
+    out: list[tuple[str, list[int]]] = []
+    i = 0
     if len(phs) > 1 and phs[0] == "u":  # the conjunction و before a word: וּ, not an alef
-        out, i = ["וּ"], 1
+        out, i = [("וּ", [0])], 1
     while i < len(phs):
-        ph = phs[i]
+        ph, start = phs[i], i
         if ph in VOWELS:  # vowel with no consonant before it (word-initial): carry it on an alef
             base, shadda = "א", ""
         else:
@@ -57,14 +62,18 @@ def word_to_hebrew(ipa_word: str, ar_word: str = "") -> str:
             mark, after = VOWELS[vowel][i == len(phs)]
             if vowel == "a" and after:
                 after = final_a
-            out.append(_letter(base, mark + shadda) + after)
+            out.append((_letter(base, mark + shadda) + after, list(range(start, i))))
             if silent_l and i == 1:
-                out.append("(ל)")
+                out.append(("(ל)", []))
         elif i < len(phs):
-            out.append(_letter(base, SHVA + shadda))
+            out.append((_letter(base, SHVA + shadda), list(range(start, i))))
         else:
-            out.append(_letter(FINALS.get(base, base), shadda))
-    return "".join(out)
+            out.append((_letter(FINALS.get(base, base), shadda), list(range(start, i))))
+    return out
+
+
+def word_to_hebrew(ipa_word: str, ar_word: str = "") -> str:
+    return "".join(text for text, _ in word_letters(ipa_word, ar_word))
 
 
 def to_hebrew(ipa: str, ar: str = "") -> list[str]:
