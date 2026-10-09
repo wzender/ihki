@@ -36,6 +36,9 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 .chip[aria-pressed="true"]{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
 .meta{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.meta .idx{background:var(--olive-soft);color:var(--olive);font-weight:700;padding:1px 10px;border-radius:999px}
+.progress{height:4px;border-radius:999px;background:var(--line);overflow:hidden;margin-top:-4px}
+.progress i{display:block;height:100%;background:var(--olive);border-radius:999px;transition:width .2s}
 .prompt{font:400 clamp(22px,5vw,30px)/1.2 var(--f-display);text-wrap:balance;margin:0}
 .task{color:var(--muted);font-size:14px;margin:-6px 0 0}
 .hint{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 16px;padding:6px 12px;border-radius:10px;background:var(--olive-soft)}
@@ -105,6 +108,7 @@ body.driving .mic{width:84px;height:84px}
 
   <main class="card" aria-live="polite">
     <div class="meta"><span id="catName"></span><span id="counter"></span></div>
+    <div class="progress" id="progress" hidden><i id="progressBar"></i></div>
     <h1 class="prompt" id="prompt">טוען…</h1>
     <p class="task">איך אומרים את זה בערבית פלסטינית?</p>
 
@@ -160,7 +164,13 @@ function buildCats(){
     box.appendChild(b);
   }
 }
-function startCat(){ order=shuffle(PHRASES.filter(p=>p.cat===cat&&p.listed!==false).map(p=>p.id)); pos=0; show(); }
+// A category whose phrases carry seq (the course's own order) is shown in that order; the others are shuffled.
+let ordered=false;
+function startCat(){
+  const list=PHRASES.filter(p=>p.cat===cat&&p.listed!==false);
+  ordered=list.length>0&&list.every(p=>p.seq!=null);
+  order=(ordered?list.sort((a,b)=>a.seq-b.seq):shuffle(list)).map(p=>p.id); pos=0; show();
+}
 // Grammar-built phrases (grp set) exist for every pronoun, positive and negative: the two buttons move between them.
 function variation(kind){
   if(cur.grp==null) return;
@@ -205,7 +215,9 @@ function show(p){
   $("prompt").textContent=cur.he;
   $("catName").textContent=CATS.find(c=>c.id===cat).name;
   const b=best[cur.id];
-  $("counter").textContent=`${pos+1} / ${order.length}`+(b!=null?` · שיא: ${b}`:"");
+  $("counter").textContent=(ordered?"":`${pos+1} / ${order.length}`)+(b!=null?`${ordered?"":" · "}שיא: ${b}`:"");
+  if(ordered){ const idx=document.createElement("span"); idx.className="idx"; idx.textContent=`משפט ${pos+1} מתוך ${order.length}`; $("counter").prepend(idx," "); }
+  $("progress").hidden=!ordered; $("progressBar").style.width=`${(pos+1)/order.length*100}%`;
   $("hint").hidden=true; $("hintAr").hidden=true; $("result").hidden=true;
   $("status").textContent="לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים";
   $("playMine").disabled=true;
@@ -336,7 +348,7 @@ $("playMine").onclick=()=>{ if(myAudioUrl) new Audio(myAudioUrl).play(); };
 $("answerBtn").onclick=()=>{ $("hintTr").textContent=cur.tr; $("hintAr").textContent=cur.ar; $("hint").hidden=false; $("hintAr").hidden=false; };
 $("negBtn").onclick=()=>variation("negate");
 $("conjBtn").onclick=()=>variation("conjugate");
-const nextPhrase=()=>{ pos=(pos+1)%order.length; if(pos===0) shuffle(order); show(); };
+const nextPhrase=()=>{ pos=(pos+1)%order.length; if(pos===0&&!ordered) shuffle(order); show(); };
 $("nextBtn").onclick=nextPhrase;
 function arVoice(){ const vs=speechSynthesis.getVoices(); return vs.find(v=>/^ar[-_](PS|JO|LB|SY|IL)/i.test(v.lang))||vs.find(v=>/^ar/i.test(v.lang)); }
 if("speechSynthesis" in window) speechSynthesis.getVoices();

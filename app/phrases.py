@@ -137,11 +137,12 @@ CATEGORIES = [
 def public_phrases():
     """What the frontend needs: no IPA, first variant's Arabic as the model answer.
 
-    Grammar-built phrases also carry grp / pron / neg / listed (see grammar.py); the page lists a
-    category's `listed` phrases and reaches the others with its negation and conjugation buttons.
+    Grammar-built phrases also carry grp / pron / neg / listed / seq (see grammar.py); the page lists a
+    category's `listed` phrases, in `seq` order, and reaches the others with its negation and
+    conjugation buttons.
     """
     return [
         {"id": i, "cat": p["cat"], "he": p["he"], "tr": p["tr"], "ar": p["variants"][0][0],
-         **{k: p[k] for k in ("grp", "pron", "neg", "listed") if k in p}}
+         **{k: p[k] for k in ("grp", "pron", "neg", "listed", "seq") if k in p}}
         for i, p in enumerate(PHRASES)
     ]

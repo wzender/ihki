@@ -163,17 +163,20 @@ def _build(he_pattern: str, pattern: str, pron: int, neg: bool) -> dict:
 
 def day2_phrases() -> list[dict]:
     """Every pattern x pronoun x polarity. `grp`/`pron`/`neg` let the page move between them;
-    `listed` marks the course's own sentences, which are the ones the tab starts from."""
+    `listed` marks the course's own sentences, which are the ones the tab starts from, and
+    `seq` is their 1-based place in SENTENCES: the tab shows them in that order."""
     groups: dict[tuple[str, str], int] = {}
-    taught: set[tuple[int, int]] = set()
-    for pron, he_pattern, pattern in SENTENCES:
+    taught: dict[tuple[int, int], int] = {}
+    for seq, (pron, he_pattern, pattern) in enumerate(SENTENCES, 1):
         g = groups.setdefault((he_pattern, pattern), len(groups))
-        taught.add((g, P.index(pron)))
+        taught.setdefault((g, P.index(pron)), seq)
     out = []
     for (he_pattern, pattern), g in groups.items():
         for pron in range(len(PRONOUNS)):
             for neg in (False, True):
                 phrase = _build(he_pattern, pattern, pron, neg)
                 phrase.update(grp=g, pron=pron, neg=neg, listed=(g, pron) in taught and not neg)
+                if phrase["listed"]:
+                    phrase["seq"] = taught[g, pron]
                 out.append(phrase)
     return out
