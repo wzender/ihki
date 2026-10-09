@@ -440,7 +440,9 @@ LESSONS = {
     ],
 }
 LESSON_TABS = [{"id": str(n), "name": f"שיעור {n}"} for n in LESSONS]
-CATEGORIES = [{"id": f"l{n}-{tid}", "name": name, "lesson": str(n)}
+# Topics the page lays out as a story: a conversation, all its lines on the card, said one after the other.
+STORIES = {"l2-talk"}
+CATEGORIES = [{"id": f"l{n}-{tid}", "name": name, "lesson": str(n), **({"story": True} if f"l{n}-{tid}" in STORIES else {})}
               for n, topics in LESSONS.items() for tid, name, *_ in topics]
 
 
