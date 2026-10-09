@@ -99,8 +99,8 @@ body.driving .mic{width:84px;height:84px}
 .voicebox select{font:600 14px var(--f-body);padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
 .note{font-size:12px;margin:0;color:var(--muted);max-width:65ch}
 .warn{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:10px 12px;font-size:14px}
-/* Opening splash: the logo draws itself (the animation lives in logo-intro.svg), then the overlay fades out. Skipped for reduced motion. */
-#logo-splash{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:white;pointer-events:none;animation:splash-out .35s ease 2.65s forwards}
+/* Opening splash: the ornament is sketched in lines that resolve into the logo (the animation lives in logo-intro.svg), then the overlay fades out. Skipped for reduced motion. */
+#logo-splash{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:white;pointer-events:none;animation:splash-out .35s ease 3s forwards}
 #logo-splash img{width:min(82vw,620px);height:auto}
 @keyframes splash-out{to{opacity:0;visibility:hidden}}
 @media (prefers-reduced-motion:reduce){#logo-splash{animation:none;display:none}}
@@ -506,7 +506,7 @@ fetch("/api/phrases").then(r=>r.json()).then(d=>{
 </script>
 <script>
 /* Removal is cleanup only; CSS completes the intro even if JS is unavailable. */
-setTimeout(()=>document.getElementById('logo-splash')?.remove(),3100);
+setTimeout(()=>document.getElementById('logo-splash')?.remove(),3450);
 </script>
 </body>
 </html>
