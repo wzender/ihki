@@ -113,7 +113,7 @@ body.driving .mic{width:84px;height:84px}
     <div class="meta"><span id="catName"></span><span id="counter"></span></div>
     <div class="progress" id="progress" hidden><i id="progressBar"></i></div>
     <h1 class="prompt" id="prompt">טוען…</h1>
-    <p class="task" id="task">איך אומרים את זה בערבית פלסטינית?</p>
+    <p class="task" id="task">איך אומרים את זה בערבית מדוברת?</p>
 
     <div class="mic-zone">
       <button class="mic" id="mic" aria-label="הקליטו את התשובה">
@@ -144,7 +144,7 @@ body.driving .mic{width:84px;height:84px}
   </main>
 
   <div class="voicebox"><label>קול ההשמעה<select id="voiceId"></select></label><span class="sep"></span><label><input type="checkbox" id="readHe">הקראת המשפט בעברית</label></div>
-  <p class="note">הניתוח נעשה ברמת ההגה. ההשמעה נוצרת בקול ערבי פלסטיני של Sawtak Arabi; אם השירות אינו זמין, נעשה שימוש בקול הערבי של המכשיר.</p>
+  <p class="note">הניתוח נעשה ברמת ההגה. ההשמעה נוצרת בקול של ערבית מדוברת מ-Sawtak Arabi; אם השירות אינו זמין, נעשה שימוש בקול הערבי של המכשיר.</p>
 </div>
 <div class="version" title="גרסת debug">v __VERSION__<span id="heInfo"></span><span id="ttsInfo"></span></div>
 
@@ -224,7 +224,7 @@ function show(p){
   $("negBtn").textContent=cur.neg?"חיוב":"שלילה";
   // read phrases (workbook, Arabic -> Hebrew): the transliteration is the prompt and the Hebrew is the answer
   $("prompt").textContent=cur.read?cur.tr:cur.he;
-  $("task").textContent=cur.read?"קראו בקול ותרגמו לעברית":"איך אומרים את זה בערבית פלסטינית?";
+  $("task").textContent=cur.read?"קראו בקול ותרגמו לעברית":"איך אומרים את זה בערבית מדוברת?";
   $("answerBtn").textContent=cur.read?"הצג תרגום":"הצג תשובה";
   $("catName").textContent=CATS.find(c=>c.id===cat).name;
   const b=best[cur.id];

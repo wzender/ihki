@@ -9,7 +9,7 @@ app_port: 7860
 
 # احكي · ihki — pronunciation scoring service
 
-Hebrew prompt → the student says it in Palestinian Arabic → per-phoneme feedback.
+Hebrew prompt → the student says it in spoken Arabic → per-phoneme feedback.
 
 The service replaces the browser speech-recognition diff with phoneme-level scoring:
 
