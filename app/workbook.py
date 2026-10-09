@@ -442,7 +442,13 @@ LESSONS = {
 LESSON_TABS = [{"id": str(n), "name": f"שיעור {n}"} for n in LESSONS]
 # Topics the page lays out as a story: a conversation, all its lines on the card, said one after the other.
 STORIES = {"l2-talk"}
-CATEGORIES = [{"id": f"l{n}-{tid}", "name": name, "lesson": str(n), **({"story": True} if f"l{n}-{tid}" in STORIES else {})}
+# What the card calls a topic's items where they are not sentences ("פועל 1 מתוך 4"), by topic id in any lesson,
+# and what it asks for where the answer is two forms said together.
+UNITS = {"pron": "מילה", "verbs": "פועל", "dual": "מילה", "family": "מילה"}
+TASKS = {"verbs": "אמרו את הפועל בערבית מדוברת: בעבר ואז בעתיד",
+         "dual": "אמרו בערבית מדוברת: ביחיד ואז בזוגי"}
+CATEGORIES = [{"id": f"l{n}-{tid}", "name": name, "lesson": str(n), **({"story": True} if f"l{n}-{tid}" in STORIES else {}),
+               **({"unit": UNITS[tid]} if tid in UNITS else {}), **({"task": TASKS[tid]} if tid in TASKS else {})}
               for n, topics in LESSONS.items() for tid, name, *_ in topics]
 
 

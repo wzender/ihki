@@ -27,15 +27,18 @@
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font:400 17px/1.55 var(--f-body);padding:10px 16px 24px;min-height:100vh}
 .wrap{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
-header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
+header{display:flex;align-items:center;gap:4px 12px;flex-wrap:wrap}
 .brand{font:400 24px/1 var(--f-display)}
 .brand .ar{font-family:var(--f-ar);font-weight:700;color:var(--olive);margin-inline-start:8px}
 .sub{color:var(--muted);font-size:14px}
+/* on the practice card the header names where the student is: the lesson, and under it the topic */
+.where{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font:400 22px/1.15 var(--f-display)}
+.where small{font:600 13px/1.2 var(--f-body);color:var(--muted)}
 /* Home: the course as one winding road down the screen. A lesson opens with a banner and closes with a cup, and its
    topics are the round buttons along the road, each with its label beside it. The ring around a button fills as its
    sentences are practised: untouched is plain, started is tinted, finished is filled and gets a badge (gold when every
    sentence reached "מצוין"). The road is green after a finished topic. The one topic to do now carries a bubble and a halo. */
-body.home #practice,body.home #driveBtn,body:not(.home) #path,body:not(.home) #toNow,body.home .sub:not(.maphint),body:not(.home) .maphint{display:none}
+body.home #practice,body.home #driveBtn,body:not(.home) #path,body:not(.home) #toNow,body.home .where,body:not(.home) .brand,body:not(.home) .maphint{display:none}
 header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 .path{--track:color-mix(in srgb,var(--muted) 75%,var(--bg));position:relative;width:100%;max-width:460px;margin:4px auto 72px}
 .road{position:absolute;left:50%;top:0;width:1px;height:100%;overflow:visible;pointer-events:none}
@@ -83,6 +86,7 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 .progress{height:4px;border-radius:999px;background:var(--line);overflow:hidden;margin-top:-4px}
 .progress i{display:block;height:100%;background:var(--olive);border-radius:999px;transition:width .2s}
 .prompt{font:400 clamp(22px,5vw,30px)/1.2 var(--f-display);text-wrap:balance;margin:0}
+.prompt .note{display:block;margin-top:4px;font:600 14px/1.3 var(--f-body);color:var(--muted)}
 .task{color:var(--muted);font-size:14px;margin:-6px 0 0}
 .hint{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 16px;padding:6px 12px;border-radius:10px;background:var(--olive-soft)}
 .hint .tr{font-size:22px;font-weight:700}
@@ -93,22 +97,28 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 .hint .arline{font:500 16px/1.4 var(--f-ar);color:var(--muted)}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .btn{font:600 15px var(--f-body);border-radius:10px;padding:6px 12px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink)}
-/* the card's action bar: one line on a phone, the same gap between all its buttons; the icon ones share the width left */
-.bar{flex-wrap:nowrap}
-.bar .btn{flex:1 1 0;min-width:0;padding:6px 4px;white-space:nowrap}
+/* the card's action bar: one line on a phone, the same gap between all its buttons; the icon ones share the width left
+   and carry their name under the icon. "next" is the filled one only once the sentence got a score. */
+.bar{flex-wrap:nowrap;align-items:stretch}
+.bar .btn{flex:1 1 0;min-width:0;padding:4px 4px;white-space:nowrap;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.25}
+.bar .btn small{font:600 11px/1.2 var(--f-body);color:var(--muted)}
+.bar .btn.primary small{color:inherit}
+.bar .btn .ic{margin:2px 0 1px}
+.bar .cd{display:flex;align-items:center;gap:4px;line-height:1}
 .bar #answerBtn{flex:0 0 auto;padding:6px 12px}
 .btn.primary{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
 .btn:disabled{opacity:.45;cursor:default}
 :focus-visible{outline:3px solid var(--olive);outline-offset:2px}
-.mic-zone{display:flex;align-items:center;gap:14px}
-.mic{flex:none;width:60px;height:60px;border-radius:50%;border:0;background:var(--olive);color:var(--on-olive);cursor:pointer;display:grid;place-items:center;position:relative}
+.mic-zone{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:4px 0}
+.mic{flex:none;width:68px;height:68px;border-radius:50%;border:0;background:var(--olive);color:var(--on-olive);cursor:pointer;display:grid;place-items:center;position:relative}
 .mic svg{width:26px;height:26px}
 .mic.live{background:var(--sumac)}
 .mic.live::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:3px solid var(--sumac);opacity:.5;animation:pulse 1.2s ease-out infinite}
 .mic:disabled{opacity:.5;cursor:progress}
 @keyframes pulse{from{transform:scale(.9);opacity:.6}to{transform:scale(1.15);opacity:0}}
 @media (prefers-reduced-motion:reduce){.mic.live::after{animation:none}}
-.status{color:var(--muted);font-size:14px}
+.status{font-size:14px}
+.ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
 .result{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px}
 .verdict{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
 .score{font:400 28px/1 var(--f-display);font-variant-numeric:tabular-nums}
@@ -132,22 +142,26 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 #denied{text-align:center;font:600 18px/1.5 var(--f-body);color:#1C241D;padding:0 20px}
 #denied button{display:block;margin:12px auto 0;font:600 16px/1 var(--f-body);padding:10px 22px;border-radius:10px;border:1px solid #4B6A2C;background:#fff;color:#4B6A2C;cursor:pointer}
 #logoutBtn{position:fixed;bottom:4px;right:6px;z-index:9;font:500 11px/1 var(--f-body);padding:3px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
-header .sub{flex:1}
-.drive{font:700 15px var(--f-body);border-radius:999px;padding:6px 14px;cursor:pointer;border:1px solid var(--olive);background:transparent;color:var(--olive)}
+.drive{margin-inline-start:auto;font:700 15px var(--f-body);border-radius:999px;padding:6px 14px;cursor:pointer;border:1px solid var(--olive);background:transparent;color:var(--olive)}
 body.driving .drive{background:var(--sumac);border-color:var(--sumac);color:#fff}
 /* driving mode: nothing to read or press but the stop button */
 body.driving .roundbar,body.driving .row,body.driving .voicebox,body.driving .task{display:none}
 body.driving .prompt{font-size:clamp(30px,8vw,48px)}
 body.driving .status{font-size:20px;font-weight:700;color:var(--ink)}
 body.driving .mic{width:84px;height:84px}
-.voicebox{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);flex-wrap:wrap}
-.voicebox label{display:flex;align-items:center;gap:6px;cursor:pointer}
-.voicebox .sep{flex:1}
+.voicebox{display:flex;flex-direction:column;font-size:16px}
+.voicebox label{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;border-bottom:1px solid var(--line);cursor:pointer}
+.voicebox label:last-child{border-bottom:0}
+.voicebox input,.donebox input{width:20px;height:20px;accent-color:var(--olive)}
+#setDlg,#driveDlg{width:min(92vw,380px)}
+.dlg-text{margin:4px 0 14px;font-size:16px}
 .voicebox select{font:600 14px var(--f-body);padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
 .warn{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:10px 12px;font-size:14px}
 /* A topic opens on the sentences not practised yet; the box brings the practised ones back, each with its best score. */
-.roundbar{display:flex;align-items:center;justify-content:space-between;gap:6px 12px;flex-wrap:wrap}
-.donebox{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer}
+#practice{width:100%}
+.roundbar{display:flex;align-items:center;gap:8px}
+.roundbar .sep{flex:1}
+.donebox{display:flex;align-items:center;gap:10px;min-height:44px;font-size:15px;border-bottom:1px solid var(--line);cursor:pointer}
 .donebox input:disabled{cursor:default}
 .donehint{font:600 14px/1.4 var(--f-body);padding:5px 12px;border-radius:10px}
 .donehint b{font:400 18px/1 var(--f-display);font-variant-numeric:tabular-nums;margin-inline-start:4px}
@@ -155,6 +169,7 @@ dialog{border:1px solid var(--line);border-radius:16px;background:var(--surface)
 dialog::backdrop{background:rgba(0,0,0,.45)}
 .dlg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:-16px;z-index:1;background:var(--surface);margin:-16px 0 4px;padding:12px 0 8px}
 .dlg-head h2{font:400 22px/1 var(--f-display);margin:0}
+.dlg-head h2 small{display:block;margin-top:4px;font:600 13px/1.3 var(--f-body);color:var(--muted)}
 /* Story topics (a conversation): every Hebrew line is on the card and the current one is marked; a line that was
    said shows its Arabic beneath, in Hebrew letters, and its best score. Driving mode keeps its single large prompt. */
 .story{max-height:min(40vh,430px);overflow-y:auto;position:relative;border:1px solid var(--line);border-radius:12px;overscroll-behavior:contain}
@@ -192,13 +207,23 @@ body.driving .card.storymode .prompt{display:block}
 </style>
 </head>
 <body class="home">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M3 6h13M3 12h13M3 18h13M21 6h.01M21 12h.01M21 18h.01"/></symbol>
+  <symbol id="i-set" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h8M16 18h4"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l12 8-12 8z" fill="currentColor"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></symbol>
+  <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
+</defs></svg>
 <div id="logo-splash"><img src="static/logo-intro.svg" alt="אהלא וסהלא, בית הספר ללימוד השפה הערבית" width="489" height="225"><button id="startBtn">יאללה נבלש</button><button id="loginBtn" hidden>כניסה עם Google</button><div id="denied" hidden>החשבון הזה אינו ברשימת התלמידים.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
 <div class="wrap" id="wrap" inert>
   <header>
     <div class="brand">אהלא וסהלא</div>
-    <div class="sub">תרגמו לערבית מדוברת ואמרו בקול</div>
+    <div class="where"><small id="lessonName"></small><span id="catName"></span></div>
     <div class="sub maphint">בחרו נושא במסלול ותרגלו אותו בקול</div>
-    <button class="drive" id="driveBtn" title="מצב נסיעה: האפליקציה מקריאה, מקשיבה ואומרת את ההערכה בקול">🚗 נסיעה</button>
+    <button class="drive" id="driveBtn" title="מצב נסיעה: האפליקציה מקריאה, מקשיבה ואומרת את ההערכה בקול"><svg class="ic" aria-hidden="true"><use href="#i-car"/></svg> מצב נסיעה</button>
   </header>
 
   <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
@@ -206,14 +231,15 @@ body.driving .card.storymode .prompt{display:block}
 
   <div class="wrap" id="practice">
   <div class="roundbar">
-    <button class="btn" id="homeBtn">→ המסלול</button>
-    <button class="btn" id="listBtn">☰ רשימת המשפטים</button>
-    <label class="donebox"><input type="checkbox" id="showDone"><span id="doneText"></span></label>
+    <button class="btn" id="homeBtn"><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> המסלול</button>
+    <span class="sep"></span>
+    <button class="btn" id="listBtn"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg> רשימת המשפטים</button>
+    <button class="btn" id="setBtn" title="הגדרות השמעה" aria-label="הגדרות השמעה"><svg class="ic" aria-hidden="true"><use href="#i-set"/></svg></button>
   </div>
   <div id="envWarn" class="warn" hidden></div>
 
   <main class="card" id="card" aria-live="polite">
-    <div class="meta"><span id="catName"></span><span id="counter"></span></div>
+    <div class="meta"><span id="counter"></span></div>
     <div class="progress" id="progress" hidden><i id="progressBar"></i></div>
     <div class="donehint" id="doneHint" hidden></div>
     <div class="story" id="story" hidden></div>
@@ -242,20 +268,33 @@ body.driving .card.storymode .prompt{display:block}
       <button class="btn" id="conjBtn" title="אותו משפט עם גוף אחר, אקראי">הטיית פעלים</button>
     </div>
     <div class="row bar">
+      <button class="btn" id="speakBtn" title="השמעת התשובה" aria-label="השמעת התשובה"><svg class="ic" aria-hidden="true"><use href="#i-sound"/></svg><small>השמע</small></button>
+      <button class="btn" id="playMine" title="ההקלטה שלי, אחרי שהקלטתם" aria-label="ההקלטה שלי" disabled><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg><small>הקלטה</small></button>
       <button class="btn" id="answerBtn">הצג תשובה</button>
-      <button class="btn" id="speakBtn" title="השמע" aria-label="השמע">🔊</button>
-      <button class="btn" id="playMine" title="ההקלטה שלי" aria-label="ההקלטה שלי" disabled>▶</button>
-      <button class="btn" id="prevBtn" title="המשפט הקודם" aria-label="המשפט הקודם">→</button>
-      <button class="btn primary" id="nextBtn" title="המשפט הבא" aria-label="המשפט הבא">←</button>
+      <button class="btn" id="prevBtn" title="המשפט הקודם" aria-label="המשפט הקודם"><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg><small>הקודם</small></button>
+      <button class="btn" id="nextBtn" title="המשפט הבא" aria-label="המשפט הבא"><span class="cd"><b id="nextLeft"></b><svg class="ic" aria-hidden="true"><use href="#i-next"/></svg></span><small>הבא</small></button>
     </div>
   </main>
 
-  <div class="voicebox"><label>קול ההשמעה<select id="voiceId"></select></label><label>מהירות<select id="speed"><option value="0.8">x0.8</option><option value="1">x1</option><option value="1.5">x1.5</option></select></label><span class="sep"></span><label><input type="checkbox" id="readHe">הקראת המשפט בעברית</label></div>
   </div>
 </div>
 <dialog id="listDlg" aria-labelledby="listTitle">
   <div class="dlg-head"><h2 id="listTitle"></h2><button class="btn" id="listClose">סגירה</button></div>
+  <label class="donebox"><input type="checkbox" id="showDone"><span id="doneText"></span></label>
   <ol class="plist" id="plist"></ol>
+</dialog>
+<dialog id="driveDlg" aria-labelledby="driveTitle">
+  <div class="dlg-head"><h2 id="driveTitle">מצב נסיעה</h2></div>
+  <p class="dlg-text">תרגול בלי לגעת במסך: האפליקציה מקריאה כל משפט, מקשיבה לתשובה שלכם ואומרת את ההערכה בקול. לסיום לוחצים על "סיום נסיעה".</p>
+  <div class="row"><button class="btn primary" id="driveGo">התחילו</button><button class="btn" id="driveNo">לא עכשיו</button></div>
+</dialog>
+<dialog id="setDlg" aria-labelledby="setTitle">
+  <div class="dlg-head"><h2 id="setTitle">הגדרות השמעה</h2><button class="btn" id="setClose">סגירה</button></div>
+  <div class="voicebox">
+    <label>קול ההשמעה<select id="voiceId"></select></label>
+    <label>מהירות<select id="speed"><option value="0.8">x0.8</option><option value="1">x1</option><option value="1.5">x1.5</option></select></label>
+    <label>הקראת המשפט בעברית<input type="checkbox" id="readHe"></label>
+  </div>
 </dialog>
 <button id="logoutBtn" hidden>יציאה</button>
 
@@ -409,23 +448,22 @@ function setRound(){
   order=all?topic:todo; pos=0; marks();
 }
 function startCat(wait=true){ setRound(); show(null,wait); }
-// What tells how much was practised, redrawn when a score comes in: the path, the box's count, the topic's bar.
+// What tells how much was practised, redrawn when a score comes in: the path and the box's text. The count itself is in the list's title.
 function marks(){
   if(!CATS.length) return;
   drawPath();
   const done=topic.filter(id=>best[id]!=null).length;
-  $("doneText").textContent=done>=topic.length?"כל המשפטים בנושא תורגלו":`הצג גם משפטים שכבר תורגלו (${done} מתוך ${topic.length})`;
-  $("progressBar").style.width=`${topic.length?done/topic.length*100:0}%`;
+  $("doneText").textContent=done>=topic.length?"כל המשפטים בנושא תורגלו":"לכלול בתרגול גם משפטים שכבר תורגלו";
 }
-$("showDone").onchange=e=>{ showDone=e.target.checked; store.set("ihki.showDone",showDone); startCat(); };
+$("showDone").onchange=e=>{ showDone=e.target.checked; store.set("ihki.showDone",showDone); startCat(); drawList(); };   // the box is in the list
 /* The topic's sentences as a list, in the course's order, each with its best score. A tap opens the sentence;
    one that was practised and is not in the round brings the practised ones back, as the box does. */
 function goTo(id){
   if(!order.includes(id)){ showDone=true; store.set("ihki.showDone",true); setRound(); }
   pos=Math.max(0,order.indexOf(id)); show(null,true);
 }
-$("listBtn").onclick=()=>{
-  const box=$("plist"); box.innerHTML=""; $("listTitle").textContent=CATS.find(c=>c.id===cat).name;
+function drawList(){
+  const box=$("plist"); box.innerHTML=""; $("listTitle").textContent=CATS.find(c=>c.id===cat).name; $("listTitle").append(mark("",`תורגלו ${topic.filter(id=>best[id]!=null).length} מתוך ${topic.length}`,"small"));
   const ids=ordered?topic:[...topic].sort((a,b)=>a-b);   // a shuffled topic is listed in the bank's order
   ids.forEach((id,k)=>{
     const p=phraseOf(id), b=best[id], li=document.createElement("li"), row=document.createElement("button");
@@ -437,9 +475,13 @@ $("listBtn").onclick=()=>{
     row.append(i,text,mark); row.onclick=()=>{ $("listDlg").close(); goTo(id); };
     li.appendChild(row); box.appendChild(li);
   });
-  $("listDlg").showModal();
-  const here=box.querySelector('[aria-current="true"]'); if(here) here.scrollIntoView({block:"center"});
+}
+$("listBtn").onclick=()=>{
+  drawList(); $("listDlg").showModal();
+  const at=$("plist").querySelector('[aria-current="true"]'); if(at) at.scrollIntoView({block:"center"});
 };
+$("setBtn").onclick=()=>$("setDlg").showModal();
+$("setClose").onclick=()=>$("setDlg").close();
 $("listClose").onclick=()=>$("listDlg").close();
 for(const d of document.querySelectorAll("dialog")) d.onclick=e=>{   // a tap outside the box closes it
   const r=d.getBoundingClientRect(); if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) d.close(); };
@@ -497,11 +539,11 @@ for(const ev of ["pointerdown","keydown"]) addEventListener(ev,()=>{
 // The seconds left are counted down on the "next sentence" button.
 const AUTO_NEXT={above:80, seconds:3};
 let autoNext=null;
-function cancelAutoNext(){ clearInterval(autoNext); autoNext=null; $("nextBtn").textContent="←"; }
+function cancelAutoNext(){ clearInterval(autoNext); autoNext=null; $("nextLeft").textContent=""; }
 function startAutoNext(){
   cancelAutoNext();
   let left=AUTO_NEXT.seconds;
-  const tick=()=>{ if(left>0) $("nextBtn").textContent=`${left--} ←`; else nextPhrase(); };
+  const tick=()=>{ if(left>0) $("nextLeft").textContent=left--; else nextPhrase(); };
   tick(); autoNext=setInterval(tick,1000);
 }
 /* Story topics (a category with `story`): the teacher goes down the conversation line by line. The student says
@@ -575,15 +617,17 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   $("varRow").hidden=cur.grp==null;
   $("negBtn").textContent=cur.neg?"חיוב":"שלילה";
   // read phrases (workbook, Arabic -> Hebrew): the transliteration is the prompt and the Hebrew is the answer
-  setTr($("prompt"),cur.read?cur.tr:cur.he);
-  $("task").textContent=cur.read?"קראו בקול ותרגמו לעברית":"איך אומרים את זה בערבית מדוברת?";
+  const note=!cur.read&&cur.he.match(/^(.*\S)\s*\(([^()]+)\)$/);   // "פתח (עבר, עתיד)": the brackets are a note under the word
+  setTr($("prompt"),cur.read?cur.tr:note?note[1]:cur.he); if(note) $("prompt").append(mark("note",note[2]));
+  const c=CATS.find(c=>c.id===cat), mine=topic.includes(cur.id);   // a topic may name its items (a verb, a word) and its own task
+  $("task").textContent=cur.read?"קראו בקול ותרגמו לעברית":mine&&c.task||"איך אומרים את זה בערבית מדוברת?";
   $("answerBtn").textContent=cur.read?"הצג תרגום":"הצג תשובה";
-  $("catName").textContent=CATS.find(c=>c.id===cat).name;
-  // the number is the sentence's place in the topic, whatever the round holds; the bar is how much of the topic was practised
+  $("catName").textContent=c.name; $("lessonName").textContent=(LESSONS.find(l=>l.id===c.lesson)||{}).name||"";
+  // the number and the bar are the sentence's place in the topic, whatever the round holds
   const b=best[cur.id], at=topic.indexOf(cur.id), hintBox=$("doneHint");
   $("counter").textContent=ordered?"":`${pos+1} / ${order.length}`;
-  if(ordered&&at>=0){ const idx=document.createElement("span"); idx.className="idx"; idx.textContent=`משפט ${at+1} מתוך ${topic.length}`; $("counter").append(idx); }
-  $("progress").hidden=!ordered;
+  if(ordered&&at>=0){ const idx=document.createElement("span"); idx.className="idx"; idx.textContent=`${c.unit||"משפט"} ${at+1} מתוך ${topic.length}`; $("counter").append(idx); }
+  $("progress").hidden=!ordered; $("progressBar").style.width=`${at>=0?(at+1)/topic.length*100:0}%`;
   hintBox.hidden=b==null;
   if(b!=null){   // a sentence practised before: its best score, in the verdict's colours
     const n=document.createElement("b"); n.textContent=b;
@@ -591,7 +635,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   }
   $("hint").hidden=true; $("hintAr").hidden=true; $("result").hidden=true;
   $("status").textContent=wait?"לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים":"ההקלטה מתחילה ונעצרת לבד";
-  $("playMine").disabled=true;
+  $("playMine").disabled=true; $("nextBtn").classList.remove("primary");   // the microphone is the one thing to press until there is a score
   // a recording of the sentence that was just left is dropped; the new one starts when it has stopped
   if(!driving&&rec&&rec.state==="recording"){ recCancel=recRestart=true; rec.stop(); }
   else recordWhenReady();
@@ -605,6 +649,7 @@ function keepScore(id,s){   // a sentence's best score, on the device and for th
 function render(r){
   if(r.error){ $("status").textContent=r.message; return; }
   $("status").textContent=r.score<30?"רוצים לנסות שוב? לחצו על המיקרופון":"לחצו כדי לנסות שוב";
+  $("nextBtn").classList.add("primary");
   $("score").textContent=r.score;
   const pill=$("pill"); const s=r.score;
   pill.className="pill "+(s>=85?"good":s>=60?"mid":"bad");
@@ -846,7 +891,7 @@ async function drive(){
   let tries=0;   // attempts at the current sentence, unheard ones included
   while(on()){
     const id=cur.id;
-    st("🔊 הקשיבו למשפט");
+    st("הקשיבו למשפט");
     const url=await promptUrl(id); if(!on()) break;
     if(url) await playUrl(url); else await speakLocal(speakable(cur.he),"he-IL");
     if(!on()) break;
@@ -869,8 +914,11 @@ async function drive(){
     if(passed||tries>=DRIVE.tries){ tries=0; nextPhrase(); }
   }
 }
+const DRIVE_ON=$("driveBtn").innerHTML, DRIVE_OFF=DRIVE_ON.replace("i-car","i-stop").replace("מצב נסיעה","סיום נסיעה");
+$("driveGo").onclick=()=>{ store.set("ihki.driveSeen",true); $("driveDlg").close(); $("driveBtn").onclick(); };
+$("driveNo").onclick=()=>$("driveDlg").close();
 function stopDrive(){
-  driving=false; driveRun++; document.body.classList.remove("driving"); $("driveBtn").textContent="🚗 נסיעה"; seatMic();
+  driving=false; driveRun++; document.body.classList.remove("driving"); $("driveBtn").innerHTML=DRIVE_ON; seatMic();
   if(driveAudio) driveAudio.pause(); if(driveAudioDone) driveAudioDone();
   if("speechSynthesis" in window) speechSynthesis.cancel();
   if(rec&&rec.state==="recording"){ recCancel=true; rec.stop(); }
@@ -880,8 +928,9 @@ function stopDrive(){
 $("driveBtn").onclick=async()=>{
   if(driving){ stopDrive(); return; }
   if(!cur||mic.disabled) return;
+  if(!store.get("ihki.driveSeen",false)){ $("driveDlg").showModal(); return; }   // the first time: what the mode does, and then it starts
   if(rec&&rec.state==="recording"){ recCancel=true; rec.stop(); }   // the recording that started by itself
-  driving=true; document.body.classList.add("driving"); $("driveBtn").textContent="⏹ סיום נסיעה"; seatMic();
+  driving=true; document.body.classList.add("driving"); $("driveBtn").innerHTML=DRIVE_OFF; seatMic();
   hePending=null; if(heAudio) heAudio.pause();
   try{ wakeLock=await navigator.wakeLock.request("screen"); }catch{}   // keep the screen on, where supported
   drive();
