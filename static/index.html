@@ -221,6 +221,7 @@ body.driving .card.storymode .prompt{display:block}
   <symbol id="i-set" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h8M16 18h4"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></symbol>
   <symbol id="i-sound" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></symbol>
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l12 8-12 8z" fill="currentColor"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></symbol>
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></symbol>
   <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></symbol>
   <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
@@ -242,7 +243,8 @@ body.driving .card.storymode .prompt{display:block}
     <button class="btn" id="homeBtn"><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> המסלול</button>
     <span class="sep"></span>
     <button class="btn" id="listBtn"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg> רשימת המשפטים</button>
-    <button class="btn" id="hearBtn" title="השמעת כל השיחה בערבית, מההתחלה ועד הסוף" hidden><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg> השמעת השיחה</button>
+    <button class="btn" id="hearStop" title="עצירת ההשמעה" aria-label="עצירת ההשמעה" hidden><svg class="ic" aria-hidden="true"><use href="#i-stop"/></svg></button>
+    <button class="btn" id="hearBtn" title="השמעת כל השיחה בערבית, מההתחלה ועד הסוף. לחיצה נוספת משהה וממשיכה" hidden><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg> השמעת השיחה</button>
     <button class="btn" id="setBtn" title="הגדרות השמעה" aria-label="הגדרות השמעה"><svg class="ic" aria-hidden="true"><use href="#i-set"/></svg></button>
   </div>
   <div id="envWarn" class="warn" hidden></div>
@@ -603,32 +605,49 @@ function drawStory(){
   if(at) box.scrollTop=at.offsetTop-(box.clientHeight-at.offsetHeight)/2;
 }
 /* A story can be heard whole: its Arabic line after line, from the first to the last, the line being played framed.
-   Another press stops it, and so does whatever opens a line, records or leaves the card. */
-let listening=false;
+   The button plays, pauses and goes on from where it paused; the stop button beside it ends the playing, and so does
+   whatever opens a line, records or leaves the card. */
+let listening=false, hearPaused=false, hearHeld=false, hearWake=null;   // hearHeld: a line's sound was cut in its middle by the pause
 const IDLE="לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים";
-const HEAR_ON=$("hearBtn").innerHTML, HEAR_OFF=HEAR_ON.replace("i-play","i-stop").replace("השמעת השיחה","עצירה");
+const HEAR_ON=$("hearBtn").innerHTML, HEAR_MORE=HEAR_ON.replace(/<\/svg>[^]*$/,"</svg>"), HEAR_PAUSE=HEAR_MORE.replace("i-play","i-pause");   // while it plays the icon alone: pause, go on
+const hearFace=(html,name)=>{ $("hearBtn").innerHTML=html; $("hearBtn").setAttribute("aria-label",name); };
+const hearGate=()=>hearPaused?new Promise(r=>hearWake=r):Promise.resolve();   // the playing waits here while it is paused
+function hearPause(on){
+  hearPaused=on; hearFace(on?HEAR_MORE:HEAR_PAUSE,on?"המשך ההשמעה":"השהיית ההשמעה"); $("status").textContent=on?"ההשמעה מושהית":"הקשיבו לשיחה";
+  if(on){
+    hearHeld=!!driveAudio&&!driveAudio.paused&&!driveAudio.ended; if(hearHeld) driveAudio.pause();
+    if("speechSynthesis" in window) speechSynthesis.pause();
+  }else{
+    if(hearHeld&&driveAudio) driveAudio.play().catch(()=>{ if(driveAudioDone) driveAudioDone(); });
+    if("speechSynthesis" in window) speechSynthesis.resume();
+    hearHeld=false; if(hearWake){ hearWake(); hearWake=null; }
+  }
+}
 function stopListen(){
   if(!listening) return;
   storyRun++;   // the loop below sees it and ends
   if(driveAudio){ driveAudio.pause(); if(driveAudioDone) driveAudioDone(); driveAudio=null; }
   if("speechSynthesis" in window) speechSynthesis.cancel();
+  hearPaused=hearHeld=false; if(hearWake){ hearWake(); hearWake=null; }
   $("status").textContent=IDLE;
 }
+$("hearStop").onclick=stopListen;
 $("hearBtn").onclick=async()=>{
-  if(listening){ stopListen(); return; }
+  if(listening){ hearPause(!hearPaused); return; }
   cancelAutoNext(); autoRec=false; hePending=null; if(heAudio) heAudio.pause();
   if(rec&&rec.state==="recording"){ recCancel=true; recRestart=false; rec.stop(); }   // the recording that started by itself
   const run=++storyRun, on=()=>run===storyRun, box=$("story"), frame=row=>{ for(const r of box.querySelectorAll(".playing")) r.classList.remove("playing"); if(row) row.classList.add("playing"); };
-  listening=true; $("hearBtn").innerHTML=HEAR_OFF; $("status").textContent="הקשיבו לשיחה";
+  listening=true; hearPaused=hearHeld=false; hearFace(HEAR_PAUSE,"השהיית ההשמעה"); $("hearStop").hidden=false; $("status").textContent="הקשיבו לשיחה";
   for(const [k,id] of topic.entries()){
     const a=await answerAudio(id); if(!on()) break;
+    await hearGate(); if(!on()) break;
     const row=box.children[k]; frame(row);
     if(row) box.scrollTop=row.offsetTop-(box.clientHeight-row.offsetHeight)/2;
     if(a) await playUrl(a.url,true); else await speakLocal(phraseOf(id).ar,"ar");   // device voice when Sawtak is unavailable
     if(!on()) break;
-    await pause(350); if(!on()) break;
+    await pause(350); await hearGate(); if(!on()) break;
   }
-  listening=false; $("hearBtn").innerHTML=HEAR_ON; frame(null);
+  listening=false; hearFace(HEAR_ON,"השמעת השיחה"); $("hearStop").hidden=true; frame(null);
   if(on()) $("status").textContent=IDLE;
 };
 async function storyRetry(){   // the grade did not pass: the answer is played, then the same line again, or the next one after the last try
