@@ -207,9 +207,9 @@ def _plain(he: str) -> str:
 
 
 # words rewritten for the voice wherever they appear: unpointed דוד is read "David", חברי is read
-# "chaverei" (my friends), and ה' is said אלוהים
+# "chaverei" (my friends), שבוע is read "shvua" (oath), and ה' is said אלוהים
 MISREAD = {"ה'": "אלוהים", "דוד": "דּוֹד", "הדוד": "הַדּוֹד", "דודי": "דּוֹדִי", "ודודי": "וְדוֹדִי", "דודנו": "דּוֹדֵנוּ",
-           "חברי": "חֲבֵרִי", "וחברי": "וַחֲבֵרִי"}
+           "חברי": "חֲבֵרִי", "וחברי": "וַחֲבֵרִי", "שבוע": "שָׁבוּעַ"}
 _MISREAD = re.compile(rf"(?<![\u05D0-\u05EA])({'|'.join(MISREAD)})(?![\u05D0-\u05EA])")
 
 

@@ -227,15 +227,28 @@ async function promptUrl(id){
   }
   return heUrls[id];
 }
-async function readPrompt(){
+async function readPrompt(){   // resolves once the prompt has been read out, or at once when it is not going to be
   if(heAudio){ heAudio.pause(); heAudio=null; }
   if(!opened||driving||!$("readHe").checked||!cur||cur.read) return;   // driving mode reads the prompt itself, in sequence; a read phrase's Hebrew is its answer
   const id=cur.id;
   if(!await promptUrl(id)) return;
   if(!cur||cur.id!==id) return;   // moved on while it was loading
-  heAudio=new Audio(heUrls[id]);
+  const a=heAudio=new Audio(heUrls[id]);
+  const over=new Promise(res=>{ a.onended=a.onerror=a.onpause=()=>res(); });
   // browsers block sound before the first click or key press: play then instead
-  heAudio.play().catch(()=>{ hePending=id; });
+  a.play().catch(()=>{ hePending=id; });
+  await over;
+}
+/* The recording starts by itself on every new sentence, once its prompt has been read out (when that is on):
+   the student only speaks. After a grade that does not move on, the microphone button starts the next attempt. */
+let started=false, promptRead=Promise.resolve();   // started: the opening screen is gone
+function autoRecord(){
+  if(!started||driving||mic.disabled||starting||(rec&&rec.state==="recording")) return;
+  startRec(true);
+}
+function recordWhenReady(){
+  const id=cur.id, read=promptRead;
+  read.then(()=>{ if(cur&&cur.id===id&&read===promptRead) autoRecord(); });   // not when another sentence or reading took over
 }
 for(const ev of ["pointerdown","keydown"]) addEventListener(ev,()=>{
   cancelAutoNext();   // any click or key keeps the sentence on screen
@@ -255,7 +268,7 @@ function startAutoNext(){
 function show(p){
   cancelAutoNext();
   cur=p||PHRASES[order[pos]];
-  readPrompt();
+  promptRead=readPrompt();
   $("negBtn").hidden=$("conjBtn").hidden=cur.grp==null;
   $("negBtn").textContent=cur.neg?"חיוב":"שלילה";
   // read phrases (workbook, Arabic -> Hebrew): the transliteration is the prompt and the Hebrew is the answer
@@ -268,8 +281,11 @@ function show(p){
   if(ordered){ const idx=document.createElement("span"); idx.className="idx"; idx.textContent=`משפט ${pos+1} מתוך ${order.length}`; $("counter").prepend(idx," "); }
   $("progress").hidden=!ordered; $("progressBar").style.width=`${(pos+1)/order.length*100}%`;
   $("hint").hidden=true; $("hintAr").hidden=true; $("result").hidden=true;
-  $("status").textContent="לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים";
+  $("status").textContent="ההקלטה מתחילה ונעצרת לבד";
   $("playMine").disabled=true; $("prevBtn").disabled=pos===0;
+  // a recording of the sentence that was just left is dropped; the new one starts when it has stopped
+  if(!driving&&rec&&rec.state==="recording"){ recCancel=recRestart=true; rec.stop(); }
+  else recordWhenReady();
 }
 
 function render(r){
@@ -328,12 +344,13 @@ function render(r){
 
 /* ---------- recording ---------- */
 let rec=null, chunks=[], stopTimer=null, vad=null;
+let starting=false, recRestart=false;   // waiting for the microphone / record the new sentence once the dropped recording has stopped
 let recDone=null, recCancel=false;   // driving mode: resolver for the attempt in progress / drop it without scoring
 const finishRec=out=>{ const f=recDone; recDone=null; if(f) f(out); };
 
 /* Voice activity detection: stops the recording by itself once the speaker has gone quiet.
    Energy based: the level must rise clearly above the room noise measured in the first frames. */
-const VAD={frame:50, startFrames:3, endSilence:1000, noSpeech:6000, noSpeechDriving:12000, minLevel:.012, ratio:3};
+const VAD={frame:50, startFrames:3, endSilence:1000, noSpeech:12000, minLevel:.012, ratio:3};
 function startVad(stream, onEnd){
   const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null;   // no Web Audio: manual stop only
   const ctx=new AC(), an=ctx.createAnalyser(); an.fftSize=1024;
@@ -349,7 +366,7 @@ function startVad(stream, onEnd){
     if(isSpeech){ quiet=0; if(++loud>=VAD.startFrames) spoke=true; }
     else{ loud=0; if(spoke) quiet+=VAD.frame; }
     if(spoke && quiet>=VAD.endSilence) onEnd(true);
-    else if(!spoke && t>=(driving?VAD.noSpeechDriving:VAD.noSpeech)) onEnd(false);   // driving: time to think
+    else if(!spoke && t>=VAD.noSpeech) onEnd(false);   // long enough to think of the answer
   },VAD.frame);
   return {stop(){ clearInterval(timer); ctx.close().catch(()=>{}); }};
 }
@@ -360,41 +377,54 @@ if(!navigator.mediaDevices||!window.MediaRecorder){
   const w=$("envWarn"); w.textContent="הדפדפן הזה לא תומך בהקלטה. השתמשו ב־Chrome, Edge, Firefox או Safari עדכניים, בכתובת https."; w.hidden=false; mic.disabled=true;
 }
 
-mic.onclick=async()=>{
+mic.onclick=()=>startRec(false);
+async function startRec(auto){   // auto: started by the page for the sentence on screen, not by a press
   hePending=null; if(heAudio) heAudio.pause();   // never record the prompt being read out
   if(rec&&rec.state==="recording"){ rec.stop(); return; }
+  if(starting) return;
+  starting=true;
+  const id=cur.id;
   let stream;
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
-  catch{ $("status").textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."; finishRec({kind:"nomic"}); return; }
+  catch{ starting=false; $("status").textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."; finishRec({kind:"nomic"}); return; }
+  if(auto&&(driving||cur.id!==id)){   // the sentence changed while the microphone was opening
+    stream.getTracks().forEach(t=>t.stop()); starting=false; recordWhenReady(); return;
+  }
   const type=pickType();
   rec=new MediaRecorder(stream, type?{mimeType:type}:{}); chunks=[];
   rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
   let heardSpeech=true;   // false only when the VAD gave up waiting for speech
   rec.onstart=()=>{
+    starting=false;
     mic.classList.add("live"); $("result").hidden=true;
-    stopTimer=setTimeout(()=>rec.state==="recording"&&rec.stop(),driving?20000:10000);
+    stopTimer=setTimeout(()=>rec.state==="recording"&&rec.stop(),20000);
     vad=startVad(stream, spoke=>{ heardSpeech=spoke; if(rec.state==="recording") rec.stop(); });
     $("status").textContent=vad?"מקליט… דברו, ההקלטה תיעצר לבד (או לחצו לסיום)":"מקליט… לחצו שוב לסיום";
   };
   rec.onstop=async()=>{
     clearTimeout(stopTimer); if(vad){ vad.stop(); vad=null; }
     mic.classList.remove("live"); stream.getTracks().forEach(t=>t.stop());
-    if(recCancel){ recCancel=false; finishRec({kind:"cancel"}); return; }
+    if(recCancel){
+      recCancel=false; finishRec({kind:"cancel"});
+      if(recRestart){ recRestart=false; recordWhenReady(); }
+      return;
+    }
     if(!heardSpeech){ $("status").textContent="לא נשמע דיבור. לחצו ונסו שוב, קרוב יותר למיקרופון."; finishRec({kind:"nospeech"}); return; }
     const blob=new Blob(chunks,{type:rec.mimeType||"audio/webm"});
     if(myAudioUrl) URL.revokeObjectURL(myAudioUrl);
     myAudioUrl=URL.createObjectURL(blob); $("playMine").disabled=false;
     mic.disabled=true; $("status").textContent="מנתח…";
     try{
-      const fd=new FormData(); fd.append("phrase_id",cur.id); fd.append("audio",blob,"rec");
+      const fd=new FormData(); fd.append("phrase_id",id); fd.append("audio",blob,"rec");
       const res=await fetch("/api/score",{method:"POST",body:fd});
       if(!res.ok) throw new Error(res.status);
       const r=await res.json();
+      if(cur.id!==id){ mic.disabled=false; finishRec({kind:"cancel"}); recordWhenReady(); return; }   // moved on while it was analysed
       render(r); mic.disabled=false; finishRec(r.error?{kind:"nospeech"}:{kind:"result",r});
     }catch(err){ $("status").textContent="הניתוח נכשל ("+err.message+"). נסו שוב."; mic.disabled=false; finishRec({kind:"fail"}); }
   };
   rec.start();
-};
+}
 $("playMine").onclick=()=>{ if(myAudioUrl) new Audio(myAudioUrl).play(); };
 
 /* ---------- hint, answer, TTS ---------- */
@@ -407,8 +437,11 @@ $("prevBtn").onclick=()=>{ if(pos>0){ pos--; show(); } };   // not before the fi
 function arVoice(){ const vs=speechSynthesis.getVoices(); return vs.find(v=>/^ar[-_](PS|JO|LB|SY|IL)/i.test(v.lang))||vs.find(v=>/^ar/i.test(v.lang)); }
 if("speechSynthesis" in window) speechSynthesis.getVoices();
 const ttsUrls={};   // "phrase id|voice" -> {url, voice label} of the server-generated answer
-$("readHe").checked=store.get("ihki.readHe",true);
-$("readHe").onchange=()=>{ store.set("ihki.readHe",$("readHe").checked); readPrompt(); };
+$("readHe").checked=store.get("ihki.readHe",false);
+$("readHe").onchange=()=>{
+  store.set("ihki.readHe",$("readHe").checked);
+  if(!(rec&&rec.state==="recording")){ promptRead=readPrompt(); recordWhenReady(); }
+};
 $("voiceId").onchange=()=>store.set("ihki.voice",$("voiceId").value);   // Sawtak voice of the playback; options come from the server
 let ttsVoice="";   // debug: why the server voice was not used, shown in the version badge
 const ttsInfo=t=>{ $("ttsInfo").textContent=" · 🔊 "+t; };
@@ -511,6 +544,7 @@ function stopDrive(){
 $("driveBtn").onclick=async()=>{
   if(driving){ stopDrive(); return; }
   if(!cur||mic.disabled) return;
+  if(rec&&rec.state==="recording"){ recCancel=true; rec.stop(); }   // the recording that started by itself
   driving=true; document.body.classList.add("driving"); $("driveBtn").textContent="⏹ סיום נסיעה";
   hePending=null; if(heAudio) heAudio.pause();
   try{ wakeLock=await navigator.wakeLock.request("screen"); }catch{}   // keep the screen on, where supported
@@ -530,6 +564,7 @@ fetch("/api/phrases").then(r=>r.json()).then(d=>{
 $("startBtn").onclick=()=>{
   const splash=$("logo-splash");
   $("wrap").inert=false; splash.classList.add("done"); setTimeout(()=>splash.remove(),400);
+  started=true; recordWhenReady();
 };
 $("startBtn").focus({preventScroll:true});
 </script>
