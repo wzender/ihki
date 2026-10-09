@@ -84,6 +84,9 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 .tips .what::after{content:" · "}
 .tips .what{font-weight:700}
 .tips .what .ar{font-family:var(--f-ar);font-size:14px;font-weight:400;color:var(--muted)}
+#denied{text-align:center;font:600 18px/1.5 var(--f-body);color:#1C241D;padding:0 20px}
+#denied button{display:block;margin:12px auto 0;font:600 16px/1 var(--f-body);padding:10px 22px;border-radius:10px;border:1px solid #4B6A2C;background:#fff;color:#4B6A2C;cursor:pointer}
+#logoutBtn{position:fixed;bottom:4px;right:6px;z-index:9;font:500 11px/1 var(--f-body);padding:3px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
 .version{position:fixed;bottom:4px;left:6px;z-index:9;font:500 11px/1 var(--f-ipa);direction:ltr;padding:3px 6px;border-radius:6px;background:var(--amber-bg);color:var(--amber);opacity:.85;pointer-events:none}
 header .sub{flex:1}
 .drive{font:700 15px var(--f-body);border-radius:999px;padding:6px 14px;cursor:pointer;border:1px solid var(--olive);background:transparent;color:var(--olive)}
@@ -103,13 +106,13 @@ body.driving .mic{width:84px;height:84px}
 #logo-splash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:white;transition:opacity .35s ease,visibility .35s ease}
 #logo-splash.done{opacity:0;visibility:hidden;pointer-events:none}
 #logo-splash img{width:min(82vw,620px);height:auto}
-#startBtn{font:400 24px/1 var(--f-display);padding:14px 34px;border-radius:14px;border:0;cursor:pointer;background:#4B6A2C;color:#fff;opacity:0;animation:start-in .45s ease-out 2.1s forwards}
+#startBtn,#loginBtn{font:400 24px/1 var(--f-display);padding:14px 34px;border-radius:14px;border:0;cursor:pointer;background:#4B6A2C;color:#fff;opacity:0;animation:start-in .45s ease-out 2.1s forwards}
 @keyframes start-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){#startBtn{animation:none;opacity:1}#logo-splash{transition:none}}
+@media (prefers-reduced-motion:reduce){#startBtn,#loginBtn{animation:none;opacity:1}#logo-splash{transition:none}}
 </style>
 </head>
 <body>
-<div id="logo-splash"><img src="static/logo-intro.svg" alt="אהלא וסהלא, בית הספר ללימוד השפה הערבית" width="489" height="225"><button id="startBtn">יאללה נבלש</button></div>
+<div id="logo-splash"><img src="static/logo-intro.svg" alt="אהלא וסהלא, בית הספר ללימוד השפה הערבית" width="489" height="225"><button id="startBtn">יאללה נבלש</button><button id="loginBtn" hidden>כניסה עם Google</button><div id="denied" hidden>החשבון הזה אינו ברשימת התלמידים.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
 <div class="wrap" id="wrap" inert>
   <header>
     <div class="brand">אהלא וסהלא</div>
@@ -160,9 +163,21 @@ body.driving .mic{width:84px;height:84px}
   <p class="note">הניתוח נעשה ברמת ההגה. ההשמעה נוצרת בקול של ערבית מדוברת מ-Sawtak Arabi; אם השירות אינו זמין, נעשה שימוש בקול הערבי של המכשיר.</p>
 </div>
 <div class="version" title="גרסת debug">v __VERSION__<span id="heInfo"></span><span id="ttsInfo"></span></div>
+<button id="logoutBtn" hidden>יציאה</button>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const $=id=>document.getElementById(id);
+/* Sign-in: Google through Supabase. The server fills the two values in; when they are empty (no project configured) the app is open. */
+const AUTH_URL="__SUPABASE_URL__", AUTH_KEY="__SUPABASE_KEY__";
+const sb=AUTH_URL&&window.supabase?supabase.createClient(AUTH_URL,AUTH_KEY):null;
+async function api(url,opts={}){   // fetch with the session token; a refused token goes back to the sign-in screen
+  if(!sb) return fetch(url,opts);
+  const {data}=await sb.auth.getSession();   // refreshes the token when it has expired
+  const res=await fetch(url,{...opts,headers:{...opts.headers,Authorization:"Bearer "+(data.session?data.session.access_token:"")}});
+  if(res.status===401){ await sb.auth.signOut({scope:"local"}); location.reload(); }
+  return res;
+}
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 let driving=false;
 let LESSONS=[], lesson=null, CATS=[], PHRASES=[], cat=store.get("ihki.cat","meet"), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
@@ -219,7 +234,7 @@ let heAudio=null, hePending=null, opened=false;   // opened: the sentence the ap
 async function promptUrl(id){
   if(!heUrls[id]){
     try{
-      const res=await fetch(`/api/prompt-audio/${id}?engine=${heEngine}`);
+      const res=await api(`/api/prompt-audio/${id}?engine=${heEngine}`);
       if(!res.ok) return null;
       heUrls[id]=URL.createObjectURL(await res.blob());
       $("heInfo").textContent=" · 🗣 "+(res.headers.get("X-TTS-Engine")==="edge"?"edge-tts":"gTTS");
@@ -421,7 +436,7 @@ async function startRec(auto){   // auto: started by the page for the sentence o
     mic.disabled=true; $("status").textContent="מנתח…";
     try{
       const fd=new FormData(); fd.append("phrase_id",id); fd.append("audio",blob,"rec");
-      const res=await fetch("/api/score",{method:"POST",body:fd});
+      const res=await api("/api/score",{method:"POST",body:fd});
       if(!res.ok) throw new Error(res.status);
       const r=await res.json();
       if(cur.id!==id){ mic.disabled=false; finishRec({kind:"cancel"}); recordWhenReady(); return; }   // moved on while it was analysed
@@ -461,7 +476,7 @@ async function answerAudio(id){   // {url,label} of the Sawtak answer, or null w
   ttsVoice="";
   if(!ttsOff && !ttsUrls[key]){
     try{
-      const res=await fetch("/api/tts/"+id+(voice?"?voice="+encodeURIComponent(voice):""));
+      const res=await api("/api/tts/"+id+(voice?"?voice="+encodeURIComponent(voice):""));
       if(res.ok){
         const h=k=>decodeURIComponent(res.headers.get(k)||""), name=h("X-TTS-Voice-Name");
         ttsUrls[key]={url:URL.createObjectURL(await res.blob()),
@@ -507,7 +522,7 @@ function speakLocal(text,lang){   // device voice, when the server could not spe
 }
 async function sayHe(text){
   try{
-    const res=await fetch(`/api/say?engine=${heEngine}&text=${encodeURIComponent(text)}`);
+    const res=await api(`/api/say?engine=${heEngine}&text=${encodeURIComponent(text)}`);
     if(res.ok){ const url=URL.createObjectURL(await res.blob()); await playUrl(url); URL.revokeObjectURL(url); return; }
   }catch{}
   await speakLocal(text,"he-IL");
@@ -576,6 +591,32 @@ $("startBtn").onclick=()=>{
   $("wrap").inert=false; splash.classList.add("done"); setTimeout(()=>splash.remove(),400);
 };
 $("startBtn").focus({preventScroll:true});
+/* With sign-in configured, the start button waits behind the Google button. */
+if(AUTH_URL){
+  const start=$("startBtn"), login=$("loginBtn"), logout=$("logoutBtn");
+  start.hidden=true; login.hidden=false;
+  if(!sb){ login.disabled=true; login.textContent="הכניסה לא זמינה כרגע"; }
+  else{
+    const denied=$("denied");
+    let asked="";   // the account whose permission was already asked; token refreshes do not ask again
+    login.onclick=()=>sb.auth.signInWithOAuth({provider:"google",
+      options:{redirectTo:location.origin+location.pathname,queryParams:{prompt:"select_account"}}});
+    logout.onclick=$("switchBtn").onclick=async()=>{ await sb.auth.signOut(); location.reload(); };
+    sb.auth.onAuthStateChange((_e,session)=>{
+      login.hidden=!!session; logout.hidden=!session;
+      logout.title=session?session.user.email||"":"";
+      if(!session){ asked=""; start.hidden=true; denied.hidden=true; login.focus({preventScroll:true}); return; }
+      if(asked===session.user.id) return;
+      asked=session.user.id;
+      setTimeout(async()=>{   // outside this callback: api() asks supabase for the session
+        const res=await api("/api/me").catch(()=>null);
+        const ok=!res||res.status!==403;   // a server that cannot be reached is not a refusal
+        start.hidden=!ok; denied.hidden=ok;
+        if(ok) start.focus({preventScroll:true});
+      },0);
+    });
+  }
+}
 </script>
 </body>
 </html>

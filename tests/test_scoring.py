@@ -405,3 +405,52 @@ def test_workbook_lesson_2():
     assert by["l2-say", "אני ישבתי עם חברי לפני יומיים ואכלנו פיצה בסלון."]["he_say"].split()[3] == "חֲבֵרִי"
     assert "וַחֲבֵרִי" in by["l2-say", "מי ישב בבית השיח'? אני וחברי ישבנו בבית השיח'."]["he_say"]
     assert by["l2-dual", "שבוע, שבועיים"]["he_say"] == "שָׁבוּעַ, שבועיים"   # not "shvua"
+
+
+def test_sign_in_guards_the_practice_endpoints():
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    class FakeAuth:
+        url, key, allowed = "https://proj.supabase.co", "sb_publishable_x", frozenset()
+
+        def __init__(self):
+            self.rows = []
+
+        def user(self, token):
+            return {"id": "u1", "email": "A@b.c"} if token == "good" else None
+
+        def record(self, token, row):
+            self.rows.append((token, row))
+
+    with TestClient(create_app(scorer_for(emissions(["w"])), auth=FakeAuth())) as c:
+        page = c.get("/").text
+        assert 'AUTH_URL="https://proj.supabase.co"' in page and 'AUTH_KEY="sb_publishable_x"' in page
+        assert c.get("/api/phrases").status_code == 200   # the phrase list stays public
+        assert c.get("/api/prompt-audio/0").status_code == 401
+        assert c.get("/api/tts/0", headers={"Authorization": "Bearer bad"}).status_code == 401
+        assert c.get("/api/tts/0", headers={"Authorization": "Bearer good"}).status_code == 503   # in, but no TTS key
+        good = {"Authorization": "Bearer good"}
+        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c"}
+        c.app.state.auth.allowed = frozenset({"other@b.c"})   # a list without this account
+        assert c.get("/api/me", headers=good).status_code == 403 and c.get("/api/tts/0", headers=good).status_code == 403
+        c.app.state.auth.allowed = frozenset({"a@b.c"})   # case does not matter
+        assert c.get("/api/me", headers=good).status_code == 200
+    # a scored recording is recorded as the student's attempt
+    auth, pid = FakeAuth(), PHRASES.index(TOILET)
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+        w.writeframes((0.3 * np.sin(2 * np.pi * 220 * np.arange(16000) / 16000) * 32767).astype("<i2").tobytes())
+    logp = emissions(["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"])
+    with TestClient(create_app(scorer_for(logp), auth=auth)) as c:
+        files = {"audio": ("a.wav", buf.getvalue(), "audio/wav")}
+        assert c.post("/api/score", data={"phrase_id": pid}, files=files).status_code == 401 and not auth.rows
+        r = c.post("/api/score", data={"phrase_id": pid}, files=files, headers={"Authorization": "Bearer good"})
+        assert r.status_code == 200, r.text
+        (token, row), = auth.rows
+        assert token == "good" and row["phrase"] == TOILET["he"] and row["cat"] == TOILET["cat"]
+        assert row["score"] == round(r.json()["score"]) and row["unrelated"] is False
+    with TestClient(create_app(scorer_for(emissions(["w"])))) as c:   # not configured: open, as before
+        assert 'AUTH_URL=""' in c.get("/").text and c.get("/api/tts/0").status_code == 503

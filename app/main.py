@@ -3,6 +3,7 @@
 Run:  uvicorn app.main:app --host 0.0.0.0 --port 7860
 Env:  MODEL_ID  (default facebook/wav2vec2-xlsr-53-espeak-cv-ft, or a path to a fine-tuned checkpoint)
       SAWTAK_API_KEY, SAWTAK_VOICE_ID  (model-answer playback, see app/tts.py)
+      SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, ALLOWED_EMAILS  (Google sign-in, see app/auth.py)
 A local .env file is loaded if present; real environment variables win over it.
 """
 from __future__ import annotations
@@ -17,10 +18,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from .auth import AuthUnavailable, SupabaseAuth, load_auth
 from .phrases import CATEGORIES, LESSONS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .reference import References
@@ -44,22 +46,51 @@ def build_version() -> str:
     return f"{h.hexdigest()[:7]} · {time.strftime('%Y-%m-%d %H:%M', time.gmtime(newest))} UTC"
 
 
-def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> FastAPI:
+def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
+               auth: SupabaseAuth | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.scorer = scorer or load_scorer(MODEL_ID)
         app.state.tts = tts or load_tts()
         # the playback voices double as the native baseline of the scores (see reference.py)
         app.state.refs = References(app.state.scorer, app.state.tts, list(VOICES.values())) if app.state.tts else None
+        app.state.auth = auth or load_auth()
         yield
 
     app = FastAPI(title="ihki", lifespan=lifespan)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
+    def signed_in(request: Request) -> dict | None:
+        """The caller's user; 401 when sign-in is configured and the call carries no valid session token."""
+        a: SupabaseAuth | None = app.state.auth
+        if a is None:
+            return None
+        scheme, _, token = request.headers.get("authorization", "").partition(" ")
+        try:
+            user = a.user(token.strip()) if scheme.lower() == "bearer" and token.strip() else None
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"sign-in check failed: {e}")
+        if user is None:
+            raise HTTPException(401, "sign in required")
+        if a.allowed and user["email"].lower() not in a.allowed:
+            raise HTTPException(403, "this account is not on the list")
+        return {**user, "token": token.strip()}
+
+    members = [Depends(signed_in)]
+
     @app.get("/")
     def index():
         html = (STATIC / "index.html").read_text(encoding="utf-8")
-        return HTMLResponse(html.replace("__VERSION__", build_version()), headers={"Cache-Control": "no-cache"})
+        a: SupabaseAuth | None = app.state.auth
+        for mark, value in (("__VERSION__", build_version()), ("__SUPABASE_URL__", a.url if a else ""),
+                            ("__SUPABASE_KEY__", a.key if a else "")):
+            html = html.replace(mark, value)
+        return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+
+    @app.get("/api/me")
+    def me(user: dict | None = Depends(signed_in)):
+        """Who is signed in; the page asks this right after sign-in to learn whether the account is let in."""
+        return {"email": user["email"] if user else ""}
 
     @app.get("/api/phrases")
     def phrases():
@@ -73,7 +104,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
                 "references": app.state.refs is not None,
                 "phoneme_fallbacks": s.vocab.downgraded}
 
-    @app.get("/api/tts/{phrase_id}")
+    @app.get("/api/tts/{phrase_id}", dependencies=members)
     def tts_phrase(phrase_id: int, voice: str = Query("", max_length=64)):
         """The model answer (first variant) spoken by the TTS voice. 503 tells the page to use the device voice.
 
@@ -96,7 +127,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
             "X-TTS-Voice-Id": urllib.parse.quote(used),
             "X-TTS-Voice-Name": urllib.parse.quote(names.get(used) or getattr(tts, "voice_name", ""))})
 
-    @app.get("/api/prompt-audio/{phrase_id}")
+    @app.get("/api/prompt-audio/{phrase_id}", dependencies=members)
     def prompt_audio(phrase_id: int, engine: str = "gtts"):
         """The Hebrew prompt read aloud (edge-tts or gTTS). 503 tells the page to stay silent."""
         if not 0 <= phrase_id < len(PHRASES):
@@ -111,7 +142,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
         return Response(data, media_type="audio/mpeg", headers={
             "Cache-Control": "private, max-age=86400", "X-TTS-Engine": used})
 
-    @app.get("/api/say")
+    @app.get("/api/say", dependencies=members)
     def say(text: str = Query(..., min_length=1, max_length=400), engine: str = "gtts"):
         """A short Hebrew text read aloud: driving mode's spoken messages."""
         if engine not in ENGINES:
@@ -125,7 +156,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
         return Response(data, media_type="audio/mpeg", headers={"Cache-Control": "no-store", "X-TTS-Engine": used})
 
     @app.post("/api/score")
-    def score(phrase_id: int = Form(...), audio: UploadFile = File(...)):
+    def score(tasks: BackgroundTasks, phrase_id: int = Form(...), audio: UploadFile = File(...),
+              user: dict | None = Depends(signed_in)):
         if not 0 <= phrase_id < len(PHRASES):
             raise HTTPException(404, "unknown phrase")
         data = audio.file.read(MAX_UPLOAD + 1)
@@ -139,7 +171,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
             return {"error": "too_short", "message": "לא נשמע דיבור. נסו שוב, קרוב יותר למיקרופון."}
         phrase = PHRASES[phrase_id]
         refs = app.state.refs.get(phrase_id, phrase) if app.state.refs else []
-        return app.state.scorer.score(wav, phrase, refs)
+        result = app.state.scorer.score(wav, phrase, refs)
+        if user and result.get("score") is not None:   # the student's progress; sent after the answer
+            tasks.add_task(app.state.auth.record, user["token"], {
+                "cat": phrase["cat"], "phrase": phrase["he"], "score": round(result["score"]),
+                "unrelated": bool(result.get("unrelated"))})
+        return result
 
     return app
 

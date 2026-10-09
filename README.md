@@ -68,6 +68,41 @@ The teacher only needs that link. Free Spaces sleep after inactivity, so the fir
 
 `docker build -t ihki . && docker run -p 7860:7860 ihki` runs the same image anywhere.
 
+## Sign-in and progress (Supabase)
+
+Optional. With `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` set, the page asks for a Google sign-in (through Supabase Auth) and the practice endpoints refuse calls without a session. `ALLOWED_EMAILS` limits entry to the listed accounts. Without the two values the service is open.
+
+Each scored recording is added to the table `attempts`, written with the student's own token so row-level security ties the row to them. Create it once in the Supabase SQL editor:
+
+```sql
+create table public.attempts (
+  id         bigint generated always as identity primary key,
+  user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  cat        text not null,      -- the topic id, e.g. l1-verbs
+  phrase     text not null,      -- the Hebrew prompt
+  score      int  not null,      -- 0-100
+  unrelated  boolean not null default false,   -- "different sentence?"
+  created_at timestamptz not null default now()
+);
+create index attempts_user_time on public.attempts (user_id, created_at desc);
+
+alter table public.attempts enable row level security;
+grant select, insert on public.attempts to authenticated;
+create policy "students add their own attempts"  on public.attempts
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "students read their own attempts" on public.attempts
+  for select to authenticated using (user_id = auth.uid());
+```
+
+The teacher's view, also in the SQL editor (it runs as the owner, so it sees every student):
+
+```sql
+select u.email, a.cat, count(distinct a.phrase) as phrases, count(*) as tries,
+       round(avg(a.score)) as average, max(a.created_at) as last_practice
+from public.attempts a join auth.users u on u.id = a.user_id
+group by u.email, a.cat order by u.email, a.cat;
+```
+
 ## Fine-tuning
 
 The base model was not trained on Palestinian Arabic, and it has heard few Hebrew-accented pharyngeals. Expect the zero-shot scores to be noisy until it is fine-tuned on matched data.
