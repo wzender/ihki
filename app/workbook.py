@@ -15,6 +15,7 @@ whole word is not in LEX. Punctuation stays on its word.
 from __future__ import annotations
 
 import itertools
+import re
 
 from .grammar import MAX_VARIANTS, PRONOUNS, WORDS
 
@@ -203,6 +204,15 @@ POINTS = dict.fromkeys(range(0x0591, 0x05C8))
 
 def _plain(he: str) -> str:
     return he.translate(POINTS)
+
+
+# words pointed for the voice wherever they appear: unpointed דוד is read "David"
+MISREAD = {"דוד": "דּוֹד", "הדוד": "הַדּוֹד", "דודי": "דּוֹדִי", "ודודי": "וְדוֹדִי", "דודנו": "דּוֹדֵנוּ"}
+_MISREAD = re.compile(rf"(?<![\u05D0-\u05EA])({'|'.join(MISREAD)})(?![\u05D0-\u05EA])")
+
+
+def _voiced(he: str) -> str:
+    return _MISREAD.sub(lambda m: MISREAD[m[1]], he)
 
 
 HE_PRONOUNS = "אֲנִי אַתָּה אַתְּ הוּא הִיא אֲנַחְנוּ אַתֶּם הֵם".split()   # in PRONOUNS order
@@ -474,8 +484,9 @@ def workbook_phrases() -> list[dict]:
                 words = [_word(t) for t in sentence.split()]
                 phrase = dict(cat=f"l{n}-{tid}", he=he, tr=" ".join(t for _, t, _ in words),
                               variants=_variants(words), read=kind == "read")
-                if he_say:
-                    phrase["he_say"] = he_say[0]
+                say = _voiced(he_say[0] if he_say else he)
+                if say != he:
+                    phrase["he_say"] = say
                 if in_order:
                     phrase["seq"] = seq
                 out.append(phrase)

@@ -393,6 +393,9 @@ def test_workbook_lesson_2():
     assert you["tr"] == "בִּנְתֵ-כּ" and you["he_say"] == "הבת שֶׁלָּךְ" and you["variants"] == [("بنتك", "b i n t i k")]
     assert by["l2-poss", "הכלב שלכם"]["variants"] == [("كلبكم", "k a l b k o m"), ("كلبكم", "k a l b k u")]
     assert ("جدّي", "s iː d i") in by["l2-poss", "הסבא שלי"]["variants"]   # the other word for סבא is accepted
+    # דוד is pointed for the prompt voice, which otherwise reads it "David"; דודה is read correctly as it is
+    assert by["l2-family", "דוד (מצד האב)"]["he_say"] == "דּוֹד (מצד האב)" and "he_say" not in by["l2-family", "דודה (מצד האב)"]
+    assert by["l2-say", "איפה כלבכם? הוא אצל דודי (מצד אמא)."]["he_say"] == "איפה כלבכם? הוא אצל דּוֹדִי (מצד אמא)."
     p = next(p for p in PHRASES if p["cat"] == "l2-talk" and p["seq"] == 2)
     assert p["tr"] == "וּעַלֵיכֹּם אֵ(ל)סַّלַאםֻ" and p["variants"][0][1] == "u ʕ a l eː k u m | i s s a l aː m u"
     p = next(p for p in PHRASES if p["cat"] == "l2-say" and p["seq"] == 22)

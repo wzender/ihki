@@ -226,7 +226,7 @@ function variation(kind){
 /* Hebrew prompt read aloud on every new sentence (option): edge-tts in Edge, gTTS in other browsers. */
 const heEngine=/\bEdg\//.test(navigator.userAgent)?"edge":"gtts";
 const heUrls={};   // phrase id -> object URL
-let heAudio=null, hePending=null;
+let heAudio=null, hePending=null, opened=false;   // opened: the sentence the app opens on is not read aloud
 async function promptUrl(id){
   if(!heUrls[id]){
     try{
@@ -240,7 +240,7 @@ async function promptUrl(id){
 }
 async function readPrompt(){
   if(heAudio){ heAudio.pause(); heAudio=null; }
-  if(driving||!$("readHe").checked||!cur||cur.read) return;   // driving mode reads the prompt itself, in sequence; a read phrase's Hebrew is its answer
+  if(!opened||driving||!$("readHe").checked||!cur||cur.read) return;   // driving mode reads the prompt itself, in sequence; a read phrase's Hebrew is its answer
   const id=cur.id;
   if(!await promptUrl(id)) return;
   if(!cur||cur.id!==id) return;   // moved on while it was loading
@@ -515,7 +515,7 @@ fetch("/api/phrases").then(r=>r.json()).then(d=>{
   for(const v of d.voices||[]) $("voiceId").add(new Option(v.name,v.id));
   const saved=store.get("ihki.voice",""); if((d.voices||[]).some(v=>v.id===saved)) $("voiceId").value=saved;
   if(!CATS.some(c=>c.id===cat)) cat=CATS[0].id;
-  buildCats(); startCat();
+  buildCats(); startCat(); opened=true;
 }).catch(()=>{ $("prompt").textContent="השרת לא זמין."; });
 </script>
 <script>
