@@ -1,0 +1,6 @@
+<!doctype html><html lang="he" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>פתיחת האפליקציה</title><style>
+#logo-splash{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:white;pointer-events:none;animation:splash-out .35s ease 2.65s forwards}#logo-splash img{width:min(82vw,620px);height:auto}@keyframes splash-out{to{opacity:0;visibility:hidden}}@media(prefers-reduced-motion:reduce){#logo-splash{animation:none;display:none}}
+body{font-family:system-ui;margin:0}main{padding:3rem;text-align:center}
+</style><main><h1>הממשק הראשי של האפליקציה</h1><p>החלף אזור זה בממשק הקיים שלך.</p></main>
+<div id="logo-splash" aria-hidden="true"><img src="static/logo-intro.svg" alt="" width="489" height="225"></div>
+<script>/* Removal is cleanup only; CSS completes the intro even if JS is unavailable. */setTimeout(()=>document.getElementById('logo-splash')?.remove(),3100);</script></html>
