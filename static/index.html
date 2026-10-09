@@ -31,25 +31,28 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 .brand{font:400 24px/1 var(--f-display)}
 .brand .ar{font-family:var(--f-ar);font-weight:700;color:var(--olive);margin-inline-start:8px}
 .sub{color:var(--muted);font-size:14px}
-/* Home: the course as a path that winds down the screen, lesson after lesson; each topic is a round node.
-   The ring around a node fills as its sentences are practised. A finished topic is filled (gold when every
-   sentence reached "מצוין"), the one to do now carries a call to start, and the ones after it are pale. */
+/* Home: the course as a path down the screen. Each lesson is a large round node, and its topics are small
+   nodes set in a circle around it. The ring around a node fills as its sentences are practised. A finished one
+   is filled (gold when every sentence reached "מצוין"), the one to do now is filled too, the ones after it are pale. */
 body.home #practice,body.home #driveBtn,body:not(.home) #path{display:none}
-.path{display:flex;flex-direction:column;align-items:center;gap:20px;padding:0 0 48px}
-.unit{align-self:stretch;display:flex;justify-content:space-between;align-items:baseline;gap:12px;position:sticky;top:8px;z-index:2;background:var(--olive);color:var(--on-olive);border-radius:14px;padding:10px 16px;font:400 20px/1.2 var(--f-display)}
-.unit small{font:600 13px var(--f-body);opacity:.85}
-.node{--c:var(--olive);display:flex;flex-direction:column;align-items:center;gap:4px;max-width:200px;padding:0;border:0;background:none;color:var(--muted);font:600 14px/1.3 var(--f-body);text-align:center;cursor:pointer;transform:translateX(calc(var(--x,0)*1px))}
-.node .ring{width:92px;height:92px;border-radius:50%;padding:12px 12px 16px;background:radial-gradient(closest-side,var(--bg) calc(100% - 7px),transparent calc(100% - 6px)),conic-gradient(var(--c) var(--p,0%),var(--line) 0)}
-.node .dot{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;background:var(--surface);color:var(--muted);font:400 26px/1 var(--f-display);box-shadow:0 5px 0 var(--line);transition:transform .08s,box-shadow .08s}
-.node:active .dot{transform:translateY(4px);box-shadow:0 1px 0 var(--line)}
-.node.now,.node.started,.node.done,.node.gold{color:var(--ink)}
-.node.now .dot,.node.started .dot,.node.done .dot{background:var(--olive);color:var(--on-olive);box-shadow:0 5px 0 var(--olive-deep)}
-.node.gold{--c:var(--amber)}
-.node.gold .dot{background:var(--amber-bg);color:var(--amber);box-shadow:0 5px 0 var(--amber)}
-.node .cnt{font-size:12px;font-weight:400;color:var(--muted);direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums}
-.node .go{font:400 15px/1 var(--f-display);color:var(--olive);background:var(--surface);border:2px solid var(--line);border-radius:10px;padding:6px 12px;animation:bob 1.4s ease-in-out infinite}
-@keyframes bob{50%{transform:translateY(-4px)}}
-@media (prefers-reduced-motion:reduce){.node .go{animation:none}.node .dot{transition:none}}
+.path{display:flex;flex-direction:column;align-items:center;gap:26px;padding:6px 0 48px}
+.hub{--r:min(126px,calc(50vw - 60px));--mid:calc(var(--r) + 30px);position:relative;width:100%;max-width:340px;height:calc(var(--r)*2 + 110px)}
+.hub+.hub::before{content:"";position:absolute;left:50%;top:-22px;height:18px;border-left:4px dotted var(--line)}
+.node,.sat{--c:var(--olive);--t:7px;--s:5px;position:absolute;padding:0;border:0;background:none;color:var(--muted);font:600 12px/1.25 var(--f-body);text-align:center;cursor:pointer}
+.node{left:50%;top:var(--mid);transform:translate(-50%,-50%)}
+.sat{--t:4px;--s:3px;left:calc(50% + var(--cx)*var(--r));top:calc(var(--mid) + var(--cy)*var(--r));width:88px;transform:translate(-50%,-28px);display:flex;flex-direction:column;align-items:center;gap:2px}
+.ring{display:block;border-radius:50%;background:radial-gradient(closest-side,var(--bg) calc(100% - var(--t)),transparent calc(100% - var(--t) + 1px)),conic-gradient(var(--c) var(--p,0%),var(--line) 0)}
+.node .ring{width:116px;height:116px;padding:12px 12px 16px}
+.sat .ring{width:56px;height:56px;padding:7px 7px 10px}
+.dot{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;background:var(--surface);color:var(--muted);font:400 18px/1 var(--f-display);box-shadow:0 var(--s) 0 var(--line);transition:transform .08s,box-shadow .08s}
+.node .dot{font-size:20px;gap:5px}
+.node .dot small{font:600 12px/1 var(--f-body);direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums;opacity:.85}
+.node:active .dot,.sat:active .dot{transform:translateY(calc(var(--s) - 1px));box-shadow:0 1px 0 var(--line)}
+.sat.now,.sat.started,.sat.done,.sat.gold{color:var(--ink)}
+.now .dot,.started .dot,.done .dot{background:var(--olive);color:var(--on-olive);box-shadow:0 var(--s) 0 var(--olive-deep)}
+.gold{--c:var(--amber)}
+.gold .dot{background:var(--amber-bg);color:var(--amber);box-shadow:0 var(--s) 0 var(--amber)}
+@media (prefers-reduced-motion:reduce){.dot{transition:none}}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
 .meta{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;letter-spacing:.04em;font-variant-numeric:tabular-nums}
 .meta .idx{background:var(--olive-soft);color:var(--olive);font-weight:700;padding:1px 10px;border-radius:999px}
@@ -106,7 +109,7 @@ header .sub{flex:1}
 .drive{font:700 15px var(--f-body);border-radius:999px;padding:6px 14px;cursor:pointer;border:1px solid var(--olive);background:transparent;color:var(--olive)}
 body.driving .drive{background:var(--sumac);border-color:var(--sumac);color:#fff}
 /* driving mode: nothing to read or press but the stop button */
-body.driving #progBtn,body.driving .roundbar,body.driving .row,body.driving .voicebox,body.driving .note,body.driving .task{display:none}
+body.driving .roundbar,body.driving .row,body.driving .voicebox,body.driving .note,body.driving .task{display:none}
 body.driving .prompt{font-size:clamp(30px,8vw,48px)}
 body.driving .status{font-size:20px;font-weight:700;color:var(--ink)}
 body.driving .mic{width:84px;height:84px}
@@ -122,20 +125,10 @@ body.driving .mic{width:84px;height:84px}
 .donebox input:disabled{cursor:default}
 .donehint{font:600 14px/1.4 var(--f-body);padding:5px 12px;border-radius:10px}
 .donehint b{font:400 18px/1 var(--f-display);font-variant-numeric:tabular-nums;margin-inline-start:4px}
-/* Progress: the student's totals and, per topic, how many of its sentences reached "מצוין". */
 dialog{border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);padding:16px;width:min(92vw,560px);max-height:86vh}
 dialog::backdrop{background:rgba(0,0,0,.45)}
 .dlg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:-16px;z-index:1;background:var(--surface);margin:-16px 0 4px;padding:12px 0 8px}
 .dlg-head h2{font:400 22px/1 var(--f-display);margin:0}
-.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.tile{background:var(--olive-soft);border-radius:10px;padding:8px 6px;text-align:center;font-size:12px;line-height:1.3;color:var(--muted)}
-.tile b{display:block;font:400 24px/1.2 var(--f-display);color:var(--ink);font-variant-numeric:tabular-nums}
-.pl{font:700 14px var(--f-body);color:var(--muted);margin:12px 0 2px}
-.pt{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:baseline;width:100%;padding:6px 4px;border:0;border-radius:8px;background:none;color:inherit;font:600 15px var(--f-body);text-align:start;cursor:pointer}
-.pt:hover{background:var(--olive-soft)}
-.pt .n{font-size:13px;font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums}
-.pt .progress{grid-column:1/-1;margin:0}
-@media (max-width:420px){.tiles{grid-template-columns:repeat(2,1fr)}}
 /* Story topics (a conversation): every Hebrew line is on the card and the current one is marked; a line that was
    said shows its Arabic beneath, in Hebrew letters, and its best score. Driving mode keeps its single large prompt. */
 .story{max-height:min(40vh,430px);overflow-y:auto;position:relative;border:1px solid var(--line);border-radius:12px;overscroll-behavior:contain}
@@ -178,7 +171,6 @@ body.driving .card.storymode .prompt{display:block}
   <header>
     <div class="brand">אהלא וסהלא</div>
     <div class="sub">תרגמו לערבית מדוברת ואמרו בקול</div>
-    <button class="drive" id="progBtn" hidden>📊 ההתקדמות שלי</button>
     <button class="drive" id="driveBtn" title="מצב נסיעה: האפליקציה מקריאה, מקשיבה ואומרת את ההערכה בקול">🚗 נסיעה</button>
   </header>
 
@@ -237,11 +229,6 @@ body.driving .card.storymode .prompt{display:block}
   <div class="dlg-head"><h2 id="listTitle"></h2><button class="btn" id="listClose">סגירה</button></div>
   <ol class="plist" id="plist"></ol>
 </dialog>
-<dialog id="progDlg" aria-labelledby="progTitle">
-  <div class="dlg-head"><h2 id="progTitle">ההתקדמות שלי</h2><button class="btn" id="progClose">סגירה</button></div>
-  <div class="tiles" id="progTiles"></div>
-  <div id="progTopics"></div>
-</dialog>
 <div class="version" title="גרסת debug">v __VERSION__<span id="heInfo"></span><span id="ttsInfo"></span></div>
 <button id="logoutBtn" hidden>יציאה</button>
 
@@ -277,38 +264,43 @@ function setTr(el,text){
   }
   el.append(text.slice(at));
 }
-/* Home is the path: the lessons one under the other, each topic a node on a line that winds from side to side.
-   A node opens its topic. No node is locked: the teacher decides what the class practises. */
-const WIND=[0,1,2,1,0,-1,-2,-1], WIND_STEP=38;   // a node's sideways offset, in steps of px
+/* Home is the path: the lessons one under the other, each a large node with its topics in a circle around it,
+   the first one at the top and the rest clockwise. A small node opens its topic; the large one opens the lesson's
+   first unfinished topic. No node is locked: the teacher decides what the class practises. */
 let home=true;   // the path is on screen, not the practice card: nothing is read aloud or recorded
+function tally(list){   // how far a set of sentences got
+  const done=list.filter(p=>best[p.id]!=null).length, over=list.length>0&&done>=list.length;
+  return {done, n:list.length, over, gold:over&&list.every(p=>best[p.id]>=EXCELLENT)};
+}
+function ball(kind,t,now){   // a node of the path and the disc inside its ring
+  const b=document.createElement("button"), ring=document.createElement("span"), dot=document.createElement("span");
+  b.className=kind+(t.gold?" gold":t.over?" done":now?" now":t.done?" started":"");
+  b.style.setProperty("--p",`${t.n?t.done/t.n*100:0}%`); b.title=`תורגלו ${t.done} מתוך ${t.n}`;
+  ring.className="ring"; dot.className="dot"; ring.append(dot); b.append(ring);
+  return [b,dot];
+}
 function drawPath(){
   const box=$("path"), listed=PHRASES.filter(p=>p.listed!==false); box.innerHTML="";
-  let k=0, next=true;   // next: the first topic that is not finished is the one to do now
+  let next=true;   // next: the first lesson that is not finished is the one to do now
   for(const l of LESSONS){
-    const unit=document.createElement("div"), title=document.createElement("span"), sum=document.createElement("small");
-    const cats=CATS.filter(c=>c.lesson===l.id); let full=0;
-    unit.className="unit"; title.textContent=l.name; unit.append(title,sum); box.appendChild(unit);
+    const cats=CATS.filter(c=>c.lesson===l.id), parts=cats.map(c=>tally(listed.filter(p=>p.cat===c.id)));
+    const whole=tally(listed.filter(p=>cats.some(c=>c.id===p.cat))), now=!whole.over&&next;
+    const todo=Math.max(0,parts.findIndex(t=>!t.over));   // the topic the large node opens
+    if(now) next=false;
+    const hub=document.createElement("div"), [big,disc]=ball("node",whole,now), sum=document.createElement("small");
+    hub.className="hub"; sum.textContent=whole.gold?"★":whole.over?"✓":`${whole.done}/${whole.n}`;
+    disc.append(l.name,sum); big.title=`${l.name}: ${big.title}`;
+    if(now) big.setAttribute("aria-current","step");
+    big.onclick=()=>pickCat(cats[todo].id); hub.append(big);
     cats.forEach((c,i)=>{
-      const all=listed.filter(p=>p.cat===c.id), done=all.filter(p=>best[p.id]!=null).length;
-      const over=all.length>0&&done>=all.length, gold=over&&all.every(p=>best[p.id]>=EXCELLENT), now=!over&&next;
-      if(over) full++;
-      if(now) next=false;
-      const b=document.createElement("button"), ring=document.createElement("span"), dot=document.createElement("span");
-      const name=document.createElement("span"), cnt=document.createElement("span");
-      b.className="node"+(gold?" gold":over?" done":now?" now":done?" started":"");
-      b.style.setProperty("--x",WIND[k++%WIND.length]*WIND_STEP); b.style.setProperty("--p",`${all.length?done/all.length*100:0}%`);
-      if(now){   // the call to start sits above the node
-        const go=document.createElement("span"); go.className="go"; go.textContent=done?"ממשיכים":"מתחילים";
-        b.append(go); b.setAttribute("aria-current","step");
-      }
-      ring.className="ring"; dot.className="dot"; cnt.className="cnt";
-      dot.textContent=gold?"★":over?"✓":c.story?"💬":i+1; ring.append(dot);
-      name.textContent=c.name; cnt.textContent=`${done}/${all.length}`;
-      b.title=`תורגלו ${done} מתוך ${all.length}`;
-      b.append(ring,name,cnt); b.onclick=()=>pickCat(c.id);
-      box.appendChild(b);
+      const t=parts[i], [b,dot]=ball("sat",t,now&&i===todo), name=document.createElement("span");
+      const a=(i/cats.length-.25)*2*Math.PI;   // from the top, clockwise
+      b.style.setProperty("--cx",Math.cos(a).toFixed(3)); b.style.setProperty("--cy",Math.sin(a).toFixed(3));
+      dot.textContent=t.gold?"★":t.over?"✓":c.story?"💬":i+1;
+      name.textContent=c.name; b.append(name); b.title=`${c.name}: ${b.title}`;
+      b.onclick=()=>pickCat(c.id); hub.append(b);
     });
-    sum.textContent=`${full} מתוך ${cats.length} נושאים`;
+    box.appendChild(hub);
   }
   if(home){ const at=box.querySelector("[aria-current]"); if(at) at.scrollIntoView({block:"center"}); }
 }
@@ -328,7 +320,7 @@ function showPath(){   // back to the path: whatever the card was reading, playi
 $("homeBtn").onclick=showPath;
 /* Progress of a signed-in student. The server's best scores replace the device's, so they follow the
    student between devices; this visit's scores stay on top of them until the server has them too. */
-let sessionBest={}, totals={recordings:0,days:0};
+let sessionBest={};
 async function loadProgress(){
   if(!sb) return;
   try{
@@ -336,38 +328,10 @@ async function loadProgress(){
     const d=await res.json();
     best={...d.best};
     for(const k in sessionBest) if(best[k]==null||sessionBest[k]>best[k]) best[k]=sessionBest[k];
-    store.set("ihki.best2",best); totals=d; marks();
+    store.set("ihki.best2",best); marks();
   }catch{}
 }
 const EXCELLENT=85;   // the score the verdict calls "מצוין"
-async function openProgress(){
-  await loadProgress();
-  const scores=Object.values(best), tiles=$("progTiles"), box=$("progTopics");
-  tiles.innerHTML=""; box.innerHTML="";
-  for(const [n,label] of [[scores.length,"משפטים שתורגלו"],[scores.filter(s=>s>=EXCELLENT).length,"משפטים במצוין"],
-                          [totals.recordings,"הקלטות"],[totals.days,"ימי תרגול"]]){
-    const t=document.createElement("div"), b=document.createElement("b"); t.className="tile"; b.textContent=n;
-    t.append(b,label); tiles.appendChild(t);
-  }
-  for(const l of LESSONS){
-    const h=document.createElement("div"); h.className="pl"; h.textContent=l.name; box.appendChild(h);
-    for(const c of CATS.filter(c=>c.lesson===l.id)){   // a topic's row counts the sentences its list shows
-      const list=PHRASES.filter(p=>p.cat===c.id&&p.listed!==false);
-      const tried=list.filter(p=>best[p.id]!=null).length, top=list.filter(p=>best[p.id]>=EXCELLENT).length;
-      const row=document.createElement("button"), name=document.createElement("span"), n=document.createElement("span");
-      const bar=document.createElement("div"), fill=document.createElement("i");
-      row.className="pt"; n.className="n"; bar.className="progress";
-      name.textContent=c.name; n.textContent=`${top} מתוך ${list.length} במצוין`+(tried>top?` · ${tried} תורגלו`:"");
-      fill.style.width=`${list.length?top/list.length*100:0}%`; bar.appendChild(fill);
-      row.append(name,n,bar); row.title="מעבר לנושא";
-      row.onclick=()=>{ $("progDlg").close(); pickCat(c.id); };
-      box.appendChild(row);
-    }
-  }
-  $("progDlg").showModal();
-}
-$("progBtn").onclick=openProgress;
-$("progClose").onclick=()=>$("progDlg").close();
 // A category whose phrases carry seq (the course's own order) is shown in that order; the others are shuffled.
 // The round is the topic's sentences that were not practised yet. With the box ticked, or when none is
 // left, it is the whole topic, and a practised sentence shows its best score (see show).
@@ -898,13 +862,13 @@ if(AUTH_URL){
     sb.auth.onAuthStateChange((_e,session)=>{
       login.hidden=!!session; logout.hidden=!session;
       logout.title=session?session.user.email||"":"";
-      if(!session){ asked=""; start.hidden=true; denied.hidden=true; $("progBtn").hidden=true; login.focus({preventScroll:true}); return; }
+      if(!session){ asked=""; start.hidden=true; denied.hidden=true; login.focus({preventScroll:true}); return; }
       if(asked===session.user.id) return;
       asked=session.user.id;
       setTimeout(async()=>{   // outside this callback: api() asks supabase for the session
         const res=await api("/api/me").catch(()=>null);
         const ok=!res||res.status!==403;   // a server that cannot be reached is not a refusal
-        start.hidden=!ok; denied.hidden=ok; $("progBtn").hidden=!ok;
+        start.hidden=!ok; denied.hidden=ok;
         if(ok){ start.focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); }
       },0);
     });
