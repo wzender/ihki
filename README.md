@@ -22,12 +22,14 @@ The service replaces the browser speech-recognition diff with phoneme-level scor
    - A word scores halfway between its weakest phoneme and the mean of its phonemes.
    - The sentence score averages the phoneme mean and the word mean, so one wrong consonant moves "excellent" down to "almost".
    - If the greedy phoneme decode is far from every variant, the response says "different sentence?" instead of listing tips.
+5. **Native baseline.** With a TTS key, the phrase's model answer is scored by the same model, and each of the learner's sounds is measured against the score the voice got on it (`app/reference.py`). A sound the model mishears from the native voice too is not marked down and gets no tip.
 
 ```
 app/
   align.py     CTC Viterbi alignment, GOP, greedy decode, edit distance (no torch)
   scorer.py    model wrapper, IPA → vocab mapping with fallbacks, result assembly, ffmpeg decode
   tips.py      Hebrew feedback keyed by (expected, heard) phoneme pairs
+  reference.py native baseline: the TTS voices scored by the same model
   phrases.py   phrase bank: accepted variants (Arabic + IPA) per phrase
   grammar.py   day-2 sentences as grammar: every pronoun × positive/negative, for the negation and conjugation buttons
   main.py      FastAPI: GET / (page), GET /api/phrases, GET /api/health, POST /api/score
@@ -99,3 +101,4 @@ Tune them on a handful of labelled learner recordings. A useful target is that n
 - Hugging Face: add `SAWTAK_API_KEY` as a Space **secret** (Settings → Variables and secrets). It is injected as an environment variable at runtime.
 - `SAWTAK_VOICE_ID` is optional; by default the most liked ready Palestinian voice is used.
 - Without a key the endpoint answers 503 and the page falls back to the device's Arabic voice.
+- The same voices calibrate the scores (step 5 above). This generates the first voice of `tts.VOICES` once for every phrase that gets scored, also when the learner never presses "השמע"; the other voices are used only when already cached. The first score of a phrase waits up to 8 s for it. Without a key the scores are not calibrated; `/api/health` reports this as `references`.

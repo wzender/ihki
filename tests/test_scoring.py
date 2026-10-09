@@ -268,3 +268,83 @@ def test_tips_come_most_crucial_first():
     assert [t["score"] for t in r["tips"]] == sorted(t["score"] for t in r["tips"])
     assert all("idx" not in t for t in r["tips"])
 
+
+
+def test_raised_a_is_a_near_vowel():
+    # اكلتي said with e for a, as the voices do: not marked down
+    phrase = {"variants": [("اكلتي", "ʔ a k a l t i")]}
+    syms = SYMS + ["t"]
+    vocab = {s: i for i, s in enumerate(syms)}
+    rows = [np.full(len(syms), 0.05 / (len(syms) - 1)) for _ in range(2)]
+    for r in rows:
+        r[0] = 0.95
+    for ph in ["ʔ", "e", "k", "e", "l", "t", "i"]:
+        for p, sym in [(0.9, ph)] * 3 + [(0.95, "<pad>")] * 2:
+            r = np.full(len(syms), (1 - p) / (len(syms) - 1)); r[vocab[sym]] = p
+            rows.append(r)
+    r = Scorer(lambda wav: np.log(np.array(rows)), Vocab(vocab)).score(None, phrase)
+    assert r["score"] >= 90 and not r["tips"]
+
+
+def test_article_vowel_after_a_vowel_may_be_dropped():
+    phrase = {"variants": [("على الحمام", "ʕ a l a | i l ħ a m m aː m")]}
+    r = scorer_for(emissions(["ʕ", "a", "l", "a", "l", "ħ", "a", "m", "aː", "m"])).score(None, phrase)
+    assert r["score"] >= 95 and not r["tips"] and not any(i["missing"] for i in r["issues"])
+    # ... but not after a consonant: وين الحمام without the i is still noted
+    r = scorer_for(emissions(["w", "eː", "n", "l", "ħ", "a", "m", "aː", "m"])).score(None, TOILET)
+    assert any(i["missing"] for i in r["issues"])
+
+
+ALA = {"variants": [("على الحمام", "ʕ a l a | i l ħ a m m aː m")]}
+MISHEARD = ["ʔ", "a", "l", "a", "i", "l", "ħ", "a", "m", "aː", "m"]   # the model's ʕ in على: a glottal stop
+
+
+def test_native_reference_forgives_what_the_model_mishears():
+    s = scorer_for(emissions(MISHEARD))
+    plain = s.score(None, ALA)
+    assert [t["key"] for t in plain["tips"]] == ["ʕ>ʔ"] and plain["words"][0]["heard_tr"] != plain["words"][0]["tr"]
+    ref = s.reference(None, ALA)                       # the native voice is heard the same way
+    r = s.score(None, ALA, [ref])
+    assert r["score"] == 100 and not r["tips"] and not r["issues"] and r["references"] == 1
+    assert r["words"][0]["heard_tr"] == r["words"][0]["tr"]
+
+
+def test_native_reference_keeps_real_errors():
+    ref = scorer_for(emissions(MISHEARD)).reference(None, ALA)
+    # the learner also says χ for ħ, which the voice did not
+    r = scorer_for(emissions(["ʔ", "a", "l", "a", "i", "l", "χ", "a", "m", "aː", "m"])).score(None, ALA, [ref])
+    assert [t["key"] for t in r["tips"]] == ["ħ>x"] and r["score"] < 85
+    # a reference in which the model does not recognise the phrase is not a baseline
+    assert scorer_for(emissions(["ʃ", "e", "k", "e", "d"])).reference(None, ALA) is None
+    assert scorer_for(emissions(["ʕ", "χ", "l", "χ", "i", "l", "χ", "a", "χ", "aː", "χ"])).reference(None, ALA) is None
+
+
+def test_references_use_one_generated_voice_and_any_cached_one():
+    from app.reference import References
+    from app.tts import TTSUnavailable
+
+    calls = []
+
+    class FakeTTS:
+        down = False
+
+        def cached(self, text, voice):
+            return voice == "played"
+
+        def wav(self, text, voice=""):
+            calls.append(voice)
+            if self.down:
+                raise TTSUnavailable("down")
+            return b"wav", voice
+
+    import app.reference as reference
+    tts, s = FakeTTS(), scorer_for(emissions(MISHEARD))
+    orig, reference.decode_audio = reference.decode_audio, lambda data: None
+    try:
+        refs = References(s, tts, ["first", "never-played", "played"])
+        assert len(refs.get(7, ALA)) == 2 and calls == ["first", "played"]
+        assert len(refs.get(7, ALA)) == 2 and len(calls) == 2            # kept in memory
+        tts.down = True
+        assert refs.get(8, ALA) == [] and refs.get(8, ALA) == [] and len(calls) == 4   # failures are not retried at once
+    finally:
+        reference.decode_audio = orig

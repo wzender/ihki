@@ -6,6 +6,7 @@ import logging
 import os
 import subprocess
 from dataclasses import dataclass, field, replace
+from difflib import SequenceMatcher
 from typing import Callable, Protocol
 
 import numpy as np
@@ -116,15 +117,32 @@ def tokenize(ipa: str, vocab: Vocab) -> list[TargetToken]:
     return out
 
 
-_VOWEL_GROUPS = [set("iɪeɛ"), set("uʊoɔ"), set("aæɐɑəɛ")]
+_VOWEL_GROUPS = [set("iɪeɛ"), set("uʊoɔ"), set("aæɐɑəɛe")]  # a raised towards e is ordinary Palestinian speech
 
 
 def near_vowels(expected: str, heard: str | None) -> bool:
-    """Same vowel with another length, or the neighbouring quality (i/e, u/o, a/ə)."""
+    """Same vowel with another length, or the neighbouring quality (i/e, u/o, a/ə, a/e)."""
     if expected not in VOWELS or not heard:
         return False
     e, h = expected.rstrip("ː"), heard.rstrip("ː")
     return any(e in g and h in g for g in _VOWEL_GROUPS)
+
+
+def elided_article(toks: list[TargetToken], i: int, ar_words: list[str]) -> bool:
+    """Is token i the vowel of the article ال right after a word that ends in a vowel?
+
+    There it is not said (على الطّاولة is ʕ a l a | tˤ tˤ aː w l e), so its absence is not an error.
+    """
+    t = toks[i]
+    return (i > 0 and t.phoneme in VOWELS and toks[i - 1].word == t.word - 1 and toks[i - 1].phoneme in VOWELS
+            and t.word < len(ar_words) and ar_words[t.word].startswith("ال"))
+
+
+@dataclass
+class Reference:
+    """How the model scored a native voice saying a phrase: the baseline a learner is measured against."""
+    sounds: list[tuple[int, str]]  # (word, phoneme) of each sound of the variant the voice said
+    scores: list[float]            # their scores, same order
 
 
 @dataclass
@@ -135,6 +153,7 @@ class ScorerConfig:
     max_issues: int = 8
     near_vowel_floor: float = 90.0  # a vowel heard as its neighbour (i/e, u/o, a/ə, short/long) scores at least this
     word_min_weight: float = 0.5    # word score = this much weakest phoneme, the rest the mean of its phonemes
+    ref_min_mean: float = 60.0      # a native reference whose mean phoneme score is under this is not trusted
     gop: GopConfig = field(default_factory=GopConfig)
 
 
@@ -142,9 +161,34 @@ class Scorer:
     def __init__(self, emit: Emitter, vocab: Vocab, cfg: ScorerConfig | None = None):
         self.emit, self.vocab, self.cfg = emit, vocab, cfg or ScorerConfig()
 
-    def score(self, wav: np.ndarray, phrase: dict) -> dict:
+    def score(self, wav: np.ndarray, phrase: dict, refs: list[Reference] = ()) -> dict:
         logp = self.emit(wav)
-        return self.score_logp(logp, phrase)
+        return self.score_logp(logp, phrase, refs)
+
+    def reference(self, wav: np.ndarray, phrase: dict) -> Reference | None:
+        """The baseline from a native recording of the phrase, or None when the model does not
+        recognise the phrase in it (then it says nothing about single sounds)."""
+        fit = self._fit(self.vocab.merge(self.emit(wav)), phrase)
+        if fit is None:
+            return None
+        _, _, toks, _, scores, _, unrelated = fit
+        if unrelated or float(np.mean([sc.score for sc in scores])) < self.cfg.ref_min_mean:
+            return None
+        return Reference([(t.word, t.phoneme) for t in toks], [sc.score for sc in scores])
+
+    @staticmethod
+    def _baseline(toks: list[TargetToken], refs: list[Reference]) -> list[float | None]:
+        """Per target token, the lowest score a native reference got on the same sound (None: no reference has it).
+
+        References may have said another accepted variant: only the sounds the two variants share are matched.
+        """
+        sounds = [(t.word, t.phoneme) for t in toks]
+        out: list[float | None] = [None] * len(toks)
+        for ref in refs:
+            for a, b, n in SequenceMatcher(None, ref.sounds, sounds, autojunk=False).get_matching_blocks():
+                for k in range(n):
+                    out[b + k] = ref.scores[a + k] if out[b + k] is None else min(out[b + k], ref.scores[a + k])
+        return out
 
     def _targets(self, ipa: str) -> list[TargetToken]:
         """Target tokens on the merged sound classes (two neighbours that became one sound collapse, as in CTC)."""
@@ -199,13 +243,11 @@ class Scorer:
         # the Arabic spelling is passed so the heard line follows the answer's conventions (ק for ق, silent ל)
         return [word_to_hebrew(" ".join(phs), ar_words[w] if w < len(ar_words) else "") for w, phs in enumerate(heard)]
 
-    def score_logp(self, logp: np.ndarray, phrase: dict) -> dict:
+    def _fit(self, logp: np.ndarray, phrase: dict):
+        """The accepted variant the audio fits best and the score of each of its sounds, from merged
+        posteriors: (arabic, ipa, tokens, alignment, scores, greedy decode, unrelated), or None if too short."""
         blank = self.vocab.blank
-        logp = self.vocab.merge(logp)
         heard_ids = greedy_decode(logp, blank)
-        heard = " ".join(self.vocab.i2t[i] for i in heard_ids)
-
-        # pick the accepted variant the audio fits best
         best = None
         for ar, ipa in phrase["variants"]:
             toks = self._targets(ipa)
@@ -213,21 +255,39 @@ class Scorer:
             if al and (best is None or al.total_logp > best[3].total_logp):
                 best = (ar, ipa, toks, al)
         if best is None:
-            return {"error": "too_short", "message": "ההקלטה קצרה מדי. החזיקו את הכפתור ואמרו את כל המשפט."}
+            return None
 
         ar, ipa, toks, al = best
         ids = [t.id for t in toks]
+        ar_words = ar.split()
         scores = score_tokens(logp, al, ids, blank, self.cfg.gop)
         # A glottal stop that is simply not there is how natives say it too (انا, اهلا): not an error.
-        # One replaced by another consonant (ق said as k) still counts.
-        scores = [replace(sc, score=100.0) if sc.deleted and t.phoneme in NO_DELETION_TIP else sc
-                  for t, sc in zip(toks, scores)]
+        # The same goes for the article's vowel after a vowel (على الطّاولة).
+        # A glottal stop replaced by another consonant (ق said as k) still counts.
+        scores = [replace(sc, score=100.0)
+                  if sc.deleted and (t.phoneme in NO_DELETION_TIP or elided_article(toks, i, ar_words)) else sc
+                  for i, (t, sc) in enumerate(zip(toks, scores))]
         # Neighbouring vowel qualities and vowel length vary between speakers and towns (il / el),
         # and the model confuses them on its own: not worth marking a word down for.
         scores = [replace(sc, score=max(sc.score, self.cfg.near_vowel_floor))
                   if sc.competitor is not None and near_vowels(t.phoneme, self.vocab.i2t.get(sc.competitor)) else sc
                   for t, sc in zip(toks, scores)]
         unrelated = bool(edit_distance(heard_ids, ids) / max(1, len(ids)) > self.cfg.unrelated_ratio)
+        return ar, ipa, toks, al, scores, heard_ids, unrelated
+
+    def score_logp(self, logp: np.ndarray, phrase: dict, refs: list[Reference] = ()) -> dict:
+        logp = self.vocab.merge(logp)
+        fit = self._fit(logp, phrase)
+        if fit is None:
+            return {"error": "too_short", "message": "ההקלטה קצרה מדי. החזיקו את הכפתור ואמרו את כל המשפט."}
+        ar, ipa, toks, al, scores, heard_ids, unrelated = fit
+        heard = " ".join(self.vocab.i2t[i] for i in heard_ids)
+        # Measure against what the model gives a native on the same sound: a sound it misses in the
+        # reference voice too (ʕ in على heard as dropped) is the model's weakness, not the learner's.
+        raw = scores
+        scores = [sc if b is None or b >= 100 else replace(sc, score=round(min(100.0, 100.0 * sc.score / max(b, 1.0)), 1))
+                  for sc, b in zip(raw, self._baseline(toks, refs))]
+        forgiven = {t.word for t, sc, r in zip(toks, scores, raw) if sc.score > r.score}
 
         phonemes, tips, seen = [], [], set()
         ar_words = ar.split()
@@ -252,6 +312,8 @@ class Scorer:
         words, k = [], self.cfg.word_min_weight
         for w in range(n_words):
             ws = [p["score"] for p in phonemes if p["word"] == w]
+            if w in forgiven and min(ws) >= self.cfg.issue_below:
+                heard_words[w] = tr_words[w]  # what differs from the answer here is what a native voice gets too
             words.append({"ar": ar_words[w] if w < len(ar_words) else "", "tr": tr_words[w], "heard_tr": heard_words[w],
                           "score": round(k * min(ws) + (1 - k) * float(np.mean(ws)), 1) if ws else 0.0,
                           "phonemes": [p for p in phonemes if p["word"] == w]})
@@ -283,7 +345,7 @@ class Scorer:
         for t in tips:
             t.pop("idx", None)
         return {"score": round(overall), "variant": {"ar": ar, "tr": " ".join(tr_words), "ipa": ipa}, "heard_ipa": heard, "heard_tr": " ".join(h for h in heard_words if h),
-                "unrelated": unrelated, "words": words, "tips": tips, "issues": issues}
+                "unrelated": unrelated, "words": words, "tips": tips, "issues": issues, "references": len(refs)}
 
 
 # ---------- real model ----------

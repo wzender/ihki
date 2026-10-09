@@ -79,6 +79,13 @@ class SawtakTTS:
                      (voices[0].get("labels") or {}).get("dialect"))
         return self.voice_id
 
+    def _path(self, text: str, voice: str) -> Path:
+        return self.cache_dir / (hashlib.sha1(f"{MODEL}|{voice}|{text}".encode()).hexdigest() + ".wav")
+
+    def cached(self, text: str, voice: str) -> bool:
+        """Has this voice said `text` before? Then wav() answers from disk, without the provider."""
+        return self._path(text, voice).exists()
+
     def wav(self, text: str, voice: str = "") -> tuple[bytes, str]:
         """(WAV, voice id) for `text`, from the cache when this voice has said it before.
 
@@ -86,7 +93,7 @@ class SawtakTTS:
         """
         with self._lock:
             voice = voice or self._voice()
-            path = self.cache_dir / (hashlib.sha1(f"{MODEL}|{voice}|{text}".encode()).hexdigest() + ".wav")
+            path = self._path(text, voice)
             if path.exists():
                 return path.read_bytes(), voice
             # enhance_pronunciation: the phrase bank is unvowelled, so let the voice's dialect add the tashkeel

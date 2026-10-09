@@ -22,6 +22,7 @@ from fastapi.responses import HTMLResponse, Response
 
 from .phrases import CATEGORIES, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
+from .reference import References
 from .scorer import Scorer, decode_audio, load_scorer
 from .tts import VOICES, SawtakTTS, TTSUnavailable, load_tts
 
@@ -47,6 +48,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
     async def lifespan(app: FastAPI):
         app.state.scorer = scorer or load_scorer(MODEL_ID)
         app.state.tts = tts or load_tts()
+        # the playback voices double as the native baseline of the scores (see reference.py)
+        app.state.refs = References(app.state.scorer, app.state.tts, list(VOICES.values())) if app.state.tts else None
         yield
 
     app = FastAPI(title="ihki", lifespan=lifespan)
@@ -65,6 +68,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
     def health():
         s: Scorer = app.state.scorer
         return {"version": build_version(), "model": MODEL_ID, "tts": app.state.tts is not None,
+                "references": app.state.refs is not None,
                 "phoneme_fallbacks": s.vocab.downgraded}
 
     @app.get("/api/tts/{phrase_id}")
@@ -130,7 +134,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
             raise HTTPException(400, "could not decode audio")
         if wav.size < 16_000 * 0.3:
             return {"error": "too_short", "message": "לא נשמע דיבור. נסו שוב, קרוב יותר למיקרופון."}
-        return app.state.scorer.score(wav, PHRASES[phrase_id])
+        phrase = PHRASES[phrase_id]
+        refs = app.state.refs.get(phrase_id, phrase) if app.state.refs else []
+        return app.state.scorer.score(wav, phrase, refs)
 
     return app
 
