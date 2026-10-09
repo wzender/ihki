@@ -110,7 +110,7 @@ body.driving .mic{width:84px;height:84px}
     <div class="meta"><span id="catName"></span><span id="counter"></span></div>
     <div class="progress" id="progress" hidden><i id="progressBar"></i></div>
     <h1 class="prompt" id="prompt">טוען…</h1>
-    <p class="task">איך אומרים את זה בערבית פלסטינית?</p>
+    <p class="task" id="task">איך אומרים את זה בערבית פלסטינית?</p>
 
     <div class="mic-zone">
       <button class="mic" id="mic" aria-label="הקליטו את התשובה">
@@ -196,7 +196,7 @@ async function promptUrl(id){
 }
 async function readPrompt(){
   if(heAudio){ heAudio.pause(); heAudio=null; }
-  if(driving||!$("readHe").checked||!cur) return;   // driving mode reads the prompt itself, in sequence
+  if(driving||!$("readHe").checked||!cur||cur.read) return;   // driving mode reads the prompt itself, in sequence; a read phrase's Hebrew is its answer
   const id=cur.id;
   if(!await promptUrl(id)) return;
   if(!cur||cur.id!==id) return;   // moved on while it was loading
@@ -212,7 +212,10 @@ function show(p){
   readPrompt();
   $("negBtn").hidden=$("conjBtn").hidden=cur.grp==null;
   $("negBtn").textContent=cur.neg?"חיוב":"שלילה";
-  $("prompt").textContent=cur.he;
+  // read phrases (workbook, Arabic -> Hebrew): the transliteration is the prompt and the Hebrew is the answer
+  $("prompt").textContent=cur.read?cur.tr:cur.he;
+  $("task").textContent=cur.read?"קראו בקול ותרגמו לעברית":"איך אומרים את זה בערבית פלסטינית?";
+  $("answerBtn").textContent=cur.read?"הצג תרגום":"הצג תשובה";
   $("catName").textContent=CATS.find(c=>c.id===cat).name;
   const b=best[cur.id];
   $("counter").textContent=(ordered?"":`${pos+1} / ${order.length}`)+(b!=null?`${ordered?"":" · "}שיא: ${b}`:"");
@@ -345,7 +348,7 @@ mic.onclick=async()=>{
 $("playMine").onclick=()=>{ if(myAudioUrl) new Audio(myAudioUrl).play(); };
 
 /* ---------- hint, answer, TTS ---------- */
-$("answerBtn").onclick=()=>{ $("hintTr").textContent=cur.tr; $("hintAr").textContent=cur.ar; $("hint").hidden=false; $("hintAr").hidden=false; };
+$("answerBtn").onclick=()=>{ $("hintTr").textContent=cur.read?cur.he:cur.tr; $("hintAr").textContent=cur.ar; $("hint").hidden=false; $("hintAr").hidden=false; };
 $("negBtn").onclick=()=>variation("negate");
 $("conjBtn").onclick=()=>variation("conjugate");
 const nextPhrase=()=>{ pos=(pos+1)%order.length; if(pos===0&&!ordered) shuffle(order); show(); };

@@ -12,6 +12,7 @@ Conventions (Palestinian urban speech as the main form):
   Geminates are written doubled; the tokenizer collapses them for CTC.
 """
 from .grammar import day2_phrases
+from .workbook import CATEGORIES as WORKBOOK_CATEGORIES, workbook_phrases
 
 PHRASES = [
     # ---- היכרות ----
@@ -124,6 +125,8 @@ PHRASES = [
 ]
 # ---- יום 2 ---- generated: every sentence pattern x pronoun x positive/negative (see grammar.py)
 PHRASES += day2_phrases()
+# ---- שיעורים ---- the workbook's translation exercises, lesson by lesson (see workbook.py)
+PHRASES += workbook_phrases()
 
 CATEGORIES = [
     {"id": "meet", "name": "היכרות"},
@@ -131,6 +134,7 @@ CATEGORIES = [
     {"id": "city", "name": "בעיר"},
     {"id": "food", "name": "אוכל וקניות"},
     {"id": "day2", "name": "יום 2"},
+    *WORKBOOK_CATEGORIES,
 ]
 
 
@@ -139,10 +143,10 @@ def public_phrases():
 
     Grammar-built phrases also carry grp / pron / neg / listed / seq (see grammar.py); the page lists a
     category's `listed` phrases, in `seq` order, and reaches the others with its negation and
-    conjugation buttons.
+    conjugation buttons. Workbook phrases carry seq and read (see workbook.py).
     """
     return [
         {"id": i, "cat": p["cat"], "he": p["he"], "tr": p["tr"], "ar": p["variants"][0][0],
-         **{k: p[k] for k in ("grp", "pron", "neg", "listed", "seq") if k in p}}
+         **{k: p[k] for k in ("grp", "pron", "neg", "listed", "seq", "read") if k in p}}
         for i, p in enumerate(PHRASES)
     ]

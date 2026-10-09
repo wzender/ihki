@@ -348,3 +348,20 @@ def test_references_use_one_generated_voice_and_any_cached_one():
         assert refs.get(8, ALA) == [] and refs.get(8, ALA) == [] and len(calls) == 4   # failures are not retried at once
     finally:
         reference.decode_audio = orig
+
+
+def test_workbook_lesson_1():
+    from app.phrases import CATEGORIES, public_phrases
+    from app.workbook import LESSONS
+
+    pub = public_phrases()
+    for cat, kind in (("l1r", "read"), ("l1", "say")):
+        assert any(c["id"] == cat for c in CATEGORIES)
+        got = sorted((p for p in pub if p["cat"] == cat), key=lambda p: p["seq"])
+        assert [p["he"] for p in got] == [he for he, _ in LESSONS[1][kind]]
+        assert all(p["read"] == (kind == "read") and "#" not in p["ar"] for p in got)
+    p = next(p for p in PHRASES if p["cat"] == "l1r" and p["seq"] == 11)
+    assert p["tr"] == "אֵלְמְעַלֵّם קַעַד עַלַא אֵ(ל)טַّאוְלֵה וּסַאַל-נַא סֻאַאל."
+    ar, ipa = p["variants"][0]
+    assert ar.split()[-2] == "وسألنا" and ipa.split(" | ")[-2] == "u s a ʔ a l n a"
+    assert any(i.startswith("i l m ʕ a l l i m | q a ʕ a d") for _, i in p["variants"])   # rural ق accepted
