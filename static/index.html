@@ -310,7 +310,8 @@ $("progClose").onclick=()=>$("progDlg").close();
 // A category whose phrases carry seq (the course's own order) is shown in that order; the others are shuffled.
 // The round is the topic's sentences that were not practised yet. With the box ticked, or when none is
 // left, it is the whole topic, and a practised sentence shows its best score (see show).
-let ordered=false, topic=[], showDone=store.get("ihki.showDone",false);
+// `here` is the topic's sentence on the card: not always the round's, because going back passes through the practised ones.
+let ordered=false, topic=[], here=null, showDone=store.get("ihki.showDone",false);
 function setRound(){
   const list=PHRASES.filter(p=>p.cat===cat&&p.listed!==false);
   ordered=list.length>0&&list.every(p=>p.seq!=null);
@@ -420,6 +421,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   cancelAutoNext();
   autoRec=!wait;
   cur=p||phraseOf(order[pos]);
+  if(topic.includes(cur.id)) here=cur.id;
   promptRead=readPrompt();
   $("negBtn").hidden=$("conjBtn").hidden=cur.grp==null;
   $("negBtn").textContent=cur.neg?"חיוב":"שלילה";
@@ -440,7 +442,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   }
   $("hint").hidden=true; $("hintAr").hidden=true; $("result").hidden=true;
   $("status").textContent=wait?"לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים":"ההקלטה מתחילה ונעצרת לבד";
-  $("playMine").disabled=true; $("prevBtn").disabled=pos===0;
+  $("playMine").disabled=true;
   // a recording of the sentence that was just left is dropped; the new one starts when it has stopped
   if(!driving&&rec&&rec.state==="recording"){ recCancel=recRestart=true; rec.stop(); }
   else recordWhenReady();
@@ -597,11 +599,19 @@ $("answerBtn").onclick=()=>{ setTr($("hintTr"),cur.read?cur.he:cur.tr); $("hintA
 $("negBtn").onclick=()=>variation("negate");
 $("conjBtn").onclick=()=>variation("conjugate");
 const nextPhrase=()=>{
+  if(!order.includes(here)){   // on a practised sentence reached by going back: on to the round's first one after it
+    const at=topic.indexOf(here), k=order.findIndex(id=>topic.indexOf(id)>at);
+    if(k<0) startCat(false); else{ pos=k; show(); }
+    return;
+  }
   if(pos+1>=order.length&&order!==topic){ startCat(false); return; }   // a round of unpractised sentences ended: what is left, or the review
   pos=(pos+1)%order.length; if(pos===0&&!ordered) shuffle(order); show();
 };
 $("nextBtn").onclick=nextPhrase;
-$("prevBtn").onclick=()=>{ if(pos>0){ pos--; show(); } };   // not before the first one: a shuffled round has no earlier order
+$("prevBtn").onclick=()=>{   // the sentence before this one in the topic, practised or not; before the first one, the last
+  const id=topic[(topic.indexOf(here)-1+topic.length)%topic.length], k=order.indexOf(id);
+  if(k>=0){ pos=k; show(); } else show(phraseOf(id));
+};
 function arVoice(){ const vs=speechSynthesis.getVoices(); return vs.find(v=>/^ar[-_](PS|JO|LB|SY|IL)/i.test(v.lang))||vs.find(v=>/^ar/i.test(v.lang)); }
 if("speechSynthesis" in window) speechSynthesis.getVoices();
 const ttsUrls={};   // "phrase id|voice" -> {url, voice label} of the server-generated answer
