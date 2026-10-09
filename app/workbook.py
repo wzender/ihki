@@ -206,8 +206,8 @@ def _plain(he: str) -> str:
     return he.translate(POINTS)
 
 
-# words pointed for the voice wherever they appear: unpointed דוד is read "David"
-MISREAD = {"דוד": "דּוֹד", "הדוד": "הַדּוֹד", "דודי": "דּוֹדִי", "ודודי": "וְדוֹדִי", "דודנו": "דּוֹדֵנוּ"}
+# words rewritten for the voice wherever they appear: unpointed דוד is read "David", and ה' is said אלוהים
+MISREAD = {"ה'": "אלוהים", "דוד": "דּוֹד", "הדוד": "הַדּוֹד", "דודי": "דּוֹדִי", "ודודי": "וְדוֹדִי", "דודנו": "דּוֹדֵנוּ"}
 _MISREAD = re.compile(rf"(?<![\u05D0-\u05EA])({'|'.join(MISREAD)})(?![\u05D0-\u05EA])")
 
 
