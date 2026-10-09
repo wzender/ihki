@@ -20,7 +20,7 @@ HEBREW_SOUNDS = set(_HEB_C) | set(_HEB_V)
 log = logging.getLogger("ihki.scorer")
 
 SAMPLE_RATE = 16_000
-MAX_SECONDS = 22  # driving mode records the thinking pause too (the page stops at 20 s)
+MAX_SECONDS = 32  # the recording includes the time to read the sentence and think (the page stops at 30 s)
 
 # Fallbacks when the model vocab lacks a phoneme. The first symbol found in the vocab wins.
 FALLBACKS = {
