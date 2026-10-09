@@ -80,9 +80,12 @@ def hebrew_mp3(he: str, engine: str, cache_it: bool = True) -> tuple[bytes, str]
                 continue
             if not cache_it:
                 return data, name
-            cache.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_suffix(".tmp")
-            tmp.write_bytes(data)
-            tmp.replace(path)
+            try:
+                cache.mkdir(parents=True, exist_ok=True)
+                tmp = path.with_suffix(".tmp")
+                tmp.write_bytes(data)
+                tmp.replace(path)
+            except OSError as e:  # read-only or full cache dir: the audio is still good, it just isn't kept
+                log.warning("hebrew tts cache write failed: %s: %s", type(e).__name__, e)
             return data, name
     raise PromptTTSUnavailable("hebrew tts unavailable")

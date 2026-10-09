@@ -110,10 +110,13 @@ class SawtakTTS:
                 w.setframerate(rate)
                 w.writeframes(pcm[: len(pcm) // 2 * 2])
             data = buf.getvalue()
-            self.cache_dir.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_suffix(".tmp")
-            tmp.write_bytes(data)
-            tmp.replace(path)
+            try:
+                self.cache_dir.mkdir(parents=True, exist_ok=True)
+                tmp = path.with_suffix(".tmp")
+                tmp.write_bytes(data)
+                tmp.replace(path)
+            except OSError as e:  # read-only or full cache dir: the audio is still good, it just isn't kept
+                log.warning("tts cache write failed: %s: %s", type(e).__name__, e)
             return data, voice
 
 
