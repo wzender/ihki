@@ -189,6 +189,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 .sline:not([aria-current]):active{background:var(--olive-soft)}
 .sline:not([aria-current]):hover .ic,.sline:not([aria-current]):active .ic{color:var(--olive)}
 .sline .tools .ic{width:16px;height:16px;margin-inline:13px;color:var(--muted)}
+.sline.playing{box-shadow:inset 0 0 0 2px var(--olive)}
 .sline .mic{width:42px;height:42px}
 .sline .mic svg{width:20px;height:20px}
 .sline .tr.lit{color:var(--muted)}
@@ -241,6 +242,7 @@ body.driving .card.storymode .prompt{display:block}
     <button class="btn" id="homeBtn"><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> המסלול</button>
     <span class="sep"></span>
     <button class="btn" id="listBtn"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg> רשימת המשפטים</button>
+    <button class="btn" id="hearBtn" title="השמעת כל השיחה בערבית, מההתחלה ועד הסוף" hidden><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg> השמעת השיחה</button>
     <button class="btn" id="setBtn" title="הגדרות השמעה" aria-label="הגדרות השמעה"><svg class="ic" aria-hidden="true"><use href="#i-set"/></svg></button>
   </div>
   <div id="envWarn" class="warn" hidden></div>
@@ -420,6 +422,7 @@ function pickCat(id){
 }
 function showPath(){   // back to the path: whatever the card was reading, playing or recording stops
   if(driving) stopDrive();
+  stopListen();
   cancelAutoNext(); storyRun++; autoRec=false; hePending=null; if(heAudio) heAudio.pause();
   if(driveAudio){ driveAudio.pause(); if(driveAudioDone) driveAudioDone(); driveAudio=null; }
   if("speechSynthesis" in window) speechSynthesis.cancel();
@@ -592,13 +595,42 @@ function drawStory(){
       row.append(tr);
     }
     if(now) row.setAttribute("aria-current","true");
-    else{ row.onclick=()=>openSentence(id,true); row.title="לתרגל את המשפט הזה"; tools.insertAdjacentHTML("beforeend",'<svg class="ic" aria-hidden="true"><use href="#i-mic"/></svg>'); }
+    else{ row.onclick=()=>openSentence(id); row.title="לתרגל את המשפט הזה"; tools.insertAdjacentHTML("beforeend",'<svg class="ic" aria-hidden="true"><use href="#i-mic"/></svg>'); }
     box.appendChild(row);
   }
   seatMic();
   const at=box.querySelector('[aria-current="true"]');   // the marked line in the middle of the box, without moving the page
   if(at) box.scrollTop=at.offsetTop-(box.clientHeight-at.offsetHeight)/2;
 }
+/* A story can be heard whole: its Arabic line after line, from the first to the last, the line being played framed.
+   Another press stops it, and so does whatever opens a line, records or leaves the card. */
+let listening=false;
+const IDLE="לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים";
+const HEAR_ON=$("hearBtn").innerHTML, HEAR_OFF=HEAR_ON.replace("i-play","i-stop").replace("השמעת השיחה","עצירה");
+function stopListen(){
+  if(!listening) return;
+  storyRun++;   // the loop below sees it and ends
+  if(driveAudio){ driveAudio.pause(); if(driveAudioDone) driveAudioDone(); driveAudio=null; }
+  if("speechSynthesis" in window) speechSynthesis.cancel();
+  $("status").textContent=IDLE;
+}
+$("hearBtn").onclick=async()=>{
+  if(listening){ stopListen(); return; }
+  cancelAutoNext(); autoRec=false; hePending=null; if(heAudio) heAudio.pause();
+  if(rec&&rec.state==="recording"){ recCancel=true; recRestart=false; rec.stop(); }   // the recording that started by itself
+  const run=++storyRun, on=()=>run===storyRun, box=$("story"), frame=row=>{ for(const r of box.querySelectorAll(".playing")) r.classList.remove("playing"); if(row) row.classList.add("playing"); };
+  listening=true; $("hearBtn").innerHTML=HEAR_OFF; $("status").textContent="הקשיבו לשיחה";
+  for(const [k,id] of topic.entries()){
+    const a=await answerAudio(id); if(!on()) break;
+    const row=box.children[k]; frame(row);
+    if(row) box.scrollTop=row.offsetTop-(box.clientHeight-row.offsetHeight)/2;
+    if(a) await playUrl(a.url,true); else await speakLocal(phraseOf(id).ar,"ar");   // device voice when Sawtak is unavailable
+    if(!on()) break;
+    await pause(350); if(!on()) break;
+  }
+  listening=false; $("hearBtn").innerHTML=HEAR_ON; frame(null);
+  if(on()) $("status").textContent=IDLE;
+};
 async function storyRetry(){   // the grade did not pass: the answer is played, then the same line again, or the next one after the last try
   const id=cur.id, run=++storyRun, on=()=>!driving&&cur&&cur.id===id&&run===storyRun;
   const last=++storyTries>=STORY.tries;
@@ -611,7 +643,7 @@ async function storyRetry(){   // the grade did not pass: the answer is played, 
   $("status").textContent="נסו שוב"; autoRec=true; autoRecord();
 }
 function show(p,wait){   // wait: do not record until the microphone button is pressed
-  cancelAutoNext();
+  cancelAutoNext(); stopListen();
   storyRun++;   // an answer being played for the line that is left is stopped, and its retry dropped
   if(!driving&&driveAudio){ driveAudio.pause(); if(driveAudioDone) driveAudioDone(); driveAudio=null; }
   autoRec=!wait;
@@ -619,7 +651,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   if(topic.includes(cur.id)) here=cur.id;
   if(storyFor!==cur.id){ storyFor=cur.id; storyTries=0; }
   const story=isStory()&&topic.includes(cur.id);
-  $("card").classList.toggle("storymode",story); $("story").hidden=!story; $("listBtn").hidden=story;   // a story is its own list of sentences
+  $("card").classList.toggle("storymode",story); $("story").hidden=!story; $("listBtn").hidden=story; $("hearBtn").hidden=!story;   // a story is its own list of sentences, and can be heard whole
   if(story) drawStory(); else seatMic();
   promptRead=readPrompt();
   $("varRow").hidden=cur.grp==null;
@@ -642,7 +674,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
     hintBox.className="donehint "+(b>=EXCELLENT?"good":b>=60?"mid":"bad"); hintBox.textContent="✓ כבר תרגלתם את המשפט הזה · הציון הטוב ביותר:"; hintBox.append(n);
   }
   $("hint").hidden=true; $("hintAr").hidden=true; $("result").hidden=true;
-  $("status").textContent=wait?"לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים":"ההקלטה מתחילה ונעצרת לבד";
+  $("status").textContent=wait?IDLE:"ההקלטה מתחילה ונעצרת לבד";
   $("playMine").disabled=true; $("nextBtn").classList.remove("primary");   // the microphone is the one thing to press until there is a score
   // a recording of the sentence that was just left is dropped; the new one starts when it has stopped
   if(!driving&&rec&&rec.state==="recording"){ recCancel=recRestart=true; rec.stop(); }
@@ -751,7 +783,7 @@ if(!navigator.mediaDevices||!window.MediaRecorder){
   const w=$("envWarn"); w.textContent="הדפדפן הזה לא תומך בהקלטה. השתמשו ב־Chrome, Edge, Firefox או Safari עדכניים, בכתובת https."; w.hidden=false; mic.disabled=true;
 }
 
-mic.onclick=()=>startRec(false);
+mic.onclick=()=>{ stopListen(); startRec(false); };
 async function startRec(auto){   // auto: started by the page for the sentence on screen, not by a press
   hePending=null; if(heAudio) heAudio.pause();   // never record the prompt being read out
   if(rec&&rec.state==="recording"){ rec.stop(); return; }
@@ -840,8 +872,15 @@ $("speed").onchange=()=>store.set("ihki.speed",+$("speed").value);
 const answerRate=()=>+$("speed").value||1;
 function answerPlayer(url){ const a=new Audio(url); a.preservesPitch=true; a.playbackRate=answerRate(); return a; }
 let ttsOff=false;   // server has no TTS key: stop asking
+// A story is a dialogue: its lines are said in turn by the topic's two voices, found by name (without the points) in
+// the server's list, so the speakers sound apart. Anywhere else, and when a name is not in the list, the chosen voice.
+function lineVoice(id){
+  const sel=$("voiceId"), c=CATS.find(c=>c.id===cat)||{}, k=topic.indexOf(id);
+  const name=c.story&&c.voices&&k>=0&&c.voices[k%2], o=name&&[...sel.options].find(o=>o.text.replace(/[\u0591-\u05C7]/g,"")===name);
+  return o?o.value:sel.value;
+}
 async function answerAudio(id){   // {url} of the Sawtak answer, or null when the server voice is unavailable
-  const voice=$("voiceId").value, key=id+"|"+voice;
+  const voice=lineVoice(id), key=id+"|"+voice;
   if(!ttsOff && !ttsUrls[key]){
     try{
       const res=await api("/api/tts/"+id+(voice?"?voice="+encodeURIComponent(voice):""));
@@ -937,6 +976,7 @@ $("driveBtn").onclick=async()=>{
   if(driving){ stopDrive(); return; }
   if(!cur||mic.disabled) return;
   if(!store.get("ihki.driveSeen",false)){ $("driveDlg").showModal(); return; }   // the first time: what the mode does, and then it starts
+  stopListen();
   if(rec&&rec.state==="recording"){ recCancel=true; rec.stop(); }   // the recording that started by itself
   driving=true; document.body.classList.add("driving"); $("driveBtn").innerHTML=DRIVE_OFF; seatMic();
   hePending=null; if(heAudio) heAudio.pause();
