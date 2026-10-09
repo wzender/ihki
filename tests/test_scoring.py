@@ -353,7 +353,7 @@ def test_references_use_one_generated_voice_and_any_cached_one():
 def test_workbook_lesson_1():
     from app.phrases import CATEGORIES, LESSONS, public_phrases
 
-    assert [l["id"] for l in LESSONS] == ["1", "free"]
+    assert [l["id"] for l in LESSONS] == ["1", "2", "free"]
     assert [c["id"] for c in CATEGORIES if c["lesson"] == "1"] == ["l1-pron", "l1-verbs", "l1-past", "l1-say", "l1-read"]
     pub = public_phrases()
     count = lambda cat: sum(p["cat"] == cat for p in pub)
@@ -374,3 +374,26 @@ def test_workbook_lesson_1():
     ar, ipa = p["variants"][0]
     assert ar.split()[-2] == "وسألنا" and ipa.split(" | ")[-2] == "u s a ʔ a l n a"
     assert any(i.startswith("i l m ʕ a l l i m | q a ʕ a d") for _, i in p["variants"])   # rural ق accepted
+
+
+def test_workbook_lesson_2():
+    from app.phrases import CATEGORIES, public_phrases
+
+    cats = ["l2-dual", "l2-family", "l2-poss", "l2-say", "l2-say2", "l2-read", "l2-talk", "l2-meet"]
+    assert [c["id"] for c in CATEGORIES if c["lesson"] == "2"] == cats
+    pub = public_phrases()
+    assert [sum(p["cat"] == c for p in pub) for c in cats] == [17, 24, 48, 23, 25, 13, 27, 24]
+    assert all(p["read"] == (p["cat"] == "l2-read") and "#" not in p["ar"] for p in pub if p["cat"].startswith("l2-"))
+    assert all("seq" not in p for p in pub if p["cat"] == "l2-poss")   # drilled in random order, like the conjugations
+    by = {(p["cat"], p["he"]): p for p in PHRASES}
+    assert by["l2-dual", "שולחן, שני שולחנות"]["tr"] == "טַאוְלֵה, טַאוְלְתֵין"   # singular and dual said together
+    # כינויי הקניין: the stem changes before a consonant suffix, and שלך is pointed for the prompt voice
+    assert by["l2-poss", "השולחן שלי"]["tr"] == "טַאוְלְת-י" and by["l2-poss", "השולחן שלנו"]["tr"] == "טַאוְלֵת-נַא"
+    you = by["l2-poss", "הבת שלך (לאישה)"]
+    assert you["tr"] == "בִּנְתֵ-כּ" and you["he_say"] == "הבת שֶׁלָּךְ" and you["variants"] == [("بنتك", "b i n t i k")]
+    assert by["l2-poss", "הכלב שלכם"]["variants"] == [("كلبكم", "k a l b k o m"), ("كلبكم", "k a l b k u")]
+    assert ("جدّي", "s iː d i") in by["l2-poss", "הסבא שלי"]["variants"]   # the other word for סבא is accepted
+    p = next(p for p in PHRASES if p["cat"] == "l2-talk" and p["seq"] == 2)
+    assert p["tr"] == "וּעַלֵיכֹּם אֵ(ל)סַّלַאםֻ" and p["variants"][0][1] == "u ʕ a l eː k u m | i s s a l aː m u"
+    p = next(p for p in PHRASES if p["cat"] == "l2-say" and p["seq"] == 22)
+    assert p["tr"].endswith("אִמّ-י סַאְלַת-וֹ: לֵיש פַתַחְת-וֹ?")
