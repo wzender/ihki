@@ -6,9 +6,15 @@ kept here and a session revoked in Supabase stops working within CACHE_TTL.
 Progress: each scored recording is added to the Supabase table `attempts` with the student's own
 token, so row-level security ties the row to them (the table's SQL is in the README).
 
+Teachers: the accounts in TEACHER_EMAILS also get the management panel, which shows every student's
+progress. Those rows are read with the project's secret key, which passes row-level security and
+never leaves the server.
+
 Env:  SUPABASE_URL              (https://<project-ref>.supabase.co)
       SUPABASE_PUBLISHABLE_KEY  (the publishable/anon key; it is public and also goes to the page)
       ALLOWED_EMAILS            (optional: the only accounts let in, separated by commas or spaces)
+      TEACHER_EMAILS            (optional: the accounts with the management panel; each is also in ALLOWED_EMAILS)
+      SUPABASE_SECRET_KEY       (the secret/service-role key, needed by the management panel only; never public)
 Without them the service is open, as before.
 """
 from __future__ import annotations
@@ -29,6 +35,7 @@ CACHE_TTL = 300  # seconds a checked token is trusted without asking again
 CACHE_MAX = 2000
 PAGE = 1000  # rows per request: Supabase's default ceiling
 MAX_ATTEMPTS = 20_000  # of one student, read for their progress
+MAX_CLASS_ATTEMPTS = 200_000  # of all students, read for the teacher's panel
 
 
 class AuthUnavailable(RuntimeError):
@@ -36,9 +43,12 @@ class AuthUnavailable(RuntimeError):
 
 
 class SupabaseAuth:
-    def __init__(self, url: str, key: str, allowed: frozenset[str] = frozenset()):
+    def __init__(self, url: str, key: str, allowed: frozenset[str] = frozenset(),
+                 teachers: frozenset[str] = frozenset(), secret: str = ""):
         self.url, self.key = url.rstrip("/"), key
         self.allowed = allowed  # lower-case emails; empty = every signed-in account
+        self.teachers = teachers  # lower-case emails of the accounts with the management panel
+        self.secret = secret  # reads every student's rows; empty = the panel has no data
         self._cache: dict[str, tuple[float, dict]] = {}
         self._lock = threading.Lock()
 
@@ -90,16 +100,49 @@ class SupabaseAuth:
         while len(rows) < MAX_ATTEMPTS:
             query = urllib.parse.urlencode({"select": "cat,phrase,score,created_at", "unrelated": "is.false",
                                             "order": "created_at.desc", "limit": PAGE, "offset": len(rows)})
-            req = urllib.request.Request(
-                f"{self.url}/rest/v1/attempts?{query}",
-                headers={"Authorization": f"Bearer {token}", "apikey": self.key, "User-Agent": "ihki/1.0"},
-            )
             try:
-                with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
-                    batch = json.load(res)
+                batch = self._get(f"/rest/v1/attempts?{query}", token, self.key)
             except (urllib.error.URLError, TimeoutError, ValueError) as e:
                 log.warning("attempts not read: %s", e)
                 break
+            rows += batch
+            if len(batch) < PAGE:
+                break
+        return rows
+
+    def _get(self, path: str, token: str, key: str):
+        req = urllib.request.Request(
+            self.url + path, headers={"Authorization": f"Bearer {token}", "apikey": key, "User-Agent": "ihki/1.0"})
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
+            return json.load(res)
+
+    def _admin(self, path: str):
+        """A read with the secret key, for the teacher's panel. Unlike a student's own progress, a failure is raised."""
+        if not self.secret:
+            raise AuthUnavailable("SUPABASE_SECRET_KEY is not set")
+        try:
+            return self._get(path, self.secret, self.secret)
+        except (urllib.error.URLError, TimeoutError, ValueError) as e:
+            raise AuthUnavailable(str(e)) from e
+
+    def users(self) -> list[dict]:
+        """Every account that has signed in: id, email, name (as Google gave it)."""
+        users: list[dict] = []
+        for page in range(1, 51):
+            batch = self._admin(f"/auth/v1/admin/users?page={page}&per_page={PAGE}").get("users", [])
+            users += [{"id": u["id"], "email": u.get("email") or "",
+                       "name": (u.get("user_metadata") or {}).get("full_name") or ""} for u in batch]
+            if len(batch) < PAGE:
+                break
+        return users
+
+    def all_attempts(self) -> list[dict]:
+        """Every student's attempts, as `attempts` gives one student's, each with its user_id."""
+        rows: list[dict] = []
+        while len(rows) < MAX_CLASS_ATTEMPTS:
+            query = urllib.parse.urlencode({"select": "user_id,cat,phrase,score,created_at", "unrelated": "is.false",
+                                            "order": "id.desc", "limit": PAGE, "offset": len(rows)})
+            batch = self._admin(f"/rest/v1/attempts?{query}")
             rows += batch
             if len(batch) < PAGE:
                 break
@@ -115,6 +158,12 @@ def load_auth() -> SupabaseAuth | None:
         log.info("no sign-in, the service is open: %s missing or empty (similar names in the environment: %s)",
                  " and ".join(missing), seen or "none")
         return None
-    allowed = frozenset(re.split(r"[\s,;]+", os.environ.get("ALLOWED_EMAILS", "").strip().lower())) - {""}
+    emails = lambda name: frozenset(re.split(r"[\s,;]+", os.environ.get(name, "").strip().lower())) - {""}
+    allowed, teachers = emails("ALLOWED_EMAILS"), emails("TEACHER_EMAILS")
+    secret = os.environ.get("SUPABASE_SECRET_KEY", "").strip()
     log.info("sign-in on: %s", f"{len(allowed)} allowed accounts" if allowed else "any Google account")
-    return SupabaseAuth(url, key, allowed)
+    if allowed and teachers - allowed:   # counts only: the addresses stay out of the log
+        log.warning("%d of TEACHER_EMAILS are not in ALLOWED_EMAILS and will not be let in", len(teachers - allowed))
+    if teachers and not secret:
+        log.warning("TEACHER_EMAILS is set without SUPABASE_SECRET_KEY: the management panel has no data to show")
+    return SupabaseAuth(url, key, allowed, teachers, secret)

@@ -416,7 +416,7 @@ def test_sign_in_guards_the_practice_endpoints():
     VERB = next(p for p in PHRASES if p["cat"] == "l1-verbs")
 
     class FakeAuth:
-        url, key, allowed = "https://proj.supabase.co", "sb_publishable_x", frozenset()
+        url, key, allowed, teachers = "https://proj.supabase.co", "sb_publishable_x", frozenset(), frozenset()
 
         def __init__(self):
             self.rows = []
@@ -432,6 +432,13 @@ def test_sign_in_guards_the_practice_endpoints():
                     {"cat": VERB["cat"], "phrase": VERB["he"], "score": 88, "created_at": "2026-10-09T10:00:00+00:00"},
                     {"cat": TOILET["cat"], "phrase": TOILET["he"], "score": 90, "created_at": "2026-10-01T10:00:00.123456+00:00"}]
 
+        def users(self):   # the teacher, a student, and an account that is not on the list
+            return [{"id": "u1", "email": "A@b.c", "name": "Alef"}, {"id": "u2", "email": "s@b.c", "name": ""},
+                    {"id": "u3", "email": "out@b.c", "name": ""}]
+
+        def all_attempts(self):
+            return [{**r, "user_id": "u2"} for r in self.attempts("")[:2]]
+
     with TestClient(create_app(scorer_for(emissions(["w"])), auth=FakeAuth())) as c:
         page = c.get("/").text
         assert 'AUTH_URL="https://proj.supabase.co"' in page and 'AUTH_KEY="sb_publishable_x"' in page
@@ -440,11 +447,20 @@ def test_sign_in_guards_the_practice_endpoints():
         assert c.get("/api/tts/0", headers={"Authorization": "Bearer bad"}).status_code == 401
         assert c.get("/api/tts/0", headers={"Authorization": "Bearer good"}).status_code == 503   # in, but no TTS key
         good = {"Authorization": "Bearer good"}
-        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c"}
+        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": False}
+        assert c.get("/api/class").status_code == 401 and c.get("/api/class", headers=good).status_code == 403
         c.app.state.auth.allowed = frozenset({"other@b.c"})   # a list without this account
         assert c.get("/api/me", headers=good).status_code == 403 and c.get("/api/tts/0", headers=good).status_code == 403
         c.app.state.auth.allowed = frozenset({"a@b.c"})   # case does not matter
         assert c.get("/api/me", headers=good).status_code == 200
+        # a teacher is an allowed account that TEACHER_EMAILS names: the panel lists the allowed accounts
+        c.app.state.auth.allowed, c.app.state.auth.teachers = frozenset({"a@b.c", "s@b.c", "new@b.c"}), frozenset({"a@b.c"})
+        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": True}
+        teacher, student, new = c.get("/api/class", headers=good).json()["students"]
+        assert (teacher["email"], teacher["name"], teacher["recordings"], teacher["last"]) == ("A@b.c", "Alef", 0, None)
+        assert student["best"] == {str(PHRASES.index(VERB)): 88} and student["tries"] == {str(PHRASES.index(VERB)): 2}
+        assert (student["recordings"], student["days"], student["last"]) == (2, 1, "2026-10-09T10:00:00+00:00")
+        assert (new["email"], new["joined"], new["recordings"]) == ("new@b.c", False, 0) and student["joined"]
     # a scored recording is recorded as the student's attempt
     auth, pid = FakeAuth(), PHRASES.index(TOILET)
     buf = io.BytesIO()

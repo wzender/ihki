@@ -141,6 +141,28 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 .tips .what .ar{font-family:var(--f-ar);font-size:14px;font-weight:400;color:var(--muted)}
 #denied{text-align:center;font:600 18px/1.5 var(--f-body);color:#1C241D;padding:0 20px}
 #denied button{display:block;margin:12px auto 0;font:600 16px/1 var(--f-body);padding:10px 22px;border-radius:10px;border:1px solid #4B6A2C;background:#fff;color:#4B6A2C;cursor:pointer}
+/* The teacher's panel: a card per student (name, grade, how much was practised and when) that opens on its topics. */
+body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage #toNow,body.manage #practice,body:not(.home) #toManage{display:none}
+.mtitle{font:400 24px/1 var(--f-display);margin:0}
+#mList{display:flex;flex-direction:column;gap:10px}
+.stu{display:block;padding:0}
+.stu summary{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;padding:12px 16px;cursor:pointer;list-style:none}
+.stu summary::-webkit-details-marker{display:none}
+.stu .who{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
+.stu .who b{font-weight:700;overflow-wrap:anywhere}
+.stu .who small,.stu .stats{color:var(--muted);font-size:14px}
+.stu .none{color:var(--muted);font-size:13px}
+.stu .stats,.stu .progress{grid-column:1/-1;margin:0}
+.stu h3{margin:0;padding:8px 16px 2px;border-top:1px solid var(--line);font:700 13px/1.4 var(--f-body);color:var(--muted)}
+.trow{display:grid;grid-template-columns:1fr auto auto 3em;gap:10px;align-items:center;padding:5px 16px;font-size:15px}
+.trow small{color:var(--muted);font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.trow .pill,.trow .none{justify-self:end}
+.trow.untouched{color:var(--muted)}
+.hard{gap:0;padding:12px 0 6px}
+.hard h2{margin:0;padding:0 16px 6px;font:400 19px/1.2 var(--f-display)}
+.hard h2 small{display:block;margin-top:2px;font:600 13px/1.3 var(--f-body);color:var(--muted)}
+.hard .trow{grid-template-columns:1fr auto auto 3em;border-top:1px solid var(--line);padding-block:7px}
+.hard .trow span:first-child{display:flex;flex-direction:column;font-weight:600}
 #logoutBtn{position:fixed;bottom:4px;right:6px;z-index:9;font:500 11px/1 var(--f-body);padding:3px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
 .drive{margin-inline-start:auto;font:700 15px var(--f-body);border-radius:999px;padding:6px 14px;cursor:pointer;border:1px solid var(--olive);background:transparent;color:var(--olive)}
 body.driving .drive{background:var(--sumac);border-color:var(--sumac);color:#fff}
@@ -208,9 +230,11 @@ body.driving .card.storymode .prompt{display:block}
 #logo-splash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:white;transition:opacity .35s ease,visibility .35s ease}
 #logo-splash.done{opacity:0;visibility:hidden;pointer-events:none}
 #logo-splash img{width:min(82vw,620px);height:auto}
-#startBtn,#loginBtn{font:400 24px/1 var(--f-display);padding:14px 34px;border-radius:14px;border:0;cursor:pointer;background:#4B6A2C;color:#fff;opacity:0;animation:start-in .45s ease-out 2.1s forwards}
+#startBtn,#loginBtn,#roles button{font:400 24px/1 var(--f-display);padding:14px 34px;border-radius:14px;border:0;cursor:pointer;background:#4B6A2C;color:#fff;opacity:0;animation:start-in .45s ease-out 2.1s forwards}
+#roles{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+#roles #manageBtn{background:#fff;color:#4B6A2C;box-shadow:inset 0 0 0 2px #4B6A2C}
 @keyframes start-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){#startBtn,#loginBtn{animation:none;opacity:1}#logo-splash{transition:none}}
+@media (prefers-reduced-motion:reduce){#startBtn,#loginBtn,#roles button{animation:none;opacity:1}#logo-splash{transition:none}}
 </style>
 </head>
 <body class="home">
@@ -226,12 +250,13 @@ body.driving .card.storymode .prompt{display:block}
   <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></symbol>
   <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
 </defs></svg>
-<div id="logo-splash"><img src="static/logo-intro.svg" alt="אהלא וסהלא, בית הספר ללימוד השפה הערבית" width="489" height="225"><button id="startBtn">יאללה נבלש</button><button id="loginBtn" hidden>כניסה עם Google</button><div id="denied" hidden>החשבון הזה אינו ברשימת התלמידים.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
+<div id="logo-splash"><img src="static/logo-intro.svg" alt="אהלא וסהלא, בית הספר ללימוד השפה הערבית" width="489" height="225"><button id="startBtn">יאללה נבלש</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="manageBtn">ניהול</button></div><button id="loginBtn" hidden>כניסה עם Google</button><div id="denied" hidden>החשבון הזה אינו ברשימת התלמידים.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
 <div class="wrap" id="wrap" inert>
   <header>
     <div class="brand">אהלא וסהלא</div>
     <div class="where"><small id="lessonName"></small><span id="catName"></span></div>
     <div class="sub maphint">בחרו נושא במסלול ותרגלו אותו בקול</div>
+    <button class="drive" id="toManage" hidden>ניהול</button>
     <button class="drive" id="driveBtn" title="מצב נסיעה: האפליקציה מקריאה, מקשיבה ואומרת את ההערכה בקול"><svg class="ic" aria-hidden="true"><use href="#i-car"/></svg> מצב נסיעה</button>
   </header>
 
@@ -288,6 +313,13 @@ body.driving .card.storymode .prompt{display:block}
   </main>
 
   </div>
+
+  <section class="wrap" id="manage" aria-labelledby="mTitle">
+    <div class="roundbar"><h1 class="mtitle" id="mTitle">ניהול</h1><span class="sep"></span><button class="btn" id="mRefresh">רענון</button><button class="btn primary" id="mPractice">לתרגול</button></div>
+    <div class="sub" id="mState" aria-live="polite"></div>
+    <div class="card hard" id="mHard" hidden></div>
+    <div id="mList"></div>
+  </section>
 </div>
 <dialog id="listDlg" aria-labelledby="listTitle">
   <div class="dlg-head"><h2 id="listTitle"></h2><button class="btn" id="listClose">סגירה</button></div>
@@ -1003,7 +1035,73 @@ $("driveBtn").onclick=async()=>{
   drive();
 };
 
-fetch("/api/phrases").then(r=>r.json()).then(d=>{
+/* ---------- the teacher's panel ----------
+   Every student's usage (recordings, days, the last time), progress (sentences practised) and grades (the average
+   of the best scores), as the server sums them up; the topics are tallied here, from the same lists the path uses. */
+function showManage(){
+  if(!home) showPath();
+  document.body.classList.add("manage"); scrollTo(0,0); loadManage();
+}
+$("toManage").onclick=$("mRefresh").onclick=showManage;
+$("mPractice").onclick=()=>{ document.body.classList.remove("manage"); drawPath(); };   // the path was not laid out while hidden
+const grade=n=>mark("pill "+(n>=EXCELLENT?"good":n>=60?"mid":"bad"),n);
+const mean=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):null;
+async function loadManage(){
+  const state=$("mState"), box=$("mList"), hard=$("mHard");
+  state.textContent="טוען…"; box.innerHTML=""; hard.hidden=true;
+  let d;
+  try{
+    const res=await api("/api/class"); await ready;
+    if(!res.ok){
+      const detail=(await res.json().catch(()=>({}))).detail||res.status;
+      state.textContent=res.status===403?"הפאנל פתוח למורים בלבד.":`נתוני התלמידים לא זמינים כרגע (${detail}).`; return;
+    }
+    d=await res.json();
+  }catch{ state.textContent="השרת לא זמין."; return; }
+  const listed=PHRASES.filter(p=>p.listed!==false);
+  const tally=(s,list)=>{ const got=list.filter(p=>s.best[p.id]!=null); return {done:got.length, n:list.length, avg:mean(got.map(p=>s.best[p.id])), tries:list.reduce((t,p)=>t+(s.tries[p.id]||0),0)}; };
+  const all=d.students.map(s=>({...s,...tally(s,listed)}))   // the latest to practise first; those who never signed in last
+    .sort((a,b)=>(b.last||"").localeCompare(a.last||"")||b.joined-a.joined||a.email.localeCompare(b.email));
+  state.textContent=`${all.length} תלמידים · ${all.filter(s=>s.week).length} תרגלו בשבוע האחרון · ${all.reduce((t,s)=>t+s.week,0)} הקלטות בשבוע האחרון`;
+  /* The sentences the class finds hardest: the lowest average of the students' best scores. A sentence counts once
+     enough students tried it (3, or all of those who practised when they are fewer), so one student's bad try does not lead. */
+  const tried=p=>all.filter(s=>s.best[p.id]!=null), need=Math.min(3,all.filter(s=>s.done).length);
+  const worst=listed.map(p=>{ const by=tried(p); return {p,k:by.length,avg:mean(by.map(s=>s.best[p.id]))}; })
+    .filter(x=>x.k&&x.k>=need).sort((a,b)=>a.avg-b.avg||b.k-a.k).slice(0,5);
+  hard.innerHTML=""; hard.hidden=!worst.length;
+  if(worst.length){
+    const h=mark("","המשפטים הקשים ביותר","h2"); h.append(mark("","הממוצע הנמוך ביותר של הציון הטוב של כל תלמיד","small")); hard.append(h);
+    for(const x of worst){
+      const row=mark("trow",""), text=document.createElement("span"), name=document.createElement("b"), c=CATS.find(c=>c.id===x.p.cat);
+      name.style.fontWeight="inherit"; setTr(name,x.p.read?x.p.tr:x.p.he); text.append(name,mark("",c?c.name:"","small"));
+      const l=c&&LESSONS.find(l=>l.id===c.lesson);
+      row.append(text,mark("",l?l.name:"","small"),mark("",`${x.k} תלמידים`,"small"),grade(x.avg)); hard.append(row);
+    }
+  }
+  for(const s of all){
+    const det=document.createElement("details"), sum=document.createElement("summary"), who=mark("who",""), bar=mark("progress",""), fill=document.createElement("i");
+    det.className="card stu";
+    who.append(mark("",s.name||s.email,"b")); if(s.name){ const m=mark("",s.email,"small"); m.dir="ltr"; who.append(m); }
+    const when=s.last?new Date(s.last).toLocaleString("he-IL",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+    fill.style.width=`${s.n?s.done/s.n*100:0}%`; bar.append(fill);
+    sum.append(who, s.avg!=null?grade(s.avg):mark("none",s.joined?"עוד לא תרגל/ה":"עוד לא נכנס/ה"));
+    if(s.avg!=null) sum.lastChild.title="ממוצע הציונים הטובים ביותר";
+    sum.append(mark("stats",`תורגלו ${s.done} מתוך ${s.n} משפטים · ${s.recordings} הקלטות, ${s.week} מהן בשבוע האחרון · ${s.days} ימי תרגול`+(when?` · לאחרונה ${when}`:"")),bar);
+    det.append(sum);
+    for(const l of LESSONS){
+      det.append(mark("",l.name,"h3"));
+      for(const c of CATS.filter(c=>c.lesson===l.id)){
+        const t=tally(s,listed.filter(p=>p.cat===c.id)), row=mark("trow"+(t.done?"":" untouched"),""), n=document.createElement("bdi");
+        n.dir="ltr"; n.textContent=`${t.done}/${t.n}`;
+        row.append(mark("",c.name),mark("",t.tries?`${t.tries} ניסיונות`:"","small"),mark("","","small"),t.avg!=null?grade(t.avg):mark("none","–"));
+        row.children[2].append(n); det.append(row);
+      }
+    }
+    box.append(det);
+  }
+}
+
+const ready=fetch("/api/phrases").then(r=>r.json()).then(d=>{
   LESSONS=d.lessons; CATS=d.categories; PHRASES=d.phrases;
   for(const c of CATS) c.name=c.name.replace(/ ← /g,"\u00a0←\u00a0");   // the arrow never ends a line
   for(const v of d.voices||[]) $("voiceId").add(new Option(v.name,v.id));
@@ -1014,14 +1112,17 @@ fetch("/api/phrases").then(r=>r.json()).then(d=>{
 </script>
 <script>
 /* The opening screen stays until the start button is pressed. */
-$("startBtn").onclick=()=>{
+function enter(){
   const splash=$("logo-splash");
   $("wrap").inert=false; splash.classList.add("done"); setTimeout(()=>splash.remove(),400);
-};
+}
+$("startBtn").onclick=$("practiceBtn").onclick=enter;
+$("manageBtn").onclick=()=>{ enter(); showManage(); };
 $("startBtn").focus({preventScroll:true});
-/* With sign-in configured, the start button waits behind the Google button. */
+/* With sign-in configured, the start button waits behind the Google button. A teacher gets two buttons in its
+   place: practice, as a student does, or the management panel. */
 if(AUTH_URL){
-  const start=$("startBtn"), login=$("loginBtn"), logout=$("logoutBtn");
+  const start=$("startBtn"), login=$("loginBtn"), logout=$("logoutBtn"), roles=$("roles");
   start.hidden=true; login.hidden=false;
   if(!sb){ login.disabled=true; login.textContent="הכניסה לא זמינה כרגע"; }
   else{
@@ -1034,14 +1135,15 @@ if(AUTH_URL){
     sb.auth.onAuthStateChange((_e,session)=>{
       login.hidden=!!session; logout.hidden=!session;
       logout.title=session?session.user.email||"":"";
-      if(!session){ asked=""; start.hidden=true; denied.hidden=true; login.focus({preventScroll:true}); return; }
+      if(!session){ asked=""; start.hidden=roles.hidden=true; denied.hidden=true; login.focus({preventScroll:true}); return; }
       if(asked===session.user.id) return;
       asked=session.user.id;
       setTimeout(async()=>{   // outside this callback: api() asks supabase for the session
         const res=await api("/api/me").catch(()=>null);
         const ok=!res||res.status!==403;   // a server that cannot be reached is not a refusal
-        start.hidden=!ok; denied.hidden=ok;
-        if(ok){ start.focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); }
+        const teacher=!!(res&&res.ok&&(await res.json().catch(()=>({}))).teacher);
+        start.hidden=!ok||teacher; roles.hidden=$("toManage").hidden=!teacher; denied.hidden=ok;
+        if(ok){ (teacher?$("practiceBtn"):start).focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); }
       },0);
     });
   }

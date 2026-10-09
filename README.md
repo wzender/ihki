@@ -96,7 +96,13 @@ create policy "students read their own attempts" on public.attempts
 
 The page's "ההתקדמות שלי" button reads these rows back through `GET /api/progress` (best score and tries per phrase, recordings, days practised) and shows them per topic; the best scores then follow the student between devices.
 
-The teacher's view, also in the SQL editor (it runs as the owner, so it sees every student):
+### The teacher
+
+`TEACHER_EMAILS` names the teacher's Google account (several are separated like `ALLOWED_EMAILS`, and each must also be on that list). After sign-in a teacher chooses between **תרגול**, the same practice a student gets, and **ניהול**, the management panel. The panel lists every student with their usage (recordings, those of the last 7 days, days practised, last practice), progress (sentences practised) and grade (the average of the best scores), and a student opens on the same figures per topic. The students are the accounts in `ALLOWED_EMAILS`, including those who have not signed in yet; without a list, every account that signed in.
+
+The panel reads through `GET /api/class`, which answers teachers only. Row-level security hides other students' rows from the teacher's own token, so the server reads them with `SUPABASE_SECRET_KEY` (Supabase → Project Settings → API Keys → secret key). Unlike the publishable key it must stay private: set it as a Space **secret**. Without it the panel opens and says the data is not available.
+
+The same figures as a query, in the SQL editor (it runs as the owner, so it sees every student):
 
 ```sql
 select u.email, a.cat, count(distinct a.phrase) as phrases, count(*) as tries,

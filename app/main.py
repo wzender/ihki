@@ -4,6 +4,7 @@ Run:  uvicorn app.main:app --host 0.0.0.0 --port 7860
 Env:  MODEL_ID  (default facebook/wav2vec2-xlsr-53-espeak-cv-ft, or a path to a fine-tuned checkpoint)
       SAWTAK_API_KEY, SAWTAK_VOICE_ID  (model-answer playback, see app/tts.py)
       SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, ALLOWED_EMAILS  (Google sign-in, see app/auth.py)
+      TEACHER_EMAILS, SUPABASE_SECRET_KEY  (the teacher's management panel, see app/auth.py)
 A local .env file is loaded if present; real environment variables win over it.
 """
 from __future__ import annotations
@@ -15,7 +16,7 @@ import re
 import time
 import urllib.parse
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -49,6 +50,29 @@ def build_version() -> str:
     return f"{h.hexdigest()[:7]} · {time.strftime('%Y-%m-%d %H:%M', time.gmtime(newest))} UTC"
 
 
+def summary(rows: list[dict]) -> dict:
+    """One student's attempts summed up: best score and tries per phrase id, recordings (all, and of the last
+    7 days), days practised, time of the last one."""
+    shown = {c["id"] for c in CATEGORIES}
+    ids = {(p["cat"], p["he"]): i for i, p in enumerate(PHRASES) if p["cat"] in shown}
+    best: dict[int, int] = {}
+    tries: dict[int, int] = {}
+    days, week, last = set(), 0, None
+    since = datetime.now(timezone.utc) - timedelta(days=7)
+    for r in rows:
+        # the seconds part only: the fraction's length varies, which Python 3.10 does not parse
+        at = datetime.strptime(r["created_at"][:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+        days.add(at.astimezone(LOCAL_TZ).date())
+        week += at >= since
+        last = max(last, at) if last else at
+        i = ids.get((r["cat"], r["phrase"]))
+        if i is not None:   # a sentence the page no longer lists still counts as a recording
+            best[i] = max(best.get(i, 0), r["score"])
+            tries[i] = tries.get(i, 0) + 1
+    return {"best": best, "tries": tries, "recordings": len(rows), "days": len(days), "week": week,
+            "last": last.isoformat() if last else None}
+
+
 def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                auth: SupabaseAuth | None = None) -> FastAPI:
     @asynccontextmanager
@@ -77,7 +101,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(401, "sign in required")
         if a.allowed and user["email"].lower() not in a.allowed:
             raise HTTPException(403, "this account is not on the list")
-        return {**user, "token": token.strip()}
+        return {**user, "token": token.strip(), "teacher": user["email"].lower() in a.teachers}
 
     members = [Depends(signed_in)]
 
@@ -93,26 +117,33 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.get("/api/me")
     def me(user: dict | None = Depends(signed_in)):
         """Who is signed in; the page asks this right after sign-in to learn whether the account is let in."""
-        return {"email": user["email"] if user else ""}
+        return {"email": user["email"] if user else "", "teacher": bool(user and user["teacher"])}
 
     @app.get("/api/progress")
     def progress(user: dict | None = Depends(signed_in)):
         """The signed-in student's progress: best score and tries per phrase id, recordings, days practised."""
-        best: dict[int, int] = {}
-        tries: dict[int, int] = {}
-        days = set()
-        rows = app.state.auth.attempts(user["token"]) if user else []
-        shown = {c["id"] for c in CATEGORIES}
-        ids = {(p["cat"], p["he"]): i for i, p in enumerate(PHRASES) if p["cat"] in shown}
+        s = summary(app.state.auth.attempts(user["token"]) if user else [])
+        return {k: s[k] for k in ("best", "tries", "recordings", "days")}
+
+    @app.get("/api/class")
+    def class_progress(user: dict | None = Depends(signed_in)):
+        """The teacher's panel: every student's summary (see `summary`). The students are the allowed accounts,
+        or every account that signed in when there is no list; one that never signed in has joined = false."""
+        if not user or not user["teacher"]:
+            raise HTTPException(403, "teachers only")
+        a: SupabaseAuth = app.state.auth
+        try:
+            users, rows = a.users(), a.all_attempts()
+        except AuthUnavailable as e:
+            raise HTTPException(503, str(e))
+        by: dict[str, list[dict]] = {}
         for r in rows:
-            # the seconds part only: the fraction's length varies, which Python 3.10 does not parse
-            at = datetime.strptime(r["created_at"][:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
-            days.add(at.astimezone(LOCAL_TZ).date())
-            i = ids.get((r["cat"], r["phrase"]))
-            if i is not None:   # a sentence the page no longer lists still counts as a recording
-                best[i] = max(best.get(i, 0), r["score"])
-                tries[i] = tries.get(i, 0) + 1
-        return {"best": best, "tries": tries, "recordings": len(rows), "days": len(days)}
+            by.setdefault(r["user_id"], []).append(r)
+        students = [{"email": u["email"], "name": u["name"], "joined": True, **summary(by.get(u["id"], []))}
+                    for u in users if not a.allowed or u["email"].lower() in a.allowed]
+        missing = a.allowed - {s["email"].lower() for s in students}
+        students += [{"email": e, "name": "", "joined": False, **summary([])} for e in sorted(missing)]
+        return {"students": students}
 
     @app.get("/api/phrases")
     def phrases():
