@@ -45,6 +45,10 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 .task{color:var(--muted);font-size:14px;margin:-6px 0 0}
 .hint{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 16px;padding:6px 12px;border-radius:10px;background:var(--olive-soft)}
 .hint .tr{font-size:22px;font-weight:700}
+/* doubling mark: drawn here, because an Arabic shadda on a Hebrew letter has no glyph on Android */
+.sh{position:relative}
+.sh::before{content:"";position:absolute;top:-.16em;left:50%;transform:translateX(-50%);width:.44em;height:.26em;background:currentColor;-webkit-mask:var(--shadda) center/contain no-repeat;mask:var(--shadda) center/contain no-repeat}
+:root{--shadda:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1v2a2 2 0 0 0 4 0v-1M5 3a2 2 0 0 0 4 0v-2' fill='none' stroke='%23000' stroke-width='1.3' stroke-linecap='round'/%3E%3C/svg%3E")}
 .hint .arline{font:500 16px/1.4 var(--f-ar);color:var(--muted)}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .btn{font:600 15px var(--f-body);border-radius:10px;padding:6px 12px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink)}
@@ -159,6 +163,16 @@ const band=s=>s>=75?"good":s>=50?"mid":"bad";
 
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
 // Two rows of chips: the lesson, then that lesson's topics (categories). The topic is what is remembered.
+// Transliteration text: a letter carrying the doubling mark (U+0651) becomes <span class="sh">letter</span>
+const SHADDA=/([\u05D0-\u05EA][\u0591-\u05C7]*)\u0651([\u0591-\u05C7]*)/g;
+function setTr(el,text){
+  el.textContent=""; let at=0;
+  for(const m of text.matchAll(SHADDA)){
+    const sp=document.createElement("span"); sp.className="sh"; sp.textContent=m[1]+m[2];
+    el.append(text.slice(at,m.index),sp); at=m.index+m[0].length;
+  }
+  el.append(text.slice(at));
+}
 function chips(box,items,sel,pick){
   box.innerHTML="";
   for(const it of items){
@@ -223,7 +237,7 @@ function show(p){
   $("negBtn").hidden=$("conjBtn").hidden=cur.grp==null;
   $("negBtn").textContent=cur.neg?"חיוב":"שלילה";
   // read phrases (workbook, Arabic -> Hebrew): the transliteration is the prompt and the Hebrew is the answer
-  $("prompt").textContent=cur.read?cur.tr:cur.he;
+  setTr($("prompt"),cur.read?cur.tr:cur.he);
   $("task").textContent=cur.read?"קראו בקול ותרגמו לעברית":"איך אומרים את זה בערבית מדוברת?";
   $("answerBtn").textContent=cur.read?"הצג תרגום":"הצג תשובה";
   $("catName").textContent=CATS.find(c=>c.id===cat).name;
@@ -249,8 +263,8 @@ function render(r){
   legend.innerHTML='<div class="w">הנכון</div><div class="h">נשמע</div>'; words.appendChild(legend);
   for(const w of r.words){
     const box=document.createElement("div"); box.className="word";
-    const ar=document.createElement("div"); ar.className="w "+band(w.score); ar.textContent=w.tr;
-    const hd=document.createElement("div"); hd.className="h"; hd.textContent=w.heard_tr||"–";
+    const ar=document.createElement("div"); ar.className="w "+band(w.score); setTr(ar,w.tr);
+    const hd=document.createElement("div"); hd.className="h"; setTr(hd,w.heard_tr||"–");
     const n=document.createElement("div"); n.className="n"; n.textContent=Math.round(w.score)+" · ";
     const a=document.createElement("span"); a.lang="ar"; a.textContent=w.ar; n.append(a);
     box.append(ar,hd,n); words.appendChild(box);
@@ -274,7 +288,7 @@ function render(r){
     const li=document.createElement("li");
     const what=document.createElement("span"); what.className="what"; what.textContent=r.tips.length?"עוד הגאים לא מדויקים":"מה לא היה מדויק";
     const body=document.createElement("span");
-    body.textContent=r.issues.map(i=>`${i.sound} ב״${i.word_tr}״ (${i.score})`+(i.missing?" – לא נשמעה":i.heard?` – נשמע כמו ${i.heard}`:"")).join(" · ");
+    setTr(body,r.issues.map(i=>`${i.sound} ב״${i.word_tr}״ (${i.score})`+(i.missing?" – לא נשמעה":i.heard?` – נשמע כמו ${i.heard}`:"")).join(" · "));
     li.append(what,body); tips.appendChild(li);
   }
   if(!r.unrelated && !r.tips.length && !r.issues.length){
@@ -358,7 +372,7 @@ mic.onclick=async()=>{
 $("playMine").onclick=()=>{ if(myAudioUrl) new Audio(myAudioUrl).play(); };
 
 /* ---------- hint, answer, TTS ---------- */
-$("answerBtn").onclick=()=>{ $("hintTr").textContent=cur.read?cur.he:cur.tr; $("hintAr").textContent=cur.ar; $("hint").hidden=false; $("hintAr").hidden=false; };
+$("answerBtn").onclick=()=>{ setTr($("hintTr"),cur.read?cur.he:cur.tr); $("hintAr").textContent=cur.ar; $("hint").hidden=false; $("hintAr").hidden=false; };
 $("negBtn").onclick=()=>variation("negate");
 $("conjBtn").onclick=()=>variation("conjugate");
 const nextPhrase=()=>{ pos=(pos+1)%order.length; if(pos===0&&!ordered) shuffle(order); show(); };
