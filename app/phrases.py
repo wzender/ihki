@@ -12,7 +12,7 @@ Conventions (Palestinian urban speech as the main form):
   Geminates are written doubled; the tokenizer collapses them for CTC.
 """
 from .grammar import day2_phrases
-from .workbook import CATEGORIES as WORKBOOK_CATEGORIES, workbook_phrases
+from .workbook import CATEGORIES as WORKBOOK_CATEGORIES, LESSON_TABS, workbook_phrases
 
 PHRASES = [
     # ---- היכרות ----
@@ -128,13 +128,17 @@ PHRASES += day2_phrases()
 # ---- שיעורים ---- the workbook's translation exercises, lesson by lesson (see workbook.py)
 PHRASES += workbook_phrases()
 
+# The page asks for a lesson first, then one of its categories: the course's lessons (workbook.py)
+# and, last, the phrases that belong to no lesson.
+FREE = "free"
+LESSONS = [*LESSON_TABS, {"id": FREE, "name": "תרגול חופשי"}]
 CATEGORIES = [
-    {"id": "meet", "name": "היכרות"},
-    {"id": "talk", "name": "שיחה"},
-    {"id": "city", "name": "בעיר"},
-    {"id": "food", "name": "אוכל וקניות"},
-    {"id": "day2", "name": "יום 2"},
     *WORKBOOK_CATEGORIES,
+    {"id": "meet", "name": "היכרות", "lesson": FREE},
+    {"id": "talk", "name": "שיחה", "lesson": FREE},
+    {"id": "city", "name": "בעיר", "lesson": FREE},
+    {"id": "food", "name": "אוכל וקניות", "lesson": FREE},
+    {"id": "day2", "name": "יום 2", "lesson": FREE},
 ]
 
 

@@ -351,16 +351,22 @@ def test_references_use_one_generated_voice_and_any_cached_one():
 
 
 def test_workbook_lesson_1():
-    from app.phrases import CATEGORIES, public_phrases
-    from app.workbook import LESSONS
+    from app.phrases import CATEGORIES, LESSONS, public_phrases
 
+    assert [l["id"] for l in LESSONS] == ["1", "free"]
+    assert [c["id"] for c in CATEGORIES if c["lesson"] == "1"] == ["l1-pron", "l1-verbs", "l1-past", "l1-say", "l1-read"]
     pub = public_phrases()
-    for cat, kind in (("l1r", "read"), ("l1", "say")):
-        assert any(c["id"] == cat for c in CATEGORIES)
-        got = sorted((p for p in pub if p["cat"] == cat), key=lambda p: p["seq"])
-        assert [p["he"] for p in got] == [he for he, _ in LESSONS[1][kind]]
-        assert all(p["read"] == (kind == "read") and "#" not in p["ar"] for p in got)
-    p = next(p for p in PHRASES if p["cat"] == "l1r" and p["seq"] == 11)
+    count = lambda cat: sum(p["cat"] == cat for p in pub)
+    assert [count(c) for c in ("l1-pron", "l1-verbs", "l1-past", "l1-say", "l1-read")] == [8, 4, 32, 10, 22]
+    assert all(p["cat"] in {c["id"] for c in CATEGORIES} for p in pub)
+    assert all(p["read"] == (p["cat"] == "l1-read") and "#" not in p["ar"] for p in pub if p["cat"].startswith("l1-"))
+    assert all("seq" not in p for p in pub if p["cat"] == "l1-past")   # conjugations are drilled in random order
+    by = {(p["cat"], p["he"]): p for p in PHRASES}
+    assert by["l1-pron", "אנחנו"]["tr"] == "אִחְנַא"
+    assert by["l1-verbs", "ישב (עבר, עתיד)"]["tr"] == "קַעַד, יֻקְעֹד"
+    assert by["l1-past", "היא שאלה"]["tr"] == "הִיֵّ סַאְלַת"
+    assert by["l1-past", "אתה פתחת"]["variants"] == [("انت فتحت", "ʔ i n t e | f a t a ħ t"), ("انت فتحت", "ʔ i n t a | f a t a ħ t")]
+    p = next(p for p in PHRASES if p["cat"] == "l1-read" and p["seq"] == 11)
     assert p["tr"] == "אֵלְמְעַלֵّם קַעַד עַלַא אֵ(ל)טַّאוְלֵה וּסַאַל-נַא סֻאַאל."
     ar, ipa = p["variants"][0]
     assert ar.split()[-2] == "وسألنا" and ipa.split(" | ")[-2] == "u s a ʔ a l n a"

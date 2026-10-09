@@ -32,7 +32,7 @@ app/
   reference.py native baseline: the TTS voices scored by the same model
   phrases.py   phrase bank: accepted variants (Arabic + IPA) per phrase
   grammar.py   day-2 sentences as grammar: every pronoun × positive/negative, for the negation and conjugation buttons
-  workbook.py  the workbook's end-of-lesson translation exercises: Arabic → Hebrew (read aloud, reveal the translation) and Hebrew → Arabic
+  workbook.py  the course workbook lesson by lesson: each lesson's topics (pronouns, verbs, conjugations, the Hebrew → Arabic and Arabic → Hebrew sentences)
   main.py      FastAPI: GET / (page), GET /api/phrases, GET /api/health, POST /api/score
 static/index.html   frontend (MediaRecorder → /api/score)
 train/finetune.py   CTC fine-tuning on your own recordings

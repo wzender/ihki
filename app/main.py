@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import HTMLResponse, Response
 
-from .phrases import CATEGORIES, PHRASES, public_phrases
+from .phrases import CATEGORIES, LESSONS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .reference import References
 from .scorer import Scorer, decode_audio, load_scorer
@@ -61,7 +61,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
 
     @app.get("/api/phrases")
     def phrases():
-        return {"categories": CATEGORIES, "phrases": public_phrases(),
+        return {"lessons": LESSONS, "categories": CATEGORIES, "phrases": public_phrases(),
                 "voices": [{"id": i, "name": n} for n, i in VOICES.items()]}
 
     @app.get("/api/health")
