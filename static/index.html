@@ -183,6 +183,12 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
    that did not pass is coloured letter by letter: green as it should be, amber close, red (underlined) not it */
 .sline .tools{display:flex;align-items:center;gap:8px}
 .sline .tools small{font:400 11px/1 var(--f-body);color:var(--muted);white-space:nowrap}
+/* a line that is not the marked one opens on a tap: it answers the pointer and the finger, and a small microphone stands where the button will be */
+.sline:not([aria-current]){transition:background .12s}
+.sline:not([aria-current]):hover{background:color-mix(in srgb,var(--olive-soft) 55%,transparent)}
+.sline:not([aria-current]):active{background:var(--olive-soft)}
+.sline:not([aria-current]):hover .ic,.sline:not([aria-current]):active .ic{color:var(--olive)}
+.sline .tools .ic{width:16px;height:16px;margin-inline:13px;color:var(--muted)}
 .sline .mic{width:42px;height:42px}
 .sline .mic svg{width:20px;height:20px}
 .sline .tr.lit{color:var(--muted)}
@@ -215,6 +221,7 @@ body.driving .card.storymode .prompt{display:block}
   <symbol id="i-sound" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></symbol>
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l12 8-12 8z" fill="currentColor"/></symbol>
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></symbol>
   <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
 </defs></svg>
 <div id="logo-splash"><img src="static/logo-intro.svg" alt="אהלא וסהלא, בית הספר ללימוד השפה הערבית" width="489" height="225"><button id="startBtn">יאללה נבלש</button><button id="loginBtn" hidden>כניסה עם Google</button><div id="denied" hidden>החשבון הזה אינו ברשימת התלמידים.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
@@ -584,7 +591,8 @@ function drawStory(){
       }else setTr(tr,p.tr);
       row.append(tr);
     }
-    if(now) row.setAttribute("aria-current","true"); else row.onclick=()=>openSentence(id,true);
+    if(now) row.setAttribute("aria-current","true");
+    else{ row.onclick=()=>openSentence(id,true); row.title="לתרגל את המשפט הזה"; tools.insertAdjacentHTML("beforeend",'<svg class="ic" aria-hidden="true"><use href="#i-mic"/></svg>'); }
     box.appendChild(row);
   }
   seatMic();
@@ -611,7 +619,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   if(topic.includes(cur.id)) here=cur.id;
   if(storyFor!==cur.id){ storyFor=cur.id; storyTries=0; }
   const story=isStory()&&topic.includes(cur.id);
-  $("card").classList.toggle("storymode",story); $("story").hidden=!story;
+  $("card").classList.toggle("storymode",story); $("story").hidden=!story; $("listBtn").hidden=story;   // a story is its own list of sentences
   if(story) drawStory(); else seatMic();
   promptRead=readPrompt();
   $("varRow").hidden=cur.grp==null;
