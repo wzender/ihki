@@ -102,7 +102,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
         if engine not in ENGINES:
             raise HTTPException(400, "unknown engine")
         try:
-            data, used = hebrew_mp3(PHRASES[phrase_id]["he"], engine)
+            phrase = PHRASES[phrase_id]
+            data, used = hebrew_mp3(phrase.get("he_say") or phrase["he"], engine)   # pointed where the plain text is misread
         except PromptTTSUnavailable as e:
             raise HTTPException(503, str(e))
         return Response(data, media_type="audio/mpeg", headers={

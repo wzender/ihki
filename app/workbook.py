@@ -63,33 +63,43 @@ LEX: dict[str, tuple[str, list[str]]] = {
 }
 PUNCT = {"؟": "?", "،": ",", ".": ".", ":": ":", "!": "!"}
 
-HE_PRONOUNS = [he for _, he, _, _ in PRONOUNS]
+# Hebrew that the prompt voice misreads without its points (פתח is read "petach", את is read "et") is
+# written pointed: the page shows it unpointed and the voice gets the pointed text (`he_say`).
+POINTS = dict.fromkeys(range(0x0591, 0x05C8))
+
+
+def _plain(he: str) -> str:
+    return he.translate(POINTS)
+
+
+HE_PRONOUNS = "אֲנִי אַתָּה אַתְּ הוּא הִיא אֲנַחְנוּ אַתֶּם הֵם".split()   # in PRONOUNS order
 AR_PRONOUNS = [alts[0][0] for _, _, _, alts in PRONOUNS]
 # lesson 1's verbs (בניין ראשון, פַעַל): Hebrew past forms and LEX keys, one per pronoun in PRONOUNS order, then the future
 VERBS_1 = [
-    ("פתחתי פתחת פתחת פתח פתחה פתחנו פתחתם פתחו", "فتحت فتحت فتحتي فتح فتحت#f فتحنا فتحتو فتحو", "يفتح"),
-    ("אכלתי אכלת אכלת אכל אכלה אכלנו אכלתם אכלו", "اكلت اكلت اكلتي اكل اكلت#f اكلنا اكلتو اكلو", "ياكل"),
-    ("שאלתי שאלת שאלת שאל שאלה שאלנו שאלתם שאלו", "سألت سألت سألتي سأل سألت#f سألنا سألتو سألو", "يسأل"),
-    ("ישבתי ישבת ישבת ישב ישבה ישבנו ישבתם ישבו", "قعدت قعدت قعدتي قعد قعدت#f قعدنا قعدتو قعدو", "يقعد"),
+    ("פָּתַחְתִּי פָּתַחְתָּ פָּתַחְתְּ פָּתַח פָּתְחָה פָּתַחְנוּ פְּתַחְתֶּם פָּתְחוּ", "فتحت فتحت فتحتي فتح فتحت#f فتحنا فتحتو فتحو", "يفتح"),
+    ("אָכַלְתִּי אָכַלְתָּ אָכַלְתְּ אָכַל אָכְלָה אָכַלְנוּ אֲכַלְתֶּם אָכְלוּ", "اكلت اكلت اكلتي اكل اكلت#f اكلنا اكلتو اكلو", "ياكل"),
+    ("שָׁאַלְתִּי שָׁאַלְתָּ שָׁאַלְתְּ שָׁאַל שָׁאֲלָה שָׁאַלְנוּ שְׁאַלְתֶּם שָׁאֲלוּ", "سألت سألت سألتي سأل سألت#f سألنا سألتو سألو", "يسأل"),
+    ("יָשַׁבְתִּי יָשַׁבְתָּ יָשַׁבְתְּ יָשַׁב יָשְׁבָה יָשַׁבְנוּ יְשַׁבְתֶּם יָשְׁבוּ", "قعدت قعدت قعدتي قعد قعدت#f قعدنا قعدتو قعدو", "يقعد"),
 ]
 HUWWE = 3  # the pronoun whose past form names the verb
 
 
 def _base_forms(verbs):
     """A verb as the workbook lists it: past and future of "he"."""
-    return [(f"{he.split()[HUWWE]} (עבר, עתיד)", f"{ar.split()[HUWWE]}، {future}") for he, ar, future in verbs]
+    return [(f"{_plain(he.split()[HUWWE])} (עבר, עתיד)", f"{ar.split()[HUWWE]}، {future}", he.split()[HUWWE])
+            for he, ar, future in verbs]
 
 
 def _past(verbs):
     """Every pronoun with its past form: אני פתחתי -> انا فتحت."""
-    return [(f"{hp} {h}", f"{ap} {a}") for he, ar, _ in verbs
+    return [(_plain(f"{hp} {h}"), f"{ap} {a}", f"{hp} {h}") for he, ar, _ in verbs
             for hp, ap, h, a in zip(HE_PRONOUNS, AR_PRONOUNS, he.split(), ar.split())]
 
 
-# lesson -> its topics: (id, name, kind, shown in order, [(Hebrew, Arabic)]); sentence numbering is the workbook's
+# lesson -> its topics: (id, name, kind, shown in order, [(Hebrew, Arabic) or (Hebrew, Arabic, Hebrew as read aloud)]); sentence numbering is the workbook's
 LESSONS = {
     1: [
-        ("pron", "הגופים", "say", True, list(zip(["אני", "אתה", "את", "הוא", "היא", "אנחנו", "אתם", "הם / הן"], AR_PRONOUNS))),
+        ("pron", "הגופים", "say", True, [(_plain(he) + " / הן" * (he == "הֵם"), ar, he) for he, ar in zip(HE_PRONOUNS, AR_PRONOUNS)]),
         ("verbs", "פעלים", "say", True, _base_forms(VERBS_1)),
         ("past", "הטיות בעבר", "say", False, _past(VERBS_1)),
         ("say", "משפטים: עברית ← ערבית", "say", True, [
@@ -168,14 +178,17 @@ def _variants(words: list[tuple[str, str, list[str]]]) -> list[tuple[str, str]]:
 
 def workbook_phrases() -> list[dict]:
     """The lessons' items as phrases (see phrases.py). `seq` keeps an ordered topic's order and
-    `read` marks the Arabic -> Hebrew ones, where the page shows `tr` and hides `he`."""
+    `read` marks the Arabic -> Hebrew ones, where the page shows `tr` and hides `he`;
+    `he_say` is the pointed Hebrew for the prompt voice, where the plain text is misread."""
     out = []
     for n, topics in LESSONS.items():
         for tid, _, kind, in_order, items in topics:
-            for seq, (he, sentence) in enumerate(items, 1):
+            for seq, (he, sentence, *he_say) in enumerate(items, 1):
                 words = [_word(t) for t in sentence.split()]
                 phrase = dict(cat=f"l{n}-{tid}", he=he, tr=" ".join(t for _, t, _ in words),
                               variants=_variants(words), read=kind == "read")
+                if he_say:
+                    phrase["he_say"] = he_say[0]
                 if in_order:
                     phrase["seq"] = seq
                 out.append(phrase)

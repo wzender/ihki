@@ -365,6 +365,9 @@ def test_workbook_lesson_1():
     assert by["l1-pron", "אנחנו"]["tr"] == "אִחְנַא"
     assert by["l1-verbs", "ישב (עבר, עתיד)"]["tr"] == "קַעַד, יֻקְעֹד"
     assert by["l1-past", "היא שאלה"]["tr"] == "הִיֵّ סַאְלַת"
+    # the prompt voice gets pointed Hebrew (פתח is otherwise read "petach"); the page shows it plain
+    assert by["l1-verbs", "פתח (עבר, עתיד)"]["he_say"] == "פָּתַח"
+    assert by["l1-past", "את ישבת"]["he_say"] == "אַתְּ יָשַׁבְתְּ" and by["l1-pron", "הם / הן"]["he_say"] == "הֵם"
     assert by["l1-past", "אתה פתחת"]["variants"] == [("انت فتحت", "ʔ i n t e | f a t a ħ t"), ("انت فتحت", "ʔ i n t a | f a t a ħ t")]
     p = next(p for p in PHRASES if p["cat"] == "l1-read" and p["seq"] == 11)
     assert p["tr"] == "אֵלְמְעַלֵّם קַעַד עַלַא אֵ(ל)טַّאוְלֵה וּסַאַל-נַא סֻאַאל."
