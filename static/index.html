@@ -151,6 +151,7 @@ body.driving .mic{width:84px;height:84px}
       <button class="btn" id="speakBtn">🔊 השמע</button>
       <button class="btn" id="playMine" disabled>▶ ההקלטה שלי</button>
       <span style="flex:1"></span>
+      <button class="btn" id="prevBtn">→ המשפט הקודם</button>
       <button class="btn primary" id="nextBtn">המשפט הבא ←</button>
     </div>
   </main>
@@ -237,14 +238,22 @@ async function readPrompt(){
   heAudio.play().catch(()=>{ hePending=id; });
 }
 for(const ev of ["pointerdown","keydown"]) addEventListener(ev,()=>{
-  clearTimeout(autoNext);   // any click or key keeps the sentence on screen
+  cancelAutoNext();   // any click or key keeps the sentence on screen
   if(hePending!=null){ const id=hePending; hePending=null; if(cur&&cur.id===id&&heAudio) heAudio.play().catch(()=>{}); }
 },true);
 // A grade above AUTO_NEXT moves on by itself after the grade has been seen for a moment; show() then reads the next prompt.
-const AUTO_NEXT={above:80, delay:1500};
+// The seconds left are counted down on the "next sentence" button.
+const AUTO_NEXT={above:80, seconds:3}, NEXT_LABEL="המשפט הבא";
 let autoNext=null;
+function cancelAutoNext(){ clearInterval(autoNext); autoNext=null; $("nextBtn").textContent=NEXT_LABEL+" ←"; }
+function startAutoNext(){
+  cancelAutoNext();
+  let left=AUTO_NEXT.seconds;
+  const tick=()=>{ if(left>0) $("nextBtn").textContent=`${NEXT_LABEL} (${left--}) ←`; else nextPhrase(); };
+  tick(); autoNext=setInterval(tick,1000);
+}
 function show(p){
-  clearTimeout(autoNext);
+  cancelAutoNext();
   cur=p||PHRASES[order[pos]];
   readPrompt();
   $("negBtn").hidden=$("conjBtn").hidden=cur.grp==null;
@@ -260,7 +269,7 @@ function show(p){
   $("progress").hidden=!ordered; $("progressBar").style.width=`${(pos+1)/order.length*100}%`;
   $("hint").hidden=true; $("hintAr").hidden=true; $("result").hidden=true;
   $("status").textContent="לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים";
-  $("playMine").disabled=true;
+  $("playMine").disabled=true; $("prevBtn").disabled=pos===0;
 }
 
 function render(r){
@@ -313,7 +322,7 @@ function render(r){
   if(best[cur.id]==null||s>best[cur.id]){best[cur.id]=s; store.set("ihki.best2",best);}
   if(!driving&&!r.unrelated&&s>AUTO_NEXT.above){   // driving mode moves on by itself, in its own loop
     $("status").textContent=`ציון ${s} ✓ עוברים למשפט הבא`;
-    autoNext=setTimeout(()=>nextPhrase(),AUTO_NEXT.delay);
+    startAutoNext();
   }
 }
 
@@ -394,6 +403,7 @@ $("negBtn").onclick=()=>variation("negate");
 $("conjBtn").onclick=()=>variation("conjugate");
 const nextPhrase=()=>{ pos=(pos+1)%order.length; if(pos===0&&!ordered) shuffle(order); show(); };
 $("nextBtn").onclick=nextPhrase;
+$("prevBtn").onclick=()=>{ if(pos>0){ pos--; show(); } };   // not before the first one: a shuffled round has no earlier order
 function arVoice(){ const vs=speechSynthesis.getVoices(); return vs.find(v=>/^ar[-_](PS|JO|LB|SY|IL)/i.test(v.lang))||vs.find(v=>/^ar/i.test(v.lang)); }
 if("speechSynthesis" in window) speechSynthesis.getVoices();
 const ttsUrls={};   // "phrase id|voice" -> {url, voice label} of the server-generated answer
