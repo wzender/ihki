@@ -401,3 +401,6 @@ def test_workbook_lesson_2():
     assert p["tr"] == "וּעַלֵיכֹּם אֵ(ל)סַّלַאםֻ" and p["variants"][0][1] == "u ʕ a l eː k u m | i s s a l aː m u"
     p = next(p for p in PHRASES if p["cat"] == "l2-say" and p["seq"] == 22)
     assert p["tr"].endswith("אִמّ-י סַאְלַת-וֹ: לֵיש פַתַחְת-וֹ?")
+    # חברי is pointed for the prompt voice, which otherwise reads it "chaverei" (my friends)
+    assert by["l2-say", "אני ישבתי עם חברי לפני יומיים ואכלנו פיצה בסלון."]["he_say"].split()[3] == "חֲבֵרִי"
+    assert "וַחֲבֵרִי" in by["l2-say", "מי ישב בבית השיח'? אני וחברי ישבנו בבית השיח'."]["he_say"]

@@ -237,9 +237,14 @@ async function readPrompt(){
   heAudio.play().catch(()=>{ hePending=id; });
 }
 for(const ev of ["pointerdown","keydown"]) addEventListener(ev,()=>{
+  clearTimeout(autoNext);   // any click or key keeps the sentence on screen
   if(hePending!=null){ const id=hePending; hePending=null; if(cur&&cur.id===id&&heAudio) heAudio.play().catch(()=>{}); }
 },true);
+// A grade above AUTO_NEXT moves on by itself after the grade has been seen for a moment; show() then reads the next prompt.
+const AUTO_NEXT={above:80, delay:1500};
+let autoNext=null;
 function show(p){
+  clearTimeout(autoNext);
   cur=p||PHRASES[order[pos]];
   readPrompt();
   $("negBtn").hidden=$("conjBtn").hidden=cur.grp==null;
@@ -306,6 +311,10 @@ function render(r){
   $("result").hidden=false;
   $("result").scrollIntoView({block:"nearest",behavior:"smooth"});
   if(best[cur.id]==null||s>best[cur.id]){best[cur.id]=s; store.set("ihki.best2",best);}
+  if(!driving&&!r.unrelated&&s>AUTO_NEXT.above){   // driving mode moves on by itself, in its own loop
+    $("status").textContent=`ציון ${s} ✓ עוברים למשפט הבא`;
+    autoNext=setTimeout(()=>nextPhrase(),AUTO_NEXT.delay);
+  }
 }
 
 /* ---------- recording ---------- */
