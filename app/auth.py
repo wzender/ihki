@@ -85,7 +85,10 @@ def load_auth() -> SupabaseAuth | None:
     url = os.environ.get("SUPABASE_URL", "").strip()
     key = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
     if not url or not key:
-        log.info("SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY not set: no sign-in, the service is open")
+        missing = [n for n, v in (("SUPABASE_URL", url), ("SUPABASE_PUBLISHABLE_KEY", key)) if not v]
+        seen = sorted(k for k in os.environ if "SUPA" in k.upper())   # names only: shows a misspelt variable
+        log.info("no sign-in, the service is open: %s missing or empty (similar names in the environment: %s)",
+                 " and ".join(missing), seen or "none")
         return None
     allowed = frozenset(re.split(r"[\s,;]+", os.environ.get("ALLOWED_EMAILS", "").strip().lower())) - {""}
     log.info("sign-in on: %s", f"{len(allowed)} allowed accounts" if allowed else "any Google account")

@@ -101,7 +101,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def health():
         s: Scorer = app.state.scorer
         return {"version": build_version(), "model": MODEL_ID, "tts": app.state.tts is not None,
-                "references": app.state.refs is not None,
+                "references": app.state.refs is not None, "sign_in": app.state.auth is not None,
                 "phoneme_fallbacks": s.vocab.downgraded}
 
     @app.get("/api/tts/{phrase_id}", dependencies=members)
