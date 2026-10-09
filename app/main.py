@@ -19,6 +19,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from .phrases import CATEGORIES, LESSONS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
@@ -53,6 +54,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None) -> Fa
         yield
 
     app = FastAPI(title="ihki", lifespan=lifespan)
+    app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
     @app.get("/")
     def index():
