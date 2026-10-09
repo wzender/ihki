@@ -10,7 +10,7 @@
 /* Layout: one compact practice card that fits the first screen: prompt, mic, hint, per-word feedback, actions. RTL. */
 :root{
   --bg:#EEF0E8; --surface:#FAFBF6; --ink:#1C241D; --muted:#5E685C; --line:#D5DACB;
-  --olive:#4B6A2C; --on-olive:#FFFFFF; --olive-soft:#E3EAD6;
+  --olive:#4B6A2C; --olive-deep:#36501D; --on-olive:#FFFFFF; --olive-soft:#E3EAD6;
   --sumac:#A3303F; --sumac-bg:#F6E3E3; --ok:#2F7A4A; --ok-bg:#E1F0E4; --amber:#8A5E0E; --amber-bg:#F5ECD8; --orange:#C45F00;
   --f-display:"Secular One","Assistant",system-ui,sans-serif;
   --f-body:"Assistant",system-ui,"Segoe UI",Arial,sans-serif;
@@ -19,7 +19,7 @@
 }
 @media (prefers-color-scheme: dark){:root{
   --bg:#141915; --surface:#1D241F; --ink:#E7EBE2; --muted:#9AA595; --line:#2F3830;
-  --olive:#93B85F; --on-olive:#10150F; --olive-soft:#26301F;
+  --olive:#93B85F; --olive-deep:#6E8F42; --on-olive:#10150F; --olive-soft:#26301F;
   --sumac:#E77B87; --sumac-bg:#3A1E23; --ok:#6CC08A; --ok-bg:#1C3324; --amber:#E0B45A; --amber-bg:#3A2F17; --orange:#F2A04A;
   color-scheme:dark}}
 *{box-sizing:border-box}
@@ -31,14 +31,25 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 .brand{font:400 24px/1 var(--f-display)}
 .brand .ar{font-family:var(--f-ar);font-weight:700;color:var(--olive);margin-inline-start:8px}
 .sub{color:var(--muted);font-size:14px}
-.chips{display:flex;gap:6px;flex-wrap:wrap}
-/* a chip fills from its start as its sentences are practised (--p), and carries the count */
-.chip{border:1px solid var(--line);background:linear-gradient(to left,var(--olive-soft) var(--p,0%),transparent var(--p,0%));color:var(--ink);font:600 14px var(--f-body);padding:4px 12px;border-radius:999px;cursor:pointer}
-.chip[aria-pressed="true"]{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
-.chip.done{border-color:var(--olive)}
-.chip .cnt{font-size:11px;font-weight:700;margin-right:6px;opacity:.75;direction:ltr;unicode-bidi:isolate;display:inline-block;font-variant-numeric:tabular-nums}
-.chips.lessons{margin-bottom:8px}
-.chips.lessons .chip{font-size:15px;padding:6px 16px}
+/* Home: the course as a path that winds down the screen, lesson after lesson; each topic is a round node.
+   The ring around a node fills as its sentences are practised. A finished topic is filled (gold when every
+   sentence reached "מצוין"), the one to do now carries a call to start, and the ones after it are pale. */
+body.home #practice,body.home #driveBtn,body:not(.home) #path{display:none}
+.path{display:flex;flex-direction:column;align-items:center;gap:20px;padding:0 0 48px}
+.unit{align-self:stretch;display:flex;justify-content:space-between;align-items:baseline;gap:12px;position:sticky;top:8px;z-index:2;background:var(--olive);color:var(--on-olive);border-radius:14px;padding:10px 16px;font:400 20px/1.2 var(--f-display)}
+.unit small{font:600 13px var(--f-body);opacity:.85}
+.node{--c:var(--olive);display:flex;flex-direction:column;align-items:center;gap:4px;max-width:200px;padding:0;border:0;background:none;color:var(--muted);font:600 14px/1.3 var(--f-body);text-align:center;cursor:pointer;transform:translateX(calc(var(--x,0)*1px))}
+.node .ring{width:92px;height:92px;border-radius:50%;padding:12px 12px 16px;background:radial-gradient(closest-side,var(--bg) calc(100% - 7px),transparent calc(100% - 6px)),conic-gradient(var(--c) var(--p,0%),var(--line) 0)}
+.node .dot{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;background:var(--surface);color:var(--muted);font:400 26px/1 var(--f-display);box-shadow:0 5px 0 var(--line);transition:transform .08s,box-shadow .08s}
+.node:active .dot{transform:translateY(4px);box-shadow:0 1px 0 var(--line)}
+.node.now,.node.started,.node.done,.node.gold{color:var(--ink)}
+.node.now .dot,.node.started .dot,.node.done .dot{background:var(--olive);color:var(--on-olive);box-shadow:0 5px 0 var(--olive-deep)}
+.node.gold{--c:var(--amber)}
+.node.gold .dot{background:var(--amber-bg);color:var(--amber);box-shadow:0 5px 0 var(--amber)}
+.node .cnt{font-size:12px;font-weight:400;color:var(--muted);direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums}
+.node .go{font:400 15px/1 var(--f-display);color:var(--olive);background:var(--surface);border:2px solid var(--line);border-radius:10px;padding:6px 12px;animation:bob 1.4s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-4px)}}
+@media (prefers-reduced-motion:reduce){.node .go{animation:none}.node .dot{transition:none}}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
 .meta{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;letter-spacing:.04em;font-variant-numeric:tabular-nums}
 .meta .idx{background:var(--olive-soft);color:var(--olive);font-weight:700;padding:1px 10px;border-radius:999px}
@@ -95,7 +106,7 @@ header .sub{flex:1}
 .drive{font:700 15px var(--f-body);border-radius:999px;padding:6px 14px;cursor:pointer;border:1px solid var(--olive);background:transparent;color:var(--olive)}
 body.driving .drive{background:var(--sumac);border-color:var(--sumac);color:#fff}
 /* driving mode: nothing to read or press but the stop button */
-body.driving #progBtn,body.driving .roundbar,body.driving .chips,body.driving .row,body.driving .voicebox,body.driving .note,body.driving .task{display:none}
+body.driving #progBtn,body.driving .roundbar,body.driving .row,body.driving .voicebox,body.driving .note,body.driving .task{display:none}
 body.driving .prompt{font-size:clamp(30px,8vw,48px)}
 body.driving .status{font-size:20px;font-weight:700;color:var(--ink)}
 body.driving .mic{width:84px;height:84px}
@@ -161,7 +172,7 @@ body.driving .card.storymode .prompt{display:block}
 @media (prefers-reduced-motion:reduce){#startBtn,#loginBtn{animation:none;opacity:1}#logo-splash{transition:none}}
 </style>
 </head>
-<body>
+<body class="home">
 <div id="logo-splash"><img src="static/logo-intro.svg" alt="אהלא וסהלא, בית הספר ללימוד השפה הערבית" width="489" height="225"><button id="startBtn">יאללה נבלש</button><button id="loginBtn" hidden>כניסה עם Google</button><div id="denied" hidden>החשבון הזה אינו ברשימת התלמידים.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
 <div class="wrap" id="wrap" inert>
   <header>
@@ -171,11 +182,13 @@ body.driving .card.storymode .prompt{display:block}
     <button class="drive" id="driveBtn" title="מצב נסיעה: האפליקציה מקריאה, מקשיבה ואומרת את ההערכה בקול">🚗 נסיעה</button>
   </header>
 
-  <div class="chips lessons" id="lessons" role="group" aria-label="שיעור"></div>
-  <div class="chips" id="cats" role="group" aria-label="נושא"></div>
+  <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
+
+  <div class="wrap" id="practice">
   <div class="roundbar">
-    <label class="donebox"><input type="checkbox" id="showDone"><span id="doneText"></span></label>
+    <button class="btn" id="homeBtn">→ המסלול</button>
     <button class="btn" id="listBtn">☰ רשימת המשפטים</button>
+    <label class="donebox"><input type="checkbox" id="showDone"><span id="doneText"></span></label>
   </div>
   <div id="envWarn" class="warn" hidden></div>
 
@@ -218,6 +231,7 @@ body.driving .card.storymode .prompt{display:block}
 
   <div class="voicebox"><label>קול ההשמעה<select id="voiceId"></select></label><label>מהירות<select id="speed"><option value="0.8">x0.8</option><option value="1">x1</option><option value="1.5">x1.5</option></select></label><span class="sep"></span><label><input type="checkbox" id="readHe">הקראת המשפט בעברית</label></div>
   <p class="note">הניתוח נעשה ברמת ההגה. ההשמעה נוצרת בקול של ערבית מדוברת מ-Sawtak Arabi; אם השירות אינו זמין, נעשה שימוש בקול הערבי של המכשיר.</p>
+  </div>
 </div>
 <dialog id="listDlg" aria-labelledby="listTitle">
   <div class="dlg-head"><h2 id="listTitle"></h2><button class="btn" id="listClose">סגירה</button></div>
@@ -246,14 +260,13 @@ async function api(url,opts={}){   // fetch with the session token; a refused to
 }
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 let driving=false;
-let LESSONS=[], lesson=null, CATS=[], PHRASES=[], cat=store.get("ihki.cat",""), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
+let LESSONS=[], CATS=[], PHRASES=[], cat=store.get("ihki.cat",""), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
 let myAudioUrl=null;
 const phraseOf=id=>PHRASES.find(p=>p.id===id);   // by id: the list skips the phrases that have no tab
 
 const band=s=>s>=75?"good":s>=50?"mid":"bad";
 
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
-// Two rows of chips: the lesson, then that lesson's topics (categories). The topic is what is remembered.
 // Transliteration text: a letter carrying the doubling mark (U+0651) becomes <span class="sh">letter</span>
 const SHADDA=/([\u05D0-\u05EA][\u0591-\u05C7]*)\u0651([\u0591-\u05C7]*)/g;
 function setTr(el,text){
@@ -264,28 +277,55 @@ function setTr(el,text){
   }
   el.append(text.slice(at));
 }
-function chips(box,items,sel,pick,list){   // list(item): the sentences behind the chip
-  box.innerHTML="";
-  for(const it of items){
-    const b=document.createElement("button"); b.className="chip"; b.textContent=it.name;
-    const all=list(it), done=all.filter(p=>best[p.id]!=null).length;
-    if(all.length){   // how much of it was practised: the fill behind the name, and the count
-      const n=document.createElement("span"); n.className="cnt"; n.textContent=done>=all.length?"✓":`${done}/${all.length}`;
-      b.append(n); b.style.setProperty("--p",`${done/all.length*100}%`); b.classList.toggle("done",done>=all.length);
+/* Home is the path: the lessons one under the other, each topic a node on a line that winds from side to side.
+   A node opens its topic. No node is locked: the teacher decides what the class practises. */
+const WIND=[0,1,2,1,0,-1,-2,-1], WIND_STEP=38;   // a node's sideways offset, in steps of px
+let home=true;   // the path is on screen, not the practice card: nothing is read aloud or recorded
+function drawPath(){
+  const box=$("path"), listed=PHRASES.filter(p=>p.listed!==false); box.innerHTML="";
+  let k=0, next=true;   // next: the first topic that is not finished is the one to do now
+  for(const l of LESSONS){
+    const unit=document.createElement("div"), title=document.createElement("span"), sum=document.createElement("small");
+    const cats=CATS.filter(c=>c.lesson===l.id); let full=0;
+    unit.className="unit"; title.textContent=l.name; unit.append(title,sum); box.appendChild(unit);
+    cats.forEach((c,i)=>{
+      const all=listed.filter(p=>p.cat===c.id), done=all.filter(p=>best[p.id]!=null).length;
+      const over=all.length>0&&done>=all.length, gold=over&&all.every(p=>best[p.id]>=EXCELLENT), now=!over&&next;
+      if(over) full++;
+      if(now) next=false;
+      const b=document.createElement("button"), ring=document.createElement("span"), dot=document.createElement("span");
+      const name=document.createElement("span"), cnt=document.createElement("span");
+      b.className="node"+(gold?" gold":over?" done":now?" now":done?" started":"");
+      b.style.setProperty("--x",WIND[k++%WIND.length]*WIND_STEP); b.style.setProperty("--p",`${all.length?done/all.length*100:0}%`);
+      if(now){   // the call to start sits above the node
+        const go=document.createElement("span"); go.className="go"; go.textContent=done?"ממשיכים":"מתחילים";
+        b.append(go); b.setAttribute("aria-current","step");
+      }
+      ring.className="ring"; dot.className="dot"; cnt.className="cnt";
+      dot.textContent=gold?"★":over?"✓":c.story?"💬":i+1; ring.append(dot);
+      name.textContent=c.name; cnt.textContent=`${done}/${all.length}`;
       b.title=`תורגלו ${done} מתוך ${all.length}`;
-    }
-    b.setAttribute("aria-pressed", it.id===sel);
-    b.onclick=()=>pick(it.id);
-    box.appendChild(b);
+      b.append(ring,name,cnt); b.onclick=()=>pickCat(c.id);
+      box.appendChild(b);
+    });
+    sum.textContent=`${full} מתוך ${cats.length} נושאים`;
   }
+  if(home){ const at=box.querySelector("[aria-current]"); if(at) at.scrollIntoView({block:"center"}); }
 }
-const pickCat=id=>{cat=id; store.set("ihki.cat",cat); startCat();};
-function buildCats(){
-  lesson=CATS.find(c=>c.id===cat).lesson;
-  const listed=PHRASES.filter(p=>p.listed!==false), of={}; for(const c of CATS) of[c.id]=c.lesson;
-  chips($("lessons"),LESSONS,lesson,id=>{ if(id!==lesson) pickCat(CATS.find(c=>c.lesson===id).id); },l=>listed.filter(p=>of[p.cat]===l.id));
-  chips($("cats"),CATS.filter(c=>c.lesson===lesson),cat,pickCat,c=>listed.filter(p=>p.cat===c.id));
+function pickCat(id){
+  cat=id; store.set("ihki.cat",cat);
+  home=false; document.body.classList.remove("home"); scrollTo(0,0);
+  startCat();
 }
+function showPath(){   // back to the path: whatever the card was reading, playing or recording stops
+  if(driving) stopDrive();
+  cancelAutoNext(); storyRun++; autoRec=false; hePending=null; if(heAudio) heAudio.pause();
+  if(driveAudio){ driveAudio.pause(); if(driveAudioDone) driveAudioDone(); driveAudio=null; }
+  if("speechSynthesis" in window) speechSynthesis.cancel();
+  if(rec&&rec.state==="recording"){ recCancel=true; recRestart=false; rec.stop(); }
+  home=true; document.body.classList.add("home"); drawPath();
+}
+$("homeBtn").onclick=showPath;
 /* Progress of a signed-in student. The server's best scores replace the device's, so they follow the
    student between devices; this visit's scores stay on top of them until the server has them too. */
 let sessionBest={}, totals={recordings:0,days:0};
@@ -342,10 +382,10 @@ function setRound(){
   order=all?topic:todo; pos=0; marks();
 }
 function startCat(wait=true){ setRound(); show(null,wait); }
-// What tells how much was practised, redrawn when a score comes in: the chips, the box's count, the topic's bar.
+// What tells how much was practised, redrawn when a score comes in: the path, the box's count, the topic's bar.
 function marks(){
   if(!CATS.length) return;
-  buildCats();
+  drawPath();
   const done=topic.filter(id=>best[id]!=null).length;
   $("doneText").textContent=done>=topic.length?"כל המשפטים בנושא תורגלו":`הצג גם משפטים שכבר תורגלו (${done} מתוך ${topic.length})`;
   $("progressBar").style.width=`${topic.length?done/topic.length*100:0}%`;
@@ -401,10 +441,10 @@ async function promptUrl(id){
 }
 async function readPrompt(){   // resolves once the prompt has been read out, or at once when it is not going to be
   if(heAudio){ heAudio.pause(); heAudio=null; }
-  if(!opened||driving||!$("readHe").checked||!cur||cur.read) return;   // driving mode reads the prompt itself, in sequence; a read phrase's Hebrew is its answer
+  if(!opened||home||driving||!$("readHe").checked||!cur||cur.read) return;   // driving mode reads the prompt itself, in sequence; a read phrase's Hebrew is its answer
   const id=cur.id;
   if(!await promptUrl(id)) return;
-  if(!cur||cur.id!==id) return;   // moved on while it was loading
+  if(home||!cur||cur.id!==id) return;   // moved on while it was loading
   const a=heAudio=new Audio(heUrls[id]);
   const over=new Promise(res=>{ a.onended=a.onerror=a.onpause=()=>res(); });
   // browsers block sound before the first click or key press: play then instead
@@ -416,7 +456,7 @@ async function readPrompt(){   // resolves once the prompt has been read out, or
    after a grade that does not move on. */
 let autoRec=false, promptRead=Promise.resolve();   // autoRec: the sentence on screen is recorded without a press
 function autoRecord(){
-  if(!autoRec||driving||mic.disabled||starting||(rec&&rec.state==="recording")) return;
+  if(!autoRec||home||driving||mic.disabled||starting||(rec&&rec.state==="recording")) return;
   startRec(true);
 }
 function recordWhenReady(){
@@ -531,6 +571,11 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   else recordWhenReady();
 }
 
+function keepScore(id,s){   // a sentence's best score, on the device and for this visit
+  if(best[id]==null||s>best[id]){best[id]=s; store.set("ihki.best2",best);}
+  if(!(sessionBest[id]>=s)) sessionBest[id]=s;
+  marks();
+}
 function render(r){
   if(r.error){ $("status").textContent=r.message; return; }
   $("status").textContent=r.score<30?"רוצים לנסות שוב? לחצו על המיקרופון":"לחצו כדי לנסות שוב";
@@ -579,9 +624,7 @@ function render(r){
   $("result").hidden=false;
   if($("story").hidden) $("result").scrollIntoView({block:"nearest",behavior:"smooth"});   // a story keeps its lines in view
   if(!r.unrelated){   // a "different sentence" is not practice; the server leaves it out too
-    if(best[cur.id]==null||s>best[cur.id]){best[cur.id]=s; store.set("ihki.best2",best);}
-    if(!(sessionBest[cur.id]>=s)) sessionBest[cur.id]=s;
-    marks();
+    keepScore(cur.id,s);
   }
   const story=!driving&&!$("story").hidden;
   if(story){ storyLast[cur.id]=r; drawStory(); }   // the line was said: its grade and its Arabic appear on it
@@ -639,7 +682,7 @@ async function startRec(auto){   // auto: started by the page for the sentence o
   let stream;
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
   catch{ starting=false; $("status").textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."; finishRec({kind:"nomic"}); return; }
-  if(auto&&(driving||cur.id!==id)){   // the sentence changed while the microphone was opening
+  if(auto&&(home||driving||cur.id!==id)){   // the sentence changed while the microphone was opening
     stream.getTracks().forEach(t=>t.stop()); starting=false; recordWhenReady(); return;
   }
   const type=pickType();
@@ -672,7 +715,8 @@ async function startRec(auto){   // auto: started by the page for the sentence o
       const res=await api("/api/score",{method:"POST",body:fd});
       if(!res.ok) throw new Error(res.status);
       const r=await res.json();
-      if(cur.id!==id){ mic.disabled=false; finishRec({kind:"cancel"}); recordWhenReady(); return; }   // moved on while it was analysed
+      if(home&&!r.error&&!r.unrelated) keepScore(id,r.score);   // graded after the student went back to the path: it still counts
+      if(home||cur.id!==id){ mic.disabled=false; finishRec({kind:"cancel"}); recordWhenReady(); return; }   // moved on while it was analysed
       render(r); mic.disabled=false; finishRec(r.error?{kind:"nospeech"}:{kind:"result",r});
     }catch(err){ $("status").textContent="הניתוח נכשל ("+err.message+"). נסו שוב."; mic.disabled=false; finishRec({kind:"fail"}); }
   };
