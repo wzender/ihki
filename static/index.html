@@ -32,8 +32,11 @@ header{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 .brand .ar{font-family:var(--f-ar);font-weight:700;color:var(--olive);margin-inline-start:8px}
 .sub{color:var(--muted);font-size:14px}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{border:1px solid var(--line);background:transparent;color:var(--ink);font:600 14px var(--f-body);padding:4px 12px;border-radius:999px;cursor:pointer}
+/* a chip fills from its start as its sentences are practised (--p), and carries the count */
+.chip{border:1px solid var(--line);background:linear-gradient(to left,var(--olive-soft) var(--p,0%),transparent var(--p,0%));color:var(--ink);font:600 14px var(--f-body);padding:4px 12px;border-radius:999px;cursor:pointer}
 .chip[aria-pressed="true"]{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
+.chip.done{border-color:var(--olive)}
+.chip .cnt{font-size:11px;font-weight:700;margin-right:6px;opacity:.75;direction:ltr;unicode-bidi:isolate;display:inline-block;font-variant-numeric:tabular-nums}
 .chips.lessons{margin-bottom:8px}
 .chips.lessons .chip{font-size:15px;padding:6px 16px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
@@ -92,7 +95,7 @@ header .sub{flex:1}
 .drive{font:700 15px var(--f-body);border-radius:999px;padding:6px 14px;cursor:pointer;border:1px solid var(--olive);background:transparent;color:var(--olive)}
 body.driving .drive{background:var(--sumac);border-color:var(--sumac);color:#fff}
 /* driving mode: nothing to read or press but the stop button */
-body.driving #progBtn,body.driving .donebox,body.driving .chips,body.driving .row,body.driving .voicebox,body.driving .note,body.driving .task{display:none}
+body.driving #progBtn,body.driving .roundbar,body.driving .chips,body.driving .row,body.driving .voicebox,body.driving .note,body.driving .task{display:none}
 body.driving .prompt{font-size:clamp(30px,8vw,48px)}
 body.driving .status{font-size:20px;font-weight:700;color:var(--ink)}
 body.driving .mic{width:84px;height:84px}
@@ -103,6 +106,7 @@ body.driving .mic{width:84px;height:84px}
 .note{font-size:12px;margin:0;color:var(--muted);max-width:65ch}
 .warn{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:10px 12px;font-size:14px}
 /* A topic opens on the sentences not practised yet; the box brings the practised ones back, each with its best score. */
+.roundbar{display:flex;align-items:center;justify-content:space-between;gap:6px 12px;flex-wrap:wrap}
 .donebox{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer}
 .donebox input:disabled{cursor:default}
 .donehint{font:600 14px/1.4 var(--f-body);padding:5px 12px;border-radius:10px}
@@ -110,7 +114,7 @@ body.driving .mic{width:84px;height:84px}
 /* Progress: the student's totals and, per topic, how many of its sentences reached "מצוין". */
 dialog{border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);padding:16px;width:min(92vw,560px);max-height:86vh}
 dialog::backdrop{background:rgba(0,0,0,.45)}
-.dlg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.dlg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:-16px;z-index:1;background:var(--surface);margin:-16px 0 4px;padding:12px 0 8px}
 .dlg-head h2{font:400 22px/1 var(--f-display);margin:0}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .tile{background:var(--olive-soft);border-radius:10px;padding:8px 6px;text-align:center;font-size:12px;line-height:1.3;color:var(--muted)}
@@ -121,6 +125,13 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 .pt .n{font-size:13px;font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums}
 .pt .progress{grid-column:1/-1;margin:0}
 @media (max-width:420px){.tiles{grid-template-columns:repeat(2,1fr)}}
+/* The topic's sentences as a list: number, prompt, best score. A row is a tap target that opens its sentence. */
+.plist{list-style:none;margin:0;padding:0}
+.prow{display:grid;grid-template-columns:2ch 1fr auto;gap:10px;align-items:center;width:100%;min-height:46px;padding:6px 6px;border:0;border-top:1px solid var(--line);background:none;color:inherit;font:600 16px/1.35 var(--f-body);text-align:start;cursor:pointer}
+.prow:hover{background:var(--olive-soft)}
+.prow[aria-current="true"]{background:var(--olive-soft)}
+.prow .i{font-size:13px;font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums}
+.prow .none{font-size:13px;font-weight:400;color:var(--muted)}
 /* Opening screen: the ornament is sketched in lines that resolve into the logo (the animation lives in logo-intro.svg), then the start button appears; pressing it fades the screen out. */
 #logo-splash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:white;transition:opacity .35s ease,visibility .35s ease}
 #logo-splash.done{opacity:0;visibility:hidden;pointer-events:none}
@@ -142,7 +153,10 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 
   <div class="chips lessons" id="lessons" role="group" aria-label="שיעור"></div>
   <div class="chips" id="cats" role="group" aria-label="נושא"></div>
-  <label class="donebox"><input type="checkbox" id="showDone"><span id="doneText"></span></label>
+  <div class="roundbar">
+    <label class="donebox"><input type="checkbox" id="showDone"><span id="doneText"></span></label>
+    <button class="btn" id="listBtn">☰ רשימת המשפטים</button>
+  </div>
   <div id="envWarn" class="warn" hidden></div>
 
   <main class="card" aria-live="polite">
@@ -184,6 +198,10 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
   <div class="voicebox"><label>קול ההשמעה<select id="voiceId"></select></label><label>מהירות<select id="speed"><option value="0.8">x0.8</option><option value="1">x1</option><option value="1.5">x1.5</option></select></label><span class="sep"></span><label><input type="checkbox" id="readHe">הקראת המשפט בעברית</label></div>
   <p class="note">הניתוח נעשה ברמת ההגה. ההשמעה נוצרת בקול של ערבית מדוברת מ-Sawtak Arabi; אם השירות אינו זמין, נעשה שימוש בקול הערבי של המכשיר.</p>
 </div>
+<dialog id="listDlg" aria-labelledby="listTitle">
+  <div class="dlg-head"><h2 id="listTitle"></h2><button class="btn" id="listClose">סגירה</button></div>
+  <ol class="plist" id="plist"></ol>
+</dialog>
 <dialog id="progDlg" aria-labelledby="progTitle">
   <div class="dlg-head"><h2 id="progTitle">ההתקדמות שלי</h2><button class="btn" id="progClose">סגירה</button></div>
   <div class="tiles" id="progTiles"></div>
@@ -225,20 +243,27 @@ function setTr(el,text){
   }
   el.append(text.slice(at));
 }
-function chips(box,items,sel,pick){
+function chips(box,items,sel,pick,list){   // list(item): the sentences behind the chip
   box.innerHTML="";
   for(const it of items){
     const b=document.createElement("button"); b.className="chip"; b.textContent=it.name;
+    const all=list(it), done=all.filter(p=>best[p.id]!=null).length;
+    if(all.length){   // how much of it was practised: the fill behind the name, and the count
+      const n=document.createElement("span"); n.className="cnt"; n.textContent=done>=all.length?"✓":`${done}/${all.length}`;
+      b.append(n); b.style.setProperty("--p",`${done/all.length*100}%`); b.classList.toggle("done",done>=all.length);
+      b.title=`תורגלו ${done} מתוך ${all.length}`;
+    }
     b.setAttribute("aria-pressed", it.id===sel);
     b.onclick=()=>pick(it.id);
     box.appendChild(b);
   }
 }
-const pickCat=id=>{cat=id; store.set("ihki.cat",cat); buildCats(); startCat();};
+const pickCat=id=>{cat=id; store.set("ihki.cat",cat); startCat();};
 function buildCats(){
   lesson=CATS.find(c=>c.id===cat).lesson;
-  chips($("lessons"),LESSONS,lesson,id=>{ if(id!==lesson) pickCat(CATS.find(c=>c.lesson===id).id); });
-  chips($("cats"),CATS.filter(c=>c.lesson===lesson),cat,pickCat);
+  const listed=PHRASES.filter(p=>p.listed!==false), of={}; for(const c of CATS) of[c.id]=c.lesson;
+  chips($("lessons"),LESSONS,lesson,id=>{ if(id!==lesson) pickCat(CATS.find(c=>c.lesson===id).id); },l=>listed.filter(p=>of[p.cat]===l.id));
+  chips($("cats"),CATS.filter(c=>c.lesson===lesson),cat,pickCat,c=>listed.filter(p=>p.cat===c.id));
 }
 /* Progress of a signed-in student. The server's best scores replace the device's, so they follow the
    student between devices; this visit's scores stay on top of them until the server has them too. */
@@ -250,7 +275,7 @@ async function loadProgress(){
     const d=await res.json();
     best={...d.best};
     for(const k in sessionBest) if(best[k]==null||sessionBest[k]>best[k]) best[k]=sessionBest[k];
-    store.set("ihki.best2",best); totals=d;
+    store.set("ihki.best2",best); totals=d; marks();
   }catch{}
 }
 const EXCELLENT=85;   // the score the verdict calls "מצוין"
@@ -286,17 +311,49 @@ $("progClose").onclick=()=>$("progDlg").close();
 // The round is the topic's sentences that were not practised yet. With the box ticked, or when none is
 // left, it is the whole topic, and a practised sentence shows its best score (see show).
 let ordered=false, topic=[], showDone=store.get("ihki.showDone",false);
-function startCat(wait=true){
+function setRound(){
   const list=PHRASES.filter(p=>p.cat===cat&&p.listed!==false);
   ordered=list.length>0&&list.every(p=>p.seq!=null);
   topic=(ordered?list.sort((a,b)=>a.seq-b.seq):shuffle(list)).map(p=>p.id);
   const todo=topic.filter(id=>best[id]==null), all=showDone||!todo.length, box=$("showDone");
   box.checked=all; box.disabled=!todo.length;
-  $("doneText").textContent=!todo.length?"כל המשפטים בנושא תורגלו. זו חזרה על כולם"
-    :`הצג גם משפטים שכבר תורגלו (${topic.length-todo.length} מתוך ${topic.length})`;
-  order=all?topic:todo; pos=0; show(null,wait);
+  order=all?topic:todo; pos=0; marks();
+}
+function startCat(wait=true){ setRound(); show(null,wait); }
+// What tells how much was practised, redrawn when a score comes in: the chips, the box's count, the topic's bar.
+function marks(){
+  if(!CATS.length) return;
+  buildCats();
+  const done=topic.filter(id=>best[id]!=null).length;
+  $("doneText").textContent=done>=topic.length?"כל המשפטים בנושא תורגלו":`הצג גם משפטים שכבר תורגלו (${done} מתוך ${topic.length})`;
+  $("progressBar").style.width=`${topic.length?done/topic.length*100:0}%`;
 }
 $("showDone").onchange=e=>{ showDone=e.target.checked; store.set("ihki.showDone",showDone); startCat(); };
+/* The topic's sentences as a list, in the course's order, each with its best score. A tap opens the sentence;
+   one that was practised and is not in the round brings the practised ones back, as the box does. */
+function goTo(id){
+  if(!order.includes(id)){ showDone=true; store.set("ihki.showDone",true); setRound(); }
+  pos=Math.max(0,order.indexOf(id)); show(null,true);
+}
+$("listBtn").onclick=()=>{
+  const box=$("plist"); box.innerHTML=""; $("listTitle").textContent=CATS.find(c=>c.id===cat).name;
+  const ids=ordered?topic:[...topic].sort((a,b)=>a-b);   // a shuffled topic is listed in the bank's order
+  ids.forEach((id,k)=>{
+    const p=phraseOf(id), b=best[id], li=document.createElement("li"), row=document.createElement("button");
+    const i=document.createElement("span"), text=document.createElement("span"), mark=document.createElement("span");
+    row.className="prow"; i.className="i"; i.textContent=k+1; setTr(text,p.read?p.tr:p.he);
+    if(b!=null){ mark.className="pill "+(b>=EXCELLENT?"good":b>=60?"mid":"bad"); mark.textContent=b; mark.title="הציון הטוב ביותר"; }
+    else{ mark.className="none"; mark.textContent="טרם תורגל"; }
+    if(cur&&cur.id===id) row.setAttribute("aria-current","true");
+    row.append(i,text,mark); row.onclick=()=>{ $("listDlg").close(); goTo(id); };
+    li.appendChild(row); box.appendChild(li);
+  });
+  $("listDlg").showModal();
+  const here=box.querySelector('[aria-current="true"]'); if(here) here.scrollIntoView({block:"center"});
+};
+$("listClose").onclick=()=>$("listDlg").close();
+for(const d of document.querySelectorAll("dialog")) d.onclick=e=>{   // a tap outside the box closes it
+  const r=d.getBoundingClientRect(); if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) d.close(); };
 // Grammar-built phrases (grp set) exist for every pronoun, positive and negative: the two buttons move between them.
 function variation(kind){
   if(cur.grp==null) return;
@@ -375,7 +432,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   const b=best[cur.id], at=topic.indexOf(cur.id), hintBox=$("doneHint");
   $("counter").textContent=ordered?"":`${pos+1} / ${order.length}`;
   if(ordered&&at>=0){ const idx=document.createElement("span"); idx.className="idx"; idx.textContent=`משפט ${at+1} מתוך ${topic.length}`; $("counter").append(idx); }
-  $("progress").hidden=!ordered; $("progressBar").style.width=`${topic.length?topic.filter(id=>best[id]!=null).length/topic.length*100:0}%`;
+  $("progress").hidden=!ordered;
   hintBox.hidden=b==null;
   if(b!=null){   // a sentence practised before: its best score, in the verdict's colours
     const n=document.createElement("b"); n.textContent=b;
@@ -439,6 +496,7 @@ function render(r){
   if(!r.unrelated){   // a "different sentence" is not practice; the server leaves it out too
     if(best[cur.id]==null||s>best[cur.id]){best[cur.id]=s; store.set("ihki.best2",best);}
     if(!(sessionBest[cur.id]>=s)) sessionBest[cur.id]=s;
+    marks();
   }
   if(!driving&&!r.unrelated&&s>AUTO_NEXT.above){   // driving mode moves on by itself, in its own loop
     $("status").textContent=`ציון ${s} ✓ עוברים למשפט הבא`;
@@ -671,7 +729,7 @@ fetch("/api/phrases").then(r=>r.json()).then(d=>{
   for(const v of d.voices||[]) $("voiceId").add(new Option(v.name,v.id));
   const saved=store.get("ihki.voice",""); if((d.voices||[]).some(v=>v.id===saved)) $("voiceId").value=saved;
   if(!CATS.some(c=>c.id===cat)) cat=CATS[0].id;
-  buildCats(); startCat(); opened=true;
+  startCat(); opened=true;
 }).catch(()=>{ $("prompt").textContent="השרת לא זמין."; });
 </script>
 <script>
