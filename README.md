@@ -32,7 +32,7 @@ app/
   reference.py native baseline: the TTS voices scored by the same model
   phrases.py   phrase bank: accepted variants (Arabic + IPA) per phrase
   grammar.py   day-2 sentences as grammar: every pronoun × positive/negative, for the negation and conjugation buttons
-  workbook.py  the course workbook lesson by lesson: each lesson's topics (pronouns, verbs, conjugations, the Hebrew → Arabic and Arabic → Hebrew sentences)
+  workbook.py  the course workbook lesson by lesson: each lesson's topics (pronouns, verbs, conjugations, the Hebrew → Arabic and Arabic → Hebrew sentences), and the levels
   main.py      FastAPI: GET / (page), GET /api/phrases, GET /api/health, POST /api/score
 static/index.html   frontend (MediaRecorder → /api/score)
 train/finetune.py   CTC fine-tuning on your own recordings
@@ -100,9 +100,15 @@ The page's "ההתקדמות שלי" button reads these rows back through `GET /
 
 `TEACHER_EMAILS` names the teacher's Google account (several are separated by commas or spaces). After sign-in a teacher chooses between **תרגול**, the same practice a student gets, and **ניהול**, the management panel. The panel lists every student with their usage (recordings, those of the last 7 days, days practised, last practice), progress (sentences practised) and grade (the average of the best scores), and a student opens on the same figures per topic.
 
+### Levels
+
+The course has levels, each with a planned number of lessons (`LEVELS` in `app/workbook.py`: רמה 1 and רמה 2, 10 lessons each). Every lesson in `LESSONS` is keyed by its level and number, `(level, lesson)`; one outside the plan stops the app at startup. The path shows each level under its name, and the lessons not written yet as "בקרוב". Level 1's lessons keep their first ids ("1", topics "l1-…") so recorded attempts and saved classes still match; later levels' are "2.1", topics "l2.1-…".
+
 ### Classes
 
-In the panel the teacher opens a class (a name such as "אוקטובר 2026" and its students: a line each, the Google email and an optional nickname, e.g. `dana@gmail.com דנה`) and edits or deletes it later. A student is in one class; the page shows it to them under the app's name, and pressing it lists the class's students, each by their nickname or else their Google name (no addresses; `GET /api/classmates`). Once there is a class, only the classes' students and the teachers can sign in; before the first one, any Google account can. The panel's students are the classes' accounts, including those who have not signed in yet (without a class, every account that signed in), and it can show one class at a time. This replaces the former `ALLOWED_EMAILS`, which is no longer read.
+In the panel the teacher opens a class: a name such as "מתחילים אוקטובר 2026", the lessons it studies (by level: a level's box ticks all of it; a lesson not written yet can be ticked too, and opens to the class once it is), and its students, a line each with the Google email and an optional nickname (`dana@gmail.com דנה`). A class is edited or deleted from the same dialog. A student may be in several classes: after the opening screen the page asks which one they practise in now, and the learning path shows that class's lessons (a teacher, and anyone before the first class, sees every lesson and is not asked). The page shows the class under the app's name, and pressing it lists the class's students, with a button to move to another class; each student appears by their nickname in it or else their Google name (no addresses; `GET /api/classmates`). Once there is a class, only the classes' students and the teachers can sign in; before the first one, any Google account can.
+
+The panel has a tab per class with its figures, its lessons (each with the sentences the class finds hard: the class average of each student's best score under 70) and its students, with a column per lesson of the class (per level, past 4 lessons). Before the first class it shows every account that signed in. This replaces the former `ALLOWED_EMAILS`, which is no longer read. The lessons limit what the path shows; the sentences themselves stay public, as before.
 
 The classes are kept in Supabase and read and written with `SUPABASE_SECRET_KEY` only, so the table has row-level security and no policy. Create it once:
 
@@ -112,12 +118,18 @@ create table public.classes (
   name       text not null unique,                 -- e.g. אוקטובר 2026
   emails     text[] not null default '{}',         -- the students' Google emails, lower-case
   nicknames  jsonb  not null default '{}',         -- {email: nickname}, for the students who have one
+  lessons    text[] not null default '{}',         -- the lesson ids the class studies; empty = every lesson
   created_at timestamptz not null default now()
 );
 alter table public.classes enable row level security;
 ```
 
-A table made before the nicknames needs the column: `alter table public.classes add column nicknames jsonb not null default '{}';`
+A table made before the nicknames or the lessons needs the columns (a class saved before then studies every lesson):
+
+```sql
+alter table public.classes add column if not exists nicknames jsonb not null default '{}',
+                           add column if not exists lessons text[] not null default '{}';
+```
 
 The server keeps the list for a minute, so a change in the SQL editor (rather than the panel) applies within that time.
 

@@ -131,7 +131,8 @@ def test_api_end_to_end_with_stub_model():
         ph = c.get("/api/phrases").json()
         shown = {c["id"] for c in ph["categories"]}   # the phrases of no lesson are in the bank, not on the page
         assert len(ph["phrases"]) == sum(p["cat"] in shown for p in PHRASES) and "ipa" not in ph["phrases"][0]
-        assert TOILET["cat"] not in shown and [l["id"] for l in ph["lessons"]] == ["1", "2"]
+        assert TOILET["cat"] not in shown and [l["id"] for l in ph["lessons"] if not l.get("soon")] == ["1", "2"]
+        assert len(ph["lessons"]) == 20 and [v["name"] for v in ph["levels"]] == ["רמה 1", "רמה 2"]
         pid = PHRASES.index(TOILET)
         r = c.post("/api/score", data={"phrase_id": pid}, files={"audio": ("a.wav", buf.getvalue(), "audio/wav")})
         assert r.status_code == 200, r.text
@@ -354,7 +355,7 @@ def test_references_use_one_generated_voice_and_any_cached_one():
 def test_workbook_lesson_1():
     from app.phrases import CATEGORIES, LESSONS, public_phrases
 
-    assert [l["id"] for l in LESSONS] == ["1", "2"]
+    assert [l["id"] for l in LESSONS if not l.get("soon")] == ["1", "2"]
     assert [c["id"] for c in CATEGORIES if c["lesson"] == "1"] == ["l1-pron", "l1-verbs", "l1-past", "l1-say", "l1-read"]
     pub = public_phrases()
     count = lambda cat: sum(p["cat"] == cat for p in pub)
@@ -375,6 +376,19 @@ def test_workbook_lesson_1():
     ar, ipa = p["variants"][0]
     assert ar.split()[-2] == "وسألنا" and ipa.split(" | ")[-2] == "u s a ʔ a l n a"
     assert any(i.startswith("i l m ʕ a l l i m | q a ʕ a d") for _, i in p["variants"])   # rural ق accepted
+
+
+def test_levels_plan_every_lesson():
+    from app.phrases import CATEGORIES, LESSONS, LEVELS
+    from app.workbook import LESSONS as WRITTEN, LEVELS as PLAN, lesson_id
+
+    # every lesson names its level, and each level lists all of its planned lessons, the unwritten ones as soon
+    assert [v["id"] for v in LEVELS] == ["1", "2"] and len(LESSONS) == 20
+    assert all(isinstance(key, tuple) and key[0] in PLAN for key in WRITTEN)
+    assert [(l["level"], l["n"]) for l in LESSONS] == [(str(v), n) for v in (1, 2) for n in range(1, 11)]
+    assert [l["id"] for l in LESSONS if l["level"] == "2"][:2] == ["2.1", "2.2"]   # level 1 keeps "1", "2": attempts name them
+    assert {l["id"] for l in LESSONS if not l.get("soon")} == {lesson_id(*k) for k in WRITTEN} == {c["lesson"] for c in CATEGORIES}
+    assert lesson_id(2, 1) == "2.1" and lesson_id(1, 3) == "3"
 
 
 def test_workbook_lesson_2():
@@ -424,11 +438,12 @@ def test_sign_in_guards_the_practice_endpoints():
         def classes(self, fresh=False):
             return self.cls
 
-        def save_class(self, id, name, emails, nicknames):
+        def save_class(self, id, name, emails, nicknames, lessons):
+            row = {"name": name, "emails": emails, "nicknames": nicknames, "lessons": lessons}
             if id is None:
-                self.cls.insert(0, {"id": len(self.cls) + 1, "name": name, "emails": emails, "nicknames": nicknames})
+                self.cls.insert(0, {"id": len(self.cls) + 1, **row})
             elif c := next((c for c in self.cls if c["id"] == id), None):
-                c.update(name=name, emails=emails, nicknames=nicknames)
+                c.update(row)
             else:
                 raise KeyError(id)
 
@@ -461,45 +476,63 @@ def test_sign_in_guards_the_practice_endpoints():
         assert c.get("/api/tts/0", headers={"Authorization": "Bearer bad"}).status_code == 401
         assert c.get("/api/tts/0", headers={"Authorization": "Bearer good"}).status_code == 503   # in, but no TTS key
         good = {"Authorization": "Bearer good"}
-        # no class yet: any account is let in
-        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": False, "class": ""}
+        from app.phrases import LESSONS
+        ALL = [l["id"] for l in LESSONS]
+        # no class yet: any account is let in, to every lesson
+        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": False, "classes": [], "lessons": ALL}
         assert c.get("/api/class").status_code == 401 and c.get("/api/class", headers=good).status_code == 403
-        assert c.post("/api/classes", json={"name": "x", "emails": ""}, headers=good).status_code == 403   # teachers only
-        assert c.get("/api/classmates", headers=good).json() == {"class": "", "students": [], "unnamed": 0}
-        c.app.state.auth.cls = [{"id": 1, "name": "September 2026", "emails": ["other@b.c"], "nicknames": {}}]   # a class without this account
+        assert c.post("/api/classes", json={"name": "x", "emails": "", "lessons": ALL}, headers=good).status_code == 403   # teachers only
+        assert c.get("/api/classmates", headers=good).json() == {"classes": []}
+        beginners = {"id": 1, "name": "Beginners", "emails": ["other@b.c"], "nicknames": {}, "lessons": ALL[:1]}
+        c.app.state.auth.cls = [beginners]   # a class without this account
         assert c.get("/api/me", headers=good).status_code == 403 and c.get("/api/tts/0", headers=good).status_code == 403
-        c.app.state.auth.cls[0]["emails"].append("a@b.c")   # case does not matter; the student sees their class
-        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": False, "class": "September 2026"}
-        # a teacher is let in without a class, and opens classes in the panel
+        beginners["emails"].append("a@b.c")   # case does not matter; the student studies their class's lessons
+        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": False, "lessons": ALL[:1],
+                                                         "classes": [{"name": "Beginners", "lessons": ALL[:1]}]}
+        # in a second class too: the lessons of both, in the course's order
+        c.app.state.auth.cls = [{"id": 2, "name": "Advanced", "emails": ["a@b.c"], "nicknames": {}, "lessons": ALL[1:]}, beginners]
+        me = c.get("/api/me", headers=good).json()   # each class with its own lessons: the student chooses one to practise in
+        assert me["lessons"] == ALL and me["classes"] == [{"name": "Advanced", "lessons": ALL[1:]}, {"name": "Beginners", "lessons": ALL[:1]}]
+        c.app.state.auth.cls = [{**beginners, "lessons": []}]   # a class saved before classes had lessons has every one
+        assert c.get("/api/me", headers=good).json()["lessons"] == ALL
+        # a teacher is let in without a class, studies every lesson, and opens classes in the panel
         c.app.state.auth.cls, c.app.state.auth.teachers = [], frozenset({"a@b.c"})
-        assert c.post("/api/classes", json={"name": "September 2026", "emails": "x@b.c"}, headers=good).status_code == 200
-        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": True, "class": ""}
-        new_class = {"name": " October 2026 ", "emails": "S@b.c, new@b.c\nnew@b.c  דנה  \n"}   # an optional nickname after the address
+        assert c.post("/api/classes", json={"name": "September 2026", "emails": "x@b.c", "lessons": ALL[:1]},
+                      headers=good).status_code == 200
+        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": True, "classes": [], "lessons": ALL}
+        new_class = {"name": " October 2026 ", "emails": "S@b.c, new@b.c\nnew@b.c  דנה  \nx@b.c\n",   # an optional nickname
+                     "lessons": ALL[::-1]}   # x is in September's class too: a student may be in several
         assert c.post("/api/classes", json=new_class, headers=good).status_code == 200
-        assert c.app.state.auth.cls[0] == {"id": 2, "name": "October 2026", "emails": ["new@b.c", "s@b.c"],
-                                           "nicknames": {"new@b.c": "דנה"}}
-        for body, code in (({"name": "", "emails": ""}, 400), ({"name": "y", "emails": "not-an-email"}, 400),
-                           ({"name": "y", "emails": "z@b.c w@b.c Dana"}, 400),   # whose nickname?
-                           ({"name": "October 2026", "emails": ""}, 409),   # the name is taken
-                           ({"name": "y", "emails": "x@b.c"}, 409)):   # x is in September's class
+        assert c.app.state.auth.cls[0] == {"id": 2, "name": "October 2026", "emails": ["new@b.c", "s@b.c", "x@b.c"],
+                                           "nicknames": {"new@b.c": "דנה"}, "lessons": ALL}
+        for body, code in (({"name": "", "emails": "", "lessons": ALL}, 400), ({"name": "y", "emails": "not-an-email", "lessons": ALL}, 400),
+                           ({"name": "y", "emails": "z@b.c w@b.c Dana", "lessons": ALL}, 400),   # whose nickname?
+                           ({"name": "y", "emails": "", "lessons": []}, 400), ({"name": "y", "emails": ""}, 400),   # no lesson
+                           ({"name": "y", "emails": "", "lessons": ["no-such-lesson"]}, 400),
+                           ({"name": "October 2026", "emails": "", "lessons": ALL}, 409),   # the name is taken,
+                           ({"name": " october   2026", "emails": "", "lessons": ALL}, 409)):   # in any letter case and spacing
             r = c.post("/api/classes", json=body, headers=good)
             assert r.status_code == code, (body, r.text)
-        assert "September 2026" in r.json()["detail"]
-        assert c.put("/api/classes/9", json={"name": "z", "emails": ""}, headers=good).status_code == 404
-        assert c.put("/api/classes/1", json={"name": "September 2026", "emails": "x@b.c y@b.c"}, headers=good).status_code == 200
-        assert c.delete("/api/classes/1", headers=good).status_code == 200 and len(c.app.state.auth.cls) == 1
-        # the panel lists the classes' accounts, with their class; the teacher, in no class, is not a student
+        assert "October 2026" in r.json()["detail"]
+        # renaming a class to another's name is refused too; keeping its own name is not
+        assert c.put("/api/classes/1", json={"name": "OCTOBER 2026", "emails": "", "lessons": ALL}, headers=good).status_code == 409
+        assert c.put("/api/classes/9", json={"name": "z", "emails": "", "lessons": ALL}, headers=good).status_code == 404
+        assert c.put("/api/classes/1", json={"name": "September 2026", "emails": "x@b.c y@b.c", "lessons": ALL[:1]},
+                     headers=good).status_code == 200
+        # the panel: the classes with their lessons; the classes' accounts, each with {class: nickname}
         d = c.get("/api/class", headers=good).json()
-        assert [k["name"] for k in d["classes"]] == ["October 2026"]
-        student, new = d["students"]
+        assert [(k["name"], k["lessons"]) for k in d["classes"]] == [("October 2026", ALL), ("September 2026", ALL[:1])]
+        student, new, x, y = d["students"]   # the teacher, in no class, is not a student
         assert student["best"] == {str(PHRASES.index(VERB)): 88} and student["tries"] == {str(PHRASES.index(VERB)): 2}
         assert (student["recordings"], student["days"], student["last"]) == (2, 1, "2026-10-09T10:00:00+00:00")
         assert (new["email"], new["joined"], new["recordings"]) == ("new@b.c", False, 0) and student["joined"]
-        assert student["class"] == new["class"] == "October 2026" and (student["nick"], new["nick"]) == ("", "דנה")
-        # a student sees their class: by nickname, else the Google name; one with neither is only counted
+        assert (student["classes"], new["classes"]) == ({"October 2026": ""}, {"October 2026": "דנה"})
+        assert x["classes"] == {"October 2026": "", "September 2026": ""} and y["classes"] == {"September 2026": ""}
+        assert c.delete("/api/classes/1", headers=good).status_code == 200 and len(c.app.state.auth.cls) == 1
+        # a student sees each of their classes: by nickname, else the Google name; one with neither is only counted
         c.app.state.auth.cls[0]["emails"].append("a@b.c")
-        assert c.get("/api/classmates", headers=good).json() == {"class": "October 2026", "unnamed": 1, "students": [
-            {"name": "Alef", "me": True}, {"name": "דנה", "me": False}]}
+        assert c.get("/api/classmates", headers=good).json() == {"classes": [{"name": "October 2026", "unnamed": 2, "students": [
+            {"name": "Alef", "me": True}, {"name": "דנה", "me": False}]}]}
         c.app.state.auth.cls[0]["emails"].remove("a@b.c")
         c.app.state.auth.cls = []   # no class: every account that signed in
         assert [s["email"] for s in c.get("/api/class", headers=good).json()["students"]] == ["A@b.c", "s@b.c", "out@b.c"]

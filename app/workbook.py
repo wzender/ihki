@@ -268,9 +268,14 @@ def _possessives(nouns):
             for he, stem in nouns for owner, say, suffix, tag, *_ in OWNERS]
 
 
-# lesson -> its topics: (id, name, kind, shown in order, [(Hebrew, Arabic) or (Hebrew, Arabic, Hebrew as read aloud)]); sentence numbering is the workbook's
+# The course's levels: level -> (name, how many lessons it will have). A level's lessons that are not in LESSONS yet
+# are shown on the path as "בקרוב".
+LEVELS = {1: ("רמה 1", 10), 2: ("רמה 2", 10)}
+
+# (level, lesson) -> its topics: (id, name, kind, shown in order, [(Hebrew, Arabic) or (Hebrew, Arabic, Hebrew as read
+# aloud)]); sentence numbering is the workbook's. Every lesson names its level.
 LESSONS = {
-    1: [
+    (1, 1): [
         ("pron", "הגופים", "say", True, [(_plain(he) + " / הן" * (he == "הֵם"), ar, he) for he, ar in zip(HE_PRONOUNS, AR_PRONOUNS)]),
         ("verbs", "פעלים", "say", True, _base_forms(VERBS_1)),
         ("past", "הטיות בעבר", "say", False, _past(VERBS_1)),
@@ -311,7 +316,7 @@ LESSONS = {
         ("המורה שאלה את הילדה: \"חרוצה, למה ישבת על השולחן?\"", "المعلّمة سألت#f البنت: يا شاطرة ليش قعدتي على الطّاولة؟"),
         ]),
     ],
-    2: [
+    (1, 2): [
         ("dual", "הזוגי", "say", True, [(f"{he}, {he2}", f"{ar}، {ar2}") for he, he2, ar, ar2 in DUALS]),
         ("family", "המשפחה", "say", True, FAMILY),
         ("poss", "כינויי הקניין", "say", False, _possessives(POSSESSIVE_DRILL)),
@@ -439,7 +444,21 @@ LESSONS = {
         ]),
     ],
 }
-LESSON_TABS = [{"id": str(n), "name": f"שיעור {n}"} for n in LESSONS]
+for _level, _n in LESSONS:
+    assert _level in LEVELS and 1 <= _n <= LEVELS[_level][1], f"lesson {_n} of level {_level} is not in LEVELS"
+
+
+def lesson_id(level: int, n: int) -> str:
+    """Level 1's lessons keep their first ids ("1", and its topics "l1-..."): recorded attempts and saved classes name
+    them. Later levels' are "2.1" (topics "l2.1-...")."""
+    return str(n) if level == 1 else f"{level}.{n}"
+
+
+LEVEL_TABS = [{"id": str(level), "name": name} for level, (name, _) in LEVELS.items()]
+# every planned lesson, in the course's order; one not written yet is `soon`
+LESSON_TABS = [{"id": lesson_id(level, n), "name": f"שיעור {n}", "level": str(level), "n": n,
+                **({} if (level, n) in LESSONS else {"soon": True})}
+               for level, (_, count) in LEVELS.items() for n in range(1, count + 1)]
 # Topics the page lays out as a story: a conversation, all its lines on the card, said one after the other.
 # Each has its two speakers' voices, by name in the voice list: the odd lines are the first one's, the even the second's.
 STORIES = {"l2-talk": ("אמיר", "ראאף")}
@@ -448,9 +467,10 @@ STORIES = {"l2-talk": ("אמיר", "ראאף")}
 UNITS = {"pron": "מילה", "verbs": "פועל", "dual": "מילה", "family": "מילה"}
 TASKS = {"verbs": "אמרו את הפועל בערבית מדוברת: בעבר ואז בעתיד",
          "dual": "אמרו בערבית מדוברת: ביחיד ואז בזוגי"}
-CATEGORIES = [{"id": f"l{n}-{tid}", "name": name, "lesson": str(n), **({"story": True, "voices": list(STORIES[f"l{n}-{tid}"])} if f"l{n}-{tid}" in STORIES else {}),
+CATEGORIES = [{"id": f"l{lesson_id(*key)}-{tid}", "name": name, "lesson": lesson_id(*key),
+               **({"story": True, "voices": list(STORIES[f"l{lesson_id(*key)}-{tid}"])} if f"l{lesson_id(*key)}-{tid}" in STORIES else {}),
                **({"unit": UNITS[tid]} if tid in UNITS else {}), **({"task": TASKS[tid]} if tid in TASKS else {})}
-              for n, topics in LESSONS.items() for tid, name, *_ in topics]
+              for key, topics in LESSONS.items() for tid, name, *_ in topics]
 
 
 def _word(token: str) -> tuple[str, str, list[str]]:
@@ -489,11 +509,11 @@ def workbook_phrases() -> list[dict]:
     `read` marks the Arabic -> Hebrew ones, where the page shows `tr` and hides `he`;
     `he_say` is the pointed Hebrew for the prompt voice, where the plain text is misread."""
     out = []
-    for n, topics in LESSONS.items():
+    for key, topics in LESSONS.items():
         for tid, _, kind, in_order, items in topics:
             for seq, (he, sentence, *he_say) in enumerate(items, 1):
                 words = [_word(t) for t in sentence.split()]
-                phrase = dict(cat=f"l{n}-{tid}", he=he, tr=" ".join(t for _, t, _ in words),
+                phrase = dict(cat=f"l{lesson_id(*key)}-{tid}", he=he, tr=" ".join(t for _, t, _ in words),
                               variants=_variants(words), read=kind == "read")
                 say = _voiced(he_say[0] if he_say else he)
                 if say != he:
