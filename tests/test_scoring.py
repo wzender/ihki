@@ -559,7 +559,7 @@ def test_sign_in_guards_the_practice_endpoints():
         # a student gets the videos of their classes' lessons only, and adds or deletes none
         kept, c.app.state.auth.teachers = c.app.state.auth.cls, frozenset()
         c.app.state.auth.cls = [{"id": 7, "name": "V", "emails": ["a@b.c"], "nicknames": {}, "lessons": READY[1:2]}]
-        assert c.get("/api/videos", headers=good).json()["videos"] == [second]
+        assert c.get("/api/videos", headers=good).json()["videos"] == [{k: v for k, v in second.items() if k != "url"}]   # without the link
         assert c.post("/api/videos", json={"lesson": READY[0], "title": "x", "url": link}, headers=good).status_code == 403
         assert c.delete("/api/videos/1", headers=good).status_code == 403
         assert c.put("/api/videos/order", json={"lesson": READY[0], "order": []}, headers=good).status_code == 403

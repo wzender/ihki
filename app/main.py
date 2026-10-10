@@ -322,7 +322,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/videos")
     def videos(user: dict | None = Depends(signed_in)):
-        """The lesson videos, each lesson's in its order on the path: id, lesson, title, url (the Vimeo link), embed
+        """The lesson videos, each lesson's in its order on the path: id, lesson, title, url (the Vimeo link, for a teacher only), embed
         (its player, for the page's frame) and pos (how many of the lesson's own topics stand before it, see
         `lesson_videos`). A student gets those of their classes' lessons; a teacher, and an account in no
         class, every one. One whose lesson the course no longer has is left out."""
@@ -335,7 +335,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             rows = app.state.auth.videos()
         except AuthUnavailable as e:
             raise HTTPException(503, f"videos not available: {e}")
-        return {"videos": [{"id": v["id"], "lesson": v["lesson"], "title": v["title"], "url": v["url"],
+        # the link itself goes to teachers only: a student's page gets the player's address, which it cannot do without
+        return {"videos": [{"id": v["id"], "lesson": v["lesson"], "title": v["title"],
+                            **({"url": v["url"]} if user["teacher"] else {}),
                             "embed": vimeo_embed(v["url"]), "pos": v["pos"]}
                            for l in lessons for v in lesson_videos(rows, l)]}
 
