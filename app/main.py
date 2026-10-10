@@ -16,7 +16,7 @@ import re
 import time
 import urllib.parse
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -42,13 +42,24 @@ MAX_UPLOAD = 2_000_000  # bytes; 15 s of opus is ~100 KB
 EMAIL = re.compile(r"[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+")
 MAX_NICKNAME = 40
 ALL_LESSONS = [l["id"] for l in LESSONS]   # with the lessons still to come: a class may take them ahead
+TOPIC_LESSON = {c["id"]: c["lesson"] for c in CATEGORIES}   # a topic's lesson: homework is a topic of the class's lessons
 MIGRATE_CLASSES = ("alter table public.classes add column if not exists nicknames jsonb not null default '{}', "
-                   "add column if not exists lessons text[] not null default '{}';")
+                   "add column if not exists lessons text[] not null default '{}', "
+                   "add column if not exists homework text not null default '', add column if not exists due date;")
 
 
 def lessons_of(c: dict) -> list[str]:
     """A class's lessons in the course's order; a class saved before classes had lessons has every one."""
     return [l for l in ALL_LESSONS if l in c["lessons"]] or ALL_LESSONS
+
+
+def homework_of(c: dict) -> dict:
+    """A class's homework: the topic it practises now (a category id, e.g. the conversation "l2-talk"; "" when none
+    is set) and the day it is due (ISO date, or None). A topic of a lesson the class no longer studies, or one the
+    course no longer has, is no homework."""
+    topic = c.get("homework") or ""
+    return {"homework": topic, "due": c.get("due") or None} if TOPIC_LESSON.get(topic) in lessons_of(c) \
+        else {"homework": "", "due": None}
 
 
 def class_members(text: str) -> tuple[list[str], dict[str, str]]:
@@ -156,14 +167,15 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/me")
     def me(user: dict | None = Depends(signed_in)):
-        """Who is signed in, their classes (each with its lessons: a student in several chooses one to practise in), and
-        the lessons of all of them together (every lesson for a teacher, and for an account in no class). The page
+        """Who is signed in, their classes (each with its lessons and its homework, see `homework_of`: a student in
+        several chooses one to practise in), and the lessons of all of them together (every lesson for a teacher, and for an account in no class). The page
         asks this right after sign-in to learn whether the account is let in."""
         mine = user["classes"] if user else []
         lessons = ALL_LESSONS if not mine or user["teacher"] else \
             [l for l in ALL_LESSONS if any(l in lessons_of(c) for c in mine)]
         return {"email": user["email"] if user else "", "teacher": bool(user and user["teacher"]),
-                "classes": [{"name": c["name"], "lessons": lessons_of(c)} for c in mine], "lessons": lessons}
+                "classes": [{"name": c["name"], "lessons": lessons_of(c), **homework_of(c)} for c in mine],
+                "lessons": lessons}
 
     @app.get("/api/progress")
     def progress(user: dict | None = Depends(signed_in)):
@@ -173,7 +185,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/class")
     def class_progress(a: SupabaseAuth = Depends(teacher_only)):
-        """The teacher's panel: the classes (with their lessons), and every student's summary (see `summary`) with
+        """The teacher's panel: the classes (with their lessons and homework), and every student's summary (see `summary`) with
         their classes ({name: nickname}). The students are the classes' accounts, or every account that signed in
         when there is no class yet; one that never signed in has joined = false."""
         try:
@@ -191,20 +203,20 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                      **summary(by.get(u["id"], []))} for u in users if not classes or u["email"].lower() in member]
         missing = member.keys() - {s["email"].lower() for s in students}
         students += [{"email": e, "name": "", "joined": False, "classes": member[e], **summary([])} for e in sorted(missing)]
-        return {"classes": [{**c, "lessons": lessons_of(c)} for c in classes], "students": students}
+        return {"classes": [{**c, "lessons": lessons_of(c), **homework_of(c)} for c in classes], "students": students}
 
     def class_store_error(e: AuthUnavailable) -> str:
         """The teacher's message when a class cannot be written; a 404 means Supabase has no `classes` table."""
         if "answered 404" in str(e):
             return ("הטבלה classes לא קיימת ב-Supabase. צרו אותה ב-SQL Editor (הפקודה ב-README); "
                     "אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
-        if "nicknames" in str(e) or "lessons" in str(e):   # a table made before the nicknames or the lessons
+        if any(col in str(e) for col in ("nicknames", "lessons", "homework", "'due'")):   # a table made before them
             return f"לטבלה classes חסרות עמודות. הריצו ב-SQL Editor של Supabase: {MIGRATE_CLASSES}"
         return f"Supabase לא זמין: {e}"
 
     def save_class(a: SupabaseAuth, id: int | None, body: dict) -> dict:
         """Checks a class from the panel ({"name", "emails": the student list, see `class_members`, "lessons": lesson
-        ids}) and stores it. A student may be in several classes, e.g. a beginners' class and an advanced one."""
+        ids, "homework": a topic of one of them, or "", "due": its ISO date, or ""}) and stores it. A student may be in several classes, e.g. a beginners' class and an advanced one."""
         name = " ".join(str(body.get("name", "")).split())   # one space between words, none around
         if not name or len(name) > 80:
             raise HTTPException(400, "לכיתה צריך שם (עד 80 תווים)")
@@ -216,12 +228,19 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not isinstance(lessons, list) or not lessons or not set(map(str, lessons)) <= set(ALL_LESSONS):
             raise HTTPException(400, "בחרו לפחות שיעור אחד לכיתה")
         lessons = [l for l in ALL_LESSONS if l in map(str, lessons)]
+        homework, due = str(body.get("homework") or ""), str(body.get("due") or "") or None
+        if homework and TOPIC_LESSON.get(homework) not in lessons:
+            raise HTTPException(400, "שיעורי הבית הם נושא מאחד משיעורי הכיתה")
+        try:
+            due = date.fromisoformat(due).isoformat() if homework and due else None   # no date without homework
+        except ValueError:
+            raise HTTPException(400, "התאריך של שיעורי הבית לא תקין")
         try:
             # a class's name is its own: the same words in other letter case or spacing are the same name
             same = lambda other: " ".join(other.split()).casefold() == name.casefold()
             if taken := next((c["name"] for c in a.classes(fresh=True) if c["id"] != id and same(c["name"])), None):
                 raise HTTPException(409, f"כבר יש כיתה בשם {taken}")
-            a.save_class(id, name, emails, nicks, lessons)
+            a.save_class(id, name, emails, nicks, lessons, homework, due)
         except ClassConflict:
             raise HTTPException(409, f"כבר יש כיתה בשם {name}")
         except KeyError:

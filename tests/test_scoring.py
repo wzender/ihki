@@ -438,8 +438,8 @@ def test_sign_in_guards_the_practice_endpoints():
         def classes(self, fresh=False):
             return self.cls
 
-        def save_class(self, id, name, emails, nicknames, lessons):
-            row = {"name": name, "emails": emails, "nicknames": nicknames, "lessons": lessons}
+        def save_class(self, id, name, emails, nicknames, lessons, homework="", due=None):
+            row = {"name": name, "emails": emails, "nicknames": nicknames, "lessons": lessons, "homework": homework, "due": due}
             if id is None:
                 self.cls.insert(0, {"id": len(self.cls) + 1, **row})
             elif c := next((c for c in self.cls if c["id"] == id), None):
@@ -476,8 +476,10 @@ def test_sign_in_guards_the_practice_endpoints():
         assert c.get("/api/tts/0", headers={"Authorization": "Bearer bad"}).status_code == 401
         assert c.get("/api/tts/0", headers={"Authorization": "Bearer good"}).status_code == 503   # in, but no TTS key
         good = {"Authorization": "Bearer good"}
-        from app.phrases import LESSONS
+        from app.phrases import CATEGORIES, LESSONS
         ALL = [l["id"] for l in LESSONS]
+        NO_HW = {"homework": "", "due": None}
+        T1, T2 = (next(k["id"] for k in CATEGORIES if k["lesson"] == l) for l in ALL[:2])   # a topic of each of the first two lessons
         # no class yet: any account is let in, to every lesson
         assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": False, "classes": [], "lessons": ALL}
         assert c.get("/api/class").status_code == 401 and c.get("/api/class", headers=good).status_code == 403
@@ -488,11 +490,17 @@ def test_sign_in_guards_the_practice_endpoints():
         assert c.get("/api/me", headers=good).status_code == 403 and c.get("/api/tts/0", headers=good).status_code == 403
         beginners["emails"].append("a@b.c")   # case does not matter; the student studies their class's lessons
         assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": False, "lessons": ALL[:1],
-                                                         "classes": [{"name": "Beginners", "lessons": ALL[:1]}]}
+                                                         "classes": [{"name": "Beginners", "lessons": ALL[:1], **NO_HW}]}
+        # the class's homework reaches its students: a topic of its lessons, and the day it is due
+        beginners.update(homework=T1, due="2026-10-15")
+        assert c.get("/api/me", headers=good).json()["classes"] == [{"name": "Beginners", "lessons": ALL[:1], "homework": T1, "due": "2026-10-15"}]
+        beginners.update(homework=T2)   # a topic of a lesson the class does not study is no homework
+        assert c.get("/api/me", headers=good).json()["classes"] == [{"name": "Beginners", "lessons": ALL[:1], **NO_HW}]
+        del beginners["homework"], beginners["due"]
         # in a second class too: the lessons of both, in the course's order
         c.app.state.auth.cls = [{"id": 2, "name": "Advanced", "emails": ["a@b.c"], "nicknames": {}, "lessons": ALL[1:]}, beginners]
         me = c.get("/api/me", headers=good).json()   # each class with its own lessons: the student chooses one to practise in
-        assert me["lessons"] == ALL and me["classes"] == [{"name": "Advanced", "lessons": ALL[1:]}, {"name": "Beginners", "lessons": ALL[:1]}]
+        assert me["lessons"] == ALL and me["classes"] == [{"name": "Advanced", "lessons": ALL[1:], **NO_HW}, {"name": "Beginners", "lessons": ALL[:1], **NO_HW}]
         c.app.state.auth.cls = [{**beginners, "lessons": []}]   # a class saved before classes had lessons has every one
         assert c.get("/api/me", headers=good).json()["lessons"] == ALL
         # a teacher is let in without a class, studies every lesson, and opens classes in the panel
@@ -501,14 +509,18 @@ def test_sign_in_guards_the_practice_endpoints():
                       headers=good).status_code == 200
         assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": True, "classes": [], "lessons": ALL}
         new_class = {"name": " October 2026 ", "emails": "S@b.c, new@b.c\nnew@b.c  דנה  \nx@b.c\n",   # an optional nickname
-                     "lessons": ALL[::-1]}   # x is in September's class too: a student may be in several
+                     "lessons": ALL[::-1],   # x is in September's class too: a student may be in several
+                     "homework": T2, "due": "2026-10-15"}
         assert c.post("/api/classes", json=new_class, headers=good).status_code == 200
         assert c.app.state.auth.cls[0] == {"id": 2, "name": "October 2026", "emails": ["new@b.c", "s@b.c", "x@b.c"],
-                                           "nicknames": {"new@b.c": "דנה"}, "lessons": ALL}
+                                           "nicknames": {"new@b.c": "דנה"}, "lessons": ALL, "homework": T2, "due": "2026-10-15"}
         for body, code in (({"name": "", "emails": "", "lessons": ALL}, 400), ({"name": "y", "emails": "not-an-email", "lessons": ALL}, 400),
                            ({"name": "y", "emails": "z@b.c w@b.c Dana", "lessons": ALL}, 400),   # whose nickname?
                            ({"name": "y", "emails": "", "lessons": []}, 400), ({"name": "y", "emails": ""}, 400),   # no lesson
                            ({"name": "y", "emails": "", "lessons": ["no-such-lesson"]}, 400),
+                           ({"name": "y", "emails": "", "lessons": ALL[:1], "homework": T2}, 400),   # not of the class's lessons
+                           ({"name": "y", "emails": "", "lessons": ALL, "homework": ALL[0]}, 400),   # a lesson is not a topic
+                           ({"name": "y", "emails": "", "lessons": ALL, "homework": T1, "due": "15/10"}, 400),
                            ({"name": "October 2026", "emails": "", "lessons": ALL}, 409),   # the name is taken,
                            ({"name": " october   2026", "emails": "", "lessons": ALL}, 409)):   # in any letter case and spacing
             r = c.post("/api/classes", json=body, headers=good)
@@ -522,6 +534,10 @@ def test_sign_in_guards_the_practice_endpoints():
         # the panel: the classes with their lessons; the classes' accounts, each with {class: nickname}
         d = c.get("/api/class", headers=good).json()
         assert [(k["name"], k["lessons"]) for k in d["classes"]] == [("October 2026", ALL), ("September 2026", ALL[:1])]
+        assert [(k["homework"], k["due"]) for k in d["classes"]] == [(T2, "2026-10-15"), ("", None)]
+        # a date without homework is dropped; saving without the two clears them
+        assert c.put("/api/classes/2", json={**new_class, "homework": ""}, headers=good).status_code == 200
+        assert (c.app.state.auth.cls[0]["homework"], c.app.state.auth.cls[0]["due"]) == ("", None)
         student, new, x, y = d["students"]   # the teacher, in no class, is not a student
         assert student["best"] == {str(PHRASES.index(VERB)): 88} and student["tries"] == {str(PHRASES.index(VERB)): 2}
         assert (student["recordings"], student["days"], student["last"]) == (2, 1, "2026-10-09T10:00:00+00:00")
@@ -582,3 +598,6 @@ def test_result_scores_each_letter():
         assert "".join(l["t"] for l in w["letters"]) == w["tr"]
     by = {l["t"][0]: l["score"] for l in r["words"][1]["letters"] if l["score"] is not None}
     assert by["ח"] < 50 and by["מ"] > 75
+    # the coloured letter says why, with the advice for that mistake; a letter that was fine says nothing
+    het, mem = (next(l for l in r["words"][1]["letters"] if l["t"][0] == c) for c in "חמ")
+    assert het["why"] == "ח (ح) נשמעה כמו ח' (خ)" and het["tip"] == r["tips"][0]["text"] and "why" not in mem

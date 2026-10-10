@@ -24,6 +24,8 @@ The service replaces the browser speech-recognition diff with phoneme-level scor
    - If the greedy phoneme decode is far from every variant, the response says "different sentence?" instead of listing tips.
 5. **Native baseline.** With a TTS key, the phrase's model answer is scored by the same model, and each of the learner's sounds is measured against the score the voice got on it (`app/reference.py`). A sound the model mishears from the native voice too is not marked down and gets no tip.
 
+**Why a letter is coloured.** The answer is shown letter by letter, each coloured by the weakest of its sounds (on a story's line and in every other exercise). A letter under 75 comes with its reason from the server: `why`, the sound and what was heard in its place ("ח (ح) נשמעה כמו ח' (خ)"), and `tip`, the advice for that substitution when `app/tips.py` has one. On the page the reason is the letter's tooltip. A screen with no mouse has no tooltip, so such a letter is also underlined with a dotted line, a tap on it opens the reason in a bubble over the letter, and a line under the result says so.
+
 ```
 app/
   align.py     CTC Viterbi alignment, GOP, greedy decode, edit distance (no torch)
@@ -110,6 +112,18 @@ In the panel the teacher opens a class: a name such as "מתחילים אוקט�
 
 The panel has a tab per class with its figures, its lessons (each with the sentences the class finds hard: the class average of each student's best score under 70) and its students, with a column per lesson of the class (per level, past 4 lessons). Before the first class it shows every account that signed in. This replaces the former `ALLOWED_EMAILS`, which is no longer read. The lessons limit what the path shows; the sentences themselves stay public, as before.
 
+### Homework
+
+In the class's dialog the teacher sets its homework: one topic of the class's lessons (for example the conversation "שיחת היכרות"), and optionally the day it is due. The students see it on the path itself: the bubble over the homework topic's circle says "שיעורי בית" and counts the days left ("נשארו 3 ימים", "מגישים מחר!", "מגישים היום!", and "באיחור של יומיים" once the day passed). On the last two days the bubble and the circle's ring turn amber, and red after them. The path's focus does not move: the page still opens on the next topic in the course's order, which keeps its own "התחילו" bubble, so the homework's bubble may be further up or down the path. The homework is done when every sentence of the topic was practised, whenever that was; the circle then gets its ✓ and "שיעורי הבית הושלמו". In the panel the class's card shows how many students finished and names those who did not, the furthest from it first. The students get the homework with `GET /api/me`, so a change reaches them the next time they open the page.
+
+### The daily session
+
+Above the path, "תרגול יומי" opens a session of 10 sentences, so a student with five minutes does not have to choose a topic. Half are sentences they already said with a best score under 85, drawn from their 15 weakest (so the same ones do not return every day); the other half are new, in the course's order, from the homework topic and then the rest of its lesson, or else from the first unfinished lesson. When one kind runs short the other fills in; stories are left out. At the end the page says how many were practised and how many scores went up, and the button shows "✓ תרגלתם היום" for the rest of the day (kept on the device, and only when at least half the sentences were said). The numbers are `DAILY` in `static/index.html`. Driving mode works in a session too.
+
+### The story quiz
+
+A story topic (a conversation, all its lines on the card) has a "בוחן" button: the student says the whole conversation in one go. Each line is recorded by itself, once; its score appears beside the line, its Arabic under it, and the next line is recorded, with no answer played and no second try. A line that was not heard waits for the microphone button; one that was skipped comes back after the last line. At the end the card shows the grade (the average of the lines' scores, and how many were said) and the three mistakes made most often across the lines, each with its tip and the words it was heard in (`QUIZ` in `static/index.html`). "סיום הבוחן" ends it early on the lines said so far. The lines are recorded as attempts like any other, so a quiz counts in the student's progress and in the panel.
+
 The classes are kept in Supabase and read and written with `SUPABASE_SECRET_KEY` only, so the table has row-level security and no policy. Create it once:
 
 ```sql
@@ -119,16 +133,20 @@ create table public.classes (
   emails     text[] not null default '{}',         -- the students' Google emails, lower-case
   nicknames  jsonb  not null default '{}',         -- {email: nickname}, for the students who have one
   lessons    text[] not null default '{}',         -- the lesson ids the class studies; empty = every lesson
+  homework   text   not null default '',           -- the topic id the class practises now, e.g. l2-talk; '' = none
+  due        date,                                 -- the day the homework is due, if it has one
   created_at timestamptz not null default now()
 );
 alter table public.classes enable row level security;
 ```
 
-A table made before the nicknames or the lessons needs the columns (a class saved before then studies every lesson):
+A table made before the nicknames, the lessons or the homework needs the columns (a class saved before then studies every lesson and has no homework). Until they are there, saving a class in the panel is refused with this command in the message:
 
 ```sql
 alter table public.classes add column if not exists nicknames jsonb not null default '{}',
-                           add column if not exists lessons text[] not null default '{}';
+                           add column if not exists lessons text[] not null default '{}',
+                           add column if not exists homework text not null default '',
+                           add column if not exists due date;
 ```
 
 The server keeps the list for a minute, so a change in the SQL editor (rather than the panel) applies within that time.

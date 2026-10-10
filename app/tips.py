@@ -69,6 +69,22 @@ def sound_name(phoneme: str | None) -> str | None:
     return NAMES.get(phoneme) or VOWEL_NAMES.get(phoneme)
 
 
+def letter_reason(expected: str, heard: str | None) -> dict:
+    """Why a letter of the answer is coloured: {"why": the sound and what was heard in its place ("_": nothing was),
+    "tip": how to say it, for the substitutions TIPS covers}."""
+    name = sound_name(expected) or expected
+    heard = HEARD_ALIASES.get(heard, heard)
+    other = sound_name(heard)
+    if heard == "_":
+        why = f"{name} לא נשמעה"
+    elif other and other != name:
+        why = f"{name} נשמעה כמו {other}"
+    else:
+        why = f"{name} לא נשמעה בבירור"
+    text = TIPS.get((expected, heard))
+    return {"why": why, **({"tip": with_hebrew(text)} if text else {})}
+
+
 VOWELS = {"a", "i", "u", "e", "o", "aː", "iː", "uː", "eː", "oː"}
 # the urban glottal stop is often dropped by natives too; don't nag about it
 NO_DELETION_TIP = {"ʔ"}

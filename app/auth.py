@@ -11,9 +11,9 @@ progress. Those rows are read with the project's secret key, which passes row-le
 never leaves the server.
 
 Classes: the teacher opens classes in the panel (a name, e.g. "October 2026", the lessons it studies, its
-students' emails and an optional nickname of each), kept in the Supabase table `classes`. A student may be in
-several. Once there is a class, only the classes' students and the teachers are let in;
-before the first one (or without the secret key, which reads the table) any Google account is.
+students' emails and an optional nickname of each, and the homework: a topic of its lessons, with the day it is due),
+kept in the Supabase table `classes`. A student may be in several. Once there is a class, only the classes'
+students and the teachers are let in; before the first one (or without the secret key, which reads the table) any Google account is.
 
 Env:  SUPABASE_URL              (https://<project-ref>.supabase.co)
       SUPABASE_PUBLISHABLE_KEY  (the publishable/anon key; it is public and also goes to the page)
@@ -145,7 +145,8 @@ class SupabaseAuth:
 
     def classes(self, fresh: bool = False) -> list[dict]:
         """Every class, newest first: id, name, emails (lower-case), nicknames ({email: nickname}), lessons (lesson ids;
-        empty in a class saved before classes had lessons), created_at.
+        empty in a class saved before classes had lessons), homework (a topic id, or "") and due (its ISO date, or
+        None), created_at.
         Kept for CLASSES_TTL, as each sign-in
         check asks. Without the secret key, or before the table is created, there are none."""
         now = time.monotonic()
@@ -160,6 +161,7 @@ class SupabaseAuth:
                 rows = self._admin("/rest/v1/classes?select=*&order=created_at.desc")
                 for r in rows:
                     r["nicknames"], r["lessons"] = r.get("nicknames") or {}, r.get("lessons") or []
+                    r["homework"], r["due"] = r.get("homework") or "", r.get("due") or None
             except AuthUnavailable as e:
                 if "answered 404" not in str(e):
                     raise
@@ -169,10 +171,11 @@ class SupabaseAuth:
         return rows
 
     def save_class(self, id: int | None, name: str, emails: list[str], nicknames: dict[str, str],
-                   lessons: list[str]) -> None:
-        """Adds a class (id None) or replaces one's name, emails, nicknames and lessons. A name already taken raises
-        ClassConflict."""
-        body = {"name": name, "emails": emails, "nicknames": nicknames, "lessons": lessons}
+                   lessons: list[str], homework: str = "", due: str | None = None) -> None:
+        """Adds a class (id None) or replaces one's name, emails, nicknames, lessons and homework. A name already
+        taken raises ClassConflict."""
+        body = {"name": name, "emails": emails, "nicknames": nicknames, "lessons": lessons,
+                "homework": homework, "due": due}
         if id is None:
             self._admin("/rest/v1/classes", "POST", body)
         elif not self._admin(f"/rest/v1/classes?id=eq.{int(id)}", "PATCH", body):

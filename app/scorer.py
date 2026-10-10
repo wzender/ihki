@@ -12,7 +12,7 @@ from typing import Callable, Protocol
 import numpy as np
 
 from .align import GopConfig, ctc_viterbi, edit_distance, greedy_decode, score_tokens
-from .tips import NO_DELETION_TIP, VOWELS, sound_name, tip_for
+from .tips import NO_DELETION_TIP, VOWELS, letter_reason, sound_name, tip_for
 from .translit import CONSONANTS as _HEB_C, VOWELS as _HEB_V, to_hebrew, word_letters, word_to_hebrew
 
 HEBREW_SOUNDS = set(_HEB_C) | set(_HEB_V)
@@ -96,6 +96,9 @@ class Vocab:
                 raise KeyError(f"phoneme {phoneme!r} cannot be expressed in the model vocab")
         self.downgraded[phoneme] = " ".join(self.i2t[i] for i in ids)
         return ids
+
+
+LETTER_GOOD = 75  # a letter scoring under this is coloured on the page (`band` in static/index.html)
 
 
 @dataclass
@@ -307,11 +310,13 @@ class Scorer:
         forgiven = {t.word for t, sc, r in zip(toks, scores, raw) if sc.score > r.score}
 
         phonemes, tips, seen = [], [], set()
+        heard_as = []   # per phoneme, what took its place ("_": nothing), flagged or not: the reason a letter gives
         ar_words = ar.split()
         tr_words = to_hebrew(ipa, ar)
         for idx, (tok, sc) in enumerate(zip(toks, scores)):
             heard_ph = "_" if sc.deleted else (self.vocab.i2t.get(sc.competitor) if sc.competitor is not None else None)
             flagged = bool(sc.score < self.cfg.flag_below) and tok.phoneme not in VOWELS
+            heard_as.append(heard_ph)
             phonemes.append({"ipa": tok.phoneme, "word": tok.word, "score": sc.score,
                              "flagged": flagged, "heard": heard_ph if flagged else None})
             if flagged and not unrelated:
@@ -330,11 +335,16 @@ class Scorer:
         carriers, ipa_words = self._carriers(ipa), ipa.split("|")
         for w in range(n_words):
             ws = [p["score"] for p in phonemes if p["word"] == w]
-            # the transliteration letter by letter, each with the weakest score among its sounds
+            # the transliteration letter by letter, each with the weakest score among its sounds; a letter the
+            # page colours (under LETTER_GOOD) also says why: what that sound was heard as, and how to say it
             letters = []
             for text, at in word_letters(ipa_words[w], ar_words[w] if w < len(ar_words) else ""):
-                got = [phonemes[i]["score"] for j in at for i in carriers[w][j] if 0 <= i < len(phonemes)]
-                letters.append({"t": text, "score": min(got) if got else None})
+                got = [i for j in at for i in carriers[w][j] if 0 <= i < len(phonemes)]
+                worst = min(got, key=lambda i: phonemes[i]["score"]) if got else None
+                letter = {"t": text, "score": phonemes[worst]["score"] if got else None}
+                if got and letter["score"] < LETTER_GOOD and not unrelated:
+                    letter.update(letter_reason(phonemes[worst]["ipa"], heard_as[worst]))
+                letters.append(letter)
             if w in forgiven and min(ws) >= self.cfg.issue_below:
                 heard_words[w] = tr_words[w]  # what differs from the answer here is what a native voice gets too
             words.append({"ar": ar_words[w] if w < len(ar_words) else "", "tr": tr_words[w], "heard_tr": heard_words[w],

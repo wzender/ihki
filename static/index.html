@@ -53,8 +53,17 @@ header{display:flex;align-items:center;gap:4px 12px;flex-wrap:wrap}
    topics are the round buttons along the road, each with its label beside it. The ring around a button fills as its
    sentences are practised: untouched is plain, started is tinted, finished is filled and gets a badge (gold when every
    sentence reached "מצוין"). The road is green after a finished topic. The one topic to do now carries a bubble and a halo. */
-body.home #practice,body.home #driveBtn,body:not(.home) #path,body:not(.home) #toNow,body.home .where,body:not(.home) .brand,body:not(.home) .maphint{display:none}
+body.home #practice,body.home #driveBtn,body:not(.home) #path,body:not(.home) #today,body:not(.home) #toNow,body.home .where,body:not(.home) .brand,body:not(.home) .maphint{display:none}
 header .sub.maphint{flex:0 0 100%;color:var(--ink)}
+/* Above the path, and staying in sight as it scrolls: the daily session. (The homework is on the path itself: the bubble
+   over its topic counts the days left.) */
+#today{position:sticky;top:0;z-index:7;display:flex;gap:8px;align-items:stretch;width:100%;max-width:460px;margin:0 auto;padding:6px 0;background:var(--bg)}
+#today button{display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 15px/1.2 var(--f-body);text-align:start;cursor:pointer}
+#today small{font:600 13px/1.25 var(--f-body);color:var(--muted)}
+#today .daily{flex:1;align-items:center;background:var(--olive);border-color:var(--olive);color:var(--on-olive);box-shadow:0 3px 0 var(--olive-deep)}
+#today .daily small{color:inherit;opacity:.85}
+#today .daily:active{transform:translateY(2px);box-shadow:0 1px 0 var(--olive-deep)}
+#dailyDlg{width:min(92vw,380px)}
 .path{--track:color-mix(in srgb,var(--muted) 75%,var(--bg));position:relative;width:100%;max-width:460px;margin:4px auto 72px}
 .road{position:absolute;left:50%;top:0;width:1px;height:100%;overflow:visible;pointer-events:none}
 .road path{fill:none;stroke:var(--line);stroke-width:12;stroke-linecap:round}
@@ -92,7 +101,13 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 .tag{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);padding:5px 12px;border-radius:10px;background:var(--olive);color:var(--on-olive);font:700 13px/1.2 var(--f-body);white-space:nowrap;animation:hop 1.4s ease-in-out infinite}
 .tag::after{content:"";position:absolute;top:100%;left:50%;margin:-5px 0 0 -5px;width:10px;height:10px;background:inherit;transform:rotate(45deg);border-radius:2px}
 @keyframes hop{50%{transform:translate(-50%,-4px)}}
-.sat.now .ring::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:2px solid var(--olive);animation:beckon 1.8s ease-out infinite}
+/* The homework topic has a bubble of its own, wherever it is on the path: two lines, "שיעורי בית" over the days left.
+   On the last two days the bubble and the ring turn amber, and red once the day has passed. */
+.tag small{display:block;font:600 11px/1.3 var(--f-body);opacity:.85}
+.tag:has(small){text-align:center}
+.sat.soon{--c:var(--amber)} .sat.late{--c:var(--sumac)}
+.tag.soon{background:var(--amber)} .tag.late{background:var(--sumac)}
+.sat.now .ring::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:2px solid var(--c);animation:beckon 1.8s ease-out infinite}
 @keyframes beckon{from{transform:scale(.92);opacity:.9}to{transform:scale(1.18);opacity:0}}
 .cup{position:absolute;left:calc(50% + var(--x));top:var(--y);width:60px;height:60px;margin:-30px 0 0 -30px;display:grid;place-items:center;border-radius:50%;background:var(--surface);border:4px solid var(--track);font-size:26px;line-height:1}
 .cup:not(.won)>span{filter:grayscale(1);opacity:.55}
@@ -161,7 +176,7 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 #denied{text-align:center;font:600 18px/1.5 var(--f-body);color:#1C241D;padding:0 20px}
 #denied button{display:block;margin:12px auto 0;font:600 16px/1 var(--f-body);padding:10px 22px;border-radius:10px;border:1px solid #4B6A2C;background:#fff;color:#4B6A2C;cursor:pointer}
 /* The teacher's panel (its parts are styled further down: the class tabs, the figures, the lessons, the students). */
-body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage #toNow,body.manage #practice,body:not(.home) #toManage{display:none}
+body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage #today,body.manage #toNow,body.manage #practice,body:not(.home) #toManage{display:none}
 .mtitle{font:400 24px/1 var(--f-display);margin:0}
 .hard>.note{margin:0;padding:4px 16px 8px;color:var(--muted);font-size:14px}
 /* inside a student, each part (the best sentences, the weakest, every lesson) opens and closes on its heading */
@@ -191,6 +206,12 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .chead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .chead h2{flex:1;margin:0;font:400 24px/1.1 var(--f-display);overflow-wrap:anywhere}
 .chead p{flex:0 0 100%;margin:0;color:var(--muted);font-size:14px}
+/* the class's homework in the panel: the topic and its day, how many finished, and who is still to */
+.hwsum{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:10px;background:var(--bg);font-size:14px}
+.hwsum b{font-size:15px}
+.hwsum.late b small{color:var(--sumac)}
+.hwsum small{color:var(--muted);font-size:13px;font-weight:600}
+.hwsum p{margin:0}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .tile{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:10px;background:var(--bg)}
 .tile b{font:400 24px/1.1 var(--f-display);font-variant-numeric:tabular-nums}
@@ -225,12 +246,14 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .cform{display:flex;flex-direction:column;gap:10px}
 .cform label{display:flex;flex-direction:column;gap:4px;font:700 14px/1.3 var(--f-body)}
 .cform label small{font-weight:500;color:var(--muted)}
-.cform input,.cform textarea{font:500 15px/1.5 var(--f-body);padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.cform input,.cform textarea,.cform select{font:500 15px/1.5 var(--f-body);padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
 .cform textarea{min-height:9em;resize:vertical;direction:ltr;text-align:left}
 .cform .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .cform .row .sep{flex:1}
 .cform .msg{flex:0 0 100%;color:var(--sumac);font-size:14px}
 .cform .msg:empty{display:none}
+.cform .hwrow{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:end}
+.cform .hwrow small{grid-column:1/-1;font-weight:500;color:var(--muted);font-size:14px}
 .lpick{margin:0;padding:0;border:0;min-width:0}
 .lpick legend{padding:0;margin-bottom:6px;font:700 14px/1.3 var(--f-body)}
 .lpick legend small{display:block;font-weight:500;color:var(--muted)}
@@ -297,8 +320,18 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 .sline .tr.lit{color:var(--muted)}
 .sline .tr .good{background:none;color:var(--ok)} .sline .tr .mid{background:none;color:var(--orange)}
 .sline .tr .bad{background:none;color:var(--sumac);text-decoration:underline;text-underline-offset:4px}
+/* A coloured letter knows why (what the sound was heard as). The dotted line under it says it can be asked: the mouse
+   resting on it shows the reason, and so does a tap, in a bubble over the letter. */
+.word .w span.bad{background:none;color:var(--sumac)} .word .w span.mid{background:none;color:var(--amber)} .word .w span.good{background:none;color:inherit}
+.sline .tr .why,.word .w .why{text-decoration:underline dotted;text-decoration-thickness:2px;text-underline-offset:5px;cursor:help;-webkit-tap-highlight-color:transparent}
+#whyTip{position:fixed;z-index:20;max-width:min(300px,calc(100vw - 16px));padding:8px 12px;border-radius:10px;background:var(--ink);color:var(--bg);font:500 14px/1.4 var(--f-body);box-shadow:0 6px 18px rgb(0 0 0/.3);pointer-events:none}
+#whyTip b{display:block;font-weight:700}
+#whyHint{margin:0}
 .card.storymode .prompt,.card.storymode .donehint,.card.storymode .task,.card.storymode .verdict,body.driving .story{display:none}
 body.driving .card.storymode .prompt{display:block}
+/* a story's quiz, once it ended: the grade is back on the card, over the mistakes made most often */
+.card.storymode.quizdone .verdict{display:flex}
+.tips li .sub{display:block}
 /* The topic's sentences as a list: number, prompt, best score. A row is a tap target that opens its sentence. */
 .plist{list-style:none;margin:0;padding:0}
 .prow{display:grid;grid-template-columns:2ch 1fr auto;gap:10px;align-items:center;width:100%;min-height:46px;padding:6px 6px;border:0;border-top:1px solid var(--line);background:none;color:inherit;font:600 16px/1.35 var(--f-body);text-align:start;cursor:pointer}
@@ -340,6 +373,7 @@ body.driving .card.storymode .prompt{display:block}
     <button class="drive" id="driveBtn" title="מצב נסיעה: האפליקציה מקריאה, מקשיבה ואומרת את ההערכה בקול"><svg class="ic" aria-hidden="true"><use href="#i-car"/></svg> מצב נסיעה</button>
   </header>
 
+  <div id="today" hidden></div>
   <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
   <button id="toNow" hidden></button>
 
@@ -350,6 +384,7 @@ body.driving .card.storymode .prompt{display:block}
     <button class="btn" id="listBtn"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg> רשימת המשפטים</button>
     <button class="btn" id="hearStop" title="עצירת ההשמעה" aria-label="עצירת ההשמעה" hidden><svg class="ic" aria-hidden="true"><use href="#i-stop"/></svg></button>
     <button class="btn" id="hearBtn" title="השמעת כל השיחה בערבית, מההתחלה ועד הסוף. לחיצה נוספת משהה וממשיכה" hidden><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg> השמעת השיחה</button>
+    <button class="btn" id="quizBtn" title="בוחן: אומרים את כל השיחה ברצף, משפט אחרי משפט. ליד כל משפט מופיע הציון שלו, ובסוף הציון הכולל והטעויות העיקריות" hidden>בוחן</button>
     <button class="btn" id="setBtn" title="הגדרות השמעה" aria-label="הגדרות השמעה"><svg class="ic" aria-hidden="true"><use href="#i-set"/></svg></button>
   </div>
   <div id="envWarn" class="warn" hidden></div>
@@ -376,6 +411,7 @@ body.driving .card.storymode .prompt{display:block}
 
     <section class="result" id="result" hidden>
       <div class="verdict"><span class="score" id="score"></span><span class="pill" id="pill"></span><div class="words" id="words"></div></div>
+      <p class="sub" id="whyHint" hidden></p>
       <ul class="tips" id="tips"></ul>
     </section>
 
@@ -413,6 +449,8 @@ body.driving .card.storymode .prompt{display:block}
   <form class="cform" id="editForm">
     <label>שם הכיתה<input id="editName" required maxlength="80" placeholder="למשל: אוקטובר 2026" autocomplete="off"></label>
     <fieldset class="lpick"><legend>השיעורים<small>התלמידים של הכיתה רואים במסלול רק אותם. שיעור מקווקו עוד לא מוכן: הוא ייפתח לכיתה כשיהיה.</small></legend><div id="editLessons"></div></fieldset>
+    <div class="hwrow"><label>שיעורי בית<select id="editHw"></select></label><label>עד תאריך<input type="date" id="editDue"></label>
+      <small>הנושא שהכיתה מתרגלת עכשיו, למשל שיחה. התלמידים רואים אותו בראש המסלול, עם כמה שכבר תרגלו ממנו ועם התאריך; בפאנל רואים מי סיים.</small></div>
     <label>התלמידים<small>שורה לכל תלמיד: כתובת ה-Gmail, ואחריה כינוי אם רוצים. בכיתה רואים את הכינוי, או את השם מ-Google. תלמיד יכול להיות בכמה כיתות.</small>
       <textarea id="editEmails" spellcheck="false" placeholder="dana@gmail.com דנה&#10;avi@gmail.com"></textarea></label>
     <div class="row"><button class="btn primary" id="editSave"></button><span class="sub" id="editCount"></span><span class="sep"></span><button class="btn danger" type="button" id="editDelete">מחיקת הכיתה</button><span class="msg" id="editMsg" role="alert"></span></div>
@@ -428,6 +466,11 @@ body.driving .card.storymode .prompt{display:block}
   <div class="dlg-head"><h2 id="pickTitle">באיזו כיתה מתרגלים עכשיו?<small>אפשר להחליף אחר כך, בלחיצה על שם הכיתה</small></h2></div>
   <div class="picks" id="picks"></div>
 </dialog>
+<dialog id="dailyDlg" aria-labelledby="dailyTitle">
+  <div class="dlg-head"><h2 id="dailyTitle"></h2></div>
+  <p class="dlg-text" id="dailyText"></p>
+  <div class="row"><button class="btn primary" id="dailyClose">חזרה למסלול</button><button class="btn" id="dailyMore">סבב נוסף</button></div>
+</dialog>
 <dialog id="driveDlg" aria-labelledby="driveTitle">
   <div class="dlg-head"><h2 id="driveTitle">מצב נסיעה</h2></div>
   <p class="dlg-text">תרגול בלי לגעת במסך: האפליקציה מקריאה כל משפט, מקשיבה לתשובה שלכם ואומרת את ההערכה בקול. לסיום לוחצים על "סיום נסיעה".</p>
@@ -441,6 +484,7 @@ body.driving .card.storymode .prompt{display:block}
     <label>הקראת המשפט בעברית<input type="checkbox" id="readHe"></label>
   </div>
 </dialog>
+<div id="whyTip" role="tooltip" hidden></div>
 <button id="logoutBtn" hidden>יציאה</button>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -459,7 +503,8 @@ async function api(url,opts={}){   // fetch with the session token; a refused to
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 let driving=false;
 /* LESSONS and CATS are the student's: the lessons of their classes (all of them for a teacher, or before the first class) */
-let MY_CLASSES=[], MY_CLASS=null;   // a student's classes ({name, lessons}), and the one they practise in now
+let MY_CLASSES=[], MY_CLASS=null;   // a student's classes ({name, lessons, homework, due}), and the one they practise in now
+let daily=null, dailySaid=new Set(), dailyWas={};   // the daily session on the card: its sentence ids, those said in it, and their best scores before it
 let ALL_LEVELS=[], ALL_LESSONS=[], ALL_CATS=[], MY_LESSONS=null, LESSONS=[], CATS=[], PHRASES=[], cat=store.get("ihki.cat",""), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
 let myAudioUrl=null;
 const phraseOf=id=>PHRASES.find(p=>p.id===id);   // by id: the list skips the phrases that have no tab
@@ -484,6 +529,71 @@ let home=true;   // the path is on screen, not the practice card: nothing is rea
 function tally(list){   // how far a set of sentences got
   const done=list.filter(p=>best[p.id]!=null).length, over=list.length>0&&done>=list.length;
   return {done, n:list.length, over, gold:over&&list.every(p=>best[p.id]>=EXCELLENT)};
+}
+const lessonList=l=>{ const ids=CATS.filter(c=>c.lesson===l.id).map(c=>c.id); return PHRASES.filter(p=>p.listed!==false&&ids.includes(p.cat)); };
+function dueText(due){   // the homework's day in words ("עד מחר", "עד יום חמישי, 15.10"), and whether it has passed
+  if(!due) return {text:"",late:false};
+  const d=new Date(due+"T00:00"), now=new Date(), left=Math.round((d-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5);
+  const day=d.toLocaleDateString("he-IL",{weekday:"long",day:"numeric",month:"numeric"});
+  return {late:left<0,text:left<0?`המועד עבר (${day})`:left===0?"עד היום":left===1?"עד מחר":`עד ${day}`};
+}
+/* The class's homework for the path: the topic (and its lesson), how far the student got in it, and the words of its
+   bubble, which count the days left ("נשארו 3 ימים", "מגישים מחר!", "באיחור של יומיים"; with no day set, as any topic's).
+   `state` colours it: "soon" on the last two days, "late" after them. Null when the class has no homework. */
+function homework(){
+  const c=MY_CLASS&&MY_CLASS.homework&&CATS.find(c=>c.id===MY_CLASS.homework);
+  if(!c) return null;
+  const t=tally(PHRASES.filter(p=>p.listed!==false&&p.cat===c.id)), now=new Date(), days=n=>n===1?"יום":n===2?"יומיים":`${n} ימים`;
+  const left=MY_CLASS.due?Math.round((new Date(MY_CLASS.due+"T00:00")-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5):null;
+  const msg=left==null?(t.done?"המשך":"התחילו"):left<0?`באיחור של ${days(-left)}`:left===0?"מגישים היום!":left===1?"מגישים מחר!":`נשארו ${days(left)}`;
+  return {c,l:LESSONS.find(l=>l.id===c.lesson),t,msg,state:left==null||left>1?"":left<0?"late":"soon"};
+}
+/* The daily session: DAILY.n sentences in one go, so the student does not have to choose what to practise. Half are
+   sentences they already said and can say better, drawn from their weakest DAILY.from (so the same ones do not come back
+   every day); the rest are new, in the course's order, from the homework topic and its lesson, or else the first unfinished lesson.
+   When one kind runs short the other fills in. Stories are left out: their lines are said in a conversation. */
+const DAILY={n:10, review:5, from:15};
+const today=()=>new Date().toLocaleDateString("sv");   // the device's date, as 2026-10-10
+function dailyPlan(){
+  const cats=CATS.filter(c=>!c.story), pool=PHRASES.filter(p=>p.listed!==false&&cats.some(c=>c.id===p.cat));
+  const got=pool.filter(p=>best[p.id]!=null).sort((a,b)=>best[a.id]-best[b.id]);   // the weakest first
+  const hw=homework(), first=hw&&!hw.t.over?hw.l:LESSONS.find(l=>!l.soon&&!tally(lessonList(l)).over), fresh=[];
+  const turn=[first,...LESSONS.filter(l=>l!==first)].filter(Boolean).flatMap(l=>cats.filter(c=>c.lesson===l.id));
+  for(const c of hw?[...turn.filter(c=>c===hw.c),...turn.filter(c=>c!==hw.c)]:turn){   // the homework topic before the rest of its lesson
+    const list=pool.filter(p=>p.cat===c.id&&best[p.id]==null);
+    fresh.push(...(list.every(p=>p.seq!=null)?list.sort((a,b)=>a.seq-b.seq):list));
+  }
+  const review=shuffle(got.filter(p=>best[p.id]<EXCELLENT).slice(0,DAILY.from)).slice(0,DAILY.review), news=fresh.slice(0,DAILY.n-review.length);
+  const old=[...review,...got.filter(p=>!review.includes(p)).slice(0,DAILY.n-review.length-news.length)], plan=[];
+  for(let i=0;i<DAILY.n;i++){ if(old[i]) plan.push(old[i].id); if(news[i]) plan.push(news[i].id); }   // one to improve, one new, in turn
+  return plan;
+}
+function startDaily(){
+  const plan=dailyPlan(); if(!plan.length) return;
+  daily=plan; dailySaid=new Set(); dailyWas=Object.fromEntries(plan.map(id=>[id,best[id]]));
+  home=false; document.body.classList.remove("home"); scrollTo(0,0);
+  startCat();
+}
+function endDaily(){   // past the session's last sentence: back to the path, and what was done
+  const n=daily.length, said=daily.filter(id=>dailySaid.has(id)).length, up=daily.filter(id=>dailyWas[id]!=null&&best[id]>dailyWas[id]).length;
+  const done=said*2>=n, spoken=driving;   // most of it was said: today's session counts
+  if(done) store.set("ihki.daily",today());
+  showPath();
+  $("dailyTitle").textContent=done?"כל הכבוד!":"התרגול היומי הסתיים";
+  $("dailyText").textContent=`תרגלתם ${said} מתוך ${n} משפטים`+(up?`, ושיפרתם את הציון ב-${up} מהם`:"")+".";
+  $("dailyDlg").showModal();
+  if(spoken) sayHe("התרגול היומי הסתיים.");
+}
+function drawToday(){   // above the path: the daily session
+  const box=$("today"), n=CATS.length?dailyPlan().length:0;
+  box.innerHTML="";
+  if(n){
+    const b=mark("daily","","button");
+    b.append(mark("","תרגול יומי"),mark("",store.get("ihki.daily","")===today()?"✓ תרגלתם היום":`${n} משפטים`,"small"));
+    b.title="סבב קצר: משפטים שכדאי לשפר, ומשפטים חדשים מהשיעור הנוכחי"; b.onclick=startDaily;
+    box.append(b);
+  }
+  box.hidden=!box.children.length;
 }
 function ball(t,now){   // a topic's button and the disc inside its ring
   const b=document.createElement("button"), ring=document.createElement("span"), dot=document.createElement("span");
@@ -511,6 +621,8 @@ const STEP=108, SWAY=[0,.7,1,.7,0,-.7,-1,-.7];   // the road: the way down from 
 let drawnW=0, nowWatch=null;
 function drawPath(stay){
   const box=$("path"), listed=PHRASES.filter(p=>p.listed!==false), NS="http://www.w3.org/2000/svg";
+  drawToday();
+  const hw=homework();   // its topic gets a bubble too; the one to do now stays the next in the course's order
   const w=box.clientWidth||Math.min(innerWidth-32,460), amp=Math.max(40,Math.min(96,w/2-46)); drawnW=box.clientWidth;
   const road=document.createElementNS(NS,"svg"), stops=[];   // stops: the points the road goes through
   road.setAttribute("class","road"); road.setAttribute("aria-hidden","true"); box.innerHTML=""; box.append(road);
@@ -541,14 +653,19 @@ function drawPath(stay){
       const x=-SWAY[i%8]*amp, right=x<0||(!x&&i%8===0);   // the first turn is to the left; the label stands on the other side
       b.classList.add(right?"R":"L"); b.style.setProperty("--x",x+"px"); b.style.setProperty("--y",y+"px");
       label.className="label"; label.style.setProperty("--w",Math.min(150,w/2-46+(right?-x:x))+"px");
-      dot.textContent=c.story?"💬":i+1;   // the number stays; a finished topic gets a badge, the one to do now a bubble
+      const mine=!!hw&&c===hw.c;   // the homework topic: its bubble counts the days left
+      dot.textContent=c.story?"💬":i+1;   // the number stays; a finished topic gets a badge, the one to do now and the homework a bubble
       if(t.over) dot.before(mark("badge",t.gold?"★":"✓"));
-      else if(cur){ dot.before(mark("tag",t.done?"המשך":"התחילו")); b.setAttribute("aria-current","step"); }
+      else if(cur||mine){
+        const tag=mark("tag",mine?"":t.done?"המשך":"התחילו");
+        if(mine){ tag.append(mark("","שיעורי בית","small"),hw.msg); if(hw.state){ tag.classList.add(hw.state); b.classList.add(hw.state); } }
+        dot.before(tag); if(cur) b.setAttribute("aria-current","step");   // the page opens on the topic to do now
+      }
       const way=c.name.match(WAY);   // "משפטים: עברית ← ערבית א'" is drawn as "משפטים א'" and a chip with the direction
       label.append(mark("",way?way[1]+way[4]:c.name,"b"));
       if(way) label.append(mark("way"+(way[2]==="ערבית"?" read":""),`${SHORT[way[2]]||way[2]}\u00a0←\u00a0${SHORT[way[3]]||way[3]}`));
-      label.append(count(t)); b.append(label);
-      b.title=`${c.name}: תורגלו ${t.done} מתוך ${t.n}`; b.setAttribute("aria-label",b.title);
+      label.append(mine&&t.over?mark("","✓ שיעורי הבית הושלמו 🎉","small"):count(t)); b.append(label);
+      b.title=(mine&&!t.over?`שיעורי בית, ${hw.msg}. `:"")+`${c.name}: תורגלו ${t.done} מתוך ${t.n}`; b.setAttribute("aria-label",b.title);
       b.onclick=()=>pickCat(c.id); box.append(b);
       stops.push({x,y,went:t.over,cur}); y+=STEP;
     });
@@ -573,7 +690,7 @@ function drawPath(stay){
 }
 addEventListener("resize",()=>{ if(home&&$("path").clientWidth!==drawnW) drawPath(true); });
 function pickCat(id){
-  cat=id; store.set("ihki.cat",cat);
+  daily=null; cat=id; store.set("ihki.cat",cat);
   home=false; document.body.classList.remove("home"); scrollTo(0,0);
   startCat();
 }
@@ -584,9 +701,13 @@ function showPath(){   // back to the path: whatever the card was reading, playi
   if(driveAudio){ driveAudio.pause(); if(driveAudioDone) driveAudioDone(); driveAudio=null; }
   if("speechSynthesis" in window) speechSynthesis.cancel();
   if(rec&&rec.state==="recording"){ recCancel=true; recRestart=false; rec.stop(); }
-  home=true; document.body.classList.add("home"); drawPath();
+  home=true; document.body.classList.add("home"); quizOff();
+  if(daily){ daily=null; startCat(); }   // a daily session that was left: the card is the last topic's again
+  else drawPath();
 }
 $("homeBtn").onclick=showPath;
+$("dailyClose").onclick=()=>$("dailyDlg").close();
+$("dailyMore").onclick=()=>{ $("dailyDlg").close(); startDaily(); };
 /* Progress of a signed-in student. The server's best scores replace the device's, so they follow the
    student between devices; this visit's scores stay on top of them until the server has them too. */
 let sessionBest={};
@@ -607,6 +728,8 @@ const EXCELLENT=85;   // the score the verdict calls "מצוין"
 // `here` is the topic's sentence on the card: not always the round's, because going back passes through the practised ones.
 let ordered=false, topic=[], here=null, showDone=store.get("ihki.showDone",false);
 function setRound(){
+  quizOff();
+  if(daily){ ordered=true; topic=order=[...daily]; pos=0; marks(); return; }   // the session's sentences, in its own order
   const list=PHRASES.filter(p=>p.cat===cat&&p.listed!==false);
   ordered=list.length>0&&list.every(p=>p.seq!=null);
   topic=(ordered?list.sort((a,b)=>a.seq-b.seq):shuffle(list)).map(p=>p.id);
@@ -630,7 +753,8 @@ function goTo(id){
   pos=Math.max(0,order.indexOf(id)); show(null,true);
 }
 function drawList(){
-  const box=$("plist"); box.innerHTML=""; $("listTitle").textContent=CATS.find(c=>c.id===cat).name; $("listTitle").append(mark("",`תורגלו ${topic.filter(id=>best[id]!=null).length} מתוך ${topic.length}`,"small"));
+  document.querySelector(".donebox").hidden=!!daily;   // a daily session has its own sentences
+  const box=$("plist"); box.innerHTML=""; $("listTitle").textContent=daily?"תרגול יומי":CATS.find(c=>c.id===cat).name; $("listTitle").append(mark("",`תורגלו ${topic.filter(id=>best[id]!=null).length} מתוך ${topic.length}`,"small"));
   const ids=ordered?topic:[...topic].sort((a,b)=>a-b);   // a shuffled topic is listed in the bank's order
   ids.forEach((id,k)=>{
     const p=phraseOf(id), b=best[id], li=document.createElement("li"), row=document.createElement("button");
@@ -738,7 +862,29 @@ function recordWhenReady(){
   const id=cur.id, read=promptRead;
   read.then(()=>{ if(cur&&cur.id===id&&read===promptRead) autoRecord(); });   // not when another sentence or reading took over
 }
+/* A word of the answer letter by letter, each coloured by its score. A coloured letter carries its reason from the server
+   (`why`: what the sound was heard as, `tip`: how to say it): it is the letter's tooltip, and a tap on the letter shows it
+   in a bubble, for a screen with no mouse. */
+function litWord(into,w){
+  for(const l of w.letters){
+    const sp=document.createElement("span"); if(l.score!=null) sp.className=band(l.score); setTr(sp,l.t);
+    if(l.why){ sp.classList.add("why"); sp.title=l.why+(l.tip?"\n"+l.tip:""); sp.onclick=e=>{ e.stopPropagation(); showWhy(sp,l); }; }   // not the line's own click
+    into.append(sp);
+  }
+}
+const hasWhy=r=>r.words.some(w=>(w.letters||[]).some(l=>l.why));
+const WHY_HINT=(matchMedia("(hover:none)").matches?"הקישו על":"עמדו עם העכבר על")+" אות עם קו מנוקד כדי לראות מה נשמע במקומה";
+function showWhy(el,l){   // the bubble over the letter, or under it when there is no room above
+  const tip=$("whyTip"); tip.innerHTML=""; tip.append(mark("",l.why,"b")); if(l.tip) tip.append(mark("",l.tip));
+  tip.hidden=false;
+  const r=el.getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
+  tip.style.left=Math.max(8,Math.min(innerWidth-w-8,r.left+r.width/2-w/2))+"px";
+  tip.style.top=(r.top-h-8>=8?r.top-h-8:r.bottom+8)+"px";
+}
+const hideWhy=()=>{ $("whyTip").hidden=true; };
+addEventListener("scroll",hideWhy,true);
 for(const ev of ["pointerdown","keydown"]) addEventListener(ev,()=>{
+  hideWhy();   // a tap on another letter then shows its own
   cancelAutoNext();   // any click or key keeps the sentence on screen
   if(hePending!=null){ const id=hePending; hePending=null; if(cur&&cur.id===id&&heAudio) heAudio.play().catch(()=>{}); }
 },true);
@@ -757,7 +903,7 @@ function startAutoNext(){
    the marked line; its Arabic then appears beneath it. A grade above STORY.pass moves to the next line; a lower one
    plays the Arabic answer and listens again, STORY.tries attempts at most, and then moves on anyway. */
 const STORY={pass:80, tries:3};
-const isStory=()=>!!(CATS.find(c=>c.id===cat)||{}).story;
+const isStory=()=>!daily&&!!(CATS.find(c=>c.id===cat)||{}).story;
 const storyLast={};   // line id -> the result of its latest attempt on this visit
 let storyTries=0, storyFor=null, storyRun=0;
 function openSentence(id,wait){   // a sentence of the topic, in the round or not
@@ -770,13 +916,13 @@ function seatMic(){   // the microphone button sits in the story's current line;
   if(at) at.append(mic); else if(mic.parentNode!==micZone) micZone.prepend(mic);
 }
 function drawStory(){
-  const box=$("story"); micZone.prepend(mic); box.innerHTML="";   // the button is taken out before the lines are redrawn
+  const box=$("story"); micZone.prepend(mic); box.innerHTML=""; hideWhy();   // the button is taken out before the lines are redrawn
   const pill=(n,title)=>{ const m=document.createElement("span"); m.className="pill "+(n>=EXCELLENT?"good":n>=60?"mid":"bad"); m.textContent=n; m.title=title; return m; };
-  for(const id of topic){
-    const p=phraseOf(id), b=best[id], r=storyLast[id], now=id===cur.id;
+  for(const id of topic){   // in a quiz a line carries the quiz's own score, and nothing from before it
+    const p=phraseOf(id), b=quiz?null:best[id], r=quiz?quiz.got[id]:storyLast[id], now=id===cur.id;
     const row=document.createElement(now?"div":"button"), he=document.createElement("span"), tools=document.createElement("span");
     row.className="sline"; tools.className="tools"; setTr(he,p.he); row.append(he,tools);
-    if(now&&r){   // the grade of the attempt just made, and the best one when it was higher
+    if(r&&(now||quiz)){   // the grade of the attempt just made, and the best one when it was higher
       if(b!=null&&b>r.score){ const top=document.createElement("small"); top.textContent=`שיא ${b}`; tools.append(top); }
       tools.append(pill(r.score,"הציון של הניסיון האחרון"));
     }else if(b!=null) tools.append(pill(b,"הציון הטוב ביותר"));
@@ -784,10 +930,7 @@ function drawStory(){
       const tr=document.createElement("span"); tr.className="tr"; row.classList.add("said");
       if(r&&!(r.score>STORY.pass&&!r.unrelated)&&r.words.length&&r.words.every(w=>w.letters)){
         tr.classList.add("lit");
-        r.words.forEach((w,k)=>{
-          if(k) tr.append(" ");
-          for(const l of w.letters){ const sp=document.createElement("span"); if(l.score!=null) sp.className=band(l.score); setTr(sp,l.t); tr.append(sp); }
-        });
+        r.words.forEach((w,k)=>{ if(k) tr.append(" "); litWord(tr,w); });
       }else setTr(tr,p.tr);
       row.append(tr);
     }
@@ -829,6 +972,7 @@ function stopListen(){
 $("hearStop").onclick=stopListen;
 $("hearBtn").onclick=async()=>{
   if(listening){ hearPause(!hearPaused); return; }
+  if(quiz){ quizOff(); drawStory(); }   // hearing the answers ends a quiz
   cancelAutoNext(); autoRec=false; hePending=null; if(heAudio) heAudio.pause();
   if(rec&&rec.state==="recording"){ recCancel=true; recRestart=false; rec.stop(); }   // the recording that started by itself
   const run=++storyRun, on=()=>run===storyRun, box=$("story"), frame=row=>{ for(const r of box.querySelectorAll(".playing")) r.classList.remove("playing"); if(row) row.classList.add("playing"); };
@@ -845,6 +989,54 @@ $("hearBtn").onclick=async()=>{
   listening=false; hearFace(HEAR_ON,"השמעת השיחה"); $("hearStop").hidden=true; frame(null);
   if(on()) $("status").textContent=IDLE;
 };
+/* A story's quiz: the whole conversation said in one go. Each line is recorded once, by itself; its score appears beside
+   it and the next line follows, with no answer played and no second try. A line shows its Arabic only once it was said.
+   After the last line the card gives the grade (the average of the lines) and the QUIZ.tips mistakes made most often. */
+const QUIZ={tips:3, pause:900};   // pause: how long a line's score is seen before the next line is recorded
+let quiz=null;   // {got: line id -> its result, over: the grade is on the card}
+function quizFace(){ const on=!!quiz&&!quiz.over; $("quizBtn").textContent=on?"סיום הבוחן":"בוחן"; $("quizBtn").classList.toggle("primary",on); }
+function quizOff(){ if(!quiz) return; quiz=null; $("card").classList.remove("quizdone"); quizFace(); }
+$("quizBtn").onclick=()=>{
+  if(quiz&&!quiz.over){ quizEnd(); return; }
+  quizOff(); quiz={got:{},over:false}; quizFace();
+  order=topic; pos=0; show();   // from the first line, every line in its turn
+};
+async function quizLine(r){   // a line was graded: its score on the line, and on to the next line that has none
+  const q=quiz, id=cur.id;
+  if(!r.unrelated) keepScore(id,r.score);
+  q.got[id]=storyLast[id]=r; drawStory();
+  if(q.over){ quizEnd(); return; }   // it was still being graded when the quiz ended
+  const run=++storyRun; $("status").textContent=`ציון ${r.score}`;
+  await pause(QUIZ.pause);
+  if(quiz!==q||q.over||home||cur.id!==id||run!==storyRun) return;
+  const at=topic.indexOf(id), next=[...topic.slice(at+1),...topic.slice(0,at)].find(i=>!q.got[i]);   // a line that was skipped comes after the last one
+  if(next==null) quizEnd(); else openSentence(next);
+}
+function quizEnd(){
+  const q=quiz, said=topic.filter(id=>q.got[id]);
+  cancelAutoNext(); storyRun++; autoRec=false;
+  if(rec&&rec.state==="recording"){ recCancel=true; recRestart=false; rec.stop(); }
+  if(!said.length){ quizOff(); $("status").textContent=IDLE; return; }   // ended before a line was said
+  q.over=true; quizFace();
+  const s=mean(said.map(id=>q.got[id].score)), by={};   // the tips by the mistake they are about: how often, how badly, in which words
+  for(const id of said) for(const t of q.got[id].tips){
+    const g=by[t.key]||(by[t.key]={t,n:0,low:100,words:[]});
+    g.n++; g.low=Math.min(g.low,t.score); if(t.word_tr&&!g.words.includes(t.word_tr)) g.words.push(t.word_tr);
+  }
+  const top=Object.values(by).sort((a,b)=>b.n-a.n||a.low-b.low).slice(0,QUIZ.tips);
+  $("score").textContent=s; $("pill").className="pill "+(s>=EXCELLENT?"good":s>=60?"mid":"bad"); $("pill").textContent=s>=EXCELLENT?"מצוין":s>=60?"כמעט":"נסו שוב";
+  const words=$("words"), tips=$("tips"); words.innerHTML=""; tips.innerHTML="";
+  $("whyHint").hidden=true;
+  words.append(mark("sub",`ציון הבוחן · נאמרו ${said.length} מתוך ${topic.length} משפטים`));
+  top.forEach((g,k)=>{
+    const li=document.createElement("li"), where=mark("sub","");
+    setTr(where,(g.n>1?`${g.n} פעמים · `:"")+(g.words.length>1?"במילים ":"במילה ")+g.words.slice(0,4).join(", "));
+    li.append(mark("what",`${k+1}. ${g.t.title}`),mark("",g.t.text),where); tips.append(li);
+  });
+  if(!top.length){ const li=document.createElement("li"); li.append(mark("what","כל העיצורים נשמעו נכון"),mark("","נסו לומר את השיחה בקצב דיבור טבעי.")); tips.append(li); }
+  $("card").classList.add("quizdone"); $("result").hidden=false; $("result").scrollIntoView({block:"nearest",behavior:"smooth"});
+  $("status").textContent="הבוחן הסתיים. לחיצה על משפט מתרגלת אותו שוב";
+}
 async function storyRetry(){   // the grade did not pass: the answer is played, then the same line again, or the next one after the last try
   const id=cur.id, run=++storyRun, on=()=>!driving&&cur&&cur.id===id&&run===storyRun;
   const last=++storyTries>=STORY.tries;
@@ -857,15 +1049,16 @@ async function storyRetry(){   // the grade did not pass: the answer is played, 
   $("status").textContent="נסו שוב"; autoRec=true; autoRecord();
 }
 function show(p,wait){   // wait: do not record until the microphone button is pressed
-  cancelAutoNext(); stopListen();
+  cancelAutoNext(); stopListen(); hideWhy();
   storyRun++;   // an answer being played for the line that is left is stopped, and its retry dropped
   if(!driving&&driveAudio){ driveAudio.pause(); if(driveAudioDone) driveAudioDone(); driveAudio=null; }
   autoRec=!wait;
+  if(quiz&&quiz.over) quizOff();   // on to practising a line: the quiz's grade leaves the card
   cur=p||phraseOf(order[pos]);
   if(topic.includes(cur.id)) here=cur.id;
   if(storyFor!==cur.id){ storyFor=cur.id; storyTries=0; }
   const story=isStory()&&topic.includes(cur.id);
-  $("card").classList.toggle("storymode",story); $("story").hidden=!story; $("listBtn").hidden=story; $("hearBtn").hidden=!story;   // a story is its own list of sentences, and can be heard whole
+  $("card").classList.toggle("storymode",story); $("story").hidden=!story; $("listBtn").hidden=story; $("hearBtn").hidden=$("quizBtn").hidden=!story;   // a story is its own list of sentences, and can be heard whole or said whole, as a quiz
   if(story) drawStory(); else seatMic();
   promptRead=readPrompt();
   $("varRow").hidden=cur.grp==null;
@@ -873,14 +1066,14 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   // read phrases (workbook, Arabic -> Hebrew): the transliteration is the prompt and the Hebrew is the answer
   const note=!cur.read&&cur.he.match(/^(.*\S)\s*\(([^()]+)\)$/);   // "פתח (עבר, עתיד)": the brackets are a note under the word
   setTr($("prompt"),cur.read?cur.tr:note?note[1]:cur.he); if(note) $("prompt").append(mark("note",note[2]));
-  const c=CATS.find(c=>c.id===cat), mine=topic.includes(cur.id);   // a topic may name its items (a verb, a word) and its own task
+  const c=CATS.find(c=>c.id===(daily?cur.cat:cat)), mine=topic.includes(cur.id);   // a topic may name its items (a verb, a word) and its own task; in a daily session the topic is the sentence's own
   $("task").textContent=cur.read?"קראו בקול ותרגמו לעברית":mine&&c.task||"איך אומרים את זה בערבית מדוברת?";
   $("answerBtn").textContent=cur.read?"הצג תרגום":"הצג תשובה";
   $("catName").textContent=c.name; $("lessonName").textContent=lessonName(LESSONS.find(l=>l.id===c.lesson));
   // the number and the bar are the sentence's place in the topic, whatever the round holds
   const b=best[cur.id], at=topic.indexOf(cur.id), hintBox=$("doneHint");
   $("counter").textContent=ordered?"":`${pos+1} / ${order.length}`;
-  if(ordered&&at>=0){ const idx=document.createElement("span"); idx.className="idx"; idx.textContent=`${c.unit||"משפט"} ${at+1} מתוך ${topic.length}`; $("counter").append(idx); }
+  if(ordered&&at>=0){ const idx=document.createElement("span"); idx.className="idx"; idx.textContent=`${daily?"תרגול יומי ·":c.unit||"משפט"} ${at+1} מתוך ${topic.length}`; $("counter").append(idx); }
   $("progress").hidden=!ordered; $("progressBar").style.width=`${at>=0?(at+1)/topic.length*100:0}%`;
   hintBox.hidden=b==null;
   if(b!=null){   // a sentence practised before: its best score, in the verdict's colours
@@ -902,6 +1095,7 @@ function keepScore(id,s){   // a sentence's best score, on the device and for th
 }
 function render(r){
   if(r.error){ $("status").textContent=r.message; return; }
+  if(quiz){ quizLine(r); return; }
   $("status").textContent=r.score<30?"רוצים לנסות שוב? לחצו על המיקרופון":"לחצו כדי לנסות שוב";
   $("nextBtn").classList.add("primary");
   $("score").textContent=r.score;
@@ -914,13 +1108,15 @@ function render(r){
   legend.innerHTML='<div class="w">הנכון</div><div class="h">נשמע</div>'; words.appendChild(legend);
   for(const w of r.words){
     const box=document.createElement("div"); box.className="word";
-    const ar=document.createElement("div"); ar.className="w "+band(w.score); setTr(ar,w.tr);
+    const ar=document.createElement("div");   // letter by letter, as a story's line; a result without letters colours the whole word
+    if(w.letters&&w.letters.length){ ar.className="w"; litWord(ar,w); } else{ ar.className="w "+band(w.score); setTr(ar,w.tr); }
     const hd=document.createElement("div"); hd.className="h"; setTr(hd,w.heard_tr||"–");
     const n=document.createElement("div"); n.className="n"; n.textContent=Math.round(w.score)+" · ";
     const a=document.createElement("span"); a.lang="ar"; a.textContent=w.ar; n.append(a);
     box.append(ar,hd,n); words.appendChild(box);
   }
 
+  $("whyHint").hidden=!hasWhy(r); $("whyHint").textContent=WHY_HINT;
   const tips=$("tips"); tips.innerHTML="";
   if(r.unrelated){
     const li=document.createElement("li");
@@ -949,7 +1145,7 @@ function render(r){
   $("result").hidden=false;
   if($("story").hidden) $("result").scrollIntoView({block:"nearest",behavior:"smooth"});   // a story keeps its lines in view
   if(!r.unrelated){   // a "different sentence" is not practice; the server leaves it out too
-    keepScore(cur.id,s);
+    keepScore(cur.id,s); if(daily) dailySaid.add(cur.id);
   }
   const story=!driving&&!$("story").hidden;
   if(story){ storyLast[cur.id]=r; drawStory(); }   // the line was said: its grade and its Arabic appear on it
@@ -997,7 +1193,7 @@ if(!navigator.mediaDevices||!window.MediaRecorder){
   const w=$("envWarn"); w.textContent="הדפדפן הזה לא תומך בהקלטה. השתמשו ב־Chrome, Edge, Firefox או Safari עדכניים, בכתובת https."; w.hidden=false; mic.disabled=true;
 }
 
-mic.onclick=()=>{ stopListen(); startRec(false); };
+mic.onclick=()=>{ stopListen(); if(quiz&&quiz.over){ quizOff(); drawStory(); } startRec(false); };
 async function startRec(auto){   // auto: started by the page for the sentence on screen, not by a press
   hePending=null; if(heAudio) heAudio.pause();   // never record the prompt being read out
   if(rec&&rec.state==="recording"){ rec.stop(); return; }
@@ -1059,6 +1255,8 @@ function roundEnd(){   // a story stops at its end and waits for the microphone 
   if(story) $("status").textContent="הגעתם לסוף השיחה. לחצו על המיקרופון כדי להמשיך";
 }
 const nextPhrase=()=>{
+  if(quiz&&!quiz.over&&topic.indexOf(here)+1>=topic.length){ quizEnd(); return; }   // past the quiz's last line
+  if(daily&&pos+1>=order.length){ endDaily(); return; }
   if(!order.includes(here)){   // on a practised sentence reached by going back: on to the round's first one after it
     const at=topic.indexOf(here), k=order.findIndex(id=>topic.indexOf(id)>at);
     if(k<0) roundEnd(); else{ pos=k; show(); }
@@ -1089,7 +1287,7 @@ let ttsOff=false;   // server has no TTS key: stop asking
 // A story is a dialogue: its lines are said in turn by the topic's two voices, found by name (without the points) in
 // the server's list, so the speakers sound apart. Anywhere else, and when a name is not in the list, the chosen voice.
 function lineVoice(id){
-  const sel=$("voiceId"), c=CATS.find(c=>c.id===cat)||{}, k=topic.indexOf(id);
+  const sel=$("voiceId"), c=!daily&&CATS.find(c=>c.id===cat)||{}, k=topic.indexOf(id);
   const name=c.story&&c.voices&&k>=0&&c.voices[k%2], o=name&&[...sel.options].find(o=>o.text.replace(/[\u0591-\u05C7]/g,"")===name);
   return o?o.value:sel.value;
 }
@@ -1189,6 +1387,7 @@ function stopDrive(){
 $("driveBtn").onclick=async()=>{
   if(driving){ stopDrive(); return; }
   if(!cur||mic.disabled) return;
+  quizOff();
   if(!store.get("ihki.driveSeen",false)){ $("driveDlg").showModal(); return; }   // the first time: what the mode does, and then it starts
   stopListen();
   if(rec&&rec.state==="recording"){ recCancel=true; rec.stop(); }   // the recording that started by itself
@@ -1280,6 +1479,20 @@ function drawHead(klass,students){   // the class's name, its edit button and it
   tile(students.reduce((t,s)=>t+s.week,0),"הקלטות בשבוע האחרון");
   tile(avg??"–","ציון ממוצע");
   head.append(tiles);
+  const hw=klass.homework&&ALL_CATS.find(c=>c.id===klass.homework&&CLASS_LESSONS.some(l=>l.id===c.lesson));
+  if(hw){   // the homework: how many finished the topic, and who is still to, the furthest from it first
+    const list=listedPhrases().filter(p=>p.cat===hw.id), todo=students.map(s=>({s,t:stuTally(s,list)})).filter(x=>x.t.done<x.t.n).sort((a,b)=>a.t.done-b.t.done);
+    const due=dueText(klass.due), box=mark("hwsum"+(due.late&&todo.length?" late":""),""), line=mark("",`שיעורי בית: ${hw.name}`,"b");
+    line.append(mark("",` · ${lessonName(ALL_LESSONS.find(l=>l.id===hw.lesson))}`,"small"));
+    if(due.text) line.append(mark(""," · "+due.text,"small"));
+    box.append(line,mark("",`סיימו ${students.length-todo.length} מתוך ${students.length} תלמידים`,"small"));
+    if(todo.length){
+      const p=mark("","עוד לא סיימו: ","p");
+      todo.forEach((x,k)=>{ const who=document.createElement("bdi"); who.textContent=x.s.nick||x.s.name||x.s.email; p.append(k?" · ":"",who," ",ratio(x.t)); });
+      box.append(p);
+    }
+    head.append(box);
+  }
 }
 /* A lesson of the class: how much of it the students practised (on average), their grade, and the sentences the class
    finds hard: the class average of the students' best scores is under HARD. A sentence counts once enough students tried
@@ -1377,6 +1590,12 @@ function editClass(c){
     all.onchange=()=>{ boxes.forEach(b=>b.checked=all.checked); sync(); };
     boxes.forEach(b=>b.onchange=sync); sync();
   }
+  const hw=$("editHw"); hw.innerHTML=""; hw.add(new Option("אין",""));   // the homework: a topic, listed under its lesson
+  for(const l of ALL_LESSONS.filter(l=>!l.soon)){
+    const g=document.createElement("optgroup"); g.label=lessonName(l); hw.append(g);
+    for(const t of ALL_CATS.filter(t=>t.lesson===l.id)) g.append(new Option(t.name,t.id));
+  }
+  hw.value=c&&c.homework||""; $("editDue").value=c&&c.due||"";
   $("editEmails").value=c?c.emails.map(e=>[e,c.nicknames&&c.nicknames[e]].filter(Boolean).join(" ")).join("\n"):"";
   $("editSave").textContent=c?"שמירה":"פתיחת הכיתה"; $("editDelete").hidden=!c; $("editMsg").textContent="";
   countStudents(); $("editDlg").showModal(); (c?$("editEmails"):$("editName")).focus();
@@ -1400,7 +1619,9 @@ $("editForm").onsubmit=e=>{
   e.preventDefault();
   const lessons=[...$("editLessons").querySelectorAll(".chips :checked")].map(b=>b.value);
   if(!lessons.length){ $("editMsg").textContent="בחרו לפחות שיעור אחד."; return; }
-  sendClass(editing?"PUT":"POST",{name:$("editName").value,emails:$("editEmails").value,lessons});
+  const homework=$("editHw").value, due=homework?$("editDue").value:"";
+  if(homework&&!lessons.includes(ALL_CATS.find(c=>c.id===homework).lesson)){ $("editMsg").textContent="שיעורי הבית הם נושא מאחד משיעורי הכיתה: סמנו את השיעור שלו למעלה."; return; }
+  sendClass(editing?"PUT":"POST",{name:$("editName").value,emails:$("editEmails").value,lessons,homework,due});
 };
 $("editDelete").onclick=()=>{
   if(confirm(`למחוק את הכיתה ${editing.name}? התלמידים שלה לא יוכלו להיכנס עוד. ההקלטות וההתקדמות שלהם נשמרות.`)) sendClass("DELETE");
