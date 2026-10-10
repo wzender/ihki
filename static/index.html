@@ -197,6 +197,8 @@ body.driving .mic::before{display:none} body.driving .mic-zone.two{display:flex}
 /* The teacher's panel (its parts are styled further down: the class tabs, the figures, the lessons, the students). */
 body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage #today,body.manage #toNow,body.manage #practice,body:not(.home) #toManage{display:none}
 .mtitle{font:400 24px/1 var(--f-display);margin:0}
+#mState.setup{padding:10px 12px;border:1px solid var(--sumac);border-radius:10px;color:var(--ink)}
+#mState.setup code{display:block;margin-top:6px;font-size:12px;overflow-wrap:anywhere;user-select:all}
 .hard>.note{margin:0;padding:4px 16px 8px;color:var(--muted);font-size:14px}
 /* inside a student, each part (the best sentences, the weakest, every lesson) opens and closes on its heading */
 .sec>summary{cursor:pointer;list-style:none;display:grid;grid-template-columns:1fr auto 3em;gap:4px 10px;align-items:center;padding:8px 16px;border-top:1px solid var(--line);font:700 15px/1.4 var(--f-body)}
@@ -230,11 +232,10 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .hwsum.late b small{color:var(--sumac)}
 .hwsum small{color:var(--muted);font-size:13px;font-weight:600}
 .hwsum p{margin:0}
-.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}
 .tile{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:10px;background:var(--bg)}
 .tile b{font:400 24px/1.1 var(--f-display);font-variant-numeric:tabular-nums}
 .tile small{color:var(--muted);font-size:13px;line-height:1.25}
-@media (max-width:520px){.tiles{grid-template-columns:repeat(2,1fr)}}
 .lsum>summary{grid-template-columns:auto 1fr 3em}
 .lsum>summary>:first-child{white-space:nowrap}
 .lsum>summary small{text-align:end}
@@ -1800,7 +1801,7 @@ const place=p=>{ const c=ALL_CATS.find(c=>c.id===p.cat), l=c&&ALL_LESSONS.find(l
 const part=into=>{ const d=document.createElement("details"); d.className="sec"; d.append(document.createElement("summary")); into.append(d); return d; };   // a closed part of a card
 async function loadManage(){
   const state=$("mState");
-  state.textContent="טוען…";
+  state.textContent="טוען…"; state.classList.remove("setup");
   try{
     const res=await api("/api/class"); await ready;
     if(!res.ok){
@@ -1809,7 +1810,10 @@ async function loadManage(){
     }
     CLASS=await res.json(); await loadContent();
   }catch{ state.textContent="השרת לא זמין."; return; }
-  state.textContent=""; drawManage();
+  state.textContent=""; state.classList.toggle("setup",!!(CLASS.setup||[]).length);
+  for(const x of CLASS.setup||[]){   // a table the teacher still has to create in Supabase: what is missing, and the command
+    const code=mark("",x.sql,"code"); code.dir="ltr"; state.append(mark("",x.what,"b"),mark(""," הריצו ב-SQL Editor של Supabase:"),code); }
+  drawManage();
 }
 function drawManage(){
   const classes=CLASS.classes||[];
@@ -2010,8 +2014,10 @@ function drawHead(klass,students){   // the class's name and its figures; before
   tile(students.filter(s=>s.week).length,"תרגלו בשבוע האחרון");
   tile(students.reduce((t,s)=>t+s.week,0),"הקלטות בשבוע האחרון");
   tile(avg??"–","ציון ממוצע");
-  head.append(tiles);
   const hw=klass.homework&&ALL_CATS.find(c=>c.id===klass.homework&&CLASS_LESSONS.some(l=>l.id===c.lesson));
+  const hwList=listedPhrases(), hwDone=hw?students.filter(s=>{ const t=topicTally(s,hw,hwList); return t.done>=t.n; }).length:0;
+  tile(hw?`${hwDone}/${students.length}`:"–",hw?"סיימו את שיעורי הבית":"אין שיעורי בית");   // the same count as the homework's line below
+  head.append(tiles);
   if(hw){   // the homework: how many finished the topic, and who is still to, the furthest from it first
     const list=listedPhrases(), todo=students.map(s=>({s,t:topicTally(s,hw,list)})).filter(x=>x.t.done<x.t.n).sort((a,b)=>a.t.done-b.t.done);
     const due=dueText(klass.due), box=mark("hwsum"+(due.late&&todo.length?" late":""),""), line=mark("",`שיעורי בית: ${hw.name}`,"b");

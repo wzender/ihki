@@ -339,7 +339,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         for r in rows:
             by.setdefault(r["user_id"], []).append(r)
         written: dict[str, dict[str, list[str]]] = {}   # user id -> {topic: lines}
-        for w in wrote:
+        for w in wrote or []:
             if w["topic"] in WRITE_TOPICS and isinstance(w.get("lines"), list):
                 written.setdefault(w["user_id"], {})[w["topic"]] = [str(x) for x in w["lines"]]
         member: dict[str, dict[str, str]] = {}   # email -> {class name: nickname}
@@ -359,7 +359,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                     for u in users if not classes or u["email"].lower() in member]
         missing = member.keys() - {s["email"].lower() for s in students}
         students += [student(e, "", False, []) for e in sorted(missing)]
-        return {"classes": [{**c, "lessons": lessons_of(c), **homework_of(c, lesson_of)} for c in classes], "students": students}
+        # "setup": what the teacher still has to run in Supabase, in words and as SQL; without it the panel would
+        # show written homework as not done, though the students wrote it (it stays on their devices)
+        setup = [{"what": "הטבלה writings לא קיימת ב-Supabase, ולכן שיעורי הבית בכתיבה לא נשמרים: מה שהתלמידים כתבו נשאר במכשיר שלהם "
+                          "והפאנל מראה שלא כתבו. אחרי יצירת הטבלה, המשפטים נשלחים בכניסה הבאה של כל תלמיד.",
+                  "sql": CREATE_WRITINGS}] if wrote is None else []
+        return {"classes": [{**c, "lessons": lessons_of(c), **homework_of(c, lesson_of)} for c in classes], "students": students,
+                "setup": setup}
 
     def class_store_error(e: AuthUnavailable) -> str:
         """The teacher's message when a class cannot be written; a 404 means Supabase has no `classes` table."""

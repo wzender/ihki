@@ -160,15 +160,16 @@ class SupabaseAuth:
         except (urllib.error.URLError, TimeoutError) as e:
             raise AuthUnavailable(str(e)) from e
 
-    def all_writings(self) -> list[dict]:
-        """Every student's written homework, for the panel: user_id, topic, lines. None before the table is created."""
+    def all_writings(self) -> list[dict] | None:
+        """Every student's written homework, for the panel: user_id, topic, lines. Before the table is created it is
+        None: nothing a student writes is kept, which the panel says."""
         try:
             return self._admin(f"/rest/v1/writings?select=user_id,topic,lines&limit={PAGE * 10}")
         except AuthUnavailable as e:
             if "answered 404" not in str(e):
                 raise
             log.warning("the table `writings` is missing (see the README): the panel shows no written homework")
-            return []
+            return None
 
     def _get(self, path: str, token: str, key: str):
         req = urllib.request.Request(
