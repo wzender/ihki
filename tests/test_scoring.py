@@ -433,7 +433,7 @@ def test_sign_in_guards_the_practice_endpoints():
         url, key, teachers = "https://proj.supabase.co", "sb_publishable_x", frozenset()
 
         def __init__(self):
-            self.rows, self.cls = [], []
+            self.rows, self.cls, self.vids = [], [], []
 
         def classes(self, fresh=False):
             return self.cls
@@ -449,6 +449,19 @@ def test_sign_in_guards_the_practice_endpoints():
 
         def delete_class(self, id):
             self.cls = [c for c in self.cls if c["id"] != id]
+
+        def videos(self, fresh=False):
+            return self.vids
+
+        def add_video(self, lesson, title, url, pos, ord):
+            self.vids.append({"id": len(self.vids) + 1, "lesson": lesson, "title": title, "url": url, "pos": pos, "ord": ord})
+
+        def place_videos(self, places):
+            for id, pos, ord in places:
+                next(v for v in self.vids if v["id"] == id).update(pos=pos, ord=ord)
+
+        def delete_video(self, id):
+            self.vids = [v for v in self.vids if v["id"] != id]
 
         def user(self, token):
             return {"id": "u1", "email": "A@b.c"} if token == "good" else None
@@ -508,6 +521,51 @@ def test_sign_in_guards_the_practice_endpoints():
         assert c.post("/api/classes", json={"name": "September 2026", "emails": "x@b.c", "lessons": ALL[:1]},
                       headers=good).status_code == 200
         assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": True, "classes": [], "lessons": ALL}
+        # the content part: a teacher adds a video to a ready lesson by its Vimeo link, kept without the sharing parameters
+        READY = [l["id"] for l in LESSONS if not l.get("soon")]
+        SOON = next(l["id"] for l in LESSONS if l.get("soon"))
+        link = "https://vimeo.com/1233611297/d46ac373c8?share=copy&fl=sv&fe=ci"
+        assert c.get("/api/videos").status_code == 401 and c.get("/api/videos", headers=good).json() == {"videos": []}
+        for body, code in (({"lesson": READY[0], "title": "  פתיחה   לשיעור ", "url": link}, 200),
+                           ({"lesson": READY[1], "title": "public", "url": "vimeo.com/76979871"}, 200),
+                           ({"lesson": READY[0], "title": "", "url": link}, 400), ({"lesson": READY[0], "title": "x" * 81, "url": link}, 400),
+                           ({"lesson": SOON, "title": "x", "url": link}, 400), ({"lesson": "no-such-lesson", "title": "x", "url": link}, 400),
+                           ({"lesson": READY[0], "title": "x", "url": "https://youtube.com/watch?v=1233611297"}, 400),
+                           ({"lesson": READY[0], "title": "x", "url": "https://evil.example/?u=https://vimeo.com/1233611297"}, 400),
+                           ({"lesson": READY[0], "title": "x", "url": "https://vimeo.com/channels/staffpicks"}, 400)):
+            r = c.post("/api/videos", json=body, headers=good)
+            assert r.status_code == code, (body, r.text)
+        first, second = c.get("/api/videos", headers=good).json()["videos"]
+        N1 = sum(k["lesson"] == READY[0] for k in CATEGORIES)   # a new video stands after its lesson's topics
+        assert first == {"id": 1, "lesson": READY[0], "title": "פתיחה לשיעור", "url": "https://vimeo.com/1233611297/d46ac373c8",
+                         "embed": "https://player.vimeo.com/video/1233611297?h=d46ac373c8&dnt=1", "pos": N1}
+        assert (second["url"], second["embed"]) == ("https://vimeo.com/76979871", "https://player.vimeo.com/video/76979871?dnt=1")
+        from app.main import vimeo_link
+        assert vimeo_link("https://player.vimeo.com/video/1233611297?h=d46ac373c8") == first["url"]
+        # the teacher moves a lesson's videos among its topics: another one is added, and the two are placed in a new order
+        assert c.post("/api/videos", json={"lesson": READY[0], "title": "b", "url": link}, headers=good).status_code == 200
+        seen = lambda: [(v["id"], v["pos"]) for v in c.get("/api/videos", headers=good).json()["videos"] if v["lesson"] == READY[0]]
+        assert seen() == [(1, N1), (3, N1)]
+        order = lambda *o: c.put("/api/videos/order", json={"lesson": READY[0], "order": [{"id": i, "pos": p} for i, p in o]}, headers=good).status_code
+        assert order((3, 0), (1, 0)) == 200 and seen() == [(3, 0), (1, 0)]   # both before the first topic, the new one first
+        assert order((3, 0), (1, 2)) == 200 and seen() == [(3, 0), (1, 2)]
+        assert order((3, 0)) == 409 and order((3, 0), (2, 0)) == 409   # every video of the lesson, and no other's
+        assert order((3, 0), (1, N1 + 1)) == 400 and order((3, -1), (1, 0)) == 400 and seen() == [(3, 0), (1, 2)]
+        assert c.put("/api/videos/order", json={"lesson": SOON, "order": []}, headers=good).status_code == 400
+        c.app.state.auth.vids[0].update(pos=None)   # kept before videos had places: after the topics
+        assert seen() == [(3, 0), (1, N1)]
+        assert c.delete("/api/videos/3", headers=good).status_code == 200
+        first["pos"] = N1
+        # a student gets the videos of their classes' lessons only, and adds or deletes none
+        kept, c.app.state.auth.teachers = c.app.state.auth.cls, frozenset()
+        c.app.state.auth.cls = [{"id": 7, "name": "V", "emails": ["a@b.c"], "nicknames": {}, "lessons": READY[1:2]}]
+        assert c.get("/api/videos", headers=good).json()["videos"] == [second]
+        assert c.post("/api/videos", json={"lesson": READY[0], "title": "x", "url": link}, headers=good).status_code == 403
+        assert c.delete("/api/videos/1", headers=good).status_code == 403
+        assert c.put("/api/videos/order", json={"lesson": READY[0], "order": []}, headers=good).status_code == 403
+        c.app.state.auth.cls, c.app.state.auth.teachers = kept, frozenset({"a@b.c"})
+        assert c.delete("/api/videos/1", headers=good).status_code == 200
+        assert c.get("/api/videos", headers=good).json()["videos"] == [second]
         new_class = {"name": " October 2026 ", "emails": "S@b.c, new@b.c\nnew@b.c  דנה  \nx@b.c\n",   # an optional nickname
                      "lessons": ALL[::-1],   # x is in September's class too: a student may be in several
                      "homework": T2, "due": "2026-10-15"}

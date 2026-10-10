@@ -92,6 +92,7 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 .sat.started .dot,.sat.now .dot{background:var(--olive-soft);color:var(--olive)}
 .sat.done .dot{background:var(--olive);color:var(--on-olive);box-shadow:0 var(--s) 0 var(--olive-deep)}
 .gold{--c:var(--amber)}
+.sat.video .dot{font-size:20px}
 .sat.gold .dot{background:var(--amber-bg);color:var(--amber);box-shadow:0 var(--s) 0 var(--amber)}
 .badge{position:absolute;top:-2px;inset-inline-end:-2px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--bg);color:var(--c);border:2px solid var(--c);font:700 12px/1 var(--f-body)}
 /* The label stands beside its button, on the side the road leaves free. */
@@ -258,11 +259,32 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .rrow .pill,.rrow .none{justify-self:end}
 .rrow .none{color:var(--muted);font-size:12px;text-align:end}
 /* the panel's two parts: the classes (opened, edited, deleted) and the students (their progress, a class at a time) */
-.modes{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:14px;background:var(--line)}
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:14px;background:var(--line)}
 .modes button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 6px;border:0;border-radius:10px;background:transparent;color:var(--ink);font:700 16px/1.2 var(--f-body);cursor:pointer}
 .modes button small{font:600 12px/1.2 var(--f-body);color:var(--muted)}
 .modes button[aria-selected=true]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.15)}
 #manage.classes :is(#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.classes) #mClasses{display:none}
+#manage.content :is(#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.content) #mContent{display:none}
+/* the content part: a level's name, then a card per lesson with its topics and videos, a row each, and the form that adds a video */
+#mContent{display:flex;flex-direction:column;gap:12px}
+.clevel{margin:8px 0 0;font:400 24px/1.2 var(--f-display)}
+.csoon{margin:0;padding:10px 14px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:15px}
+.chead h2 small{display:block;margin-top:4px;font:600 13px/1.3 var(--f-body);color:var(--muted)}
+.clist{list-style:none;margin:10px 0;padding:0}
+.crow{display:grid;grid-template-columns:2em 1fr auto;gap:4px 10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.crow>i{font:700 14px/1 var(--f-body);color:var(--muted);text-align:center;font-style:normal}
+.crow.video>i{color:var(--olive)}
+.crow .two{display:flex;flex-direction:column;gap:2px;min-width:0;overflow-wrap:anywhere}
+.crow small{color:var(--muted);font-size:13px}
+.crow>small{justify-self:end}
+.crow .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.crow .acts .move{padding-inline:10px}
+.vadd>summary{list-style:none;width:fit-content;cursor:pointer}
+.vadd>summary::-webkit-details-marker{display:none}
+.vadd[open]>summary{margin-bottom:10px}
+.vadd input[name=url]{direction:ltr;text-align:left}
+#videoDlg{width:min(94vw,860px)}
+#videoBox iframe{display:block;width:100%;aspect-ratio:16/9;border:0;border-radius:10px;background:#000}
 #mClasses{display:flex;flex-direction:column;gap:inherit}
 #mClasses>.btn{align-self:flex-start}
 #mClasses .card>.btn{align-self:flex-start}
@@ -505,8 +527,9 @@ body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.micl
   <section class="wrap" id="manage" aria-labelledby="mTitle">
     <div class="roundbar"><h1 class="mtitle" id="mTitle">ניהול</h1><span class="sep"></span><button class="btn" id="mRefresh">רענון</button><button class="btn primary" id="mPractice">לתרגול</button></div>
     <div class="sub" id="mState" aria-live="polite"></div>
-    <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>ההתקדמות בכל כיתה</small></button></div>
+    <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>ההתקדמות בכל כיתה</small></button><button role="tab" data-mode="content">תוכן<small>נושאים וסרטונים</small></button></div>
     <div id="mClasses"></div>
+    <div id="mContent"></div>
     <div class="tabs" id="mTabs" role="tablist" aria-label="כיתות" hidden></div>
     <div class="card" id="mHead" hidden></div>
     <div class="card hard" id="mLessons" hidden></div>
@@ -558,6 +581,10 @@ body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.micl
     </section>
     <div class="row"><button class="btn" type="button" id="newBack">חזרה</button><span class="sep"></span><button class="btn primary" id="newNext"></button><span class="msg" id="newMsg" role="alert"></span></div>
   </form>
+</dialog>
+<dialog id="videoDlg" aria-labelledby="videoTitle">
+  <div class="dlg-head"><h2 id="videoTitle"></h2><button class="btn" id="videoClose">סגירה</button></div>
+  <div id="videoBox"></div>
 </dialog>
 <dialog id="classDlg" aria-labelledby="classTitle">
   <div class="dlg-head"><h2 id="classTitle"></h2><button class="btn" id="classClose">סגירה</button></div>
@@ -722,6 +749,28 @@ function lessonsWord(ls){   // lessons of one level by their numbers: "שיעו�
 const byLevel=ls=>ALL_LEVELS.map(level=>({level,lessons:ls.filter(l=>l.level===level.id)})).filter(g=>g.lessons.length);
 const STEP=108, SWAY=[0,.7,1,.7,0,-.7,-1,-.7];   // the road: the way down from one topic to the next, and how far aside each one stands
 let drawnW=0, nowWatch=null;
+/* A lesson's videos (the teacher adds them in the panel's content part) stand on the path among its topics, where the
+   teacher put them. A video opens in a box over the page; the ones already opened are marked, on this device only. */
+let VIDEOS=[], watched=store.get("ihki.watched",{});   // {id, lesson, title, url, embed, pos} of the student's lessons, in the path's order; {video id: 1}
+// a lesson's topics and videos in the path's order: {c, i} is its i-th topic, {v} a video, which has `pos` topics before it
+const lessonItems=(cats,vids)=>[...cats.flatMap((c,i)=>[...vids.filter(v=>v.pos===i).map(v=>({v})),{c,i}]),...vids.filter(v=>v.pos>=cats.length).map(v=>({v}))];
+async function loadVideos(){
+  if(!sb) return;
+  try{
+    const res=await api("/api/videos"); if(!res.ok) return;
+    VIDEOS=(await res.json()).videos||[];
+    if(PHRASES.length&&home&&!document.body.classList.contains("manage")) drawPath(true);
+  }catch{}
+}
+function playVideo(v,preview){   // preview: the teacher looks at it from the panel, which marks nothing
+  const f=document.createElement("iframe");
+  f.src=v.embed; f.title=v.title; f.allow="autoplay; fullscreen; picture-in-picture"; f.allowFullscreen=true;
+  $("videoTitle").textContent=v.title; $("videoBox").replaceChildren(f); $("videoDlg").showModal();
+  if(!preview){ watched[v.id]=1; store.set("ihki.watched",watched); }
+}
+$("videoClose").onclick=()=>$("videoDlg").close();
+$("videoDlg").addEventListener("close",()=>{   // without its frame the video stops playing
+  $("videoBox").replaceChildren(); if(home&&!document.body.classList.contains("manage")) drawPath(true); });
 function drawPath(stay){
   const box=$("path"), listed=PHRASES.filter(p=>p.listed!==false), NS="http://www.w3.org/2000/svg";
   drawToday();
@@ -751,11 +800,23 @@ function drawPath(stay){
     head.append(mark("",l.name),count(whole),document.createElement("i")); head.title=`${l.name}: תורגלו ${whole.done} מתוך ${whole.n}`;
     head.onclick=()=>pickCat(cats[todo].id); box.append(head);
     y+=64+86;   // the banner, room for the bubble, half a button
-    cats.forEach((c,i)=>{
-      const t=parts[i], cur=now&&i===todo, [b,dot]=ball(t,cur), label=document.createElement("span");
-      const x=-SWAY[i%8]*amp, right=x<0||(!x&&i%8===0);   // the first turn is to the left; the label stands on the other side
+    const seat=(b,i)=>{   // a button's place on the road, and its label
+      const label=document.createElement("span"), x=-SWAY[i%8]*amp, right=x<0||(!x&&i%8===0);   // the first turn is to the left; the label stands on the other side
       b.classList.add(right?"R":"L"); b.style.setProperty("--x",x+"px"); b.style.setProperty("--y",y+"px");
       label.className="label"; label.style.setProperty("--w",Math.min(150,w/2-46+(right?-x:x))+"px");
+      return [x,label];
+    };
+    const vids=VIDEOS.filter(v=>v.lesson===l.id), items=lessonItems(cats,vids);
+    items.forEach(({c,i,v},at)=>{
+      if(v){
+        const seen=!!watched[v.id], [b,dot]=ball({over:seen},false), [x,label]=seat(b,at);
+        b.classList.add("video"); dot.textContent="▶\uFE0E"; if(seen) dot.before(mark("badge","✓"));
+        label.append(mark("",v.title,"b"),mark("",seen?"✓ נצפה":"סרטון","small")); b.append(label);
+        b.title=`סרטון: ${v.title}`; b.setAttribute("aria-label",b.title);
+        b.onclick=()=>playVideo(v); box.append(b);
+        stops.push({x,y,went:seen}); y+=STEP; return;
+      }
+      const t=parts[i], cur=now&&i===todo, [b,dot]=ball(t,cur), [x,label]=seat(b,at);
       const mine=!!hw&&c===hw.c;   // the homework topic: its bubble counts the days left
       dot.textContent=c.story?"💬":i+1;   // the number stays; a finished topic gets a badge, the one to do now and the homework a bubble
       if(t.over) dot.before(mark("badge",t.gold?"★":"✓"));
@@ -772,7 +833,7 @@ function drawPath(stay){
       b.onclick=()=>pickCat(c.id); box.append(b);
       stops.push({x,y,went:t.over,cur}); y+=STEP;
     });
-    const cup=document.createElement("div"), x=-SWAY[cats.length%8]*amp;   // the lesson's end: gold once all of it was practised
+    const cup=document.createElement("div"), x=-SWAY[items.length%8]*amp;   // the lesson's end: gold once all of it was practised
     cup.className="cup"+(whole.over?" won":""); cup.style.setProperty("--x",x+"px"); cup.style.setProperty("--y",y+"px");
     cup.setAttribute("role","img"); cup.setAttribute("aria-label",`${l.name}: ${whole.over?"הושלם":"עוד לא הושלם"}`); cup.append(mark("","🏆")); box.append(cup);
     stops.push({x,y,went:whole.over}); y+=30+30;
@@ -1652,7 +1713,7 @@ async function loadManage(){
       const detail=(await res.json().catch(()=>({}))).detail||res.status;
       state.textContent=res.status===403?"הפאנל פתוח למורים בלבד.":`נתוני התלמידים לא זמינים כרגע (${detail}).`; return;
     }
-    CLASS=await res.json();
+    CLASS=await res.json(); await loadVideos();
   }catch{ state.textContent="השרת לא זמין."; return; }
   state.textContent=""; drawManage();
 }
@@ -1667,10 +1728,10 @@ function drawManage(){
   // clean); the totals beside their own fields (`tries` stays the per-sentence one)
   const students=CLASS.students.filter(s=>!klass||klass.name in s.classes).map(s=>{ if(klass&&s.since) s={...s,...s.since[klass.name]}; const t=stuTally(s,listed);
     return {...s,nick:klass?s.classes[klass.name]:Object.values(s.classes).find(Boolean)||"",done:t.done,n:t.n,avg:t.avg}; });
-  if(mMode!=="classes"&&mMode!=="students") mMode=classes.length?"students":"classes";
-  $("mModes").hidden=false; $("manage").classList.toggle("classes",mMode==="classes");
+  if(!["classes","students","content"].includes(mMode)) mMode=classes.length?"students":"classes";
+  $("mModes").hidden=false; $("manage").classList.toggle("classes",mMode==="classes"); $("manage").classList.toggle("content",mMode==="content");
   for(const b of $("mModes").children) b.setAttribute("aria-selected",b.dataset.mode===mMode);
-  drawClasses(classes); drawTabs(classes); drawHead(klass,students); drawLessons(students,listed); drawRoster(klass,students,listed);
+  drawClasses(classes); drawContent(); drawTabs(classes); drawHead(klass,students); drawLessons(students,listed); drawRoster(klass,students,listed);
   const one=students.find(s=>s.email===shownStudent);   // a student who left the class has no screen in it
   if(!one) shownStudent="";
   $("manage").classList.toggle("student",!!one); $("mStudent").innerHTML="";
@@ -1700,6 +1761,83 @@ function drawClasses(classes){
     const go=mark("btn","התקדמות התלמידים ‹","button"); go.onclick=()=>{ shownClass=c.name; store.set("ihki.mclass",c.name); shownStudent=""; showMode("students"); scrollTo(0,0); };
     card.append(top,facts,go); box.append(card);
   }
+}
+/* The content part: every level, its lessons, and each lesson's topics as the path shows them: the course's own, and among
+   them the videos the teacher added (a name and a Vimeo link each). A video is added under its lesson, at its end; the
+   arrows on its row move it up and down the lesson, past a topic or another video, and it is deleted there too. */
+function drawContent(){
+  const box=$("mContent"), listed=listedPhrases(); box.innerHTML="";
+  for(const g of byLevel(ALL_LESSONS)){
+    box.append(mark("clevel",g.level.name,"h2"));
+    for(let k=0;k<g.lessons.length;k++){
+      const l=g.lessons[k];
+      if(l.soon){   // the lessons still to come, a run of them in one line
+        const run=[l]; while(g.lessons[k+1]&&g.lessons[k+1].soon) run.push(g.lessons[++k]);
+        box.append(mark("csoon",`${lessonsWord(run)} · בקרוב`,"p")); continue;
+      }
+      const cats=ALL_CATS.filter(c=>c.lesson===l.id), vids=VIDEOS.filter(v=>v.lesson===l.id);
+      const card=mark("card",""), top=mark("chead",""), name=mark("",l.name,"h2"), list=mark("clist","","ol");
+      name.append(mark("",[`${cats.length} נושאים`,vids.length&&`${vids.length} סרטונים`].filter(Boolean).join(" · "),"small")); top.append(name);
+      const items=lessonItems(cats,vids);
+      items.forEach(({c,i,v},at)=>{
+        if(c){
+          const row=mark("crow","","li"), n=listed.filter(p=>p.cat===c.id).length;
+          row.append(mark("",c.story?"💬":i+1,"i"),mark("",c.name,"b"),mark("",`${c.story?"שיחה":"תרגול"} · ${n} ${c.unit==="מילה"?"מילים":c.unit==="פועל"?"פעלים":"משפטים"}`,"small")); list.append(row); return;
+        }
+        const row=mark("crow video","","li"), text=mark("two",""), title=mark("","","b"), t=document.createElement("bdi"), link=document.createElement("small"), acts=mark("acts","");
+        row.dataset.id=v.id;
+        const up=mark("btn move","↑","button"), down=mark("btn move","↓","button"), see=mark("btn","צפייה","button"), del=mark("btn danger","מחיקה","button");
+        t.textContent=v.title; title.append(t); link.dir="ltr"; link.textContent=v.url.replace("https://",""); text.append(title,link);
+        up.title="הזזה למעלה: מוקדם יותר בשיעור"; down.title="הזזה למטה: מאוחר יותר בשיעור";
+        up.setAttribute("aria-label",`${up.title}, ${v.title}`); down.setAttribute("aria-label",`${down.title}, ${v.title}`);
+        up.disabled=!at; down.disabled=at===items.length-1;
+        up.onclick=()=>moveVideo(l,items,at,-1,list); down.onclick=()=>moveVideo(l,items,at,1,list);
+        see.onclick=()=>playVideo(v,true); del.onclick=()=>deleteVideo(v);
+        acts.append(up,down,see,del); row.append(mark("","▶\uFE0E","i"),text,acts); list.append(row);
+      });
+      const add=document.createElement("details"), form=document.createElement("form"), field=(label,name,attrs)=>{
+        const lab=mark("",label,"label"), inp=Object.assign(document.createElement("input"),{name,required:true,autocomplete:"off",...attrs}); lab.append(inp); return lab; };
+      const row=mark("row",""), msg=mark("msg","");
+      add.className="vadd"; add.append(mark("btn","+ הוספת סרטון","summary"),form); form.className="cform"; msg.setAttribute("role","alert");
+      row.append(mark("btn primary","הוספה","button"),msg);
+      form.append(field("שם הסרטון","title",{maxLength:80,placeholder:"למשל: הסבר על הטיית הפועל"}),
+        field("קישור ל-Vimeo","url",{inputMode:"url",placeholder:"https://vimeo.com/1233611297/d46ac373c8"}),
+        mark("sub","הסרטון יופיע לתלמידים במסלול כנושא של השיעור. הוא נוסף בסוף השיעור, ובחיצים שבשורה שלו מזיזים אותו למקומו.","small"),row);
+      form.onsubmit=e=>{ e.preventDefault(); addVideo(l,form,msg); };
+      card.append(top,list,add); box.append(card);
+    }
+  }
+}
+async function addVideo(l,form,msg){
+  const buttons=form.querySelectorAll("button"); msg.textContent=""; buttons.forEach(b=>b.disabled=true);
+  try{
+    const res=await api("/api/videos",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({lesson:l.id,title:form.elements.title.value,url:form.elements.url.value})});
+    if(res.ok){ await loadVideos(); drawContent(); return; }
+    msg.textContent=(await res.json().catch(()=>({}))).detail||`ההוספה נכשלה (${res.status})`;
+  }catch{ msg.textContent="השרת לא זמין."; }
+  buttons.forEach(b=>b.disabled=false);
+}
+async function moveVideo(l,items,at,step,list){   // the video changes places with its neighbour, a topic or another video
+  const to=[...items]; [to[at],to[at+step]]=[to[at+step],to[at]];
+  let topics=0; const order=[];
+  for(const it of to){ if(it.c) topics++; else order.push({id:it.v.id,pos:topics}); }
+  list.querySelectorAll("button").forEach(b=>b.disabled=true);
+  try{
+    const res=await api("/api/videos/order",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({lesson:l.id,order})});
+    if(!res.ok) alert((await res.json().catch(()=>({}))).detail||`ההזזה נכשלה (${res.status})`);
+  }catch{ alert("השרת לא זמין."); }
+  await loadVideos(); drawContent();
+  const moved=[...$("mContent").querySelectorAll(".crow.video")].find(r=>r.dataset.id==items[at].v.id);   // the keyboard stays on the video that moved
+  const again=moved&&[...moved.querySelectorAll(".move")].find((b,k)=>k===(step<0?0:1)&&!b.disabled)||moved&&moved.querySelector(".move:not(:disabled)"); if(again) again.focus({preventScroll:true});
+}
+async function deleteVideo(v){
+  if(!confirm(`למחוק את הסרטון ${v.title}? הוא יירד מהמסלול של התלמידים.`)) return;
+  try{
+    const res=await api(`/api/videos/${v.id}`,{method:"DELETE"});
+    if(!res.ok) alert((await res.json().catch(()=>({}))).detail||`המחיקה נכשלה (${res.status})`);
+  }catch{ alert("השרת לא זמין."); }
+  await loadVideos(); drawContent();
 }
 async function deleteClass(c){
   if(!confirm(`למחוק את הכיתה ${c.name}? התלמידים שלה לא יוכלו להיכנס עוד. ההקלטות וההתקדמות שלהם נשמרות.`)) return;
@@ -2080,7 +2218,7 @@ if(AUTH_URL){
         MY_LESSONS=me.lessons||null; if(ALL_LESSONS.length) useLessons(MY_LESSONS);
         if(MY_CLASSES.length===1) MY_CLASS=mine[0];
         start.hidden=!ok||teacher; roles.hidden=$("toManage").hidden=!teacher; denied.hidden=ok;
-        if(ok){ (teacher?$("practiceBtn"):start).focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); }
+        if(ok){ (teacher?$("practiceBtn"):start).focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); loadVideos(); }
       },0);
     });
   }

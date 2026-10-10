@@ -4,7 +4,7 @@ Run:  uvicorn app.main:app --host 0.0.0.0 --port 7860
 Env:  MODEL_ID  (default facebook/wav2vec2-xlsr-53-espeak-cv-ft, or a path to a fine-tuned checkpoint)
       SAWTAK_API_KEY, SAWTAK_VOICE_ID  (model-answer playback, see app/tts.py)
       SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY  (Google sign-in, see app/auth.py)
-      TEACHER_EMAILS, SUPABASE_SECRET_KEY  (the teacher's management panel and its classes, see app/auth.py)
+      TEACHER_EMAILS, SUPABASE_SECRET_KEY  (the teacher's management panel, its classes and the lesson videos, see app/auth.py)
 A local .env file is loaded if present; real environment variables win over it.
 """
 from __future__ import annotations
@@ -42,6 +42,25 @@ MAX_UPLOAD = 2_000_000  # bytes; 15 s of opus is ~100 KB
 EMAIL = re.compile(r"[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+")
 MAX_NICKNAME = 40
 ALL_LESSONS = [l["id"] for l in LESSONS]   # with the lessons still to come: a class may take them ahead
+READY_LESSONS = [l["id"] for l in LESSONS if not l.get("soon")]   # the lessons the path shows: a video is added to one of them
+MAX_TITLE = 80
+# a Vimeo link: the video's number and, for an unlisted one, its hash (vimeo.com/1233611297/d46ac373c8?share=copy,
+# or the player's own player.vimeo.com/video/1233611297?h=d46ac373c8)
+VIMEO = re.compile(r"(?:https?://)?(?:www\.)?(?:vimeo\.com/(?:video/)?|player\.vimeo\.com/video/)(\d{6,12})"
+                   r"(?:/([0-9a-f]{6,20})(?![0-9a-z]))?(?:[/?#]\S*)?", re.I)
+CREATE_VIDEOS = ("create table public.videos (id bigint generated always as identity primary key, lesson text not null, "
+                 "title text not null, url text not null, pos int, ord int not null default 0, "
+                 "created_at timestamptz not null default now()); alter table public.videos enable row level security;")
+MIGRATE_VIDEOS = "alter table public.videos add column if not exists pos int, add column if not exists ord int not null default 0;"
+LESSON_TOPICS = {l: sum(c["lesson"] == l for c in CATEGORIES) for l in READY_LESSONS}   # a video's place is 0..this many
+
+
+def lesson_videos(rows: list[dict], lesson: str) -> list[dict]:
+    """A lesson's videos in their order on the path, each with its place: `pos` of the lesson's own topics stand
+    before it (one without a place, or past the topics the lesson has now, stands after them all)."""
+    n = LESSON_TOPICS[lesson]
+    mine = [{**v, "pos": n if v.get("pos") is None else max(0, min(n, v["pos"]))} for v in rows if v["lesson"] == lesson]
+    return sorted(mine, key=lambda v: (v["pos"], v.get("ord") or 0, v["id"]))
 TOPIC_LESSON = {c["id"]: c["lesson"] for c in CATEGORIES}   # a topic's lesson: homework is a topic of the class's lessons
 MIGRATE_CLASSES = ("alter table public.classes add column if not exists nicknames jsonb not null default '{}', "
                    "add column if not exists lessons text[] not null default '{}', "
@@ -60,6 +79,22 @@ def homework_of(c: dict) -> dict:
     topic = c.get("homework") or ""
     return {"homework": topic, "due": c.get("due") or None} if TOPIC_LESSON.get(topic) in lessons_of(c) \
         else {"homework": "", "due": None}
+
+
+def vimeo_link(text: str) -> str | None:
+    """A Vimeo link as it is kept: "https://vimeo.com/<number>", with "/<hash>" for an unlisted video (the sharing
+    link's tracking parameters are dropped). None when the text is not a link to a Vimeo video."""
+    m = VIMEO.fullmatch(text.strip())
+    if not m:
+        return None
+    h = m[2] or next(iter(urllib.parse.parse_qs(urllib.parse.urlsplit(text.strip()).query).get("h", [])), "")
+    return f"https://vimeo.com/{m[1]}" + (f"/{h.lower()}" if re.fullmatch(r"[0-9a-fA-F]{6,20}", h) else "")
+
+
+def vimeo_embed(url: str) -> str:
+    """The player's address of a kept link (see `vimeo_link`), for the page's frame."""
+    number, _, h = url.removeprefix("https://vimeo.com/").partition("/")
+    return f"https://player.vimeo.com/video/{number}?" + urllib.parse.urlencode({**({"h": h} if h else {}), "dnt": 1})
 
 
 def class_members(text: str) -> tuple[list[str], dict[str, str]]:
@@ -283,6 +318,83 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             a.delete_class(class_id)
         except AuthUnavailable as e:
             raise HTTPException(503, class_store_error(e))
+        return {"ok": True}
+
+    @app.get("/api/videos")
+    def videos(user: dict | None = Depends(signed_in)):
+        """The lesson videos, each lesson's in its order on the path: id, lesson, title, url (the Vimeo link), embed
+        (its player, for the page's frame) and pos (how many of the lesson's own topics stand before it, see
+        `lesson_videos`). A student gets those of their classes' lessons; a teacher, and an account in no
+        class, every one. One whose lesson the course no longer has is left out."""
+        if not user:
+            return {"videos": []}
+        mine = user["classes"]
+        lessons = READY_LESSONS if not mine or user["teacher"] else \
+            [l for l in READY_LESSONS if any(l in lessons_of(c) for c in mine)]
+        try:
+            rows = app.state.auth.videos()
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"videos not available: {e}")
+        return {"videos": [{"id": v["id"], "lesson": v["lesson"], "title": v["title"], "url": v["url"],
+                            "embed": vimeo_embed(v["url"]), "pos": v["pos"]}
+                           for l in lessons for v in lesson_videos(rows, l)]}
+
+    def video_store_error(e: AuthUnavailable) -> str:
+        """The teacher's message when a video cannot be written; a 404 means Supabase has no `videos` table."""
+        if "answered 404" in str(e):
+            return ("הטבלה videos לא קיימת ב-Supabase. הריצו ב-SQL Editor: "
+                    f"{CREATE_VIDEOS} אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
+        if "'pos'" in str(e) or "'ord'" in str(e) or "pos" in str(e) and "column" in str(e):   # a table made before the places
+            return f"לטבלה videos חסרות עמודות. הריצו ב-SQL Editor של Supabase: {MIGRATE_VIDEOS}"
+        return f"Supabase לא זמין: {e}"
+
+    @app.post("/api/videos")
+    def add_video(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+        """Adds a video to a lesson, after its topics and the videos it has: {"lesson": the id of a ready lesson,
+        "title", "url": a Vimeo link}. The teacher then moves it to its place (see `order_videos`)."""
+        lesson, title = str(body.get("lesson", "")), " ".join(str(body.get("title", "")).split())
+        if lesson not in READY_LESSONS:
+            raise HTTPException(400, "סרטון מוסיפים לשיעור מוכן")
+        if not title or len(title) > MAX_TITLE:
+            raise HTTPException(400, f"לסרטון צריך שם (עד {MAX_TITLE} תווים)")
+        url = vimeo_link(str(body.get("url", "")))
+        if not url:
+            raise HTTPException(400, "זה לא קישור לסרטון ב-Vimeo. הדביקו קישור כמו https://vimeo.com/1233611297/d46ac373c8")
+        try:
+            last = max((v.get("ord") or 0 for v in a.videos(fresh=True) if v["lesson"] == lesson), default=0)
+            a.add_video(lesson, title, url, LESSON_TOPICS[lesson], last + 1)
+        except AuthUnavailable as e:
+            raise HTTPException(503, video_store_error(e))
+        return {"ok": True}
+
+    @app.put("/api/videos/order")
+    def order_videos(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+        """Places a lesson's videos among its topics: {"lesson", "order": [{"id", "pos"}]}, every video of the lesson
+        once, in their order on the path; `pos` is how many of the lesson's own topics stand before the video."""
+        lesson, order = str(body.get("lesson", "")), body.get("order")
+        if lesson not in READY_LESSONS or not isinstance(order, list):
+            raise HTTPException(400, "unknown lesson")
+        try:
+            places = [(int(o["id"]), int(o["pos"])) for o in order]
+        except (KeyError, TypeError, ValueError):
+            raise HTTPException(400, "each video needs an id and a place")
+        try:
+            mine = {v["id"] for v in a.videos(fresh=True) if v["lesson"] == lesson}
+            if len(places) != len(mine) or {i for i, _ in places} != mine:   # added or deleted meanwhile, in another tab
+                raise HTTPException(409, "רשימת הסרטונים השתנתה. רעננו ונסו שוב")
+            if any(not 0 <= pos <= LESSON_TOPICS[lesson] for _, pos in places):
+                raise HTTPException(400, "no such place in the lesson")
+            a.place_videos([(i, pos, k) for k, (i, pos) in enumerate(places)])
+        except AuthUnavailable as e:
+            raise HTTPException(503, video_store_error(e))
+        return {"ok": True}
+
+    @app.delete("/api/videos/{video_id}")
+    def delete_video(video_id: int, a: SupabaseAuth = Depends(teacher_only)):
+        try:
+            a.delete_video(video_id)
+        except AuthUnavailable as e:
+            raise HTTPException(503, video_store_error(e))
         return {"ok": True}
 
     @app.get("/api/classmates")

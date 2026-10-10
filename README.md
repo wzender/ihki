@@ -110,7 +110,34 @@ The course has levels, each with a planned number of lessons (`LEVELS` in `app/w
 
 In the panel the teacher opens a class in five steps, a question each: its name (such as "מתחילים אוקטובר 2026"), its level (the class studies all the level's lessons; one not written yet opens to the class once it is), its students (ticked from the accounts the panel knows, or added by Google email, each with an optional nickname), its homework, and a summary to confirm, which says where all of it is changed later. That is the class's edit dialog ("עריכה", beside the class in the panel's list of classes): the name, the lessons one by one (by level: a level's box ticks all of it), the homework, and the students, a line each with the Google email and an optional nickname (`dana@gmail.com דנה`); the class is deleted there too. A student may be in several classes: after the opening screen the page asks which one they practise in now, and the learning path shows that class's lessons (a teacher, and anyone before the first class, sees every lesson and is not asked). The page shows the class under the app's name, and pressing it lists the class's students, with a button to move to another class; each student appears by their nickname in it or else their Google name (no addresses; `GET /api/classmates`). Once there is a class, only the classes' students and the teachers can sign in; before the first one, any Google account can.
 
-The panel has two parts, chosen at its top. **כיתות** lists the classes, each with its lessons, students and homework and its buttons: "עריכה", "מחיקה", and "התקדמות התלמידים", which moves to the other part; "כיתה חדשה" opens the steps above. **תלמידים** shows the progress, with a tab per class. A class counts only what its students practised since it was opened (its `created_at`), so a new class starts clean even when its students practised the same lessons before, in another class or in none; the students' own path keeps all they did. A recording that did not match the sentence on the screen (`unrelated`) is no try and has no score, but the panel shows it: "לא זוהו" beside the student, on their screen, and beside each topic it happened in. The tab shows the class's figures, its lessons (each with the sentences the class finds hard: the class average of each student's best score under 70) and its students, with the same columns however many lessons the class has: the homework topic (when one is set), all the class's sentences, and the grade. Before the first class it shows every account that signed in. This replaces the former `ALLOWED_EMAILS`, which is no longer read. The lessons limit what the path shows; the sentences themselves stay public, as before.
+The panel has three parts, chosen at its top (the third, **תוכן**, is described under "Content and videos"). **כיתות** lists the classes, each with its lessons, students and homework and its buttons: "עריכה", "מחיקה", and "התקדמות התלמידים", which moves to the other part; "כיתה חדשה" opens the steps above. **תלמידים** shows the progress, with a tab per class. A class counts only what its students practised since it was opened (its `created_at`), so a new class starts clean even when its students practised the same lessons before, in another class or in none; the students' own path keeps all they did. A recording that did not match the sentence on the screen (`unrelated`) is no try and has no score, but the panel shows it: "לא זוהו" beside the student, on their screen, and beside each topic it happened in. The tab shows the class's figures, its lessons (each with the sentences the class finds hard: the class average of each student's best score under 70) and its students, with the same columns however many lessons the class has: the homework topic (when one is set), all the class's sentences, and the grade. Before the first class it shows every account that signed in. This replaces the former `ALLOWED_EMAILS`, which is no longer read. The lessons limit what the path shows; the sentences themselves stay public, as before.
+
+### Content and videos
+
+The panel's third part, **תוכן**, shows the course as the students get it: every level, its lessons (those not written yet as "בקרוב"), and under each ready lesson its topics in the path's order. There the teacher adds a video to a lesson: a name and a Vimeo link, as Vimeo's share button gives it (`https://vimeo.com/1233611297/d46ac373c8?share=copy&fl=sv&fe=ci`; the hash after the number is what opens an unlisted video, and the sharing parameters are dropped). The video becomes a topic of the lesson, with ▶ on its circle, and pressing it plays it in a box over the page, in Vimeo's player. A lesson may have several videos. A new one is added at the lesson's end, and the ↑ ↓ arrows on its row move it a step at a time to its place: before the first topic, between two topics, beside another video, or after them all. The path shows the lesson in that order. A video is not practised, so it counts in no figure; the path marks the ones a student opened ("✓ נצפה"), on their device only. In the panel each video also has "צפייה" and "מחיקה". Students get the videos of their classes' lessons (`GET /api/videos`); adding, moving and deleting (`POST /api/videos`, `PUT /api/videos/order`, `DELETE /api/videos/{id}`) answer teachers only.
+
+The videos are kept in Supabase like the classes, read and written with `SUPABASE_SECRET_KEY` only. Create the table once (until it exists the lessons have no videos, and adding one is refused with this command in the message):
+
+```sql
+create table public.videos (
+  id         bigint generated always as identity primary key,
+  lesson     text not null,                        -- the lesson id, e.g. 2 or 2.1
+  title      text not null,                        -- the topic's name on the path
+  url        text not null,                        -- https://vimeo.com/<number>[/<hash>]
+  pos        int,                                  -- how many of the lesson's own topics stand before it; null = after them all
+  ord        int  not null default 0,              -- its turn among the videos of one place
+  created_at timestamptz not null default now()
+);
+alter table public.videos enable row level security;
+```
+
+A table made before videos had places needs the two columns (until then its videos show after their lessons' topics, and adding or moving one is refused with this command in the message):
+
+```sql
+alter table public.videos add column if not exists pos int, add column if not exists ord int not null default 0;
+```
+
+For the video to play inside the page, its Vimeo privacy setting has to allow embedding (on this site's domain, or anywhere).
 
 ### Homework
 

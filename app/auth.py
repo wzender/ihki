@@ -15,6 +15,10 @@ students' emails and an optional nickname of each, and the homework: a topic of 
 kept in the Supabase table `classes`. A student may be in several. Once there is a class, only the classes'
 students and the teachers are let in; before the first one (or without the secret key, which reads the table) any Google account is.
 
+Videos: the teacher adds lesson videos in the panel's content part (a lesson, a title and a Vimeo link) and moves
+each to its place among the lesson's topics, kept in the Supabase table `videos`. A student's path shows them as
+topics of their lessons.
+
 Env:  SUPABASE_URL              (https://<project-ref>.supabase.co)
       SUPABASE_PUBLISHABLE_KEY  (the publishable/anon key; it is public and also goes to the page)
       TEACHER_EMAILS            (optional: the accounts with the management panel, separated by commas or spaces)
@@ -58,6 +62,7 @@ class SupabaseAuth:
         self.secret = secret  # reads every student's rows and the classes; empty = the panel has no data
         self._cache: dict[str, tuple[float, dict]] = {}
         self._classes: tuple[float, list[dict]] | None = None
+        self._videos: tuple[float, list[dict]] | None = None
         self._lock = threading.Lock()
 
     def user(self, token: str) -> dict | None:
@@ -185,6 +190,47 @@ class SupabaseAuth:
     def delete_class(self, id: int) -> None:
         self._admin(f"/rest/v1/classes?id=eq.{int(id)}", "DELETE")
         self._classes = None
+
+    def videos(self, fresh: bool = False) -> list[dict]:
+        """Every lesson video, each lesson's in the order the teacher gave them: id, lesson (a lesson id), title, url
+        (the Vimeo link), pos (how many of the lesson's own topics stand before it; None in a table made before videos
+        had places: after them all) and ord (its turn among the videos of one place).
+        Kept for CLASSES_TTL, as the path asks. Without the secret key, or before the table is created, there are none."""
+        now = time.monotonic()
+        with self._lock:
+            hit = self._videos
+        if hit and hit[0] > now and not fresh:
+            return hit[1]
+        rows: list[dict] = []
+        if self.secret:
+            try:
+                # every column: a table made before the places still shows its videos
+                rows = self._admin("/rest/v1/videos?select=*&order=id.asc")
+                for r in rows:
+                    r["pos"], r["ord"] = r.get("pos"), r.get("ord") or 0
+            except AuthUnavailable as e:
+                if "answered 404" not in str(e):
+                    raise
+                log.warning("the table `videos` is missing (see the README): the lessons have no videos")
+        with self._lock:
+            self._videos = (now + CLASSES_TTL, rows)
+        return rows
+
+    def add_video(self, lesson: str, title: str, url: str, pos: int, ord: int) -> None:
+        self._admin("/rest/v1/videos", "POST", {"lesson": lesson, "title": title, "url": url, "pos": pos, "ord": ord})
+        self._videos = None
+
+    def place_videos(self, places: list[tuple[int, int, int]]) -> None:
+        """Moves videos: (id, pos, ord) of each."""
+        try:
+            for id, pos, ord in places:
+                self._admin(f"/rest/v1/videos?id=eq.{int(id)}", "PATCH", {"pos": pos, "ord": ord})
+        finally:
+            self._videos = None
+
+    def delete_video(self, id: int) -> None:
+        self._admin(f"/rest/v1/videos?id=eq.{int(id)}", "DELETE")
+        self._videos = None
 
     def users(self) -> list[dict]:
         """Every account that has signed in: id, email, name (as Google gave it)."""
