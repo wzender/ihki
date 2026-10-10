@@ -157,6 +157,19 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 @keyframes pulse{from{transform:scale(.9);opacity:.6}to{transform:scale(1.15);opacity:0}}
 @media (prefers-reduced-motion:reduce){.mic.live::after{animation:none}}
 .status{font-size:14px}
+/* A phrase to read has two microphones side by side: the Arabic one (filled; the reading is scored) and the Hebrew one
+   (outlined; the translation is checked). Each carries its language's letter and a line under it saying what it does. */
+.mic-zone:not(.two) :is(#heBtn,.miclab){display:none}
+.mic-zone.two{display:grid;grid-template-columns:repeat(2,minmax(0,132px));justify-content:center;justify-items:center;column-gap:20px}
+.mic-zone.two #mic{grid-area:1/1} .mic-zone.two #arLab{grid-area:2/1} .mic-zone.two #heBtn{grid-area:1/2} .mic-zone.two #heLab{grid-area:2/2}
+.mic-zone.two :is(.status,#quietBtn){grid-column:1/-1}
+.mic.he{background:var(--surface);color:var(--olive);box-shadow:inset 0 0 0 2px var(--olive)}
+.mic.he.live{background:var(--sumac);color:#fff;box-shadow:none}
+.mic-zone.two .mic::before{content:attr(data-lang);position:absolute;top:-5px;inset-inline-start:-5px;width:26px;height:26px;border-radius:50%;background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line);font:700 15px/26px var(--f-body);text-align:center}
+.mic-zone.two #mic::before{font-family:var(--f-ar)}
+body.driving .mic::before{display:none} body.driving .mic-zone.two{display:flex}
+.miclab{font:700 15px/1.25 var(--f-body)}
+.miclab small{display:block;font-weight:400;font-size:13px;color:var(--muted)}
 .ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
 .result{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px}
 .verdict{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
@@ -371,7 +384,7 @@ body.driving .card.storymode .prompt{display:block}
 .tips li .sub{display:block}
 /* Without a microphone ("תרגול שקט ללא ציון"): a Hebrew sentence is answered by hand instead of said, built from its
    Arabic words, tapped in order out of a bank that holds a few words too many. */
-body.quiet :is(#mic,#playMine,#driveBtn),body.driving #quietBtn{display:none}
+body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.miclab){display:none}
 #quietBtn{border:0;padding:4px 8px;font-size:14px;color:var(--olive);text-decoration:underline dotted;text-underline-offset:3px}
 .silent{display:flex;flex-direction:column;gap:10px}
 .silent .btn{align-self:flex-start}
@@ -450,12 +463,18 @@ body.quiet :is(#mic,#playMine,#driveBtn),body.driving #quietBtn{display:none}
 
     <div class="silent" id="silent" hidden></div>
     <div class="mic-zone">
-      <button class="mic" id="mic" aria-label="הקליטו את התשובה">
+      <button class="mic" id="mic" data-lang="ع" aria-label="הקליטו את התשובה">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></svg>
       </button>
       <div class="status" id="status">לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים</div>
       <button class="btn" id="quietBtn" title="תרגול בלי מיקרופון: מרכיבים את המשפט בערבית ממילים. לא נרשם ציון">תרגול שקט ללא ציון</button>
+      <button class="mic he" id="heBtn" data-lang="א" title="אומרים את התרגום בעברית, והדפדפן בודק אותו ונותן ציון. הציון לא נשמר" aria-label="אמרו את התרגום בעברית">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></svg>
+      </button>
+      <span class="miclab" id="arLab">קוראים בערבית<small>ציון על ההגייה</small></span>
+      <span class="miclab" id="heLab">מתרגמים לעברית<small>ציון על התרגום</small></span>
     </div>
+    <div class="donehint" id="heCheck" hidden></div>
 
     <div class="hint" id="hint" hidden>
       <div class="tr" id="hintTr"></div>
@@ -780,7 +799,7 @@ function pickCat(id){
 }
 function showPath(){   // back to the path: whatever the card was reading, playing or recording stops
   if(driving) stopDrive();
-  stopListen();
+  stopListen(); heStop();
   cancelAutoNext(); storyRun++; autoRec=false; hePending=null; if(heAudio) heAudio.pause();
   if(driveAudio){ driveAudio.pause(); if(driveAudioDone) driveAudioDone(); driveAudio=null; }
   if("speechSynthesis" in window) speechSynthesis.cancel();
@@ -941,7 +960,7 @@ async function readPrompt(){   // resolves once the prompt has been read out, or
    after a grade that does not move on. */
 let autoRec=false, promptRead=Promise.resolve();   // autoRec: the sentence on screen is recorded without a press
 function autoRecord(){
-  if(!autoRec||mute()||home||driving||mic.disabled||starting||(rec&&rec.state==="recording")) return;
+  if(!autoRec||mute()||heRec||home||driving||mic.disabled||starting||(rec&&rec.state==="recording")) return;
   startRec(true);
 }
 function recordWhenReady(){
@@ -1153,7 +1172,8 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   const note=!cur.read&&cur.he.match(/^(.*\S)\s*\(([^()]+)\)$/);   // "פתח (עבר, עתיד)": the brackets are a note under the word
   setTr($("prompt"),cur.read?cur.tr:note?note[1]:cur.he); if(note) $("prompt").append(mark("note",note[2]));
   const c=CATS.find(c=>c.id===(daily?cur.cat:cat)), mine=topic.includes(cur.id);   // a topic may name its items (a verb, a word) and its own task; in a daily session the topic is the sentence's own
-  $("task").textContent=cur.read?"קראו בקול ותרגמו לעברית":mine&&c.task||"איך אומרים את זה בערבית מדוברת?";
+  heStop(); $("heCheck").hidden=true; micZone.classList.toggle("two",heOk&&!!cur.read&&!story);   // a phrase to read can be answered in Hebrew too
+  $("task").textContent=cur.read?heOk?HE_TASK:"קראו בקול ותרגמו לעברית":mine&&c.task||"איך אומרים את זה בערבית מדוברת?";
   $("answerBtn").textContent=cur.read?"הצג תרגום":"הצג תשובה";
   $("catName").textContent=c.name; $("lessonName").textContent=lessonName(LESSONS.find(l=>l.id===c.lesson));
   // the number and the bar are the sentence's place in the topic, whatever the round holds
@@ -1215,6 +1235,72 @@ function drawSilent(){
 $("quietBtn").onclick=()=>{   // the same sentence stays on the card, with the other way of answering it
   quiet=!quiet; $("quietBtn").textContent=quiet?"חזרה לתרגול בקול":"תרגול שקט ללא ציון";
   const id=cur.id; setRound(); openSentence(id,true);
+};
+/* ---------- the translation, said in Hebrew ----------
+   A phrase to read (Arabic -> Hebrew) can be answered in Hebrew too: its second microphone listens with the browser's
+   own speech recognition and compares what it heard with the translation, word by word. The microphone button stays as
+   it is: the Arabic read aloud, scored by the server. The translation gets a grade of its own on the card (the share of its
+   words that were heard); it is not kept or sent to our server (the browser
+   may send the sound to its maker's recognition service), and a sentence answered this way is not practised. A browser
+   without Hebrew recognition has the one microphone, and the card is as it was. */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+// pass, near: the share of the translation's words that must be heard; endSilence: a continuous recognition stops
+// after this long without a word (Android repeats the words of a continuous one, so there the browser decides)
+const HE={pass:.8, near:.5, endSilence:2500, continuous:!/Android/i.test(navigator.userAgent)};
+const HE_TASK="קראו בקול בערבית, או אמרו את התרגום בעברית";
+let heRec=null, heOk=!!SR;   // heRec: the recognition in progress; heOk: this browser can hear Hebrew
+const heWords=s=>s.replace(/\([^()]*\)/g," ").replace(/[\u0591-\u05C7'"׳״]/g,"").replace(/[^\u05D0-\u05EA0-9]+/g," ").trim().split(" ").filter(Boolean);
+const heKey=w=>w[0]+w.slice(1).replace(/[וי]/g,"");   // a word written with or without its vowel letters is the same word
+function heMatch(want,heard){   // how many of the translation's words were heard, in their order
+  const b=heard.map(heKey), row=new Array(b.length+1).fill(0);
+  for(const x of want.map(heKey)){
+    let diag=0;
+    for(let j=1;j<=b.length;j++){ const up=row[j]; row[j]=x===b[j-1]?diag+1:Math.max(up,row[j-1]); diag=up; }
+  }
+  return row[b.length];
+}
+function heStop(){   // drop the recognition in progress, with no answer
+  if(!heRec) return;
+  const r=heRec; heRec=null; try{ r.abort(); }catch{}
+  $("heBtn").classList.remove("live");
+}
+$("heBtn").onclick=async()=>{
+  if(heRec){ try{ heRec.stop(); }catch{} return; }   // pressed again: that was the whole answer
+  const p=cur, btn=$("heBtn"), r=heRec=new SR();
+  stopListen(); cancelAutoNext(); autoRec=false; hePending=null; if(heAudio) heAudio.pause();
+  if(rec&&rec.state==="recording"){   // the recording that started by itself: the microphone is free once it has stopped
+    const off=new Promise(done=>rec.addEventListener("stop",done,{once:true}));
+    recCancel=true; recRestart=false; rec.stop(); await off;
+    if(heRec!==r) return;
+  }
+  let said="", err="", timer=null;
+  r.lang="he-IL"; r.continuous=HE.continuous; r.interimResults=true;
+  r.onresult=e=>{
+    said=[...e.results].map(x=>x[0].transcript).join(" ").trim();
+    clearTimeout(timer); if(HE.continuous) timer=setTimeout(()=>{ try{ r.stop(); }catch{} },HE.endSilence);
+  };
+  r.onerror=e=>{ err=e.error; };
+  r.onend=()=>{
+    clearTimeout(timer); if(heRec!==r) return;   // dropped: another sentence, or the microphone button
+    heRec=null; btn.classList.remove("live");
+    const status=$("status"), box=$("heCheck");
+    if(err==="service-not-allowed"||err==="language-not-supported"){   // no Hebrew here after all: the card as it was
+      heOk=false; micZone.classList.remove("two"); $("task").textContent="קראו בקול ותרגמו לעברית";
+      status.textContent="הדפדפן הזה לא מזהה דיבור בעברית. קראו את המשפט בערבית"; return;
+    }
+    if(err==="not-allowed"){ status.textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."; return; }
+    if(!said){ status.textContent=err&&err!=="no-speech"?"זיהוי הדיבור בעברית לא זמין כרגע. נסו שוב, או קראו את המשפט בערבית":"לא נשמע דיבור. לחצו ונסו שוב, קרוב יותר למיקרופון."; return; }
+    const want=heWords(p.he), n=heMatch(want,heWords(said)), share=n/want.length;
+    box.className="donehint "+(share>=HE.pass?"good":share>=HE.near?"mid":"bad");
+    box.textContent="ציון התרגום:"; box.append(mark("",Math.round(share*100),"b"));   // the grade: the share of the translation's words that were heard
+    box.append(` · ${share>=HE.pass?"✓ תרגום נכון":share>=HE.near?"כמעט":"לא דומה לתרגום"} · זוהו ${n} מתוך ${want.length} מילים · נשמע: ${said}`);
+    box.hidden=false;
+    if(share>=HE.pass){ $("answerBtn").onclick(); $("nextBtn").classList.add("primary"); status.textContent="נכון ✓ אפשר גם לקרוא את המשפט בערבית, לציון על ההגייה"; }
+    else status.textContent="נסו שוב, או לחצו על ״הצג תרגום״: ייתכן שניסחתם אחרת";
+  };
+  try{ r.start(); }catch{ heRec=null; $("status").textContent="זיהוי הדיבור בעברית לא זמין כרגע. נסו שוב, או קראו את המשפט בערבית"; return; }
+  btn.classList.add("live"); $("result").hidden=true; $("heCheck").hidden=true;
+  $("status").textContent="מקשיב… אמרו את התרגום בעברית (או לחצו לסיום)";
 };
 function keepScore(id,s){   // a sentence's best score, on the device and for this visit
   if(best[id]==null||s>best[id]){best[id]=s; store.set("ihki.best2",best);}
@@ -1321,7 +1407,7 @@ if(!navigator.mediaDevices||!window.MediaRecorder){
   const w=$("envWarn"); w.textContent="הדפדפן הזה לא תומך בהקלטה. השתמשו ב־Chrome, Edge, Firefox או Safari עדכניים, בכתובת https."; w.hidden=false; mic.disabled=true;
 }
 
-mic.onclick=()=>{ stopListen(); if(quiz&&quiz.over){ quizOff(); drawStory(); } startRec(false); };
+mic.onclick=()=>{ stopListen(); heStop(); if(quiz&&quiz.over){ quizOff(); drawStory(); } startRec(false); };
 async function startRec(auto){   // auto: started by the page for the sentence on screen, not by a press
   hePending=null; if(heAudio) heAudio.pause();   // never record the prompt being read out
   if(rec&&rec.state==="recording"){ rec.stop(); return; }
@@ -1331,7 +1417,7 @@ async function startRec(auto){   // auto: started by the page for the sentence o
   let stream;
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
   catch{ starting=false; $("status").textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."; finishRec({kind:"nomic"}); return; }
-  if(auto&&(home||mute()||driving||cur.id!==id)){   // the sentence changed while the microphone was opening
+  if(heRec||auto&&(home||mute()||driving||cur.id!==id)){   // the sentence changed while the microphone was opening, or its Hebrew is being heard
     stream.getTracks().forEach(t=>t.stop()); starting=false; recordWhenReady(); return;
   }
   const type=pickType();
