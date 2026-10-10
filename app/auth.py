@@ -19,6 +19,10 @@ Videos: the teacher adds lesson videos in the panel's content part (a lesson, a 
 each to its place among the lesson's topics, kept in the Supabase table `videos`. A student's path shows them as
 topics of their lessons.
 
+Texts: the teacher also adds texts there (a story or a dialogue: a lesson, a title, its lines in Hebrew and in
+Arabic written in Hebrew letters, and a dialogue's two voices), kept in the Supabase table `texts` and placed among
+the lesson's topics like the videos. Each is a topic practised line by line (see app/texts.py).
+
 Env:  SUPABASE_URL              (https://<project-ref>.supabase.co)
       SUPABASE_PUBLISHABLE_KEY  (the publishable/anon key; it is public and also goes to the page)
       TEACHER_EMAILS            (optional: the accounts with the management panel, separated by commas or spaces)
@@ -63,6 +67,7 @@ class SupabaseAuth:
         self._cache: dict[str, tuple[float, dict]] = {}
         self._classes: tuple[float, list[dict]] | None = None
         self._videos: tuple[float, list[dict]] | None = None
+        self._texts: tuple[float, list[dict]] | None = None
         self._lock = threading.Lock()
 
     def user(self, token: str) -> dict | None:
@@ -220,13 +225,47 @@ class SupabaseAuth:
         self._admin("/rest/v1/videos", "POST", {"lesson": lesson, "title": title, "url": url, "pos": pos, "ord": ord})
         self._videos = None
 
-    def place_videos(self, places: list[tuple[int, int, int]]) -> None:
-        """Moves videos: (id, pos, ord) of each."""
+    def place(self, places: list[tuple[str, int, int, int]]) -> None:
+        """Moves videos and texts: (table, id, pos, ord) of each; the table is "videos" or "texts"."""
         try:
-            for id, pos, ord in places:
-                self._admin(f"/rest/v1/videos?id=eq.{int(id)}", "PATCH", {"pos": pos, "ord": ord})
+            for table, id, pos, ord in places:
+                assert table in ("videos", "texts")
+                self._admin(f"/rest/v1/{table}?id=eq.{int(id)}", "PATCH", {"pos": pos, "ord": ord})
         finally:
-            self._videos = None
+            self._videos = self._texts = None
+
+    def texts(self, fresh: bool = False) -> list[dict]:
+        """Every text the teacher added: id, lesson (a lesson id), title, voices (a dialogue's two voices by name,
+        the odd lines' and the even lines'; empty for a story), lines ([Hebrew, Arabic in Hebrew letters] each), and
+        pos and ord as a video has them (see `videos`).
+        Kept for CLASSES_TTL, as each score asks. Without the secret key, or before the table is created, there are none."""
+        now = time.monotonic()
+        with self._lock:
+            hit = self._texts
+        if hit and hit[0] > now and not fresh:
+            return hit[1]
+        rows: list[dict] = []
+        if self.secret:
+            try:
+                rows = self._admin("/rest/v1/texts?select=*&order=id.asc")
+                for r in rows:
+                    r["voices"], r["ord"] = r.get("voices") or [], r.get("ord") or 0
+            except AuthUnavailable as e:
+                if "answered 404" not in str(e):
+                    raise
+                log.warning("the table `texts` is missing (see the README): the lessons have no texts")
+        with self._lock:
+            self._texts = (now + CLASSES_TTL, rows)
+        return rows
+
+    def add_text(self, lesson: str, title: str, voices: list[str], lines: list[list[str]], pos: int, ord: int) -> None:
+        self._admin("/rest/v1/texts", "POST", {"lesson": lesson, "title": title, "voices": voices, "lines": lines,
+                                               "pos": pos, "ord": ord})
+        self._texts = None
+
+    def delete_text(self, id: int) -> None:
+        self._admin(f"/rest/v1/texts?id=eq.{int(id)}", "DELETE")
+        self._texts = None
 
     def delete_video(self, id: int) -> None:
         self._admin(f"/rest/v1/videos?id=eq.{int(id)}", "DELETE")

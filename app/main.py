@@ -30,6 +30,7 @@ from .phrases import CATEGORIES, LESSONS, LEVELS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .reference import References
 from .scorer import Scorer, decode_audio, load_scorer
+from .texts import read_line, text_phrases
 from .tts import VOICES, SawtakTTS, TTSUnavailable, load_tts
 
 logging.basicConfig(level=logging.INFO)
@@ -55,12 +56,39 @@ MIGRATE_VIDEOS = "alter table public.videos add column if not exists pos int, ad
 LESSON_TOPICS = {l: sum(c["lesson"] == l for c in CATEGORIES) for l in READY_LESSONS}   # a video's place is 0..this many
 
 
-def lesson_videos(rows: list[dict], lesson: str) -> list[dict]:
-    """A lesson's videos in their order on the path, each with its place: `pos` of the lesson's own topics stand
-    before it (one without a place, or past the topics the lesson has now, stands after them all)."""
+def placed(rows: list[dict], lesson: str) -> list[dict]:
+    """A lesson's videos, or its texts, in their order on the path, each with its place: `pos` of the lesson's own
+    topics stand before it (one without a place, or past the topics the lesson has now, stands after them all), and
+    `ord` is its turn among the videos and texts of that place."""
     n = LESSON_TOPICS[lesson]
-    mine = [{**v, "pos": n if v.get("pos") is None else max(0, min(n, v["pos"]))} for v in rows if v["lesson"] == lesson]
-    return sorted(mine, key=lambda v: (v["pos"], v.get("ord") or 0, v["id"]))
+    mine = [{**v, "pos": n if v.get("pos") is None else max(0, min(n, v["pos"])), "ord": v.get("ord") or 0}
+            for v in rows if v["lesson"] == lesson]
+    return sorted(mine, key=lambda v: (v["pos"], v["ord"], v["id"]))
+
+
+# A text the teacher added (see texts.py) is a topic, "t<its id>", and each of its lines a phrase whose id is past the
+# bank's: TEXT_BASE + the text's id * TEXT_SPAN + the line's number, so it holds as texts come and go.
+TEXT_BASE, TEXT_SPAN = 1_000_000, 1000
+MAX_LINES, MAX_LINE = 200, 300
+VOICE_NAMES = [re.sub(r"[\u0591-\u05c7]", "", name) for name in VOICES]   # as a topic names its voices: without the points
+CREATE_TEXTS = ("create table public.texts (id bigint generated always as identity primary key, lesson text not null, "
+                "title text not null, voices text[] not null default '{}', lines jsonb not null, pos int, "
+                "ord int not null default 0, created_at timestamptz not null default now()); "
+                "alter table public.texts enable row level security;")
+_BUILT: dict[tuple[int, int], tuple[list[dict], list[str]]] = {}
+
+
+def built(row: dict) -> tuple[list[dict], list[str]]:
+    """A text's lines as phrases, and its words that were read by rule (see `texts.text_phrases`); built once."""
+    key = (row["id"], hash(str(row["lines"])))
+    if key not in _BUILT:
+        _BUILT[key] = text_phrases(f"t{row['id']}", row["lines"])
+    return _BUILT[key]
+
+
+def text_bank(rows: list[dict]) -> dict[int, dict]:
+    """{phrase id: phrase} of the texts' lines."""
+    return {TEXT_BASE + r["id"] * TEXT_SPAN + k: p for r in rows for k, p in enumerate(built(r)[0])}
 TOPIC_LESSON = {c["id"]: c["lesson"] for c in CATEGORIES}   # a topic's lesson: homework is a topic of the class's lessons
 MIGRATE_CLASSES = ("alter table public.classes add column if not exists nicknames jsonb not null default '{}', "
                    "add column if not exists lessons text[] not null default '{}', "
@@ -72,12 +100,12 @@ def lessons_of(c: dict) -> list[str]:
     return [l for l in ALL_LESSONS if l in c["lessons"]] or ALL_LESSONS
 
 
-def homework_of(c: dict) -> dict:
+def homework_of(c: dict, topics: dict[str, str] = TOPIC_LESSON) -> dict:
     """A class's homework: the topic it practises now (a category id, e.g. the conversation "l2-talk"; "" when none
     is set) and the day it is due (ISO date, or None). A topic of a lesson the class no longer studies, or one the
-    course no longer has, is no homework."""
+    course no longer has, is no homework. `topics` is every topic's lesson: the course's, and the teacher's texts'."""
     topic = c.get("homework") or ""
-    return {"homework": topic, "due": c.get("due") or None} if TOPIC_LESSON.get(topic) in lessons_of(c) \
+    return {"homework": topic, "due": c.get("due") or None} if topics.get(topic) in lessons_of(c) \
         else {"homework": "", "due": None}
 
 
@@ -129,13 +157,14 @@ def utc(stamp: str) -> datetime:
     return datetime.strptime(stamp[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
 
 
-def summary(rows: list[dict]) -> dict:
+def summary(rows: list[dict], texts: dict[int, dict] | None = None) -> dict:
     """One student's attempts summed up: best score and tries per phrase id, recordings (all, and of the last
     7 days), days practised, time of the last one. A recording that did not match the sentence on the screen
     (unrelated) is a recording, on its day, but no try and no score: such ones are counted per phrase id in "missed",
     and all together in "unmatched"."""
     shown = {c["id"] for c in CATEGORIES}
     ids = {(p["cat"], p["he"]): i for i, p in enumerate(PHRASES) if p["cat"] in shown}
+    ids.update({(p["cat"], p["key"]): i for i, p in (texts or {}).items()})   # the lines of the teacher's texts (see `text_bank`)
     best: dict[int, int] = {}
     tries: dict[int, int] = {}
     missed: dict[int, int] = {}
@@ -203,6 +232,30 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     members = [Depends(signed_in)]
 
+    def text_rows() -> list[dict]:
+        """The teacher's texts in the lessons the path shows. None without sign-in, or when they cannot be read."""
+        a: SupabaseAuth | None = app.state.auth
+        if a is None:
+            return []
+        try:
+            return [r for r in a.texts() if r["lesson"] in READY_LESSONS]
+        except AuthUnavailable as e:
+            log.warning("texts not read: %s", e)
+            return []
+
+    def topics() -> dict[str, str]:
+        """Every topic's lesson: the course's topics, and the teacher's texts."""
+        return {**TOPIC_LESSON, **{f"t{r['id']}": r["lesson"] for r in text_rows()}}
+
+    def phrase_of(phrase_id: int) -> dict:
+        """A phrase of the bank, or a line of a teacher's text; 404 for any other id."""
+        if 0 <= phrase_id < len(PHRASES):
+            return PHRASES[phrase_id]
+        phrase = text_bank(text_rows()).get(phrase_id) if phrase_id >= TEXT_BASE else None
+        if phrase is None:
+            raise HTTPException(404, "unknown phrase")
+        return phrase
+
     @app.get("/")
     def index():
         html = (STATIC / "index.html").read_text(encoding="utf-8")
@@ -221,13 +274,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         lessons = ALL_LESSONS if not mine or user["teacher"] else \
             [l for l in ALL_LESSONS if any(l in lessons_of(c) for c in mine)]
         return {"email": user["email"] if user else "", "teacher": bool(user and user["teacher"]),
-                "classes": [{"name": c["name"], "lessons": lessons_of(c), **homework_of(c)} for c in mine],
+                "classes": [{"name": c["name"], "lessons": lessons_of(c), **homework_of(c, topics())} for c in mine],
                 "lessons": lessons}
 
     @app.get("/api/progress")
     def progress(user: dict | None = Depends(signed_in)):
         """The signed-in student's progress: best score and tries per phrase id, recordings, days practised."""
-        s = summary(app.state.auth.attempts(user["token"]) if user else [])
+        s = summary(app.state.auth.attempts(user["token"]) if user else [], text_bank(text_rows()))
         return {k: s[k] for k in ("best", "tries", "recordings", "days")}
 
     @app.get("/api/class")
@@ -248,17 +301,18 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             for e in c["emails"]:
                 member.setdefault(e, {})[c["name"]] = c["nicknames"].get(e, "")
         opened = {c["name"]: utc(c["created_at"]) for c in classes if c.get("created_at")}
+        bank, lesson_of = text_bank(text_rows()), topics()
 
         def student(email: str, name: str, joined: bool, mine: list[dict]) -> dict:
             into = member.get(email.lower(), {})
-            since = {n: summary([r for r in mine if n not in opened or utc(r["created_at"]) >= opened[n]]) for n in into}
-            return {"email": email, "name": name, "joined": joined, "classes": into, "since": since, **summary(mine)}
+            since = {n: summary([r for r in mine if n not in opened or utc(r["created_at"]) >= opened[n]], bank) for n in into}
+            return {"email": email, "name": name, "joined": joined, "classes": into, "since": since, **summary(mine, bank)}
 
         students = [student(u["email"], u["name"], True, by.get(u["id"], []))
                     for u in users if not classes or u["email"].lower() in member]
         missing = member.keys() - {s["email"].lower() for s in students}
         students += [student(e, "", False, []) for e in sorted(missing)]
-        return {"classes": [{**c, "lessons": lessons_of(c), **homework_of(c)} for c in classes], "students": students}
+        return {"classes": [{**c, "lessons": lessons_of(c), **homework_of(c, lesson_of)} for c in classes], "students": students}
 
     def class_store_error(e: AuthUnavailable) -> str:
         """The teacher's message when a class cannot be written; a 404 means Supabase has no `classes` table."""
@@ -284,7 +338,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(400, "בחרו לפחות שיעור אחד לכיתה")
         lessons = [l for l in ALL_LESSONS if l in map(str, lessons)]
         homework, due = str(body.get("homework") or ""), str(body.get("due") or "") or None
-        if homework and TOPIC_LESSON.get(homework) not in lessons:
+        if homework and topics().get(homework) not in lessons:
             raise HTTPException(400, "שיעורי הבית הם נושא מאחד משיעורי הכיתה")
         try:
             due = date.fromisoformat(due).isoformat() if homework and due else None   # no date without homework
@@ -324,7 +378,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def videos(user: dict | None = Depends(signed_in)):
         """The lesson videos, each lesson's in its order on the path: id, lesson, title, url (the Vimeo link, for a teacher only), embed
         (its player, for the page's frame) and pos (how many of the lesson's own topics stand before it, see
-        `lesson_videos`). A student gets those of their classes' lessons; a teacher, and an account in no
+        `placed`) and ord. A student gets those of their classes' lessons; a teacher, and an account in no
         class, every one. One whose lesson the course no longer has is left out."""
         if not user:
             return {"videos": []}
@@ -338,8 +392,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         # the link itself goes to teachers only: a student's page gets the player's address, which it cannot do without
         return {"videos": [{"id": v["id"], "lesson": v["lesson"], "title": v["title"],
                             **({"url": v["url"]} if user["teacher"] else {}),
-                            "embed": vimeo_embed(v["url"]), "pos": v["pos"]}
-                           for l in lessons for v in lesson_videos(rows, l)]}
+                            "embed": vimeo_embed(v["url"]), "pos": v["pos"], "ord": v["ord"]}
+                           for l in lessons for v in placed(rows, l)]}
 
     def video_store_error(e: AuthUnavailable) -> str:
         """The teacher's message when a video cannot be written; a 404 means Supabase has no `videos` table."""
@@ -363,32 +417,100 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not url:
             raise HTTPException(400, "זה לא קישור לסרטון ב-Vimeo. הדביקו קישור כמו https://vimeo.com/1233611297/d46ac373c8")
         try:
-            last = max((v.get("ord") or 0 for v in a.videos(fresh=True) if v["lesson"] == lesson), default=0)
-            a.add_video(lesson, title, url, LESSON_TOPICS[lesson], last + 1)
+            a.add_video(lesson, title, url, LESSON_TOPICS[lesson], next_ord(a, lesson))
         except AuthUnavailable as e:
             raise HTTPException(503, video_store_error(e))
         return {"ok": True}
 
-    @app.put("/api/videos/order")
-    def order_videos(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
-        """Places a lesson's videos among its topics: {"lesson", "order": [{"id", "pos"}]}, every video of the lesson
-        once, in their order on the path; `pos` is how many of the lesson's own topics stand before the video."""
+    def next_ord(a: SupabaseAuth, lesson: str) -> int:
+        """The turn of a new video or text: after the lesson's topics and whatever was added to it before."""
+        return max((r.get("ord") or 0 for r in a.videos(fresh=True) + a.texts(fresh=True) if r["lesson"] == lesson), default=0) + 1
+
+    @app.put("/api/content/order")
+    def order_content(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+        """Places what the teacher added to a lesson among its topics: {"lesson", "order": [{"kind": "video" or
+        "text", "id", "pos"}]}, every video and text of the lesson once, in their order on the path; `pos` is how
+        many of the lesson's own topics stand before it."""
         lesson, order = str(body.get("lesson", "")), body.get("order")
         if lesson not in READY_LESSONS or not isinstance(order, list):
             raise HTTPException(400, "unknown lesson")
         try:
-            places = [(int(o["id"]), int(o["pos"])) for o in order]
+            places = [(str(o["kind"]), int(o["id"]), int(o["pos"])) for o in order]
         except (KeyError, TypeError, ValueError):
-            raise HTTPException(400, "each video needs an id and a place")
+            raise HTTPException(400, "each one needs a kind, an id and a place")
         try:
-            mine = {v["id"] for v in a.videos(fresh=True) if v["lesson"] == lesson}
-            if len(places) != len(mine) or {i for i, _ in places} != mine:   # added or deleted meanwhile, in another tab
-                raise HTTPException(409, "רשימת הסרטונים השתנתה. רעננו ונסו שוב")
-            if any(not 0 <= pos <= LESSON_TOPICS[lesson] for _, pos in places):
+            mine = {("video", v["id"]) for v in a.videos(fresh=True) if v["lesson"] == lesson} | \
+                   {("text", t["id"]) for t in a.texts(fresh=True) if t["lesson"] == lesson}
+            if len(places) != len(mine) or {(kind, i) for kind, i, _ in places} != mine:   # added or deleted meanwhile, in another tab
+                raise HTTPException(409, "תוכן השיעור השתנה. רעננו ונסו שוב")
+            if any(not 0 <= pos <= LESSON_TOPICS[lesson] for _, _, pos in places):
                 raise HTTPException(400, "no such place in the lesson")
-            a.place_videos([(i, pos, k) for k, (i, pos) in enumerate(places)])
+            a.place([(kind + "s", i, pos, k) for k, (kind, i, pos) in enumerate(places)])
         except AuthUnavailable as e:
-            raise HTTPException(503, video_store_error(e))
+            raise HTTPException(503, text_store_error(e) if "texts" in str(e) else video_store_error(e))
+        return {"ok": True}
+
+    @app.get("/api/texts")
+    def texts(user: dict | None = Depends(signed_in)):
+        """The teacher's texts as the page takes topics and phrases (see `/api/phrases`), for the lessons a video is
+        given for (see `videos`). "categories": a topic per text, laid out as a story: id ("t<n>"), name, lesson, story,
+        text (the text's own id), voices (a dialogue's two, by name), and pos and ord as a video has them; a teacher
+        also gets "guessed", the words that were read by rule. "phrases": the lines, in each text's order."""
+        if not user:
+            return {"categories": [], "phrases": []}
+        mine = user["classes"]
+        lessons = READY_LESSONS if not mine or user["teacher"] else \
+            [l for l in READY_LESSONS if any(l in lessons_of(c) for c in mine)]
+        rows = [r for l in lessons for r in placed(text_rows(), l)]
+        return {"categories": [{"id": f"t{r['id']}", "name": r["title"], "lesson": r["lesson"], "story": True, "text": r["id"],
+                                **({"voices": r["voices"]} if r["voices"] else {}), "pos": r["pos"], "ord": r["ord"],
+                                **({"guessed": built(r)[1]} if user["teacher"] else {})} for r in rows],
+                "phrases": [{"id": i, "cat": p["cat"], "he": p["he"], "tr": p["tr"], "ar": p["variants"][0][0], "seq": p["seq"]}
+                            for i, p in text_bank(rows).items()]}
+
+    def text_store_error(e: AuthUnavailable) -> str:
+        """The teacher's message when a text cannot be written; a 404 means Supabase has no `texts` table."""
+        if "answered 404" in str(e):
+            return ("הטבלה texts לא קיימת ב-Supabase. הריצו ב-SQL Editor: "
+                    f"{CREATE_TEXTS} אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
+        return f"Supabase לא זמין: {e}"
+
+    @app.post("/api/texts")
+    def add_text(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+        """Adds a text to a lesson, after its topics and what was added before: {"lesson": the id of a ready lesson,
+        "title", "he": its lines in Hebrew, "tr": the same lines in Arabic written in Hebrew letters, "voices": a
+        dialogue's two voices by name (the odd lines', the even lines'); none for a story, which the student's own
+        voice reads}. Answers with "guessed": the words the course does not have, which were read by rule."""
+        lesson, title = str(body.get("lesson", "")), " ".join(str(body.get("title", "")).split())
+        if lesson not in READY_LESSONS:
+            raise HTTPException(400, "טקסט מוסיפים לשיעור מוכן")
+        if not title or len(title) > MAX_TITLE:
+            raise HTTPException(400, f"לטקסט צריך שם (עד {MAX_TITLE} תווים)")
+        voices = body.get("voices") or []
+        if not isinstance(voices, list) or voices and (len(voices) != 2 or not set(map(str, voices)) <= set(VOICE_NAMES)):
+            raise HTTPException(400, "לשיחה בוחרים שני קולות מהרשימה")
+        he, tr = ([" ".join(str(x).split()) for x in body.get(k) or []] if isinstance(body.get(k), list) else [] for k in ("he", "tr"))
+        if not he or not tr:
+            raise HTTPException(400, "צריך את השורות פעמיים: בעברית, ובערבית בתעתיק עברי")
+        if len(he) != len(tr):
+            raise HTTPException(400, f"מספר השורות לא זהה: {len(he)} בעברית ו-{len(tr)} בערבית")
+        if len(he) > MAX_LINES or any(len(x) > MAX_LINE for x in he + tr):
+            raise HTTPException(400, f"טקסט הוא עד {MAX_LINES} שורות, ושורה עד {MAX_LINE} תווים")
+        for n, (h, t) in enumerate(zip(he, tr), 1):
+            if not h or not read_line(t)[0]:
+                raise HTTPException(400, f"בשורה {n} חסר טקסט, או שבערבית שלה אין אותיות עבריות")
+        try:
+            a.add_text(lesson, title, list(map(str, voices)), [[h, t] for h, t in zip(he, tr)], LESSON_TOPICS[lesson], next_ord(a, lesson))
+        except AuthUnavailable as e:
+            raise HTTPException(503, text_store_error(e))
+        return {"ok": True, "guessed": text_phrases("", [[h, t] for h, t in zip(he, tr)])[1]}
+
+    @app.delete("/api/texts/{text_id}")
+    def delete_text(text_id: int, a: SupabaseAuth = Depends(teacher_only)):
+        try:
+            a.delete_text(text_id)
+        except AuthUnavailable as e:
+            raise HTTPException(503, text_store_error(e))
         return {"ok": True}
 
     @app.delete("/api/videos/{video_id}")
@@ -439,12 +561,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         names = {i: n for n, i in VOICES.items()}
         if voice and voice not in names:
             raise HTTPException(400, "unknown voice")
-        if not 0 <= phrase_id < len(PHRASES):
-            raise HTTPException(404, "unknown phrase")
+        text = phrase_of(phrase_id)["variants"][0][0]
         if app.state.tts is None:
             raise HTTPException(503, "tts not configured")
         try:
-            data, used = app.state.tts.wav(PHRASES[phrase_id]["variants"][0][0], voice)
+            data, used = app.state.tts.wav(text, voice)
         except TTSUnavailable as e:
             raise HTTPException(503, str(e))
         tts = app.state.tts  # debug: lets the page show which voice spoke
@@ -456,12 +577,10 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.get("/api/prompt-audio/{phrase_id}", dependencies=members)
     def prompt_audio(phrase_id: int, engine: str = "gtts"):
         """The Hebrew prompt read aloud (edge-tts or gTTS). 503 tells the page to stay silent."""
-        if not 0 <= phrase_id < len(PHRASES):
-            raise HTTPException(404, "unknown phrase")
+        phrase = phrase_of(phrase_id)
         if engine not in ENGINES:
             raise HTTPException(400, "unknown engine")
         try:
-            phrase = PHRASES[phrase_id]
             data, used = hebrew_mp3(phrase.get("he_say") or phrase["he"], engine)   # pointed where the plain text is misread
         except PromptTTSUnavailable as e:
             raise HTTPException(503, str(e))
@@ -484,8 +603,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.post("/api/score")
     def score(tasks: BackgroundTasks, phrase_id: int = Form(...), audio: UploadFile = File(...),
               user: dict | None = Depends(signed_in)):
-        if not 0 <= phrase_id < len(PHRASES):
-            raise HTTPException(404, "unknown phrase")
+        phrase = phrase_of(phrase_id)
         data = audio.file.read(MAX_UPLOAD + 1)
         if len(data) > MAX_UPLOAD:
             raise HTTPException(413, "recording too long")
@@ -495,12 +613,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(400, "could not decode audio")
         if wav.size < 16_000 * 0.3:
             return {"error": "too_short", "message": "לא נשמע דיבור. נסו שוב, קרוב יותר למיקרופון."}
-        phrase = PHRASES[phrase_id]
         refs = app.state.refs.get(phrase_id, phrase) if app.state.refs else []
         result = app.state.scorer.score(wav, phrase, refs)
         if user and result.get("score") is not None:   # the student's progress; sent after the answer
             tasks.add_task(app.state.auth.record, user["token"], {
-                "cat": phrase["cat"], "phrase": phrase["he"], "score": round(result["score"]),
+                "cat": phrase["cat"], "phrase": phrase.get("key", phrase["he"]), "score": round(result["score"]),
                 "unrelated": bool(result.get("unrelated"))})
         return result
 

@@ -116,7 +116,7 @@ The panel has three parts, chosen at its top (the third, **תוכן**, is descri
 
 ### Content and videos
 
-The panel's third part, **תוכן**, shows the course as the students get it: every level, its lessons (those not written yet as "בקרוב"), and under each ready lesson its topics in the path's order. There the teacher adds a video to a lesson: a name and a Vimeo link, as Vimeo's share button gives it (`https://vimeo.com/1233611297/d46ac373c8?share=copy&fl=sv&fe=ci`; the hash after the number is what opens an unlisted video, and the sharing parameters are dropped). The video becomes a topic of the lesson, with ▶ on its circle, and pressing it plays it in a box over the page, in Vimeo's player. A lesson may have several videos. A new one is added at the lesson's end, and the ↑ ↓ arrows on its row move it a step at a time to its place: before the first topic, between two topics, beside another video, or after them all. The path shows the lesson in that order. A video is not practised, so it counts in no figure; the path marks the ones a student opened ("✓ נצפה"), on their device only. In the panel each video also has "צפייה" and "מחיקה". Students get the videos of their classes' lessons (`GET /api/videos`); adding, moving and deleting (`POST /api/videos`, `PUT /api/videos/order`, `DELETE /api/videos/{id}`) answer teachers only.
+The panel's third part, **תוכן**, shows the course as the students get it: every level, its lessons (those not written yet as "בקרוב"), and under each ready lesson its topics in the path's order. There the teacher adds a video to a lesson: a name and a Vimeo link, as Vimeo's share button gives it (`https://vimeo.com/1233611297/d46ac373c8?share=copy&fl=sv&fe=ci`; the hash after the number is what opens an unlisted video, and the sharing parameters are dropped). The video becomes a topic of the lesson, with ▶ on its circle, and pressing it plays it in a box over the page, in Vimeo's player. A lesson may have several videos. A new one is added at the lesson's end, and the ↑ ↓ arrows on its row move it a step at a time to its place: before the first topic, between two topics, beside another video, or after them all. The path shows the lesson in that order. A video is not practised, so it counts in no figure; the path marks the ones a student opened ("✓ נצפה"), on their device only. In the panel each video also has "צפייה" and "מחיקה". Students get the videos of their classes' lessons (`GET /api/videos`); adding, moving and deleting (`POST /api/videos`, `PUT /api/content/order`, `DELETE /api/videos/{id}`) answer teachers only.
 
 The videos are kept in Supabase like the classes, read and written with `SUPABASE_SECRET_KEY` only. Create the table once (until it exists the lessons have no videos, and adding one is refused with this command in the message):
 
@@ -142,6 +142,33 @@ alter table public.videos add column if not exists pos int, add column if not ex
 For the video to play inside the page, its Vimeo privacy setting has to allow embedding (on this site's domain, or anywhere).
 
 Keeping the link from being passed on is done in Vimeo, not here: the page has to give the browser the player's address, so a student who looks for it finds it (the server only keeps the link itself, `url`, for teachers). In the video's privacy settings on Vimeo, hide it from vimeo.com and allow embedding on specific domains only, naming the app's own domain (on Hugging Face, `<owner>-<space>.hf.space`). The video then plays inside the app and nowhere else: its link, opened or embedded anywhere else, shows nothing. Domain-level privacy needs a paid Vimeo plan.
+
+### Texts
+
+In **תוכן** the teacher also adds texts to a lesson, as many as they like: a story or a dialogue, practised like the course's own conversation "שיחת היכרות". "+ הוספת טקסט" under the lesson asks for a name and the text twice, a line per sentence: in Hebrew, and the same lines, in the same order, in Arabic written in Hebrew letters as the course writes it (`כִּיף חַאלַכּ?`). Each is pasted into its box, or read into it from a plain-text file (`.txt`, UTF-8), and can be corrected there before it is added. Empty lines are not counted, and the two must have the same number of lines; otherwise the text is refused, with both numbers in the message. The kind is chosen there too:
+
+- **סיפור**: every line is played in the voice the student chose in the settings.
+- **שיחה**: the teacher picks a voice for the odd lines and one for the even lines, from the app's voices.
+
+The text becomes a topic of the lesson, laid out as a story: all its lines on the card, said one after the other, with "השמעת השיחה" and "בוחן". It counts like any topic (the lesson's progress, the class's figures, and it can be the homework). Like a video it is added at the lesson's end and moved with the ↑ ↓ arrows on its row, past topics, videos and other texts (`PUT /api/content/order` places both kinds); "תרגול" on the row opens it as the students get it, and "מחיקה" removes it (the recordings made in it stay in `attempts`, uncounted).
+
+The scorer needs each line's phonemes and the answer's voice needs it in Arabic letters, so the server reads the transliteration word by word (`app/texts.py`). A word of the course is found by its transliteration and gets the course's own Arabic spelling and accepted pronunciations (dagesh, shva and final letters are not compared; an unpointed word is found by its letters alone). Any other word is read by rule from its letters and points, which is close but not always right: vowel length and some spellings (ى, ء, ة) cannot be told from the transliteration, and an unpointed word outside the course has no vowels to read. The panel lists those words on the text's row ("מילים שאינן במילון הקורס נקראו לפי הכתיב"), so the teacher knows which lines are worth a listen. A word the course should know is added to `LEX` in `app/workbook.py`.
+
+A line's phrase id is past the bank's (1,000,000 + the text's id × 1000 + the line's number) and its topic is `t<text id>`; an attempt is recorded under that topic and the line's Hebrew (numbered from its second appearance in the text: `כן (2)`). The texts are kept in Supabase like the videos (`GET /api/texts` gives a student those of their classes' lessons; `POST /api/texts` and `DELETE /api/texts/{id}` answer teachers only). Create the table once:
+
+```sql
+create table public.texts (
+  id         bigint generated always as identity primary key,
+  lesson     text not null,                        -- the lesson id, e.g. 2 or 2.1
+  title      text not null,                        -- the topic's name on the path
+  voices     text[] not null default '{}',         -- a dialogue's two voices by name (odd lines, even lines); empty = a story
+  lines      jsonb not null,                       -- [[Hebrew, Arabic in Hebrew letters], ...]
+  pos        int,                                  -- as in videos
+  ord        int  not null default 0,
+  created_at timestamptz not null default now()
+);
+alter table public.texts enable row level security;
+```
 
 ### Homework
 

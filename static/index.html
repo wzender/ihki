@@ -273,7 +273,15 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .clist{list-style:none;margin:10px 0;padding:0}
 .crow{display:grid;grid-template-columns:2em 1fr auto;gap:4px 10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
 .crow>i{font:700 14px/1 var(--f-body);color:var(--muted);text-align:center;font-style:normal}
-.crow.video>i{color:var(--olive)}
+.crow.added>i{color:var(--olive)}
+.crow small.guess{color:var(--amber)}
+.cadds{display:flex;flex-direction:column;gap:8px}
+.vrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.vrow[hidden]{display:none}
+.cform input[type=file]{padding:6px}
+.cform textarea.lines{min-height:7em;direction:rtl;text-align:right}
+.paste{display:flex;flex-direction:column;gap:4px}
+.cform .paste label+label{flex-direction:row;align-items:center;gap:6px;flex-wrap:wrap;font-weight:500;color:var(--muted)}
 .crow .two{display:flex;flex-direction:column;gap:2px;min-width:0;overflow-wrap:anywhere}
 .crow small{color:var(--muted);font-size:13px}
 .crow>small{justify-self:end}
@@ -534,7 +542,7 @@ body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.micl
   <section class="wrap" id="manage" aria-labelledby="mTitle">
     <div class="roundbar"><h1 class="mtitle" id="mTitle">ניהול</h1><span class="sep"></span><button class="btn" id="mRefresh">רענון</button><button class="btn primary" id="mPractice">לתרגול</button></div>
     <div class="sub" id="mState" aria-live="polite"></div>
-    <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>ההתקדמות בכל כיתה</small></button><button role="tab" data-mode="content">תוכן<small>נושאים וסרטונים</small></button></div>
+    <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>ההתקדמות בכל כיתה</small></button><button role="tab" data-mode="content">תוכן<small>נושאים, סרטונים וטקסטים</small></button></div>
     <div id="mClasses"></div>
     <div id="mContent"></div>
     <div class="tabs" id="mTabs" role="tablist" aria-label="כיתות" hidden></div>
@@ -758,14 +766,26 @@ const STEP=108, SWAY=[0,.7,1,.7,0,-.7,-1,-.7];   // the road: the way down from 
 let drawnW=0, nowWatch=null;
 /* A lesson's videos (the teacher adds them in the panel's content part) stand on the path among its topics, where the
    teacher put them. A video opens in a box over the page; the ones already opened are marked, on this device only. */
-let VIDEOS=[], watched=store.get("ihki.watched",{});   // {id, lesson, title, url, embed, pos} of the student's lessons, in the path's order; {video id: 1}
-// a lesson's topics and videos in the path's order: {c, i} is its i-th topic, {v} a video, which has `pos` topics before it
-const lessonItems=(cats,vids)=>[...cats.flatMap((c,i)=>[...vids.filter(v=>v.pos===i).map(v=>({v})),{c,i}]),...vids.filter(v=>v.pos>=cats.length).map(v=>({v}))];
-async function loadVideos(){
+let VIDEOS=[], watched=store.get("ihki.watched",{});   // {id, lesson, title, url, embed, pos, ord} of the student's lessons; {video id: 1}
+/* A lesson's topics in the path's order: the course's own, {c, n} with the topic's number, and among them what the teacher
+   added, a video {v} or a text {c} (a topic like any other, laid out as a story: its category has `text`). Each of
+   those has `pos` of the course's topics before it, and `ord` is its turn among the ones of the same place. */
+function lessonItems(id){
+  const course=ALL_CATS.filter(c=>c.lesson===id&&!c.text);
+  const added=[...VIDEOS.filter(v=>v.lesson===id).map(v=>({v,pos:v.pos,ord:v.ord})),...ALL_CATS.filter(c=>c.lesson===id&&c.text).map(c=>({c,pos:c.pos,ord:c.ord}))].sort((a,b)=>a.pos-b.pos||a.ord-b.ord);
+  return [...course.flatMap((c,i)=>[...added.filter(e=>e.pos===i),{c,n:i+1}]),...added.filter(e=>e.pos>=course.length)];
+}
+async function loadContent(){   // the videos, and the texts: their topics and lines join the course's
   if(!sb) return;
   try{
-    const res=await api("/api/videos"); if(!res.ok) return;
-    VIDEOS=(await res.json()).videos||[];
+    await ready;
+    const [v,t]=await Promise.all([api("/api/videos"),api("/api/texts")]);
+    if(v.ok) VIDEOS=(await v.json()).videos||[];
+    if(t.ok){
+      const d=await t.json(), old=new Set(ALL_CATS.filter(c=>c.text).map(c=>c.id));
+      ALL_CATS=[...ALL_CATS.filter(c=>!c.text),...d.categories||[]]; PHRASES=[...PHRASES.filter(p=>!old.has(p.cat)),...d.phrases||[]];
+      useLessons(MY_LESSONS);
+    }
     if(PHRASES.length&&home&&!document.body.classList.contains("manage")) drawPath(true);
   }catch{}
 }
@@ -798,7 +818,7 @@ function drawPath(stay){
       const b=mark("chapter soon",""); b.style.top=y+"px"; b.append(mark("",lessonsWord(run)),mark("","בקרוב","small")); box.append(b);
       y+=52+28; continue;
     }
-    const cats=CATS.filter(c=>c.lesson===l.id), parts=cats.map(c=>tally(listed.filter(p=>p.cat===c.id)));
+    const items=lessonItems(l.id), cats=items.filter(it=>it.c).map(it=>it.c), parts=cats.map(c=>tally(listed.filter(p=>p.cat===c.id)));
     const whole=tally(listed.filter(p=>cats.some(c=>c.id===p.cat))), now=!whole.over&&next;
     const todo=Math.max(0,parts.findIndex(t=>!t.over));   // the topic the banner opens
     if(now) next=false;
@@ -813,8 +833,7 @@ function drawPath(stay){
       label.className="label"; label.style.setProperty("--w",Math.min(150,w/2-46+(right?-x:x))+"px");
       return [x,label];
     };
-    const vids=VIDEOS.filter(v=>v.lesson===l.id), items=lessonItems(cats,vids);
-    items.forEach(({c,i,v},at)=>{
+    items.forEach(({c,n,v},at)=>{
       if(v){
         const seen=!!watched[v.id], [b,dot]=ball({over:seen},false), [x,label]=seat(b,at);
         b.classList.add("video"); dot.textContent="▶\uFE0E"; if(seen) dot.before(mark("badge","✓"));
@@ -823,9 +842,9 @@ function drawPath(stay){
         b.onclick=()=>playVideo(v); box.append(b);
         stops.push({x,y,went:seen}); y+=STEP; return;
       }
-      const t=parts[i], cur=now&&i===todo, [b,dot]=ball(t,cur), [x,label]=seat(b,at);
+      const i=cats.indexOf(c), t=parts[i], cur=now&&i===todo, [b,dot]=ball(t,cur), [x,label]=seat(b,at);
       const mine=!!hw&&c===hw.c;   // the homework topic: its bubble counts the days left
-      dot.textContent=c.story?"💬":i+1;   // the number stays; a finished topic gets a badge, the one to do now and the homework a bubble
+      dot.textContent=c.story?"💬":n;   // the number stays; a finished topic gets a badge, the one to do now and the homework a bubble
       if(t.over) dot.before(mark("badge",t.gold?"★":"✓"));
       else if(cur||mine){
         const tag=mark("tag",mine?"":t.done?"המשך":"התחילו");
@@ -1721,7 +1740,7 @@ async function loadManage(){
       const detail=(await res.json().catch(()=>({}))).detail||res.status;
       state.textContent=res.status===403?"הפאנל פתוח למורים בלבד.":`נתוני התלמידים לא זמינים כרגע (${detail}).`; return;
     }
-    CLASS=await res.json(); await loadVideos();
+    CLASS=await res.json(); await loadContent();
   }catch{ state.textContent="השרת לא זמין."; return; }
   state.textContent=""; drawManage();
 }
@@ -1771,10 +1790,14 @@ function drawClasses(classes){
   }
 }
 /* The content part: every level, its lessons, and each lesson's topics as the path shows them: the course's own, and among
-   them the videos the teacher added (a name and a Vimeo link each). A video is added under its lesson, at its end; the
-   arrows on its row move it up and down the lesson, past a topic or another video, and it is deleted there too. */
+   them what the teacher added: videos (a name and a Vimeo link each) and texts (a story or a dialogue, from two files).
+   Both are added under their lesson, at its end; the arrows on a row move it up and down the lesson, past a topic, a
+   video or a text, and it is deleted there too. */
+const send=(url,method,body)=>api(url,{method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+const refused=async(res,what)=>(await res.json().catch(()=>({}))).detail||`${what} נכשלה (${res.status})`;
 function drawContent(){
   const box=$("mContent"), listed=listedPhrases(); box.innerHTML="";
+  const voices=[...$("voiceId").options].filter(o=>o.value).map(o=>o.text.replace(/[֑-ׇ]/g,""));
   for(const g of byLevel(ALL_LESSONS)){
     box.append(mark("clevel",g.level.name,"h2"));
     for(let k=0;k<g.lessons.length;k++){
@@ -1783,69 +1806,98 @@ function drawContent(){
         const run=[l]; while(g.lessons[k+1]&&g.lessons[k+1].soon) run.push(g.lessons[++k]);
         box.append(mark("csoon",`${lessonsWord(run)} · בקרוב`,"p")); continue;
       }
-      const cats=ALL_CATS.filter(c=>c.lesson===l.id), vids=VIDEOS.filter(v=>v.lesson===l.id);
+      const items=lessonItems(l.id), kinds=[items.filter(it=>it.n).length+" נושאים",[items.filter(it=>it.c&&!it.n).length,"טקסטים"],[items.filter(it=>it.v).length,"סרטונים"]];
       const card=mark("card",""), top=mark("chead",""), name=mark("",l.name,"h2"), list=mark("clist","","ol");
-      name.append(mark("",[`${cats.length} נושאים`,vids.length&&`${vids.length} סרטונים`].filter(Boolean).join(" · "),"small")); top.append(name);
-      const items=lessonItems(cats,vids);
-      items.forEach(({c,i,v},at)=>{
-        if(c){
-          const row=mark("crow","","li"), n=listed.filter(p=>p.cat===c.id).length;
-          row.append(mark("",c.story?"💬":i+1,"i"),mark("",c.name,"b"),mark("",`${c.story?"שיחה":"תרגול"} · ${n} ${c.unit==="מילה"?"מילים":c.unit==="פועל"?"פעלים":"משפטים"}`,"small")); list.append(row); return;
+      name.append(mark("",kinds.map(x=>x.pop?x[0]&&x.join(" "):x).filter(Boolean).join(" · "),"small")); top.append(name);
+      items.forEach(({c,n,v},at)=>{
+        const lines=c?listed.filter(p=>p.cat===c.id).length:0;
+        if(n){
+          const row=mark("crow","","li");
+          row.append(mark("",c.story?"💬":n,"i"),mark("",c.name,"b"),mark("",`${c.story?"שיחה":"תרגול"} · ${lines} ${c.unit==="מילה"?"מילים":c.unit==="פועל"?"פעלים":"משפטים"}`,"small")); list.append(row); return;
         }
-        const row=mark("crow video","","li"), text=mark("two",""), title=mark("","","b"), t=document.createElement("bdi"), link=document.createElement("small"), acts=mark("acts","");
-        row.dataset.id=v.id;
-        const up=mark("btn move","↑","button"), down=mark("btn move","↓","button"), see=mark("btn","צפייה","button"), del=mark("btn danger","מחיקה","button");
-        t.textContent=v.title; title.append(t); link.dir="ltr"; link.textContent=v.url.replace("https://",""); text.append(title,link);
+        const it=v||c, row=mark("crow added","","li"), text=mark("two",""), title=mark("","","b"), t=document.createElement("bdi"), acts=mark("acts","");
+        const up=mark("btn move","↑","button"), down=mark("btn move","↓","button"), see=mark("btn",v?"צפייה":"תרגול","button"), del=mark("btn danger","מחיקה","button");
+        row.dataset.id=(v?"video":"text")+(v?v.id:c.text); t.textContent=v?v.title:c.name; title.append(t); text.append(title);
+        if(v){ const link=document.createElement("small"); link.dir="ltr"; link.textContent=v.url.replace("https://",""); text.append(link); }
+        else{
+          text.append(mark("",[c.voices?`שיחה · ${c.voices.join(" ו")}`:"סיפור",`${lines} שורות`].join(" · "),"small"));
+          if(c.guessed&&c.guessed.length){   // words the course does not have: read by their spelling, so worth a listen
+            const g=mark("guess",`${c.guessed.length} מילים שאינן במילון הקורס נקראו לפי הכתיב: `,"small"), w=document.createElement("bdi");
+            w.textContent=c.guessed.slice(0,8).join(" · ")+(c.guessed.length>8?" …":""); g.append(w); text.append(g);
+          }
+        }
         up.title="הזזה למעלה: מוקדם יותר בשיעור"; down.title="הזזה למטה: מאוחר יותר בשיעור";
-        up.setAttribute("aria-label",`${up.title}, ${v.title}`); down.setAttribute("aria-label",`${down.title}, ${v.title}`);
+        up.setAttribute("aria-label",`${up.title}, ${t.textContent}`); down.setAttribute("aria-label",`${down.title}, ${t.textContent}`);
         up.disabled=!at; down.disabled=at===items.length-1;
-        up.onclick=()=>moveVideo(l,items,at,-1,list); down.onclick=()=>moveVideo(l,items,at,1,list);
-        see.onclick=()=>playVideo(v,true); del.onclick=()=>deleteVideo(v);
-        acts.append(up,down,see,del); row.append(mark("","▶\uFE0E","i"),text,acts); list.append(row);
+        up.onclick=()=>moveItem(l,items,at,-1,list); down.onclick=()=>moveItem(l,items,at,1,list);
+        see.onclick=v?()=>playVideo(v,true):()=>{ $("mPractice").click(); pickCat(c.id); };   // a text is tried as its students get it
+        del.onclick=()=>deleteItem(v?"videos":"texts",v?v.id:c.text,v?`את הסרטון ${v.title}`:`את הטקסט ${c.name}`,v?"":" ההקלטות של התלמידים בו נשמרות, אבל לא ייספרו עוד.");
+        acts.append(up,down,see,del); row.append(mark("",v?"▶︎":"💬","i"),text,acts); list.append(row);
       });
-      const add=document.createElement("details"), form=document.createElement("form"), field=(label,name,attrs)=>{
-        const lab=mark("",label,"label"), inp=Object.assign(document.createElement("input"),{name,required:true,autocomplete:"off",...attrs}); lab.append(inp); return lab; };
-      const row=mark("row",""), msg=mark("msg","");
-      add.className="vadd"; add.append(mark("btn","+ הוספת סרטון","summary"),form); form.className="cform"; msg.setAttribute("role","alert");
-      row.append(mark("btn primary","הוספה","button"),msg);
-      form.append(field("שם הסרטון","title",{maxLength:80,placeholder:"למשל: הסבר על הטיית הפועל"}),
-        field("קישור ל-Vimeo","url",{inputMode:"url",placeholder:"https://vimeo.com/1233611297/d46ac373c8"}),
-        mark("sub","הסרטון יופיע לתלמידים במסלול כנושא של השיעור. הוא נוסף בסוף השיעור, ובחיצים שבשורה שלו מזיזים אותו למקומו.","small"),row);
-      form.onsubmit=e=>{ e.preventDefault(); addVideo(l,form,msg); };
-      card.append(top,list,add); box.append(card);
+      const adds=mark("cadds",""), adder=(label,fields,note,submit)=>{   // a closed form under the lesson
+        const add=document.createElement("details"), form=document.createElement("form"), row=mark("row",""), msg=mark("msg","");
+        add.className="vadd"; add.append(mark("btn",label,"summary"),form); form.className="cform"; msg.setAttribute("role","alert");
+        row.append(mark("btn primary","הוספה","button"),msg); form.append(...fields,mark("sub",note,"small"),row);
+        form.onsubmit=async e=>{
+          e.preventDefault(); const buttons=form.querySelectorAll("button"); msg.textContent=""; buttons.forEach(b=>b.disabled=true);
+          try{ const bad=await submit(form); if(!bad){ await loadContent(); drawContent(); return; } msg.textContent=bad; }catch{ msg.textContent="השרת לא זמין."; }
+          buttons.forEach(b=>b.disabled=false);
+        };
+        adds.append(add); return form;
+      };
+      const field=(label,name,attrs,tag="input")=>{ const lab=mark("",label,"label"), inp=Object.assign(document.createElement(tag),{name,required:true,autocomplete:"off",...attrs}); lab.append(inp); return lab; };
+      const pick=(label,name,options)=>{ const lab=field(label,name,{},"select"); for(const [value,text] of options) lab.lastChild.add(new Option(text,value)); return lab; };
+      adder("+ הוספת סרטון",[field("שם הסרטון","title",{maxLength:80,placeholder:"למשל: הסבר על הטיית הפועל"}),
+          field("קישור ל-Vimeo","url",{inputMode:"url",placeholder:"https://vimeo.com/1233611297/d46ac373c8"})],
+        "הסרטון יופיע לתלמידים במסלול כנושא של השיעור. הוא נוסף בסוף השיעור, ובחיצים שבשורה שלו מזיזים אותו למקומו.",
+        async f=>{ const res=await send("/api/videos","POST",{lesson:l.id,title:f.elements.title.value,url:f.elements.url.value}); return res.ok?"":refused(res,"ההוספה"); });
+      const who=mark("vrow",""), paste=(label,name,hint)=>{   // the lines are pasted into the box, or read into it from a file; either way they can be fixed there
+        const box=mark("paste",""), area=field(label,name,{rows:5,placeholder:hint,className:"lines"},"textarea"), from=mark("","או מקובץ txt: ","label"), file=Object.assign(document.createElement("input"),{type:"file",accept:".txt,text/plain"});
+        file.onchange=async()=>{
+          if(!file.files[0]) return;
+          const text=(await file.files[0].text()).replace(/^﻿/,"");
+          if(text.includes("�")){ file.value=""; alert("הקובץ לא שמור בקידוד UTF-8. שמרו אותו מחדש כ-UTF-8 (ב-Notepad: שמירה בשם ← קידוד), או הדביקו את הטקסט בתיבה."); return; }
+          area.lastChild.value=text;
+        };
+        from.append(file); box.append(area,from); return box;
+      };
+      who.append(pick("הקול של השורות האי-זוגיות","v1",voices.map(n=>[n,n])),pick("הקול של השורות הזוגיות","v2",voices.map(n=>[n,n]))); who.hidden=true;
+      if(voices.length>1) who.querySelector("[name=v2]").selectedIndex=1;
+      const kind=pick("סוג הטקסט","kind",[["story","סיפור: קול אחד, זה שהתלמיד בחר בהגדרות"],["dialog","שיחה: שני דוברים, שורה לכל אחד בתורו"]]);
+      kind.lastChild.onchange=e=>{ who.hidden=e.target.value!=="dialog"; };
+      adder("+ הוספת טקסט",[field("שם הטקסט","title",{maxLength:80,placeholder:"למשל: בשוק"}),
+          paste("הטקסט בעברית","he","שורה לכל משפט"),paste("הטקסט בערבית, בתעתיק עברי","tr","אותן שורות, באותו סדר"),kind,who],
+        "הטקסט יופיע לתלמידים במסלול כנושא של השיעור, במצב שיחה: כל השורות על המסך, ואומרים אותן אחת אחרי השנייה. את השורות מדביקים בתיבות או טוענים מקובץ. בשתי התיבות צריך להיות אותו מספר שורות (שורות ריקות לא נספרות). הוא נוסף בסוף השיעור, ובחיצים שבשורה שלו מזיזים אותו למקומו.",
+        async f=>{
+          const lines=text=>text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean), he=lines(f.elements.he.value), tr=lines(f.elements.tr.value);
+          if(he.length!==tr.length) return `מספר השורות לא זהה: ${he.length} בעברית ו-${tr.length} בערבית.`;
+          const res=await send("/api/texts","POST",{lesson:l.id,title:f.elements.title.value,he,tr,voices:f.elements.kind.value==="dialog"?[f.elements.v1.value,f.elements.v2.value]:[]});
+          return res.ok?"":refused(res,"ההוספה");
+        });
+      card.append(top,list,adds); box.append(card);
     }
   }
 }
-async function addVideo(l,form,msg){
-  const buttons=form.querySelectorAll("button"); msg.textContent=""; buttons.forEach(b=>b.disabled=true);
-  try{
-    const res=await api("/api/videos",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({lesson:l.id,title:form.elements.title.value,url:form.elements.url.value})});
-    if(res.ok){ await loadVideos(); drawContent(); return; }
-    msg.textContent=(await res.json().catch(()=>({}))).detail||`ההוספה נכשלה (${res.status})`;
-  }catch{ msg.textContent="השרת לא זמין."; }
-  buttons.forEach(b=>b.disabled=false);
-}
-async function moveVideo(l,items,at,step,list){   // the video changes places with its neighbour, a topic or another video
-  const to=[...items]; [to[at],to[at+step]]=[to[at+step],to[at]];
+async function moveItem(l,items,at,step,list){   // a video or a text changes places with its neighbour, whatever that is
+  const to=[...items], id=it=>it.v?{kind:"video",id:it.v.id}:{kind:"text",id:it.c.text}; [to[at],to[at+step]]=[to[at+step],to[at]];
   let topics=0; const order=[];
-  for(const it of to){ if(it.c) topics++; else order.push({id:it.v.id,pos:topics}); }
+  for(const it of to){ if(it.n) topics++; else order.push({...id(it),pos:topics}); }
   list.querySelectorAll("button").forEach(b=>b.disabled=true);
   try{
-    const res=await api("/api/videos/order",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({lesson:l.id,order})});
-    if(!res.ok) alert((await res.json().catch(()=>({}))).detail||`ההזזה נכשלה (${res.status})`);
+    const res=await send("/api/content/order","PUT",{lesson:l.id,order});
+    if(!res.ok) alert(await refused(res,"ההזזה"));
   }catch{ alert("השרת לא זמין."); }
-  await loadVideos(); drawContent();
-  const moved=[...$("mContent").querySelectorAll(".crow.video")].find(r=>r.dataset.id==items[at].v.id);   // the keyboard stays on the video that moved
+  await loadContent(); drawContent();
+  const me=id(items[at]), moved=[...$("mContent").querySelectorAll(".crow.added")].find(r=>r.dataset.id===me.kind+me.id);   // the keyboard stays on what moved
   const again=moved&&[...moved.querySelectorAll(".move")].find((b,k)=>k===(step<0?0:1)&&!b.disabled)||moved&&moved.querySelector(".move:not(:disabled)"); if(again) again.focus({preventScroll:true});
 }
-async function deleteVideo(v){
-  if(!confirm(`למחוק את הסרטון ${v.title}? הוא יירד מהמסלול של התלמידים.`)) return;
+async function deleteItem(table,id,what,more){
+  if(!confirm(`למחוק ${what}? זה יירד מהמסלול של התלמידים.${more}`)) return;
   try{
-    const res=await api(`/api/videos/${v.id}`,{method:"DELETE"});
-    if(!res.ok) alert((await res.json().catch(()=>({}))).detail||`המחיקה נכשלה (${res.status})`);
+    const res=await api(`/api/${table}/${id}`,{method:"DELETE"});
+    if(!res.ok) alert(await refused(res,"המחיקה"));
   }catch{ alert("השרת לא זמין."); }
-  await loadVideos(); drawContent();
+  await loadContent(); drawContent();
 }
 async function deleteClass(c){
   if(!confirm(`למחוק את הכיתה ${c.name}? התלמידים שלה לא יוכלו להיכנס עוד. ההקלטות וההתקדמות שלהם נשמרות.`)) return;
@@ -2240,7 +2292,7 @@ if(AUTH_URL){
         if(MY_CLASSES.length===1) MY_CLASS=mine[0];
         else{ const last=MY_CLASSES.find(c=>c.name===store.get("ihki.class","")); if(last) useClass(last); }   // the class practised in last
         start.hidden=!ok||teacher; roles.hidden=$("toManage").hidden=!teacher; denied.hidden=ok;
-        if(ok){ (teacher?$("practiceBtn"):start).focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); loadVideos(); }
+        if(ok){ (teacher?$("practiceBtn"):start).focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); loadContent(); }
       },0);
     });
   }

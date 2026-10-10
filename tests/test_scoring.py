@@ -433,7 +433,7 @@ def test_sign_in_guards_the_practice_endpoints():
         url, key, teachers = "https://proj.supabase.co", "sb_publishable_x", frozenset()
 
         def __init__(self):
-            self.rows, self.cls, self.vids = [], [], []
+            self.rows, self.cls, self.vids, self.txts = [], [], [], []
 
         def classes(self, fresh=False):
             return self.cls
@@ -456,9 +456,18 @@ def test_sign_in_guards_the_practice_endpoints():
         def add_video(self, lesson, title, url, pos, ord):
             self.vids.append({"id": len(self.vids) + 1, "lesson": lesson, "title": title, "url": url, "pos": pos, "ord": ord})
 
-        def place_videos(self, places):
-            for id, pos, ord in places:
-                next(v for v in self.vids if v["id"] == id).update(pos=pos, ord=ord)
+        def place(self, places):
+            for table, id, pos, ord in places:
+                next(v for v in {"videos": self.vids, "texts": self.txts}[table] if v["id"] == id).update(pos=pos, ord=ord)
+
+        def texts(self, fresh=False):
+            return self.txts
+
+        def add_text(self, lesson, title, voices, lines, pos, ord):
+            self.txts.append({"id": len(self.txts) + 1, "lesson": lesson, "title": title, "voices": voices, "lines": lines, "pos": pos, "ord": ord})
+
+        def delete_text(self, id):
+            self.txts = [t for t in self.txts if t["id"] != id]
 
         def delete_video(self, id):
             self.vids = [v for v in self.vids if v["id"] != id]
@@ -538,7 +547,7 @@ def test_sign_in_guards_the_practice_endpoints():
         first, second = c.get("/api/videos", headers=good).json()["videos"]
         N1 = sum(k["lesson"] == READY[0] for k in CATEGORIES)   # a new video stands after its lesson's topics
         assert first == {"id": 1, "lesson": READY[0], "title": "פתיחה לשיעור", "url": "https://vimeo.com/1233611297/d46ac373c8",
-                         "embed": "https://player.vimeo.com/video/1233611297?h=d46ac373c8&dnt=1", "pos": N1}
+                         "embed": "https://player.vimeo.com/video/1233611297?h=d46ac373c8&dnt=1", "pos": N1, "ord": 1}
         assert (second["url"], second["embed"]) == ("https://vimeo.com/76979871", "https://player.vimeo.com/video/76979871?dnt=1")
         from app.main import vimeo_link
         assert vimeo_link("https://player.vimeo.com/video/1233611297?h=d46ac373c8") == first["url"]
@@ -546,23 +555,66 @@ def test_sign_in_guards_the_practice_endpoints():
         assert c.post("/api/videos", json={"lesson": READY[0], "title": "b", "url": link}, headers=good).status_code == 200
         seen = lambda: [(v["id"], v["pos"]) for v in c.get("/api/videos", headers=good).json()["videos"] if v["lesson"] == READY[0]]
         assert seen() == [(1, N1), (3, N1)]
-        order = lambda *o: c.put("/api/videos/order", json={"lesson": READY[0], "order": [{"id": i, "pos": p} for i, p in o]}, headers=good).status_code
+        order = lambda *o: c.put("/api/content/order", json={"lesson": READY[0], "order": [{"kind": "video", "id": i, "pos": p} for i, p in o]}, headers=good).status_code
         assert order((3, 0), (1, 0)) == 200 and seen() == [(3, 0), (1, 0)]   # both before the first topic, the new one first
         assert order((3, 0), (1, 2)) == 200 and seen() == [(3, 0), (1, 2)]
         assert order((3, 0)) == 409 and order((3, 0), (2, 0)) == 409   # every video of the lesson, and no other's
         assert order((3, 0), (1, N1 + 1)) == 400 and order((3, -1), (1, 0)) == 400 and seen() == [(3, 0), (1, 2)]
-        assert c.put("/api/videos/order", json={"lesson": SOON, "order": []}, headers=good).status_code == 400
+        assert c.put("/api/content/order", json={"lesson": SOON, "order": []}, headers=good).status_code == 400
         c.app.state.auth.vids[0].update(pos=None)   # kept before videos had places: after the topics
         assert seen() == [(3, 0), (1, N1)]
         assert c.delete("/api/videos/3", headers=good).status_code == 200
-        first["pos"] = N1
+        first.update(pos=N1, ord=1)
+        second = c.get("/api/videos", headers=good).json()["videos"][1]
+        # a text: its lines in Hebrew and in Arabic written in Hebrew letters, the same number of each; a dialogue names two voices
+        he, tr = ["שלום", "מה שלומך?", "שלום"], ["מַרְחַבַּא", "כִּיף חַאלַכּ?", "מַרְחַבַּא יַא זַלַמֶה"]
+        talk = {"lesson": READY[0], "title": " בשוק ", "he": he, "tr": tr, "voices": ["אמיר", "ראאף"]}
+        assert c.get("/api/texts").status_code == 401 and c.get("/api/texts", headers=good).json() == {"categories": [], "phrases": []}
+        for body, code in ((talk, 200), ({**talk, "title": "story", "voices": []}, 200),
+                           ({**talk, "tr": tr[:2]}, 400), ({**talk, "he": [], "tr": []}, 400), ({**talk, "tr": ["x", "1", "-"]}, 400),   # not Arabic in Hebrew letters
+                           ({**talk, "voices": ["אמיר"]}, 400), ({**talk, "voices": ["אמיר", "nobody"]}, 400),
+                           ({**talk, "lesson": SOON}, 400), ({**talk, "title": ""}, 400), ({**talk, "he": he * 80, "tr": tr * 80}, 400)):
+            r = c.post("/api/texts", json=body, headers=good)
+            assert r.status_code == code, (body, r.text)
+        d = c.get("/api/texts", headers=good).json()
+        assert d["categories"][0] == {"id": "t1", "name": "בשוק", "lesson": READY[0], "story": True, "text": 1, "voices": ["אמיר", "ראאף"],
+                                      "pos": N1, "ord": 2, "guessed": ["זַלַמֶה"]}   # the course has the other words
+        assert "voices" not in d["categories"][1] and d["categories"][1]["ord"] == 3
+        line1, line2, line3 = d["phrases"][:3]
+        assert line1 == {"id": 1_001_000, "cat": "t1", "he": "שלום", "tr": "מַרְחַבַּא", "ar": "مرحبا", "seq": 1}
+        assert (line2["id"], line2["ar"], line3["ar"]) == (1_001_001, "كيف حالك؟", "مرحبا يا زلمة") and len(d["phrases"]) == 6
+        # a line is a phrase like the bank's: it has a prompt and an answer to play, and its recordings count (two lines
+        # with the same Hebrew stay apart)
+        assert c.get("/api/prompt-audio/1001999", headers=good).status_code == 404 and c.get("/api/tts/1001001", headers=good).status_code == 503
+        from app.main import built, summary as sums, text_bank
+        bank = text_bank(c.app.state.auth.txts)
+        assert bank[1_001_002]["key"] == "שלום (2)" and bank[1_001_001]["variants"][0] == ("كيف حالك؟", "k iː f | ħ aː l a k")
+        got = sums([{"cat": "t1", "phrase": "שלום (2)", "score": 80, "created_at": "2026-10-09T10:00:00+00:00"},
+                    {"cat": "t1", "phrase": "שלום", "score": 60, "created_at": "2026-10-09T10:00:00+00:00"},
+                    {"cat": "t9", "phrase": "שלום", "score": 99, "created_at": "2026-10-09T10:00:00+00:00"}], bank)   # a deleted text's
+        assert got["best"] == {1_001_002: 80, 1_001_000: 60} and got["recordings"] == 3
+        for ar, ipa in (v for p in bank.values() for v in p["variants"]):
+            assert len(ar.split()) == len(ipa.split("|"))
+        # a text is placed among the topics like a video, and may be a class's homework
+        mixed = lambda *o: c.put("/api/content/order", json={"lesson": READY[0], "order": [{"kind": k, "id": i, "pos": p} for k, i, p in o]}, headers=good).status_code
+        assert mixed(("text", 2, 0), ("video", 1, 1), ("text", 1, 1)) == 200 and mixed(("text", 2, 0), ("text", 1, 1)) == 409
+        assert [(k["id"], k["pos"], k["ord"]) for k in c.get("/api/texts", headers=good).json()["categories"]] == [("t2", 0, 0), ("t1", 1, 2)]
+        assert c.get("/api/videos", headers=good).json()["videos"][0]["ord"] == 1
+        first.update(pos=1, ord=1)
+        assert c.post("/api/classes", json={"name": "T", "emails": "a@b.c", "lessons": READY[:1], "homework": "t1"}, headers=good).status_code == 200
+        assert c.get("/api/me", headers=good).json()["classes"][-1]["homework"] == "t1"
+        assert c.delete("/api/texts/1", headers=good).status_code == 200   # with its text gone, the homework is none
+        assert c.get("/api/me", headers=good).json()["classes"][-1]["homework"] == ""
+        assert c.delete("/api/texts/2", headers=good).status_code == 200
+        c.app.state.auth.cls = [k for k in c.app.state.auth.cls if k["name"] != "T"]
         # a student gets the videos of their classes' lessons only, and adds or deletes none
         kept, c.app.state.auth.teachers = c.app.state.auth.cls, frozenset()
         c.app.state.auth.cls = [{"id": 7, "name": "V", "emails": ["a@b.c"], "nicknames": {}, "lessons": READY[1:2]}]
         assert c.get("/api/videos", headers=good).json()["videos"] == [{k: v for k, v in second.items() if k != "url"}]   # without the link
         assert c.post("/api/videos", json={"lesson": READY[0], "title": "x", "url": link}, headers=good).status_code == 403
         assert c.delete("/api/videos/1", headers=good).status_code == 403
-        assert c.put("/api/videos/order", json={"lesson": READY[0], "order": []}, headers=good).status_code == 403
+        assert c.put("/api/content/order", json={"lesson": READY[0], "order": []}, headers=good).status_code == 403
+        assert c.post("/api/texts", json={}, headers=good).status_code == 403 and c.delete("/api/texts/1", headers=good).status_code == 403
         c.app.state.auth.cls, c.app.state.auth.teachers = kept, frozenset({"a@b.c"})
         assert c.delete("/api/videos/1", headers=good).status_code == 200
         assert c.get("/api/videos", headers=good).json()["videos"] == [second]
