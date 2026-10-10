@@ -434,7 +434,7 @@ body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.micl
     <div class="where"><small id="lessonName"></small><span id="catName"></span></div>
     <div class="sub maphint">בחרו נושא במסלול ותרגלו אותו בקול</div>
     <button class="drive" id="toManage" hidden>ניהול</button>
-    <button class="drive" id="driveBtn" title="מצב נסיעה: האפליקציה מקריאה, מקשיבה ואומרת את ההערכה בקול"><svg class="ic" aria-hidden="true"><use href="#i-car"/></svg> מצב נסיעה</button>
+    <button class="drive" id="driveBtn" title="מצב נסיעה: האפליקציה מקריאה, מקשיבה ואומרת את ההערכה בקול"><svg class="ic" aria-hidden="true"><use href="#i-car"/></svg> עבור למצב נסיעה</button>
   </header>
 
   <div id="today" hidden></div>
@@ -1048,7 +1048,8 @@ function drawStory(){
   if(at) box.scrollTop=at.offsetTop-(box.clientHeight-at.offsetHeight)/2;
 }
 /* A story can be heard whole: its Arabic line after line, from the first to the last, the line being played framed.
-   The button plays, pauses and goes on from where it paused; the stop button beside it ends the playing, and so does
+   A line that was not said yet shows its Arabic (the transliteration) from the moment the voice says it, until the card
+   is drawn again. The button plays, pauses and goes on from where it paused; the stop button beside it ends the playing, and so does
    whatever opens a line, records or leaves the card. */
 let listening=false, hearPaused=false, hearHeld=false, hearWake=null;   // hearHeld: a line's sound was cut in its middle by the pause
 const IDLE="לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים";
@@ -1086,6 +1087,7 @@ $("hearBtn").onclick=async()=>{
     const a=await answerAudio(id); if(!on()) break;
     await hearGate(); if(!on()) break;
     const row=box.children[k]; frame(row);
+    if(row&&!row.querySelector(".tr")){ const tr=mark("tr",""); setTr(tr,phraseOf(id).tr); row.append(tr); }   // a line not said yet shows its Arabic as the voice says it
     if(row) box.scrollTop=row.offsetTop-(box.clientHeight-row.offsetHeight)/2;
     if(a) await playUrl(a.url,true); else await speakLocal(phraseOf(id).ar,"ar");   // device voice when Sawtak is unavailable
     if(!on()) break;
@@ -1587,7 +1589,7 @@ async function drive(){
     if(passed||tries>=DRIVE.tries){ tries=0; nextPhrase(); }
   }
 }
-const DRIVE_ON=$("driveBtn").innerHTML, DRIVE_OFF=DRIVE_ON.replace("i-car","i-stop").replace("מצב נסיעה","סיום נסיעה");
+const DRIVE_ON=$("driveBtn").innerHTML, DRIVE_OFF=DRIVE_ON.replace("i-car","i-stop").replace("עבור למצב נסיעה","סיום נסיעה");
 $("driveGo").onclick=()=>{ store.set("ihki.driveSeen",true); $("driveDlg").close(); $("driveBtn").onclick(); };
 $("driveNo").onclick=()=>$("driveDlg").close();
 function stopDrive(){
