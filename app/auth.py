@@ -1,4 +1,4 @@
-"""Sign-in: the page logs in with Google through Supabase and sends the session token with each call.
+"""Sign-in: the page logs in through Supabase, with Google or with a link sent to the email, and sends the session token with each call.
 
 The token is checked by asking Supabase who it belongs to (GET /auth/v1/user), so no signing key is
 kept here and a session revoked in Supabase stops working within CACHE_TTL.
@@ -13,7 +13,7 @@ never leaves the server.
 Classes: the teacher opens classes in the panel (a name, e.g. "October 2026", the lessons it studies, its
 students' emails and an optional nickname of each, and the homework: a topic of its lessons, with the day it is due),
 kept in the Supabase table `classes`. A student may be in several. Once there is a class, only the classes'
-students and the teachers are let in; before the first one (or without the secret key, which reads the table) any Google account is.
+students and the teachers are let in; before the first one (or without the secret key, which reads the table) any account is.
 
 Videos: the teacher adds lesson videos in the panel's content part (a lesson, a title and a Vimeo link) and moves
 each to its place among the lesson's topics, kept in the Supabase table `videos`. A student's path shows them as
@@ -233,7 +233,7 @@ class SupabaseAuth:
         self._videos = None
 
     def users(self) -> list[dict]:
-        """Every account that has signed in: id, email, name (as Google gave it)."""
+        """Every account that has signed in: id, email, name (as Google gave it; empty for one who signed in by email)."""
         users: list[dict] = []
         for page in range(1, 51):
             batch = self._admin(f"/auth/v1/admin/users?page={page}&per_page={PAGE}").get("users", [])
@@ -269,7 +269,7 @@ def load_auth() -> SupabaseAuth | None:
     emails = lambda name: frozenset(re.split(r"[\s,;]+", os.environ.get(name, "").strip().lower())) - {""}
     teachers = emails("TEACHER_EMAILS")
     secret = os.environ.get("SUPABASE_SECRET_KEY", "").strip()
-    log.info("sign-in on: %s", "the students of the classes" if secret else "any Google account (no SUPABASE_SECRET_KEY)")
+    log.info("sign-in on: %s", "the students of the classes" if secret else "any account (no SUPABASE_SECRET_KEY)")
     if os.environ.get("ALLOWED_EMAILS", "").strip():
         log.warning("ALLOWED_EMAILS is no longer read: the teacher lists the students in the panel's classes")
     if teachers and not secret:

@@ -72,7 +72,9 @@ The teacher only needs that link. Free Spaces sleep after inactivity, so the fir
 
 ## Sign-in and progress (Supabase)
 
-Optional. With `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` set, the page asks for a Google sign-in (through Supabase Auth) and the practice endpoints refuse calls without a session. Who may sign in is set by the teacher's classes (see below). Without the two values the service is open.
+Optional. With `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` set, the page asks for a sign-in (through Supabase Auth): with Google, or with a link sent to the student's email (no password), for one without a Google account. The practice endpoints refuse calls without a session. Who may sign in is set by the teacher's classes (see below). Without the two values the service is open.
+
+The email link needs, in Supabase: Authentication → Sign In / Providers → Email enabled; Authentication → URL Configuration → the app's address as the Site URL (or among the Redirect URLs); and Authentication → Emails → SMTP Settings → your own SMTP server, as Supabase's built-in one sends only to the project's team members, a few emails an hour.
 
 Each scored recording is added to the table `attempts`, written with the student's own token so row-level security ties the row to them. Create it once in the Supabase SQL editor:
 
