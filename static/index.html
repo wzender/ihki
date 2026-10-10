@@ -939,8 +939,9 @@ $("setBtn").onclick=()=>$("setDlg").showModal();
 $("setClose").onclick=()=>$("setDlg").close();
 $("listClose").onclick=()=>$("listDlg").close();
 $("classClose").onclick=()=>$("classDlg").close();
-/* A student of several classes practises in one at a time: its lessons are the path. They are asked after the opening
-   screen, and again from the class's name in the path's corner, which opens the same choice. */
+/* A student of several classes practises in one at a time: its lessons are the path. Signing in opens the class they
+   practised in last on this device; they are asked after the opening screen only when there is none, and change it from
+   the pill in the path's corner, which opens the same choice. */
 function useClass(c){
   MY_CLASS=c; store.set("ihki.class",c.name);
   $("myClass").textContent=`כיתת ${c.name}`;
@@ -2183,7 +2184,7 @@ const ready=fetch("/api/phrases").then(r=>r.json()).then(d=>{
 function enter(){
   const splash=$("logo-splash");
   $("wrap").inert=false; splash.classList.add("done"); setTimeout(()=>splash.remove(),400);
-  if(MY_CLASSES.length>1&&!MY_CLASS) askClass();   // in several classes: which one now?
+  if(MY_CLASSES.length>1&&!MY_CLASS) askClass();   // in several classes and none practised in before: which one?
 }
 $("startBtn").onclick=$("practiceBtn").onclick=enter;
 $("manageBtn").onclick=()=>{ enter(); showManage(); };
@@ -2217,6 +2218,7 @@ if(AUTH_URL){
         $("myClass").classList.toggle("many",MY_CLASSES.length>1); $("myClass").title=MY_CLASSES.length>1?"מעבר לכיתה אחרת":"התלמידים בכיתה שלי";
         MY_LESSONS=me.lessons||null; if(ALL_LESSONS.length) useLessons(MY_LESSONS);
         if(MY_CLASSES.length===1) MY_CLASS=mine[0];
+        else{ const last=MY_CLASSES.find(c=>c.name===store.get("ihki.class","")); if(last) useClass(last); }   // the class practised in last
         start.hidden=!ok||teacher; roles.hidden=$("toManage").hidden=!teacher; denied.hidden=ok;
         if(ok){ (teacher?$("practiceBtn"):start).focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); loadVideos(); }
       },0);
