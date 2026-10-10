@@ -89,26 +89,38 @@ def build_version() -> str:
     return f"{h.hexdigest()[:7]} · {time.strftime('%Y-%m-%d %H:%M', time.gmtime(newest))} UTC"
 
 
+def utc(stamp: str) -> datetime:
+    """A Supabase timestamp. The seconds part only: the fraction's length varies, which Python 3.10 does not parse."""
+    return datetime.strptime(stamp[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+
+
 def summary(rows: list[dict]) -> dict:
     """One student's attempts summed up: best score and tries per phrase id, recordings (all, and of the last
-    7 days), days practised, time of the last one."""
+    7 days), days practised, time of the last one. A recording that did not match the sentence on the screen
+    (unrelated) is a recording, on its day, but no try and no score: such ones are counted per phrase id in "missed",
+    and all together in "unmatched"."""
     shown = {c["id"] for c in CATEGORIES}
     ids = {(p["cat"], p["he"]): i for i, p in enumerate(PHRASES) if p["cat"] in shown}
     best: dict[int, int] = {}
     tries: dict[int, int] = {}
+    missed: dict[int, int] = {}
+    unmatched = 0
     days, week, last = set(), 0, None
     since = datetime.now(timezone.utc) - timedelta(days=7)
     for r in rows:
-        # the seconds part only: the fraction's length varies, which Python 3.10 does not parse
-        at = datetime.strptime(r["created_at"][:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+        at = utc(r["created_at"])
         days.add(at.astimezone(LOCAL_TZ).date())
         week += at >= since
         last = max(last, at) if last else at
         i = ids.get((r["cat"], r["phrase"]))
-        if i is not None:   # a sentence the page no longer lists still counts as a recording
+        if r.get("unrelated"):
+            unmatched += 1
+            if i is not None:
+                missed[i] = missed.get(i, 0) + 1
+        elif i is not None:   # a sentence the page no longer lists still counts as a recording
             best[i] = max(best.get(i, 0), r["score"])
             tries[i] = tries.get(i, 0) + 1
-    return {"best": best, "tries": tries, "recordings": len(rows), "days": len(days), "week": week,
+    return {"best": best, "tries": tries, "missed": missed, "unmatched": unmatched, "recordings": len(rows), "days": len(days), "week": week,
             "last": last.isoformat() if last else None}
 
 
@@ -186,7 +198,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.get("/api/class")
     def class_progress(a: SupabaseAuth = Depends(teacher_only)):
         """The teacher's panel: the classes (with their lessons and homework), and every student's summary (see `summary`) with
-        their classes ({name: nickname}). The students are the classes' accounts, or every account that signed in
+        their classes ({name: nickname}) and, as "since", the same summary for each class ({name: summary}) of the attempts
+        made since the class was opened: a new class starts clean, whatever its students practised before. The students are the classes' accounts, or every account that signed in
         when there is no class yet; one that never signed in has joined = false."""
         try:
             classes, users, rows = a.classes(fresh=True), a.users(), a.all_attempts()
@@ -199,10 +212,17 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         for c in classes:
             for e in c["emails"]:
                 member.setdefault(e, {})[c["name"]] = c["nicknames"].get(e, "")
-        students = [{"email": u["email"], "name": u["name"], "joined": True, "classes": member.get(u["email"].lower(), {}),
-                     **summary(by.get(u["id"], []))} for u in users if not classes or u["email"].lower() in member]
+        opened = {c["name"]: utc(c["created_at"]) for c in classes if c.get("created_at")}
+
+        def student(email: str, name: str, joined: bool, mine: list[dict]) -> dict:
+            into = member.get(email.lower(), {})
+            since = {n: summary([r for r in mine if n not in opened or utc(r["created_at"]) >= opened[n]]) for n in into}
+            return {"email": email, "name": name, "joined": joined, "classes": into, "since": since, **summary(mine)}
+
+        students = [student(u["email"], u["name"], True, by.get(u["id"], []))
+                    for u in users if not classes or u["email"].lower() in member]
         missing = member.keys() - {s["email"].lower() for s in students}
-        students += [{"email": e, "name": "", "joined": False, "classes": member[e], **summary([])} for e in sorted(missing)]
+        students += [student(e, "", False, []) for e in sorted(missing)]
         return {"classes": [{**c, "lessons": lessons_of(c), **homework_of(c)} for c in classes], "students": students}
 
     def class_store_error(e: AuthUnavailable) -> str:

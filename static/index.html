@@ -202,7 +202,6 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .tab small{font-weight:600;color:var(--muted);margin-inline-start:6px;font-variant-numeric:tabular-nums}
 .tab[aria-selected=true]{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
 .tab[aria-selected=true] small{color:inherit;opacity:.8}
-.tab.add{border-style:dashed;color:var(--olive);background:transparent}
 .chead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .chead h2{flex:1;margin:0;font:400 24px/1.1 var(--f-display);overflow-wrap:anywhere}
 .chead p{flex:0 0 100%;margin:0;color:var(--muted);font-size:14px}
@@ -225,15 +224,14 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .lsum .note{margin:0;padding:6px 16px;color:var(--muted);font-size:14px}
 .trow .tries{text-align:end}
 /* the students: a row each, a column per lesson (its sentences practised, and a bar), the grade; a row opens on its details */
-.rhead,.rrow>summary{display:grid;grid-template-columns:var(--cols);gap:10px;align-items:center;padding:8px 16px}
+.rhead,.rrow{display:grid;grid-template-columns:var(--cols);gap:10px;align-items:center;padding:8px 16px}
 .rhead{padding-block:0 6px;color:var(--muted);font:700 12px/1.2 var(--f-body)}
 .rhead span:not(:first-child){text-align:center}
-.rhead span:last-child{text-align:end}
-.rrow{border-top:1px solid var(--line)}
-.rrow>summary{cursor:pointer;list-style:none}
-.rrow>summary::-webkit-details-marker{display:none}
-.rrow>summary:hover{background:var(--bg)}
-.rrow[open]>summary{background:var(--olive-soft)}
+.rhead span:nth-last-child(2){text-align:end}
+.rrow{width:100%;border:0;border-top:1px solid var(--line);background:none;color:inherit;font:inherit;text-align:start;cursor:pointer}
+.rrow:hover{background:var(--bg)}
+.rrow .go{color:var(--olive);font:700 20px/1 var(--f-body)}
+.rrow:active{background:var(--olive-soft)}
 .rrow .who{display:flex;flex-direction:column;min-width:0}
 .rrow .who b{align-self:flex-start;max-width:100%;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rrow .who small{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -241,8 +239,19 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .cell .progress{height:5px;margin:0}
 .rrow .pill,.rrow .none{justify-self:end}
 .rrow .none{color:var(--muted);font-size:12px;text-align:end}
-.rdetail{padding:0 0 8px}
-.rdetail .stats{margin:0;padding:4px 16px 8px;color:var(--muted);font-size:14px}
+/* the panel's two parts: the classes (opened, edited, deleted) and the students (their progress, a class at a time) */
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:14px;background:var(--line)}
+.modes button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 6px;border:0;border-radius:10px;background:transparent;color:var(--ink);font:700 16px/1.2 var(--f-body);cursor:pointer}
+.modes button small{font:600 12px/1.2 var(--f-body);color:var(--muted)}
+.modes button[aria-selected=true]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.15)}
+#manage.classes :is(#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.classes) #mClasses{display:none}
+#mClasses{display:flex;flex-direction:column;gap:inherit}
+#mClasses>.btn{align-self:flex-start}
+#mClasses .card>.btn{align-self:flex-start}
+/* a student's own screen takes the class's place in the panel: the way back, their figures, their lessons, their sentences */
+#manage.student :is(#mTabs,#mHead,#mLessons,#mRoster),#manage:not(.student) #mStudent{display:none}
+#mStudent{display:flex;flex-direction:column;gap:inherit}
+#mStudent .back{align-self:flex-start}
 .cform{display:flex;flex-direction:column;gap:10px}
 .cform label{display:flex;flex-direction:column;gap:4px;font:700 14px/1.3 var(--f-body)}
 .cform label small{font-weight:500;color:var(--muted)}
@@ -266,6 +275,29 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 #editLessons .chips label:has(:checked){border-color:var(--olive);background:var(--olive-soft);color:var(--olive)}
 #editLessons input{width:18px;height:18px;margin:0;accent-color:var(--olive)}
 .btn.danger{color:var(--sumac);border-color:currentColor}
+/* a new class is opened in steps: a line of dots for the way, one question on show, "back" and "next" under it */
+.wiz .dots{display:flex;gap:6px}
+.wiz .dots i{flex:1;height:4px;border-radius:2px;background:var(--line)}
+.wiz .dots i.on{background:var(--olive)}
+.wiz section{display:flex;flex-direction:column;gap:10px;min-height:11em}
+.wiz .hint{margin:0;color:var(--muted);font-size:14px}
+.wiz .opts{display:flex;flex-direction:column;gap:8px}
+.wiz .opts label{flex-direction:row;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font:700 17px/1.2 var(--f-body);cursor:pointer}
+.wiz .opts label:has(:checked){border-color:var(--olive);background:var(--olive-soft)}
+.wiz .opts span{display:flex;flex-direction:column;gap:3px}
+.wiz .stus{display:flex;flex-direction:column;max-height:38vh;overflow-y:auto;border:1px solid var(--line);border-radius:10px}
+.wiz .stus:empty{display:none}
+.wiz .stu{display:grid;grid-template-columns:1fr minmax(0,10em);gap:8px;align-items:center;padding:6px 10px}
+.wiz .stu+.stu{border-top:1px solid var(--line)}
+.wiz .stu label{flex-direction:row;align-items:center;gap:10px;min-width:0;cursor:pointer}
+.wiz .stu label span{display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere}
+.wiz .stu input[type=checkbox],.wiz .opts input{flex:none;width:18px;height:18px;padding:0;accent-color:var(--olive)}
+.wiz .addrow{display:grid;grid-template-columns:1fr auto;gap:8px}
+.wiz .addrow input{direction:ltr;text-align:left;min-width:0}
+.wiz dl,dl.facts{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;padding:10px 12px;border-radius:10px;background:var(--bg);font-size:15px}
+.wiz dt,.facts dt{font-weight:700} .wiz dd,.facts dd{margin:0;overflow-wrap:anywhere}
+.wiz .after{margin:0;font-size:14px;line-height:1.5}
+.wiz .after b{display:block}
 #logoutBtn{position:fixed;bottom:4px;right:6px;z-index:9;font:500 11px/1 var(--f-body);padding:3px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
 .drive{margin-inline-start:auto;font:700 15px var(--f-body);border-radius:999px;padding:6px 14px;cursor:pointer;border:1px solid var(--olive);background:transparent;color:var(--olive)}
 body.driving .drive{background:var(--sumac);border-color:var(--sumac);color:#fff}
@@ -433,10 +465,13 @@ body.driving .card.storymode .prompt{display:block}
   <section class="wrap" id="manage" aria-labelledby="mTitle">
     <div class="roundbar"><h1 class="mtitle" id="mTitle">ניהול</h1><span class="sep"></span><button class="btn" id="mRefresh">רענון</button><button class="btn primary" id="mPractice">לתרגול</button></div>
     <div class="sub" id="mState" aria-live="polite"></div>
+    <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>ההתקדמות בכל כיתה</small></button></div>
+    <div id="mClasses"></div>
     <div class="tabs" id="mTabs" role="tablist" aria-label="כיתות" hidden></div>
     <div class="card" id="mHead" hidden></div>
     <div class="card hard" id="mLessons" hidden></div>
     <div class="card hard roster" id="mRoster" hidden></div>
+    <div id="mStudent"></div>
   </section>
 </div>
 <dialog id="listDlg" aria-labelledby="listTitle">
@@ -454,6 +489,34 @@ body.driving .card.storymode .prompt{display:block}
     <label>התלמידים<small>שורה לכל תלמיד: כתובת ה-Gmail, ואחריה כינוי אם רוצים. בכיתה רואים את הכינוי, או את השם מ-Google. תלמיד יכול להיות בכמה כיתות.</small>
       <textarea id="editEmails" spellcheck="false" placeholder="dana@gmail.com דנה&#10;avi@gmail.com"></textarea></label>
     <div class="row"><button class="btn primary" id="editSave"></button><span class="sub" id="editCount"></span><span class="sep"></span><button class="btn danger" type="button" id="editDelete">מחיקת הכיתה</button><span class="msg" id="editMsg" role="alert"></span></div>
+  </form>
+</dialog>
+<dialog id="newDlg" aria-labelledby="newTitle">
+  <div class="dlg-head"><h2 id="newTitle">כיתה חדשה<small id="newStep"></small></h2><button class="btn" id="newClose">סגירה</button></div>
+  <form class="cform wiz" id="newForm" novalidate>
+    <div class="dots" id="newDots" aria-hidden="true"></div>
+    <section>
+      <label>איך קוראים לכיתה?<input id="newName" maxlength="80" placeholder="למשל: מתחילים אוקטובר 2026" autocomplete="off"></label>
+      <p class="hint">השם מופיע אצלכם בפאנל ואצל התלמידים בראש המסלול.</p>
+    </section>
+    <section>
+      <fieldset class="lpick"><legend>באיזו רמה הכיתה לומדת?<small>התלמידים יראו במסלול את השיעורים של הרמה הזו. שיעור שעוד לא מוכן ייפתח להם לבד כשיהיה.</small></legend><div class="opts" id="newLevels"></div></fieldset>
+    </section>
+    <section>
+      <fieldset class="lpick"><legend>מי בכיתה?<small>סמנו את התלמידים. ליד כל תלמיד שסימנתם אפשר לכתוב כינוי: כך יקראו לו בכיתה, במקום השם שלו ב-Google.</small></legend><div class="stus" id="newStudents"></div></fieldset>
+      <label>תלמיד שלא ברשימה?<small>כתבו את כתובת ה-Gmail שלו ולחצו „הוספה”.</small>
+        <span class="addrow"><input id="newEmail" type="email" placeholder="dana@gmail.com" autocomplete="off" spellcheck="false"><button class="btn" type="button" id="newAdd">הוספה</button></span></label>
+      <span class="sub" id="newCount"></span>
+    </section>
+    <section>
+      <label>מה שיעורי הבית של הכיתה?<small>נושא אחד שהכיתה מתרגלת עכשיו, למשל שיחה. התלמידים רואים אותו מסומן במסלול, ואתם רואים בפאנל מי סיים. אפשר גם לדלג ולבחור אחר כך.</small><select id="newHw"></select></label>
+      <label id="newDueBox">עד איזה יום?<small>לא חובה.</small><input type="date" id="newDue"></label>
+    </section>
+    <section>
+      <dl id="newSummary"></dl>
+      <p class="after" id="newAfter"></p>
+    </section>
+    <div class="row"><button class="btn" type="button" id="newBack">חזרה</button><span class="sep"></span><button class="btn primary" id="newNext"></button><span class="msg" id="newMsg" role="alert"></span></div>
   </form>
 </dialog>
 <dialog id="classDlg" aria-labelledby="classTitle">
@@ -814,7 +877,7 @@ $("myClass").onclick=async()=>{   // the students of my classes, by the nickname
     if(several) note.textContent="";
   }catch{ note.textContent="הרשימה לא זמינה כרגע."; }
 };
-for(const d of document.querySelectorAll("dialog:not(#editDlg,#pickDlg)")) d.onclick=e=>{   // a tap outside the box closes it (not a form being filled)
+for(const d of document.querySelectorAll("dialog:not(#editDlg,#newDlg,#pickDlg)")) d.onclick=e=>{   // a tap outside the box closes it (not a form being filled)
   const r=d.getBoundingClientRect(); if(e.target===d&&(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)) d.close(); };
 // Grammar-built phrases (grp set) exist for every pronoun, positive and negative: the two buttons move between them.
 function variation(kind){
@@ -1405,7 +1468,7 @@ function showManage(){
   document.body.classList.add("manage"); scrollTo(0,0); loadManage();
 }
 $("toManage").onclick=$("mRefresh").onclick=showManage;
-$("mPractice").onclick=()=>{ document.body.classList.remove("manage"); drawPath(); };   // the path was not laid out while hidden
+$("mPractice").onclick=()=>{ document.body.classList.remove("manage"); shownStudent=""; drawPath(); };   // the path was not laid out while hidden
 const grade=n=>mark("pill "+(n>=EXCELLENT?"good":n>=60?"mid":"bad"),n);
 const mean=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):null;
 function sentence(p,under){   // a sentence as the student sees it, and a small line under it
@@ -1414,11 +1477,15 @@ function sentence(p,under){   // a sentence as the student sees it, and a small 
 }
 /* The panel shows one class at a time (a tab each). Before the first class it shows every account that signed in. */
 let CLASS=null, shownClass=store.get("ihki.mclass","");   // the panel's last answer {classes, students}; the class on show
+let mMode=store.get("ihki.mmode","");   // the panel's part on show: "classes" or "students" (the classes, before the first one)
+let shownStudent="", classScroll=0;   // the student whose screen is on show (an email; "" for the class's), and where the class's was left
 let CLASS_LESSONS=[], CLASS_SOON=[];   // the ready lessons of the class on show, and those still to come (every lesson before the first class)
 const HARD=70;   // a sentence whose class average (of each student's best score) is under this is flagged as hard
 const listedPhrases=()=>PHRASES.filter(p=>p.listed!==false);
 const lessonPhrases=(l,list)=>{ const cats=ALL_CATS.filter(c=>c.lesson===l.id).map(c=>c.id); return list.filter(p=>cats.includes(p.cat)); };
-const stuTally=(s,list)=>{ const got=list.filter(p=>s.best[p.id]!=null); return {done:got.length, n:list.length, avg:mean(got.map(p=>s.best[p.id])), tries:list.reduce((t,p)=>t+(s.tries[p.id]||0),0)}; };
+const stuTally=(s,list)=>{ const got=list.filter(p=>s.best[p.id]!=null), sum=k=>list.reduce((t,p)=>t+(s[k]&&s[k][p.id]||0),0);
+  return {done:got.length, n:list.length, avg:mean(got.map(p=>s.best[p.id])), tries:sum("tries"), missed:sum("missed")}; };   // missed: recordings that did not match their sentence
+const triesText=t=>[t.tries&&`${t.tries} ניסיונות`,t.missed&&`${t.missed} לא זוהו`].filter(Boolean).join(" · ");
 const ratio=t=>{ const m=document.createElement("small"), n=document.createElement("bdi"); n.dir="ltr"; n.textContent=`${t.done}/${t.n}`; m.append(n); return m; };
 const bar=frac=>{ const b=mark("progress",""), f=document.createElement("i"); f.style.width=`${Math.round(frac*100)}%`; b.append(f); return b; };
 const place=p=>{ const c=ALL_CATS.find(c=>c.id===p.cat), l=c&&ALL_LESSONS.find(l=>l.id===c.lesson); return [lessonName(l),c&&c.name].filter(Boolean).join(" · "); };
@@ -1443,35 +1510,82 @@ function drawManage(){
   const mine=ALL_LESSONS.filter(l=>!klass||klass.lessons.includes(l.id));
   CLASS_LESSONS=mine.filter(l=>!l.soon); CLASS_SOON=mine.filter(l=>l.soon);
   const listed=CLASS_LESSONS.flatMap(l=>lessonPhrases(l,listedPhrases()));   // the class's sentences: its figures count these only
-  // a student of the class, with its nickname in it; the totals beside their own fields (`tries` stays the per-sentence one)
-  const students=CLASS.students.filter(s=>!klass||klass.name in s.classes).map(s=>{ const t=stuTally(s,listed);
+  // a student of the class, with its nickname in it and what they practised since it was opened (a new class starts
+  // clean); the totals beside their own fields (`tries` stays the per-sentence one)
+  const students=CLASS.students.filter(s=>!klass||klass.name in s.classes).map(s=>{ if(klass&&s.since) s={...s,...s.since[klass.name]}; const t=stuTally(s,listed);
     return {...s,nick:klass?s.classes[klass.name]:Object.values(s.classes).find(Boolean)||"",done:t.done,n:t.n,avg:t.avg}; });
-  drawTabs(classes); drawHead(klass,students); drawLessons(students,listed); drawRoster(students,listed);
+  if(mMode!=="classes"&&mMode!=="students") mMode=classes.length?"students":"classes";
+  $("mModes").hidden=false; $("manage").classList.toggle("classes",mMode==="classes");
+  for(const b of $("mModes").children) b.setAttribute("aria-selected",b.dataset.mode===mMode);
+  drawClasses(classes); drawTabs(classes); drawHead(klass,students); drawLessons(students,listed); drawRoster(klass,students,listed);
+  const one=students.find(s=>s.email===shownStudent);   // a student who left the class has no screen in it
+  if(!one) shownStudent="";
+  $("manage").classList.toggle("student",!!one); $("mStudent").innerHTML="";
+  if(one) drawStudent(klass,one,listed);
 }
+function showMode(mode){ mMode=mode; store.set("ihki.mmode",mode); drawManage(); }
+for(const b of $("mModes").children) b.onclick=()=>showMode(b.dataset.mode);
+const lessonsLine=ls=>byLevel(ls).map(g=>`${g.level.name}: ${lessonsWord(g.lessons)} (${g.lessons.filter(l=>!l.soon).length} מוכנים)`).join(" · ");   // "רמה 1: שיעורים 1–10 (2 מוכנים)"
+/* The classes' part: a card per class with what it is made of, and its buttons: edit, delete, and on to its students' progress. */
+function drawClasses(classes){
+  const box=$("mClasses"); box.innerHTML="";
+  if(!classes.length){
+    const none=mark("card",""), top=mark("chead","");
+    top.append(mark("","עוד אין כיתות","h2"),mark("","עד שנפתחת כיתה, כל חשבון Google יכול להיכנס, ותחת „תלמידים” מופיע כל מי שנכנס. מהכיתה הראשונה נכנסים רק התלמידים שבכיתות והמורים.","p"));
+    none.append(top); box.append(none);
+  }
+  const add=mark("btn primary","+ כיתה חדשה","button"); add.onclick=newClass; box.append(add);
+  for(const c of classes){
+    const card=mark("card",""), top=mark("chead",""), name=mark("","","h2"), n=document.createElement("bdi"), edit=mark("btn","עריכה","button"), del=mark("btn danger","מחיקה","button");
+    n.textContent=c.name; name.append(n); edit.onclick=()=>editClass(c); del.onclick=()=>deleteClass(c); top.append(name,edit,del);
+    const facts=mark("facts","","dl"), fact=(what,...value)=>{ const dd=document.createElement("dd"); dd.append(...value); facts.append(mark("",what,"dt"),dd); };
+    fact("שיעורים",lessonsLine(ALL_LESSONS.filter(l=>c.lessons.includes(l.id))));
+    const mine=CLASS.students.filter(s=>c.name in s.classes);
+    fact("תלמידים",...(mine.length?[`${mine.length}: `,...mine.flatMap((s,k)=>{ const b=document.createElement("bdi"); b.textContent=s.classes[c.name]||s.name||s.email; return k?[", ",b]:[b]; })]:["עוד אין"]));
+    const hw=c.homework&&ALL_CATS.find(t=>t.id===c.homework);
+    fact("שיעורי בית",hw?[hw.name,lessonName(ALL_LESSONS.find(l=>l.id===hw.lesson)),dueText(c.due).text].filter(Boolean).join(" · "):"אין");
+    const go=mark("btn","התקדמות התלמידים ‹","button"); go.onclick=()=>{ shownClass=c.name; store.set("ihki.mclass",c.name); shownStudent=""; showMode("students"); scrollTo(0,0); };
+    card.append(top,facts,go); box.append(card);
+  }
+}
+async function deleteClass(c){
+  if(!confirm(`למחוק את הכיתה ${c.name}? התלמידים שלה לא יוכלו להיכנס עוד. ההקלטות וההתקדמות שלהם נשמרות.`)) return;
+  try{
+    const res=await api(`/api/classes/${c.id}`,{method:"DELETE"});
+    if(!res.ok) alert((await res.json().catch(()=>({}))).detail||`המחיקה נכשלה (${res.status})`);
+  }catch{ alert("השרת לא זמין."); }
+  loadManage();
+}
+/* A student's screen is a step in the browser's history, so its back button returns to the class too. */
+function showStudent(email){
+  classScroll=scrollY; shownStudent=email; history.pushState({student:email},""); drawManage(); scrollTo(0,0);
+}
+function leaveStudent(){ if(history.state&&history.state.student) history.back(); else{ shownStudent=""; drawManage(); scrollTo(0,classScroll); } }
+addEventListener("popstate",e=>{
+  const to=e.state&&e.state.student||""; if(to===shownStudent||!CLASS) return;
+  shownStudent=to; drawManage(); scrollTo(0,to?0:classScroll);
+});
 function drawTabs(classes){
   const tabs=$("mTabs"); tabs.innerHTML=""; tabs.hidden=!classes.length;
   for(const c of classes){
     const t=mark("tab","","button"), name=document.createElement("bdi"); t.setAttribute("role","tab");
-    name.textContent=c.name; t.append(name);   // isolated, so the count does not join a year in the name t.setAttribute("aria-selected",c.name===shownClass);
+    name.textContent=c.name; t.append(name);   // isolated, so the count does not join a year in the name
+    t.setAttribute("aria-selected",c.name===shownClass);
     t.append(mark("",c.emails.length,"small"));
     t.onclick=()=>{ shownClass=c.name; store.set("ihki.mclass",c.name); drawManage(); };
     tabs.append(t);
   }
-  const add=mark("tab add","+ כיתה חדשה","button"); add.onclick=()=>editClass(null); tabs.append(add);
 }
-function drawHead(klass,students){   // the class's name, its edit button and its figures; before the first class, how to open one
+function drawHead(klass,students){   // the class's name and its figures; before the first class, where to open one
   const head=$("mHead"); head.innerHTML=""; head.hidden=false;
   const top=mark("chead","");
   if(!klass){
     top.append(mark("","עוד אין כיתות","h2"));
-    const open=mark("btn primary","פתיחת כיתה","button"); open.onclick=()=>editClass(null); top.append(open);
+    const open=mark("btn primary","פתיחת כיתה","button"); open.onclick=newClass; top.append(open);
     top.append(mark("","עד שנפתחת כיתה, כל חשבון Google יכול להיכנס, ולמטה מופיע כל מי שנכנס. מהכיתה הראשונה נכנסים רק התלמידים שבכיתות והמורים.","p"));
     head.append(top); return;
   }
-  const edit=mark("btn","עריכת הכיתה","button"); edit.onclick=()=>editClass(klass);
-  const what=byLevel([...CLASS_LESSONS,...CLASS_SOON].sort((a,b)=>ALL_LESSONS.indexOf(a)-ALL_LESSONS.indexOf(b)))   // "רמה 1: שיעורים 1–10 (2 מוכנים)"
-    .map(g=>`${g.level.name}: ${lessonsWord(g.lessons)} (${g.lessons.filter(l=>!l.soon).length} מוכנים)`).join(" · ");
-  top.append(mark("",klass.name,"h2"),edit,mark("",what,"p")); head.append(top);
+  top.append(mark("",klass.name,"h2"),mark("",lessonsLine(ALL_LESSONS.filter(l=>klass.lessons.includes(l.id))),"p")); head.append(top);
   const tiles=mark("tiles",""), tile=(n,what)=>{ const t=mark("tile",""), b=mark("",n,"b"); b.dir="ltr"; t.append(b,mark("",what,"small")); tiles.append(t); };
   const avg=mean(students.filter(s=>s.avg!=null).map(s=>s.avg));
   tile(`${students.filter(s=>s.joined).length}/${students.length}`,"נכנסו לאפליקציה");
@@ -1525,51 +1639,78 @@ function drawLessons(students,listed){
 }
 /* The students: the latest to practise first, those who never signed in last. A row opens on the student's numbers, their
    best and weakest sentences, and each lesson by topic. */
-function drawRoster(students,listed){
-  // a column per lesson, or per level once the class has more ready lessons than fit
-  const cols=CLASS_LESSONS.length<=4?CLASS_LESSONS.map(l=>({name:l.name,title:lessonName(l),list:lessonPhrases(l,listed)}))
-    :byLevel(CLASS_LESSONS).map(g=>({name:g.level.name,title:g.level.name,list:g.lessons.flatMap(l=>lessonPhrases(l,listed))}));
-  const box=$("mRoster"); box.innerHTML=""; box.hidden=false; box.style.setProperty("--cols",["minmax(0,1fr)",...cols.map(()=>"4.6em"),"3em"].join(" "));   // no lesson column when none is ready
-  const h=mark("","תלמידים","h2"); h.append(mark("","לחיצה על תלמיד פותחת את הפירוט","small")); box.append(h);
-  if(!students.length){ box.append(mark("note","אין עדיין תלמידים בכיתה הזו. הוסיפו אותם ב\"עריכת הכיתה\".","p")); return; }
-  const head=mark("rhead",""); head.append(mark("","תלמיד/ה"),...cols.map(c=>mark("",c.name)),mark("","ציון")); box.append(head);
+function drawRoster(klass,students,listed){
+  // the same columns however many lessons the class has: the homework topic (when there is one) and all the class's
+  // sentences; a lesson by itself is on the student's own screen
+  const hw=klass&&klass.homework&&ALL_CATS.find(c=>c.id===klass.homework&&CLASS_LESSONS.some(l=>l.id===c.lesson));
+  const cols=[...(hw?[{name:"שיעורי בית",title:`שיעורי בית, ${hw.name}`,list:listed.filter(p=>p.cat===hw.id)}]:[]),
+    ...(CLASS_LESSONS.length?[{name:"כל השיעורים",title:"כל השיעורים",list:listed}]:[])];
+  const box=$("mRoster"); box.innerHTML=""; box.hidden=false; box.style.setProperty("--cols",["minmax(0,1fr)",...cols.map(()=>"4.2em"),"3em","10px"].join(" "));   // no lesson column when none is ready
+  const h=mark("","תלמידים","h2"); h.append(mark("","לחיצה על תלמיד פותחת את הדף שלו","small")); box.append(h);
+  if(!students.length){ box.append(mark("note","אין עדיין תלמידים בכיתה הזו. מוסיפים אותם תחת „כיתות”, בכפתור „עריכה” של הכיתה.","p")); return; }
+  const head=mark("rhead",""); head.append(mark("","תלמיד/ה"),...cols.map(c=>mark("",c.name)),mark("","ציון"),mark("","")); box.append(head);
   students.sort((a,b)=>(b.last||"").localeCompare(a.last||"")||b.joined-a.joined||a.email.localeCompare(b.email));
   for(const s of students){
-    const det=document.createElement("details"), sum=document.createElement("summary"), who=mark("who","");
-    det.className="rrow";
-    const when=s.last?new Date(s.last).toLocaleString("he-IL",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+    const row=mark("rrow","","button"), who=mark("who","");
     const shown=mark("",s.nick||s.name||s.email,"b"); shown.dir="auto";   // an address is cut at its end
-    who.append(shown,mark("",!s.joined?"עוד לא נכנס/ה":when?`לאחרונה ${when}`:"עוד לא תרגל/ה","small"));
-    who.title=s.email; sum.append(who);
-    for(const col of cols){ const t=stuTally(s,col.list), c=mark("cell",""); c.append(ratio(t),bar(t.n?t.done/t.n:0)); c.title=`${col.title}: תורגלו ${t.done} מתוך ${t.n}`+(t.avg!=null?`, ציון ${t.avg}`:""); sum.append(c); }
-    sum.append(s.avg!=null?grade(s.avg):mark("none","–"));
-    det.append(sum);
-    det.ontoggle=()=>{ if(det.open&&!det.querySelector(".rdetail")) det.append(studentDetail(s,listed)); };   // built when first opened
-    box.append(det);
+    who.append(shown,mark("",lastSeen(s)+(s.unmatched?` · ${s.unmatched} לא זוהו`:""),"small"));
+    who.title=s.email; row.append(who);
+    for(const col of cols){ const t=stuTally(s,col.list), c=mark("cell",""); c.append(ratio(t),bar(t.n?t.done/t.n:0)); c.title=`${col.title}: תורגלו ${t.done} מתוך ${t.n}`+(t.avg!=null?`, ציון ${t.avg}`:""); row.append(c); }
+    row.append(s.avg!=null?grade(s.avg):mark("none","–"),mark("go","‹"));   // the arrow says the row opens
+    row.onclick=()=>showStudent(s.email);
+    box.append(row);
   }
 }
-function studentDetail(s,listed){
-  const out=mark("rdetail",""), mail=document.createElement("bdi"); mail.dir="ltr"; mail.textContent=s.email;
-  const stats=mark("stats","","p"); stats.append(mail,` · תורגלו ${s.done} מתוך ${s.n} משפטים · ${s.recordings} הקלטות, ${s.week} מהן בשבוע האחרון · ${s.days} ימי תרגול`);
-  out.append(stats);
-  // the best and weakest sentences, by the best score; a sentence is in one list only
-  const got=listed.filter(p=>s.best[p.id]!=null).sort((a,b)=>s.best[b.id]-s.best[a.id]), top=got.slice(0,5), low=got.slice(5).slice(-5).reverse();
-  for(const [title,list] of [["5 המשפטים הטובים ביותר",top],["5 המשפטים החלשים ביותר",low]]){
-    if(!list.length) continue;
-    const sec=part(out); sec.firstChild.append(mark("",title));
-    for(const p of list){ const row=mark("trow s3",""), n=s.tries[p.id]||0; row.append(sentence(p,place(p)),mark("",n>1?`${n} ניסיונות`:"","small"),grade(s.best[p.id])); sec.append(row); }
+function lastSeen(s){
+  const when=s.last?new Date(s.last).toLocaleString("he-IL",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+  return !s.joined?"עוד לא נכנס/ה":when?`לאחרונה ${when}`:"עוד לא תרגל/ה";
+}
+/* A student's screen, for the class on show (so it counts what the class's does): who they are and their figures, the
+   homework, every lesson of the class with its topics, and their best and weakest sentences. */
+function drawStudent(klass,s,listed){
+  const box=$("mStudent"), back=mark("btn back",klass?"→ חזרה לכיתה":"→ חזרה לרשימה","button"); back.onclick=leaveStudent; box.append(back);
+  const head=mark("card",""), top=mark("chead",""), name=mark("",s.nick||s.name||s.email,"h2"), who=mark("","","p"), mail=document.createElement("bdi");
+  name.dir="auto"; mail.dir="ltr"; mail.textContent=s.email;
+  if(s.nick&&s.name){ const g=document.createElement("bdi"); g.textContent=s.name; who.append(g," · "); }
+  if(s.nick||s.name) who.append(mail," · ");
+  if(klass){ const c=document.createElement("bdi"); c.textContent=klass.name; who.append("כיתת ",c," · "); }
+  who.append(lastSeen(s)); top.append(name,who); head.append(top);
+  const tiles=mark("tiles",""), tile=(n,what)=>{ const t=mark("tile",""), b=mark("",n,"b"); b.dir="ltr"; t.append(b,mark("",what,"small")); tiles.append(t); };
+  tile(`${s.done}/${s.n}`,"משפטים תורגלו"); tile(s.week,"הקלטות בשבוע האחרון"); tile(s.days,"ימי תרגול"); tile(s.avg??"–","ציון ממוצע");
+  head.append(tiles);
+  if(s.unmatched) head.append(mark("note",`${s.unmatched} הקלטות לא זוהו כמשפט שעל המסך: הן נשמרו, אבל לא נספרות במשפטים שתורגלו ולא בציון. ליד כל נושא מופיע כמה כאלה היו בו.`,"p"));
+  const hw=klass&&klass.homework&&ALL_CATS.find(c=>c.id===klass.homework&&CLASS_LESSONS.some(l=>l.id===c.lesson));
+  if(hw){
+    const t=stuTally(s,listed.filter(p=>p.cat===hw.id)), due=dueText(klass.due), over=t.done>=t.n;
+    const sum=mark("hwsum"+(due.late&&!over?" late":""),""), line=mark("",`שיעורי בית: ${hw.name}`,"b");
+    line.append(mark("",` · ${lessonName(ALL_LESSONS.find(l=>l.id===hw.lesson))}`,"small"));
+    if(due.text) line.append(mark(""," · "+due.text,"small"));
+    sum.append(line,mark("",over?`✓ סיים/ה: כל ${t.n} המשפטים תורגלו`:`תורגלו ${t.done} מתוך ${t.n} משפטים`,"small")); head.append(sum);
   }
-  for(const l of CLASS_LESSONS){   // a lesson's topics
-    const cats=ALL_CATS.filter(c=>c.lesson===l.id), t=stuTally(s,lessonPhrases(l,listed)), sec=part(out);
-    sec.firstChild.append(mark("",`${lessonName(l)} לפי נושאים`),ratio(t),t.avg!=null?grade(t.avg):mark("none","–"));
-    for(const c of cats){
+  box.append(head);
+  const lessons=mark("card hard",""), lh=mark("","שיעורים","h2"); lh.append(mark("","לחיצה על שיעור פותחת את הנושאים שלו","small")); lessons.append(lh);
+  for(const l of CLASS_LESSONS){
+    const t=stuTally(s,lessonPhrases(l,listed)), sec=part(lessons); sec.classList.add("lsum");
+    sec.firstChild.append(mark("",lessonName(l)),mark("",t.done?`תורגלו ${t.done} מתוך ${t.n} משפטים`:t.missed?`ניסה/תה, לא זוהה (${t.missed})`:"עוד לא התחיל/ה","small"),t.avg!=null?grade(t.avg):mark("none","–"),bar(t.n?t.done/t.n:0));
+    for(const c of ALL_CATS.filter(c=>c.lesson===l.id)){
       const t=stuTally(s,listed.filter(p=>p.cat===c.id)), row=mark("trow"+(t.done?"":" untouched"),"");
-      row.append(mark("",c.name),mark("",t.tries?`${t.tries} ניסיונות`:"","small"),ratio(t),t.avg!=null?grade(t.avg):mark("none","–")); sec.append(row);
+      row.append(mark("",c.name),mark("",triesText(t),"small"),ratio(t),t.avg!=null?grade(t.avg):mark("none","–")); sec.append(row);
     }
   }
-  return out;
+  if(CLASS_SOON.length) lessons.append(mark("note","בקרוב: "+byLevel(CLASS_SOON).map(g=>`${g.level.name}, ${lessonsWord(g.lessons)}`).join(" · "),"p"));
+  box.append(lessons);
+  // the best and weakest sentences, by the best score; a sentence is in one list only
+  const got=listed.filter(p=>s.best[p.id]!=null).sort((a,b)=>s.best[b.id]-s.best[a.id]), top5=got.slice(0,5), low=got.slice(5).slice(-5).reverse();
+  const marks=mark("card hard",""); marks.append(mark("","משפטים","h2")); box.append(marks);
+  if(!got.length) marks.append(mark("note",klass?"עוד לא תרגל/ה משפטים מאז שהכיתה נפתחה.":"עוד לא תרגל/ה משפטים.","p"));
+  for(const [title,list] of [["המשפטים הטובים ביותר",top5],["המשפטים החלשים ביותר",low]]){
+    if(!list.length) continue;
+    const sec=part(marks); sec.open=true; sec.firstChild.append(mark("",title));
+    for(const p of list){ const row=mark("trow s3",""), n=s.tries[p.id]||0; row.append(sentence(p,place(p)),mark("",n>1?`${n} ניסיונות`:"","small"),grade(s.best[p.id])); sec.append(row); }
+  }
 }
-/* A class is opened, edited and deleted in one dialog: a name, and a line per student (email, then an optional nickname). */
+/* A class is edited and deleted in one dialog: a name, its lessons, its homework, and a line per student (email, then an
+   optional nickname). A new class is opened in the steps below it. */
 let editing=null;
 function editClass(c){
   editing=c;
@@ -1625,6 +1766,111 @@ $("editForm").onsubmit=e=>{
 };
 $("editDelete").onclick=()=>{
   if(confirm(`למחוק את הכיתה ${editing.name}? התלמידים שלה לא יוכלו להיכנס עוד. ההקלטות וההתקדמות שלהם נשמרות.`)) sendClass("DELETE");
+};
+
+/* A new class is opened in steps, a question each: its name, its level (the class studies the level's lessons), its
+   students with their nicknames, its homework, and a summary to confirm, which says where all of it is changed later. */
+const WIZ=["שם הכיתה","רמה","תלמידים","שיעורי בית","אישור"], ADDRESS=/[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+/g;
+let wiz=null;   // {step, students: [{email, name, on, nick}]}: the accounts the panel knows, and those added here
+const wizName=()=>$("newName").value.trim().replace(/\s+/g," ");
+const wizLevel=()=>ALL_LEVELS.find(v=>v.id===($("newLevels").querySelector(":checked")||{}).value)||ALL_LEVELS[0];
+const wizLessons=()=>ALL_LESSONS.filter(l=>l.level===wizLevel().id);
+const wizWho=s=>s.nick.trim()||s.name||s.email;
+function newClass(){
+  wiz={step:0,students:CLASS.students.map(s=>({email:s.email.toLowerCase(),name:s.name,on:false,nick:""}))};
+  $("newName").value=$("newEmail").value=$("newDue").value=""; $("newHw").innerHTML="";
+  const levels=$("newLevels"); levels.innerHTML="";
+  ALL_LEVELS.forEach((v,k)=>{
+    const lab=document.createElement("label"), box=document.createElement("input"), text=document.createElement("span"), ls=ALL_LESSONS.filter(l=>l.level===v.id);
+    box.type="radio"; box.name="newLevel"; box.value=v.id; box.checked=!k;
+    text.append(v.name,mark("",`${lessonsWord(ls)} · ${ls.filter(l=>!l.soon).length} מוכנים`,"small")); lab.append(box,text); levels.append(lab);
+  });
+  wizStudents(); wizStep(0); $("newDlg").showModal(); $("newName").focus();
+}
+function wizStep(n){
+  wiz.step=n; $("newMsg").textContent="";
+  [...$("newForm").querySelectorAll("section")].forEach((s,k)=>s.hidden=k!==n);
+  $("newStep").textContent=`שלב ${n+1} מתוך ${WIZ.length}: ${WIZ[n]}`;
+  $("newDots").replaceChildren(...WIZ.map((_,k)=>mark(k<=n?"on":"","","i")));
+  $("newBack").hidden=!n; $("newNext").textContent=n===WIZ.length-1?"פתיחת הכיתה":"המשך";
+  if(n===3) wizHomework();
+  if(n===4) wizSummary();
+}
+function wizStudents(){   // a row per student: a box to tick, and once ticked a field for the nickname
+  const list=$("newStudents"), count=()=>{ const n=wiz.students.filter(s=>s.on).length; $("newCount").textContent=n?`נבחרו ${n} תלמידים`:"עוד לא נבחרו תלמידים"; };
+  list.innerHTML="";
+  for(const s of wiz.students){
+    const row=mark("stu",""), lab=document.createElement("label"), box=document.createElement("input"), who=document.createElement("span"), nick=document.createElement("input");
+    const mail=mark("",s.email,s.name?"small":"bdi"); mail.dir="ltr"; mail.style.textAlign="start";
+    box.type="checkbox"; box.checked=s.on; if(s.name) who.append(s.name); who.append(mail); lab.append(box,who);
+    nick.placeholder="כינוי (לא חובה)"; nick.maxLength=40; nick.value=s.nick; nick.hidden=!s.on; nick.setAttribute("aria-label",`כינוי של ${s.name||s.email}`);
+    box.onchange=()=>{ s.on=box.checked; nick.hidden=!s.on; count(); };
+    nick.oninput=()=>s.nick=nick.value;
+    nick.onkeydown=e=>{ if(e.key==="Enter") e.preventDefault(); };   // Enter in a nickname does not leave the step
+    row.append(lab,nick); list.append(row);
+  }
+  count();
+}
+function wizAdd(){   // the addresses written in the field join the list, ticked; false when there is text but no address
+  const box=$("newEmail"), text=box.value.trim(), found=text.match(ADDRESS)||[];
+  if(text&&!found.length){ $("newMsg").textContent="זו לא כתובת מייל מלאה. כתבו למשל dana@gmail.com"; box.focus(); return false; }
+  for(const e of found.map(e=>e.toLowerCase())){
+    const s=wiz.students.find(s=>s.email===e);
+    if(s) s.on=true; else wiz.students.push({email:e,name:"",on:true,nick:""});
+  }
+  if(found.length){ box.value=""; $("newMsg").textContent=""; wizStudents(); $("newStudents").scrollTop=$("newStudents").scrollHeight; }
+  return true;
+}
+$("newAdd").onclick=()=>{ wizAdd(); $("newEmail").focus(); };
+$("newEmail").onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); wizAdd(); } };
+function wizHomework(){   // the topics of the level's ready lessons, under their lessons; the one chosen before stays
+  const hw=$("newHw"), was=hw.value, ready=wizLessons().filter(l=>!l.soon);
+  hw.innerHTML=""; hw.add(new Option(ready.length?"בלי שיעורי בית בינתיים":"לרמה הזו עוד אין שיעורים מוכנים",""));
+  for(const l of ready){
+    const g=document.createElement("optgroup"); g.label=l.name; hw.append(g);
+    for(const t of ALL_CATS.filter(t=>t.lesson===l.id)) g.append(new Option(t.name,t.id));
+  }
+  hw.value=[...hw.options].some(o=>o.value===was)?was:""; hw.disabled=!ready.length;
+  $("newDue").min=new Date().toLocaleDateString("sv"); hw.onchange();
+}
+$("newHw").onchange=()=>$("newDueBox").hidden=!$("newHw").value;
+function wizSummary(){
+  const sum=$("newSummary"), level=wizLevel(), picked=wiz.students.filter(s=>s.on), topic=ALL_CATS.find(c=>c.id===$("newHw").value);
+  const line=(what,...value)=>{ const dd=document.createElement("dd"); dd.append(...value); sum.append(mark("",what,"dt"),dd); };
+  sum.innerHTML="";
+  const name=document.createElement("bdi"); name.textContent=wizName(); line("שם",name);
+  line("רמה",`${level.name}, ${lessonsWord(wizLessons())}`);
+  line("תלמידים",...(picked.length?[`${picked.length}: `,...picked.flatMap((s,k)=>{ const b=document.createElement("bdi"); b.textContent=wizWho(s); return k?[", ",b]:[b]; })]:["עוד אין. אפשר להוסיף אחר כך."]));
+  line("שיעורי בית",topic?[topic.name,ALL_LESSONS.find(l=>l.id===topic.lesson).name,dueText($("newDue").value).text].filter(Boolean).join(" · "):"אין בינתיים");
+  const after=$("newAfter"); after.innerHTML="";
+  after.append(mark("","מה קורה אחרי הפתיחה?","b"),"הכיתה מופיעה ברשימה תחת „כיתות”, והתלמידים שלה רואים את השיעורים במסלול. את ההתקדמות שלהם רואים תחת „תלמידים”. שום דבר כאן לא סופי: ליד כל כיתה ברשימה יש כפתור „עריכה”, שבו משנים את השם, השיעורים, התלמידים והכינויים ושיעורי הבית, וכפתור „מחיקה”.");
+  if(!CLASS.classes.length) after.append(mark("","שימו לב: זו הכיתה הראשונה. מרגע שהיא נפתחת, נכנסים לאפליקציה רק התלמידים שבכיתות והמורים.","b"));
+}
+$("newBack").onclick=()=>wizStep(wiz.step-1);
+$("newClose").onclick=()=>$("newDlg").close();
+$("newForm").onsubmit=async e=>{   // "next" checks the step on show; on the last one the class is opened
+  e.preventDefault();
+  const msg=$("newMsg"), n=wiz.step, name=wizName();
+  if(n===0){
+    const taken=CLASS.classes.find(c=>c.name.replace(/\s+/g," ").trim().toLowerCase()===name.toLowerCase());
+    if(!name||taken){ msg.textContent=name?`כבר יש כיתה בשם ${taken.name}. בחרו שם אחר.`:"כתבו שם לכיתה."; $("newName").focus(); return; }
+  }
+  if(n===2&&!wizAdd()) return;   // an address still in the field joins too
+  if(n<WIZ.length-1){ wizStep(n+1); return; }
+  const homework=$("newHw").value, buttons=$("newForm").querySelectorAll("button");
+  const emails=wiz.students.filter(s=>s.on).map(s=>`${s.email} ${s.nick.replace(/[\s@]+/g," ").trim()}`.trim()).join("\n");
+  msg.textContent=""; buttons.forEach(b=>b.disabled=true);
+  try{
+    const res=await api("/api/classes",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({name,emails,lessons:wizLessons().map(l=>l.id),homework,due:homework?$("newDue").value:""})});
+    if(res.ok){ shownClass=name; store.set("ihki.mclass",name); $("newDlg").close(); loadManage(); }
+    else{
+      const detail=(await res.json().catch(()=>({}))).detail||`הפתיחה נכשלה (${res.status})`;
+      if(res.status===409) wizStep(0);   // the name was taken meanwhile: back to it
+      msg.textContent=detail;
+    }
+  }catch{ msg.textContent="השרת לא זמין."; }
+  buttons.forEach(b=>b.disabled=false);
 };
 
 function useLessons(ids){   // the path shows these lessons only (null: every one)

@@ -198,10 +198,11 @@ class SupabaseAuth:
         return users
 
     def all_attempts(self) -> list[dict]:
-        """Every student's attempts, as `attempts` gives one student's, each with its user_id."""
+        """Every student's attempts, as `attempts` gives one student's, each with its user_id, and with the "different
+        sentence" ones too (unrelated = true): the panel shows them beside the progress they are not part of."""
         rows: list[dict] = []
         while len(rows) < MAX_CLASS_ATTEMPTS:
-            query = urllib.parse.urlencode({"select": "user_id,cat,phrase,score,created_at", "unrelated": "is.false",
+            query = urllib.parse.urlencode({"select": "user_id,cat,phrase,score,unrelated,created_at",
                                             "order": "id.desc", "limit": PAGE, "offset": len(rows)})
             batch = self._admin(f"/rest/v1/attempts?{query}")
             rows += batch
