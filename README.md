@@ -199,6 +199,8 @@ alter table public.texts enable row level security;
 
 ### Homework
 
+A class may have several homeworks at once, a topic each with its own day: for example the last topic of every lesson it studies (the written homework). In the class's dialog each is a row, the topic (named with its lesson) and its day, with "✕" to drop it; "+ הוספת שיעורי בית" adds the last topic of the first ticked lesson that has none yet. A topic can be homework once. On the path every homework topic has its own bubble; in the panel the class's card has a line per homework (who finished, who is still to), the tile counts the students who finished all of them, and the students' "שיעורי בית" column sums them. They are kept in the class's `homeworks` column, `[{"topic", "due"}]`; `homework` and `due` hold the first, as before. What follows describes one homework.
+
 In the class's dialog the teacher sets its homework: one topic of the class's lessons (for example the conversation "שיחת היכרות"), and optionally the day it is due. The students see it on the path itself: the bubble over the homework topic's circle says "שיעורי בית" and counts the days left ("נשארו 3 ימים", "מגישים מחר!", "מגישים היום!", and "באיחור של יומיים" once the day passed). On the last two days the bubble and the circle's ring turn amber, and red after them. The path's focus does not move: the page still opens on the next topic in the course's order, which keeps its own "התחילו" bubble, so the homework's bubble may be further up or down the path. The homework is done when every sentence of the topic was practised, whenever that was; the circle then gets its ✓ and "שיעורי הבית הושלמו". In the panel the class's card shows how many students finished and names those who did not, the furthest from it first. The students get the homework with `GET /api/me`, so a change reaches them the next time they open the page.
 
 ### The daily session
@@ -224,6 +226,7 @@ create table public.classes (
   lessons    text[] not null default '{}',         -- the lesson ids the class studies; empty = every lesson
   homework   text   not null default '',           -- the topic id the class practises now, e.g. l2-talk; '' = none
   due        date,                                 -- the day the homework is due, if it has one
+  homeworks  jsonb  not null default '[]',         -- every homework of the class: [{"topic": ..., "due": ...}]
   created_at timestamptz not null default now()
 );
 alter table public.classes enable row level security;
@@ -235,7 +238,8 @@ A table made before the nicknames, the lessons or the homework needs the columns
 alter table public.classes add column if not exists nicknames jsonb not null default '{}',
                            add column if not exists lessons text[] not null default '{}',
                            add column if not exists homework text not null default '',
-                           add column if not exists due date;
+                           add column if not exists due date,
+                           add column if not exists homeworks jsonb not null default '[]';
 ```
 
 The server keeps the list for a minute, so a change in the SQL editor (rather than the panel) applies within that time.

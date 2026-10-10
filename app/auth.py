@@ -198,8 +198,9 @@ class SupabaseAuth:
 
     def classes(self, fresh: bool = False) -> list[dict]:
         """Every class, newest first: id, name, emails (lower-case), nicknames ({email: nickname}), lessons (lesson ids;
-        empty in a class saved before classes had lessons), homework (a topic id, or "") and due (its ISO date, or
-        None), created_at.
+        empty in a class saved before classes had lessons), homeworks ([{"topic": a topic id, "due": its ISO date or
+        None}], one for each topic the class has as homework), homework and due (the first of them, as a class had
+        before it could have several; a class saved then has only these), created_at.
         Kept for CLASSES_TTL, as each sign-in
         check asks. Without the secret key, or before the table is created, there are none."""
         now = time.monotonic()
@@ -215,6 +216,7 @@ class SupabaseAuth:
                 for r in rows:
                     r["nicknames"], r["lessons"] = r.get("nicknames") or {}, r.get("lessons") or []
                     r["homework"], r["due"] = r.get("homework") or "", r.get("due") or None
+                    r["homeworks"] = r.get("homeworks") or []
             except AuthUnavailable as e:
                 if "answered 404" not in str(e):
                     raise
@@ -224,11 +226,12 @@ class SupabaseAuth:
         return rows
 
     def save_class(self, id: int | None, name: str, emails: list[str], nicknames: dict[str, str],
-                   lessons: list[str], homework: str = "", due: str | None = None) -> None:
-        """Adds a class (id None) or replaces one's name, emails, nicknames, lessons and homework. A name already
-        taken raises ClassConflict."""
+                   lessons: list[str], homeworks: list[dict] = ()) -> None:
+        """Adds a class (id None) or replaces one's name, emails, nicknames, lessons and homeworks ([{"topic", "due"}]).
+        A name already taken raises ClassConflict."""
+        first = homeworks[0] if homeworks else {"topic": "", "due": None}   # the columns of a class with one homework
         body = {"name": name, "emails": emails, "nicknames": nicknames, "lessons": lessons,
-                "homework": homework, "due": due}
+                "homework": first["topic"], "due": first["due"], "homeworks": list(homeworks)}
         if id is None:
             self._admin("/rest/v1/classes", "POST", body)
         elif not self._admin(f"/rest/v1/classes?id=eq.{int(id)}", "PATCH", body):

@@ -102,7 +102,9 @@ CREATE_WRITINGS = ("create table public.writings (user_id uuid not null default 
 TOPIC_LESSON = {c["id"]: c["lesson"] for c in CATEGORIES}   # a topic's lesson: homework is a topic of the class's lessons
 MIGRATE_CLASSES = ("alter table public.classes add column if not exists nicknames jsonb not null default '{}', "
                    "add column if not exists lessons text[] not null default '{}', "
-                   "add column if not exists homework text not null default '', add column if not exists due date;")
+                   "add column if not exists homework text not null default '', add column if not exists due date, "
+                   "add column if not exists homeworks jsonb not null default '[]';")
+MAX_HOMEWORKS = 30
 
 
 def lessons_of(c: dict) -> list[str]:
@@ -113,10 +115,16 @@ def lessons_of(c: dict) -> list[str]:
 def homework_of(c: dict, topics: dict[str, str] = TOPIC_LESSON) -> dict:
     """A class's homework: the topic it practises now (a category id, e.g. the conversation "l2-talk"; "" when none
     is set) and the day it is due (ISO date, or None). A topic of a lesson the class no longer studies, or one the
-    course no longer has, is no homework. `topics` is every topic's lesson: the course's, and the teacher's texts'."""
-    topic = c.get("homework") or ""
-    return {"homework": topic, "due": c.get("due") or None} if topics.get(topic) in lessons_of(c) \
-        else {"homework": "", "due": None}
+    course no longer has, is no homework. `topics` is every topic's lesson: the course's, and the teacher's texts'.
+    A class may have several, one topic each: "homeworks" is all of them, [{"topic", "due"}], in the order of the
+    class's lessons, and "homework" and "due" the first (a class saved before it could have several has only that one)."""
+    mine = lessons_of(c)
+    listed = c.get("homeworks") or ([{"topic": c["homework"], "due": c.get("due")}] if c.get("homework") else [])
+    ok = [{"topic": h["topic"], "due": h.get("due") or None} for h in listed
+          if isinstance(h, dict) and topics.get(h.get("topic")) in mine]
+    ok.sort(key=lambda h: mine.index(topics[h["topic"]]))
+    first = ok[0] if ok else {"topic": "", "due": None}
+    return {"homework": first["topic"], "due": first["due"], "homeworks": ok}
 
 
 def vimeo_link(text: str) -> str | None:
@@ -378,7 +386,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     def save_class(a: SupabaseAuth, id: int | None, body: dict) -> dict:
         """Checks a class from the panel ({"name", "emails": the student list, see `class_members`, "lessons": lesson
-        ids, "homework": a topic of one of them, or "", "due": its ISO date, or ""}) and stores it. A student may be in several classes, e.g. a beginners' class and an advanced one."""
+        ids, "homeworks": [{"topic": a topic of one of them, "due": its ISO date, or ""}], each topic once; or, as
+        before a class could have several, "homework" and "due" for a single one) and stores it. A student may be in several classes, e.g. a beginners' class and an advanced one."""
         name = " ".join(str(body.get("name", "")).split())   # one space between words, none around
         if not name or len(name) > 80:
             raise HTTPException(400, "לכיתה צריך שם (עד 80 תווים)")
@@ -390,19 +399,30 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not isinstance(lessons, list) or not lessons or not set(map(str, lessons)) <= set(ALL_LESSONS):
             raise HTTPException(400, "בחרו לפחות שיעור אחד לכיתה")
         lessons = [l for l in ALL_LESSONS if l in map(str, lessons)]
-        homework, due = str(body.get("homework") or ""), str(body.get("due") or "") or None
-        if homework and topics().get(homework) not in lessons:
-            raise HTTPException(400, "שיעורי הבית הם נושא מאחד משיעורי הכיתה")
-        try:
-            due = date.fromisoformat(due).isoformat() if homework and due else None   # no date without homework
-        except ValueError:
-            raise HTTPException(400, "התאריך של שיעורי הבית לא תקין")
+        listed = body.get("homeworks")
+        if listed is None:
+            listed = [{"topic": body.get("homework"), "due": body.get("due")}]
+        if not isinstance(listed, list) or len(listed) > MAX_HOMEWORKS or not all(isinstance(h, dict) for h in listed):
+            raise HTTPException(400, "שיעורי הבית לא תקינים")
+        homeworks, lesson_of = [], topics()
+        for h in listed:
+            topic, due = str(h.get("topic") or ""), str(h.get("due") or "")
+            if not topic:   # no date without homework
+                continue
+            if lesson_of.get(topic) not in lessons:
+                raise HTTPException(400, "שיעורי הבית הם נושא מאחד משיעורי הכיתה")
+            if any(topic == was["topic"] for was in homeworks):
+                raise HTTPException(400, "אותו נושא מופיע פעמיים בשיעורי הבית")
+            try:
+                homeworks.append({"topic": topic, "due": date.fromisoformat(due).isoformat() if due else None})
+            except ValueError:
+                raise HTTPException(400, "התאריך של שיעורי הבית לא תקין")
         try:
             # a class's name is its own: the same words in other letter case or spacing are the same name
             same = lambda other: " ".join(other.split()).casefold() == name.casefold()
             if taken := next((c["name"] for c in a.classes(fresh=True) if c["id"] != id and same(c["name"])), None):
                 raise HTTPException(409, f"כבר יש כיתה בשם {taken}")
-            a.save_class(id, name, emails, nicks, lessons, homework, due)
+            a.save_class(id, name, emails, nicks, lessons, homeworks)
         except ClassConflict:
             raise HTTPException(409, f"כבר יש כיתה בשם {name}")
         except KeyError:

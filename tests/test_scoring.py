@@ -451,8 +451,8 @@ def test_sign_in_guards_the_practice_endpoints():
         def classes(self, fresh=False):
             return self.cls
 
-        def save_class(self, id, name, emails, nicknames, lessons, homework="", due=None):
-            row = {"name": name, "emails": emails, "nicknames": nicknames, "lessons": lessons, "homework": homework, "due": due}
+        def save_class(self, id, name, emails, nicknames, lessons, homeworks=()):
+            row = {"name": name, "emails": emails, "nicknames": nicknames, "lessons": lessons, "homeworks": list(homeworks)}
             if id is None:
                 self.cls.insert(0, {"id": len(self.cls) + 1, **row})
             elif c := next((c for c in self.cls if c["id"] == id), None):
@@ -513,7 +513,7 @@ def test_sign_in_guards_the_practice_endpoints():
         good = {"Authorization": "Bearer good"}
         from app.phrases import CATEGORIES, LESSONS
         ALL = [l["id"] for l in LESSONS]
-        NO_HW = {"homework": "", "due": None}
+        NO_HW = {"homework": "", "due": None, "homeworks": []}
         T1, T2 = (next(k["id"] for k in CATEGORIES if k["lesson"] == l) for l in ALL[:2])   # a topic of each of the first two lessons
         # written homework is kept for the student, a topic's lines in place of the ones before, and read back anywhere
         assert c.get("/api/writing").status_code == 401 and c.get("/api/writing", headers=good).json() == {"writing": {}}
@@ -535,7 +535,8 @@ def test_sign_in_guards_the_practice_endpoints():
                                                          "classes": [{"name": "Beginners", "lessons": ALL[:1], **NO_HW}]}
         # the class's homework reaches its students: a topic of its lessons, and the day it is due
         beginners.update(homework=T1, due="2026-10-15")
-        assert c.get("/api/me", headers=good).json()["classes"] == [{"name": "Beginners", "lessons": ALL[:1], "homework": T1, "due": "2026-10-15"}]
+        assert c.get("/api/me", headers=good).json()["classes"] == [{"name": "Beginners", "lessons": ALL[:1], "homework": T1, "due": "2026-10-15",
+                                                                             "homeworks": [{"topic": T1, "due": "2026-10-15"}]}]
         beginners.update(homework=T2)   # a topic of a lesson the class does not study is no homework
         assert c.get("/api/me", headers=good).json()["classes"] == [{"name": "Beginners", "lessons": ALL[:1], **NO_HW}]
         del beginners["homework"], beginners["due"]
@@ -643,7 +644,7 @@ def test_sign_in_guards_the_practice_endpoints():
                      "homework": T2, "due": "2026-10-15"}
         assert c.post("/api/classes", json=new_class, headers=good).status_code == 200
         assert c.app.state.auth.cls[0] == {"id": 2, "name": "October 2026", "emails": ["new@b.c", "s@b.c", "x@b.c"],
-                                           "nicknames": {"new@b.c": "דנה"}, "lessons": ALL, "homework": T2, "due": "2026-10-15"}
+                                           "nicknames": {"new@b.c": "דנה"}, "lessons": ALL, "homeworks": [{"topic": T2, "due": "2026-10-15"}]}
         for body, code in (({"name": "", "emails": "", "lessons": ALL}, 400), ({"name": "y", "emails": "not-an-email", "lessons": ALL}, 400),
                            ({"name": "y", "emails": "z@b.c w@b.c Dana", "lessons": ALL}, 400),   # whose nickname?
                            ({"name": "y", "emails": "", "lessons": []}, 400), ({"name": "y", "emails": ""}, 400),   # no lesson
@@ -667,7 +668,15 @@ def test_sign_in_guards_the_practice_endpoints():
         assert [(k["homework"], k["due"]) for k in d["classes"]] == [(T2, "2026-10-15"), ("", None)]
         # a date without homework is dropped; saving without the two clears them
         assert c.put("/api/classes/2", json={**new_class, "homework": ""}, headers=good).status_code == 200
-        assert (c.app.state.auth.cls[0]["homework"], c.app.state.auth.cls[0]["due"]) == ("", None)
+        assert c.app.state.auth.cls[0]["homeworks"] == []
+        # a class may have several homeworks, a topic each with its own day: they come back in the order of its lessons
+        several = {**new_class, "homework": "", "homeworks": [{"topic": T2, "due": ""}, {"topic": T1, "due": "2026-10-20"}, {"topic": "", "due": "2026-10-21"}]}
+        assert c.put("/api/classes/2", json=several, headers=good).status_code == 200
+        k = c.get("/api/class", headers=good).json()["classes"][0]
+        assert k["homeworks"] == [{"topic": T1, "due": "2026-10-20"}, {"topic": T2, "due": None}] and (k["homework"], k["due"]) == (T1, "2026-10-20")
+        for bad in ([{"topic": T1}, {"topic": T1}], [{"topic": "no-such-topic"}], [{"topic": T1, "due": "soon"}], "x", ["x"]):
+            assert c.put("/api/classes/2", json={**several, "homeworks": bad}, headers=good).status_code == 400, bad
+        assert c.put("/api/classes/2", json={**new_class, "homework": ""}, headers=good).status_code == 200
         student, new, x, y = d["students"]   # the teacher, in no class, is not a student
         assert student["best"] == {str(PHRASES.index(VERB)): 88} and student["tries"] == {str(PHRASES.index(VERB)): 2}
         assert (student["recordings"], student["days"], student["last"]) == (2, 1, "2026-10-09T10:00:00+00:00")

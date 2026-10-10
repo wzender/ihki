@@ -315,7 +315,18 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .cform .row .sep{flex:1}
 .cform .msg{flex:0 0 100%;color:var(--sumac);font-size:14px}
 .cform .msg:empty{display:none}
-.cform .hwrow{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:end}
+.cform .hwrow{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1fr) 9.2em 2.6em;gap:4px 8px;align-items:center}
+.cform .hwrow>*{min-width:0;box-sizing:border-box;width:100%}
+#editHwHead{font:600 13px/1.2 var(--f-body);color:var(--muted);margin-bottom:4px}
+#editHwHead:has(+ #editHws:empty){display:none}
+@media (max-width:560px){   /* a narrow screen: the lesson and the topic on one line, the day and the button under them */
+  .cform .hwrow{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)}
+  .cform .hwrow .btn{width:auto;justify-self:start}
+  #editHwHead span:nth-child(n+3){display:none}
+  #editHws .hwrow{padding-bottom:6px;border-bottom:1px solid var(--line)}
+}
+#editHws{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+#editHws:empty{display:none}
 .cform .hwrow small{grid-column:1/-1;font-weight:500;color:var(--muted);font-size:14px}
 .lpick{margin:0;padding:0;border:0;min-width:0}
 .lpick legend{padding:0;margin-bottom:6px;font:700 14px/1.3 var(--f-body)}
@@ -568,8 +579,8 @@ body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.micl
   <form class="cform" id="editForm">
     <label>שם הכיתה<input id="editName" required maxlength="80" placeholder="למשל: אוקטובר 2026" autocomplete="off"></label>
     <fieldset class="lpick"><legend>השיעורים<small>התלמידים של הכיתה רואים במסלול רק אותם. שיעור מקווקו עוד לא מוכן: הוא ייפתח לכיתה כשיהיה.</small></legend><div id="editLessons"></div></fieldset>
-    <div class="hwrow"><label>שיעורי בית<select id="editHw"></select></label><label>עד תאריך<input type="date" id="editDue"></label>
-      <small>הנושא שהכיתה מתרגלת עכשיו, למשל שיחה. התלמידים רואים אותו בראש המסלול, עם כמה שכבר תרגלו ממנו ועם התאריך; בפאנל רואים מי סיים.</small></div>
+    <fieldset class="lpick"><legend>שיעורי בית<small>נושא לכל שיעורי בית, ותאריך הגשה אם רוצים. אפשר כמה, למשל הנושא האחרון של כל שיעור. התלמידים רואים כל אחד מסומן במסלול, עם הימים שנשארו; בפאנל רואים מי סיים.</small></legend>
+      <div class="hwrow" id="editHwHead" aria-hidden="true"><span>שיעור</span><span>נושא</span><span>עד תאריך</span><span></span></div><div id="editHws"></div><button class="btn" type="button" id="editHwAdd">+ הוספת שיעורי בית</button></fieldset>
     <label>התלמידים<small>שורה לכל תלמיד: כתובת הדוא"ל שבה הוא נכנס, ואחריה כינוי אם רוצים. בכיתה רואים את הכינוי, או את השם מ-Google. תלמיד יכול להיות בכמה כיתות.</small>
       <textarea id="editEmails" spellcheck="false" placeholder="dana@gmail.com דנה&#10;avi@gmail.com"></textarea></label>
     <div class="row"><button class="btn primary" id="editSave"></button><span class="sub" id="editCount"></span><span class="sep"></span><button class="btn danger" type="button" id="editDelete">מחיקת הכיתה</button><span class="msg" id="editMsg" role="alert"></span></div>
@@ -593,7 +604,7 @@ body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.micl
       <span class="sub" id="newCount"></span>
     </section>
     <section>
-      <label>מה שיעורי הבית של הכיתה?<small>נושא אחד שהכיתה מתרגלת עכשיו, למשל שיחה. התלמידים רואים אותו מסומן במסלול, ואתם רואים בפאנל מי סיים. אפשר גם לדלג ולבחור אחר כך.</small><select id="newHw"></select></label>
+      <label>מה שיעורי הבית של הכיתה?<small>נושא אחד שהכיתה מתרגלת עכשיו, למשל שיחה. התלמידים רואים אותו מסומן במסלול, ואתם רואים בפאנל מי סיים. אפשר גם לדלג ולבחור אחר כך, ובעריכת הכיתה להוסיף עוד שיעורי בית, לכל שיעור.</small><select id="newHw"></select></label>
       <label id="newDueBox">עד איזה יום?<small>לא חובה.</small><input type="date" id="newDue"></label>
     </section>
     <section>
@@ -660,7 +671,7 @@ async function api(url,opts={}){   // fetch with the session token; a refused to
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 let driving=false;
 /* LESSONS and CATS are the student's: the lessons of their classes (all of them for a teacher, or before the first class) */
-let MY_CLASSES=[], MY_CLASS=null;   // a student's classes ({name, lessons, homework, due}), and the one they practise in now
+let MY_CLASSES=[], MY_CLASS=null;   // a student's classes ({name, lessons, homeworks}), and the one they practise in now
 let daily=null, dailySaid=new Set(), dailyWas={};   // the daily session on the card: its sentence ids, those said in it, and their best scores before it
 let ALL_LEVELS=[], ALL_LESSONS=[], ALL_CATS=[], MY_LESSONS=null, LESSONS=[], CATS=[], PHRASES=[], cat=store.get("ihki.cat",""), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
 let myAudioUrl=null;
@@ -694,18 +705,22 @@ function dueText(due){   // the homework's day in words ("עד מחר", "עד י
   const day=d.toLocaleDateString("he-IL",{weekday:"long",day:"numeric",month:"numeric"});
   return {late:left<0,text:left<0?`המועד עבר (${day})`:left===0?"עד היום":left===1?"עד מחר":`עד ${day}`};
 }
-/* The class's homework for the path: the topic (and its lesson), how far the student got in it, and the words of its
+/* A class's homework: one topic or several (say, the last topic of each lesson), each with its own day. Of a class
+   {homeworks: [{topic, due}]}, those whose topic is among `cats`, as {c, due}. */
+const hwOf=(k,cats)=>(k&&(k.homeworks||(k.homework?[{topic:k.homework,due:k.due}]:[]))||[]).map(h=>({c:cats.find(c=>c.id===h.topic),due:h.due})).filter(h=>h.c);
+/* The homework for the path: each topic (and its lesson), how far the student got in it, and the words of its
    bubble, which count the days left ("נשארו 3 ימים", "מגישים מחר!", "באיחור של יומיים"; with no day set, as any topic's).
-   `state` colours it: "soon" on the last two days, "late" after them. Null when none of the student's classes has homework. */
-function homework(){
-  // of the class practised in now, or else of another class of the student's whose topic is on the path: the one due first
-  const own=k=>k&&k.homework&&CATS.find(c=>c.id===k.homework);
-  const k=own(MY_CLASS)?MY_CLASS:MY_CLASSES.filter(own).sort((a,b)=>(a.due||"9").localeCompare(b.due||"9"))[0], c=own(k);
-  if(!c) return null;
-  const t=c.write?wTally(c):tally(PHRASES.filter(p=>p.listed!==false&&p.cat===c.id)), now=new Date(), days=n=>n===1?"יום":n===2?"יומיים":`${n} ימים`;
-  const left=k.due?Math.round((new Date(k.due+"T00:00")-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5):null;
-  const msg=left==null?(t.done?"המשך":"התחילו"):left<0?`באיחור של ${days(-left)}`:left===0?"מגישים היום!":left===1?"מגישים מחר!":`נשארו ${days(left)}`;
-  return {c,l:LESSONS.find(l=>l.id===c.lesson),t,msg,state:left==null||left>1?"":left<0?"late":"soon"};
+   `state` colours it: "soon" on the last two days, "late" after them. None when none of the student's classes has homework. */
+function homeworks(){
+  // of the class practised in now, or else of the student's other classes; a topic two classes gave counts once, by its earlier day
+  const from=hwOf(MY_CLASS,CATS).length?[MY_CLASS]:MY_CLASSES, by=new Map(), now=new Date(), days=n=>n===1?"יום":n===2?"יומיים":`${n} ימים`;
+  for(const h of from.flatMap(k=>hwOf(k,CATS))){ const was=by.get(h.c); if(!was||(h.due||"9")<(was.due||"9")) by.set(h.c,h); }
+  return [...by.values()].map(({c,due})=>{
+    const t=c.write?wTally(c):tally(PHRASES.filter(p=>p.listed!==false&&p.cat===c.id));
+    const left=due?Math.round((new Date(due+"T00:00")-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5):null;
+    const msg=left==null?(t.done?"המשך":"התחילו"):left<0?`באיחור של ${days(-left)}`:left===0?"מגישים היום!":left===1?"מגישים מחר!":`נשארו ${days(left)}`;
+    return {c,l:LESSONS.find(l=>l.id===c.lesson),t,msg,state:left==null||left>1?"":left<0?"late":"soon"};
+  });
 }
 /* The daily session: DAILY.n sentences in one go, so the student does not have to choose what to practise. Half are
    sentences they already said and can say better, drawn from their weakest DAILY.from (so the same ones do not come back
@@ -716,7 +731,7 @@ const today=()=>new Date().toLocaleDateString("sv");   // the device's date, as 
 function dailyPlan(){
   const cats=CATS.filter(c=>!c.story), pool=PHRASES.filter(p=>p.listed!==false&&cats.some(c=>c.id===p.cat));
   const got=pool.filter(p=>best[p.id]!=null).sort((a,b)=>best[a.id]-best[b.id]);   // the weakest first
-  const hw=homework(), first=hw&&!hw.t.over?hw.l:LESSONS.find(l=>!l.soon&&!tally(lessonList(l)).over), fresh=[];
+  const hw=homeworks().find(h=>!h.t.over), first=hw?hw.l:LESSONS.find(l=>!l.soon&&!tally(lessonList(l)).over), fresh=[];
   const turn=[first,...LESSONS.filter(l=>l!==first)].filter(Boolean).flatMap(l=>cats.filter(c=>c.lesson===l.id));
   for(const c of hw?[...turn.filter(c=>c===hw.c),...turn.filter(c=>c!==hw.c)]:turn){   // the homework topic before the rest of its lesson
     const list=pool.filter(p=>p.cat===c.id&&best[p.id]==null);
@@ -864,7 +879,7 @@ const openCat=c=>c.write?writeTopic(c):pickCat(c.id);
 function drawPath(stay){
   const box=$("path"), listed=PHRASES.filter(p=>p.listed!==false), NS="http://www.w3.org/2000/svg";
   drawToday();
-  const hw=homework();   // its topic gets a bubble too; the one to do now stays the next in the course's order
+  const hws=homeworks();   // each one's topic gets a bubble too; the one to do now stays the next in the course's order
   const w=box.clientWidth||Math.min(innerWidth-32,460), amp=Math.max(40,Math.min(96,w/2-46)); drawnW=box.clientWidth;
   const road=document.createElementNS(NS,"svg"), stops=[];   // stops: the points the road goes through
   road.setAttribute("class","road"); road.setAttribute("aria-hidden","true"); box.innerHTML=""; box.append(road);
@@ -906,7 +921,7 @@ function drawPath(stay){
         stops.push({x,y,went:seen}); y+=STEP; return;
       }
       const i=cats.indexOf(c), t=parts[i], cur=now&&i===todo, [b,dot]=ball(t,cur), [x,label]=seat(b,at);
-      const mine=!!hw&&c===hw.c;   // the homework topic: its bubble counts the days left
+      const hw=hws.find(h=>h.c===c), mine=!!hw;   // a homework topic: its bubble counts the days left
       dot.textContent=c.story?"💬":c.write?"✎\uFE0E":n;   // the number stays; a finished topic gets a badge, the one to do now and the homework a bubble
       if(t.over) dot.before(mark("badge",t.gold?"★":"✓"));
       else if(cur||mine){
@@ -1854,8 +1869,8 @@ function drawClasses(classes){
     fact("שיעורים",lessonsLine(ALL_LESSONS.filter(l=>c.lessons.includes(l.id))));
     const mine=CLASS.students.filter(s=>c.name in s.classes);
     fact("תלמידים",...(mine.length?[`${mine.length}: `,...mine.flatMap((s,k)=>{ const b=document.createElement("bdi"); b.textContent=s.classes[c.name]||s.name||s.email; return k?[", ",b]:[b]; })]:["עוד אין"]));
-    const hw=c.homework&&ALL_CATS.find(t=>t.id===c.homework);
-    fact("שיעורי בית",hw?[hw.name,lessonName(ALL_LESSONS.find(l=>l.id===hw.lesson)),dueText(c.due).text].filter(Boolean).join(" · "):"אין");
+    const hws=hwOf(c,ALL_CATS).map(h=>mark("",[h.c.name,lessonName(ALL_LESSONS.find(l=>l.id===h.c.lesson)),dueText(h.due).text].filter(Boolean).join(" · "),"div"));
+    fact("שיעורי בית",...(hws.length?hws:["אין"]));
     const go=mark("btn","התקדמות התלמידים ‹","button"); go.onclick=()=>{ shownClass=c.name; store.set("ihki.mclass",c.name); shownStudent=""; showMode("students"); scrollTo(0,0); };
     card.append(top,facts,go); box.append(card);
   }
@@ -1998,6 +2013,11 @@ function drawTabs(classes){
     tabs.append(t);
   }
 }
+// the homework the class is on now: the one due next, as long as its day has not passed; with none of those, one that
+// has no day; and when every day has passed, the last one
+const currentHw=hws=>{ const d=today(), dated=hws.filter(h=>h.due).sort((a,b)=>a.due.localeCompare(b.due)); return dated.find(h=>h.due>=d)||hws.filter(h=>!h.due).pop()||dated.pop()||null; };
+const hwLesson=h=>lessonName(ALL_LESSONS.find(l=>l.id===h.c.lesson));
+const classHw=klass=>hwOf(klass,ALL_CATS).filter(h=>CLASS_LESSONS.some(l=>l.id===h.c.lesson));   // the homeworks of the class on show, in its ready lessons
 function drawHead(klass,students){   // the class's name and its figures; before the first class, where to open one
   const head=$("mHead"); head.innerHTML=""; head.hidden=false;
   const top=mark("chead","");
@@ -2014,13 +2034,13 @@ function drawHead(klass,students){   // the class's name and its figures; before
   tile(students.filter(s=>s.week).length,"תרגלו בשבוע האחרון");
   tile(students.reduce((t,s)=>t+s.week,0),"הקלטות בשבוע האחרון");
   tile(avg??"–","ציון ממוצע");
-  const hw=klass.homework&&ALL_CATS.find(c=>c.id===klass.homework&&CLASS_LESSONS.some(l=>l.id===c.lesson));
-  const hwList=listedPhrases(), hwDone=hw?students.filter(s=>{ const t=topicTally(s,hw,hwList); return t.done>=t.n; }).length:0;
-  tile(hw?`${hwDone}/${students.length}`:"–",hw?"סיימו את שיעורי הבית":"אין שיעורי בית");   // the same count as the homework's line below
+  const hws=classHw(klass), cur=currentHw(hws), list=listedPhrases(), did=s=>{ const t=topicTally(s,cur.c,list); return t.done>=t.n; };
+  // of several homeworks the tile counts the current one (see `currentHw`), and says which lesson's it is
+  tile(cur?`${students.filter(did).length}/${students.length}`:"–",!cur?"אין שיעורי בית":hws.length>1?`סיימו את שיעורי הבית הנוכחיים (${hwLesson(cur)})`:"סיימו את שיעורי הבית");
   head.append(tiles);
-  if(hw){   // the homework: how many finished the topic, and who is still to, the furthest from it first
-    const list=listedPhrases(), todo=students.map(s=>({s,t:topicTally(s,hw,list)})).filter(x=>x.t.done<x.t.n).sort((a,b)=>a.t.done-b.t.done);
-    const due=dueText(klass.due), box=mark("hwsum"+(due.late&&todo.length?" late":""),""), line=mark("",`שיעורי בית: ${hw.name}`,"b");
+  for(const {c:hw,due:day} of hws){   // each homework: how many finished the topic, and who is still to, the furthest from it first
+    const todo=students.map(s=>({s,t:topicTally(s,hw,list)})).filter(x=>x.t.done<x.t.n).sort((a,b)=>a.t.done-b.t.done);
+    const due=dueText(day), box=mark("hwsum"+(due.late&&todo.length?" late":""),""), line=mark("",`${hws.length>1&&hw===cur.c?"שיעורי הבית הנוכחיים":"שיעורי בית"}: ${hw.name}`,"b");
     line.append(mark("",` · ${lessonName(ALL_LESSONS.find(l=>l.id===hw.lesson))}`,"small"));
     if(due.text) line.append(mark(""," · "+due.text,"small"));
     box.append(line,mark("",`סיימו ${students.length-todo.length} מתוך ${students.length} תלמידים`,"small"));
@@ -2064,10 +2084,10 @@ function drawLessons(students,listed){
 /* The students: the latest to practise first, those who never signed in last. A row opens on the student's numbers, their
    best and weakest sentences, and each lesson by topic. */
 function drawRoster(klass,students,listed){
-  // the same columns however many lessons the class has: the homework topic (when there is one) and all the class's
-  // sentences; a lesson by itself is on the student's own screen
-  const hw=klass&&klass.homework&&ALL_CATS.find(c=>c.id===klass.homework&&CLASS_LESSONS.some(l=>l.id===c.lesson));
-  const cols=[...(hw?[{name:"שיעורי בית",title:`שיעורי בית, ${hw.name}`,did:didWord(hw),of:s=>topicTally(s,hw,listed)}]:[]),
+  // the same columns however many lessons the class has: the current homework (see `currentHw`; when there is any) and
+  // all the class's sentences; a lesson, and each homework, by itself is on the student's own screen
+  const cur=currentHw(classHw(klass));
+  const cols=[...(cur?[{name:"שיעורי בית",title:`שיעורי בית, ${hwLesson(cur)}, ${cur.c.name}`,did:didWord(cur.c),of:s=>topicTally(s,cur.c,listed)}]:[]),
     ...(CLASS_LESSONS.length?[{name:"כל השיעורים",title:"כל השיעורים",did:"תורגלו",of:s=>stuTally(s,listed)}]:[])];
   const box=$("mRoster"); box.innerHTML=""; box.hidden=false; box.style.setProperty("--cols",["minmax(0,1fr)",...cols.map(()=>"4.2em"),"3em","10px"].join(" "));   // no lesson column when none is ready
   const h=mark("","תלמידים","h2"); h.append(mark("","לחיצה על תלמיד פותחת את הדף שלו","small")); box.append(h);
@@ -2103,9 +2123,8 @@ function drawStudent(klass,s,listed){
   tile(`${s.done}/${s.n}`,"משפטים תורגלו"); tile(s.week,"הקלטות בשבוע האחרון"); tile(s.days,"ימי תרגול"); tile(s.avg??"–","ציון ממוצע");
   head.append(tiles);
   if(s.unmatched) head.append(mark("note",`${s.unmatched} הקלטות לא זוהו כמשפט שעל המסך: הן נשמרו, אבל לא נספרות במשפטים שתורגלו ולא בציון. ליד כל נושא מופיע כמה כאלה היו בו.`,"p"));
-  const hw=klass&&klass.homework&&ALL_CATS.find(c=>c.id===klass.homework&&CLASS_LESSONS.some(l=>l.id===c.lesson));
-  if(hw){
-    const t=topicTally(s,hw,listed), due=dueText(klass.due), over=t.done>=t.n;
+  for(const {c:hw,due:day} of classHw(klass)){
+    const t=topicTally(s,hw,listed), due=dueText(day), over=t.done>=t.n;
     const sum=mark("hwsum"+(due.late&&!over?" late":""),""), line=mark("",`שיעורי בית: ${hw.name}`,"b");
     line.append(mark("",` · ${lessonName(ALL_LESSONS.find(l=>l.id===hw.lesson))}`,"small"));
     if(due.text) line.append(mark(""," · "+due.text,"small"));
@@ -2158,20 +2177,31 @@ function editClass(c){
     all.onchange=()=>{ boxes.forEach(b=>b.checked=all.checked); sync(); };
     boxes.forEach(b=>b.onchange=sync); sync();
   }
-  const hw=$("editHw"); hw.innerHTML=""; hw.add(new Option("אין",""));   // the homework: a topic, listed under its lesson
-  for(const l of ALL_LESSONS.filter(l=>!l.soon)){
-    const g=document.createElement("optgroup"); g.label=lessonName(l); hw.append(g);
-    for(const t of ALL_CATS.filter(t=>t.lesson===l.id)) g.append(new Option(t.name,t.id));
-  }
-  hw.value=c&&c.homework||""; $("editDue").value=c&&c.due||"";
-  $("editDue").onchange=()=>{   // a day with no topic chosen: the homework is the written one of the class's last lesson that has it
-    const on=[...$("editLessons").querySelectorAll(".chips :checked")].map(b=>b.value), own=writeHomework(ALL_LESSONS.filter(l=>on.includes(l.id)));
-    if($("editDue").value&&!hw.value&&own) hw.value=own.id;
-  };
+  $("editHws").replaceChildren(); for(const h of hwOf(c,ALL_CATS)) hwRow(h.c.id,h.due);
   $("editEmails").value=c?c.emails.map(e=>[e,c.nicknames&&c.nicknames[e]].filter(Boolean).join(" ")).join("\n"):"";
   $("editSave").textContent=c?"שמירה":"פתיחת הכיתה"; $("editDelete").hidden=!c; $("editMsg").textContent="";
   countStudents(); $("editDlg").showModal(); (c?$("editEmails"):$("editName")).focus();
 }
+/* The class's homeworks in its dialog: a row each, a lesson, a topic of it and its day, and a button to drop it.
+   "+" adds the last topic of the first ticked lesson that has no homework yet: its written homework, where it has one. */
+function hwRow(topic,due){
+  const row=mark("hwrow",""), les=document.createElement("select"), sel=document.createElement("select"), day=Object.assign(document.createElement("input"),{type:"date",value:due||""}), del=mark("btn","✕","button");
+  const topics=id=>lessonItems(id).filter(it=>it.c).map(it=>it.c), fill=()=>{ sel.replaceChildren(); for(const c of topics(les.value)) sel.add(new Option(c.name,c.id)); };
+  for(const l of ALL_LESSONS.filter(l=>!l.soon)) les.add(new Option(lessonName(l),l.id));
+  les.value=(ALL_CATS.find(c=>c.id===topic)||{}).lesson||les.value; fill(); sel.value=topic;
+  les.onchange=()=>{ fill(); const last=topics(les.value).filter(c=>!c.text).pop(); if(last) sel.value=last.id; };   // another lesson: its last topic, which is its homework
+  les.className="les"; sel.className="topic"; les.setAttribute("aria-label","השיעור של שיעורי הבית"); sel.setAttribute("aria-label","הנושא של שיעורי הבית"); day.setAttribute("aria-label","עד תאריך"); day.title="עד תאריך (לא חובה)";
+  del.type="button"; del.title="הסרת שיעורי הבית האלה"; del.setAttribute("aria-label",del.title); del.onclick=()=>row.remove();
+  row.append(les,sel,day,del); $("editHws").append(row); return les;
+}
+const hwRows=()=>[...$("editHws").children].map(r=>({topic:r.querySelector(".topic").value,due:r.querySelector("input").value}));
+$("editHwAdd").onclick=()=>{
+  const on=[...$("editLessons").querySelectorAll(".chips :checked")].map(b=>b.value), ready=ALL_LESSONS.filter(l=>!l.soon&&on.includes(l.id));
+  const has=hwRows().map(h=>(ALL_CATS.find(c=>c.id===h.topic)||{}).lesson), l=ready.find(l=>!has.includes(l.id))||ready[ready.length-1];
+  const last=l&&ALL_CATS.filter(c=>c.lesson===l.id&&!c.text).pop();
+  if(!last){ $("editMsg").textContent="סמנו קודם שיעור מוכן אחד לפחות."; return; }
+  $("editMsg").textContent=""; hwRow(last.id,"").focus();
+};
 function countStudents(){ const n=($("editEmails").value.match(/[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+/g)||[]).length; $("editCount").textContent=n?`${n} תלמידים`:""; }
 $("editEmails").oninput=countStudents;
 $("editClose").onclick=()=>$("editDlg").close();
@@ -2191,9 +2221,10 @@ $("editForm").onsubmit=e=>{
   e.preventDefault();
   const lessons=[...$("editLessons").querySelectorAll(".chips :checked")].map(b=>b.value);
   if(!lessons.length){ $("editMsg").textContent="בחרו לפחות שיעור אחד."; return; }
-  const homework=$("editHw").value, due=homework?$("editDue").value:"";
-  if(homework&&!lessons.includes(ALL_CATS.find(c=>c.id===homework).lesson)){ $("editMsg").textContent="שיעורי הבית הם נושא מאחד משיעורי הכיתה: סמנו את השיעור שלו למעלה."; return; }
-  sendClass(editing?"PUT":"POST",{name:$("editName").value,emails:$("editEmails").value,lessons,homework,due});
+  const homeworks=hwRows();
+  if(homeworks.some(h=>!lessons.includes((ALL_CATS.find(c=>c.id===h.topic)||{}).lesson))){ $("editMsg").textContent="שיעורי הבית הם נושאים משיעורי הכיתה: סמנו את השיעור שלהם למעלה, או הסירו אותם."; return; }
+  if(new Set(homeworks.map(h=>h.topic)).size<homeworks.length){ $("editMsg").textContent="אותו נושא מופיע פעמיים בשיעורי הבית."; return; }
+  sendClass(editing?"PUT":"POST",{name:$("editName").value,emails:$("editEmails").value,lessons,homeworks});
 };
 $("editDelete").onclick=()=>{
   if(confirm(`למחוק את הכיתה ${editing.name}? התלמידים שלה לא יוכלו להיכנס עוד. ההקלטות וההתקדמות שלהם נשמרות.`)) sendClass("DELETE");
