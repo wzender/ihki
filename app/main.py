@@ -3,8 +3,8 @@
 Run:  uvicorn app.main:app --host 0.0.0.0 --port 7860
 Env:  MODEL_ID  (default facebook/wav2vec2-xlsr-53-espeak-cv-ft, or a path to a fine-tuned checkpoint)
       SAWTAK_API_KEY, SAWTAK_VOICE_ID  (model-answer playback, see app/tts.py)
-      SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, ALLOWED_EMAILS  (Google sign-in, see app/auth.py)
-      TEACHER_EMAILS, SUPABASE_SECRET_KEY  (the teacher's management panel, see app/auth.py)
+      SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY  (Google sign-in, see app/auth.py)
+      TEACHER_EMAILS, SUPABASE_SECRET_KEY  (the teacher's management panel and its classes, see app/auth.py)
 A local .env file is loaded if present; real environment variables win over it.
 """
 from __future__ import annotations
@@ -21,11 +21,11 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import BackgroundTasks, Body, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from .auth import AuthUnavailable, SupabaseAuth, load_auth
+from .auth import AuthUnavailable, ClassConflict, SupabaseAuth, load_auth
 from .phrases import CATEGORIES, LESSONS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .reference import References
@@ -33,11 +33,31 @@ from .scorer import Scorer, decode_audio, load_scorer
 from .tts import VOICES, SawtakTTS, TTSUnavailable, load_tts
 
 logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("ihki")
 STATIC = Path(__file__).resolve().parent.parent / "static"
 load_dotenv(STATIC.parent / ".env")
 MODEL_ID = os.environ.get("MODEL_ID", "facebook/wav2vec2-xlsr-53-espeak-cv-ft")
 LOCAL_TZ = ZoneInfo("Asia/Jerusalem")  # a day of practice is the students' calendar day
 MAX_UPLOAD = 2_000_000  # bytes; 15 s of opus is ~100 KB
+EMAIL = re.compile(r"[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+")
+MAX_NICKNAME = 40
+
+
+def class_members(text: str) -> tuple[list[str], dict[str, str]]:
+    """The panel's student list: a line per student, "email nickname" (the nickname is optional). A line with
+    several addresses and nothing else, e.g. pasted "a@x.com, b@x.com", is those students without nicknames.
+    Gives the emails (lower-case, sorted) and {email: nickname}; text that is not an address raises ValueError."""
+    emails, nicks = set(), {}
+    for line in re.split(r"[\r\n]+", text):
+        found = EMAIL.findall(line)
+        rest = re.sub(r"\s+", " ", EMAIL.sub(" ", line)).strip(" ,;:-–<>()\t")
+        if not found and rest or len(found) > 1 and rest.strip(" ,;"):
+            raise ValueError(line.strip())
+        for e in found:
+            emails.add(e.lower())
+        if len(found) == 1 and rest:
+            nicks[found[0].lower()] = rest[:MAX_NICKNAME]
+    return sorted(emails), nicks
 
 
 def build_version() -> str:
@@ -99,9 +119,21 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, f"sign-in check failed: {e}")
         if user is None:
             raise HTTPException(401, "sign in required")
-        if a.allowed and user["email"].lower() not in a.allowed:
+        email = user["email"].lower()
+        try:
+            classes = a.classes()
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"class list not available: {e}")
+        klass = next((c["name"] for c in classes if email in c["emails"]), "")
+        teacher = email in a.teachers
+        if classes and not klass and not teacher:   # before the first class, any account is let in
             raise HTTPException(403, "this account is not on the list")
-        return {**user, "token": token.strip(), "teacher": user["email"].lower() in a.teachers}
+        return {**user, "token": token.strip(), "teacher": teacher, "class": klass}
+
+    def teacher_only(user: dict | None = Depends(signed_in)) -> SupabaseAuth:
+        if not user or not user["teacher"]:
+            raise HTTPException(403, "teachers only")
+        return app.state.auth
 
     members = [Depends(signed_in)]
 
@@ -116,8 +148,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/me")
     def me(user: dict | None = Depends(signed_in)):
-        """Who is signed in; the page asks this right after sign-in to learn whether the account is let in."""
-        return {"email": user["email"] if user else "", "teacher": bool(user and user["teacher"])}
+        """Who is signed in, and their class; the page asks this right after sign-in to learn whether the account is let in."""
+        return {"email": user["email"] if user else "", "teacher": bool(user and user["teacher"]),
+                "class": user["class"] if user else ""}
 
     @app.get("/api/progress")
     def progress(user: dict | None = Depends(signed_in)):
@@ -126,24 +159,95 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {k: s[k] for k in ("best", "tries", "recordings", "days")}
 
     @app.get("/api/class")
-    def class_progress(user: dict | None = Depends(signed_in)):
-        """The teacher's panel: every student's summary (see `summary`). The students are the allowed accounts,
-        or every account that signed in when there is no list; one that never signed in has joined = false."""
-        if not user or not user["teacher"]:
-            raise HTTPException(403, "teachers only")
-        a: SupabaseAuth = app.state.auth
+    def class_progress(a: SupabaseAuth = Depends(teacher_only)):
+        """The teacher's panel: the classes, and every student's summary (see `summary`) with their class. The
+        students are the classes' accounts, or every account that signed in when there is no class yet; one that
+        never signed in has joined = false."""
         try:
-            users, rows = a.users(), a.all_attempts()
+            classes, users, rows = a.classes(fresh=True), a.users(), a.all_attempts()
         except AuthUnavailable as e:
             raise HTTPException(503, str(e))
         by: dict[str, list[dict]] = {}
         for r in rows:
             by.setdefault(r["user_id"], []).append(r)
-        students = [{"email": u["email"], "name": u["name"], "joined": True, **summary(by.get(u["id"], []))}
-                    for u in users if not a.allowed or u["email"].lower() in a.allowed]
-        missing = a.allowed - {s["email"].lower() for s in students}
-        students += [{"email": e, "name": "", "joined": False, **summary([])} for e in sorted(missing)]
-        return {"students": students}
+        member = {e: c for c in reversed(classes) for e in c["emails"]}
+        klass = lambda e: {"class": member[e]["name"], "nick": member[e]["nicknames"].get(e, "")} if e in member \
+            else {"class": "", "nick": ""}
+        students = [{"email": u["email"], "name": u["name"], "joined": True, **klass(u["email"].lower()),
+                     **summary(by.get(u["id"], []))} for u in users if not classes or u["email"].lower() in member]
+        missing = member.keys() - {s["email"].lower() for s in students}
+        students += [{"email": e, "name": "", "joined": False, **klass(e), **summary([])} for e in sorted(missing)]
+        return {"classes": classes, "students": students}
+
+    def class_store_error(e: AuthUnavailable) -> str:
+        """The teacher's message when a class cannot be written; a 404 means Supabase has no `classes` table."""
+        if "answered 404" in str(e):
+            return ("הטבלה classes לא קיימת ב-Supabase. צרו אותה ב-SQL Editor (הפקודה ב-README); "
+                    "אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
+        if "nicknames" in str(e):   # a table made before the nicknames
+            return ("לטבלה classes חסרה העמודה nicknames. הריצו ב-SQL Editor של Supabase: "
+                    "alter table public.classes add column nicknames jsonb not null default '{}';")
+        return f"Supabase לא זמין: {e}"
+
+    def save_class(a: SupabaseAuth, id: int | None, body: dict) -> dict:
+        """Checks a class from the panel ({"name", "emails": the student list, see `class_members`}) and stores it. A
+        student is in one class: an address that another class already has is refused, by name, so the teacher moves
+        it on purpose."""
+        name = str(body.get("name", "")).strip()
+        if not name or len(name) > 80:
+            raise HTTPException(400, "לכיתה צריך שם (עד 80 תווים)")
+        try:
+            emails, nicks = class_members(str(body.get("emails", "")))
+        except ValueError as e:
+            raise HTTPException(400, f"בשורה הזו אין כתובת מייל: {e}")
+        try:
+            others = [c for c in a.classes(fresh=True) if c["id"] != id]
+            if taken := sorted(f"{e} ({c['name']})" for c in others for e in emails if e in c["emails"]):
+                raise HTTPException(409, f"כבר בכיתה אחרת: {', '.join(taken)}")
+            if any(c["name"] == name for c in others):
+                raise HTTPException(409, f"כבר יש כיתה בשם {name}")
+            a.save_class(id, name, emails, nicks)
+        except ClassConflict:
+            raise HTTPException(409, f"כבר יש כיתה בשם {name}")
+        except KeyError:
+            raise HTTPException(404, "הכיתה לא נמצאה")
+        except AuthUnavailable as e:
+            raise HTTPException(503, class_store_error(e))
+        return {"ok": True}
+
+    @app.post("/api/classes")
+    def add_class(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+        return save_class(a, None, body)
+
+    @app.put("/api/classes/{class_id}")
+    def edit_class(class_id: int, body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+        return save_class(a, class_id, body)
+
+    @app.delete("/api/classes/{class_id}")
+    def delete_class(class_id: int, a: SupabaseAuth = Depends(teacher_only)):
+        try:
+            a.delete_class(class_id)
+        except AuthUnavailable as e:
+            raise HTTPException(503, class_store_error(e))
+        return {"ok": True}
+
+    @app.get("/api/classmates")
+    def classmates(user: dict | None = Depends(signed_in)):
+        """The signed-in student's class: its name and its students, each by the nickname the teacher gave, or else
+        the name Google gave (one with neither, who has not signed in yet, is only counted). No addresses."""
+        if not user or not user["class"]:
+            return {"class": "", "students": [], "unnamed": 0}
+        a: SupabaseAuth = app.state.auth
+        c = next(c for c in a.classes() if c["name"] == user["class"])
+        try:
+            google = {u["email"].lower(): u["name"] for u in a.users()}
+        except AuthUnavailable as e:   # the nicknames are still known
+            log.warning("classmates' names not read: %s", e)
+            google = {}
+        me = user["email"].lower()
+        named = [{"name": c["nicknames"].get(e) or google.get(e, ""), "me": e == me} for e in c["emails"]]
+        students = sorted((s for s in named if s["name"]), key=lambda s: s["name"])
+        return {"class": c["name"], "students": students, "unnamed": len(named) - len(students)}
 
     @app.get("/api/phrases")
     def phrases():

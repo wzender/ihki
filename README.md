@@ -70,7 +70,7 @@ The teacher only needs that link. Free Spaces sleep after inactivity, so the fir
 
 ## Sign-in and progress (Supabase)
 
-Optional. With `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` set, the page asks for a Google sign-in (through Supabase Auth) and the practice endpoints refuse calls without a session. `ALLOWED_EMAILS` limits entry to the listed accounts. Without the two values the service is open.
+Optional. With `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` set, the page asks for a Google sign-in (through Supabase Auth) and the practice endpoints refuse calls without a session. Who may sign in is set by the teacher's classes (see below). Without the two values the service is open.
 
 Each scored recording is added to the table `attempts`, written with the student's own token so row-level security ties the row to them. Create it once in the Supabase SQL editor:
 
@@ -98,7 +98,28 @@ The page's "ההתקדמות שלי" button reads these rows back through `GET /
 
 ### The teacher
 
-`TEACHER_EMAILS` names the teacher's Google account (several are separated like `ALLOWED_EMAILS`, and each must also be on that list). After sign-in a teacher chooses between **תרגול**, the same practice a student gets, and **ניהול**, the management panel. The panel lists every student with their usage (recordings, those of the last 7 days, days practised, last practice), progress (sentences practised) and grade (the average of the best scores), and a student opens on the same figures per topic. The students are the accounts in `ALLOWED_EMAILS`, including those who have not signed in yet; without a list, every account that signed in.
+`TEACHER_EMAILS` names the teacher's Google account (several are separated by commas or spaces). After sign-in a teacher chooses between **תרגול**, the same practice a student gets, and **ניהול**, the management panel. The panel lists every student with their usage (recordings, those of the last 7 days, days practised, last practice), progress (sentences practised) and grade (the average of the best scores), and a student opens on the same figures per topic.
+
+### Classes
+
+In the panel the teacher opens a class (a name such as "אוקטובר 2026" and its students: a line each, the Google email and an optional nickname, e.g. `dana@gmail.com דנה`) and edits or deletes it later. A student is in one class; the page shows it to them under the app's name, and pressing it lists the class's students, each by their nickname or else their Google name (no addresses; `GET /api/classmates`). Once there is a class, only the classes' students and the teachers can sign in; before the first one, any Google account can. The panel's students are the classes' accounts, including those who have not signed in yet (without a class, every account that signed in), and it can show one class at a time. This replaces the former `ALLOWED_EMAILS`, which is no longer read.
+
+The classes are kept in Supabase and read and written with `SUPABASE_SECRET_KEY` only, so the table has row-level security and no policy. Create it once:
+
+```sql
+create table public.classes (
+  id         bigint generated always as identity primary key,
+  name       text not null unique,                 -- e.g. אוקטובר 2026
+  emails     text[] not null default '{}',         -- the students' Google emails, lower-case
+  nicknames  jsonb  not null default '{}',         -- {email: nickname}, for the students who have one
+  created_at timestamptz not null default now()
+);
+alter table public.classes enable row level security;
+```
+
+A table made before the nicknames needs the column: `alter table public.classes add column nicknames jsonb not null default '{}';`
+
+The server keeps the list for a minute, so a change in the SQL editor (rather than the panel) applies within that time.
 
 The panel reads through `GET /api/class`, which answers teachers only. Row-level security hides other students' rows from the teacher's own token, so the server reads them with `SUPABASE_SECRET_KEY` (Supabase → Project Settings → API Keys → secret key). Unlike the publishable key it must stay private: set it as a Space **secret**. Without it the panel opens and says the data is not available.
 

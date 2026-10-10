@@ -10,11 +10,14 @@ Teachers: the accounts in TEACHER_EMAILS also get the management panel, which sh
 progress. Those rows are read with the project's secret key, which passes row-level security and
 never leaves the server.
 
+Classes: the teacher opens classes in the panel (a name, e.g. "October 2026", its students' emails and an
+optional nickname of each), kept in the Supabase table `classes`. Once there is a class, only its students and the teachers are let in;
+before the first one (or without the secret key, which reads the table) any Google account is.
+
 Env:  SUPABASE_URL              (https://<project-ref>.supabase.co)
       SUPABASE_PUBLISHABLE_KEY  (the publishable/anon key; it is public and also goes to the page)
-      ALLOWED_EMAILS            (optional: the only accounts let in, separated by commas or spaces)
-      TEACHER_EMAILS            (optional: the accounts with the management panel; each is also in ALLOWED_EMAILS)
-      SUPABASE_SECRET_KEY       (the secret/service-role key, needed by the management panel only; never public)
+      TEACHER_EMAILS            (optional: the accounts with the management panel, separated by commas or spaces)
+      SUPABASE_SECRET_KEY       (the secret/service-role key, needed by the panel and the classes; never public)
 Without them the service is open, as before.
 """
 from __future__ import annotations
@@ -36,20 +39,24 @@ CACHE_MAX = 2000
 PAGE = 1000  # rows per request: Supabase's default ceiling
 MAX_ATTEMPTS = 20_000  # of one student, read for their progress
 MAX_CLASS_ATTEMPTS = 200_000  # of all students, read for the teacher's panel
+CLASSES_TTL = 60  # seconds the class list is trusted without reading it again (each sign-in check uses it)
 
 
 class AuthUnavailable(RuntimeError):
     pass
 
 
+class ClassConflict(ValueError):
+    """Supabase refused a class: its name is taken."""
+
+
 class SupabaseAuth:
-    def __init__(self, url: str, key: str, allowed: frozenset[str] = frozenset(),
-                 teachers: frozenset[str] = frozenset(), secret: str = ""):
+    def __init__(self, url: str, key: str, teachers: frozenset[str] = frozenset(), secret: str = ""):
         self.url, self.key = url.rstrip("/"), key
-        self.allowed = allowed  # lower-case emails; empty = every signed-in account
         self.teachers = teachers  # lower-case emails of the accounts with the management panel
-        self.secret = secret  # reads every student's rows; empty = the panel has no data
+        self.secret = secret  # reads every student's rows and the classes; empty = the panel has no data
         self._cache: dict[str, tuple[float, dict]] = {}
+        self._classes: tuple[float, list[dict]] | None = None
         self._lock = threading.Lock()
 
     def user(self, token: str) -> dict | None:
@@ -116,14 +123,61 @@ class SupabaseAuth:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
             return json.load(res)
 
-    def _admin(self, path: str):
-        """A read with the secret key, for the teacher's panel. Unlike a student's own progress, a failure is raised."""
+    def _admin(self, path: str, method: str = "GET", body: dict | None = None):
+        """A call with the secret key, for the teacher's panel. Unlike a student's own progress, a failure is raised."""
         if not self.secret:
             raise AuthUnavailable("SUPABASE_SECRET_KEY is not set")
+        req = urllib.request.Request(
+            self.url + path, method=method, data=json.dumps(body).encode() if body is not None else None,
+            headers={"Authorization": f"Bearer {self.secret}", "apikey": self.secret, "Content-Type": "application/json",
+                     "Prefer": "return=representation", "User-Agent": "ihki/1.0"})
         try:
-            return self._get(path, self.secret, self.secret)
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
+                return json.loads(res.read() or b"null")
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode(errors="replace")[:300]
+            if e.code == 409:
+                raise ClassConflict(detail) from e
+            raise AuthUnavailable(f"supabase answered {e.code}: {detail}") from e
         except (urllib.error.URLError, TimeoutError, ValueError) as e:
             raise AuthUnavailable(str(e)) from e
+
+    def classes(self, fresh: bool = False) -> list[dict]:
+        """Every class, newest first: id, name, emails (lower-case), nicknames ({email: nickname}), created_at.
+        Kept for CLASSES_TTL, as each sign-in
+        check asks. Without the secret key, or before the table is created, there are none."""
+        now = time.monotonic()
+        with self._lock:
+            hit = self._classes
+        if hit and hit[0] > now and not fresh:
+            return hit[1]
+        rows: list[dict] = []
+        if self.secret:
+            try:
+                # every column: a table made before the nicknames still lets its students in
+                rows = self._admin("/rest/v1/classes?select=*&order=created_at.desc")
+                for r in rows:
+                    r["nicknames"] = r.get("nicknames") or {}
+            except AuthUnavailable as e:
+                if "answered 404" not in str(e):
+                    raise
+                log.warning("the table `classes` is missing (see the README): every account is let in")
+        with self._lock:
+            self._classes = (now + CLASSES_TTL, rows)
+        return rows
+
+    def save_class(self, id: int | None, name: str, emails: list[str], nicknames: dict[str, str]) -> None:
+        """Adds a class (id None) or replaces one's name, emails and nicknames. A name already taken raises ClassConflict."""
+        body = {"name": name, "emails": emails, "nicknames": nicknames}
+        if id is None:
+            self._admin("/rest/v1/classes", "POST", body)
+        elif not self._admin(f"/rest/v1/classes?id=eq.{int(id)}", "PATCH", body):
+            raise KeyError(id)
+        self._classes = None
+
+    def delete_class(self, id: int) -> None:
+        self._admin(f"/rest/v1/classes?id=eq.{int(id)}", "DELETE")
+        self._classes = None
 
     def users(self) -> list[dict]:
         """Every account that has signed in: id, email, name (as Google gave it)."""
@@ -159,11 +213,11 @@ def load_auth() -> SupabaseAuth | None:
                  " and ".join(missing), seen or "none")
         return None
     emails = lambda name: frozenset(re.split(r"[\s,;]+", os.environ.get(name, "").strip().lower())) - {""}
-    allowed, teachers = emails("ALLOWED_EMAILS"), emails("TEACHER_EMAILS")
+    teachers = emails("TEACHER_EMAILS")
     secret = os.environ.get("SUPABASE_SECRET_KEY", "").strip()
-    log.info("sign-in on: %s", f"{len(allowed)} allowed accounts" if allowed else "any Google account")
-    if allowed and teachers - allowed:   # counts only: the addresses stay out of the log
-        log.warning("%d of TEACHER_EMAILS are not in ALLOWED_EMAILS and will not be let in", len(teachers - allowed))
+    log.info("sign-in on: %s", "the students of the classes" if secret else "any Google account (no SUPABASE_SECRET_KEY)")
+    if os.environ.get("ALLOWED_EMAILS", "").strip():
+        log.warning("ALLOWED_EMAILS is no longer read: the teacher lists the students in the panel's classes")
     if teachers and not secret:
         log.warning("TEACHER_EMAILS is set without SUPABASE_SECRET_KEY: the management panel has no data to show")
-    return SupabaseAuth(url, key, allowed, teachers, secret)
+    return SupabaseAuth(url, key, teachers, secret)

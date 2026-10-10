@@ -416,10 +416,24 @@ def test_sign_in_guards_the_practice_endpoints():
     VERB = next(p for p in PHRASES if p["cat"] == "l1-verbs")
 
     class FakeAuth:
-        url, key, allowed, teachers = "https://proj.supabase.co", "sb_publishable_x", frozenset(), frozenset()
+        url, key, teachers = "https://proj.supabase.co", "sb_publishable_x", frozenset()
 
         def __init__(self):
-            self.rows = []
+            self.rows, self.cls = [], []
+
+        def classes(self, fresh=False):
+            return self.cls
+
+        def save_class(self, id, name, emails, nicknames):
+            if id is None:
+                self.cls.insert(0, {"id": len(self.cls) + 1, "name": name, "emails": emails, "nicknames": nicknames})
+            elif c := next((c for c in self.cls if c["id"] == id), None):
+                c.update(name=name, emails=emails, nicknames=nicknames)
+            else:
+                raise KeyError(id)
+
+        def delete_class(self, id):
+            self.cls = [c for c in self.cls if c["id"] != id]
 
         def user(self, token):
             return {"id": "u1", "email": "A@b.c"} if token == "good" else None
@@ -447,20 +461,48 @@ def test_sign_in_guards_the_practice_endpoints():
         assert c.get("/api/tts/0", headers={"Authorization": "Bearer bad"}).status_code == 401
         assert c.get("/api/tts/0", headers={"Authorization": "Bearer good"}).status_code == 503   # in, but no TTS key
         good = {"Authorization": "Bearer good"}
-        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": False}
+        # no class yet: any account is let in
+        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": False, "class": ""}
         assert c.get("/api/class").status_code == 401 and c.get("/api/class", headers=good).status_code == 403
-        c.app.state.auth.allowed = frozenset({"other@b.c"})   # a list without this account
+        assert c.post("/api/classes", json={"name": "x", "emails": ""}, headers=good).status_code == 403   # teachers only
+        assert c.get("/api/classmates", headers=good).json() == {"class": "", "students": [], "unnamed": 0}
+        c.app.state.auth.cls = [{"id": 1, "name": "September 2026", "emails": ["other@b.c"], "nicknames": {}}]   # a class without this account
         assert c.get("/api/me", headers=good).status_code == 403 and c.get("/api/tts/0", headers=good).status_code == 403
-        c.app.state.auth.allowed = frozenset({"a@b.c"})   # case does not matter
-        assert c.get("/api/me", headers=good).status_code == 200
-        # a teacher is an allowed account that TEACHER_EMAILS names: the panel lists the allowed accounts
-        c.app.state.auth.allowed, c.app.state.auth.teachers = frozenset({"a@b.c", "s@b.c", "new@b.c"}), frozenset({"a@b.c"})
-        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": True}
-        teacher, student, new = c.get("/api/class", headers=good).json()["students"]
-        assert (teacher["email"], teacher["name"], teacher["recordings"], teacher["last"]) == ("A@b.c", "Alef", 0, None)
+        c.app.state.auth.cls[0]["emails"].append("a@b.c")   # case does not matter; the student sees their class
+        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": False, "class": "September 2026"}
+        # a teacher is let in without a class, and opens classes in the panel
+        c.app.state.auth.cls, c.app.state.auth.teachers = [], frozenset({"a@b.c"})
+        assert c.post("/api/classes", json={"name": "September 2026", "emails": "x@b.c"}, headers=good).status_code == 200
+        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": True, "class": ""}
+        new_class = {"name": " October 2026 ", "emails": "S@b.c, new@b.c\nnew@b.c  דנה  \n"}   # an optional nickname after the address
+        assert c.post("/api/classes", json=new_class, headers=good).status_code == 200
+        assert c.app.state.auth.cls[0] == {"id": 2, "name": "October 2026", "emails": ["new@b.c", "s@b.c"],
+                                           "nicknames": {"new@b.c": "דנה"}}
+        for body, code in (({"name": "", "emails": ""}, 400), ({"name": "y", "emails": "not-an-email"}, 400),
+                           ({"name": "y", "emails": "z@b.c w@b.c Dana"}, 400),   # whose nickname?
+                           ({"name": "October 2026", "emails": ""}, 409),   # the name is taken
+                           ({"name": "y", "emails": "x@b.c"}, 409)):   # x is in September's class
+            r = c.post("/api/classes", json=body, headers=good)
+            assert r.status_code == code, (body, r.text)
+        assert "September 2026" in r.json()["detail"]
+        assert c.put("/api/classes/9", json={"name": "z", "emails": ""}, headers=good).status_code == 404
+        assert c.put("/api/classes/1", json={"name": "September 2026", "emails": "x@b.c y@b.c"}, headers=good).status_code == 200
+        assert c.delete("/api/classes/1", headers=good).status_code == 200 and len(c.app.state.auth.cls) == 1
+        # the panel lists the classes' accounts, with their class; the teacher, in no class, is not a student
+        d = c.get("/api/class", headers=good).json()
+        assert [k["name"] for k in d["classes"]] == ["October 2026"]
+        student, new = d["students"]
         assert student["best"] == {str(PHRASES.index(VERB)): 88} and student["tries"] == {str(PHRASES.index(VERB)): 2}
         assert (student["recordings"], student["days"], student["last"]) == (2, 1, "2026-10-09T10:00:00+00:00")
         assert (new["email"], new["joined"], new["recordings"]) == ("new@b.c", False, 0) and student["joined"]
+        assert student["class"] == new["class"] == "October 2026" and (student["nick"], new["nick"]) == ("", "דנה")
+        # a student sees their class: by nickname, else the Google name; one with neither is only counted
+        c.app.state.auth.cls[0]["emails"].append("a@b.c")
+        assert c.get("/api/classmates", headers=good).json() == {"class": "October 2026", "unnamed": 1, "students": [
+            {"name": "Alef", "me": True}, {"name": "דנה", "me": False}]}
+        c.app.state.auth.cls[0]["emails"].remove("a@b.c")
+        c.app.state.auth.cls = []   # no class: every account that signed in
+        assert [s["email"] for s in c.get("/api/class", headers=good).json()["students"]] == ["A@b.c", "s@b.c", "out@b.c"]
     # a scored recording is recorded as the student's attempt
     auth, pid = FakeAuth(), PHRASES.index(TOILET)
     buf = io.BytesIO()
