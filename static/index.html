@@ -30,8 +30,13 @@ body{background:var(--bg);color:var(--ink);font:400 17px/1.55 var(--f-body);padd
 header{display:flex;align-items:center;gap:4px 12px;flex-wrap:wrap}
 .brand{font:400 24px/1 var(--f-display)}
 .brand .ar{font-family:var(--f-ar);font-weight:700;color:var(--olive);margin-inline-start:8px}
-.brand #myClass{display:block;margin-top:4px;padding:0;border:0;background:none;font:600 13px/1.2 var(--f-body);color:var(--olive);text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
-.brand #myClass:empty{display:none}
+/* the student's class, in the path's upper corner across from the name: a pill to press. With several classes it carries
+   an arrow and opens the choice between them; with one, the class's students */
+#myClass{margin-inline-start:auto;max-width:60%;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);box-shadow:0 2px 0 var(--line);font:700 14px/1.2 var(--f-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+#myClass:hover{background:var(--olive-soft);border-color:var(--olive)}
+#myClass:active{transform:translateY(1px);box-shadow:0 1px 0 var(--line)}
+#myClass.many::after{content:"▾";margin-inline-start:6px;color:var(--olive)}
+#myClass:empty,body:not(.home) #myClass{display:none}
 .mates{list-style:none;margin:0;padding:0;columns:2 10em;column-gap:16px}
 .mates li{padding:7px 2px;border-bottom:1px solid var(--line);font-size:16px;break-inside:avoid}
 .mates li.me{font-weight:700;color:var(--olive)}
@@ -41,7 +46,7 @@ header{display:flex;align-items:center;gap:4px 12px;flex-wrap:wrap}
 .picks button small{font:500 13px/1.3 var(--f-body);color:var(--muted)}
 .picks button.last{border-color:var(--olive);box-shadow:inset 0 0 0 1px var(--olive)}
 .picks button:hover{background:var(--olive-soft)}
-#classSwitch{align-self:flex-start;margin-top:10px}
+#pickMates{margin-top:12px}
 #mates h3{margin:14px 0 4px;font:400 19px/1.2 var(--f-display)}
 #mates h3:first-child{margin-top:4px}
 #mates h3 small{margin-inline-start:8px;font:600 13px var(--f-body);color:var(--muted)}
@@ -364,6 +369,19 @@ body.driving .card.storymode .prompt{display:block}
 /* a story's quiz, once it ended: the grade is back on the card, over the mistakes made most often */
 .card.storymode.quizdone .verdict{display:flex}
 .tips li .sub{display:block}
+/* Without a microphone ("תרגול שקט ללא ציון"): a Hebrew sentence is answered by hand instead of said, built from its
+   Arabic words, tapped in order out of a bank that holds a few words too many. */
+body.quiet :is(#mic,#playMine,#driveBtn),body.driving #quietBtn{display:none}
+#quietBtn{border:0;padding:4px 8px;font-size:14px;color:var(--olive);text-decoration:underline dotted;text-underline-offset:3px}
+.silent{display:flex;flex-direction:column;gap:10px}
+.silent .btn{align-self:flex-start}
+.built,.bank{display:flex;flex-wrap:wrap;gap:6px}
+.built{min-height:54px;padding:8px;border-radius:12px;border:1px dashed var(--line);align-content:flex-start}
+.built:is(.good,.bad){border-style:solid;border-color:currentColor}
+.chip{padding:6px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);box-shadow:0 2px 0 var(--line);font:700 18px/1.4 var(--f-body);cursor:pointer}
+.chip.used{visibility:hidden}
+.chip:disabled{cursor:default}
+.donehint.quiet{background:var(--olive-soft);color:var(--olive)}
 /* The topic's sentences as a list: number, prompt, best score. A row is a tap target that opens its sentence. */
 .plist{list-style:none;margin:0;padding:0}
 .prow{display:grid;grid-template-columns:2ch 1fr auto;gap:10px;align-items:center;width:100%;min-height:46px;padding:6px 6px;border:0;border-top:1px solid var(--line);background:none;color:inherit;font:600 16px/1.35 var(--f-body);text-align:start;cursor:pointer}
@@ -398,7 +416,8 @@ body.driving .card.storymode .prompt{display:block}
 <div id="logo-splash"><img src="static/logo-intro.svg" alt="אהלא וסהלא, בית הספר ללימוד השפה הערבית" width="489" height="225"><button id="startBtn">יאללה נבלש</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="manageBtn">ניהול</button></div><button id="loginBtn" hidden>כניסה עם Google</button><div id="denied" hidden>החשבון הזה אינו באף כיתה. בקשו מהמורה להוסיף אותו.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
 <div class="wrap" id="wrap" inert>
   <header>
-    <div class="brand">אהלא וסהלא<button id="myClass" title="התלמידים בכיתות שלי"></button></div>
+    <div class="brand">אהלא וסהלא</div>
+    <button id="myClass"></button>
     <div class="where"><small id="lessonName"></small><span id="catName"></span></div>
     <div class="sub maphint">בחרו נושא במסלול ותרגלו אותו בקול</div>
     <button class="drive" id="toManage" hidden>ניהול</button>
@@ -429,11 +448,13 @@ body.driving .card.storymode .prompt{display:block}
     <h1 class="prompt" id="prompt">טוען…</h1>
     <p class="task" id="task">איך אומרים את זה בערבית מדוברת?</p>
 
+    <div class="silent" id="silent" hidden></div>
     <div class="mic-zone">
       <button class="mic" id="mic" aria-label="הקליטו את התשובה">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></svg>
       </button>
       <div class="status" id="status">לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים</div>
+      <button class="btn" id="quietBtn" title="תרגול בלי מיקרופון: מרכיבים את המשפט בערבית ממילים. לא נרשם ציון">תרגול שקט ללא ציון</button>
     </div>
 
     <div class="hint" id="hint" hidden>
@@ -523,11 +544,11 @@ body.driving .card.storymode .prompt{display:block}
   <div class="dlg-head"><h2 id="classTitle"></h2><button class="btn" id="classClose">סגירה</button></div>
   <div id="mates"></div>
   <p class="sub" id="matesNote"></p>
-  <button class="btn" id="classSwitch" hidden>מעבר לכיתה אחרת</button>
 </dialog>
 <dialog id="pickDlg" aria-labelledby="pickTitle">
   <div class="dlg-head"><h2 id="pickTitle">באיזו כיתה מתרגלים עכשיו?<small>אפשר להחליף אחר כך, בלחיצה על שם הכיתה</small></h2></div>
   <div class="picks" id="picks"></div>
+  <button class="btn" id="pickMates" hidden>התלמידים בכיתה</button>
 </dialog>
 <dialog id="dailyDlg" aria-labelledby="dailyTitle">
   <div class="dlg-head"><h2 id="dailyTitle"></h2></div>
@@ -796,7 +817,7 @@ function setRound(){
   const list=PHRASES.filter(p=>p.cat===cat&&p.listed!==false);
   ordered=list.length>0&&list.every(p=>p.seq!=null);
   topic=(ordered?list.sort((a,b)=>a.seq-b.seq):shuffle(list)).map(p=>p.id);
-  const todo=topic.filter(id=>best[id]==null), all=showDone||!todo.length, box=$("showDone");
+  const todo=topic.filter(id=>best[id]==null&&!(quiet&&silent[id])), all=showDone||!todo.length, box=$("showDone");
   box.checked=all; box.disabled=!todo.length;
   order=all?topic:todo; pos=0; marks();
 }
@@ -824,7 +845,7 @@ function drawList(){
     const i=document.createElement("span"), text=document.createElement("span"), mark=document.createElement("span");
     row.className="prow"; i.className="i"; i.textContent=k+1; setTr(text,p.read?p.tr:p.he);
     if(b!=null){ mark.className="pill "+(b>=EXCELLENT?"good":b>=60?"mid":"bad"); mark.textContent=b; mark.title="הציון הטוב ביותר"; }
-    else{ mark.className="none"; mark.textContent="טרם תורגל"; }
+    else{ mark.className="none"; mark.textContent=silent[id]?"✓ בלי מיקרופון":"טרם תורגל"; }
     if(cur&&cur.id===id) row.setAttribute("aria-current","true");
     row.append(i,text,mark); row.onclick=()=>{ $("listDlg").close(); goTo(id); };
     li.appendChild(row); box.appendChild(li);
@@ -838,12 +859,11 @@ $("setBtn").onclick=()=>$("setDlg").showModal();
 $("setClose").onclick=()=>$("setDlg").close();
 $("listClose").onclick=()=>$("listDlg").close();
 $("classClose").onclick=()=>$("classDlg").close();
-$("classSwitch").onclick=()=>{ $("classDlg").close(); askClass(); };
 /* A student of several classes practises in one at a time: its lessons are the path. They are asked after the opening
-   screen, and again from the class's name in the header. */
+   screen, and again from the class's name in the path's corner, which opens the same choice. */
 function useClass(c){
   MY_CLASS=c; store.set("ihki.class",c.name);
-  $("myClass").textContent=`כיתת ${c.name}`; $("classSwitch").hidden=MY_CLASSES.length<2;
+  $("myClass").textContent=`כיתת ${c.name}`;
   MY_LESSONS=c.lessons;
   if(ALL_LESSONS.length){ useLessons(MY_LESSONS); if(!home) showPath(); startCat(); }
 }
@@ -857,10 +877,13 @@ async function askClass(){
     b.onclick=()=>{ $("pickDlg").close(); useClass(c); };
     box.append(b);
   }
+  $("pickMates").hidden=!MY_CLASS;   // the students of the class practised in now
   $("pickDlg").showModal(); (box.querySelector(".last")||box.firstChild).focus();
 }
 $("pickDlg").oncancel=e=>{ if(!MY_CLASS) e.preventDefault(); };   // Escape closes it only when a class was already chosen
-$("myClass").onclick=async()=>{   // the students of my classes, by the nickname the teacher gave or their Google name
+$("myClass").onclick=()=>{ if(MY_CLASSES.length>1) askClass(); else showMates(); };
+$("pickMates").onclick=()=>{ $("pickDlg").close(); showMates(); };
+async function showMates(){   // the students of my classes, by the nickname the teacher gave or their Google name
   const box=$("mates"), note=$("matesNote");
   $("classTitle").textContent=$("myClass").textContent; box.innerHTML=""; note.textContent="טוען…"; $("classDlg").showModal();
   try{
@@ -876,7 +899,7 @@ $("myClass").onclick=async()=>{   // the students of my classes, by the nickname
     }
     if(several) note.textContent="";
   }catch{ note.textContent="הרשימה לא זמינה כרגע."; }
-};
+}
 for(const d of document.querySelectorAll("dialog:not(#editDlg,#newDlg,#pickDlg)")) d.onclick=e=>{   // a tap outside the box closes it (not a form being filled)
   const r=d.getBoundingClientRect(); if(e.target===d&&(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)) d.close(); };
 // Grammar-built phrases (grp set) exist for every pronoun, positive and negative: the two buttons move between them.
@@ -918,7 +941,7 @@ async function readPrompt(){   // resolves once the prompt has been read out, or
    after a grade that does not move on. */
 let autoRec=false, promptRead=Promise.resolve();   // autoRec: the sentence on screen is recorded without a press
 function autoRecord(){
-  if(!autoRec||home||driving||mic.disabled||starting||(rec&&rec.state==="recording")) return;
+  if(!autoRec||mute()||home||driving||mic.disabled||starting||(rec&&rec.state==="recording")) return;
   startRec(true);
 }
 function recordWhenReady(){
@@ -1138,19 +1161,61 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   $("counter").textContent=ordered?"":`${pos+1} / ${order.length}`;
   if(ordered&&at>=0){ const idx=document.createElement("span"); idx.className="idx"; idx.textContent=`${daily?"תרגול יומי ·":c.unit||"משפט"} ${at+1} מתוך ${topic.length}`; $("counter").append(idx); }
   $("progress").hidden=!ordered; $("progressBar").style.width=`${at>=0?(at+1)/topic.length*100:0}%`;
-  hintBox.hidden=b==null;
+  hintBox.hidden=b==null&&!silent[cur.id];
+  if(b==null&&silent[cur.id]){ hintBox.className="donehint quiet"; hintBox.textContent="✓ עניתם על המשפט הזה בלי מיקרופון · עוד לא נאמר בקול"; }
   if(b!=null){   // a sentence practised before: its best score, in the verdict's colours
     const n=document.createElement("b"); n.textContent=b;
     hintBox.className="donehint "+(b>=EXCELLENT?"good":b>=60?"mid":"bad"); hintBox.textContent="✓ כבר תרגלתם את המשפט הזה · הציון הטוב ביותר:"; hintBox.append(n);
   }
   $("hint").hidden=true; $("hintAr").hidden=true; $("result").hidden=true;
   $("status").textContent=wait?IDLE:"ההקלטה מתחילה ונעצרת לבד";
+  drawSilent();
   $("playMine").disabled=true; $("nextBtn").classList.remove("primary");   // the microphone is the one thing to press until there is a score
   // a recording of the sentence that was just left is dropped; the new one starts when it has stopped
   if(!driving&&rec&&rec.state==="recording"){ recCancel=recRestart=true; rec.stop(); }
   else recordWhenReady();
 }
 
+/* ---------- without a microphone ----------
+   "תרגול שקט ללא ציון" swaps the microphone for an exercise on the same sentence, until it is pressed again: the sentence
+   is built from its words, tapped in order out of a bank that also holds a few words of the topic's other sentences.
+   Only the sentences translated from Hebrew to Arabic have it (the topics named "... עברית ← ערבית"); a word, a
+   conjugation, a phrase to read and a conversation's line are said aloud as always, and the button is not on their card.
+   Nothing is scored or sent to the server: a sentence answered this way is not practised. It only gets a mark of its
+   own, kept on the device, and leaves the round. */
+const SILENT={extra:3};   // how many words too many the bank holds
+let quiet=false, silent=store.get("ihki.silent",{});   // silent: sentence id -> answered without a microphone
+const trWords=s=>s.split(/\s+/).map(w=>w.replace(/^[.,?!:;"״]+|[.,?!:;"״]+$/g,"")).filter(Boolean);
+function silentFits(p){ const c=CATS.find(c=>c.id===p.cat), way=c&&c.name.match(WAY); return !!way&&way[2]==="עברית"&&!p.read; }
+const mute=()=>quiet&&!!cur&&silentFits(cur);   // the sentence on the card is answered by hand
+function drawSilent(){
+  const box=$("silent"), on=mute(); box.innerHTML=""; box.hidden=!on;
+  document.body.classList.toggle("quiet",on); $("quietBtn").hidden=!silentFits(cur);
+  if(!on) return;
+  const p=cur, words=trWords(p.tr);
+  $("task").textContent="הרכיבו את המשפט בערבית מדוברת"; $("status").textContent="הקישו על המילים לפי הסדר";
+  const extra=shuffle([...new Set(PHRASES.filter(o=>o.cat===p.cat&&o.id!==p.id).flatMap(o=>trWords(o.tr)))].filter(w=>!words.includes(w))).slice(0,SILENT.extra);
+  const bank=shuffle([...words,...extra]), picked=[], line=mark("built","","div"), pool=mark("bank","","div"), check=mark("btn primary","בדיקה","button");
+  let done=false;
+  const chip=(t,press)=>{ const b=mark("chip","","button"); setTr(b,t); b.disabled=done; b.onclick=press; return b; };
+  const draw=()=>{
+    line.innerHTML=""; pool.innerHTML=""; line.className="built"+(done?" good":"");
+    picked.forEach((i,k)=>line.append(chip(bank[i],()=>{ picked.splice(k,1); draw(); })));
+    bank.forEach((t,i)=>{ const b=chip(t,()=>{ picked.push(i); draw(); }); if(picked.includes(i)){ b.classList.add("used"); b.disabled=true; } pool.append(b); });
+    check.disabled=done||!picked.length;
+  };
+  check.onclick=()=>{
+    if(picked.map(i=>bank[i]).join(" ")!==words.join(" ")){ line.classList.add("bad"); $("status").textContent="עוד לא. שנו את הסדר ונסו שוב"; return; }
+    done=true; draw();
+    silent[p.id]=1; store.set("ihki.silent",silent); if(daily) dailySaid.add(p.id);
+    $("status").textContent="נכון ✓"; $("answerBtn").onclick(); $("nextBtn").classList.add("primary");
+  };
+  draw(); box.append(line,pool,check);
+}
+$("quietBtn").onclick=()=>{   // the same sentence stays on the card, with the other way of answering it
+  quiet=!quiet; $("quietBtn").textContent=quiet?"חזרה לתרגול בקול":"תרגול שקט ללא ציון";
+  const id=cur.id; setRound(); openSentence(id,true);
+};
 function keepScore(id,s){   // a sentence's best score, on the device and for this visit
   if(best[id]==null||s>best[id]){best[id]=s; store.set("ihki.best2",best);}
   if(!(sessionBest[id]>=s)) sessionBest[id]=s;
@@ -1266,7 +1331,7 @@ async function startRec(auto){   // auto: started by the page for the sentence o
   let stream;
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
   catch{ starting=false; $("status").textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."; finishRec({kind:"nomic"}); return; }
-  if(auto&&(home||driving||cur.id!==id)){   // the sentence changed while the microphone was opening
+  if(auto&&(home||mute()||driving||cur.id!==id)){   // the sentence changed while the microphone was opening
     stream.getTracks().forEach(t=>t.stop()); starting=false; recordWhenReady(); return;
   }
   const type=pickType();
@@ -1909,7 +1974,7 @@ if(AUTH_URL){
     login.onclick=()=>sb.auth.signInWithOAuth({provider:"google",
       options:{redirectTo:location.origin+location.pathname,queryParams:{prompt:"select_account"}}});
     logout.onclick=$("switchBtn").onclick=async()=>{   // the best scores kept on the device belong to this student
-      await sb.auth.signOut(); store.set("ihki.best2",{}); location.reload(); };
+      await sb.auth.signOut(); store.set("ihki.best2",{}); store.set("ihki.silent",{}); location.reload(); };
     sb.auth.onAuthStateChange((_e,session)=>{
       login.hidden=!!session; logout.hidden=!session;
       logout.title=session?session.user.email||"":"";
@@ -1922,7 +1987,8 @@ if(AUTH_URL){
         const me=res&&res.ok?await res.json().catch(()=>({})):{}, teacher=!!me.teacher;
         const mine=me.classes||[];   // a teacher practises every lesson and is not asked for a class
         MY_CLASSES=teacher?[]:mine; MY_CLASS=null;
-        $("myClass").textContent=mine.length>1?`כיתות: ${mine.map(c=>c.name).join(" · ")}`:mine.length?`כיתת ${mine[0].name}`:"";
+        $("myClass").textContent=mine.length>1?(teacher?`כיתות: ${mine.map(c=>c.name).join(" · ")}`:"בחירת כיתה"):mine.length?`כיתת ${mine[0].name}`:"";
+        $("myClass").classList.toggle("many",MY_CLASSES.length>1); $("myClass").title=MY_CLASSES.length>1?"מעבר לכיתה אחרת":"התלמידים בכיתה שלי";
         MY_LESSONS=me.lessons||null; if(ALL_LESSONS.length) useLessons(MY_LESSONS);
         if(MY_CLASSES.length===1) MY_CLASS=mine[0];
         start.hidden=!ok||teacher; roles.hidden=$("toManage").hidden=!teacher; denied.hidden=ok;
