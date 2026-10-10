@@ -1,9 +1,12 @@
 """The course workbook (שלב א') lesson by lesson: the student picks a lesson, then one of its topics.
 
-A topic is a list of items, each written once as (Hebrew, Arabic), and is one of two kinds:
+A topic is a list of items, each written once as (Hebrew, Arabic), and is one of three kinds:
   "say":  Hebrew -> Arabic. The usual flow: Hebrew prompt, the student says it in Arabic.
   "read": Arabic -> Hebrew. The page shows the transliteration, the student reads it aloud (and is
           scored on it) and checks the translation with "הצג תרגום".
+  "write": the workbook's homework, sentences of the student's own. It has no items: the page shows its task
+          (WRITING) and a line for each sentence. What is written is kept for the student (the Supabase table
+          `writings`) and read by the teacher in the panel. Nothing is said or scored.
 Single words (the pronouns, a verb's past and future) and conjugations are "say" items like the
 sentences. An ordered topic is shown in the workbook's order; the others are shuffled.
 
@@ -315,6 +318,7 @@ LESSONS = {
         ("אני שאלתי את אבא שלי מי אכל את האוכל? אבא שלי: \"הכלב אכל את האוכל\".", "انا سألت ابوي مين اكل الأكل؟ ابوي: الكلب اكل الأكل."),
         ("המורה שאלה את הילדה: \"חרוצה, למה ישבת על השולחן?\"", "المعلّمة سألت#f البنت: يا شاطرة ليش قعدتي على الطّاولة؟"),
         ]),
+        ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (1, 2): [
         ("dual", "הזוגי", "say", True, [(f"{he}, {he2}", f"{ar}، {ar2}") for he, he2, ar, ar2 in DUALS]),
@@ -442,6 +446,7 @@ LESSONS = {
         ("ה' ישמור אותם! אני גר בשכונה שלך עם אשתי ובתי. (לגבר)", "الله يخلّيهم! انا ساكن في حارتك مع مرتي وبنتي."),
         ("אני במקור מירושלים אבל היום אני גר בצפון.", "انا اصلي من القدس بسّ اليوم انا ساكن في الشّمال."),
         ]),
+        ("hw", "כתיבת משפטים", "write", True, []),
     ],
 }
 for _level, _n in LESSONS:
@@ -467,10 +472,22 @@ STORIES = {"l2-talk": ("אמיר", "ראאף")}
 UNITS = {"pron": "מילה", "verbs": "פועל", "dual": "מילה", "family": "מילה"}
 TASKS = {"verbs": "אמרו את הפועל בערבית מדוברת: בעבר ואז בעתיד",
          "dual": "אמרו בערבית מדוברת: ביחיד ואז בזוגי"}
+# The topics the student writes in (kind "write"): the task as the workbook gives it, and how many sentences it asks for.
+WRITING = {"l1-hw": ("כתבו חמישה משפטים בערבית בעבר עם הפעלים, הגופים, שמות העצם שלמדנו.\n"
+                     "השתמשו במילות הדבק: מַע - עם, וֵין - איפה, מִין - מי, לֵיש - מדוע, פִי - ב, בתוך, יש, "
+                     "אֵימְתַא / וֵיְנְתַא - מתי.", 5),
+           "l2-hw": ("אֵלְוַזַֿאיֵף לַדַרְס אֵלגַ'איְ - המשימות לשיעור הבא\n"
+                     "1. פתרו את כל השיעור השני.\n"
+                     "2. כתבו 5 משפטים פשוטים בהטיות הפעלים שלמדנו בכל הגופים.\n"
+                     "השתמשו במילות הדבק: עַלַא – ל (מקום), אל, על. עִנְד – אצל (אדם), יש ל. פִי – יש, ב, בתוך, קַבֵּל – לפני. "
+                     "מַע – עם, וֵין – איפה, מִין – מי, לֵיש – מדוע. בַּעַדֵין - אחר כך.\n"
+                     "השתמשו רק בפעלים שלמדנו: אַכַּל / יֹאכֵּל – אכל, סַאַל / יִסְאַל – שאל, פַתַח / יִפְתַח – פתח, "
+                     "קַעַד / יֻקְעֹד – ישב.", 5)}
 CATEGORIES = [{"id": f"l{lesson_id(*key)}-{tid}", "name": name, "lesson": lesson_id(*key),
+               **({"write": dict(zip(("task", "lines"), WRITING[f"l{lesson_id(*key)}-{tid}"]))} if kind == "write" else {}),
                **({"story": True, "voices": list(STORIES[f"l{lesson_id(*key)}-{tid}"])} if f"l{lesson_id(*key)}-{tid}" in STORIES else {}),
                **({"unit": UNITS[tid]} if tid in UNITS else {}), **({"task": TASKS[tid]} if tid in TASKS else {})}
-              for key, topics in LESSONS.items() for tid, name, *_ in topics]
+              for key, topics in LESSONS.items() for tid, name, kind, *_ in topics]
 
 
 def _word(token: str) -> tuple[str, str, list[str]]:

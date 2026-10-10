@@ -356,7 +356,9 @@ def test_workbook_lesson_1():
     from app.phrases import CATEGORIES, LESSONS, public_phrases
 
     assert [l["id"] for l in LESSONS if not l.get("soon")] == ["1", "2"]
-    assert [c["id"] for c in CATEGORIES if c["lesson"] == "1"] == ["l1-pron", "l1-verbs", "l1-past", "l1-say", "l1-read"]
+    assert [c["id"] for c in CATEGORIES if c["lesson"] == "1"] == ["l1-pron", "l1-verbs", "l1-past", "l1-say", "l1-read", "l1-hw"]
+    hw = CATEGORIES[5]["write"]   # the workbook's homework: a task and five sentences to write, with nothing to say
+    assert hw["lines"] == 5 and hw["task"].startswith("כתבו חמישה משפטים") and "מִין - מי" in hw["task"]
     pub = public_phrases()
     count = lambda cat: sum(p["cat"] == cat for p in pub)
     assert [count(c) for c in ("l1-pron", "l1-verbs", "l1-past", "l1-say", "l1-read")] == [8, 4, 32, 10, 22]
@@ -395,7 +397,9 @@ def test_workbook_lesson_2():
     from app.phrases import CATEGORIES, public_phrases
 
     cats = ["l2-dual", "l2-family", "l2-poss", "l2-say", "l2-say2", "l2-read", "l2-talk", "l2-meet"]
-    assert [c["id"] for c in CATEGORIES if c["lesson"] == "2"] == cats
+    assert [c["id"] for c in CATEGORIES if c["lesson"] == "2"] == cats + ["l2-hw"]   # the lesson ends with its written homework
+    hw = CATEGORIES[-1]["write"]
+    assert hw["lines"] == 5 and "פתרו את כל השיעור השני" in hw["task"] and "קַעַד / יֻקְעֹד – ישב" in hw["task"]
     pub = public_phrases()
     assert [sum(p["cat"] == c for p in pub) for c in cats] == [17, 24, 48, 23, 25, 13, 27, 24]
     assert all(p["read"] == (p["cat"] == "l2-read") and "#" not in p["ar"] for p in pub if p["cat"].startswith("l2-"))
@@ -433,7 +437,16 @@ def test_sign_in_guards_the_practice_endpoints():
         url, key, teachers = "https://proj.supabase.co", "sb_publishable_x", frozenset()
 
         def __init__(self):
-            self.rows, self.cls, self.vids, self.txts = [], [], [], []
+            self.rows, self.cls, self.vids, self.txts, self.wrote = [], [], [], [], {}
+
+        def writings(self, token):
+            return {t: lines for (u, t), lines in self.wrote.items() if u == "u1"}
+
+        def save_writing(self, token, user_id, topic, lines):
+            self.wrote[user_id, topic] = lines
+
+        def all_writings(self):
+            return [{"user_id": u, "topic": t, "lines": lines} for (u, t), lines in self.wrote.items()]
 
         def classes(self, fresh=False):
             return self.cls
@@ -502,6 +515,13 @@ def test_sign_in_guards_the_practice_endpoints():
         ALL = [l["id"] for l in LESSONS]
         NO_HW = {"homework": "", "due": None}
         T1, T2 = (next(k["id"] for k in CATEGORIES if k["lesson"] == l) for l in ALL[:2])   # a topic of each of the first two lessons
+        # written homework is kept for the student, a topic's lines in place of the ones before, and read back anywhere
+        assert c.get("/api/writing").status_code == 401 and c.get("/api/writing", headers=good).json() == {"writing": {}}
+        put = lambda topic, lines: c.put(f"/api/writing/{topic}", json={"lines": lines}, headers=good).status_code
+        assert put("l1-hw", ["אַנַא  אַכַּלֵת ", ""]) == 200 and put("l1-hw", ["אַנַא אַכַּלֵת", "", "הִיֵّ פַתְחַת"]) == 200
+        assert c.get("/api/writing", headers=good).json() == {"writing": {"l1-hw": ["אַנַא אַכַּלֵת", "", "הִיֵّ פַתְחַת"]}}
+        assert put(T1, ["x"]) == 404 and put("l1-hw", ["x"] * 6) == 400 and put("l1-hw", ["x" * 301]) == 400 and put("l1-hw", "x") == 400
+        assert c.put("/api/writing/l1-hw", json={"lines": ["x"]}).status_code == 401
         # no class yet: any account is let in, to every lesson
         assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": False, "classes": [], "lessons": ALL}
         assert c.get("/api/class").status_code == 401 and c.get("/api/class", headers=good).status_code == 403
@@ -652,6 +672,8 @@ def test_sign_in_guards_the_practice_endpoints():
         assert student["best"] == {str(PHRASES.index(VERB)): 88} and student["tries"] == {str(PHRASES.index(VERB)): 2}
         assert (student["recordings"], student["days"], student["last"]) == (2, 1, "2026-10-09T10:00:00+00:00")
         assert (new["email"], new["joined"], new["recordings"]) == ("new@b.c", False, 0) and student["joined"]
+        c.app.state.auth.wrote["u2", "l1-hw"] = ["הִיֵّ פַתְחַת"]   # the panel reads what each student wrote
+        assert [k["written"] for k in c.get("/api/class", headers=good).json()["students"][:2]] == [{"l1-hw": ["הִיֵّ פַתְחַת"]}, {}]
         assert (student["classes"], new["classes"]) == ({"October 2026": ""}, {"October 2026": "דנה"})
         assert x["classes"] == {"October 2026": "", "September 2026": ""} and y["classes"] == {"September 2026": ""}
         # a class counts what was practised since it was opened: a new one starts clean (the student's own summary stays whole)

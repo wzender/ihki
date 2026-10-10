@@ -293,6 +293,11 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .vadd input[name=url]{direction:ltr;text-align:left}
 #videoDlg{width:min(94vw,860px)}
 #videoBox iframe{display:block;width:100%;aspect-ratio:16/9;border:0;border-radius:10px;background:#000}
+#writeTask{white-space:pre-line;margin:0 0 12px}
+#writeLines{margin:0;padding-inline-start:1.5em;display:grid;gap:8px}
+#writeLines input{width:100%;box-sizing:border-box;font:500 17px/1.5 var(--f-body);padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+#writeDlg small{display:block;margin-top:12px;color:var(--muted);font-size:14px}
+.wrote{margin:0;padding:0 16px 8px;padding-inline-start:3em;color:var(--muted);font-size:15px}
 #mClasses{display:flex;flex-direction:column;gap:inherit}
 #mClasses>.btn{align-self:flex-start}
 #mClasses .card>.btn{align-self:flex-start}
@@ -601,6 +606,12 @@ body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.micl
   <div class="dlg-head"><h2 id="videoTitle"></h2><button class="btn" id="videoClose">סגירה</button></div>
   <div id="videoBox"></div>
 </dialog>
+<dialog id="writeDlg" aria-labelledby="writeTitle">
+  <div class="dlg-head"><h2 id="writeTitle"></h2><button class="btn" id="writeClose">סגירה</button></div>
+  <p id="writeTask"></p>
+  <ol id="writeLines"></ol>
+  <small id="writeNote" aria-live="polite"></small>
+</dialog>
 <dialog id="classDlg" aria-labelledby="classTitle">
   <div class="dlg-head"><h2 id="classTitle"></h2><button class="btn" id="classClose">סגירה</button></div>
   <div id="mates"></div>
@@ -684,12 +695,14 @@ function dueText(due){   // the homework's day in words ("עד מחר", "עד י
 }
 /* The class's homework for the path: the topic (and its lesson), how far the student got in it, and the words of its
    bubble, which count the days left ("נשארו 3 ימים", "מגישים מחר!", "באיחור של יומיים"; with no day set, as any topic's).
-   `state` colours it: "soon" on the last two days, "late" after them. Null when the class has no homework. */
+   `state` colours it: "soon" on the last two days, "late" after them. Null when none of the student's classes has homework. */
 function homework(){
-  const c=MY_CLASS&&MY_CLASS.homework&&CATS.find(c=>c.id===MY_CLASS.homework);
+  // of the class practised in now, or else of another class of the student's whose topic is on the path: the one due first
+  const own=k=>k&&k.homework&&CATS.find(c=>c.id===k.homework);
+  const k=own(MY_CLASS)?MY_CLASS:MY_CLASSES.filter(own).sort((a,b)=>(a.due||"9").localeCompare(b.due||"9"))[0], c=own(k);
   if(!c) return null;
-  const t=tally(PHRASES.filter(p=>p.listed!==false&&p.cat===c.id)), now=new Date(), days=n=>n===1?"יום":n===2?"יומיים":`${n} ימים`;
-  const left=MY_CLASS.due?Math.round((new Date(MY_CLASS.due+"T00:00")-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5):null;
+  const t=c.write?wTally(c):tally(PHRASES.filter(p=>p.listed!==false&&p.cat===c.id)), now=new Date(), days=n=>n===1?"יום":n===2?"יומיים":`${n} ימים`;
+  const left=k.due?Math.round((new Date(k.due+"T00:00")-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5):null;
   const msg=left==null?(t.done?"המשך":"התחילו"):left<0?`באיחור של ${days(-left)}`:left===0?"מגישים היום!":left===1?"מגישים מחר!":`נשארו ${days(left)}`;
   return {c,l:LESSONS.find(l=>l.id===c.lesson),t,msg,state:left==null||left>1?"":left<0?"late":"soon"};
 }
@@ -749,10 +762,10 @@ function ball(t,now){   // a topic's button and the disc inside its ring
 }
 const WAY=/^(.+?):\s*(\S+)\u00a0←\u00a0(\S+)(.*)$/, SHORT={"עברית":"עב׳","ערבית":"ער׳"};
 function mark(cls,text,tag="span"){ const m=document.createElement(tag); m.className=cls; m.textContent=text; return m; }
-function count(t){   // "11/70 תורגלו", or the mark of a finished one
+function count(t,what="תורגלו"){   // "11/70 תורגלו", or the mark of a finished one
   const s=document.createElement("small"), n=document.createElement("bdi");
   if(t.over){ s.textContent=t.gold?"★ מצוין":"✓ הושלם"; return s; }
-  n.dir="ltr"; n.textContent=`${t.done}/${t.n}`; s.append(n," תורגלו"); return s;
+  n.dir="ltr"; n.textContent=`${t.done}/${t.n}`; s.append(n," "+what); return s;
 }
 const levelOf=l=>ALL_LEVELS.find(v=>v.id===l.level)||{name:""};
 const lessonName=l=>l?(ALL_LEVELS.length>1?levelOf(l).name+" · ":"")+l.name:"";
@@ -798,6 +811,55 @@ function playVideo(v,preview){   // preview: the teacher looks at it from the pa
 $("videoClose").onclick=()=>$("videoDlg").close();
 $("videoDlg").addEventListener("close",()=>{   // without its frame the video stops playing
   $("videoBox").replaceChildren(); if(home&&!document.body.classList.contains("manage")) drawPath(true); });
+/* A topic the student writes in (its category has `write`: the task, and how many sentences): the workbook's homework.
+   It opens in a box over the page, a line for each sentence, and is done once every line has something in it. What is
+   written is kept on the device and, for a signed-in student, sent to the server as they write, so it follows them to
+   any device and the teacher reads it in the panel. Lines the server did not take stay on the device and are sent on
+   the next visit. */
+let written=store.get("ihki.written",{}), unsent=store.get("ihki.unsent",{});   // {topic id: its lines}; the topics whose lines the server does not have yet
+const WRITE_HOW="כותבים בערבית באותיות עבריות, כמו בחוברת.";
+let writeOpen=null, writeTimer=null;   // the topic in the box, and its lines waiting to be sent
+const wLines=id=>Array.from(written[id]||[],x=>x||"");
+function wTally(c){ const done=wLines(c.id).filter(x=>x.trim()).length, n=c.write.lines; return {done,n,over:done>=n,gold:false}; }
+async function sendWriting(id){
+  if(!sb) return;
+  const note=t=>{ if(writeOpen===id) $("writeNote").textContent=`${WRITE_HOW} ${t}`; }, lines=wLines(id);
+  unsent[id]=1; store.set("ihki.unsent",unsent); note("שומר…");
+  try{
+    const res=await send(`/api/writing/${id}`,"PUT",{lines});
+    if(!res.ok) throw 0;
+    if(JSON.stringify(wLines(id))!==JSON.stringify(lines)) return;   // written on meanwhile: the next sending says how it went
+    delete unsent[id]; store.set("ihki.unsent",unsent); note("✓ נשמר בחשבון שלכם");
+  }catch{ note("לא נשמר בשרת: המשפטים שמורים במכשיר הזה ויישלחו בכניסה הבאה."); }
+}
+async function loadWriting(){   // the server's lines replace the device's, but those of a topic still to be sent
+  if(!sb) return;
+  try{
+    const res=await api("/api/writing"); if(!res.ok) return;
+    const d=(await res.json()).writing||{};
+    for(const id in unsent) if(written[id]){ d[id]=written[id]; sendWriting(id); }
+    written=d; store.set("ihki.written",written);
+    if(PHRASES.length&&home&&!document.body.classList.contains("manage")) drawPath(true);
+  }catch{}
+}
+function writeTopic(c){
+  const lines=Array.from({length:c.write.lines},(_,k)=>wLines(c.id)[k]||"");
+  writeOpen=c.id; $("writeTitle").textContent=c.name; $("writeTask").textContent=c.write.task; $("writeLines").replaceChildren();
+  $("writeNote").textContent=`${WRITE_HOW} ${!sb?"המשפטים נשמרים במכשיר הזה בלבד.":unsent[c.id]?"עוד לא נשמר בשרת.":"המשפטים נשמרים בחשבון שלכם."}`;
+  lines.forEach((line,k)=>{
+    const li=document.createElement("li"), inp=Object.assign(document.createElement("input"),{value:line,dir:"rtl",autocomplete:"off",maxLength:300});
+    inp.setAttribute("aria-label",`משפט ${k+1}`);
+    inp.oninput=()=>{ lines[k]=inp.value; written[c.id]=lines; store.set("ihki.written",written);
+      clearTimeout(writeTimer); writeTimer=setTimeout(()=>{ writeTimer=null; sendWriting(c.id); },800); };
+    li.append(inp); $("writeLines").append(li);
+  });
+  $("writeDlg").showModal();
+}
+$("writeClose").onclick=()=>$("writeDlg").close();
+$("writeDlg").addEventListener("close",()=>{
+  if(writeTimer){ clearTimeout(writeTimer); writeTimer=null; sendWriting(writeOpen); }   // what was just written is sent at once
+  writeOpen=null; if(home&&!document.body.classList.contains("manage")) drawPath(true); });
+const openCat=c=>c.write?writeTopic(c):pickCat(c.id);
 function drawPath(stay){
   const box=$("path"), listed=PHRASES.filter(p=>p.listed!==false), NS="http://www.w3.org/2000/svg";
   drawToday();
@@ -818,14 +880,14 @@ function drawPath(stay){
       const b=mark("chapter soon",""); b.style.top=y+"px"; b.append(mark("",lessonsWord(run)),mark("","בקרוב","small")); box.append(b);
       y+=52+28; continue;
     }
-    const items=lessonItems(l.id), cats=items.filter(it=>it.c).map(it=>it.c), parts=cats.map(c=>tally(listed.filter(p=>p.cat===c.id)));
+    const items=lessonItems(l.id), cats=items.filter(it=>it.c).map(it=>it.c), parts=cats.map(c=>c.write?wTally(c):tally(listed.filter(p=>p.cat===c.id)));
     const whole=tally(listed.filter(p=>cats.some(c=>c.id===p.cat))), now=!whole.over&&next;
     const todo=Math.max(0,parts.findIndex(t=>!t.over));   // the topic the banner opens
     if(now) next=false;
     const head=document.createElement("button");
     head.className="chapter"+(whole.gold?" gold":""); head.style.top=y+"px"; head.style.setProperty("--p",`${whole.n?whole.done/whole.n*100:0}%`);
     head.append(mark("",l.name),count(whole),document.createElement("i")); head.title=`${l.name}: תורגלו ${whole.done} מתוך ${whole.n}`;
-    head.onclick=()=>pickCat(cats[todo].id); box.append(head);
+    head.onclick=()=>openCat(cats[todo]); box.append(head);
     y+=64+86;   // the banner, room for the bubble, half a button
     const seat=(b,i)=>{   // a button's place on the road, and its label
       const label=document.createElement("span"), x=-SWAY[i%8]*amp, right=x<0||(!x&&i%8===0);   // the first turn is to the left; the label stands on the other side
@@ -844,7 +906,7 @@ function drawPath(stay){
       }
       const i=cats.indexOf(c), t=parts[i], cur=now&&i===todo, [b,dot]=ball(t,cur), [x,label]=seat(b,at);
       const mine=!!hw&&c===hw.c;   // the homework topic: its bubble counts the days left
-      dot.textContent=c.story?"💬":n;   // the number stays; a finished topic gets a badge, the one to do now and the homework a bubble
+      dot.textContent=c.story?"💬":c.write?"✎\uFE0E":n;   // the number stays; a finished topic gets a badge, the one to do now and the homework a bubble
       if(t.over) dot.before(mark("badge",t.gold?"★":"✓"));
       else if(cur||mine){
         const tag=mark("tag",mine?"":t.done?"המשך":"התחילו");
@@ -854,9 +916,10 @@ function drawPath(stay){
       const way=c.name.match(WAY);   // "משפטים: עברית ← ערבית א'" is drawn as "משפטים א'" and a chip with the direction
       label.append(mark("",way?way[1]+way[4]:c.name,"b"));
       if(way) label.append(mark("way"+(way[2]==="ערבית"?" read":""),`${SHORT[way[2]]||way[2]}\u00a0←\u00a0${SHORT[way[3]]||way[3]}`));
-      label.append(mine&&t.over?mark("","✓ שיעורי הבית הושלמו 🎉","small"):count(t)); b.append(label);
-      b.title=(mine&&!t.over?`שיעורי בית, ${hw.msg}. `:"")+`${c.name}: תורגלו ${t.done} מתוך ${t.n}`; b.setAttribute("aria-label",b.title);
-      b.onclick=()=>pickCat(c.id); box.append(b);
+      const did=c.write?"נכתבו":"תורגלו";
+      label.append(mine&&t.over?mark("","✓ שיעורי הבית הושלמו 🎉","small"):count(t,did)); b.append(label);
+      b.title=(mine&&!t.over?`שיעורי בית, ${hw.msg}. `:"")+`${c.name}: ${did} ${t.done} מתוך ${t.n}`; b.setAttribute("aria-label",b.title);
+      b.onclick=()=>openCat(c); box.append(b);
       stops.push({x,y,went:t.over,cur}); y+=STEP;
     });
     const cup=document.createElement("div"), x=-SWAY[items.length%8]*amp;   // the lesson's end: gold once all of it was practised
@@ -1726,6 +1789,10 @@ const listedPhrases=()=>PHRASES.filter(p=>p.listed!==false);
 const lessonPhrases=(l,list)=>{ const cats=ALL_CATS.filter(c=>c.lesson===l.id).map(c=>c.id); return list.filter(p=>cats.includes(p.cat)); };
 const stuTally=(s,list)=>{ const got=list.filter(p=>s.best[p.id]!=null), sum=k=>list.reduce((t,p)=>t+(s[k]&&s[k][p.id]||0),0);
   return {done:got.length, n:list.length, avg:mean(got.map(p=>s.best[p.id])), tries:sum("tries"), missed:sum("missed")}; };   // missed: recordings that did not match their sentence
+// a topic the students write in (see `writeTopic`): the sentences the student wrote, of those it asks for
+const stuWrote=(s,c)=>{ const lines=((s.written||{})[c.id]||[]).filter(x=>x.trim()); return {done:Math.min(lines.length,c.write.lines), n:c.write.lines, avg:null, tries:0, missed:0, lines}; };
+const topicTally=(s,c,listed)=>c.write?stuWrote(s,c):stuTally(s,listed.filter(p=>p.cat===c.id));
+const didWord=c=>c.write?"נכתבו":"תורגלו";
 const triesText=t=>[t.tries&&`${t.tries} ניסיונות`,t.missed&&`${t.missed} לא זוהו`].filter(Boolean).join(" · ");
 const ratio=t=>{ const m=document.createElement("small"), n=document.createElement("bdi"); n.dir="ltr"; n.textContent=`${t.done}/${t.n}`; m.append(n); return m; };
 const bar=frac=>{ const b=mark("progress",""), f=document.createElement("i"); f.style.width=`${Math.round(frac*100)}%`; b.append(f); return b; };
@@ -1813,7 +1880,7 @@ function drawContent(){
         const lines=c?listed.filter(p=>p.cat===c.id).length:0;
         if(n){
           const row=mark("crow","","li");
-          row.append(mark("",c.story?"💬":n,"i"),mark("",c.name,"b"),mark("",`${c.story?"שיחה":"תרגול"} · ${lines} ${c.unit==="מילה"?"מילים":c.unit==="פועל"?"פעלים":"משפטים"}`,"small")); list.append(row); return;
+          row.append(mark("",c.story?"💬":c.write?"✎\uFE0E":n,"i"),mark("",c.name,"b"),mark("",c.write?`כתיבה · ${c.write.lines} משפטים`:`${c.story?"שיחה":"תרגול"} · ${lines} ${c.unit==="מילה"?"מילים":c.unit==="פועל"?"פעלים":"משפטים"}`,"small")); list.append(row); return;
         }
         const it=v||c, row=mark("crow added","","li"), text=mark("two",""), title=mark("","","b"), t=document.createElement("bdi"), acts=mark("acts","");
         const up=mark("btn move","↑","button"), down=mark("btn move","↓","button"), see=mark("btn",v?"צפייה":"תרגול","button"), del=mark("btn danger","מחיקה","button");
@@ -1946,7 +2013,7 @@ function drawHead(klass,students){   // the class's name and its figures; before
   head.append(tiles);
   const hw=klass.homework&&ALL_CATS.find(c=>c.id===klass.homework&&CLASS_LESSONS.some(l=>l.id===c.lesson));
   if(hw){   // the homework: how many finished the topic, and who is still to, the furthest from it first
-    const list=listedPhrases().filter(p=>p.cat===hw.id), todo=students.map(s=>({s,t:stuTally(s,list)})).filter(x=>x.t.done<x.t.n).sort((a,b)=>a.t.done-b.t.done);
+    const list=listedPhrases(), todo=students.map(s=>({s,t:topicTally(s,hw,list)})).filter(x=>x.t.done<x.t.n).sort((a,b)=>a.t.done-b.t.done);
     const due=dueText(klass.due), box=mark("hwsum"+(due.late&&todo.length?" late":""),""), line=mark("",`שיעורי בית: ${hw.name}`,"b");
     line.append(mark("",` · ${lessonName(ALL_LESSONS.find(l=>l.id===hw.lesson))}`,"small"));
     if(due.text) line.append(mark(""," · "+due.text,"small"));
@@ -1994,8 +2061,8 @@ function drawRoster(klass,students,listed){
   // the same columns however many lessons the class has: the homework topic (when there is one) and all the class's
   // sentences; a lesson by itself is on the student's own screen
   const hw=klass&&klass.homework&&ALL_CATS.find(c=>c.id===klass.homework&&CLASS_LESSONS.some(l=>l.id===c.lesson));
-  const cols=[...(hw?[{name:"שיעורי בית",title:`שיעורי בית, ${hw.name}`,list:listed.filter(p=>p.cat===hw.id)}]:[]),
-    ...(CLASS_LESSONS.length?[{name:"כל השיעורים",title:"כל השיעורים",list:listed}]:[])];
+  const cols=[...(hw?[{name:"שיעורי בית",title:`שיעורי בית, ${hw.name}`,did:didWord(hw),of:s=>topicTally(s,hw,listed)}]:[]),
+    ...(CLASS_LESSONS.length?[{name:"כל השיעורים",title:"כל השיעורים",did:"תורגלו",of:s=>stuTally(s,listed)}]:[])];
   const box=$("mRoster"); box.innerHTML=""; box.hidden=false; box.style.setProperty("--cols",["minmax(0,1fr)",...cols.map(()=>"4.2em"),"3em","10px"].join(" "));   // no lesson column when none is ready
   const h=mark("","תלמידים","h2"); h.append(mark("","לחיצה על תלמיד פותחת את הדף שלו","small")); box.append(h);
   if(!students.length){ box.append(mark("note","אין עדיין תלמידים בכיתה הזו. מוסיפים אותם תחת „כיתות”, בכפתור „עריכה” של הכיתה.","p")); return; }
@@ -2006,7 +2073,7 @@ function drawRoster(klass,students,listed){
     const shown=mark("",s.nick||s.name||s.email,"b"); shown.dir="auto";   // an address is cut at its end
     who.append(shown,mark("",lastSeen(s)+(s.unmatched?` · ${s.unmatched} לא זוהו`:""),"small"));
     who.title=s.email; row.append(who);
-    for(const col of cols){ const t=stuTally(s,col.list), c=mark("cell",""); c.append(ratio(t),bar(t.n?t.done/t.n:0)); c.title=`${col.title}: תורגלו ${t.done} מתוך ${t.n}`+(t.avg!=null?`, ציון ${t.avg}`:""); row.append(c); }
+    for(const col of cols){ const t=col.of(s), c=mark("cell",""); c.append(ratio(t),bar(t.n?t.done/t.n:0)); c.title=`${col.title}: ${col.did} ${t.done} מתוך ${t.n}`+(t.avg!=null?`, ציון ${t.avg}`:""); row.append(c); }
     row.append(s.avg!=null?grade(s.avg):mark("none","–"),mark("go","‹"));   // the arrow says the row opens
     row.onclick=()=>showStudent(s.email);
     box.append(row);
@@ -2032,11 +2099,11 @@ function drawStudent(klass,s,listed){
   if(s.unmatched) head.append(mark("note",`${s.unmatched} הקלטות לא זוהו כמשפט שעל המסך: הן נשמרו, אבל לא נספרות במשפטים שתורגלו ולא בציון. ליד כל נושא מופיע כמה כאלה היו בו.`,"p"));
   const hw=klass&&klass.homework&&ALL_CATS.find(c=>c.id===klass.homework&&CLASS_LESSONS.some(l=>l.id===c.lesson));
   if(hw){
-    const t=stuTally(s,listed.filter(p=>p.cat===hw.id)), due=dueText(klass.due), over=t.done>=t.n;
+    const t=topicTally(s,hw,listed), due=dueText(klass.due), over=t.done>=t.n;
     const sum=mark("hwsum"+(due.late&&!over?" late":""),""), line=mark("",`שיעורי בית: ${hw.name}`,"b");
     line.append(mark("",` · ${lessonName(ALL_LESSONS.find(l=>l.id===hw.lesson))}`,"small"));
     if(due.text) line.append(mark(""," · "+due.text,"small"));
-    sum.append(line,mark("",over?`✓ סיים/ה: כל ${t.n} המשפטים תורגלו`:`תורגלו ${t.done} מתוך ${t.n} משפטים`,"small")); head.append(sum);
+    sum.append(line,mark("",over?`✓ סיים/ה: כל ${t.n} המשפטים ${didWord(hw)}`:`${didWord(hw)} ${t.done} מתוך ${t.n} משפטים`,"small")); head.append(sum);
   }
   box.append(head);
   const lessons=mark("card hard",""), lh=mark("","שיעורים","h2"); lh.append(mark("","לחיצה על שיעור פותחת את הנושאים שלו","small")); lessons.append(lh);
@@ -2044,8 +2111,11 @@ function drawStudent(klass,s,listed){
     const t=stuTally(s,lessonPhrases(l,listed)), sec=part(lessons); sec.classList.add("lsum");
     sec.firstChild.append(mark("",lessonName(l)),mark("",t.done?`תורגלו ${t.done} מתוך ${t.n} משפטים`:t.missed?`ניסה/תה, לא זוהה (${t.missed})`:"עוד לא התחיל/ה","small"),t.avg!=null?grade(t.avg):mark("none","–"),bar(t.n?t.done/t.n:0));
     for(const c of ALL_CATS.filter(c=>c.lesson===l.id)){
-      const t=stuTally(s,listed.filter(p=>p.cat===c.id)), row=mark("trow"+(t.done?"":" untouched"),"");
+      const t=topicTally(s,c,listed), row=mark("trow"+(t.done?"":" untouched"),"");
       row.append(mark("",c.name),mark("",triesText(t),"small"),ratio(t),t.avg!=null?grade(t.avg):mark("none","–")); sec.append(row);
+      if(c.write&&t.done){   // a writing topic: the sentences themselves
+        const ol=mark("wrote","","ol"); for(const x of t.lines){ const li=mark("",x,"li"); li.dir="rtl"; ol.append(li); } sec.append(ol);
+      }
     }
   }
   if(CLASS_SOON.length) lessons.append(mark("note","בקרוב: "+byLevel(CLASS_SOON).map(g=>`${g.level.name}, ${lessonsWord(g.lessons)}`).join(" · "),"p"));
@@ -2088,6 +2158,10 @@ function editClass(c){
     for(const t of ALL_CATS.filter(t=>t.lesson===l.id)) g.append(new Option(t.name,t.id));
   }
   hw.value=c&&c.homework||""; $("editDue").value=c&&c.due||"";
+  $("editDue").onchange=()=>{   // a day with no topic chosen: the homework is the written one of the class's last lesson that has it
+    const on=[...$("editLessons").querySelectorAll(".chips :checked")].map(b=>b.value), own=writeHomework(ALL_LESSONS.filter(l=>on.includes(l.id)));
+    if($("editDue").value&&!hw.value&&own) hw.value=own.id;
+  };
   $("editEmails").value=c?c.emails.map(e=>[e,c.nicknames&&c.nicknames[e]].filter(Boolean).join(" ")).join("\n"):"";
   $("editSave").textContent=c?"שמירה":"פתיחת הכיתה"; $("editDelete").hidden=!c; $("editMsg").textContent="";
   countStudents(); $("editDlg").showModal(); (c?$("editEmails"):$("editName")).focus();
@@ -2174,6 +2248,7 @@ function wizAdd(){   // the addresses written in the field join the list, ticked
 }
 $("newAdd").onclick=()=>{ wizAdd(); $("newEmail").focus(); };
 $("newEmail").onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); wizAdd(); } };
+const writeHomework=ls=>ALL_CATS.filter(c=>c.write&&ls.some(l=>l.id===c.lesson&&!l.soon)).pop();   // the lessons' last writing topic
 function wizHomework(){   // the topics of the level's ready lessons, under their lessons; the one chosen before stays
   const hw=$("newHw"), was=hw.value, ready=wizLessons().filter(l=>!l.soon);
   hw.innerHTML=""; hw.add(new Option(ready.length?"בלי שיעורי בית בינתיים":"לרמה הזו עוד אין שיעורים מוכנים",""));
@@ -2181,7 +2256,8 @@ function wizHomework(){   // the topics of the level's ready lessons, under thei
     const g=document.createElement("optgroup"); g.label=l.name; hw.append(g);
     for(const t of ALL_CATS.filter(t=>t.lesson===l.id)) g.append(new Option(t.name,t.id));
   }
-  hw.value=[...hw.options].some(o=>o.value===was)?was:""; hw.disabled=!ready.length;
+  const own=writeHomework(ready);   // offered from the start: the teacher has only the day to set
+  hw.value=[...hw.options].some(o=>o.value===was)&&(was||wiz.hwSeen)?was:own?own.id:""; wiz.hwSeen=true; hw.disabled=!ready.length;
   $("newDue").min=new Date().toLocaleDateString("sv"); hw.onchange();
 }
 $("newHw").onchange=()=>$("newDueBox").hidden=!$("newHw").value;
@@ -2273,7 +2349,7 @@ if(AUTH_URL){
     login.onclick=()=>sb.auth.signInWithOAuth({provider:"google",
       options:{redirectTo:here,queryParams:{prompt:"select_account"}}});
     logout.onclick=$("switchBtn").onclick=async()=>{   // the best scores kept on the device belong to this student
-      await sb.auth.signOut(); store.set("ihki.best2",{}); store.set("ihki.silent",{}); location.reload(); };
+      await sb.auth.signOut(); store.set("ihki.best2",{}); store.set("ihki.silent",{}); store.set("ihki.written",{}); store.set("ihki.unsent",{}); location.reload(); };
     sb.auth.onAuthStateChange((_e,session)=>{
       login.hidden=mail.hidden=!!session; logout.hidden=!session;
       logout.title=session?session.user.email||"":"";
@@ -2292,7 +2368,7 @@ if(AUTH_URL){
         if(MY_CLASSES.length===1) MY_CLASS=mine[0];
         else{ const last=MY_CLASSES.find(c=>c.name===store.get("ihki.class","")); if(last) useClass(last); }   // the class practised in last
         start.hidden=!ok||teacher; roles.hidden=$("toManage").hidden=!teacher; denied.hidden=ok;
-        if(ok){ (teacher?$("practiceBtn"):start).focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); loadContent(); }
+        if(ok){ (teacher?$("practiceBtn"):start).focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); loadContent(); loadWriting(); }
       },0);
     });
   }

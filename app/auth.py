@@ -23,6 +23,10 @@ Texts: the teacher also adds texts there (a story or a dialogue: a lesson, a tit
 Arabic written in Hebrew letters, and a dialogue's two voices), kept in the Supabase table `texts` and placed among
 the lesson's topics like the videos. Each is a topic practised line by line (see app/texts.py).
 
+Writing: a lesson's written homework (see workbook.py) is kept in the Supabase table `writings`, a row per student
+and topic, written with the student's own token like the attempts, so it follows them to any device. The panel
+reads every student's with the secret key.
+
 Env:  SUPABASE_URL              (https://<project-ref>.supabase.co)
       SUPABASE_PUBLISHABLE_KEY  (the publishable/anon key; it is public and also goes to the page)
       TEACHER_EMAILS            (optional: the accounts with the management panel, separated by commas or spaces)
@@ -127,6 +131,44 @@ class SupabaseAuth:
             if len(batch) < PAGE:
                 break
         return rows
+
+    def writings(self, token: str) -> dict[str, list[str]]:
+        """The student's written homework, {topic id: its lines}. Row-level security limits it to the token's student.
+        Before the table is created there is none; any other failure is raised, so the page keeps its own copy."""
+        try:
+            rows = self._get("/rest/v1/writings?select=topic,lines", token, self.key)
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                log.warning("the table `writings` is missing (see the README): written homework stays on the device")
+                raise AuthUnavailable("the table writings is missing") from e
+            raise AuthUnavailable(f"supabase answered {e.code}") from e
+        except (urllib.error.URLError, TimeoutError, ValueError) as e:
+            raise AuthUnavailable(str(e)) from e
+        return {r["topic"]: [str(x) for x in r["lines"]] for r in rows if isinstance(r.get("lines"), list)}
+
+    def save_writing(self, token: str, user_id: str, topic: str, lines: list[str]) -> None:
+        """Keeps a topic's lines as the student of this token, in place of what they wrote in it before."""
+        row = {"user_id": user_id, "topic": topic, "lines": lines, "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+        req = urllib.request.Request(
+            self.url + "/rest/v1/writings?on_conflict=user_id,topic", data=json.dumps(row).encode(), method="POST",
+            headers={"Authorization": f"Bearer {token}", "apikey": self.key, "Content-Type": "application/json",
+                     "Prefer": "resolution=merge-duplicates,return=minimal", "User-Agent": "ihki/1.0"})
+        try:
+            urllib.request.urlopen(req, timeout=TIMEOUT).close()
+        except urllib.error.HTTPError as e:
+            raise AuthUnavailable(f"supabase answered {e.code}: {e.read().decode(errors='replace')[:300]}") from e
+        except (urllib.error.URLError, TimeoutError) as e:
+            raise AuthUnavailable(str(e)) from e
+
+    def all_writings(self) -> list[dict]:
+        """Every student's written homework, for the panel: user_id, topic, lines. None before the table is created."""
+        try:
+            return self._admin(f"/rest/v1/writings?select=user_id,topic,lines&limit={PAGE * 10}")
+        except AuthUnavailable as e:
+            if "answered 404" not in str(e):
+                raise
+            log.warning("the table `writings` is missing (see the README): the panel shows no written homework")
+            return []
 
     def _get(self, path: str, token: str, key: str):
         req = urllib.request.Request(

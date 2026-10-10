@@ -108,6 +108,33 @@ The page's "ההתקדמות שלי" button reads these rows back through `GET /
 
 The course has levels, each with a planned number of lessons (`LEVELS` in `app/workbook.py`: רמה 1 and רמה 2, 10 lessons each). Every lesson in `LESSONS` is keyed by its level and number, `(level, lesson)`; one outside the plan stops the app at startup. The path shows each level under its name, and the lessons not written yet as "בקרוב". Level 1's lessons keep their first ids ("1", topics "l1-…") so recorded attempts and saved classes still match; later levels' are "2.1", topics "l2.1-…".
 
+A lesson's homework in the workbook, sentences of the student's own, is a topic of the kind `"write"`, the lesson's last ("כתיבת משפטים": `l1-hw`, `l2-hw`). It has no sentences to say: its task and the number of sentences are in `WRITING` in `app/workbook.py`, and on the path it opens a box with the task and a line for each sentence; it is done once every line is filled. Nothing is scored, so the lesson's count of practised sentences leaves it out.
+
+What a signed-in student writes is sent to the server as they write (`PUT /api/writing/<topic>`) and kept in the table `writings`, a row per student and topic, so it follows them to any device (`GET /api/writing`). The device keeps a copy too: lines the server did not take stay there and are sent on the next visit, and without sign-in the copy is all there is. Create the table once in the Supabase SQL editor:
+
+```sql
+create table public.writings (
+  user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  topic      text not null,      -- the topic id, e.g. l1-hw
+  lines      jsonb not null,     -- the sentences as written, "" for one not written yet
+  updated_at timestamptz not null default now(),
+  primary key (user_id, topic)
+);
+
+alter table public.writings enable row level security;
+grant select, insert, update on public.writings to authenticated;
+create policy "students read their own writings"   on public.writings
+  for select to authenticated using (user_id = auth.uid());
+create policy "students add their own writings"    on public.writings
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "students change their own writings" on public.writings
+  for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+```
+
+Until the table exists the sentences stay on each student's device and the panel shows none.
+
+A writing topic can be the class's homework like any topic, and is the one offered: the new-class steps open with it chosen, and in a class's "עריכה" setting a day with no topic chosen picks the written homework of the class's last lesson that has one, so the teacher has only the day to set. The panel then counts its sentences ("נכתבו 3 מתוך 5") in the homework's summary and column, and a student's own screen lists the sentences they wrote under the topic.
+
 ### Classes
 
 In the panel the teacher opens a class in five steps, a question each: its name (such as "מתחילים אוקטובר 2026"), its level (the class studies all the level's lessons; one not written yet opens to the class once it is), its students (ticked from the accounts the panel knows, or added by Google email, each with an optional nickname), its homework, and a summary to confirm, which says where all of it is changed later. That is the class's edit dialog ("עריכה", beside the class in the panel's list of classes): the name, the lessons one by one (by level: a level's box ticks all of it), the homework, and the students, a line each with the Google email and an optional nickname (`dana@gmail.com דנה`); the class is deleted there too. A student may be in several classes: after the opening screen the page asks which one they practise in now, and the learning path shows that class's lessons (a teacher, and anyone before the first class, sees every lesson and is not asked). The page shows the class under the app's name, and pressing it lists the class's students, with a button to move to another class; each student appears by their nickname in it or else their Google name (no addresses; `GET /api/classmates`). Once there is a class, only the classes' students and the teachers can sign in; before the first one, any Google account can.

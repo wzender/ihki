@@ -89,6 +89,16 @@ def built(row: dict) -> tuple[list[dict], list[str]]:
 def text_bank(rows: list[dict]) -> dict[int, dict]:
     """{phrase id: phrase} of the texts' lines."""
     return {TEXT_BASE + r["id"] * TEXT_SPAN + k: p for r in rows for k, p in enumerate(built(r)[0])}
+# The topics the student writes in (see workbook.py): how many sentences each asks for. What is written is kept in
+# the Supabase table `writings`, a row per student and topic.
+WRITE_TOPICS = {c["id"]: c["write"]["lines"] for c in CATEGORIES if "write" in c}
+CREATE_WRITINGS = ("create table public.writings (user_id uuid not null default auth.uid() references auth.users (id) on delete cascade, "
+                   "topic text not null, lines jsonb not null, updated_at timestamptz not null default now(), primary key (user_id, topic)); "
+                   "alter table public.writings enable row level security; grant select, insert, update on public.writings to authenticated; "
+                   'create policy "students read their own writings" on public.writings for select to authenticated using (user_id = auth.uid()); '
+                   'create policy "students add their own writings" on public.writings for insert to authenticated with check (user_id = auth.uid()); '
+                   'create policy "students change their own writings" on public.writings for update to authenticated '
+                   "using (user_id = auth.uid()) with check (user_id = auth.uid());")
 TOPIC_LESSON = {c["id"]: c["lesson"] for c in CATEGORIES}   # a topic's lesson: homework is a topic of the class's lessons
 MIGRATE_CLASSES = ("alter table public.classes add column if not exists nicknames jsonb not null default '{}', "
                    "add column if not exists lessons text[] not null default '{}', "
@@ -283,19 +293,55 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         s = summary(app.state.auth.attempts(user["token"]) if user else [], text_bank(text_rows()))
         return {k: s[k] for k in ("best", "tries", "recordings", "days")}
 
+    @app.get("/api/writing")
+    def writing(user: dict | None = Depends(signed_in)):
+        """The signed-in student's written homework, {topic id: its lines}. 503 when it cannot be read (or without
+        sign-in): the page then shows the copy it keeps on the device."""
+        if not user:
+            raise HTTPException(503, "no sign-in: written homework stays on the device")
+        try:
+            mine = app.state.auth.writings(user["token"])
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"written homework not available: {e}")
+        return {"writing": {t: lines[:WRITE_TOPICS[t]] for t, lines in mine.items() if t in WRITE_TOPICS}}
+
+    @app.put("/api/writing/{topic}")
+    def write(topic: str, body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        """Keeps what the student wrote in a writing topic: {"lines": a string per sentence, an empty one for a
+        sentence not written yet}, in place of what was kept before."""
+        if topic not in WRITE_TOPICS:
+            raise HTTPException(404, "unknown topic")
+        lines = body.get("lines")
+        if not isinstance(lines, list) or len(lines) > WRITE_TOPICS[topic] or not all(isinstance(x, str) and len(x) <= MAX_LINE for x in lines):
+            raise HTTPException(400, f"up to {WRITE_TOPICS[topic]} sentences, each up to {MAX_LINE} characters")
+        if not user:
+            raise HTTPException(503, "no sign-in: written homework stays on the device")
+        try:
+            app.state.auth.save_writing(user["token"], user["id"], topic, [" ".join(x.split()) for x in lines])
+        except AuthUnavailable as e:
+            if "answered 404" in str(e):
+                log.warning("the table `writings` is missing. Run in the Supabase SQL editor: %s", CREATE_WRITINGS)
+            raise HTTPException(503, f"written homework not kept: {e}")
+        return {"ok": True}
+
     @app.get("/api/class")
     def class_progress(a: SupabaseAuth = Depends(teacher_only)):
         """The teacher's panel: the classes (with their lessons and homework), and every student's summary (see `summary`) with
+        "written", their written homework ({topic id: its lines}), with
         their classes ({name: nickname}) and, as "since", the same summary for each class ({name: summary}) of the attempts
         made since the class was opened: a new class starts clean, whatever its students practised before. The students are the classes' accounts, or every account that signed in
         when there is no class yet; one that never signed in has joined = false."""
         try:
-            classes, users, rows = a.classes(fresh=True), a.users(), a.all_attempts()
+            classes, users, rows, wrote = a.classes(fresh=True), a.users(), a.all_attempts(), a.all_writings()
         except AuthUnavailable as e:
             raise HTTPException(503, str(e))
         by: dict[str, list[dict]] = {}
         for r in rows:
             by.setdefault(r["user_id"], []).append(r)
+        written: dict[str, dict[str, list[str]]] = {}   # user id -> {topic: lines}
+        for w in wrote:
+            if w["topic"] in WRITE_TOPICS and isinstance(w.get("lines"), list):
+                written.setdefault(w["user_id"], {})[w["topic"]] = [str(x) for x in w["lines"]]
         member: dict[str, dict[str, str]] = {}   # email -> {class name: nickname}
         for c in classes:
             for e in c["emails"]:
@@ -303,12 +349,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         opened = {c["name"]: utc(c["created_at"]) for c in classes if c.get("created_at")}
         bank, lesson_of = text_bank(text_rows()), topics()
 
-        def student(email: str, name: str, joined: bool, mine: list[dict]) -> dict:
+        def student(email: str, name: str, joined: bool, mine: list[dict], wrote: dict | None = None) -> dict:
             into = member.get(email.lower(), {})
             since = {n: summary([r for r in mine if n not in opened or utc(r["created_at"]) >= opened[n]], bank) for n in into}
-            return {"email": email, "name": name, "joined": joined, "classes": into, "since": since, **summary(mine, bank)}
+            return {"email": email, "name": name, "joined": joined, "classes": into, "since": since, "written": wrote or {},
+                    **summary(mine, bank)}
 
-        students = [student(u["email"], u["name"], True, by.get(u["id"], []))
+        students = [student(u["email"], u["name"], True, by.get(u["id"], []), written.get(u["id"]))
                     for u in users if not classes or u["email"].lower() in member]
         missing = member.keys() - {s["email"].lower() for s in students}
         students += [student(e, "", False, []) for e in sorted(missing)]
