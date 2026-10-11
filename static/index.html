@@ -62,11 +62,13 @@ body.home #practice,body.home #driveBtn,body:not(.home) #path,body:not(.home) #t
 header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 /* Above the path, and staying in sight as it scrolls: the daily session. (The homework is on the path itself: the bubble
    over its topic counts the days left.) */
-#today{position:sticky;top:0;z-index:7;display:flex;gap:8px;align-items:stretch;width:100%;max-width:460px;margin:0 auto;padding:6px 0;background:var(--bg)}
+#today{position:sticky;top:0;z-index:7;display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;width:100%;max-width:460px;margin:0 auto;padding:6px 0;background:var(--bg)}
 #today button{display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 15px/1.2 var(--f-body);text-align:start;cursor:pointer}
 #today small{font:600 13px/1.25 var(--f-body);color:var(--muted)}
 #today .daily{flex:1;align-items:center;background:var(--olive);border-color:var(--olive);color:var(--on-olive);box-shadow:0 3px 0 var(--olive-deep)}
 #today .daily small{color:inherit;opacity:.85}
+#today .hwgo{flex:1 0 100%;flex-direction:row;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 10px;border-color:var(--olive);color:var(--olive)}
+#today .hwgo.soon{border-color:var(--amber);color:var(--amber)} #today .hwgo.late{border-color:var(--sumac);color:var(--sumac)}
 #today .daily:active{transform:translateY(2px);box-shadow:0 1px 0 var(--olive-deep)}
 #dailyDlg{width:min(92vw,380px)}
 .path{--track:color-mix(in srgb,var(--muted) 75%,var(--bg));position:relative;width:100%;max-width:460px;margin:4px auto 72px}
@@ -766,6 +768,13 @@ function drawToday(){   // above the path: the daily session
     b.append(mark("","תרגול יומי"),mark("",store.get("ihki.daily","")===today()?"✓ תרגלתם היום":`${n} משפטים`,"small"));
     b.title="סבב קצר: משפטים שכדאי לשפר, ומשפטים חדשים מהשיעור הנוכחי"; b.onclick=startDaily;
     box.append(b);
+  }
+  // under it, the nearest homework still to do: the one due first (one with no day comes after those that have one)
+  const hw=homeworks().filter(h=>!h.t.over).sort((a,b)=>(a.left??1e9)-(b.left??1e9))[0];
+  if(hw){
+    const b=mark("hwgo"+(hw.state?" "+hw.state:""),"","button"), did=hw.c.write?"נכתבו":"תורגלו";
+    b.append(mark("",`${hw.t.done?"להמשיך את":"לעשות את"} שיעורי הבית ‹`),mark("",[hw.c.name,hw.l&&hw.l.name,hw.left==null?"":hw.msg,hw.t.done?`${did} ${hw.t.done} מתוך ${hw.t.n}`:""].filter(Boolean).join(" · "),"small"));
+    b.onclick=()=>openCat(hw.c); box.append(b);
   }
   box.hidden=!box.children.length;
 }
