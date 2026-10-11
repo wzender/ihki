@@ -1674,7 +1674,7 @@ $("conjBtn").onclick=()=>variation("conjugate");
 function roundEnd(){   // a story stops at its end and waits for the microphone button; other topics go straight on
   const story=isStory()&&!driving;
   startCat(story);
-  if(story) $("status").textContent="הגעתם לסוף השיחה. לחצו על המיקרופון כדי להמשיך";
+  if(story) $("status").textContent=`הגעתם לסוף ${(CATS.find(c=>c.id===cat)||{}).voices?"השיחה":"הסיפור"}. לחצו על המיקרופון כדי להמשיך`;
 }
 const nextPhrase=()=>{
   if(quiz&&!quiz.over&&topic.indexOf(here)+1>=topic.length){ quizEnd(); return; }   // past the quiz's last line
@@ -1938,7 +1938,7 @@ function drawContent(){
         const lines=c?listed.filter(p=>p.cat===c.id).length:0;
         if(n){
           const row=mark("crow","","li");
-          row.append(mark("",c.story?"💬":c.write?"✎\uFE0E":n,"i"),mark("",c.name,"b"),mark("",c.write?`כתיבה · ${c.write.lines} משפטים`:`${c.story?"שיחה":"תרגול"} · ${lines} ${c.unit==="מילה"?"מילים":c.unit==="פועל"?"פעלים":"משפטים"}`,"small")); list.append(row); return;
+          row.append(mark("",c.story?"💬":c.write?"✎\uFE0E":n,"i"),mark("",c.name,"b"),mark("",c.write?`כתיבה · ${c.write.lines} משפטים`:`${c.story?c.voices?"שיחה":"סיפור":"תרגול"} · ${lines} ${c.unit==="מילה"?"מילים":c.unit==="פועל"?"פעלים":"משפטים"}`,"small")); list.append(row); return;
         }
         const it=v||c, row=mark("crow added","","li"), text=mark("two",""), title=mark("","","b"), t=document.createElement("bdi"), acts=mark("acts","");
         const up=mark("btn move","↑","button"), down=mark("btn move","↓","button"), see=mark("btn",v?"צפייה":"תרגול","button"), del=mark("btn danger","מחיקה","button");
