@@ -159,7 +159,10 @@ def video_embed(url: str) -> str:
     if url.startswith(YOUTUBE_KEPT):   # without cookies until the video is played, and with no other channels' videos at its end
         return f"https://www.youtube-nocookie.com/embed/{url.removeprefix(YOUTUBE_KEPT)}?rel=0"
     number, _, h = url.removeprefix("https://vimeo.com/").partition("/")
-    return f"https://player.vimeo.com/video/{number}?" + urllib.parse.urlencode({**({"h": h} if h else {}), "dnt": 1})
+    return f"https://player.vimeo.com/video/{number}?" + urllib.parse.urlencode({
+        **({"h": h} if h else {}), "dnt": 1,
+        "vimeo_logo": 0, "title": 0, "byline": 0, "portrait": 0,
+    })
 
 
 def class_members(text: str) -> tuple[list[str], dict[str, str]]:

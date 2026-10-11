@@ -570,8 +570,8 @@ def test_sign_in_guards_the_practice_endpoints():
         first, second = c.get("/api/videos", headers=good).json()["videos"]
         N1 = sum(k["lesson"] == READY[0] for k in CATEGORIES)   # a new video stands after its lesson's topics
         assert first == {"id": 1, "lesson": READY[0], "title": "פתיחה לשיעור", "url": "https://vimeo.com/1233611297/d46ac373c8",
-                         "embed": "https://player.vimeo.com/video/1233611297?h=d46ac373c8&dnt=1", "pos": N1, "ord": 1}
-        assert (second["url"], second["embed"]) == ("https://vimeo.com/76979871", "https://player.vimeo.com/video/76979871?dnt=1")
+                         "embed": "https://player.vimeo.com/video/1233611297?h=d46ac373c8&dnt=1&vimeo_logo=0&title=0&byline=0&portrait=0", "pos": N1, "ord": 1}
+        assert (second["url"], second["embed"]) == ("https://vimeo.com/76979871", "https://player.vimeo.com/video/76979871?dnt=1&vimeo_logo=0&title=0&byline=0&portrait=0")
         from app.main import vimeo_link, video_embed, video_link
         assert vimeo_link("https://player.vimeo.com/video/1233611297?h=d46ac373c8") == first["url"]
         # a YouTube link, in any of its forms, is kept as the watch link and played without cookies
