@@ -719,7 +719,7 @@ function homeworks(){
     const t=c.write?wTally(c):tally(PHRASES.filter(p=>p.listed!==false&&p.cat===c.id));
     const left=due?Math.round((new Date(due+"T00:00")-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5):null;
     const msg=left==null?(t.done?"המשך":"התחילו"):left<0?`באיחור של ${days(-left)}`:left===0?"מגישים היום!":left===1?"מגישים מחר!":`נשארו ${days(left)}`;
-    return {c,l:LESSONS.find(l=>l.id===c.lesson),t,msg,state:left==null||left>1?"":left<0?"late":"soon"};
+    return {c,l:LESSONS.find(l=>l.id===c.lesson),t,msg,left,state:left==null||left>1?"":left<0?"late":"soon"};
   });
 }
 /* The daily session: DAILY.n sentences in one go, so the student does not have to choose what to practise. Half are
@@ -924,9 +924,10 @@ function drawPath(stay){
       const hw=hws.find(h=>h.c===c), mine=!!hw;   // a homework topic: its bubble counts the days left
       dot.textContent=c.story?"💬":c.write?"✎\uFE0E":n;   // the number stays; a finished topic gets a badge, the one to do now and the homework a bubble
       if(t.over) dot.before(mark("badge",t.gold?"★":"✓"));
-      else if(cur||mine){
+      // a homework keeps its bubble until its day, done or not: it can still be changed, and the day stays in sight
+      if(t.over?mine&&hw.left!=null&&hw.left>=0:cur||mine){
         const tag=mark("tag",mine?"":t.done?"המשך":"התחילו");
-        if(mine){ tag.append(mark("","שיעורי בית","small"),hw.msg); if(hw.state){ tag.classList.add(hw.state); b.classList.add(hw.state); } }
+        if(mine){ tag.append(mark("","שיעורי בית","small"),hw.msg); if(hw.state&&!t.over){ tag.classList.add(hw.state); b.classList.add(hw.state); } }
         dot.before(tag); if(cur) b.setAttribute("aria-current","step");   // the page opens on the topic to do now
       }
       const way=c.name.match(WAY);   // "משפטים: עברית ← ערבית א'" is drawn as "משפטים א'" and a chip with the direction
