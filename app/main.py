@@ -58,6 +58,14 @@ CREATE_VIDEOS = ("create table public.videos (id bigint generated always as iden
                  "title text not null, url text not null, pos int, ord int not null default 0, "
                  "created_at timestamptz not null default now()); alter table public.videos enable row level security;")
 MIGRATE_VIDEOS = "alter table public.videos add column if not exists pos int, add column if not exists ord int not null default 0;"
+# The daily videos: a library by level; a class gives a video its day (the class's `dailies`: [{"video", "date"}])
+# The library: other videos, which every student browses, whatever the level and the class (its `level` is empty)
+CREATE_LEVEL_VIDEOS = {t: (f"create table public.{t} (id bigint generated always as identity primary key, level text not null, "
+                           "title text not null, url text not null, created_at timestamptz not null default now()); "
+                           f"alter table public.{t} enable row level security;") for t in ("dailies", "library")}
+LEVEL_IDS = [v["id"] for v in LEVELS]
+LESSON_LEVEL = {l["id"]: l["level"] for l in LESSONS}
+MAX_DAILIES = 400
 LESSON_TOPICS = {l: sum(c["lesson"] == l for c in CATEGORIES) for l in READY_LESSONS}   # a video's place is 0..this many
 
 
@@ -108,7 +116,8 @@ TOPIC_LESSON = {c["id"]: c["lesson"] for c in CATEGORIES}   # a topic's lesson: 
 MIGRATE_CLASSES = ("alter table public.classes add column if not exists nicknames jsonb not null default '{}', "
                    "add column if not exists lessons text[] not null default '{}', "
                    "add column if not exists homework text not null default '', add column if not exists due date, "
-                   "add column if not exists homeworks jsonb not null default '[]';")
+                   "add column if not exists homeworks jsonb not null default '[]', "
+                   "add column if not exists dailies jsonb not null default '[]';")
 MAX_HOMEWORKS = 30
 
 
@@ -130,6 +139,16 @@ def homework_of(c: dict, topics: dict[str, str] = TOPIC_LESSON) -> dict:
     ok.sort(key=lambda h: mine.index(topics[h["topic"]]))
     first = ok[0] if ok else {"topic": "", "due": None}
     return {"homework": first["topic"], "due": first["due"], "homeworks": ok}
+
+
+def dailies_of(c: dict, library: list[dict]) -> list[dict]:
+    """A class's daily videos, by their days: [{"id", "title", "embed": the player's address, "date": ISO}]. A video
+    the library no longer has, or one of a level the class does not study, is left out."""
+    levels = {LESSON_LEVEL[l] for l in lessons_of(c)}
+    by = {v["id"]: v for v in library if v["level"] in levels}
+    mine = [{"id": v["id"], "title": v["title"], "embed": video_embed(v["url"]), "date": d["date"]}
+            for d in c.get("dailies") or [] if isinstance(d, dict) and d.get("date") and (v := by.get(d.get("video")))]
+    return sorted(mine, key=lambda d: (d["date"], d["id"]))
 
 
 def vimeo_link(text: str) -> str | None:
@@ -287,6 +306,17 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         """Every topic's lesson: the course's topics, and the teacher's texts."""
         return {**TOPIC_LESSON, **{f"t{r['id']}": r["lesson"] for r in text_rows()}}
 
+    def daily_rows() -> list[dict]:
+        """The library of daily videos. None without sign-in, or when it cannot be read."""
+        a: SupabaseAuth | None = app.state.auth
+        if a is None:
+            return []
+        try:
+            return a.level_videos("dailies")
+        except AuthUnavailable as e:
+            log.warning("daily videos not read: %s", e)
+            return []
+
     def phrase_of(phrase_id: int) -> dict:
         """A phrase of the bank, or a line of a teacher's text; 404 for any other id."""
         if 0 <= phrase_id < len(PHRASES):
@@ -307,14 +337,22 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/me")
     def me(user: dict | None = Depends(signed_in)):
-        """Who is signed in, their classes (each with its lessons and its homework, see `homework_of`: a student in
-        several chooses one to practise in), and the lessons of all of them together (every lesson for a teacher, and for an account in no class). The page
+        """Who is signed in, their classes (each with its lessons, its homework, see `homework_of`, and its daily
+        videos with their days, see `dailies_of`: a student in
+        several chooses one to practise in), for a teacher "dailies" (the daily videos of every class), and the lessons of all of them together (every lesson for a teacher, and for an account in no class). The page
         asks this right after sign-in to learn whether the account is let in."""
         mine = user["classes"] if user else []
         lessons = ALL_LESSONS if not mine or user["teacher"] else \
             [l for l in ALL_LESSONS if any(l in lessons_of(c) for c in mine)]
+        # a teacher is in no class, and sees the daily videos of every class, each once by its earliest day
+        every: dict[int, dict] = {}
+        for d in [d for c in app.state.auth.classes() for d in dailies_of(c, daily_rows())] if user and user["teacher"] else []:
+            if d["id"] not in every or d["date"] < every[d["id"]]["date"]:
+                every[d["id"]] = d
         return {"email": user["email"] if user else "", "teacher": bool(user and user["teacher"]),
-                "classes": [{"name": c["name"], "lessons": lessons_of(c), **homework_of(c, topics())} for c in mine],
+                **({"dailies": sorted(every.values(), key=lambda d: (d["date"], d["id"]))} if user and user["teacher"] else {}),
+                "classes": [{"name": c["name"], "lessons": lessons_of(c), **homework_of(c, topics()),
+                             "dailies": dailies_of(c, daily_rows())} for c in mine],
                 "lessons": lessons}
 
     @app.get("/api/progress")
@@ -402,14 +440,16 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if "answered 404" in str(e):
             return ("הטבלה classes לא קיימת ב-Supabase. צרו אותה ב-SQL Editor (הפקודה ב-README); "
                     "אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
-        if any(col in str(e) for col in ("nicknames", "lessons", "homework", "'due'")):   # a table made before them
+        if any(col in str(e) for col in ("nicknames", "lessons", "homework", "'due'", "dailies")):   # a table made before them
             return f"לטבלה classes חסרות עמודות. הריצו ב-SQL Editor של Supabase: {MIGRATE_CLASSES}"
         return f"Supabase לא זמין: {e}"
 
     def save_class(a: SupabaseAuth, id: int | None, body: dict) -> dict:
         """Checks a class from the panel ({"name", "emails": the student list, see `class_members`, "lessons": lesson
         ids, "homeworks": [{"topic": a topic of one of them, "due": its ISO date, or ""}], each topic once; or, as
-        before a class could have several, "homework" and "due" for a single one) and stores it. A student may be in several classes, e.g. a beginners' class and an advanced one."""
+        before a class could have several, "homework" and "due" for a single one; "dailies": [{"video": the id of
+        a daily video, "date": the ISO date the class watches it, or "" for none}], each video once; without it
+        the class's daily videos stay as they are) and stores it. A student may be in several classes, e.g. a beginners' class and an advanced one."""
         name = " ".join(str(body.get("name", "")).split())   # one space between words, none around
         if not name or len(name) > 80:
             raise HTTPException(400, "לכיתה צריך שם (עד 80 תווים)")
@@ -439,12 +479,30 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 homeworks.append({"topic": topic, "due": date.fromisoformat(due).isoformat() if due else None})
             except ValueError:
                 raise HTTPException(400, "התאריך של שיעורי הבית לא תקין")
+        dailies = body.get("dailies")
+        if dailies is not None:
+            if not isinstance(dailies, list) or len(dailies) > MAX_DAILIES or not all(isinstance(d, dict) for d in dailies):
+                raise HTTPException(400, "הסרטונים היומיים לא תקינים")
+            known, days = {v["id"] for v in daily_rows()}, {}
+            for d in dailies:
+                day = str(d.get("date") or "")
+                if not day:   # a video without a day is not shown to the class
+                    continue
+                if not isinstance(d.get("video"), int) or d["video"] not in known or d["video"] in days:
+                    raise HTTPException(400, "סרטון יומי שאינו בספרייה, או שמופיע פעמיים. רעננו ונסו שוב")
+                try:
+                    days[d["video"]] = date.fromisoformat(day).isoformat()
+                except ValueError:
+                    raise HTTPException(400, "התאריך של הסרטון היומי לא תקין")
+            dailies = [{"video": v, "date": day} for v, day in days.items()]
         try:
             # a class's name is its own: the same words in other letter case or spacing are the same name
             same = lambda other: " ".join(other.split()).casefold() == name.casefold()
             if taken := next((c["name"] for c in a.classes(fresh=True) if c["id"] != id and same(c["name"])), None):
                 raise HTTPException(409, f"כבר יש כיתה בשם {taken}")
-            a.save_class(id, name, emails, nicks, lessons, homeworks)
+            # a class that has no daily videos, and had none, is saved without them: a table made before them takes it
+            had = any(c["id"] == id and c.get("dailies") for c in a.classes())
+            a.save_class(id, name, emails, nicks, lessons, homeworks, dailies if dailies or had else None)
         except ClassConflict:
             raise HTTPException(409, f"כבר יש כיתה בשם {name}")
         except KeyError:
@@ -615,6 +673,78 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except AuthUnavailable as e:
             raise HTTPException(503, video_store_error(e))
         return {"ok": True}
+
+    def level_store_error(table: str, e: AuthUnavailable) -> str:
+        """The teacher's message when a daily or library video cannot be written; a 404 means Supabase has no such table."""
+        if "answered 404" in str(e):
+            return (f"הטבלה {table} לא קיימת ב-Supabase. הריצו ב-SQL Editor: "
+                    f"{CREATE_LEVEL_VIDEOS[table]} אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
+        return f"Supabase לא זמין: {e}"
+
+    @app.get("/api/dailies")
+    def dailies(a: SupabaseAuth = Depends(teacher_only)):
+        """The library of daily videos, for the panel: id, level, title, url and embed (its player) of each."""
+        try:
+            rows = a.level_videos("dailies")
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"daily videos not available: {e}")
+        return {"dailies": [{"id": v["id"], "level": v["level"], "title": v["title"], "url": v["url"],
+                             "embed": video_embed(v["url"])} for v in rows if v["level"] in LEVEL_IDS]}
+
+    @app.get("/api/library")
+    def library(user: dict | None = Depends(signed_in)):
+        """The video library, which stands outside the path and is one for every level and class: id, title, url
+        (for a teacher only) and embed (its player) of each, in the order they were added."""
+        if not user:
+            return {"library": []}
+        try:
+            rows = app.state.auth.level_videos("library")
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"library not available: {e}")
+        return {"library": [{"id": v["id"], "title": v["title"], **({"url": v["url"]} if user["teacher"] else {}),
+                             "embed": video_embed(v["url"])} for v in rows]}
+
+    def add_level_video(table: str, body: dict, a: SupabaseAuth) -> dict:
+        # a daily video is a level's; the library is one for every level (its `level` is empty)
+        level, title = str(body.get("level", "")) if table == "dailies" else "", " ".join(str(body.get("title", "")).split())
+        if table == "dailies" and level not in LEVEL_IDS:
+            raise HTTPException(400, "unknown level")
+        if not title or len(title) > MAX_TITLE:
+            raise HTTPException(400, f"לסרטון צריך שם (עד {MAX_TITLE} תווים)")
+        url = video_link(str(body.get("url", "")))
+        if not url:
+            raise HTTPException(400, "זה לא קישור לסרטון ב-Vimeo או ב-YouTube. הדביקו קישור כמו https://vimeo.com/1233611297/d46ac373c8 או https://youtu.be/dQw4w9WgXcQ")
+        try:
+            a.add_level_video(table, level, title, url)
+        except AuthUnavailable as e:
+            raise HTTPException(503, level_store_error(table, e))
+        return {"ok": True}
+
+    def delete_level_video(table: str, id: int, a: SupabaseAuth) -> dict:
+        try:
+            a.delete_level_video(table, id)
+        except AuthUnavailable as e:
+            raise HTTPException(503, level_store_error(table, e))
+        return {"ok": True}
+
+    @app.post("/api/dailies")
+    def add_daily(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+        """Adds a video to a level's daily videos: {"level": a level id, "title", "url": a Vimeo or YouTube link}.
+        A class then gives it its day (see `save_class`)."""
+        return add_level_video("dailies", body, a)
+
+    @app.delete("/api/dailies/{daily_id}")
+    def delete_daily(daily_id: int, a: SupabaseAuth = Depends(teacher_only)):
+        return delete_level_video("dailies", daily_id, a)
+
+    @app.post("/api/library")
+    def add_library(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+        """Adds a video to the library: {"title", "url": a Vimeo or YouTube link}."""
+        return add_level_video("library", body, a)
+
+    @app.delete("/api/library/{video_id}")
+    def delete_library(video_id: int, a: SupabaseAuth = Depends(teacher_only)):
+        return delete_level_video("library", video_id, a)
 
     @app.get("/api/classmates")
     def classmates(user: dict | None = Depends(signed_in)):

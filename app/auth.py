@@ -23,6 +23,13 @@ Texts: the teacher also adds texts there (a story or a dialogue: a lesson, a tit
 Arabic written in Hebrew letters, and a dialogue's two voices), kept in the Supabase table `texts` and placed among
 the lesson's topics like the videos. Each is a topic practised line by line (see app/texts.py).
 
+Daily videos: a library the teacher keeps in the content part, a level's videos each with a title and a Vimeo or
+YouTube link, in the Supabase table `dailies`. A class gives a video its day (the class's `dailies`); on that day its
+students get a reminder above the path to watch it.
+
+Library: other videos (a title and a link each), in the Supabase table `library`, one for every level. Every student
+browses them from the tab at the screen's foot, whatever their level and class.
+
 Writing: a lesson's written homework (see workbook.py) is kept in the Supabase table `writings`, a row per student
 and topic, written with the student's own token like the attempts, so it follows them to any device. The panel
 reads every student's with the secret key.
@@ -72,6 +79,7 @@ class SupabaseAuth:
         self._classes: tuple[float, list[dict]] | None = None
         self._videos: tuple[float, list[dict]] | None = None
         self._texts: tuple[float, list[dict]] | None = None
+        self._level_videos: dict[str, tuple[float, list[dict]]] = {}   # by table: the daily videos, the library
         self._lock = threading.Lock()
 
     def user(self, token: str) -> dict | None:
@@ -200,7 +208,8 @@ class SupabaseAuth:
         """Every class, newest first: id, name, emails (lower-case), nicknames ({email: nickname}), lessons (lesson ids;
         empty in a class saved before classes had lessons), homeworks ([{"topic": a topic id, "due": its ISO date or
         None}], one for each topic the class has as homework), homework and due (the first of them, as a class had
-        before it could have several; a class saved then has only these), created_at.
+        before it could have several; a class saved then has only these), dailies ([{"video": the id of a daily
+        video, "date": the ISO date the class watches it}]), created_at.
         Kept for CLASSES_TTL, as each sign-in
         check asks. Without the secret key, or before the table is created, there are none."""
         now = time.monotonic()
@@ -216,7 +225,7 @@ class SupabaseAuth:
                 for r in rows:
                     r["nicknames"], r["lessons"] = r.get("nicknames") or {}, r.get("lessons") or []
                     r["homework"], r["due"] = r.get("homework") or "", r.get("due") or None
-                    r["homeworks"] = r.get("homeworks") or []
+                    r["homeworks"], r["dailies"] = r.get("homeworks") or [], r.get("dailies") or []
             except AuthUnavailable as e:
                 if "answered 404" not in str(e):
                     raise
@@ -226,12 +235,15 @@ class SupabaseAuth:
         return rows
 
     def save_class(self, id: int | None, name: str, emails: list[str], nicknames: dict[str, str],
-                   lessons: list[str], homeworks: list[dict] = ()) -> None:
-        """Adds a class (id None) or replaces one's name, emails, nicknames, lessons and homeworks ([{"topic", "due"}]).
-        A name already taken raises ClassConflict."""
+                   lessons: list[str], homeworks: list[dict] = (), dailies: list[dict] | None = None) -> None:
+        """Adds a class (id None) or replaces one's name, emails, nicknames, lessons and homeworks ([{"topic", "due"}]),
+        and its daily videos' days ([{"video", "date"}]; None leaves them as they are, so a table made before them
+        still takes a class that has none). A name already taken raises ClassConflict."""
         first = homeworks[0] if homeworks else {"topic": "", "due": None}   # the columns of a class with one homework
         body = {"name": name, "emails": emails, "nicknames": nicknames, "lessons": lessons,
                 "homework": first["topic"], "due": first["due"], "homeworks": list(homeworks)}
+        if dailies is not None:
+            body["dailies"] = list(dailies)
         if id is None:
             self._admin("/rest/v1/classes", "POST", body)
         elif not self._admin(f"/rest/v1/classes?id=eq.{int(id)}", "PATCH", body):
@@ -316,6 +328,38 @@ class SupabaseAuth:
     def delete_video(self, id: int) -> None:
         self._admin(f"/rest/v1/videos?id=eq.{int(id)}", "DELETE")
         self._videos = None
+
+    def level_videos(self, table: str, fresh: bool = False) -> list[dict]:
+        """A level's videos that stand outside the path, in the order they were added: id, level (a level id), title,
+        url (the Vimeo or YouTube link). `table` is "dailies" (the daily videos) or "library" (the video library,
+        which is one for every level: its `level` is empty). Kept for CLASSES_TTL. Without the secret key, or before the table is created, there are none."""
+        assert table in ("dailies", "library")
+        now = time.monotonic()
+        with self._lock:
+            hit = self._level_videos.get(table)
+        if hit and hit[0] > now and not fresh:
+            return hit[1]
+        rows: list[dict] = []
+        if self.secret:
+            try:
+                rows = self._admin(f"/rest/v1/{table}?select=*&order=id.asc")
+            except AuthUnavailable as e:
+                if "answered 404" not in str(e):
+                    raise
+                log.warning("the table `%s` is missing (see the README): it has no videos", table)
+        with self._lock:
+            self._level_videos[table] = (now + CLASSES_TTL, rows)
+        return rows
+
+    def add_level_video(self, table: str, level: str, title: str, url: str) -> None:
+        assert table in ("dailies", "library")
+        self._admin(f"/rest/v1/{table}", "POST", {"level": level, "title": title, "url": url})
+        self._level_videos.pop(table, None)
+
+    def delete_level_video(self, table: str, id: int) -> None:
+        assert table in ("dailies", "library")
+        self._admin(f"/rest/v1/{table}?id=eq.{int(id)}", "DELETE")
+        self._level_videos.pop(table, None)
 
     def users(self) -> list[dict]:
         """Every account that has signed in: id, email, name (as Google gave it; empty for one who signed in by email)."""

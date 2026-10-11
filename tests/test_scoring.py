@@ -665,7 +665,7 @@ def test_sign_in_guards_the_practice_endpoints():
         url, key, teachers = "https://proj.supabase.co", "sb_publishable_x", frozenset()
 
         def __init__(self):
-            self.rows, self.cls, self.vids, self.txts, self.wrote = [], [], [], [], {}
+            self.rows, self.cls, self.vids, self.txts, self.days, self.wrote = [], [], [], [], {"dailies": [], "library": []}, {}
 
         def writings(self, token):
             return {t: lines for (u, t), lines in self.wrote.items() if u == "u1"}
@@ -679,8 +679,9 @@ def test_sign_in_guards_the_practice_endpoints():
         def classes(self, fresh=False):
             return self.cls
 
-        def save_class(self, id, name, emails, nicknames, lessons, homeworks=()):
-            row = {"name": name, "emails": emails, "nicknames": nicknames, "lessons": lessons, "homeworks": list(homeworks)}
+        def save_class(self, id, name, emails, nicknames, lessons, homeworks=(), dailies=None):
+            row = {"name": name, "emails": emails, "nicknames": nicknames, "lessons": lessons, "homeworks": list(homeworks),
+                   **({} if dailies is None else {"dailies": list(dailies)})}
             if id is None:
                 self.cls.insert(0, {"id": len(self.cls) + 1, **row})
             elif c := next((c for c in self.cls if c["id"] == id), None):
@@ -693,6 +694,15 @@ def test_sign_in_guards_the_practice_endpoints():
 
         def videos(self, fresh=False):
             return self.vids
+
+        def level_videos(self, table, fresh=False):
+            return self.days[table]
+
+        def add_level_video(self, table, level, title, url):
+            self.days[table].append({"id": len(self.days[table]) + 1, "level": level, "title": title, "url": url})
+
+        def delete_level_video(self, table, id):
+            self.days[table] = [v for v in self.days[table] if v["id"] != id]
 
         def add_video(self, lesson, title, url, pos, ord):
             self.vids.append({"id": len(self.vids) + 1, "lesson": lesson, "title": title, "url": url, "pos": pos, "ord": ord})
@@ -741,7 +751,7 @@ def test_sign_in_guards_the_practice_endpoints():
         good = {"Authorization": "Bearer good"}
         from app.phrases import CATEGORIES, LESSONS
         ALL = [l["id"] for l in LESSONS]
-        NO_HW = {"homework": "", "due": None, "homeworks": []}
+        NO_HW = {"homework": "", "due": None, "homeworks": [], "dailies": []}
         T1, T2 = (next(k["id"] for k in CATEGORIES if k["lesson"] == l) for l in ALL[:2])   # a topic of each of the first two lessons
         # written homework is kept for the student, a topic's lines in place of the ones before, and read back anywhere
         assert c.get("/api/writing").status_code == 401 and c.get("/api/writing", headers=good).json() == {"writing": {}}
@@ -764,7 +774,7 @@ def test_sign_in_guards_the_practice_endpoints():
         # the class's homework reaches its students: a topic of its lessons, and the day it is due
         beginners.update(homework=T1, due="2026-10-15")
         assert c.get("/api/me", headers=good).json()["classes"] == [{"name": "Beginners", "lessons": ALL[:1], "homework": T1, "due": "2026-10-15",
-                                                                             "homeworks": [{"topic": T1, "due": "2026-10-15"}]}]
+                                                                             "homeworks": [{"topic": T1, "due": "2026-10-15"}], "dailies": []}]
         beginners.update(homework=T2)   # a topic of a lesson the class does not study is no homework
         assert c.get("/api/me", headers=good).json()["classes"] == [{"name": "Beginners", "lessons": ALL[:1], **NO_HW}]
         del beginners["homework"], beginners["due"]
@@ -778,7 +788,7 @@ def test_sign_in_guards_the_practice_endpoints():
         c.app.state.auth.cls, c.app.state.auth.teachers = [], frozenset({"a@b.c"})
         assert c.post("/api/classes", json={"name": "September 2026", "emails": "x@b.c", "lessons": ALL[:1]},
                       headers=good).status_code == 200
-        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": True, "classes": [], "lessons": ALL}
+        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": True, "classes": [], "lessons": ALL, "dailies": []}
         # the content part: a teacher adds a video to a ready lesson by its Vimeo link, kept without the sharing parameters
         READY = [l["id"] for l in LESSONS if not l.get("soon")]
         SOON = next(l["id"] for l in LESSONS if l.get("soon"))
@@ -876,6 +886,43 @@ def test_sign_in_guards_the_practice_endpoints():
         c.app.state.auth.cls, c.app.state.auth.teachers = kept, frozenset({"a@b.c"})
         assert c.delete("/api/videos/1", headers=good).status_code == 200
         assert c.get("/api/videos", headers=good).json()["videos"] == [second]
+        # the daily videos: a library by level; a class gives a video its day, and its students get it with that day
+        from app.phrases import LEVELS
+        L1, L2 = LEVELS[0]["id"], LEVELS[1]["id"]
+        daily = lambda **body: c.post("/api/dailies", json=body, headers=good).status_code
+        assert c.get("/api/dailies").status_code == 401 and c.get("/api/dailies", headers=good).json() == {"dailies": []}
+        assert daily(level=L1, title=" יום  1 ", url=link + "?share=copy") == 200 and daily(level=L2, title="other", url="https://youtu.be/dQw4w9WgXcQ") == 200
+        assert daily(level="9", title="x", url=link) == 400 and daily(level=L1, title="", url=link) == 400 and daily(level=L1, title="x", url="https://example.com/1") == 400
+        lib = c.get("/api/dailies", headers=good).json()["dailies"]
+        assert [(v["id"], v["level"], v["title"]) for v in lib] == [(1, L1, "יום 1"), (2, L2, "other")] and lib[0]["embed"].startswith("https://player.vimeo.com/video/")
+        D = {"name": "D", "emails": "a@b.c", "lessons": [l["id"] for l in LESSONS if l["level"] == L1][:1]}
+        save = lambda days: c.post("/api/classes", json={**D, "dailies": days}, headers=good).status_code
+        assert save([{"video": 9, "date": "2026-10-12"}]) == 400 and save([{"video": 1, "date": "12.10"}]) == 400
+        assert save([{"video": 1, "date": "2026-10-12"}, {"video": 1, "date": "2026-10-13"}]) == 400 and save("x") == 400
+        assert save([{"video": 1, "date": "2026-10-12"}, {"video": 2, "date": "2026-10-11"}, {"video": 9, "date": ""}]) == 200   # one without a day is dropped
+        d = c.app.state.auth.cls[0]
+        assert d["dailies"] == [{"video": 1, "date": "2026-10-12"}, {"video": 2, "date": "2026-10-11"}]
+        mine = lambda: next(k for k in c.get("/api/me", headers=good).json()["classes"] if k["name"] == "D")["dailies"]
+        assert mine() == [{"id": 1, "title": "יום 1", "embed": lib[0]["embed"], "date": "2026-10-12"}]   # the other level's is not the class's
+        assert c.get("/api/me", headers=good).json()["dailies"] == mine()   # a teacher gets every class's
+        # saved without the days they stay; saved with none they are gone
+        assert c.put(f"/api/classes/{d['id']}", json=D, headers=good).status_code == 200 and len(mine()) == 1
+        assert c.put(f"/api/classes/{d['id']}", json={**D, "dailies": []}, headers=good).status_code == 200 and mine() == [] and d["dailies"] == []
+        assert c.put(f"/api/classes/{d['id']}", json={**D, "dailies": [{"video": 1, "date": "2026-10-12"}]}, headers=good).status_code == 200
+        assert c.delete("/api/dailies/1", headers=good).status_code == 200 and mine() == []   # gone from the library, gone from the class
+        # the library: videos for every student, whatever the level and the class
+        shelf = lambda **body: c.post("/api/library", json=body, headers=good).status_code
+        assert c.get("/api/library").status_code == 401 and c.get("/api/library", headers=good).json() == {"library": []}
+        assert shelf(title="two", url=link) == 200 and shelf(level=L1, title=" one ", url=link) == 200 and shelf(title="gone", url=link) == 200
+        assert shelf(title="", url=link) == 400 and shelf(title="x", url="nope") == 400
+        assert c.delete("/api/library/3", headers=good).status_code == 200
+        shelves = c.get("/api/library", headers=good).json()["library"]
+        assert [(v["id"], v["title"], v["url"]) for v in shelves] == [(1, "two", link.split("?")[0]), (2, "one", link.split("?")[0])]
+        c.app.state.auth.teachers = frozenset()
+        assert c.get("/api/library", headers=good).json()["library"] == [{k: v for k, v in s.items() if k != "url"} for s in shelves]   # all of it, without the links
+        assert shelf(title="x", url=link) == 403 and c.delete("/api/library/1", headers=good).status_code == 403
+        assert c.get("/api/dailies", headers=good).status_code == 403 and daily(level=L1, title="x", url=link) == 403 and c.delete("/api/dailies/2", headers=good).status_code == 403
+        c.app.state.auth.cls, c.app.state.auth.teachers = [k for k in c.app.state.auth.cls if k["name"] != "D"], frozenset({"a@b.c"})
         new_class = {"name": " October 2026 ", "emails": "S@b.c, new@b.c\nnew@b.c  דנה  \nx@b.c\n",   # an optional nickname
                      "lessons": ALL[::-1],   # x is in September's class too: a student may be in several
                      "homework": T2, "due": "2026-10-15"}

@@ -61,15 +61,37 @@ header{display:flex;align-items:center;gap:4px 12px;flex-wrap:wrap}
    A locked topic (one before it is not finished) is grey with a padlock. */
 body.home #practice,body.home #driveBtn,body:not(.home) #path,body:not(.home) #today,body:not(.home) #toNow,body.home .where,body:not(.home) .brand,body:not(.home) .maphint{display:none}
 header .sub.maphint{flex:0 0 100%;color:var(--ink)}
-/* Above the path, and staying in sight as it scrolls: the daily session. (The homework is on the path itself: the bubble
-   over its topic counts the days left.) */
-#today{position:sticky;top:0;z-index:7;display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;width:100%;max-width:460px;margin:0 auto;padding:6px 0;background:var(--bg)}
-#today button{display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 15px/1.2 var(--f-body);text-align:start;cursor:pointer}
-#today small{font:600 13px/1.25 var(--f-body);color:var(--muted)}
+/* Above the path, and staying in sight as it scrolls, three in a row: the day's video, the daily session and the nearest
+   homework. (The homework is on the path itself too: the bubble over its topic counts the days left.) */
+#today{position:sticky;top:0;z-index:7;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:stretch;width:100%;max-width:460px;margin:0 auto;padding:6px 0;background:var(--bg)}
+#today button{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;min-width:0;padding:8px 6px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 15px/1.2 var(--f-body);text-align:start;cursor:pointer}
+#today button{text-align:center} #today button:disabled{cursor:default;color:var(--muted)}
+#today small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px/1.25 var(--f-body);color:var(--muted)}
+#today .vidgo.new{border-color:var(--amber);color:var(--amber)} #today .vidgo.new small{color:inherit}
+#today .daily:disabled{background:var(--surface);border-color:var(--line);box-shadow:none}
 #today .daily{flex:1;align-items:center;background:var(--olive);border-color:var(--olive);color:var(--on-olive);box-shadow:0 3px 0 var(--olive-deep)}
 #today .daily small{color:inherit;opacity:.85}
-#today .hwgo{flex:1 0 100%;flex-direction:row;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 10px;border-color:var(--olive);color:var(--olive)}
+#today .hwgo:not(:disabled){border-color:var(--olive);color:var(--olive)} #today .hwgo:not(:disabled) small{color:inherit}
 #today .hwgo.soon{border-color:var(--amber);color:var(--amber)} #today .hwgo.late{border-color:var(--sumac);color:var(--sumac)}
+/* The bar at the screen's foot: the path and the video library, a tab each. The library, and the daily videos (opened
+   from the button above the path), are the screen `#vids`, a list of videos, in place of the path. */
+#nav{position:fixed;inset:auto 0 0 0;z-index:8;display:flex;justify-content:center;gap:4px;padding:6px 10px calc(6px + env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--line)}
+#nav button{position:relative;flex:1;max-width:160px;padding:10px 6px;border:0;border-radius:10px;background:none;color:var(--muted);font:700 14px/1.2 var(--f-body);cursor:pointer}
+#nav button[aria-current=page]{background:var(--olive-soft);color:var(--olive)}
+body:not(.home) #nav,body.manage #nav,body:not(.home) #vids,body.manage #vids,body:not([data-view]) #vids,body[data-view] #path,body[data-view] #today,body[data-view] #toNow,body[data-view] .maphint{display:none}
+body.home:not(.manage){padding-bottom:84px}
+body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bottom:62px}
+#vids{display:flex;flex-direction:column;gap:6px;width:100%;max-width:460px;margin:8px auto 0}
+#vids h2{margin:0 0 4px;font:400 26px/1.2 var(--f-display)}
+#vids h3{margin:10px 0 0;font:400 19px/1.2 var(--f-display)}
+#vids p{margin:0;padding:14px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:15px}
+#vids button{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:center;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 15px/1.3 var(--f-body);text-align:start;cursor:pointer}
+#vids button i{grid-row:span 2;font-style:normal;color:var(--olive)}
+#vids button small{font:600 13px/1.2 var(--f-body);color:var(--muted)}
+#vids button .when{grid-column:2}
+#vids button .seen{grid-row:1;grid-column:3}
+#vids button.now{padding-block:16px;background:var(--olive);border-color:var(--olive);color:var(--on-olive);box-shadow:0 3px 0 var(--olive-deep);font-size:17px}
+#vids button.now i,#vids button.now small{color:inherit}
 #today .daily:active{transform:translateY(2px);box-shadow:0 1px 0 var(--olive-deep)}
 #dailyDlg{width:min(92vw,380px)}
 .path{--track:color-mix(in srgb,var(--muted) 75%,var(--bg));position:relative;width:100%;max-width:460px;margin:4px auto 72px}
@@ -276,7 +298,12 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 #manage.content :is(#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.content) #mContent{display:none}
 /* the content part: a level's name, then a card per lesson with its topics and videos, a row each, and the form that adds a video */
 #mContent{display:flex;flex-direction:column;gap:12px}
-.clevel{margin:8px 0 0;font:400 24px/1.2 var(--f-display)}
+.csec[open]>:not(:last-child){margin-bottom:12px}
+.clevel{display:flex;align-items:baseline;gap:10px;margin:0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font:400 24px/1.2 var(--f-display);cursor:pointer;list-style:none}
+.clevel::-webkit-details-marker{display:none}
+.clevel::before{content:"◂";font:700 16px/1 var(--f-body);color:var(--muted);transition:transform .12s}
+.csec[open]>.clevel::before{transform:rotate(-90deg)}
+.clevel small{font:600 13px/1.3 var(--f-body);color:var(--muted)}
 .csoon{margin:0;padding:10px 14px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:15px}
 .chead h2 small{display:block;margin-top:4px;font:600 13px/1.3 var(--f-body);color:var(--muted)}
 .clist{list-style:none;margin:10px 0;padding:0}
@@ -333,6 +360,10 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
   #editHwHead span:nth-child(n+3){display:none}
   #editHws .hwrow{padding-bottom:6px;border-bottom:1px solid var(--line)}
 }
+.cform .dayrow{display:grid;grid-template-columns:minmax(0,1fr) 9.2em;gap:4px 8px;align-items:center;font-weight:500}
+.cform .dayrow>*{min-width:0;box-sizing:border-box}
+.dailies{display:flex;flex-direction:column;gap:6px}
+.dailies .note{margin:0;color:var(--muted);font-size:14px}
 #editHws{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
 #editHws:empty{display:none}
 .cform .hwrow small{grid-column:1/-1;font-weight:500;color:var(--muted);font-size:14px}
@@ -500,6 +531,8 @@ body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.micl
   </header>
 
   <div id="today" hidden></div>
+  <section id="vids" aria-live="polite"></section>
+  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="library">ספריה דיגיטלית</button></nav>
   <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
   <button id="toNow" hidden></button>
 
@@ -589,6 +622,7 @@ body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.micl
     <fieldset class="lpick"><legend>השיעורים<small>התלמידים של הכיתה רואים במסלול רק אותם. שיעור מקווקו עוד לא מוכן: הוא ייפתח לכיתה כשיהיה.</small></legend><div id="editLessons"></div></fieldset>
     <fieldset class="lpick"><legend>שיעורי בית<small>נושא לכל שיעורי בית, ותאריך הגשה אם רוצים. אפשר כמה, למשל הנושא האחרון של כל שיעור. התלמידים רואים כל אחד מסומן במסלול, עם הימים שנשארו; בפאנל רואים מי סיים.</small></legend>
       <div class="hwrow" id="editHwHead" aria-hidden="true"><span>שיעור</span><span>נושא</span><span>עד תאריך</span><span></span></div><div id="editHws"></div><button class="btn" type="button" id="editHwAdd">+ הוספת שיעורי בית</button></fieldset>
+    <fieldset class="lpick"><legend>סרטונים יומיים<small>הסרטונים של הרמות שהכיתה לומדת, מהספרייה שתחת „תוכן”. קבעו תאריך לסרטון, ומאותו יום התלמידים רואים אותו בכפתור „סרטון יומי” שמעל המסלול, והוא מסומן עד שצופים בו. סרטון בלי תאריך לא מוצג לכיתה.</small></legend><div class="dailies" id="editDailies"></div></fieldset>
     <label>התלמידים<small>שורה לכל תלמיד: כתובת הדוא"ל שבה הוא נכנס, ואחריה כינוי אם רוצים. בכיתה רואים את הכינוי, או את השם מ-Google. תלמיד יכול להיות בכמה כיתות.</small>
       <textarea id="editEmails" spellcheck="false" placeholder="dana@gmail.com דנה&#10;avi@gmail.com"></textarea></label>
     <div class="row"><button class="btn primary" id="editSave"></button><span class="sub" id="editCount"></span><span class="sep"></span><button class="btn danger" type="button" id="editDelete">מחיקת הכיתה</button><span class="msg" id="editMsg" role="alert"></span></div>
@@ -614,6 +648,7 @@ body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.micl
     <section>
       <label>מה שיעורי הבית של הכיתה?<small>נושא אחד שהכיתה מתרגלת עכשיו, למשל שיחה. התלמידים רואים אותו מסומן במסלול, ואתם רואים בפאנל מי סיים. אפשר גם לדלג ולבחור אחר כך, ובעריכת הכיתה להוסיף עוד שיעורי בית, לכל שיעור.</small><select id="newHw"></select></label>
       <label id="newDueBox">עד איזה יום?<small>לא חובה.</small><input type="date" id="newDue"></label>
+      <fieldset class="lpick" id="newDailiesBox"><legend>באילו ימים צופים בסרטונים היומיים?<small>קבעו תאריך לכל סרטון של הרמה, ומאותו יום התלמידים רואים אותו בכפתור „סרטון יומי” שמעל המסלול. לא חובה: סרטון בלי תאריך לא מוצג לכיתה, ואפשר לקבוע אחר כך.</small></legend><div class="dailies" id="newDailies"></div></fieldset>
     </section>
     <section>
       <dl id="newSummary"></dl>
@@ -679,7 +714,8 @@ async function api(url,opts={}){   // fetch with the session token; a refused to
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 let driving=false;
 /* LESSONS and CATS are the student's: the lessons of their classes (all of them for a teacher, or before the first class) */
-let MY_CLASSES=[], MY_CLASS=null;   // a student's classes ({name, lessons, homeworks}), and the one they practise in now
+let TEACHER_DAILIES=[];   // for a teacher: the daily videos of every class, {id, title, embed, date}
+let MY_CLASSES=[], MY_CLASS=null;   // a student's classes ({name, lessons, homeworks, dailies}), and the one they practise in now
 let daily=null, dailySaid=new Set(), dailyWas={};   // the daily session on the card: its sentence ids, those said in it, and their best scores before it
 let ALL_LEVELS=[], ALL_LESSONS=[], ALL_CATS=[], MY_LESSONS=null, LESSONS=[], CATS=[], PHRASES=[], cat=store.get("ihki.cat",""), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
 let myAudioUrl=null;
@@ -768,23 +804,64 @@ function endDaily(){   // past the session's last sentence: back to the path, an
   $("dailyDlg").showModal();
   if(spoken) sayHe("התרגול היומי הסתיים.");
 }
-function drawToday(){   // above the path: the daily session
-  const box=$("today"), n=CATS.length?dailyPlan().length:0;
-  box.innerHTML="";
-  if(n){
-    const b=mark("daily","","button");
-    b.append(mark("","תרגול יומי"),mark("",store.get("ihki.daily","")===today()?"✓ תרגלתם היום":`${n} משפטים`,"small"));
-    b.title="סבב קצר: משפטים שכדאי לשפר, ומשפטים חדשים מהשיעור הנוכחי"; b.onclick=startDaily;
+/* The bar at the screen's foot has the path and the video library; the daily videos' screen opens from the button above the path.
+   The daily videos (the teacher keeps them in the panel's content part, and gives each its day in a class): those of
+   the class practised in now, or else of all the student's classes, whose day has come, each once, the latest first.
+   Today's stands at the top. A teacher, who is in no class, sees every class's.
+   The library: videos that are not on the path, the same ones for every level and class. */
+const dailyVideos=()=>{ const d=today(), seen=new Set(); return (FREE?TEACHER_DAILIES:(MY_CLASS?[MY_CLASS]:MY_CLASSES).flatMap(k=>k.dailies||[])).filter(v=>v.date<=d&&!seen.has(v.id)&&seen.add(v.id)).sort((a,b)=>b.date.localeCompare(a.date)); };
+const libVideos=()=>LIBRARY;
+function drawNav(){   // the tabs, and the screen of videos when one is on show
+  const view=document.body.dataset.view||"", box=$("vids"), d=today();
+  for(const b of $("nav").children){
+    if(b.dataset.view===view) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
+  }
+  box.replaceChildren(); if(!view) return;
+  const row=(v,seen,key,when,now)=>{   // a video: its name, its day, and whether it was opened (on this device)
+    const b=mark(now?"now":"","","button"), t=document.createElement("bdi"); t.textContent=v.title;
+    b.append(mark("","▶\uFE0E","i"),t); if(seen[v.id]) b.append(mark("seen","✓ צפיתם","small")); if(when) b.append(mark("when",when,"small"));
+    b.onclick=()=>{ seen[v.id]=1; store.set(key,seen); playVideo(v,true); };   // the box closing draws this again
     box.append(b);
+  };
+  if(view==="daily"){
+    const mine=dailyVideos(), now=mine.filter(v=>v.date===d), was=mine.filter(v=>v.date<d);
+    box.append(mark("","סרטון יומי","h2"));
+    if(now.length) for(const v of now) row(v,dailyWatched,"ihki.dailyWatched","הסרטון של היום",true);
+    else box.append(mark("",was.length?"להיום אין סרטון חדש. אפשר לחזור לסרטונים הקודמים.":"עוד אין סרטונים יומיים. כשנקבע לסרטון תאריך (בעריכת הכיתה), הוא מופיע כאן מאותו יום.","p"));
+    if(was.length) box.append(mark("","הסרטונים הקודמים","h3"));
+    for(const v of was) row(v,dailyWatched,"ihki.dailyWatched",dayWord(v.date));
+  }else{
+    box.append(mark("","ספריה דיגיטלית","h2"));
+    if(!libVideos().length) box.append(mark("","עוד אין סרטונים בספריה.","p"));
+    for(const v of libVideos()) row(v,libWatched,"ihki.libWatched","");
   }
-  // under it, the nearest homework still to do: the one due first (one with no day comes after those that have one)
-  const hw=homeworks().filter(h=>!h.t.over).sort((a,b)=>(a.left??1e9)-(b.left??1e9))[0];
-  if(hw){
-    const b=mark("hwgo"+(hw.state?" "+hw.state:""),"","button"), did=hw.c.write?"נכתבו":"תורגלו";
-    b.append(mark("",`${hw.t.done?"להמשיך את":"לעשות את"} שיעורי הבית ‹`),mark("",[hw.c.name,hw.l&&hw.l.name,hw.left==null?"":hw.msg,hw.t.done?`${did} ${hw.t.done} מתוך ${hw.t.n}`:""].filter(Boolean).join(" · "),"small"));
-    b.onclick=()=>openCat(hw.c); box.append(b);
-  }
-  box.hidden=!box.children.length;
+}
+function showView(view){   // "" is the path, which is laid out again: it was not while hidden
+  if(view) document.body.dataset.view=view; else delete document.body.dataset.view;
+  scrollTo(0,0); drawPath(true);
+}
+for(const b of $("nav").children) b.onclick=()=>showView(b.dataset.view);
+function drawToday(){   // above the path: the daily session, and the homework to do
+  const box=$("today"), n=CATS.length?dailyPlan().length:0;
+  box.innerHTML=""; drawNav();
+  // three in a row: the day's video, the daily session, and the nearest homework still to do
+  const d=today(), vs=dailyVideos(), now=vs.filter(v=>v.date===d), left=now.filter(v=>!dailyWatched[v.id]);
+  const vid=mark("vidgo"+(left.length?" new":""),"","button");
+  vid.append(mark("","סרטון יומי"),mark("",left.length?left[0].title:now.length?"✓ צפיתם היום":vs.length?"הסרטונים הקודמים":"אין להיום","small"));
+  vid.title=left.length?left[0].title:"הסרטונים היומיים";
+  vid.onclick=()=>{   // today's one opens right here; with none to watch, or several, on to their screen
+    if(left.length!==1) return showView("daily");
+    dailyWatched[left[0].id]=1; store.set("ihki.dailyWatched",dailyWatched); playVideo(left[0],true);
+  };
+  const go=mark("daily","","button");
+  go.append(mark("","תרגול יומי"),mark("",!n?"אין עדיין":store.get("ihki.daily","")===d?"✓ תרגלתם היום":`${n} משפטים`,"small"));
+  go.title="סבב קצר: משפטים שכדאי לשפר, ומשפטים חדשים מהשיעור הנוכחי"; go.onclick=startDaily; go.disabled=!n;
+  // the homework due first (one with no day comes after those that have one)
+  const all=homeworks(), hw=all.filter(h=>!h.t.over).sort((a,b)=>(a.left??1e9)-(b.left??1e9))[0];
+  const work=mark("hwgo"+(hw&&hw.state?" "+hw.state:""),"","button");
+  work.append(mark("","שיעורי בית"),mark("",hw?(hw.left==null?hw.c.name:hw.msg):all.length?"✓ הושלמו":"אין כרגע","small"));
+  if(hw){ work.title=[hw.c.name,hw.l&&hw.l.name,hw.left==null?"":hw.msg].filter(Boolean).join(" · "); work.onclick=()=>openCat(hw.c); } else work.disabled=true;
+  box.append(vid,go,work); box.hidden=false;
 }
 function ball(t,now){   // a topic's button and the disc inside its ring
   const b=document.createElement("button"), ring=document.createElement("span"), dot=document.createElement("span");
@@ -812,6 +889,8 @@ const STEP=108, SWAY=[0,.7,1,.7,0,-.7,-1,-.7];   // the road: the way down from 
 let drawnW=0, nowWatch=null;
 /* A lesson's videos (the teacher adds them in the panel's content part) stand on the path among its topics, where the
    teacher put them. A video opens in a box over the page; the ones already opened are marked, on this device only. */
+let LIBRARY=[], libWatched=store.get("ihki.libWatched",{});   // the video library, one for every level: {id, title, embed} (with url, for a teacher); {library video id: 1}
+let DAILIES=[], dailyWatched=store.get("ihki.dailyWatched",{});   // the library, for a teacher: {id, level, title, url, embed}; {daily video id: the day it was opened on}
 let VIDEOS=[], watched=store.get("ihki.watched",{});   // {id, lesson, title, url, embed, pos, ord} of the student's lessons; {video id: 1}
 /* A lesson's topics in the path's order: the course's own, {c, n} with the topic's number, and among them what the teacher
    added, a video {v} or a text {c} (a topic like any other, laid out as a story: its category has `text`). Each of
@@ -825,8 +904,10 @@ async function loadContent(){   // the videos, and the texts: their topics and l
   if(!sb) return;
   try{
     await ready;
-    const [v,t]=await Promise.all([api("/api/videos"),api("/api/texts")]);
+    const [v,t,d,b]=await Promise.all([api("/api/videos"),api("/api/texts"),FREE?api("/api/dailies"):null,api("/api/library")]);
     if(v.ok) VIDEOS=(await v.json()).videos||[];
+    if(b.ok) LIBRARY=(await b.json()).library||[];
+    if(d&&d.ok) DAILIES=(await d.json()).dailies||[];
     if(t.ok){
       const d=await t.json(), old=new Set(ALL_CATS.filter(c=>c.text).map(c=>c.id));
       ALL_CATS=[...ALL_CATS.filter(c=>!c.text),...d.categories||[]]; PHRASES=[...PHRASES.filter(p=>!old.has(p.cat)),...d.phrases||[]];
@@ -1009,7 +1090,7 @@ function showPath(){   // back to the path: whatever the card was reading, playi
   if(driveAudio){ driveAudio.pause(); if(driveAudioDone) driveAudioDone(); driveAudio=null; }
   if("speechSynthesis" in window) speechSynthesis.cancel();
   if(rec&&rec.state==="recording"){ recCancel=true; recRestart=false; rec.stop(); }
-  home=true; document.body.classList.add("home"); quizOff();
+  home=true; document.body.classList.add("home"); delete document.body.dataset.view; quizOff();
   if(daily){ daily=null; startCat(); }   // a daily session that was left: the card is the last topic's again
   else drawPath();
 }
@@ -1863,6 +1944,7 @@ async function loadManage(){
       state.textContent=res.status===403?"הפאנל פתוח למורים בלבד.":`נתוני התלמידים לא זמינים כרגע (${detail}).`; return;
     }
     CLASS=await res.json(); await loadContent();
+    TEACHER_DAILIES=CLASS.classes.flatMap(classDailies).map(d=>({...d.v,date:d.date})).sort((a,b)=>a.date.localeCompare(b.date));   // as just saved; the earliest day of each comes first
   }catch{ state.textContent="השרת לא זמין."; return; }
   state.textContent=""; state.classList.toggle("setup",!!(CLASS.setup||[]).length);
   for(const x of CLASS.setup||[]){   // a table the teacher still has to create in Supabase: what is missing, and the command
@@ -1910,6 +1992,8 @@ function drawClasses(classes){
     fact("תלמידים",...(mine.length?[`${mine.length}: `,...mine.flatMap((s,k)=>{ const b=document.createElement("bdi"); b.textContent=s.classes[c.name]||s.name||s.email; return k?[", ",b]:[b]; })]:["עוד אין"]));
     const hws=hwOf(c,ALL_CATS).map(h=>mark("",[h.c.name,lessonName(ALL_LESSONS.find(l=>l.id===h.c.lesson)),dueText(h.due).text].filter(Boolean).join(" · "),"div"));
     fact("שיעורי בית",...(hws.length?hws:["אין"]));
+    const days=classDailies(c);
+    if(days.length) fact("סרטונים יומיים",...days.map(d=>mark("",`${d.v.title} · ${dayWord(d.date)}`,"div")));
     const go=mark("btn","התקדמות התלמידים ‹","button"); go.onclick=()=>{ shownClass=c.name; store.set("ihki.mclass",c.name); shownStudent=""; showMode("students"); scrollTo(0,0); };
     card.append(top,facts,go); box.append(card);
   }
@@ -1923,13 +2007,51 @@ const refused=async(res,what)=>(await res.json().catch(()=>({}))).detail||`${wha
 function drawContent(){
   const box=$("mContent"), listed=listedPhrases(); box.innerHTML="";
   const voices=[...$("voiceId").options].filter(o=>o.value).map(o=>o.text.replace(/[֑-ׇ]/g,""));
+  const adder=(adds,label,fields,note,submit)=>{   // a closed form under a lesson, or under a level's daily videos
+    const add=document.createElement("details"), form=document.createElement("form"), row=mark("row",""), msg=mark("msg","");
+    add.className="vadd"; add.append(mark("btn",label,"summary"),form); form.className="cform"; msg.setAttribute("role","alert");
+    row.append(mark("btn primary","הוספה","button"),msg); form.append(...fields,mark("sub",note,"small"),row);
+    form.onsubmit=async e=>{
+      e.preventDefault(); const buttons=form.querySelectorAll("button"); msg.textContent=""; buttons.forEach(b=>b.disabled=true);
+      try{ const bad=await submit(form); if(!bad){ await loadContent(); drawContent(); return; } msg.textContent=bad; }catch{ msg.textContent="השרת לא זמין."; }
+      buttons.forEach(b=>b.disabled=false);
+    };
+    adds.append(add); return form;
+  };
+  const field=(label,name,attrs,tag="input")=>{ const lab=mark("",label,"label"), inp=Object.assign(document.createElement(tag),{name,required:true,autocomplete:"off",...attrs}); lab.append(inp); return lab; };
+  // the videos that stand outside the path, a card each: the library, which is one for every level and so comes first, and
+  // under each level its daily videos, which a class gives their days. `level` is the level's id; none for the library
+  const vcard=(into,level,table,all,what,one,none,hint,gone,sample)=>{
+    const mine=level==null?all:all.filter(v=>v.level===level), card=mark("card",""), top=mark("chead",""), name=mark("",what,"h2"), list=mark("clist","","ol"), adds=mark("cadds","");
+    name.append(mark("",`${mine.length?mine.length+" סרטונים":"עוד אין סרטונים"} · ${none}`,"small")); top.append(name);
+    for(const v of mine){
+      const row=mark("crow added","","li"), text=mark("two",""), title=mark("","","b"), t=document.createElement("bdi"), link=document.createElement("small"), acts=mark("acts","");
+      const see=mark("btn","צפייה","button"), del=mark("btn danger","מחיקה","button");
+      t.textContent=v.title; title.append(t); link.dir="ltr"; link.textContent=v.url.replace("https://",""); text.append(title,link);
+      see.onclick=()=>playVideo(v,true); del.onclick=()=>deleteItem(table,v.id,`את הסרטון ${v.title}`,gone);
+      acts.append(see,del); row.append(mark("","▶︎","i"),text,acts); list.append(row);
+    }
+    adder(adds,`+ הוספת ${one}`,[field("שם הסרטון","title",{maxLength:80,placeholder:sample}),
+        field("קישור ל-Vimeo או ל-YouTube","url",{inputMode:"url",placeholder:"https://vimeo.com/1233611297/d46ac373c8"})],hint,
+      async f=>{ const res=await send(`/api/${table}`,"POST",{level:level||"",title:f.elements.title.value,url:f.elements.url.value}); return res.ok?"":refused(res,"ההוספה"); });
+    card.append(top,...(mine.length?[list]:[]),adds); into.append(card);
+  };
+  const wide=store.get("ihki.copen",{});   // the levels left open: each one opens and closes on its name, and stays so
+  const fold=(key,name,note)=>{   // a part of the page that opens and closes on its name
+    const sec=document.createElement("details"), sum=mark("clevel",name,"summary");
+    sum.append(mark("",note,"small")); sec.className="csec"; sec.open=!!wide[key]; sec.append(sum); box.append(sec);
+    sec.ontoggle=()=>{ wide[key]=sec.open?1:0; store.set("ihki.copen",wide); };
+    return sec;
+  };
+  vcard(fold("library","ספריה דיגיטלית",`${LIBRARY.length?LIBRARY.length+" סרטונים":"עוד אין סרטונים"} · משותפת לכל הרמות`),null,"library",LIBRARY,"הסרטונים שבספריה","סרטון לספריה","משותפת לכל הרמות: פתוחה לכל התלמידים, בכל כיתה, בלשונית „ספריה דיגיטלית”","הסרטון נוסף לספריה הדיגיטלית, המשותפת לכל הרמות. כל תלמיד, בכל כיתה, רואה אותו בלשונית „ספריה דיגיטלית”.","","למשל: שיר לסיום");
   for(const g of byLevel(ALL_LESSONS)){
-    box.append(mark("clevel",g.level.name,"h2"));
+    const sec=fold(g.level.id,g.level.name,`${lessonsWord(g.lessons)} · ${g.lessons.filter(l=>!l.soon).length} מוכנים`);
+    vcard(sec,g.level.id,"dailies",DAILIES,"סרטונים יומיים","סרטון יומי","את התאריך של כל סרטון קובעים בעריכת הכיתה","הסרטון נוסף לסרטונים היומיים של הרמה. כדי שתלמידים יראו אותו, קובעים לו תאריך בעריכת הכיתה: מאותו יום הוא מופיע להם בכפתור „סרטון יומי” שמעל המסלול."," גם הכיתות שקבעו לו תאריך לא יראו אותו עוד.","למשל: יום 1 · ברכות");
     for(let k=0;k<g.lessons.length;k++){
       const l=g.lessons[k];
       if(l.soon){   // the lessons still to come, a run of them in one line
         const run=[l]; while(g.lessons[k+1]&&g.lessons[k+1].soon) run.push(g.lessons[++k]);
-        box.append(mark("csoon",`${lessonsWord(run)} · בקרוב`,"p")); continue;
+        sec.append(mark("csoon",`${lessonsWord(run)} · בקרוב`,"p")); continue;
       }
       const items=lessonItems(l.id), kinds=[items.filter(it=>it.n).length+" נושאים",[items.filter(it=>it.c&&!it.n).length,"טקסטים"],[items.filter(it=>it.v).length,"סרטונים"]];
       const card=mark("card",""), top=mark("chead",""), name=mark("",l.name,"h2"), list=mark("clist","","ol");
@@ -1959,20 +2081,9 @@ function drawContent(){
         del.onclick=()=>deleteItem(v?"videos":"texts",v?v.id:c.text,v?`את הסרטון ${v.title}`:`את הטקסט ${c.name}`,v?"":" ההקלטות של התלמידים בו נשמרות, אבל לא ייספרו עוד.");
         acts.append(up,down,see,del); row.append(mark("",v?"▶︎":"💬","i"),text,acts); list.append(row);
       });
-      const adds=mark("cadds",""), adder=(label,fields,note,submit)=>{   // a closed form under the lesson
-        const add=document.createElement("details"), form=document.createElement("form"), row=mark("row",""), msg=mark("msg","");
-        add.className="vadd"; add.append(mark("btn",label,"summary"),form); form.className="cform"; msg.setAttribute("role","alert");
-        row.append(mark("btn primary","הוספה","button"),msg); form.append(...fields,mark("sub",note,"small"),row);
-        form.onsubmit=async e=>{
-          e.preventDefault(); const buttons=form.querySelectorAll("button"); msg.textContent=""; buttons.forEach(b=>b.disabled=true);
-          try{ const bad=await submit(form); if(!bad){ await loadContent(); drawContent(); return; } msg.textContent=bad; }catch{ msg.textContent="השרת לא זמין."; }
-          buttons.forEach(b=>b.disabled=false);
-        };
-        adds.append(add); return form;
-      };
-      const field=(label,name,attrs,tag="input")=>{ const lab=mark("",label,"label"), inp=Object.assign(document.createElement(tag),{name,required:true,autocomplete:"off",...attrs}); lab.append(inp); return lab; };
+      const adds=mark("cadds","");
       const pick=(label,name,options)=>{ const lab=field(label,name,{},"select"); for(const [value,text] of options) lab.lastChild.add(new Option(text,value)); return lab; };
-      adder("+ הוספת סרטון",[field("שם הסרטון","title",{maxLength:80,placeholder:"למשל: הסבר על הטיית הפועל"}),
+      adder(adds,"+ הוספת סרטון",[field("שם הסרטון","title",{maxLength:80,placeholder:"למשל: הסבר על הטיית הפועל"}),
           field("קישור ל-Vimeo או ל-YouTube","url",{inputMode:"url",placeholder:"https://vimeo.com/1233611297/d46ac373c8 או https://youtu.be/dQw4w9WgXcQ"})],
         "הסרטון יופיע לתלמידים במסלול כנושא של השיעור. הוא נוסף בסוף השיעור, ובחיצים שבשורה שלו מזיזים אותו למקומו.",
         async f=>{ const res=await send("/api/videos","POST",{lesson:l.id,title:f.elements.title.value,url:f.elements.url.value}); return res.ok?"":refused(res,"ההוספה"); });
@@ -1990,7 +2101,7 @@ function drawContent(){
       if(voices.length>1) who.querySelector("[name=v2]").selectedIndex=1;
       const kind=pick("סוג הטקסט","kind",[["story","סיפור: קול אחד, זה שהתלמיד בחר בהגדרות"],["dialog","שיחה: שני דוברים, שורה לכל אחד בתורו"]]);
       kind.lastChild.onchange=e=>{ who.hidden=e.target.value!=="dialog"; };
-      adder("+ הוספת טקסט",[field("שם הטקסט","title",{maxLength:80,placeholder:"למשל: בשוק"}),
+      adder(adds,"+ הוספת טקסט",[field("שם הטקסט","title",{maxLength:80,placeholder:"למשל: בשוק"}),
           paste("הטקסט בעברית","he","שורה לכל משפט"),paste("הטקסט בערבית, בתעתיק עברי","tr","אותן שורות, באותו סדר"),kind,who],
         "הטקסט יופיע לתלמידים במסלול כנושא של השיעור, במצב שיחה: כל השורות על המסך, ואומרים אותן אחת אחרי השנייה. את השורות מדביקים בתיבות או טוענים מקובץ. בשתי התיבות צריך להיות אותו מספר שורות (שורות ריקות לא נספרות). הוא נוסף בסוף השיעור, ובחיצים שבשורה שלו מזיזים אותו למקומו.",
         async f=>{
@@ -1999,7 +2110,7 @@ function drawContent(){
           const res=await send("/api/texts","POST",{lesson:l.id,title:f.elements.title.value,he,tr,voices:f.elements.kind.value==="dialog"?[f.elements.v1.value,f.elements.v2.value]:[]});
           return res.ok?"":refused(res,"ההוספה");
         });
-      card.append(top,list,adds); box.append(card);
+      card.append(top,list,adds); sec.append(card);
     }
   }
 }
@@ -2017,7 +2128,7 @@ async function moveItem(l,items,at,step,list){   // a video or a text changes pl
   const again=moved&&[...moved.querySelectorAll(".move")].find((b,k)=>k===(step<0?0:1)&&!b.disabled)||moved&&moved.querySelector(".move:not(:disabled)"); if(again) again.focus({preventScroll:true});
 }
 async function deleteItem(table,id,what,more){
-  if(!confirm(`למחוק ${what}? זה יירד מהמסלול של התלמידים.${more}`)) return;
+  if(!confirm(`למחוק ${what}? ${table==="videos"||table==="texts"?"זה יירד מהמסלול של התלמידים.":"התלמידים לא יראו אותו עוד."}${more}`)) return;
   try{
     const res=await api(`/api/${table}/${id}`,{method:"DELETE"});
     if(!res.ok) alert(await refused(res,"המחיקה"));
@@ -2196,7 +2307,24 @@ function drawStudent(klass,s,listed){
 }
 /* A class is edited and deleted in one dialog: a name, its lessons, its homework, and a line per student (email, then an
    optional nickname). A new class is opened in the steps below it. */
-let editing=null;
+/* The daily videos' days in a class's dialog: a row per video of the library, of the levels given, its name and its
+   day. `days` ({video id: ISO date}) keeps what was written while the rows are drawn again, as the levels change. */
+const dayWord=d=>new Date(d+"T00:00").toLocaleDateString("he-IL",{weekday:"short",day:"numeric",month:"numeric"});
+const classDailies=c=>(c.dailies||[]).map(d=>({v:DAILIES.find(v=>v.id===d.video),date:d.date})).filter(d=>d.v&&d.date).sort((a,b)=>a.date.localeCompare(b.date));
+function dailyRows(box,levels,days){
+  const mine=DAILIES.filter(v=>levels.includes(v.level)); box.replaceChildren();
+  if(!mine.length) box.append(mark("note",DAILIES.length?"לרמות של הכיתה עוד אין סרטונים יומיים. מוסיפים אותם תחת „תוכן”.":"עוד אין סרטונים יומיים. מוסיפים אותם תחת „תוכן”, ואז קובעים כאן תאריך לכל אחד.","p"));
+  for(const v of mine){
+    const row=mark("dayrow","","label"), t=document.createElement("bdi"), day=Object.assign(document.createElement("input"),{type:"date",value:days[v.id]||""});
+    t.textContent=(levels.length>1?(ALL_LEVELS.find(x=>x.id===v.level)||{name:""}).name+" · ":"")+v.title;
+    day.oninput=()=>{ if(day.value) days[v.id]=day.value; else delete days[v.id]; };
+    row.append(t,day); box.append(row);
+  }
+  return mine;
+}
+const daysOf=(days,levels)=>DAILIES.filter(v=>levels.includes(v.level)&&days[v.id]).map(v=>({video:v.id,date:days[v.id]}));
+const editLevels=()=>{ const on=[...$("editLessons").querySelectorAll(".chips :checked")].map(b=>b.value); return ALL_LEVELS.filter(v=>ALL_LESSONS.some(l=>l.level===v.id&&on.includes(l.id))).map(v=>v.id); };
+let editing=null, editDays={};
 function editClass(c){
   editing=c;
   $("editTitle").textContent=c?`עריכת ${c.name}`:"כיתה חדשה";
@@ -2213,9 +2341,10 @@ function editClass(c){
       lab.append(box,String(l.n)); lab.title=l.soon?`${l.name}: עוד לא מוכן, ייפתח לכיתה כשיהיה`:l.name; chips.append(lab);
     }
     const sync=()=>{ const n=boxes.filter(b=>b.checked).length; all.checked=n===boxes.length; all.indeterminate=n>0&&n<boxes.length; };
-    all.onchange=()=>{ boxes.forEach(b=>b.checked=all.checked); sync(); };
-    boxes.forEach(b=>b.onchange=sync); sync();
+    all.onchange=()=>{ boxes.forEach(b=>b.checked=all.checked); sync(); dailyRows($("editDailies"),editLevels(),editDays); };
+    boxes.forEach(b=>b.onchange=()=>{ sync(); dailyRows($("editDailies"),editLevels(),editDays); }); sync();
   }
+  editDays=Object.fromEntries((c&&c.dailies||[]).map(d=>[d.video,d.date])); dailyRows($("editDailies"),editLevels(),editDays);
   $("editHws").replaceChildren(); for(const h of hwOf(c,ALL_CATS)) hwRow(h.c.id,h.due);
   $("editEmails").value=c?c.emails.map(e=>[e,c.nicknames&&c.nicknames[e]].filter(Boolean).join(" ")).join("\n"):"";
   $("editSave").textContent=c?"שמירה":"פתיחת הכיתה"; $("editDelete").hidden=!c; $("editMsg").textContent="";
@@ -2263,7 +2392,7 @@ $("editForm").onsubmit=e=>{
   const homeworks=hwRows();
   if(homeworks.some(h=>!lessons.includes((ALL_CATS.find(c=>c.id===h.topic)||{}).lesson))){ $("editMsg").textContent="שיעורי הבית הם נושאים משיעורי הכיתה: סמנו את השיעור שלהם למעלה, או הסירו אותם."; return; }
   if(new Set(homeworks.map(h=>h.topic)).size<homeworks.length){ $("editMsg").textContent="אותו נושא מופיע פעמיים בשיעורי הבית."; return; }
-  sendClass(editing?"PUT":"POST",{name:$("editName").value,emails:$("editEmails").value,lessons,homeworks});
+  sendClass(editing?"PUT":"POST",{name:$("editName").value,emails:$("editEmails").value,lessons,homeworks,dailies:daysOf(editDays,editLevels())});
 };
 $("editDelete").onclick=()=>{
   if(confirm(`למחוק את הכיתה ${editing.name}? התלמידים שלה לא יוכלו להיכנס עוד. ההקלטות וההתקדמות שלהם נשמרות.`)) sendClass("DELETE");
@@ -2271,14 +2400,14 @@ $("editDelete").onclick=()=>{
 
 /* A new class is opened in steps, a question each: its name, its level (the class studies the level's lessons), its
    students with their nicknames, its homework, and a summary to confirm, which says where all of it is changed later. */
-const WIZ=["שם הכיתה","רמה","תלמידים","שיעורי בית","אישור"], ADDRESS=/[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+/g;
+const WIZ=["שם הכיתה","רמה","תלמידים","שיעורי בית וסרטונים","אישור"], ADDRESS=/[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+/g;
 let wiz=null;   // {step, students: [{email, name, on, nick}]}: the accounts the panel knows, and those added here
 const wizName=()=>$("newName").value.trim().replace(/\s+/g," ");
 const wizLevel=()=>ALL_LEVELS.find(v=>v.id===($("newLevels").querySelector(":checked")||{}).value)||ALL_LEVELS[0];
 const wizLessons=()=>ALL_LESSONS.filter(l=>l.level===wizLevel().id);
 const wizWho=s=>s.nick.trim()||s.name||s.email;
 function newClass(){
-  wiz={step:0,students:CLASS.students.map(s=>({email:s.email.toLowerCase(),name:s.name,on:false,nick:""}))};
+  wiz={step:0,days:{},students:CLASS.students.map(s=>({email:s.email.toLowerCase(),name:s.name,on:false,nick:""}))};
   $("newName").value=$("newEmail").value=$("newDue").value=""; $("newHw").innerHTML="";
   const levels=$("newLevels"); levels.innerHTML="";
   ALL_LEVELS.forEach((v,k)=>{
@@ -2335,6 +2464,7 @@ function wizHomework(){   // the topics of the level's ready lessons, under thei
   const own=writeHomework(ready);   // offered from the start: the teacher has only the day to set
   hw.value=[...hw.options].some(o=>o.value===was)&&(was||wiz.hwSeen)?was:own?own.id:""; wiz.hwSeen=true; hw.disabled=!ready.length;
   $("newDue").min=new Date().toLocaleDateString("sv"); hw.onchange();
+  $("newDailiesBox").hidden=!dailyRows($("newDailies"),[wizLevel().id],wiz.days).length;   // a level without daily videos has nothing to set
 }
 $("newHw").onchange=()=>$("newDueBox").hidden=!$("newHw").value;
 function wizSummary(){
@@ -2345,8 +2475,9 @@ function wizSummary(){
   line("רמה",`${level.name}, ${lessonsWord(wizLessons())}`);
   line("תלמידים",...(picked.length?[`${picked.length}: `,...picked.flatMap((s,k)=>{ const b=document.createElement("bdi"); b.textContent=wizWho(s); return k?[", ",b]:[b]; })]:["עוד אין. אפשר להוסיף אחר כך."]));
   line("שיעורי בית",topic?[topic.name,ALL_LESSONS.find(l=>l.id===topic.lesson).name,dueText($("newDue").value).text].filter(Boolean).join(" · "):"אין בינתיים");
+  const days=daysOf(wiz.days,[level.id]); if(days.length) line("סרטונים יומיים",`${days.length} עם תאריך`);
   const after=$("newAfter"); after.innerHTML="";
-  after.append(mark("","מה קורה אחרי הפתיחה?","b"),"הכיתה מופיעה ברשימה תחת „כיתות”, והתלמידים שלה רואים את השיעורים במסלול. את ההתקדמות שלהם רואים תחת „תלמידים”. שום דבר כאן לא סופי: ליד כל כיתה ברשימה יש כפתור „עריכה”, שבו משנים את השם, השיעורים, התלמידים והכינויים ושיעורי הבית, וכפתור „מחיקה”.");
+  after.append(mark("","מה קורה אחרי הפתיחה?","b"),"הכיתה מופיעה ברשימה תחת „כיתות”, והתלמידים שלה רואים את השיעורים במסלול. את ההתקדמות שלהם רואים תחת „תלמידים”. שום דבר כאן לא סופי: ליד כל כיתה ברשימה יש כפתור „עריכה”, שבו משנים את השם, השיעורים, התלמידים והכינויים ושיעורי הבית והתאריכים של הסרטונים היומיים, וכפתור „מחיקה”.");
   if(!CLASS.classes.length) after.append(mark("","שימו לב: זו הכיתה הראשונה. מרגע שהיא נפתחת, נכנסים לאפליקציה רק התלמידים שבכיתות והמורים.","b"));
 }
 $("newBack").onclick=()=>wizStep(wiz.step-1);
@@ -2365,7 +2496,7 @@ $("newForm").onsubmit=async e=>{   // "next" checks the step on show; on the las
   msg.textContent=""; buttons.forEach(b=>b.disabled=true);
   try{
     const res=await api("/api/classes",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({name,emails,lessons:wizLessons().map(l=>l.id),homework,due:homework?$("newDue").value:""})});
+      body:JSON.stringify({name,emails,lessons:wizLessons().map(l=>l.id),homework,due:homework?$("newDue").value:"",dailies:daysOf(wiz.days,[wizLevel().id])})});
     if(res.ok){ shownClass=name; store.set("ihki.mclass",name); $("newDlg").close(); loadManage(); }
     else{
       const detail=(await res.json().catch(()=>({}))).detail||`הפתיחה נכשלה (${res.status})`;
@@ -2437,7 +2568,7 @@ if(AUTH_URL){
         const ok=!res||res.status!==403;   // a server that cannot be reached is not a refusal
         const me=res&&res.ok?await res.json().catch(()=>({})):{}, teacher=!!me.teacher;
         const mine=me.classes||[];   // a teacher practises every lesson and is not asked for a class
-        MY_CLASSES=teacher?[]:mine; MY_CLASS=null; FREE=teacher;
+        MY_CLASSES=teacher?[]:mine; MY_CLASS=null; FREE=teacher; TEACHER_DAILIES=me.dailies||[];
         $("myClass").textContent=mine.length>1?(teacher?`כיתות: ${mine.map(c=>c.name).join(" · ")}`:"בחירת כיתה"):mine.length?`כיתת ${mine[0].name}`:"";
         $("myClass").classList.toggle("many",MY_CLASSES.length>1); $("myClass").title=MY_CLASSES.length>1?"מעבר לכיתה אחרת":"התלמידים בכיתה שלי";
         MY_LESSONS=me.lessons||null; if(ALL_LESSONS.length) useLessons(MY_LESSONS);

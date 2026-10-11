@@ -166,6 +166,38 @@ A table made before videos had places needs the two columns (until then its vide
 alter table public.videos add column if not exists pos int, add column if not exists ord int not null default 0;
 ```
 
+### Daily videos
+
+Apart from a lesson's videos, each level has a library of daily videos. In **תוכן** each level opens and closes on its name (it stays as it was left, on that device); inside, the card "סרטונים יומיים" lists them; the teacher adds one (a name and a Vimeo or YouTube link) and deletes one there. A video in the library is shown to nobody until a class gives it a day: in the class's dialog ("עריכה"), and in the fourth step of opening a class, every daily video of the class's levels has a date field. The students find them in the "סרטון יומי" button above the path: it opens today's video, and is highlighted until that one is opened (on that device); with no video to watch today it opens the list of the earlier ones, the latest first, so a missed day can be caught up. A video whose day has not come, one without a date, one deleted from the library, or one of a level the class does not study, is not shown. It is the first of three buttons that stay in sight above the path: "סרטון יומי", "תרגול יומי" and "שיעורי בית" (the nearest one still to do). A teacher, who practises in no class, sees the daily videos of every class.
+
+The library is kept in Supabase, read and written with `SUPABASE_SECRET_KEY` only. Create the table once (until it exists adding a video is refused with this command in the message), and add the `dailies` column to `classes` (see "Classes" below):
+
+```sql
+create table public.dailies (
+  id         bigint generated always as identity primary key,
+  level      text not null,                        -- a level id, e.g. 1
+  title      text not null,
+  url        text not null,                        -- https://vimeo.com/<number>[/<hash>] or a YouTube link
+  created_at timestamptz not null default now()
+);
+alter table public.dailies enable row level security;
+```
+
+### Video library
+
+Apart from those there is one library of videos for the whole course: they are not part of the path, need no date, and are the same for every level and class. In **תוכן** the card "ספריה דיגיטלית" comes first, above the levels; the teacher adds a video (a name and a link) and deletes one there. Every student finds them in the "ספריה דיגיטלית" tab of the bar at the screen's foot: a list, and a video plays in the same box as the path's videos. The ones opened are marked (on that device). Create the table once (its `level` column stays empty):
+
+```sql
+create table public.library (
+  id         bigint generated always as identity primary key,
+  level      text not null,                        -- a level id, e.g. 1
+  title      text not null,
+  url        text not null,
+  created_at timestamptz not null default now()
+);
+alter table public.library enable row level security;
+```
+
 For the video to play inside the page, its Vimeo privacy setting has to allow embedding (on this site's domain, or anywhere); a YouTube video has to allow embedding too (it does unless its owner turned that off), and plays from `youtube-nocookie.com`.
 
 Keeping the link from being passed on is done in Vimeo, not here: the page has to give the browser the player's address, so a student who looks for it finds it (the server only keeps the link itself, `url`, for teachers). In the video's privacy settings on Vimeo, hide it from vimeo.com and allow embedding on specific domains only, naming the app's own domain (on Hugging Face, `<owner>-<space>.hf.space`). The video then plays inside the app and nowhere else: its link, opened or embedded anywhere else, shows nothing. Domain-level privacy needs a paid Vimeo plan.
@@ -227,19 +259,21 @@ create table public.classes (
   homework   text   not null default '',           -- the topic id the class practises now, e.g. l2-talk; '' = none
   due        date,                                 -- the day the homework is due, if it has one
   homeworks  jsonb  not null default '[]',         -- every homework of the class: [{"topic": ..., "due": ...}]
+  dailies    jsonb  not null default '[]',         -- the days of its daily videos: [{"video": id, "date": ...}]
   created_at timestamptz not null default now()
 );
 alter table public.classes enable row level security;
 ```
 
-A table made before the nicknames, the lessons or the homework needs the columns (a class saved before then studies every lesson and has no homework). Until they are there, saving a class in the panel is refused with this command in the message:
+A table made before the nicknames, the lessons, the homework or the daily videos needs the columns (a class saved before then studies every lesson and has no homework). Until they are there, saving a class in the panel is refused with this command in the message:
 
 ```sql
 alter table public.classes add column if not exists nicknames jsonb not null default '{}',
                            add column if not exists lessons text[] not null default '{}',
                            add column if not exists homework text not null default '',
                            add column if not exists due date,
-                           add column if not exists homeworks jsonb not null default '[]';
+                           add column if not exists homeworks jsonb not null default '[]',
+                           add column if not exists dailies jsonb not null default '[]';
 ```
 
 The server keeps the list for a minute, so a change in the SQL editor (rather than the panel) applies within that time.
