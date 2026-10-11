@@ -7,3 +7,5 @@ __pycache__/
 .env
 *venv/
 *.oga
+# local transcription of the copyrighted course book
+book/

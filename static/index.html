@@ -57,7 +57,8 @@ header{display:flex;align-items:center;gap:4px 12px;flex-wrap:wrap}
 /* Home: the course as one winding road down the screen. A lesson opens with a banner and closes with a cup, and its
    topics are the round buttons along the road, each with its label beside it. The ring around a button fills as its
    sentences are practised: untouched is plain, started is tinted, finished is filled and gets a badge (gold when every
-   sentence reached "מצוין"). The road is green after a finished topic. The one topic to do now carries a bubble and a halo. */
+   sentence reached "מצוין"). The road is green after a finished topic. The one topic to do now carries a bubble and a halo.
+   A locked topic (one before it is not finished) is grey with a padlock. */
 body.home #practice,body.home #driveBtn,body:not(.home) #path,body:not(.home) #today,body:not(.home) #toNow,body.home .where,body:not(.home) .brand,body:not(.home) .maphint{display:none}
 header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 /* Above the path, and staying in sight as it scrolls: the daily session. (The homework is on the path itself: the bubble
@@ -114,6 +115,11 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 .tag small{display:block;font:600 11px/1.3 var(--f-body);opacity:.85}
 .tag:has(small){text-align:center}
 .sat.soon{--c:var(--amber)} .sat.late{--c:var(--sumac)}
+.sat.locked{color:var(--muted);cursor:default}
+.sat.locked .dot{background:var(--bg);font-size:20px;filter:grayscale(1);opacity:.75}
+.sat.locked:active .dot{transform:none;box-shadow:0 var(--s) 0 var(--track)}
+.sat.locked .tag{background:var(--ink);color:var(--bg)}
+.chapter.locked,.chapter.locked:active{background:var(--track);box-shadow:0 4px 0 var(--muted);transform:none;cursor:default}
 .tag.soon{background:var(--amber)} .tag.late{background:var(--sumac)}
 .sat.now .ring::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:2px solid var(--c);animation:beckon 1.8s ease-out infinite}
 @keyframes beckon{from{transform:scale(.92);opacity:.9}to{transform:scale(1.18);opacity:0}}
@@ -694,7 +700,9 @@ function setTr(el,text){
 }
 /* Home is the path: one road winding down the screen through every lesson. A lesson opens with a banner, which
    opens its first unfinished topic; its topics follow as buttons along the road, and a cup closes it.
-   No topic is locked: the teacher decides what the class practises. */
+   As in Duolingo, a topic is locked until every topic before it on the path is finished. A topic the student already
+   started stays open, and so does a homework topic: the teacher decides what the class practises. Nothing is locked for a teacher. */
+let FREE=false;   // a teacher: the whole path is open
 let home=true;   // the path is on screen, not the practice card: nothing is read aloud or recorded
 function tally(list){   // how far a set of sentences got
   const done=list.filter(p=>best[p.id]!=null).length, over=list.length>0&&done>=list.length;
@@ -893,6 +901,15 @@ function drawPath(stay){
   const road=document.createElementNS(NS,"svg"), stops=[];   // stops: the points the road goes through
   road.setAttribute("class","road"); road.setAttribute("aria-hidden","true"); box.innerHTML=""; box.append(road);
   let next=true, y=0;   // next: the first lesson that is not finished is the one to do now
+  let open=true;   // every topic so far is finished: the next one is not locked
+  const lock=(b,dot,name)=>{   // a locked stop: a padlock, and a tap says why
+    b.classList.add("locked"); b.setAttribute("aria-disabled","true"); dot.textContent="🔒";
+    b.title=`נעול: ${name}. קודם מסיימים את הנושאים שלפניו`; b.setAttribute("aria-label",b.title);
+    b.onclick=()=>{
+      if(b.querySelector(".tag")) return;
+      const tag=mark("tag",""); tag.append(mark("","נעול","small"),"סיימו את הקודם"); dot.before(tag); setTimeout(()=>tag.remove(),2200);
+    };
+  };
   let level=null;
   for(let k=0;k<LESSONS.length;k++){
     const l=LESSONS[k];
@@ -907,12 +924,24 @@ function drawPath(stay){
     }
     const items=lessonItems(l.id), cats=items.filter(it=>it.c).map(it=>it.c), parts=cats.map(c=>c.write?wTally(c):tally(listed.filter(p=>p.cat===c.id)));
     const whole=tally(listed.filter(p=>cats.some(c=>c.id===p.cat))), now=!whole.over&&next;
-    const todo=Math.max(0,parts.findIndex(t=>!t.over));   // the topic the banner opens
+    const todo=Math.max(0,parts.findIndex(t=>!t.over));   // the topic to do now, when this is the lesson to do now
     if(now) next=false;
+    const shut=items.map(({c})=>{   // locked: a topic before it is not finished (a written one, like a video, holds nothing back)
+      if(!c) return !open;
+      const t=parts[cats.indexOf(c)], s=!open&&!t.done&&!hws.some(h=>h.c===c);
+      if(t.n&&!t.over&&!c.write&&!FREE) open=false;
+      return s;
+    });
+    const go=parts.every(t=>t.over)?cats[0]:cats.find((c,i)=>!parts[i].over&&!shut[items.findIndex(it=>it.c===c)]);   // the topic the banner opens: none in a locked lesson
     const head=document.createElement("button");
     head.className="chapter"+(whole.gold?" gold":""); head.style.top=y+"px"; head.style.setProperty("--p",`${whole.n?whole.done/whole.n*100:0}%`);
     head.append(mark("",l.name),count(whole),document.createElement("i")); head.title=`${l.name}: תורגלו ${whole.done} מתוך ${whole.n}`;
-    head.onclick=()=>openCat(cats[todo]); box.append(head);
+    if(go) head.onclick=()=>openCat(go);
+    else{   // a locked lesson: its banner leads back to the topic to do now
+      head.classList.add("locked"); head.setAttribute("aria-disabled","true"); head.title=`נעול: ${l.name}. קודם מסיימים את הנושאים שלפניו`; head.querySelector("small").prepend("🔒 ");
+      head.onclick=()=>{ const at=box.querySelector("[aria-current]"); if(at) at.scrollIntoView({block:"center",behavior:"smooth"}); };
+    }
+    box.append(head);
     y+=64+86;   // the banner, room for the bubble, half a button
     const seat=(b,i)=>{   // a button's place on the road, and its label
       const label=document.createElement("span"), x=-SWAY[i%8]*amp, right=x<0||(!x&&i%8===0);   // the first turn is to the left; the label stands on the other side
@@ -926,7 +955,7 @@ function drawPath(stay){
         b.classList.add("video"); dot.textContent="▶\uFE0E"; if(seen) dot.before(mark("badge","✓"));
         label.append(mark("",v.title,"b"),mark("",seen?"✓ נצפה":"סרטון","small")); b.append(label);
         b.title=`סרטון: ${v.title}`; b.setAttribute("aria-label",b.title);
-        b.onclick=()=>playVideo(v); box.append(b);
+        b.onclick=()=>playVideo(v); if(shut[at]) lock(b,dot,v.title); box.append(b);
         stops.push({x,y,went:seen}); y+=STEP; return;
       }
       const i=cats.indexOf(c), t=parts[i], cur=now&&i===todo, [b,dot]=ball(t,cur), [x,label]=seat(b,at);
@@ -945,7 +974,7 @@ function drawPath(stay){
       const did=c.write?"נכתבו":"תורגלו";
       label.append(mine&&t.over?mark("","✓ שיעורי הבית הושלמו 🎉","small"):count(t,did)); b.append(label);
       b.title=(mine&&!t.over?`שיעורי בית, ${hw.msg}. `:"")+`${c.name}: ${did} ${t.done} מתוך ${t.n}`; b.setAttribute("aria-label",b.title);
-      b.onclick=()=>openCat(c); box.append(b);
+      b.onclick=()=>openCat(c); if(shut[at]) lock(b,dot,c.name); box.append(b);
       stops.push({x,y,went:t.over,cur}); y+=STEP;
     });
     const cup=document.createElement("div"), x=-SWAY[items.length%8]*amp;   // the lesson's end: gold once all of it was practised
@@ -2408,7 +2437,7 @@ if(AUTH_URL){
         const ok=!res||res.status!==403;   // a server that cannot be reached is not a refusal
         const me=res&&res.ok?await res.json().catch(()=>({})):{}, teacher=!!me.teacher;
         const mine=me.classes||[];   // a teacher practises every lesson and is not asked for a class
-        MY_CLASSES=teacher?[]:mine; MY_CLASS=null;
+        MY_CLASSES=teacher?[]:mine; MY_CLASS=null; FREE=teacher;
         $("myClass").textContent=mine.length>1?(teacher?`כיתות: ${mine.map(c=>c.name).join(" · ")}`:"בחירת כיתה"):mine.length?`כיתת ${mine[0].name}`:"";
         $("myClass").classList.toggle("many",MY_CLASSES.length>1); $("myClass").title=MY_CLASSES.length>1?"מעבר לכיתה אחרת":"התלמידים בכיתה שלי";
         MY_LESSONS=me.lessons||null; if(ALL_LESSONS.length) useLessons(MY_LESSONS);
