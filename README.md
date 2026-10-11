@@ -143,7 +143,7 @@ The panel has three parts, chosen at its top (the third, **תוכן**, is descri
 
 ### Content and videos
 
-The panel's third part, **תוכן**, shows the course as the students get it: every level, its lessons (those not written yet as "בקרוב"), and under each ready lesson its topics in the path's order. There the teacher adds a video to a lesson: a name and a Vimeo link, as Vimeo's share button gives it (`https://vimeo.com/1233611297/d46ac373c8?share=copy&fl=sv&fe=ci`; the hash after the number is what opens an unlisted video, and the sharing parameters are dropped). The video becomes a topic of the lesson, with ▶ on its circle, and pressing it plays it in a box over the page, in Vimeo's player. A lesson may have several videos. A new one is added at the lesson's end, and the ↑ ↓ arrows on its row move it a step at a time to its place: before the first topic, between two topics, beside another video, or after them all. The path shows the lesson in that order. A video is not practised, so it counts in no figure; the path marks the ones a student opened ("✓ נצפה"), on their device only. In the panel each video also has "צפייה" and "מחיקה". Students get the videos of their classes' lessons (`GET /api/videos`); adding, moving and deleting (`POST /api/videos`, `PUT /api/content/order`, `DELETE /api/videos/{id}`) answer teachers only.
+The panel's third part, **תוכן**, shows the course as the students get it: every level, its lessons (those not written yet as "בקרוב"), and under each ready lesson its topics in the path's order. There the teacher adds a video to a lesson: a name and a Vimeo or YouTube link (any form of a YouTube video's link: `youtube.com/watch?v=…`, `youtu.be/…`, a short, a live), a Vimeo one as Vimeo's share button gives it (`https://vimeo.com/1233611297/d46ac373c8?share=copy&fl=sv&fe=ci`; the hash after the number is what opens an unlisted video, and the sharing parameters are dropped). The video becomes a topic of the lesson, with ▶ on its circle, and pressing it plays it in a box over the page, in Vimeo's player. A lesson may have several videos. A new one is added at the lesson's end, and the ↑ ↓ arrows on its row move it a step at a time to its place: before the first topic, between two topics, beside another video, or after them all. The path shows the lesson in that order. A video is not practised, so it counts in no figure; the path marks the ones a student opened ("✓ נצפה"), on their device only. In the panel each video also has "צפייה" and "מחיקה". Students get the videos of their classes' lessons (`GET /api/videos`); adding, moving and deleting (`POST /api/videos`, `PUT /api/content/order`, `DELETE /api/videos/{id}`) answer teachers only.
 
 The videos are kept in Supabase like the classes, read and written with `SUPABASE_SECRET_KEY` only. Create the table once (until it exists the lessons have no videos, and adding one is refused with this command in the message):
 
@@ -152,7 +152,7 @@ create table public.videos (
   id         bigint generated always as identity primary key,
   lesson     text not null,                        -- the lesson id, e.g. 2 or 2.1
   title      text not null,                        -- the topic's name on the path
-  url        text not null,                        -- https://vimeo.com/<number>[/<hash>]
+  url        text not null,                        -- https://vimeo.com/<number>[/<hash>] or https://www.youtube.com/watch?v=<id>
   pos        int,                                  -- how many of the lesson's own topics stand before it; null = after them all
   ord        int  not null default 0,              -- its turn among the videos of one place
   created_at timestamptz not null default now()
@@ -166,7 +166,7 @@ A table made before videos had places needs the two columns (until then its vide
 alter table public.videos add column if not exists pos int, add column if not exists ord int not null default 0;
 ```
 
-For the video to play inside the page, its Vimeo privacy setting has to allow embedding (on this site's domain, or anywhere).
+For the video to play inside the page, its Vimeo privacy setting has to allow embedding (on this site's domain, or anywhere); a YouTube video has to allow embedding too (it does unless its owner turned that off), and plays from `youtube-nocookie.com`.
 
 Keeping the link from being passed on is done in Vimeo, not here: the page has to give the browser the player's address, so a student who looks for it finds it (the server only keeps the link itself, `url`, for teachers). In the video's privacy settings on Vimeo, hide it from vimeo.com and allow embedding on specific domains only, naming the app's own domain (on Hugging Face, `<owner>-<space>.hf.space`). The video then plays inside the app and nowhere else: its link, opened or embedded anywhere else, shows nothing. Domain-level privacy needs a paid Vimeo plan.
 

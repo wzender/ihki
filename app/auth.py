@@ -15,7 +15,7 @@ students' emails and an optional nickname of each, and the homework: a topic of 
 kept in the Supabase table `classes`. A student may be in several. Once there is a class, only the classes'
 students and the teachers are let in; before the first one (or without the secret key, which reads the table) any account is.
 
-Videos: the teacher adds lesson videos in the panel's content part (a lesson, a title and a Vimeo link) and moves
+Videos: the teacher adds lesson videos in the panel's content part (a lesson, a title and a Vimeo or YouTube link) and moves
 each to its place among the lesson's topics, kept in the Supabase table `videos`. A student's path shows them as
 topics of their lessons.
 
@@ -244,7 +244,7 @@ class SupabaseAuth:
 
     def videos(self, fresh: bool = False) -> list[dict]:
         """Every lesson video, each lesson's in the order the teacher gave them: id, lesson (a lesson id), title, url
-        (the Vimeo link), pos (how many of the lesson's own topics stand before it; None in a table made before videos
+        (the Vimeo or YouTube link), pos (how many of the lesson's own topics stand before it; None in a table made before videos
         had places: after them all) and ord (its turn among the videos of one place).
         Kept for CLASSES_TTL, as the path asks. Without the secret key, or before the table is created, there are none."""
         now = time.monotonic()

@@ -49,6 +49,11 @@ MAX_TITLE = 80
 # or the player's own player.vimeo.com/video/1233611297?h=d46ac373c8)
 VIMEO = re.compile(r"(?:https?://)?(?:www\.)?(?:vimeo\.com/(?:video/)?|player\.vimeo\.com/video/)(\d{6,12})"
                    r"(?:/([0-9a-f]{6,20})(?![0-9a-z]))?(?:[/?#]\S*)?", re.I)
+# a YouTube link: the video's 11 characters, from any of the forms its links take (youtube.com/watch?v=dQw4w9WgXcQ&t=5,
+# youtu.be/dQw4w9WgXcQ?si=..., youtube.com/shorts/..., /live/..., /embed/...)
+YOUTUBE = re.compile(r"(?:https?://)?(?:(?:www\.|m\.|music\.)?youtube\.com/(?:watch/?\?(?:\S*?&)?v=|(?:shorts|live|embed|v)/)"
+                     r"|(?:www\.)?youtube-nocookie\.com/embed/|youtu\.be/)([\w-]{11})(?![\w-])(?:[/?#&]\S*)?", re.I)
+YOUTUBE_KEPT = "https://www.youtube.com/watch?v="
 CREATE_VIDEOS = ("create table public.videos (id bigint generated always as identity primary key, lesson text not null, "
                  "title text not null, url text not null, pos int, ord int not null default 0, "
                  "created_at timestamptz not null default now()); alter table public.videos enable row level security;")
@@ -137,8 +142,22 @@ def vimeo_link(text: str) -> str | None:
     return f"https://vimeo.com/{m[1]}" + (f"/{h.lower()}" if re.fullmatch(r"[0-9a-fA-F]{6,20}", h) else "")
 
 
-def vimeo_embed(url: str) -> str:
-    """The player's address of a kept link (see `vimeo_link`), for the page's frame."""
+def youtube_link(text: str) -> str | None:
+    """A YouTube link as it is kept: "https://www.youtube.com/watch?v=<id>" (the playlist, the time and the sharing
+    parameters are dropped). None when the text is not a link to a YouTube video."""
+    m = YOUTUBE.fullmatch(text.strip())
+    return YOUTUBE_KEPT + m[1] if m else None
+
+
+def video_link(text: str) -> str | None:
+    """A link to a video as it is kept, of Vimeo or of YouTube. None when the text is neither."""
+    return vimeo_link(text) or youtube_link(text)
+
+
+def video_embed(url: str) -> str:
+    """The player's address of a kept link (see `video_link`), for the page's frame."""
+    if url.startswith(YOUTUBE_KEPT):   # without cookies until the video is played, and with no other channels' videos at its end
+        return f"https://www.youtube-nocookie.com/embed/{url.removeprefix(YOUTUBE_KEPT)}?rel=0"
     number, _, h = url.removeprefix("https://vimeo.com/").partition("/")
     return f"https://player.vimeo.com/video/{number}?" + urllib.parse.urlencode({**({"h": h} if h else {}), "dnt": 1})
 
@@ -449,7 +468,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/videos")
     def videos(user: dict | None = Depends(signed_in)):
-        """The lesson videos, each lesson's in its order on the path: id, lesson, title, url (the Vimeo link, for a teacher only), embed
+        """The lesson videos, each lesson's in its order on the path: id, lesson, title, url (the Vimeo or YouTube link, for a teacher only), embed
         (its player, for the page's frame) and pos (how many of the lesson's own topics stand before it, see
         `placed`) and ord. A student gets those of their classes' lessons; a teacher, and an account in no
         class, every one. One whose lesson the course no longer has is left out."""
@@ -465,7 +484,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         # the link itself goes to teachers only: a student's page gets the player's address, which it cannot do without
         return {"videos": [{"id": v["id"], "lesson": v["lesson"], "title": v["title"],
                             **({"url": v["url"]} if user["teacher"] else {}),
-                            "embed": vimeo_embed(v["url"]), "pos": v["pos"], "ord": v["ord"]}
+                            "embed": video_embed(v["url"]), "pos": v["pos"], "ord": v["ord"]}
                            for l in lessons for v in placed(rows, l)]}
 
     def video_store_error(e: AuthUnavailable) -> str:
@@ -480,15 +499,15 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.post("/api/videos")
     def add_video(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
         """Adds a video to a lesson, after its topics and the videos it has: {"lesson": the id of a ready lesson,
-        "title", "url": a Vimeo link}. The teacher then moves it to its place (see `order_videos`)."""
+        "title", "url": a Vimeo or YouTube link}. The teacher then moves it to its place (see `order_videos`)."""
         lesson, title = str(body.get("lesson", "")), " ".join(str(body.get("title", "")).split())
         if lesson not in READY_LESSONS:
             raise HTTPException(400, "סרטון מוסיפים לשיעור מוכן")
         if not title or len(title) > MAX_TITLE:
             raise HTTPException(400, f"לסרטון צריך שם (עד {MAX_TITLE} תווים)")
-        url = vimeo_link(str(body.get("url", "")))
+        url = video_link(str(body.get("url", "")))
         if not url:
-            raise HTTPException(400, "זה לא קישור לסרטון ב-Vimeo. הדביקו קישור כמו https://vimeo.com/1233611297/d46ac373c8")
+            raise HTTPException(400, "זה לא קישור לסרטון ב-Vimeo או ב-YouTube. הדביקו קישור כמו https://vimeo.com/1233611297/d46ac373c8 או https://youtu.be/dQw4w9WgXcQ")
         try:
             a.add_video(lesson, title, url, LESSON_TOPICS[lesson], next_ord(a, lesson))
         except AuthUnavailable as e:

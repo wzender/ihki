@@ -561,6 +561,8 @@ def test_sign_in_guards_the_practice_endpoints():
                            ({"lesson": READY[0], "title": "", "url": link}, 400), ({"lesson": READY[0], "title": "x" * 81, "url": link}, 400),
                            ({"lesson": SOON, "title": "x", "url": link}, 400), ({"lesson": "no-such-lesson", "title": "x", "url": link}, 400),
                            ({"lesson": READY[0], "title": "x", "url": "https://youtube.com/watch?v=1233611297"}, 400),
+                           ({"lesson": READY[0], "title": "x", "url": "https://www.youtube.com/playlist?list=PLdQw4w9WgXcQ"}, 400),
+                           ({"lesson": READY[0], "title": "x", "url": "https://evil.example/watch?v=dQw4w9WgXcQ"}, 400),
                            ({"lesson": READY[0], "title": "x", "url": "https://evil.example/?u=https://vimeo.com/1233611297"}, 400),
                            ({"lesson": READY[0], "title": "x", "url": "https://vimeo.com/channels/staffpicks"}, 400)):
             r = c.post("/api/videos", json=body, headers=good)
@@ -570,8 +572,15 @@ def test_sign_in_guards_the_practice_endpoints():
         assert first == {"id": 1, "lesson": READY[0], "title": "פתיחה לשיעור", "url": "https://vimeo.com/1233611297/d46ac373c8",
                          "embed": "https://player.vimeo.com/video/1233611297?h=d46ac373c8&dnt=1", "pos": N1, "ord": 1}
         assert (second["url"], second["embed"]) == ("https://vimeo.com/76979871", "https://player.vimeo.com/video/76979871?dnt=1")
-        from app.main import vimeo_link
+        from app.main import vimeo_link, video_embed, video_link
         assert vimeo_link("https://player.vimeo.com/video/1233611297?h=d46ac373c8") == first["url"]
+        # a YouTube link, in any of its forms, is kept as the watch link and played without cookies
+        for yt in ("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=5s", "https://youtube.com/watch?list=PL1&v=dQw4w9WgXcQ", "youtu.be/dQw4w9WgXcQ?si=abc",
+                   "https://m.youtube.com/shorts/dQw4w9WgXcQ", "https://www.youtube.com/live/dQw4w9WgXcQ?feature=share",
+                   "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0"):
+            assert video_link(yt) == "https://www.youtube.com/watch?v=dQw4w9WgXcQ", yt
+        assert video_embed(video_link("youtu.be/dQw4w9WgXcQ")) == "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0"
+        assert video_link("https://www.youtube.com/watch?v=dQw4w9WgXcQQ") is None
         # the teacher moves a lesson's videos among its topics: another one is added, and the two are placed in a new order
         assert c.post("/api/videos", json={"lesson": READY[0], "title": "b", "url": link}, headers=good).status_code == 200
         seen = lambda: [(v["id"], v["pos"]) for v in c.get("/api/videos", headers=good).json()["videos"] if v["lesson"] == READY[0]]

@@ -837,7 +837,7 @@ async function loadContent(){   // the videos, and the texts: their topics and l
 }
 function playVideo(v,preview){   // preview: the teacher looks at it from the panel, which marks nothing
   const f=document.createElement("iframe");
-  f.src=v.embed; f.title=v.title; f.allow="autoplay; fullscreen; picture-in-picture"; f.allowFullscreen=true;
+  f.src=v.embed; f.title=v.title; f.allow="autoplay; fullscreen; picture-in-picture"; f.allowFullscreen=true; f.referrerPolicy="strict-origin-when-cross-origin";   // YouTube's player asks who embeds it
   $("videoTitle").textContent=v.title; $("videoBox").replaceChildren(f); $("videoDlg").showModal();
   if(!preview){ watched[v.id]=1; store.set("ihki.watched",watched); }
 }
@@ -1915,7 +1915,7 @@ function drawClasses(classes){
   }
 }
 /* The content part: every level, its lessons, and each lesson's topics as the path shows them: the course's own, and among
-   them what the teacher added: videos (a name and a Vimeo link each) and texts (a story or a dialogue, from two files).
+   them what the teacher added: videos (a name and a Vimeo or YouTube link each) and texts (a story or a dialogue, from two files).
    Both are added under their lesson, at its end; the arrows on a row move it up and down the lesson, past a topic, a
    video or a text, and it is deleted there too. */
 const send=(url,method,body)=>api(url,{method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
@@ -1973,7 +1973,7 @@ function drawContent(){
       const field=(label,name,attrs,tag="input")=>{ const lab=mark("",label,"label"), inp=Object.assign(document.createElement(tag),{name,required:true,autocomplete:"off",...attrs}); lab.append(inp); return lab; };
       const pick=(label,name,options)=>{ const lab=field(label,name,{},"select"); for(const [value,text] of options) lab.lastChild.add(new Option(text,value)); return lab; };
       adder("+ הוספת סרטון",[field("שם הסרטון","title",{maxLength:80,placeholder:"למשל: הסבר על הטיית הפועל"}),
-          field("קישור ל-Vimeo","url",{inputMode:"url",placeholder:"https://vimeo.com/1233611297/d46ac373c8"})],
+          field("קישור ל-Vimeo או ל-YouTube","url",{inputMode:"url",placeholder:"https://vimeo.com/1233611297/d46ac373c8 או https://youtu.be/dQw4w9WgXcQ"})],
         "הסרטון יופיע לתלמידים במסלול כנושא של השיעור. הוא נוסף בסוף השיעור, ובחיצים שבשורה שלו מזיזים אותו למקומו.",
         async f=>{ const res=await send("/api/videos","POST",{lesson:l.id,title:f.elements.title.value,url:f.elements.url.value}); return res.ok?"":refused(res,"ההוספה"); });
       const who=mark("vrow",""), paste=(label,name,hint)=>{   // the lines are pasted into the box, or read into it from a file; either way they can be fixed there
