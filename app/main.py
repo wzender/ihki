@@ -839,7 +839,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if wav.size < 16_000 * 0.3:
             return {"error": "too_short", "message": "לא נשמע דיבור. נסו שוב, קרוב יותר למיקרופון."}
         refs = app.state.refs.get(phrase_id, phrase) if app.state.refs else []
-        result = app.state.scorer.score(wav, phrase, refs)
+        result = app.state.scorer.score(wav, phrase, refs, diagnostics=bool(user and user["teacher"]))
         if user and result.get("score") is not None:   # the student's progress; sent after the answer
             tasks.add_task(app.state.auth.record, user["token"], {
                 "cat": phrase["cat"], "phrase": phrase.get("key", phrase["he"]), "score": round(result["score"]),

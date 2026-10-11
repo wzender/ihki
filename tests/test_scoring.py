@@ -73,6 +73,21 @@ def test_correct_pronunciation_scores_high():
     assert not r["unrelated"]
 
 
+def test_teacher_diagnostics_include_compact_phoneme_heatmap():
+    logp = emissions(["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"])
+    scorer = scorer_for(logp)
+    assert "phoneme_heatmap" not in scorer.score(None, TOILET)
+    heatmap = scorer.score_logp(logp, TOILET, diagnostics=True, duration_s=2.5)["phoneme_heatmap"]
+    assert heatmap["duration_ms"] == 2500
+    assert heatmap["frame_bins"] == len(logp)
+    assert {"ħ", "χ", "blank"} <= {row["phoneme"] for row in heatmap["rows"]}
+    assert all(len(row["values"]) == heatmap["frame_bins"] for row in heatmap["rows"])
+    assert [p["phoneme"] for p in heatmap["tracks"]["expected"]] == [
+        "w", "eː", "n", "i", "l", "ħ", "a", "m", "aː", "m"]
+    assert [p["phoneme"] for p in heatmap["tracks"]["heard"]] == [
+        "w", "e", "n", "i", "l", "χ", "a", "m", "a", "m"]
+
+
 def test_hebrew_chet_flagged_on_hammam():
     # ħ said as the Hebrew uvular χ
     logp = emissions(["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"])

@@ -164,9 +164,10 @@ class Scorer:
     def __init__(self, emit: Emitter, vocab: Vocab, cfg: ScorerConfig | None = None):
         self.emit, self.vocab, self.cfg = emit, vocab, cfg or ScorerConfig()
 
-    def score(self, wav: np.ndarray, phrase: dict, refs: list[Reference] = ()) -> dict:
+    def score(self, wav: np.ndarray, phrase: dict, refs: list[Reference] = (), diagnostics: bool = False) -> dict:
         logp = self.emit(wav)
-        return self.score_logp(logp, phrase, refs)
+        duration_s = len(wav) / SAMPLE_RATE if wav is not None else None
+        return self.score_logp(logp, phrase, refs, diagnostics, duration_s)
 
     def reference(self, wav: np.ndarray, phrase: dict) -> Reference | None:
         """The baseline from a native recording of the phrase, or None when the model does not
@@ -295,7 +296,44 @@ class Scorer:
         unrelated = bool(edit_distance(heard_ids, ids) / max(1, len(ids)) > self.cfg.unrelated_ratio)
         return ar, ipa, toks, al, scores, heard_ids, unrelated
 
-    def score_logp(self, logp: np.ndarray, phrase: dict, refs: list[Reference] = ()) -> dict:
+    def _heatmap(self, logp: np.ndarray, toks: list[TargetToken], alignment, scores,
+                 duration_s: float | None) -> dict:
+        """A compact posterior heatmap for teacher diagnostics: expected sounds, strongest competitors and blank.
+
+        Max-pooling preserves short phoneme peaks while capping the response at 180 time columns.
+        """
+        expected_ids = list(dict.fromkeys(t.id for t in toks))
+        competitor_ids = list(dict.fromkeys(sc.competitor for sc in scores
+                                            if sc.competitor is not None and sc.competitor not in expected_ids))[:6]
+        ids = expected_ids + competitor_ids + ([self.vocab.blank] if self.vocab.blank not in expected_ids else [])
+        frames, bins = len(logp), min(len(logp), 180)
+        edges = np.linspace(0, frames, bins + 1, dtype=int)
+        labels = {t.id: t.phoneme for t in toks}
+        rows = []
+        for token_id in ids:
+            probability = np.exp(logp[:, token_id])
+            values = [round(100 * float(probability[edges[i]:edges[i + 1]].max())) for i in range(bins)]
+            rows.append({"phoneme": labels.get(token_id, "blank" if token_id == self.vocab.blank
+                                                else self.vocab.i2t.get(token_id, "?")),
+                         "expected": token_id in expected_ids, "values": values})
+        greedy = logp.argmax(1)
+        heard = []
+        start = 0
+        for end in range(1, frames + 1):
+            if end < frames and greedy[end] == greedy[start]:
+                continue
+            token_id = int(greedy[start])
+            if token_id != self.vocab.blank:
+                heard.append({"phoneme": self.vocab.i2t.get(token_id, "?"), "start": start, "end": end})
+            start = end
+        expected = [{"phoneme": tok.phoneme, "start": span[0], "end": span[1]}
+                    for tok, span in zip(toks, alignment.spans)]
+        return {"duration_ms": round(1000 * duration_s) if duration_s is not None else None,
+                "frames": frames, "frame_bins": bins, "rows": rows,
+                "tracks": {"expected": expected, "heard": heard}}
+
+    def score_logp(self, logp: np.ndarray, phrase: dict, refs: list[Reference] = (), diagnostics: bool = False,
+                   duration_s: float | None = None) -> dict:
         logp = self.vocab.merge(logp)
         fit = self._fit(logp, phrase)
         if fit is None:
@@ -304,6 +342,7 @@ class Scorer:
         heard = " ".join(self.vocab.i2t[i] for i in heard_ids)
         # Measure against what the model gives a native on the same sound: a sound it misses in the
         # reference voice too (ʕ in على heard as dropped) is the model's weakness, not the learner's.
+        heatmap = self._heatmap(logp, toks, al, scores, duration_s) if diagnostics else None
         raw = scores
         scores = [sc if b is None or b >= 100 else replace(sc, score=round(min(100.0, 100.0 * sc.score / max(b, 1.0)), 1))
                   for sc, b in zip(raw, self._baseline(toks, refs))]
@@ -377,8 +416,11 @@ class Scorer:
                                "heard": None if sc.deleted else sound_name(comp)})
         for t in tips:
             t.pop("idx", None)
-        return {"score": round(overall), "variant": {"ar": ar, "tr": " ".join(tr_words), "ipa": ipa}, "heard_ipa": heard, "heard_tr": " ".join(h for h in heard_words if h),
-                "unrelated": unrelated, "words": words, "tips": tips, "issues": issues, "references": len(refs)}
+        result = {"score": round(overall), "variant": {"ar": ar, "tr": " ".join(tr_words), "ipa": ipa}, "heard_ipa": heard, "heard_tr": " ".join(h for h in heard_words if h),
+                  "unrelated": unrelated, "words": words, "tips": tips, "issues": issues, "references": len(refs)}
+        if heatmap is not None:
+            result["phoneme_heatmap"] = heatmap
+        return result
 
 
 # ---------- real model ----------

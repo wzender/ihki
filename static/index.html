@@ -180,6 +180,8 @@ body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bot
 .mic-zone{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:4px 0}
 .mic{flex:none;width:68px;height:68px;border-radius:50%;border:0;background:var(--olive);color:var(--on-olive);cursor:pointer;display:grid;place-items:center;position:relative}
 .mic svg{width:26px;height:26px}
+.phone-btn{position:absolute;top:18px;inset-inline-start:calc(50% + 43px);width:36px;height:36px;padding:0;border-radius:50%;font:700 12px/1 var(--f-body);background:var(--surface)}
+.phone-btn:disabled{opacity:.35}
 .mic.live{background:var(--sumac)}
 .mic.live::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:3px solid var(--sumac);opacity:.5;animation:pulse 1.2s ease-out infinite}
 .mic:disabled{opacity:.5;cursor:progress}
@@ -431,6 +433,23 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 .dlg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:-16px;z-index:1;background:var(--surface);margin:-16px 0 4px;padding:12px 0 8px}
 .dlg-head h2{font:400 22px/1 var(--f-display);margin:0}
 .dlg-head h2 small{display:block;margin-top:4px;font:600 13px/1.3 var(--f-body);color:var(--muted)}
+.phone-note{margin:4px 0 12px;color:var(--muted);font-size:13px}
+.phone-rows{direction:ltr;overflow-x:auto;padding:3px 0 8px}
+.phone-row{display:grid;grid-template-columns:72px repeat(var(--phones),minmax(34px,1fr));gap:4px;min-width:max-content;margin-bottom:5px;align-items:stretch}
+.phone-row>span{display:grid;place-items:center;min-height:34px;padding:3px 5px;border-radius:7px;background:var(--bg);font:600 16px/1.2 sans-serif}
+.phone-row>.phone-label{position:sticky;left:0;z-index:1;justify-items:start;background:var(--surface);color:var(--muted);font:600 12px/1.2 var(--f-body)}
+.phone-row>.match{background:var(--ok-bg);color:var(--ok)}
+.phone-row>.near{background:var(--olive-soft);color:var(--olive)}
+.phone-row>.sub,.phone-row>.del{background:var(--sumac-bg);color:var(--sumac)}
+.phone-row>.ins{background:var(--amber-bg);color:var(--amber)}
+.phone-legend{display:flex;gap:8px 16px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.phone-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:4px}
+.heatmap-title{font:700 14px/1.3 var(--f-body);margin:16px 0 6px}
+.heatmap-wrap{direction:ltr;overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:#fff;padding:6px}
+#phoneHeatmap,#phoneTrack{display:block}
+.phone-track-wrap{direction:ltr;overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:#fff;padding:6px}
+.heatmap-scale{direction:ltr;display:flex;align-items:center;gap:7px;margin-top:6px;color:var(--muted);font-size:11px}
+.heatmap-scale i{width:110px;height:9px;border-radius:999px;background:linear-gradient(90deg,#f5f7f5,#9fc4ac,#28745d,#f0b43c,#9f2f27)}
 /* Story topics (a conversation): every Hebrew line is on the card and the current one is marked; a line that was
    said shows its Arabic beneath, in Hebrew letters, and its best score. Driving mode keeps its single large prompt. */
 .story{max-height:min(40vh,430px);overflow-y:auto;position:relative;border:1px solid var(--line);border-radius:12px;overscroll-behavior:contain}
@@ -497,7 +516,7 @@ body.bubble-game #gameBack:active{transform:translateY(2px);box-shadow:0 1px 0 #
 @media (prefers-reduced-motion:reduce){.card.bubblemode .prompt{animation:none}}
 /* Without a microphone ("תרגול שקט ללא ציון"): a Hebrew sentence is answered by hand instead of said, built from its
    Arabic words, tapped in order out of a bank that holds a few words too many. */
-body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.miclab){display:none}
+body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#heBtn,.miclab,.phone-btn){display:none}
 #quietBtn{border:0;padding:4px 8px;font-size:14px;color:var(--olive);text-decoration:underline dotted;text-underline-offset:3px}
 .silent{display:flex;flex-direction:column;gap:10px}
 .silent .btn{align-self:flex-start}
@@ -590,6 +609,7 @@ body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.micl
       <button class="mic" id="mic" data-lang="ع" aria-label="הקליטו את התשובה">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></svg>
       </button>
+      <button class="btn phone-btn" id="phoneBtn" title="השוואת רצף הפונמות הצפוי למה שהמודל שמע" aria-label="ניתוח פונמות" hidden disabled>/fə/</button>
       <div class="status" id="status">לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים</div>
       <button class="btn" id="quietBtn" title="תרגול בלי מיקרופון: מרכיבים את המשפט בערבית ממילים. לא נרשם ציון">תרגול שקט ללא ציון</button>
       <button class="mic he" id="heBtn" data-lang="א" title="אומרים את התרגום בעברית, והדפדפן בודק אותו ונותן ציון. הציון לא נשמר" aria-label="אמרו את התרגום בעברית">
@@ -724,6 +744,14 @@ body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.micl
     <label>הקראת המשפט בעברית<input type="checkbox" id="readHe"></label>
   </div>
 </dialog>
+<dialog id="phoneDlg" aria-labelledby="phoneTitle">
+  <div class="dlg-head"><h2 id="phoneTitle">ניתוח פונמות<small>הרצף הצפוי מול הפענוח החופשי של המודל</small></h2><button class="btn" id="phoneClose">סגירה</button></div>
+  <p class="phone-note">זהו פירוש המודל להקלטה, ולא תעתיק פונטי מוסמך. תנועות קרובות ואורך תנועה מסומנים כהתאמה מקורבת.</p>
+  <div class="phone-rows" id="phoneRows"></div>
+  <div class="phone-legend"><span><i class="good"></i>התאמה</span><span><i style="background:var(--olive-soft)"></i>התאמה מקורבת</span><span><i class="bad"></i>החלפה או השמטה</span><span><i class="mid"></i>תוספת</span></div>
+  <section id="trackBox"><h3 class="heatmap-title">מיקום הפונמות בזמן</h3><div class="phone-track-wrap"><canvas id="phoneTrack" role="img" aria-label="רצף הפונמות הצפוי והמזוהה לאורך זמן"></canvas></div></section>
+  <section id="heatmapBox"><h3 class="heatmap-title">הסתברות פונמות לאורך ההקלטה</h3><div class="heatmap-wrap"><canvas id="phoneHeatmap" role="img" aria-label="מפת חום של הסתברויות הפונמות לאורך ההקלטה"></canvas></div><div class="heatmap-scale"><span>0%</span><i></i><span>100%</span><span>· ★ פונמה צפויה</span></div></section>
+</dialog>
 <div id="whyTip" role="tooltip" hidden></div>
 <button id="logoutBtn" hidden>יציאה</button>
 
@@ -769,6 +797,7 @@ function setTr(el,text){
    As in Duolingo, a topic is locked until every topic before it on the path is finished. A topic the student already
    started stays open, and so does a homework topic: the teacher decides what the class practises. Nothing is locked for a teacher. */
 let FREE=false;   // a teacher: the whole path is open
+let lastPhone=null;   // the latest ordinary recording's score response, for the teacher's phoneme observer
 let home=true;   // the path is on screen, not the practice card: nothing is read aloud or recorded
 function tally(list){   // how far a set of sentences got
   const done=list.filter(p=>best[p.id]!=null).length, over=list.length>0&&done>=list.length;
@@ -1524,6 +1553,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   if(storyFor!==cur.id){ storyFor=cur.id; storyTries=0; }
   const story=isStory()&&topic.includes(cur.id);
   $("card").classList.toggle("storymode",story); $("story").hidden=!story; $("listBtn").hidden=story; $("hearBtn").hidden=$("arOnlyBox").hidden=$("quizBtn").hidden=!story;   // a story is its own list of sentences, and can be heard whole or said whole, as a quiz
+  lastPhone=null; $("phoneBtn").hidden=!FREE||story; $("phoneBtn").disabled=true;
   if(story) drawStory(); else seatMic();
   promptRead=readPrompt();
   $("varRow").hidden=cur.grp==null;
@@ -1672,9 +1702,99 @@ function keepScore(id,s){   // a sentence's best score, on the device and for th
   if(!(sessionBest[id]>=s)) sessionBest[id]=s;
   marks();
 }
+
+/* A teacher can inspect the two phoneme sequences already produced by scoring. The expected row uses the
+   scorer's actual target tokens (so collapsed geminates match CTC); the heard row is its unrestricted greedy decode. */
+const phoneCanon=s=>{
+  const plain=(s||"").replace(/[ːʰʲ.^[:"\u032a\u0329\u031d\u031e\u030a\u0303]/g,"");
+  return ({æ:"a",ɐ:"a",ɑ:"a",ä:"a",ʌ:"a",ɪ:"i",ʊ:"u",ɛ:"e",ɔ:"o",ɾ:"r",ɫ:"l",ɡ:"g",χ:"x",ʁ:"ɣ",ʒ:"dʒ",dZ:"dʒ",tS:"tʃ",S:"ʃ"})[plain]||plain;
+};
+function alignPhones(expected,heard){
+  const n=expected.length,m=heard.length,d=Array.from({length:n+1},()=>Array(m+1).fill(0));
+  for(let i=0;i<=n;i++) d[i][0]=i; for(let j=0;j<=m;j++) d[0][j]=j;
+  for(let i=1;i<=n;i++) for(let j=1;j<=m;j++){
+    const cost=phoneCanon(expected[i-1])===phoneCanon(heard[j-1])?0:1;
+    d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+cost);
+  }
+  const out=[]; let i=n,j=m;
+  while(i||j){
+    const cost=i&&j&&phoneCanon(expected[i-1])===phoneCanon(heard[j-1])?0:1;
+    if(i&&j&&d[i][j]===d[i-1][j-1]+cost){ out.push([expected[--i],heard[--j]]); }
+    else if(i&&d[i][j]===d[i-1][j]+1) out.push([expected[--i],null]);
+    else out.push([null,heard[--j]]);
+  }
+  return out.reverse();
+}
+function drawPhones(r){
+  const expected=r.words.flatMap(w=>(w.phonemes||[]).map(p=>p.ipa)), heard=(r.heard_ipa||"").trim().split(/\s+/).filter(Boolean);
+  const aligned=alignPhones(expected,heard), rows=$("phoneRows"); rows.innerHTML=""; rows.style.setProperty("--phones",aligned.length);
+  const make=(name,which)=>{
+    const row=mark("phone-row","","div"); row.append(mark("phone-label",name));
+    for(const [want,got] of aligned){
+      const same=want!=null&&got!=null&&want===got, near=want!=null&&got!=null&&!same&&phoneCanon(want)===phoneCanon(got);
+      const kind=same?"match":near?"near":want==null?"ins":got==null?"del":"sub";
+      row.append(mark(kind,(which?got:want)||"—"));
+    }
+    rows.append(row);
+  };
+  make("צפוי",0); make("המודל שמע",1);
+  drawPhoneTrack(r.phoneme_heatmap);
+  drawHeatmap(r.phoneme_heatmap);
+}
+function heatColor(value){
+  const stops=[[245,247,245],[159,196,172],[40,116,93],[240,180,60],[159,47,39]], x=Math.max(0,Math.min(100,value))/25;
+  const at=Math.min(3,Math.floor(x)), f=x-at, a=stops[at],b=stops[at+1];
+  return `rgb(${a.map((v,k)=>Math.round(v+(b[k]-v)*f)).join(",")})`;
+}
+function drawHeatmap(data){
+  const box=$("heatmapBox");
+  if(!data||!data.rows||!data.rows.length){ box.hidden=true; return; }
+  box.hidden=false;
+  const canvas=$("phoneHeatmap"), dpr=Math.max(1,devicePixelRatio||1), label=62, cell=3, rowH=24, axis=22;
+  const width=label+data.frame_bins*cell, height=data.rows.length*rowH+axis;
+  canvas.width=width*dpr; canvas.height=height*dpr; canvas.style.width=width+"px"; canvas.style.height=height+"px";
+  const c=canvas.getContext("2d"); c.scale(dpr,dpr); c.font="600 13px sans-serif"; c.textBaseline="middle";
+  data.rows.forEach((row,y)=>{
+    c.fillStyle="#26322a"; c.textAlign="right"; c.fillText((row.expected?"★ ":"")+row.phoneme,label-7,y*rowH+rowH/2);
+    row.values.forEach((v,x)=>{ c.fillStyle=heatColor(v); c.fillRect(label+x*cell,y*rowH,cell,rowH-2); });
+  });
+  c.fillStyle="#667068"; c.font="11px sans-serif"; c.textAlign="center";
+  const seconds=(data.duration_ms||0)/1000;
+  for(const part of [0,.25,.5,.75,1]){
+    const x=label+part*data.frame_bins*cell; c.fillText(seconds?`${(seconds*part).toFixed(1)}s`:Math.round(part*100)+"%",x,height-axis/2);
+  }
+}
+function drawPhoneTrack(data){
+  const box=$("trackBox");
+  if(!data||!data.tracks||!data.frames){ box.hidden=true; return; }
+  box.hidden=false;
+  const canvas=$("phoneTrack"), dpr=Math.max(1,devicePixelRatio||1), label=62, plot=540, rowH=38, axis=24;
+  const width=label+plot, height=rowH*2+axis;
+  canvas.width=width*dpr; canvas.height=height*dpr; canvas.style.width=width+"px"; canvas.style.height=height+"px";
+  const c=canvas.getContext("2d"); c.scale(dpr,dpr); c.textBaseline="middle"; c.font="600 12px sans-serif";
+  const lane=(name,segments,y,color)=>{
+    c.fillStyle="#667068"; c.textAlign="right"; c.fillText(name,label-7,y+rowH/2);
+    c.fillStyle="#f2f4f1"; c.fillRect(label,y,plot,rowH-4);
+    for(const p of segments){
+      const x=label+p.start/data.frames*plot, w=Math.max(1,(p.end-p.start)/data.frames*plot);
+      c.fillStyle=color; c.fillRect(x,y,w,rowH-4); c.strokeStyle="#fff"; c.strokeRect(x+.5,y+.5,Math.max(0,w-1),rowH-5);
+      if(w>=16){ c.fillStyle="#fff"; c.textAlign="center"; c.fillText(p.phoneme,x+w/2,y+(rowH-4)/2); }
+    }
+  };
+  lane("צפוי",data.tracks.expected,0,"#4b6a2c"); lane("המודל שמע",data.tracks.heard,rowH,"#28745d");
+  c.fillStyle="#667068"; c.font="11px sans-serif"; c.textAlign="center";
+  const seconds=(data.duration_ms||0)/1000;
+  for(const part of [0,.25,.5,.75,1]) c.fillText(seconds?`${(seconds*part).toFixed(1)}s`:Math.round(part*100)+"%",label+part*plot,height-axis/2);
+}
+$("phoneBtn").onclick=()=>{ if(lastPhone){ drawPhones(lastPhone); $("phoneDlg").showModal(); } };
+$("phoneClose").onclick=()=>$("phoneDlg").close();
+
 function render(r){
   if(r.error){ $("status").textContent=r.message; return; }
   if(quiz){ quizLine(r); return; }
+  if(FREE&&!$("card").classList.contains("storymode")){
+    lastPhone=r; $("phoneBtn").hidden=false; $("phoneBtn").disabled=false;
+  }
   $("status").textContent=r.score<30?"רוצים לנסות שוב? לחצו על המיקרופון":"לחצו כדי לנסות שוב";
   $("nextBtn").classList.add("primary");
   $("score").textContent=r.score;
@@ -1820,6 +1940,7 @@ async function startRec(auto){   // auto: started by the page for the sentence o
   let heardSpeech=true;   // false only when the VAD gave up waiting for speech
   rec.onstart=()=>{
     starting=false;
+    lastPhone=null; $("phoneBtn").disabled=true;
     mic.classList.add("live"); $("result").hidden=true;
     const noSpeech=auto?VAD.noSpeechAuto:VAD.noSpeech;
     stopTimer=setTimeout(()=>rec.state==="recording"&&rec.stop(),noSpeech+VAD.maxSpeech);
