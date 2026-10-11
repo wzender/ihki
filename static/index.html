@@ -67,14 +67,11 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 #today button{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;min-width:0;padding:8px 6px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 15px/1.2 var(--f-body);text-align:start;cursor:pointer}
 #today button{text-align:center} #today button:disabled{cursor:default;color:var(--muted)}
 #today small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px/1.25 var(--f-body);color:var(--muted)}
-#today .vidgo.new{border-color:var(--amber);color:var(--amber)} #today .vidgo.new small{color:inherit}
-#today .daily:disabled{background:var(--surface);border-color:var(--line);box-shadow:none}
-#today .daily{flex:1;align-items:center;background:var(--olive);border-color:var(--olive);color:var(--on-olive);box-shadow:0 3px 0 var(--olive-deep)}
-#today .daily small{color:inherit;opacity:.85}
-#today .hwgo:not(:disabled){border-color:var(--olive);color:var(--olive)} #today .hwgo:not(:disabled) small{color:inherit}
+/* all three alike, outlined and none filled: a filled one reads as the screen one is in */
+#today button{border-color:var(--olive)} #today button:not(:disabled){color:var(--olive)} #today button:not(:disabled) small{color:inherit}
+#today .vidgo.new{border-color:var(--amber);color:var(--amber)}
 #today .hwgo.soon{border-color:var(--amber);color:var(--amber)} #today .hwgo.late{border-color:var(--sumac);color:var(--sumac)}
-/* The bar at the screen's foot: the path and the video library, a tab each. The library, and the daily videos (opened
-   from the button above the path), are the screen `#vids`, a list of videos, in place of the path. */
+/* The bar at the screen's foot: the path, games and video library. Non-path views use `#vids` as their card list. */
 #nav{position:fixed;inset:auto 0 0 0;z-index:8;display:flex;justify-content:center;gap:4px;padding:6px 10px calc(6px + env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--line)}
 #nav button{position:relative;flex:1;max-width:160px;padding:10px 6px;border:0;border-radius:10px;background:none;color:var(--muted);font:700 14px/1.2 var(--f-body);cursor:pointer}
 #nav button[aria-current=page]{background:var(--olive-soft);color:var(--olive)}
@@ -92,7 +89,8 @@ body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bot
 #vids button .seen{grid-row:1;grid-column:3}
 #vids button.now{padding-block:16px;background:var(--olive);border-color:var(--olive);color:var(--on-olive);box-shadow:0 3px 0 var(--olive-deep);font-size:17px}
 #vids button.now i,#vids button.now small{color:inherit}
-#today .daily:active{transform:translateY(2px);box-shadow:0 1px 0 var(--olive-deep)}
+/* the way back to the path, at the head of the daily videos' screen (no tab of the foot's bar is lit there) */
+#vids button.back{display:inline-flex;align-self:flex-start;gap:6px;padding:6px 12px;border-radius:10px;background:var(--olive);border-color:var(--olive);color:var(--on-olive);font:700 15px var(--f-body)}
 #dailyDlg{width:min(92vw,380px)}
 .path{--track:color-mix(in srgb,var(--muted) 75%,var(--bg));position:relative;width:100%;max-width:460px;margin:4px auto 72px}
 .road{position:absolute;left:50%;top:0;width:1px;height:100%;overflow:visible;pointer-events:none}
@@ -420,7 +418,9 @@ body.driving .mic{width:84px;height:84px}
 .warn{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:10px 12px;font-size:14px}
 /* A topic opens on the sentences not practised yet; the box brings the practised ones back, each with its best score. */
 #practice{width:100%}
-.roundbar{display:flex;align-items:center;gap:8px}
+.roundbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.arbox{display:flex;align-items:center;gap:6px;min-height:44px;font-size:14px;white-space:nowrap;cursor:pointer}
+.arbox input{width:20px;height:20px;accent-color:var(--olive)}
 .roundbar .sep{flex:1}
 .donebox{display:flex;align-items:center;gap:10px;min-height:44px;font-size:15px;border-bottom:1px solid var(--line);cursor:pointer}
 .donebox input:disabled{cursor:default}
@@ -450,7 +450,15 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 .sline:not([aria-current]):active{background:var(--olive-soft)}
 .sline:not([aria-current]):hover .ic,.sline:not([aria-current]):active .ic{color:var(--olive)}
 .sline .tools .ic{width:16px;height:16px;margin-inline:13px;color:var(--muted)}
-.sline.playing{box-shadow:inset 0 0 0 2px var(--olive)}
+/* while the conversation is played the line being said is the big one, and the marked line is as small as the rest */
+.sline.playing{box-shadow:inset 0 0 0 2px var(--olive);color:var(--ink);font:400 clamp(19px,4.8vw,24px)/1.3 var(--f-display)}
+.sline.playing .tr{font:700 18px/1.4 var(--f-body)}
+.story.hearing .sline[aria-current="true"]:not(.playing){font:600 16px/1.4 var(--f-body)}
+.story.hearing .sline[aria-current="true"]:not(.playing) .tr{font:400 15px/1.4 var(--f-body)}
+/* "ערבית בלבד": while it is played the conversation shows its Arabic alone, every line of it, in the place of the Hebrew */
+.story.aronly .sline>span:first-child{display:none}
+.story.aronly .sline .tr{grid-column:1;grid-row:1}
+.story.aronly .sline .tools{grid-column:2;grid-row:1}
 .sline .mic{width:42px;height:42px}
 .sline .mic svg{width:20px;height:20px}
 .sline .tr.lit{color:var(--muted)}
@@ -468,6 +476,25 @@ body.driving .card.storymode .prompt{display:block}
 /* a story's quiz, once it ended: the grade is back on the card, over the mistakes made most often */
 .card.storymode.quizdone .verdict{display:flex}
 .tips li .sub{display:block}
+/* "יאללה הפועל": a Hebrew verb rises in a timed bubble while the microphone listens. */
+.card.bubblemode{min-height:min(610px,72vh);overflow:hidden;position:relative;background:linear-gradient(180deg,#eef8f1 0%,var(--surface) 72%)}
+.card.bubblemode .prompt{position:relative;z-index:1;display:grid;place-items:center;width:clamp(150px,42vw,220px);height:clamp(150px,42vw,220px);margin:clamp(30px,10vh,80px) auto 18px;padding:22px;box-sizing:border-box;border:3px solid #111;border-radius:50%;background:#63bd4d;color:#111;box-shadow:inset -14px -18px 30px rgb(0 0 0/.12),0 14px 30px rgb(0 0 0/.18);animation:verb-rise 9s linear both}
+.card.bubblemode .prompt::before{content:"";position:absolute;inset:-10px;border-radius:50%;border:6px solid #111;clip-path:inset(0);animation:verb-time 9s linear both}
+.card.bubblemode .prompt::after{content:"";position:absolute;left:18%;top:17%;width:18%;height:10%;border-radius:50%;background:rgb(0 0 0/.16);transform:rotate(-28deg)}
+.card.bubblemode .bubble-grade{position:absolute;inset:auto 0 24px;font:800 30px/1 var(--f-display);color:#111;font-variant-numeric:tabular-nums}
+.card.bubblemode .task{font-weight:700;color:var(--olive)}
+.card.bubblemode .donehint,.card.bubblemode .progress{position:relative;z-index:2}
+.card.bubblemode>:not(.prompt){display:none!important}
+body.bubble-game #wrap>header,body.bubble-game #practice>.roundbar{display:none}
+#gameBack{display:none}
+body.bubble-game #gameBack{display:flex;position:fixed;top:max(12px,env(safe-area-inset-top));right:12px;z-index:12;align-items:center;gap:6px;border:2px solid #111;border-radius:999px;background:#63bd4d;color:#111;padding:9px 14px;font:800 15px/1 var(--f-body);cursor:pointer;box-shadow:0 3px 0 #111}
+body.bubble-game #gameBack:active{transform:translateY(2px);box-shadow:0 1px 0 #111}
+.card.bubblemode .prompt.burst{animation:verb-burst .42s ease-out forwards}
+.card.bubblemode .prompt.burst::before{animation:none;opacity:0}
+@keyframes verb-rise{from{transform:translateY(78px) scale(.88)}to{transform:translateY(-82px) scale(1.04)}}
+@keyframes verb-time{from{clip-path:inset(0)}to{clip-path:inset(100% 0 0 0)}}
+@keyframes verb-burst{0%{transform:scale(1);opacity:1}55%{transform:scale(1.3);opacity:.9}100%{transform:scale(1.75);opacity:0}}
+@media (prefers-reduced-motion:reduce){.card.bubblemode .prompt{animation:none}}
 /* Without a microphone ("תרגול שקט ללא ציון"): a Hebrew sentence is answered by hand instead of said, built from its
    Arabic words, tapped in order out of a bank that holds a few words too many. */
 body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.miclab){display:none}
@@ -532,17 +559,19 @@ body.quiet :is(#mic,#playMine,#driveBtn),body.driving :is(#quietBtn,#heBtn,.micl
 
   <div id="today" hidden></div>
   <section id="vids" aria-live="polite"></section>
-  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="library">ספריה דיגיטלית</button></nav>
+  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="games" hidden>משחקים</button><button data-view="library">ספריה דיגיטלית</button></nav>
   <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
   <button id="toNow" hidden></button>
 
   <div class="wrap" id="practice">
+  <button id="gameBack" type="button"><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> חזרה למשחקים</button>
   <div class="roundbar">
-    <button class="btn" id="homeBtn"><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> המסלול</button>
+    <button class="btn primary" id="homeBtn"><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> חזרה למסלול</button>
     <span class="sep"></span>
     <button class="btn" id="listBtn"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg> רשימת המשפטים</button>
     <button class="btn" id="hearStop" title="עצירת ההשמעה" aria-label="עצירת ההשמעה" hidden><svg class="ic" aria-hidden="true"><use href="#i-stop"/></svg></button>
     <button class="btn" id="hearBtn" title="השמעת כל השיחה בערבית, מההתחלה ועד הסוף. לחיצה נוספת משהה וממשיכה" hidden><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg> השמעת השיחה</button>
+    <label class="arbox" id="arOnlyBox" title="בזמן השמעת השיחה מוצגים המשפטים בערבית בלבד, בלי העברית" hidden><input type="checkbox" id="arOnly">ערבית בלבד</label>
     <button class="btn" id="quizBtn" title="בוחן: אומרים את כל השיחה ברצף, משפט אחרי משפט. ליד כל משפט מופיע הציון שלו, ובסוף הציון הכולל והטעויות העיקריות" hidden>בוחן</button>
     <button class="btn" id="setBtn" title="הגדרות השמעה" aria-label="הגדרות השמעה"><svg class="ic" aria-hidden="true"><use href="#i-set"/></svg></button>
   </div>
@@ -717,9 +746,10 @@ let driving=false;
 let TEACHER_DAILIES=[];   // for a teacher: the daily videos of every class, {id, title, embed, date}
 let MY_CLASSES=[], MY_CLASS=null;   // a student's classes ({name, lessons, homeworks, dailies}), and the one they practise in now
 let daily=null, dailySaid=new Set(), dailyWas={};   // the daily session on the card: its sentence ids, those said in it, and their best scores before it
-let ALL_LEVELS=[], ALL_LESSONS=[], ALL_CATS=[], MY_LESSONS=null, LESSONS=[], CATS=[], PHRASES=[], cat=store.get("ihki.cat",""), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
+let ALL_LEVELS=[], ALL_LESSONS=[], ALL_CATS=[], GAMES=[], MY_LESSONS=null, LESSONS=[], CATS=[], PHRASES=[], cat=store.get("ihki.cat",""), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
 let myAudioUrl=null;
 const phraseOf=id=>PHRASES.find(p=>p.id===id);   // by id: the list skips the phrases that have no tab
+const categoryOf=id=>CATS.find(c=>c.id===id)||GAMES.find(g=>g.id===id);
 
 const band=s=>s>=75?"good":s>=50?"mid":"bad";
 
@@ -804,7 +834,7 @@ function endDaily(){   // past the session's last sentence: back to the path, an
   $("dailyDlg").showModal();
   if(spoken) sayHe("התרגול היומי הסתיים.");
 }
-/* The bar at the screen's foot has the path and the video library; the daily videos' screen opens from the button above the path.
+/* The bar at the screen's foot has the path, games and the video library; the daily videos' screen opens from the button above the path.
    The daily videos (the teacher keeps them in the panel's content part, and gives each its day in a class): those of
    the class practised in now, or else of all the student's classes, whose day has come, each once, the latest first.
    Today's stands at the top. A teacher, who is in no class, sees every class's.
@@ -823,9 +853,19 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     b.onclick=()=>{ seen[v.id]=1; store.set(key,seen); playVideo(v,true); };   // the box closing draws this again
     box.append(b);
   };
-  if(view==="daily"){
-    const mine=dailyVideos(), now=mine.filter(v=>v.date===d), was=mine.filter(v=>v.date<d);
-    box.append(mark("","סרטון יומי","h2"));
+  if(view==="games"){
+    const games=GAMES.filter(game=>!game.hidden);
+    box.append(mark("","משחקים","h2"));
+    if(!games.length) box.append(mark("","המשחקים הראשונים יגיעו בקרוב.","p"));
+    for(const game of games){
+      const b=mark("now","","button"), done=PHRASES.filter(p=>p.cat===game.id&&best[p.id]!=null).length;
+      b.append(mark("","●","i"),mark("",game.name,"b"),mark("",done?`תורגלו ${done} פעלים`:"אמרו עבר ועתיד לפני שהבועה נעלמת","small"));
+      b.onclick=()=>pickCat(game.id); box.append(b);
+    }
+  }else if(view==="daily"){
+    const mine=dailyVideos(), now=mine.filter(v=>v.date===d), was=mine.filter(v=>v.date<d), back=mark("back","","button");
+    back.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> חזרה למסלול'; back.onclick=()=>showView("");
+    box.append(back,mark("","סרטון יומי","h2"));
     if(now.length) for(const v of now) row(v,dailyWatched,"ihki.dailyWatched","הסרטון של היום",true);
     else box.append(mark("",was.length?"להיום אין סרטון חדש. אפשר לחזור לסרטונים הקודמים.":"עוד אין סרטונים יומיים. כשנקבע לסרטון תאריך (בעריכת הכיתה), הוא מופיע כאן מאותו יום.","p"));
     if(was.length) box.append(mark("","הסרטונים הקודמים","h3"));
@@ -1084,17 +1124,20 @@ function pickCat(id){
   startCat();
 }
 function showPath(){   // back to the path: whatever the card was reading, playing or recording stops
+  const backToGames=bubbleCat();
+  stopBubble();
   if(driving) stopDrive();
   stopListen(); heStop();
   cancelAutoNext(); storyRun++; autoRec=false; hePending=null; if(heAudio) heAudio.pause();
   if(driveAudio){ driveAudio.pause(); if(driveAudioDone) driveAudioDone(); driveAudio=null; }
   if("speechSynthesis" in window) speechSynthesis.cancel();
   if(rec&&rec.state==="recording"){ recCancel=true; recRestart=false; rec.stop(); }
-  home=true; document.body.classList.add("home"); delete document.body.dataset.view; quizOff();
+  home=true; document.body.classList.add("home"); document.body.classList.remove("bubble-game"); if(backToGames) document.body.dataset.view="games"; else delete document.body.dataset.view; quizOff();
   if(daily){ daily=null; startCat(); }   // a daily session that was left: the card is the last topic's again
   else drawPath();
 }
 $("homeBtn").onclick=showPath;
+$("gameBack").onclick=showPath;
 $("dailyClose").onclick=()=>$("dailyDlg").close();
 $("dailyMore").onclick=()=>{ $("dailyDlg").close(); startDaily(); };
 /* Progress of a signed-in student. The server's best scores replace the device's, so they follow the
@@ -1116,6 +1159,23 @@ const EXCELLENT=85;   // the score the verdict calls "מצוין"
 // left, it is the whole topic, and a practised sentence shows its best score (see show).
 // `here` is the topic's sentence on the card: not always the round's, because going back passes through the practised ones.
 let ordered=false, topic=[], here=null, showDone=store.get("ihki.showDone",false);
+const BUBBLE_MS=9000;
+let bubbleTimer=null, bubbleDeadline=0, bubbleFor=null, bubbleResolving=false;
+const bubbleCat=()=>!daily&&(categoryOf(cat)||{}).bubble;
+function pauseBubble(){ if(bubbleTimer){ clearTimeout(bubbleTimer); bubbleTimer=null; } }
+function stopBubble(){ pauseBubble(); bubbleDeadline=0; bubbleFor=null; bubbleResolving=false; }
+function armBubble(){
+  pauseBubble();
+  if(!bubbleCat()||home) return;
+  if(bubbleFor!==cur.id){ bubbleFor=cur.id; bubbleDeadline=Date.now()+BUBBLE_MS; bubbleResolving=false; }
+  const left=Math.max(0,bubbleDeadline-Date.now());
+  bubbleTimer=setTimeout(()=>{
+    bubbleTimer=null;
+    if(home||!bubbleCat()||bubbleResolving) return;
+    if(rec&&rec.state==="recording"){ recCancel=true; recRestart=false; rec.stop(); }
+    bubbleOutcome({unrelated:true,score:0},true);
+  },left);
+}
 function setRound(){
   quizOff();
   if(daily){ ordered=true; topic=order=[...daily]; pos=0; marks(); return; }   // the session's sentences, in its own order
@@ -1126,7 +1186,7 @@ function setRound(){
   box.checked=all; box.disabled=!todo.length;
   order=all?topic:todo; pos=0; marks();
 }
-function startCat(wait=true){ if(!CATS.length) return marks(); setRound(); show(null,wait); }
+function startCat(wait=true){ if(!CATS.length) return marks(); setRound(); show(null,bubbleCat()?false:wait); }
 // What tells how much was practised, redrawn when a score comes in: the path and the box's text. The count itself is in the list's title.
 function marks(){
   drawPath();   // with no topic yet, the path still shows what is to come
@@ -1143,7 +1203,7 @@ function goTo(id){
 }
 function drawList(){
   document.querySelector(".donebox").hidden=!!daily;   // a daily session has its own sentences
-  const box=$("plist"); box.innerHTML=""; $("listTitle").textContent=daily?"תרגול יומי":CATS.find(c=>c.id===cat).name; $("listTitle").append(mark("",`תורגלו ${topic.filter(id=>best[id]!=null).length} מתוך ${topic.length}`,"small"));
+  const box=$("plist"); box.innerHTML=""; $("listTitle").textContent=daily?"תרגול יומי":categoryOf(cat).name; $("listTitle").append(mark("",`תורגלו ${topic.filter(id=>best[id]!=null).length} מתוך ${topic.length}`,"small"));
   const ids=ordered?topic:[...topic].sort((a,b)=>a-b);   // a shuffled topic is listed in the bank's order
   ids.forEach((id,k)=>{
     const p=phraseOf(id), b=best[id], li=document.createElement("li"), row=document.createElement("button");
@@ -1363,24 +1423,34 @@ function stopListen(){
   $("status").textContent=IDLE;
 }
 $("hearStop").onclick=stopListen;
+function arOnlyFace(){   // lines not said yet get their Arabic for the playing alone: it is taken back when the playing ends or the box is cleared
+  const box=$("story"), on=listening&&$("arOnly").checked;
+  box.classList.toggle("aronly",on);
+  if(on) topic.forEach((id,k)=>{ const row=box.children[k]; if(row&&!row.querySelector(".tr")){ const tr=mark("tr peek",""); setTr(tr,phraseOf(id).tr); row.append(tr); } });
+  else for(const tr of box.querySelectorAll(".tr.peek")) tr.remove();
+}
+$("arOnly").checked=store.get("ihki.arOnly",false);
+$("arOnly").onchange=()=>{ store.set("ihki.arOnly",$("arOnly").checked); arOnlyFace(); };
 $("hearBtn").onclick=async()=>{
   if(listening){ hearPause(!hearPaused); return; }
   if(quiz){ quizOff(); drawStory(); }   // hearing the answers ends a quiz
   cancelAutoNext(); autoRec=false; hePending=null; if(heAudio) heAudio.pause();
   if(rec&&rec.state==="recording"){ recCancel=true; recRestart=false; rec.stop(); }   // the recording that started by itself
   const run=++storyRun, on=()=>run===storyRun, box=$("story"), frame=row=>{ for(const r of box.querySelectorAll(".playing")) r.classList.remove("playing"); if(row) row.classList.add("playing"); };
-  listening=true; hearPaused=hearHeld=false; hearFace(HEAR_PAUSE,"השהיית ההשמעה"); $("hearStop").hidden=false; $("status").textContent="הקשיבו לשיחה";
+  listening=true; box.classList.add("hearing"); hearPaused=hearHeld=false; hearFace(HEAR_PAUSE,"השהיית ההשמעה"); $("hearStop").hidden=false; $("status").textContent="הקשיבו לשיחה"; arOnlyFace();
   for(const [k,id] of topic.entries()){
     const a=await answerAudio(id); if(!on()) break;
     await hearGate(); if(!on()) break;
     const row=box.children[k]; frame(row);
-    if(row&&!row.querySelector(".tr")){ const tr=mark("tr",""); setTr(tr,phraseOf(id).tr); row.append(tr); }   // a line not said yet shows its Arabic as the voice says it
+    const peek=row&&row.querySelector(".tr.peek");
+    if(peek) peek.classList.remove("peek");
+    else if(row&&!row.querySelector(".tr")){ const tr=mark("tr",""); setTr(tr,phraseOf(id).tr); row.append(tr); }   // a line not said yet shows its Arabic as the voice says it
     if(row) box.scrollTop=row.offsetTop-(box.clientHeight-row.offsetHeight)/2;
     if(a) await playUrl(a.url,true); else await speakLocal(phraseOf(id).ar,"ar");   // device voice when Sawtak is unavailable
     if(!on()) break;
     await pause(350); await hearGate(); if(!on()) break;
   }
-  listening=false; hearFace(HEAR_ON,"השמעת השיחה"); $("hearStop").hidden=true; frame(null);
+  listening=false; hearFace(HEAR_ON,"השמעת השיחה"); $("hearStop").hidden=true; frame(null); box.classList.remove("hearing"); arOnlyFace();
   if(on()) $("status").textContent=IDLE;
 };
 /* A story's quiz: the whole conversation said in one go. Each line is recorded once, by itself; its score appears beside
@@ -1443,6 +1513,7 @@ async function storyRetry(){   // the grade did not pass: the answer is played, 
   $("status").textContent="נסו שוב"; autoRec=true; autoRecord();
 }
 function show(p,wait){   // wait: do not record until the microphone button is pressed
+  stopBubble();
   cancelAutoNext(); stopListen(); hideWhy();
   storyRun++;   // an answer being played for the line that is left is stopped, and its retry dropped
   if(!driving&&driveAudio){ driveAudio.pause(); if(driveAudioDone) driveAudioDone(); driveAudio=null; }
@@ -1452,7 +1523,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   if(topic.includes(cur.id)) here=cur.id;
   if(storyFor!==cur.id){ storyFor=cur.id; storyTries=0; }
   const story=isStory()&&topic.includes(cur.id);
-  $("card").classList.toggle("storymode",story); $("story").hidden=!story; $("listBtn").hidden=story; $("hearBtn").hidden=$("quizBtn").hidden=!story;   // a story is its own list of sentences, and can be heard whole or said whole, as a quiz
+  $("card").classList.toggle("storymode",story); $("story").hidden=!story; $("listBtn").hidden=story; $("hearBtn").hidden=$("arOnlyBox").hidden=$("quizBtn").hidden=!story;   // a story is its own list of sentences, and can be heard whole or said whole, as a quiz
   if(story) drawStory(); else seatMic();
   promptRead=readPrompt();
   $("varRow").hidden=cur.grp==null;
@@ -1460,7 +1531,11 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   // read phrases (workbook, Arabic -> Hebrew): the transliteration is the prompt and the Hebrew is the answer
   const note=!cur.read&&cur.he.match(/^(.*\S)\s*\(([^()]+)\)$/);   // "פתח (עבר, עתיד)": the brackets are a note under the word
   setTr($("prompt"),cur.read?cur.tr:note?note[1]:cur.he); if(note) $("prompt").append(mark("note",note[2]));
-  const c=CATS.find(c=>c.id===(daily?cur.cat:cat)), mine=topic.includes(cur.id);   // a topic may name its items (a verb, a word) and its own task; in a daily session the topic is the sentence's own
+  const c=categoryOf(daily?cur.cat:cat), mine=topic.includes(cur.id);   // a topic or game may name its items and its own task
+  $("card").classList.toggle("bubblemode",!!c.bubble);
+  document.body.classList.toggle("bubble-game",!!c.bubble);
+  $("prompt").classList.remove("burst");
+  if(c.bubble){ $("prompt").style.animation="none"; void $("prompt").offsetWidth; $("prompt").style.animation=""; }
   heStop(); $("heCheck").hidden=true; micZone.classList.toggle("two",heOk&&!!cur.read&&!story);   // a phrase to read can be answered in Hebrew too
   $("task").textContent=cur.read?heOk?HE_TASK:"קראו בקול ותרגמו לעברית":mine&&c.task||"איך אומרים את זה בערבית מדוברת?";
   $("answerBtn").textContent=cur.read?"הצג תרגום":"הצג תשובה";
@@ -1483,6 +1558,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   // a recording of the sentence that was just left is dropped; the new one starts when it has stopped
   if(!driving&&rec&&rec.state==="recording"){ recCancel=recRestart=true; rec.stop(); }
   else recordWhenReady();
+  armBubble();
 }
 
 /* ---------- without a microphone ----------
@@ -1653,10 +1729,39 @@ function render(r){
   const story=!driving&&!$("story").hidden;
   if(story){ storyLast[cur.id]=r; drawStory(); }   // the line was said: its grade and its Arabic appear on it
   if(story&&!(!r.unrelated&&s>STORY.pass)) storyRetry();
+  if(bubbleCat()){ bubbleOutcome(r); return; }
   if(!driving&&!r.unrelated&&s>AUTO_NEXT.above){   // driving mode moves on by itself, in its own loop
     $("status").textContent=`ציון ${s} ✓ עוברים למשפט הבא`;
     startAutoNext();
   }
+}
+
+async function bubbleOutcome(r,expired=false){
+  const id=cur.id, correct=!r.unrelated&&r.score>=70;
+  if(bubbleResolving) return;
+  bubbleResolving=true;
+  if(!expired){
+    const old=$("prompt").querySelector(".bubble-grade"); if(old) old.remove();
+    $("prompt").append(mark("bubble-grade",Math.round(r.score)));
+  }
+  if(correct){
+    stopBubble();
+    $("prompt").classList.add("burst");
+    await pause(430);
+  }else{
+    if(!expired&&Date.now()<bubbleDeadline){
+      bubbleResolving=false;
+      armBubble();
+      autoRec=true; autoRecord();
+      return;
+    }
+    const a=await answerAudio(id);
+    if(cur.id!==id||home) return;
+    if(a) await playUrl(a.url,true); else await speakLocal(cur.ar,"ar");
+    await pause(250);
+  }
+  bubbleResolving=false;
+  if(cur.id===id&&!home&&bubbleCat()) nextPhrase();
 }
 
 /* ---------- recording ---------- */
@@ -1730,6 +1835,7 @@ async function startRec(auto){   // auto: started by the page for the sentence o
       return;
     }
     if(!heardSpeech){ $("status").textContent="לא נשמע דיבור. לחצו ונסו שוב, קרוב יותר למיקרופון."; finishRec({kind:"nospeech"}); return; }
+    if(bubbleCat()&&cur.id===id) pauseBubble();   // grading may finish after the student spoke; a failed try resumes the remaining time
     const blob=new Blob(chunks,{type:rec.mimeType||"audio/webm"});
     if(myAudioUrl) URL.revokeObjectURL(myAudioUrl);
     myAudioUrl=URL.createObjectURL(blob); $("playMine").disabled=false;
@@ -1753,6 +1859,7 @@ $("answerBtn").onclick=()=>{ setTr($("hintTr"),cur.read?cur.he:cur.tr); $("hintA
 $("negBtn").onclick=()=>variation("negate");
 $("conjBtn").onclick=()=>variation("conjugate");
 function roundEnd(){   // a story stops at its end and waits for the microphone button; other topics go straight on
+  if(bubbleCat()){ showPath(); return; }
   const story=isStory()&&!driving;
   startCat(story);
   if(story) $("status").textContent=`הגעתם לסוף ${(CATS.find(c=>c.id===cat)||{}).voices?"השיחה":"הסיפור"}. לחצו על המיקרופון כדי להמשיך`;
@@ -2513,7 +2620,8 @@ function useLessons(ids){   // the path shows these lessons only (null: every on
   if(CATS.length&&!CATS.some(c=>c.id===cat)) cat=CATS[0].id;
 }
 const ready=fetch("/api/phrases").then(r=>r.json()).then(d=>{
-  ALL_LEVELS=d.levels||[]; ALL_LESSONS=d.lessons; ALL_CATS=d.categories; PHRASES=d.phrases;
+  ALL_LEVELS=d.levels||[]; ALL_LESSONS=d.lessons; ALL_CATS=d.categories; GAMES=d.games||[]; PHRASES=d.phrases;
+  $("nav").querySelector('[data-view="games"]').hidden=!GAMES.some(game=>!game.hidden);
   for(const c of ALL_CATS) c.name=c.name.replace(/ ← /g,"\u00a0←\u00a0");   // the arrow never ends a line
   for(const v of d.voices||[]) $("voiceId").add(new Option(v.name,v.id));
   const saved=store.get("ihki.voice",""); if((d.voices||[]).some(v=>v.id===saved)) $("voiceId").value=saved;

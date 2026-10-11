@@ -12,7 +12,7 @@ Conventions (Palestinian urban speech as the main form):
   Geminates are written doubled; the tokenizer collapses them for CTC.
 """
 from .grammar import day2_phrases
-from .workbook import CATEGORIES as WORKBOOK_CATEGORIES, LESSON_TABS, LEVEL_TABS, workbook_phrases
+from .workbook import CATEGORIES as WORKBOOK_CATEGORIES, GAMES as WORKBOOK_GAMES, LESSON_TABS, LEVEL_TABS, workbook_phrases
 
 PHRASES = [
     # ---- היכרות ----
@@ -134,6 +134,7 @@ PHRASES += workbook_phrases()
 LEVELS = [*LEVEL_TABS]
 LESSONS = [*LESSON_TABS]   # every planned lesson; one not written yet is `soon` and has no categories
 CATEGORIES = [*WORKBOOK_CATEGORIES]
+GAMES = [*WORKBOOK_GAMES]
 
 
 def public_phrases():
@@ -143,7 +144,7 @@ def public_phrases():
     category's `listed` phrases, in `seq` order, and reaches the others with its negation and
     conjugation buttons. Workbook phrases carry seq and read (see workbook.py).
     """
-    shown = {c["id"] for c in CATEGORIES}
+    shown = {c["id"] for c in CATEGORIES + GAMES}
     return [
         {"id": i, "cat": p["cat"], "he": p["he"], "tr": p["tr"], "ar": p["variants"][0][0],
          **{k: p[k] for k in ("grp", "pron", "neg", "listed", "seq", "read") if k in p}}

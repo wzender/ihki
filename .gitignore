@@ -9,3 +9,4 @@ __pycache__/
 *.oga
 # local transcription of the copyrighted course book
 book/
+*.pdf

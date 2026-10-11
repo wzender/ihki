@@ -26,7 +26,7 @@ from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .auth import AuthUnavailable, ClassConflict, SupabaseAuth, load_auth
-from .phrases import CATEGORIES, LESSONS, LEVELS, PHRASES, public_phrases
+from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .reference import References
 from .scorer import Scorer, decode_audio, load_scorer
@@ -221,7 +221,7 @@ def summary(rows: list[dict], texts: dict[int, dict] | None = None) -> dict:
     7 days), days practised, time of the last one. A recording that did not match the sentence on the screen
     (unrelated) is a recording, on its day, but no try and no score: such ones are counted per phrase id in "missed",
     and all together in "unmatched"."""
-    shown = {c["id"] for c in CATEGORIES}
+    shown = {c["id"] for c in CATEGORIES + GAMES}
     ids = {(p["cat"], p["he"]): i for i, p in enumerate(PHRASES) if p["cat"] in shown}
     ids.update({(p["cat"], p["key"]): i for i, p in (texts or {}).items()})   # the lines of the teacher's texts (see `text_bank`)
     best: dict[int, int] = {}
@@ -767,7 +767,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/phrases")
     def phrases():
-        return {"levels": LEVELS, "lessons": LESSONS, "categories": CATEGORIES, "phrases": public_phrases(),
+        return {"levels": LEVELS, "lessons": LESSONS, "categories": CATEGORIES, "games": GAMES, "phrases": public_phrases(),
                 "voices": [{"id": i, "name": n} for n, i in VOICES.items()]}
 
     @app.get("/api/health")

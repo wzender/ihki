@@ -131,7 +131,7 @@ def test_api_end_to_end_with_stub_model():
         ph = c.get("/api/phrases").json()
         shown = {c["id"] for c in ph["categories"]}   # the phrases of no lesson are in the bank, not on the page
         assert len(ph["phrases"]) == sum(p["cat"] in shown for p in PHRASES) and "ipa" not in ph["phrases"][0]
-        assert TOILET["cat"] not in shown and [l["id"] for l in ph["lessons"] if not l.get("soon")] == ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+        assert TOILET["cat"] not in shown and [l["id"] for l in ph["lessons"] if not l.get("soon")] == ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9"]
         assert len(ph["lessons"]) == 20 and [v["name"] for v in ph["levels"]] == ["רמה 1", "רמה 2"]
         pid = PHRASES.index(TOILET)
         r = c.post("/api/score", data={"phrase_id": pid}, files={"audio": ("a.wav", buf.getvalue(), "audio/wav")})
@@ -353,21 +353,24 @@ def test_references_use_one_generated_voice_and_any_cached_one():
 
 
 def test_workbook_lesson_1():
-    from app.phrases import CATEGORIES, LESSONS, public_phrases
+    from app.phrases import CATEGORIES, GAMES, LESSONS, public_phrases
 
-    assert [l["id"] for l in LESSONS if not l.get("soon")] == ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+    assert [l["id"] for l in LESSONS if not l.get("soon")] == ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9"]
     assert [c["id"] for c in CATEGORIES if c["lesson"] == "1"] == ["l1-pron", "l1-verbs", "l1-past", "l1-say", "l1-read", "l1-hw"]
-    hw = CATEGORIES[5]["write"]   # the workbook's homework: a task and five sentences to write, with nothing to say
+    assert GAMES == [{"id": "game-yalla-verb", "name": "יאללה הפועל", "lesson": "1", "bubble": True, "hidden": True,
+                      "unit": "פועל", "task": "אמרו את הפועל בערבית מדוברת: בעבר ואז בעתיד, לפני שהבועה נעלמת"}]
+    hw = next(c for c in CATEGORIES if c["id"] == "l1-hw")["write"]   # the workbook's homework: a task and five sentences to write, with nothing to say
     assert hw["lines"] == 5 and hw["task"].startswith("כתבו חמישה משפטים") and "מִין - מי" in hw["task"]
     pub = public_phrases()
     count = lambda cat: sum(p["cat"] == cat for p in pub)
-    assert [count(c) for c in ("l1-pron", "l1-verbs", "l1-past", "l1-say", "l1-read")] == [8, 4, 32, 10, 22]
-    assert all(p["cat"] in {c["id"] for c in CATEGORIES} for p in pub)
+    assert [count(c) for c in ("l1-pron", "l1-verbs", "game-yalla-verb", "l1-past", "l1-say", "l1-read")] == [8, 4, 4, 32, 10, 22]
+    assert all(p["cat"] in {c["id"] for c in CATEGORIES + GAMES} for p in pub)
     assert all(p["read"] == (p["cat"] == "l1-read") and "#" not in p["ar"] for p in pub if p["cat"].startswith("l1-"))
     assert all("seq" not in p for p in pub if p["cat"] == "l1-past")   # conjugations are drilled in random order
     by = {(p["cat"], p["he"]): p for p in PHRASES}
     assert by["l1-pron", "אנחנו"]["tr"] == "אִחְנַא"
     assert by["l1-verbs", "ישב (עבר, עתיד)"]["tr"] == "קַעַד, יֻקְעֹד"
+    assert by["game-yalla-verb", "ישב (עבר, עתיד)"]["tr"] == "קַעַד, יֻקְעֹד"
     assert by["l1-past", "היא שאלה"]["tr"] == "הִיֵّ סַאְלַת"
     # the prompt voice gets pointed Hebrew (פתח is otherwise read "petach"); the page shows it plain
     assert by["l1-verbs", "פתח (עבר, עתיד)"]["he_say"] == "פָּתַח"
@@ -387,7 +390,9 @@ def test_levels_plan_every_lesson():
     # every lesson names its level, and each level lists all of its planned lessons, the unwritten ones as soon
     assert [v["id"] for v in LEVELS] == ["1", "2"] and len(LESSONS) == 20
     assert all(isinstance(key, tuple) and key[0] in PLAN for key in WRITTEN)
-    assert [(l["level"], l["n"]) for l in LESSONS] == [(str(v), n) for v in (1, 2) for n in range(1, 11)]
+    # level 2's workbook goes on counting from level 1's: its first lesson is shown as the tenth, and keeps the id "2.1"
+    assert [(l["level"], l["n"]) for l in LESSONS] == [("1", n) for n in range(1, 11)] + [("2", n) for n in range(10, 20)]
+    assert [l["name"] for l in LESSONS if l["level"] == "2"][:2] == ["שיעור 10", "שיעור 11"] and LESSONS[0]["name"] == "שיעור 1"
     assert [l["id"] for l in LESSONS if l["level"] == "2"][:2] == ["2.1", "2.2"]   # level 1 keeps "1", "2": attempts name them
     assert {l["id"] for l in LESSONS if not l.get("soon")} == {lesson_id(*k) for k in WRITTEN} == {c["lesson"] for c in CATEGORIES}
     assert lesson_id(2, 1) == "2.1" and lesson_id(1, 3) == "3"
@@ -652,6 +657,279 @@ def test_workbook_lesson_10():
     assert by["l10-dem", "אלה"]["tr"] == "הַדוֹל" and by["l10-dem", "הפעם הזאת"]["tr"] == "הַאדִי אֵלְמַרַّה"
     p = next(p for p in PHRASES if p["cat"] == "l10-story" and p["seq"] == 8)
     assert p["tr"].startswith("הוּّ קַאלִّ-י: וַלַא יְהִמֵّ-כּ")
+
+
+def test_workbook_level_2_lesson_1():
+    from app.phrases import CATEGORIES, public_phrases
+
+    # the second workbook (שלב ב') opens with the lesson it numbers the tenth: five verbs, and the future after لازم and رح
+    cats = ["l2.1-verbs", "l2.1-past", "l2.1-must", "l2.1-will", "l2.1-read", "l2.1-read2", "l2.1-say", "l2.1-say2", "l2.1-story"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.1"]
+    assert [c["id"] for c in mine] == cats + ["l2.1-hw"]
+    hw = mine[-1]["write"]
+    assert hw["lines"] == 5 and "רַח ולַאזֵם" in hw["task"] and "רַבַּט / יֻרְבֹּט – קשר" in hw["task"]
+    story = mine[cats.index("l2.1-story")]
+    assert story["name"] == "סיפור המכולת" and story["story"] and "voices" not in story
+    assert mine[0]["unit"] == "פועל" and mine[0]["task"].endswith("בעבר ואז בעתיד")
+    pub = public_phrases()
+    assert [sum(p["cat"] == c for p in pub) for c in cats] == [5, 40, 24, 24, 12, 11, 12, 11, 29]
+    reads = ("l2.1-read", "l2.1-read2")
+    assert all(p["read"] == (p["cat"] in reads) and "#" not in p["ar"] for p in pub if p["cat"].startswith("l2.1-"))
+    by = {(p["cat"], p["he"]): p for p in PHRASES}
+    # a verb is said in the past and the future together
+    assert by["l2.1-verbs", "רץ (עבר, עתיד)"]["tr"] == "רַכַּדֿ, יֻרְכֹּדֿ" and by["l2.1-verbs", "שלח (עבר, עתיד)"]["tr"] == "בַּעַת', יִבְּעַת'"
+    assert by["l2.1-past", "אני רצתי"]["tr"] == "אַנַא רַכַּדֵֿת" and by["l2.1-past", "היא שילמה"]["tr"] == "הִיֵّ דַפְעַת"
+    assert by["l2.1-past", "הם קשרו"]["variants"][0][1] == "h u m m e | r a b a tˤ u"
+    # لازم and رح stay as they are; the verb after them is in the future
+    assert by["l2.1-must", "את צריכה לראות"]["tr"] == "אִנְתִי לַאזֵם תְשוּפִי" and by["l2.1-must", "הם צריכים לקשור"]["tr"] == "הֹםّ לַאזֵם יֻרֻבְּטוּ"
+    assert by["l2.1-will", "אני הולך לרוץ"]["tr"] == "אַנַא רַח אַרְכֹּדֿ" and by["l2.1-will", "אנחנו הולכים לשתות"]["tr"] == "אִחְנַא רַח נִשְרַבּ"
+    p = next(p for p in PHRASES if p["cat"] == "l2.1-story" and p["seq"] == 10)
+    assert "אֻרְבֹּט (א)לִחְמַאר מַטְרַח מַא יֵקוּל-לַّכּ צַאחְבּ-וֹ" in p["tr"] and "קְשׁוֹר" in p["he_say"]
+
+
+def test_workbook_level_2_lesson_2():
+    from app.phrases import CATEGORIES, public_phrases
+    from app.workbook import _present_of
+
+    # the workbook's eleventh lesson: the days of the week and the present, which is بـ on the future form
+    cats = ["l2.2-days", "l2.2-pres", "l2.2-read", "l2.2-read2", "l2.2-read3", "l2.2-say", "l2.2-say2", "l2.2-story", "l2.2-fread"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.2"]
+    assert [c["id"] for c in mine] == cats + ["l2.2-hw"]
+    hw = mine[-1]["write"]
+    assert hw["lines"] == 5 and "ואז בהוו'ה" in hw["task"]
+    story = mine[cats.index("l2.2-story")]
+    assert story["name"] == "סיפור הפלאפל" and story["story"] and "voices" not in story
+    assert mine[0]["unit"] == "מילה"
+    pub = public_phrases()
+    assert [sum(p["cat"] == c for p in pub) for c in cats] == [10, 24, 8, 8, 8, 8, 8, 19, 11]
+    reads = ("l2.2-read", "l2.2-read2", "l2.2-read3", "l2.2-fread")
+    assert all(p["read"] == (p["cat"] in reads) and "#" not in p["ar"] for p in pub if p["cat"].startswith("l2.2-"))
+    by = {(p["cat"], p["he"]): p for p in PHRASES}
+    assert by["l2.2-days", "יום שלישי"]["tr"] == "יוֹם אֵ(ל)תַّלַאתַא" and by["l2.2-days", "חודש"]["tr"] == "שַהֵר"
+    # the prefix takes the vowel the form needs, and "we" may take مـ
+    assert by["l2.2-pres", "אני שואל"]["tr"] == "אַנַא בַּסְאַל" and by["l2.2-pres", "אתה שואל"]["tr"] == "אִנְתֵ בְּתִסְאַל"
+    assert by["l2.2-pres", "הוא רואה"]["tr"] == "הוּّ בִּישוּף" and by["l2.2-pres", "אנחנו רואים"]["tr"] == "אִחְנַא בִּנְשוּף"
+    assert by["l2.2-pres", "הם שותים"]["variants"][0][1] == "h u m m e | b i ʃ r a b u"
+    assert _present_of("منيجي") == ("מְנִיגִ'י", ["m n iː dʒ i"]) and _present_of("بيشوفني")[0] == "בִּישוּפ-נִי"
+    assert _present_of("باكل")[0] == "בַּאכֹּל" and _present_of("بيت") is None and _present_of("بدّي") is None
+    p = next(p for p in PHRASES if p["cat"] == "l2.2-fread" and p["seq"] == 5)
+    assert p["tr"].endswith("וּבְּנִשְרַבּ שַאיְ מַע בַּעַדֿ.")   # "and" on a present form
+
+
+def test_workbook_level_2_lesson_3():
+    from app.phrases import CATEGORIES, public_phrases
+
+    # the workbook's twelfth lesson: the clock, and בניין שני (פַעַّל) beside the פִעֵל verbs it is made from
+    cats = ["l2.3-hours", "l2.3-clock", "l2.3-talk", "l2.3-read", "l2.3-read2", "l2.3-say", "l2.3-say2", "l2.3-verbs", "l2.3-past",
+            "l2.3-vread", "l2.3-vread2", "l2.3-vsay", "l2.3-vsay2", "l2.3-story"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.3"]
+    assert [c["id"] for c in mine] == cats + ["l2.3-hw"]
+    hw = mine[-1]["write"]
+    assert hw["lines"] == 5 and "שַרַّבּ – השקה" in hw["task"] and "עבר – עתיד – הווה" in hw["task"]
+    talk, song = mine[cats.index("l2.3-talk")], mine[cats.index("l2.3-story")]
+    assert talk["story"] and talk["voices"] and song["story"] and "voices" not in song   # a talk has two speakers, a song none
+    assert mine[0]["unit"] == "שעה" and mine[cats.index("l2.3-verbs")]["unit"] == "פועל"
+    pub = public_phrases()
+    assert [sum(p["cat"] == c for p in pub) for c in cats] == [12, 15, 6, 7, 7, 9, 8, 9, 16, 12, 12, 12, 12, 14]
+    reads = ("l2.3-read", "l2.3-read2", "l2.3-vread", "l2.3-vread2")
+    assert all(p["read"] == (p["cat"] in reads) and "#" not in p["ar"] for p in pub if p["cat"].startswith("l2.3-"))
+    by = {(p["cat"], p["he"]): p for p in PHRASES}
+    # an hour is feminine, and the minutes come after it: a quarter to ten is "ten less a quarter"
+    assert by["l2.3-hours", "השעה שתיים"]["tr"] == "אֵ(ל)סֵّיעַה תִנְתֵין" and by["l2.3-hours", "השעה אחת עשרה"]["tr"] == "אֵ(ל)סֵّיעַה חְדַעַש"
+    assert by["l2.3-clock", "השעה רבע לעשר"]["tr"] == "אֵ(ל)סֵّיעַה עַשַרַה אִלַّא רֻבֵּע"
+    assert by["l2.3-clock", "השעה אחת עשרה שלושים וחמש"]["variants"][0][1] == "i s s eː ʕ a | ħ d a ʕ a ʃ | u n u sˤ sˤ | u x a m s e"
+    # a verb is said in the past and the future together; لبس beside لبّس in the past
+    assert by["l2.3-verbs", "הוריד (עבר, עתיד)"]["tr"] == "נַזַّל, יְנַזֵّל" and by["l2.3-verbs", "השקה (עבר, עתיד)"]["tr"] == "שַרַّבּ, יְשַרֵّבּ"
+    assert by["l2.3-past", "היא לבשה"]["tr"] == "הִיֵّ לִבְּסַת" and by["l2.3-past", "היא הלבישה"]["tr"] == "הִיֵّ לַבַּّסַת"
+    assert by["l2.3-past", "אנחנו הלבשנו"]["variants"][0][1] == "ʔ i ħ n a | l a b b a s n a"
+    # the song asks (שַרֵّבּ), where the exercises tell (שַרַّבּ)
+    first = next(p for p in PHRASES if p["cat"] == "l2.3-story" and p["seq"] == 1)
+    assert first["tr"] == "שַרֵّבְּ-נִי קַהְוֵה פַתֵّח לִי רַאס-י!"
+    told = next(p for p in PHRASES if p["cat"] == "l2.3-vread2" and "קפה קר" in p["he"])
+    assert "וּשַרַّבְּ-נִי קַהְוֵה בַּארְדֵה" in told["tr"]
+
+
+def test_workbook_level_2_lesson_4():
+    from app.phrases import CATEGORIES, public_phrases
+
+    # the workbook's thirteenth lesson: five more of בניין שני, the three words for "that" (انّه, ما, الّي), and a phone call
+    cats = ["l2.4-verbs", "l2.4-past", "l2.4-vread", "l2.4-vread2", "l2.4-vsay", "l2.4-vsay2", "l2.4-rel", "l2.4-rread", "l2.4-rread2",
+            "l2.4-rsay", "l2.4-rsay2", "l2.4-words", "l2.4-talk", "l2.4-talk2"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.4"]
+    assert [c["id"] for c in mine] == cats + ["l2.4-hw"]
+    hw = mine[-1]["write"]
+    assert hw["lines"] == 5 and "פַכַּّר / יְפַכֵּّר – חשב" in hw["task"]
+    assert all(mine[cats.index(c)]["story"] and mine[cats.index(c)]["voices"] for c in ("l2.4-talk", "l2.4-talk2"))   # two speakers each
+    assert mine[0]["unit"] == "פועל"
+    pub = public_phrases()
+    assert [sum(p["cat"] == c for p in pub) for c in cats] == [5, 16, 13, 13, 13, 13, 14, 7, 7, 7, 7, 12, 14, 11]
+    reads = ("l2.4-vread", "l2.4-vread2", "l2.4-rread", "l2.4-rread2")
+    assert all(p["read"] == (p["cat"] in reads) and "#" not in p["ar"] for p in pub if p["cat"].startswith("l2.4-"))
+    by = {(p["cat"], p["he"]): p for p in PHRASES}
+    assert by["l2.4-verbs", "שר (עבר, עתיד)"]["tr"] == "עַ'נַّא, יְעַ'נִّי" and by["l2.4-verbs", "חשב (עבר, עתיד)"]["tr"] == "פַכַּّר, יְפַכֵּّר"
+    # غنّى ends in a vowel: its past takes ـيت, and "she" and "they" drop it
+    assert by["l2.4-past", "אני שרתי"]["tr"] == "אַנַא עַ'נֵّית" and by["l2.4-past", "היא שרה"]["tr"] == "הִיֵّ עַ'נַّת"
+    assert by["l2.4-past", "הם חשבו"]["variants"][0][1] == "h u m m e | f a k k a r u"
+    assert by["l2.4-rel", "הילד שהלך"]["tr"] == "אֵלְוַלַד אִלִّי רַאח" and by["l2.4-rel", "לפני שאצא מהבית שלו"]["tr"] == "קַבֵּל מַא אַטְלַע מִן בֵּית-וֹ"
+    # the present of a פַעַّל verb: בִּי on "he", בַּ on "I"
+    son = next(p for p in PHRASES if p["cat"] == "l2.4-rread" and "עברתי לבית חדש" in p["he"])
+    assert "אִבְּנ-י בִּיפַכֵּّר יֻנְקֹל" in son["tr"]
+    call = next(p for p in PHRASES if p["cat"] == "l2.4-talk2" and p["seq"] == 7)
+    assert call["tr"].startswith("טַבַּעַן בַּחַ'בְּّרַ-כּ") and "אוֹתְךָ" in call["he_say"]
+    lunch = next(p for p in PHRASES if p["cat"] == "l2.4-rread" and "לבדך" in p["he"])
+    assert "כֻּנֵת בַּתְעַ'דַّא מַעַ-כּ" in lunch["tr"]   # "I", where بـ on تتغدّى would be "you"
+
+
+def test_workbook_level_2_lesson_5():
+    from app.phrases import CATEGORIES, public_phrases
+
+    # the workbook's fourteenth lesson: גזרת ע"י, what صار does, and the garage story
+    cats = ["l2.5-verbs", "l2.5-past", "l2.5-pres", "l2.5-sar", "l2.5-vread", "l2.5-vread2", "l2.5-vsay", "l2.5-words", "l2.5-story",
+            "l2.5-ask", "l2.5-sread", "l2.5-ssay", "l2.5-adj"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.5"]
+    assert [c["id"] for c in mine] == cats + ["l2.5-hw"]
+    hw = mine[-1]["write"]
+    assert hw["lines"] == 5 and "צַאר / יְצִיר – נהיה" in hw["task"]
+    story = mine[cats.index("l2.5-story")]
+    assert story["name"] == "סיפור המוסך" and story["story"] and "voices" not in story
+    assert mine[0]["unit"] == "פועל"
+    pub = public_phrases()
+    assert [sum(p["cat"] == c for p in pub) for c in cats] == [6, 16, 16, 10, 8, 7, 7, 12, 14, 10, 12, 12, 10]
+    reads = ("l2.5-vread", "l2.5-vread2", "l2.5-ask", "l2.5-sread")
+    assert all(p["read"] == (p["cat"] in reads) and "#" not in p["ar"] for p in pub if p["cat"].startswith("l2.5-"))
+    by = {(p["cat"], p["he"]): p for p in PHRASES}
+    # the past's ا is the future's ي, and the past of "I" loses it: גַ'אבּ, יְגִ'יבּ, גִ'בֵּת
+    assert by["l2.5-verbs", "הביא (עבר, עתיד)"]["tr"] == "גַ'אבּ, יְגִ'יבּ" and by["l2.5-verbs", "חיכה (עבר, עתיד)"]["tr"] == "אִסְתַנַّא, יִסְתַנַّא"
+    assert by["l2.5-past", "אני הבאתי"]["tr"] == "אַנַא גִ'בֵּת" and by["l2.5-past", "היא נהיתה"]["tr"] == "הִיֵّ צַארַת"
+    assert by["l2.5-pres", "הוא מביא"]["tr"] == "הוּّ בִּיגִ'יבּ" and by["l2.5-pres", "אנחנו נהיים"]["variants"][0][1] == "ʔ i ħ n a | b i n sˤ iː r"
+    assert by["l2.5-sar", "אתה כבר חצי שעה פה?"]["tr"] == "צַאר-לַכּ נֻצّ סֵיעַה הוֹן?"
+    # استنّى is the past of "he"; the present of "I" is made from the future, which is written the same
+    line = next(p for p in PHRASES if p["cat"] == "l2.5-story" and p["seq"] == 7)
+    assert "צַאר-לִי נֻצّ סֵיעַה בַּסְתַנַّא-כּ הוֹן!" in line["tr"] and "לְךָ" in line["he_say"]
+    assert next(p for p in PHRASES if p["cat"] == "l2.5-story" and p["seq"] == 8)["tr"].startswith("טַיֵّבּ וֵינַ-כּ חַבִּיבּ-י?")
+    assert by["l2.5-adj", "גדול, גדולה, גדולים"]["tr"] == "כְּבִּיר, כְּבִּירֵה, כְּבַּאר"
+
+
+def test_workbook_level_2_lesson_6():
+    from app.phrases import CATEGORIES, public_phrases
+
+    # the workbook's fifteenth lesson: בניין שלישי, the old jar's story, and "him" after a vowel
+    cats = ["l2.6-verbs", "l2.6-past", "l2.6-pres", "l2.6-vread", "l2.6-vread2", "l2.6-vread3", "l2.6-vsay", "l2.6-words", "l2.6-story",
+            "l2.6-ask", "l2.6-him"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.6"]
+    assert [c["id"] for c in mine] == cats + ["l2.6-hw"]
+    hw = mine[-1]["write"]
+    assert hw["lines"] == 5 and "לַאקַא / יְלַאקִי – מצא" in hw["task"]
+    story = mine[cats.index("l2.6-story")]
+    assert story["name"] == "סיפור הכד העתיק" and story["story"] and "voices" not in story
+    assert mine[0]["unit"] == "פועל"
+    pub = public_phrases()
+    assert [sum(p["cat"] == c for p in pub) for c in cats] == [5, 16, 16, 8, 8, 7, 7, 14, 20, 10, 12]
+    reads = ("l2.6-vread", "l2.6-vread2", "l2.6-vread3", "l2.6-ask")
+    assert all(p["read"] == (p["cat"] in reads) and "#" not in p["ar"] for p in pub if p["cat"].startswith("l2.6-"))
+    by = {(p["cat"], p["he"]): p for p in PHRASES}
+    assert by["l2.6-verbs", "עזר (עבר, עתיד)"]["tr"] == "סַאעַד, יְסַאעֵד" and by["l2.6-verbs", "מצא, פגש (עבר, עתיד)"]["tr"] == "לַאקַא, יְלַאקִי"
+    assert by["l2.6-past", "אני מצאתי"]["tr"] == "אַנַא לַאקֵית" and by["l2.6-past", "היא עזרה"]["tr"] == "הִיֵّ סַאעַדַת"
+    assert by["l2.6-pres", "הוא עוזר"]["tr"] == "הוּّ בִּיסַאעֵד" and by["l2.6-pres", "אנחנו מוצאים"]["variants"][0][1] == "ʔ i ħ n a | b i n l aː ʔ i"
+    # after a vowel "him" is a ه that is hardly heard, and "her" is whole
+    assert by["l2.6-him", "אנחנו פתחנו אותו"]["tr"] == "אִחְנַא פַתַחְנַא-ה" and by["l2.6-him", "אנחנו פתחנו אותה"]["tr"] == "אִחְנַא פַתַחְנַא-הַא"
+    assert by["l2.6-him", "ה' ישמור אותו"]["variants"][0][1] == "ʔ a l l a | j x a l l iː h"
+    line = next(p for p in PHRASES if p["cat"] == "l2.6-story" and p["seq"] == 8)
+    assert "תַעַאל סַאעֵד-נִי וִחְיַאתַ-כּ" in line["tr"] and "בְּחַיֶּיךָ" in line["he_say"]   # a request: סַאעֵד, not the past's סַאעַד
+
+
+def test_workbook_level_2_lesson_7():
+    from app.phrases import CATEGORIES, public_phrases
+
+    # the workbook's sixteenth lesson: the imperative, more of פִעֵל, and Yusef's bus
+    cats = ["l2.7-imp", "l2.7-verbs", "l2.7-past", "l2.7-pres", "l2.7-ex", "l2.7-fill", "l2.7-fill2", "l2.7-isay", "l2.7-words", "l2.7-pre",
+            "l2.7-story", "l2.7-ask", "l2.7-sread", "l2.7-ssay"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.7"]
+    assert [c["id"] for c in mine] == cats + ["l2.7-hw"]
+    hw = mine[-1]["write"]
+    assert hw["lines"] == 5 and "ואז בציווי" in hw["task"] and "וִקֵע / יוֹקַע – נפל" in hw["task"]
+    story = mine[cats.index("l2.7-story")]
+    assert story["name"] == "סיפור יוסף והאוטובוס" and story["story"] and "voices" not in story
+    assert mine[cats.index("l2.7-verbs")]["unit"] == "פועל"
+    pub = public_phrases()
+    assert [sum(p["cat"] == c for p in pub) for c in cats] == [19, 9, 16, 16, 5, 6, 6, 7, 14, 8, 17, 10, 9, 12]
+    reads = ("l2.7-fill", "l2.7-fill2", "l2.7-ask", "l2.7-sread")
+    assert all(p["read"] == (p["cat"] in reads) and "#" not in p["ar"] for p in pub if p["cat"].startswith("l2.7-"))
+    by = {(p["cat"], p["he"]): p for p in PHRASES}
+    # the future without its first letter; two consonants at the start take a helping ا with the future's vowel
+    assert by["l2.7-imp", "חשוב!"]["tr"] == "פַכֵּّר!" and by["l2.7-imp", "שתה!"]["tr"] == "אִשְרַבּ!" and by["l2.7-imp", "שב!"]["tr"] == "אֻקְעֹד!"
+    assert by["l2.7-imp", "קח! קחי! קחו!"]["variants"][0][1] == "x u d | x u d i | x u d u"
+    assert by["l2.7-imp", "אל תשתה קולה ואל תשתה זירו"]["tr"] == "לַא תִשְרַבּ כּוֹלַה וּמַא תִשְרַבּ זִירוֹ"   # "don't" is the future
+    assert by["l2.7-verbs", "שכח (עבר, עתיד)"]["tr"] == "נִסִי, יִנְסַא" and by["l2.7-verbs", "נפל (עבר, עתיד)"]["tr"] == "וִקֵע, יוֹקַע"
+    assert by["l2.7-past", "אני שכחתי"]["tr"] == "אַנַא נְסִית" and by["l2.7-past", "היא כעסה"]["tr"] == "הִיֵّ זִעְלַת"
+    assert by["l2.7-pres", "הוא רץ"]["tr"] == "הוּّ בְּיֻרְכֹּדֿ" and by["l2.7-pres", "הוא כועס"]["tr"] == "הוּّ בִּיזְעַל"
+    line = next(p for p in PHRASES if p["cat"] == "l2.7-story" and p["seq"] == 12)
+    assert line["tr"].startswith("יַא שַבַּאבּ, סַאעְדוּ-נִי, וַאללַّה וְקִעֵת")
+    go = next(p for p in PHRASES if p["cat"] == "l2.7-fill" and "לכי" in p["he"])
+    assert "יַאללַّה רוּחִי וּבַּעַדֵין תַעַאלִי" in go["tr"]
+
+
+def test_workbook_level_2_lesson_8():
+    from app.phrases import CATEGORIES, public_phrases
+
+    # the workbook's seventeenth lesson: גזרת הכפולים, عم for what is happening now, and the song شاطر شاطر
+    cats = ["l2.8-verbs", "l2.8-past", "l2.8-pres", "l2.8-vread", "l2.8-vread2", "l2.8-vsay", "l2.8-vsay2", "l2.8-am", "l2.8-amsay",
+            "l2.8-amsay2", "l2.8-words", "l2.8-story"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.8"]
+    assert [c["id"] for c in mine] == cats + ["l2.8-hw"]
+    hw = mine[-1]["write"]
+    assert hw["lines"] == 5 and "דַֿלّ / יְדַֿלّ – נשאר" in hw["task"] and "ורק אז בציווי" in hw["task"]
+    song = mine[cats.index("l2.8-story")]
+    assert song["name"] == "השיר: שַאטֵר שַאטֵר" and song["story"] and "voices" not in song
+    assert mine[0]["unit"] == "פועל"
+    pub = public_phrases()
+    assert [sum(p["cat"] == c for p in pub) for c in cats] == [7, 16, 16, 10, 9, 10, 9, 9, 9, 8, 12, 10]
+    reads = ("l2.8-vread", "l2.8-vread2")
+    assert all(p["read"] == (p["cat"] in reads) and "#" not in p["ar"] for p in pub if p["cat"].startswith("l2.8-"))
+    by = {(p["cat"], p["he"]): p for p in PHRASES}
+    assert by["l2.8-verbs", "שם, הניח (עבר, עתיד)"]["tr"] == "חַטّ, יְחֻטّ" and by["l2.8-verbs", "נשאר, המשיך (עבר, עתיד)"]["tr"] == "דַֿלّ, יְדַֿלّ"
+    # "I" and "you" take ـيت in the past, "she" and "they" only their ending
+    assert by["l2.8-past", "אני נשארתי"]["tr"] == "אַנַא דַֿלֵّית" and by["l2.8-past", "היא נשארה"]["tr"] == "הִיֵّ דַֿלַّת"
+    assert by["l2.8-past", "הם שמו"]["variants"][0][1] == "h u m m e | ħ a tˤ tˤ u"
+    assert by["l2.8-pres", "אתה נשאר"]["tr"] == "אִנְתֵ בִּתְדַֿלّ" and by["l2.8-pres", "אנחנו אוהבים"]["tr"] == "אִחְנַא בִּנְחִבّ"
+    assert by["l2.8-am", "אני מדבר איתך כעת"]["tr"] == "אַנַא עַםְ בַּחְכִּי מַעַ-כּ" and by["l2.8-am", "אני עובד כעת"]["tr"] == "אַנַא עַםְ בַּשְתְעֵ'ל"
+    # a request (חֻטّ) beside the past (חַטّ), and the song's "we": מִנְ before the future
+    order = next(p for p in PHRASES if p["cat"] == "l2.8-vread" and "צ'יפס" in p["he"])
+    assert "חֻטّ-לִי כַּמַאן טְחִינֵה" in order["tr"] and "הוּّ חַטّ-לִי זַיّ מַא" in order["tr"]
+    assert next(p for p in PHRASES if p["cat"] == "l2.8-story" and p["seq"] == 6)["tr"] == "מִנְחִבّ-וֹ וּמִנְדַֿלّ מִנְקוּל-לّוֹ שַאטֵר שַאטֵר"
+
+
+def test_workbook_level_2_lesson_9():
+    from app.phrases import CATEGORIES, public_phrases
+
+    # the workbook's eighteenth and last lesson: the active participle, a song from Egypt, and the father, the son and the donkey
+    cats = ["l2.9-part", "l2.9-part2", "l2.9-verbs", "l2.9-ex", "l2.9-pread", "l2.9-pread2", "l2.9-psay", "l2.9-psay2", "l2.9-psay3",
+            "l2.9-words", "l2.9-song", "l2.9-story"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.9"]
+    assert [c["id"] for c in mine] == cats + ["l2.9-hw"]
+    hw = mine[-1]["write"]
+    assert hw["lines"] == 5 and "בבינוני הפועל" in hw["task"] and "עַאש / יְעִיש – חי" in hw["task"]
+    for c in ("l2.9-song", "l2.9-story"):
+        assert mine[cats.index(c)]["story"] and "voices" not in mine[cats.index(c)]
+    assert mine[cats.index("l2.9-verbs")]["unit"] == "פועל"
+    pub = public_phrases()
+    assert [sum(p["cat"] == c for p in pub) for c in cats] == [8, 16, 5, 17, 10, 10, 10, 9, 9, 14, 8, 14]
+    reads = ("l2.9-pread", "l2.9-pread2")
+    assert all(p["read"] == (p["cat"] in reads) and "#" not in p["ar"] for p in pub if p["cat"].startswith("l2.9-"))
+    by = {(p["cat"], p["he"]): p for p in PHRASES}
+    # the participle's four forms, and where the middle letter is weak a י comes in (رايح, نايم)
+    assert by["l2.9-part", "גר, גרה, גרים, גרות"]["tr"] == "סַאכֵּן, סַאכְּנֵה, סַאכְּנִין, סַאכְּנַאת"
+    assert by["l2.9-part", "ישן, ישנה, ישנים, ישנות"]["tr"] == "נַאיֵם, נַאיְמֵה, נַאיְמִין, נַאיְמַאת"
+    assert by["l2.9-part2", "ישב – יושב"]["tr"] == "קַעַד, קַאעֵד" and by["l2.9-part2", "אהב, רצה – אוהב, רוצה"]["tr"] == "חַבّ, חַאבֵּבּ"
+    assert by["l2.9-verbs", "ישן (עבר, עתיד)"]["tr"] == "נַאם, יְנַאם" and by["l2.9-verbs", "חי (עבר, עתיד)"]["tr"] == "עַאש, יְעִיש"
+    # the habit is the present (בַּרוּח), this moment the participle (רַאיֵח)
+    assert by["l2.9-ex", "כל יום שני אני הולך לחבר שלי"]["tr"].endswith("אַנַא בַּרוּח לַעִנְד צַאחְבּ-י")
+    assert by["l2.9-ex", "אני הולך לחבר שלי עכשיו"]["tr"] == "אַנַא רַאיֵח לַעִנְד צַאחְבּ-י הַלַّק"
+    song = [p for p in PHRASES if p["cat"] == "l2.9-song"]
+    assert song[2]["tr"].endswith("עַלַא בֻּעְדַ-כּ") and song[3]["tr"].endswith("חַבִּיבּ בַּעְדַ-כּ")   # your distance, and after you
+    assert "מַא בֵּינַא זַמַאן" in song[5]["tr"]
+    last = next(p for p in PHRASES if p["cat"] == "l2.9-story" and p["seq"] == 14)
+    assert last["tr"].startswith("אִנְתֵ עַאיֵש וִלַّא מַאיֵת") and "בְּךָ" in last["he_say"]
 
 
 def test_sign_in_guards_the_practice_endpoints():
