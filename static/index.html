@@ -2201,7 +2201,7 @@ function drawManage(){
 }
 function showMode(mode){ mMode=mode; store.set("ihki.mmode",mode); drawManage(); }
 for(const b of $("mModes").children) b.onclick=()=>showMode(b.dataset.mode);
-const lessonsLine=ls=>byLevel(ls).map(g=>`${g.level.name}: ${lessonsWord(g.lessons)} (${g.lessons.filter(l=>!l.soon).length} מוכנים)`).join(" · ");   // "רמה 1: שיעורים 1–10 (2 מוכנים)"
+const lessonsLine=ls=>byLevel(ls).map(g=>`${g.level.name}: ${lessonsWord(g.lessons)} (${g.lessons.filter(l=>!l.soon).length} מוכנים)`).join(" · ");   // "שלב א: שיעורים 1–10 (2 מוכנים)"
 /* The classes' part: a card per class with what it is made of, and its buttons: edit, delete, and on to its students' progress. */
 function drawClasses(classes){
   const box=$("mClasses"); box.innerHTML="";

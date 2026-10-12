@@ -1558,7 +1558,7 @@ COMPARATIVES = [
 
 # The course's levels: level -> (name, how many lessons it will have). A level's lessons that are not in LESSONS yet
 # are shown on the path as "בקרוב".
-LEVELS = {1: ("רמה 1", 10), 2: ("רמה 2", 10)}
+LEVELS = {1: ("שלב א", 10), 2: ("שלב ב", 10)}
 # A level whose workbook goes on counting from the one before: the number its first lesson is shown with. The
 # lessons' keys and ids still count from 1 within the level ((2, 1), "2.1").
 FIRST_LESSON = {2: 10}

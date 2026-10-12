@@ -147,7 +147,7 @@ def test_api_end_to_end_with_stub_model():
         shown = {c["id"] for c in ph["categories"]}   # the phrases of no lesson are in the bank, not on the page
         assert len(ph["phrases"]) == sum(p["cat"] in shown for p in PHRASES) and "ipa" not in ph["phrases"][0]
         assert TOILET["cat"] not in shown and [l["id"] for l in ph["lessons"] if not l.get("soon")] == ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9"]
-        assert len(ph["lessons"]) == 20 and [v["name"] for v in ph["levels"]] == ["רמה 1", "רמה 2"]
+        assert len(ph["lessons"]) == 20 and [v["name"] for v in ph["levels"]] == ["שלב א", "שלב ב"]
         pid = PHRASES.index(TOILET)
         r = c.post("/api/score", data={"phrase_id": pid}, files={"audio": ("a.wav", buf.getvalue(), "audio/wav")})
         assert r.status_code == 200, r.text

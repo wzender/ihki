@@ -106,7 +106,7 @@ The page's "ההתקדמות שלי" button reads these rows back through `GET /
 
 ### Levels
 
-The course has levels, each with a planned number of lessons (`LEVELS` in `app/workbook.py`: רמה 1 and רמה 2, 10 lessons each). Every lesson in `LESSONS` is keyed by its level and number, `(level, lesson)`; one outside the plan stops the app at startup. The path shows each level under its name, and the lessons not written yet as "בקרוב". Level 1's lessons keep their first ids ("1", topics "l1-…") so recorded attempts and saved classes still match; later levels' are "2.1", topics "l2.1-…".
+The course has levels, each with a planned number of lessons (`LEVELS` in `app/workbook.py`: שלב א and שלב ב, 10 lessons each). Every lesson in `LESSONS` is keyed by its level and number, `(level, lesson)`; one outside the plan stops the app at startup. The path shows each level under its name, and the lessons not written yet as "בקרוב". Level 1's lessons keep their first ids ("1", topics "l1-…") so recorded attempts and saved classes still match; later levels' are "2.1", topics "l2.1-…".
 
 A lesson's homework in the workbook, sentences of the student's own, is a topic of the kind `"write"`, the lesson's last ("כתיבת משפטים": `l1-hw`, `l2-hw`). It has no sentences to say: its task and the number of sentences are in `WRITING` in `app/workbook.py`, and on the path it opens a box with the task and a line for each sentence; it is done once every line is filled. Nothing is scored, so the lesson's count of practised sentences leaves it out.
 
