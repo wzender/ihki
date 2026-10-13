@@ -341,6 +341,12 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 #manage.content :is(#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.content) #mContent{display:none}
 /* the content part: a level's name, then a card per lesson with its topics and videos, a row each, and the form that adds a video */
 #mContent{display:flex;flex-direction:column;gap:12px}
+.guides{display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:var(--muted);font-size:14px}
+#guideDlg article{line-height:1.55}
+#guideDlg h3{font:700 16px/1.3 var(--f-body);margin:16px 0 6px}
+#guideDlg :is(ol,ul){margin:0;padding-inline-start:22px;display:flex;flex-direction:column;gap:4px}
+#guideDlg p{margin:6px 0}
+#guideDlg code{direction:ltr;unicode-bidi:isolate;font-size:12px;overflow-wrap:anywhere}
 .csec[open]>:not(:last-child){margin-bottom:12px}
 .clevel{display:flex;align-items:baseline;gap:10px;margin:0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font:400 24px/1.2 var(--f-display);cursor:pointer;list-style:none}
 .clevel::-webkit-details-marker{display:none}
@@ -857,6 +863,63 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 <dialog id="flagDlg" aria-labelledby="flagTitle">
   <div class="dlg-head"><h2 id="flagTitle">🚩 הדיווח נשמר<small>זה מה שהמורה יראה על ההקלטה הזו</small></h2><button class="btn" id="flagClose">סגירה</button></div>
   <dl class="flag-facts" id="flagFacts"></dl>
+</dialog>
+<!-- The teacher's guides, opened from the top of the panel's content part: an article each, one on show (see `showGuide`). -->
+<dialog id="guideDlg" aria-labelledby="guideTitle">
+  <div class="dlg-head"><h2 id="guideTitle"></h2><button class="btn" id="guideClose">סגירה</button></div>
+  <article data-guide="daily" data-title="איך מוסיפים סרטון יומי" hidden>
+    <p>הוספת סרטון יומי נעשית בשני שלבים: קודם מוסיפים את הסרטון לרשימת הסרטונים של השלב, ואחר כך קובעים לו תאריך בכיתה. סרטון בלי תאריך לא מוצג לאף תלמיד.</p>
+    <h3>לפני שמתחילים</h3>
+    <ul><li>נכנסים עם חשבון של מורה ולוחצים על <b>ניהול</b> במסך הפתיחה.</li>
+      <li>מכינים קישור לסרטון ב-Vimeo או ב-YouTube. ב-Vimeo מעתיקים את הקישור מכפתור השיתוף (למשל <code>https://vimeo.com/1233611297/d46ac373c8</code>); החלק שאחרי המספר הוא מה שפותח סרטון לא רשום, אז לא למחוק אותו.</li></ul>
+    <h3>שלב 1: מוסיפים את הסרטון לשלב</h3>
+    <ol><li>בראש הפאנל בוחרים בחלק <b>תוכן</b>.</li>
+      <li>לוחצים על שם השלב שהסרטון שייך אליו (למשל "שלב א") כדי לפתוח אותו.</li>
+      <li>בכרטיס <b>סרטונים יומיים</b> לוחצים על <b>+ הוספת סרטון יומי</b>.</li>
+      <li>ממלאים <b>שם הסרטון</b> (עד 80 תווים) ו<b>קישור ל-Vimeo או ל-YouTube</b>.</li>
+      <li>לוחצים <b>הוספה</b>.</li></ol>
+    <p>הסרטון מופיע עכשיו ברשימה של הכרטיס. כפתור <b>צפייה</b> שלידו מאפשר לבדוק שהוא נפתח כמו שצריך.</p>
+    <h3>שלב 2: קובעים לסרטון תאריך בכיתה</h3>
+    <ol><li>בראש הפאנל בוחרים בחלק <b>כיתות</b>.</li>
+      <li>ליד הכיתה לוחצים <b>עריכה</b>.</li>
+      <li>בחלק <b>סרטונים יומיים</b> מופיעים כל הסרטונים של השלבים שהכיתה לומדת. בוחרים תאריך בשדה שליד הסרטון.</li>
+      <li>לוחצים <b>שמירה</b>.</li></ol>
+    <p>חוזרים על השלב הזה לכל כיתה שצריכה לראות את הסרטון; כל כיתה יכולה לקבל תאריך אחר.</p>
+    <h3>מה התלמידים רואים</h3>
+    <ul><li>מהתאריך שנקבע, הסרטון מופיע בכפתור <b>סרטון יומי</b> שמעל המסלול. הכפתור מודגש עד שהתלמיד פותח את הסרטון.</li>
+      <li>ביום שאין בו סרטון חדש, הכפתור פותח את רשימת הסרטונים הקודמים, כך שאפשר להשלים יום שהוחמץ.</li>
+      <li>סרטון שהתאריך שלו עוד לא הגיע לא מוצג.</li></ul>
+    <h3>אם משהו לא עובד</h3>
+    <ul><li><b>התלמידים לא רואים את הסרטון:</b> בודקים שנקבע לו תאריך בעריכת הכיתה, שהתאריך כבר הגיע, ושהכיתה לומדת את השלב שהסרטון נוסף אליו.</li>
+      <li><b>"זה לא קישור לסרטון":</b> בודקים שהקישור הוא של Vimeo או YouTube ושהועתק במלואו.</li>
+      <li><b>הודעה שהטבלה <code>dailies</code> לא קיימת:</b> מריצים פעם אחת ב-SQL Editor של Supabase את הפקודה שמופיעה בהודעה.</li></ul>
+    <h3>שינוי ומחיקה</h3>
+    <ul><li><b>שינוי תאריך או ביטול:</b> בעריכת הכיתה משנים או מרוקנים את שדה התאריך ושומרים.</li>
+      <li><b>מחיקת הסרטון:</b> ב<b>תוכן</b>, בכרטיס <b>סרטונים יומיים</b>, לוחצים <b>מחיקה</b> ליד הסרטון. גם כיתות שכבר קבעו לו תאריך יפסיקו לראות אותו.</li></ul>
+  </article>
+  <article data-guide="library" data-title="איך מוסיפים סרטונים לספריה הדיגיטלית" hidden>
+    <p>הספריה הדיגיטלית משותפת לכל השלבים: סרטון שנוסף אליה פתוח מיד לכל התלמידים, בכל כיתה. בשונה מסרטון יומי, לא קובעים לו תאריך ולא משייכים אותו לכיתה.</p>
+    <h3>לפני שמתחילים</h3>
+    <ul><li>נכנסים עם חשבון של מורה ולוחצים על <b>ניהול</b> במסך הפתיחה.</li>
+      <li>מכינים קישור לסרטון ב-Vimeo או ב-YouTube. ב-Vimeo מעתיקים את הקישור מכפתור השיתוף (למשל <code>https://vimeo.com/1233611297/d46ac373c8</code>); החלק שאחרי המספר הוא מה שפותח סרטון לא רשום, אז לא למחוק אותו.</li></ul>
+    <h3>הוספת סרטון</h3>
+    <ol><li>בראש הפאנל בוחרים בחלק <b>תוכן</b>.</li>
+      <li>לוחצים על <b>ספריה דיגיטלית</b> (השורה הראשונה, מעל השלבים) כדי לפתוח אותה.</li>
+      <li>בכרטיס <b>הסרטונים שבספריה</b> לוחצים על <b>+ הוספת סרטון לספריה</b>.</li>
+      <li>ממלאים <b>שם הסרטון</b> (עד 80 תווים) ו<b>קישור ל-Vimeo או ל-YouTube</b>.</li>
+      <li>לוחצים <b>הוספה</b>.</li></ol>
+    <p>הסרטון מופיע ברשימה של הכרטיס. כפתור <b>צפייה</b> שלידו מאפשר לבדוק שהוא נפתח כמו שצריך. כדי להוסיף סרטונים נוספים חוזרים על שלבים 3 עד 5; הם מוצגים בסדר שבו נוספו.</p>
+    <h3>מה התלמידים רואים</h3>
+    <ul><li>התלמידים מגיעים לסרטונים דרך הלשונית <b>ספריה דיגיטלית</b> שבתחתית המסך.</li>
+      <li>כל תלמיד רואה את כל הסרטונים, בלי קשר לשלב או לכיתה שלו.</li>
+      <li>סרטון בספריה אינו תרגול, ולכן הוא לא נספר בהתקדמות או בציונים.</li></ul>
+    <h3>אם משהו לא עובד</h3>
+    <ul><li><b>"זה לא קישור לסרטון":</b> בודקים שהקישור הוא של Vimeo או YouTube ושהועתק במלואו.</li>
+      <li><b>הודעה שהטבלה <code>library</code> לא קיימת:</b> מריצים פעם אחת ב-SQL Editor של Supabase את הפקודה שמופיעה בהודעה.</li>
+      <li><b>תלמיד לא רואה סרטון חדש:</b> שירענן את הדף; הרשימה מתעדכנת אצל התלמידים תוך כדקה.</li></ul>
+    <h3>מחיקה</h3>
+    <p>ב<b>תוכן</b>, בכרטיס <b>הסרטונים שבספריה</b>, לוחצים <b>מחיקה</b> ליד הסרטון ומאשרים. הסרטון נעלם לכל התלמידים. אין עריכה של שם או קישור: כדי לשנות, מוחקים ומוסיפים מחדש.</p>
+  </article>
 </dialog>
 <div id="whyTip" role="tooltip" hidden></div>
 <button id="logoutBtn" hidden>יציאה</button>
@@ -2489,8 +2552,17 @@ function drawClasses(classes){
    video or a text, and it is deleted there too. */
 const send=(url,method,body)=>api(url,{method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
 const refused=async(res,what)=>(await res.json().catch(()=>({}))).detail||`${what} נכשלה (${res.status})`;
+/* The teacher's guides (the articles of #guideDlg): a button each at the top of the content part. */
+function showGuide(key){
+  for(const a of $("guideDlg").querySelectorAll("article")){ a.hidden=a.dataset.guide!==key; if(!a.hidden) $("guideTitle").textContent=a.dataset.title; }
+  $("guideDlg").showModal(); $("guideDlg").scrollTop=0;
+}
+$("guideClose").onclick=()=>$("guideDlg").close();
 function drawContent(){
   const box=$("mContent"), listed=listedPhrases(); box.innerHTML="";
+  const guides=mark("guides","מדריכים:","div");
+  for(const a of $("guideDlg").querySelectorAll("article")){ const b=mark("btn",a.dataset.title,"button"); b.onclick=()=>showGuide(a.dataset.guide); guides.append(b); }
+  box.append(guides);
   const voices=[...$("voiceId").options].filter(o=>o.value).map(o=>o.text.replace(/[֑-ׇ]/g,""));
   const adder=(adds,label,fields,note,submit)=>{   // a closed form under a lesson, or under a level's daily videos
     const add=document.createElement("details"), form=document.createElement("form"), row=mark("row",""), msg=mark("msg","");
