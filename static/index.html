@@ -603,7 +603,8 @@ body.driving .card.storymode .prompt{display:block}
 .card.bubblemode>:not(.prompt):not(.bubble-score):not(.bubble-misses):not(.bubble-hint){display:none!important}
 body.bubble-game #wrap>header,body.bubble-game #practice>.roundbar{display:none}
 #gameBack{display:none}
-body.bubble-game #gameBack{display:flex;position:fixed;top:max(12px,env(safe-area-inset-top));right:12px;z-index:12;align-items:center;gap:6px;border:2px solid #111;border-radius:999px;background:#63bd4d;color:#111;padding:9px 14px;font:800 15px/1 var(--f-body);cursor:pointer;box-shadow:0 3px 0 #111}
+body.bubble-game #gameBack{display:flex;position:fixed;top:max(12px,env(safe-area-inset-top));right:12px;z-index:12;width:40px;height:40px;align-items:center;justify-content:center;border:2px solid #111;border-radius:50%;background:#63bd4d;color:#111;padding:0;cursor:pointer;box-shadow:0 3px 0 #111}
+body.bubble-game #gameBack .ic{width:20px;height:20px}
 body.bubble-game #gameBack:active{transform:translateY(2px);box-shadow:0 1px 0 #111}
 .card.bubblemode .prompt.burst{animation:verb-burst .28s ease-out forwards}
 .card.bubblemode .prompt.burst::before{animation:none;opacity:0}
@@ -686,7 +687,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   <button id="toNow" hidden></button>
 
   <div class="wrap" id="practice">
-  <button id="gameBack" type="button"><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> חזרה למשחקים</button>
+  <button id="gameBack" type="button" aria-label="חזרה למשחקים" title="חזרה למשחקים"><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg></button>
   <div class="roundbar">
     <button class="btn primary" id="homeBtn"><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> חזרה למסלול</button>
     <span class="sep"></span>
