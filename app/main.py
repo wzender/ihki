@@ -385,6 +385,14 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             html = html.replace(mark, value)
         return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
 
+    @app.get("/service-worker.js", include_in_schema=False)
+    def service_worker():
+        return Response(
+            (STATIC / "service-worker.js").read_text(encoding="utf-8"),
+            media_type="application/javascript",
+            headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"},
+        )
+
     @app.get("/api/me")
     def me(user: dict | None = Depends(signed_in)):
         """Who is signed in, their classes (each with its lessons, its homework, see `homework_of`, and its daily
