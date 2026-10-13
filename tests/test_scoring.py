@@ -1,5 +1,6 @@
 """Tests with synthetic CTC emissions: no model download needed."""
 import io
+import re
 import wave
 
 import numpy as np
@@ -955,10 +956,11 @@ def test_sign_in_guards_the_practice_endpoints():
     VERB = next(p for p in PHRASES if p["cat"] == "l1-verbs")
 
     class FakeAuth:
-        url, key, teachers = "https://proj.supabase.co", "sb_publishable_x", frozenset()
+        url, key, teachers, tutors = "https://proj.supabase.co", "sb_publishable_x", frozenset(), frozenset()
 
         def __init__(self):
             self.rows, self.cls, self.vids, self.txts, self.days, self.wrote = [], [], [], [], {"dailies": [], "library": []}, {}
+            self.rank = frozenset()
 
         def writings(self, token):
             return {t: lines for (u, t), lines in self.wrote.items() if u == "u1"}
@@ -971,6 +973,15 @@ def test_sign_in_guards_the_practice_endpoints():
 
         def classes(self, fresh=False):
             return self.cls
+
+        def ranked(self, fresh=False):
+            return self.rank
+
+        def set_tutor(self, email, on, by):
+            if self.rank is None:
+                raise AuthUnavailable("supabase answered 404: no table")
+            self.rank = self.rank | {email} if on else self.rank - {email}
+            self.by = by
 
         def save_class(self, id, name, emails, nicknames, lessons, homeworks=(), dailies=None):
             row = {"name": name, "emails": emails, "nicknames": nicknames, "lessons": lessons, "homeworks": list(homeworks),
@@ -1081,7 +1092,7 @@ def test_sign_in_guards_the_practice_endpoints():
         c.app.state.auth.cls, c.app.state.auth.teachers = [], frozenset({"a@b.c"})
         assert c.post("/api/classes", json={"name": "September 2026", "emails": "x@b.c", "lessons": ALL[:1]},
                       headers=good).status_code == 200
-        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": True, "classes": [], "lessons": ALL, "dailies": []}
+        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": True, "tutor": True, "classes": [], "lessons": ALL, "dailies": []}
         # the content part: a teacher adds a video to a ready lesson by its Vimeo link, kept without the sharing parameters
         READY = [l["id"] for l in LESSONS if not l.get("soon")]
         SOON = next(l["id"] for l in LESSONS if l.get("soon"))
@@ -1336,3 +1347,100 @@ def test_result_scores_each_letter():
     # the coloured letter says why, with the advice for that mistake; a letter that was fine says nothing
     het, mem = (next(l for l in r["words"][1]["letters"] if l["t"][0] == c) for c in "חמ")
     assert het["why"] == "ח (ح) נשמעה כמו ח' (خ)" and het["tip"] == r["tips"][0]["text"] and "why" not in mem
+
+
+def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("SAWTAK_API_KEY", "")   # no native baseline from a local .env: the score is the stub's own
+
+    from app.auth import AuthUnavailable
+    from app.main import create_app
+
+    class FakeAuth:
+        url, key, teachers, tutors = "https://proj.supabase.co", "sb_publishable_x", frozenset(), frozenset({"t@b.c"})
+
+        def __init__(self):
+            self.cls, self.flags, self.table, self.rank = [], [], True, frozenset()
+
+        def user(self, token):
+            return {"t": {"id": "u1", "email": "T@b.c"}, "s": {"id": "u2", "email": "s@b.c"}}.get(token)
+
+        def classes(self, fresh=False):
+            return self.cls
+
+        def ranked(self, fresh=False):
+            return self.rank
+
+        def set_tutor(self, email, on, by):
+            if self.rank is None:
+                raise AuthUnavailable("supabase answered 404: no table")
+            self.rank = self.rank | {email} if on else self.rank - {email}
+            self.by = by
+
+        def level_videos(self, table, fresh=False):
+            return []
+
+        def texts(self, fresh=False):
+            return []
+
+        def add_flag(self, row, audio, mime, name):
+            if not self.table:
+                raise AuthUnavailable("supabase answered 404: no table")
+            self.flags.append((row, audio, mime, name))
+            return True
+
+    t = np.arange(16000) / 16000
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+        w.writeframes((0.3 * np.sin(2 * np.pi * 220 * t) * 32767).astype("<i2").tobytes())
+    pid = PHRASES.index(TOILET)
+    send = lambda c, token, **data: c.post("/api/flags", data={"phrase_id": pid, **data}, headers={"Authorization": f"Bearer {token}"},
+                                           files={"audio": ("rec", buf.getvalue(), "audio/wav")})
+    # said with a Hebrew chet, as the model hears it: the tutor says it was right
+    with TestClient(create_app(scorer_for(emissions(["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"])), auth=FakeAuth())) as c:
+        a = c.app.state.auth
+        assert c.get("/api/me", headers={"Authorization": "Bearer t"}).json()["tutor"] is True
+        assert "tutor" not in c.get("/api/me", headers={"Authorization": "Bearer s"}).json()
+        assert c.post("/api/flags", data={"phrase_id": pid}, files={"audio": ("rec", b"x", "audio/wav")}).status_code == 401
+        assert send(c, "s").status_code == 403 and not a.flags   # tutors only
+        r = send(c, "t", note="  אמרתי  ח נכונה ")
+        (row, audio, mime, name), = a.flags
+        assert r.status_code == 200 and r.json() == {"ok": True, "audio": True, "flag": row}, r.text   # the page shows what was kept
+        assert row["email"] == "t@b.c" and row["cat"] == TOILET["cat"] and row["he"] == TOILET["he"] and row["note"] == "אמרתי ח נכונה"
+        assert row["ipa"] == "w eː n | i l ħ a m m aː m" and "χ" in row["heard_ipa"] and row["score"] == row["result"]["score"] < 100
+        assert row["result"]["tips"][0]["key"] == "ħ>x" and "phoneme_heatmap" not in row["result"]
+        assert audio == buf.getvalue() and mime == "audio/wav" and re.fullmatch(r"\d{4}-\d\d/[0-9a-f]{32}\.wav", name)
+        assert send(c, "t", phrase_id=10**6).status_code == 404
+        a.teachers = frozenset({"s@b.c"})   # a teacher flags too
+        assert c.get("/api/me", headers={"Authorization": "Bearer s"}).json()["tutor"] is True and send(c, "s").status_code == 200
+        a.teachers = frozenset()
+        a.table = False   # before the table is created: the command to create it
+        r = send(c, "t")
+        assert r.status_code == 503 and "create table public.flags" in r.json()["detail"]
+        # a tutor is let in without a class, a student is not
+        a.cls = [{"id": 1, "name": "B", "emails": ["other@b.c"], "nicknames": {}, "lessons": []}]
+        assert c.get("/api/me", headers={"Authorization": "Bearer t"}).status_code == 200
+        assert c.get("/api/me", headers={"Authorization": "Bearer s"}).status_code == 403
+        # the rank the teacher gives a student in the panel: theirs in every class, and it lets nobody in by itself
+        tok = lambda t: {"Authorization": f"Bearer {t}"}
+        rank = lambda t, **body: c.put("/api/tutors", json=body, headers=tok(t))
+        a.users, a.all_attempts, a.all_writings = lambda: [{"id": "u2", "email": "s@b.c", "name": ""}], lambda: [], lambda: []
+        assert rank("s", email="s@b.c", tutor=True).status_code == 403   # teachers only (s is not in a class either)
+        a.cls[0]["emails"].append("s@b.c"); a.teachers = frozenset({"t@b.c"})
+        assert rank("s", email="s@b.c", tutor=True).status_code == 403 and "tutor" not in c.get("/api/me", headers=tok("s")).json()
+        assert rank("t", email="nobody", tutor=True).status_code == 400 and rank("t", email="s@b.c", tutor="yes").status_code == 400
+        assert rank("t", email=" S@b.c ", tutor=True).status_code == 200 and a.rank == {"s@b.c"} and a.by == "t@b.c"
+        assert c.get("/api/me", headers=tok("s")).json()["tutor"] is True and send(c, "s").status_code == 503   # may flag (the table is still missing)
+        panel = c.get("/api/class", headers=tok("t")).json()
+        assert [(s["email"], s["tutor"], s.get("tutor_fixed")) for s in panel["students"]] == [("s@b.c", True, None), ("other@b.c", False, None)]
+        assert rank("t", email="s@b.c", tutor=False).status_code == 200 and "tutor" not in c.get("/api/me", headers=tok("s")).json()
+        a.rank = frozenset({"out@b.c"})   # ranked, but in no class: not let in
+        known = a.user
+        a.user = lambda token: {"id": "u3", "email": "out@b.c"} if token == "x" else known(token)
+        assert c.get("/api/me", headers=tok("x")).status_code == 403
+        a.rank = None   # before the table is created: the panel says what to run, and so does giving the rank
+        assert "create table public.tutors" in c.get("/api/class", headers=tok("t")).json()["setup"][-1]["sql"]
+        r = rank("t", email="s@b.c", tutor=True)
+        assert r.status_code == 503 and "create table public.tutors" in r.json()["detail"]

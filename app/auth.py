@@ -30,6 +30,13 @@ students get a reminder above the path to watch it.
 Library: other videos (a title and a link each), in the Supabase table `library`, one for every level. Every student
 browses them from the tab at the screen's foot, whatever their level and class.
 
+Tutors: the teacher gives a student the tutor's rank in the panel, in the list of all the students above the classes' tabs. It is the student's,
+whatever classes they are in, so it is kept by email in the Supabase table `tutors`.
+
+Flags: a teacher, a tutor, and an account in TUTORS_EMAIL, gets a flag under each score, for a recording that was said right and scored
+wrong. A flag keeps what describes the case in the Supabase table `flags`, and the recording itself in the storage
+bucket `flags`, both written with the secret key: the material for changing the scoring, and later for fine-tuning.
+
 Writing: a lesson's written homework (see workbook.py) is kept in the Supabase table `writings`, a row per student
 and topic, written with the student's own token like the attempts, so it follows them to any device. The panel
 reads every student's with the secret key.
@@ -37,7 +44,8 @@ reads every student's with the secret key.
 Env:  SUPABASE_URL              (https://<project-ref>.supabase.co)
       SUPABASE_PUBLISHABLE_KEY  (the publishable/anon key; it is public and also goes to the page)
       TEACHER_EMAILS            (optional: the accounts with the management panel, separated by commas or spaces)
-      SUPABASE_SECRET_KEY       (the secret/service-role key, needed by the panel and the classes; never public)
+      TUTORS_EMAIL              (optional: more accounts that flag a wrong score, as the teachers do; separated by commas or spaces)
+      SUPABASE_SECRET_KEY       (the secret/service-role key, needed by the panel, the classes and the flags; never public)
 Without them the service is open, as before.
 """
 from __future__ import annotations
@@ -71,14 +79,17 @@ class ClassConflict(ValueError):
 
 
 class SupabaseAuth:
-    def __init__(self, url: str, key: str, teachers: frozenset[str] = frozenset(), secret: str = ""):
+    def __init__(self, url: str, key: str, teachers: frozenset[str] = frozenset(), secret: str = "",
+                 tutors: frozenset[str] = frozenset()):
         self.url, self.key = url.rstrip("/"), key
         self.teachers = teachers  # lower-case emails of the accounts with the management panel
+        self.tutors = tutors  # lower-case emails of the accounts that flag a wrong score, besides the teachers
         self.secret = secret  # reads every student's rows and the classes; empty = the panel has no data
         self._cache: dict[str, tuple[float, dict]] = {}
         self._classes: tuple[float, list[dict]] | None = None
         self._videos: tuple[float, list[dict]] | None = None
         self._texts: tuple[float, list[dict]] | None = None
+        self._ranked: tuple[float, frozenset[str] | None] | None = None
         self._level_videos: dict[str, tuple[float, list[dict]]] = {}   # by table: the daily videos, the library
         self._lock = threading.Lock()
 
@@ -361,6 +372,58 @@ class SupabaseAuth:
         self._admin(f"/rest/v1/{table}?id=eq.{int(id)}", "DELETE")
         self._level_videos.pop(table, None)
 
+    def ranked(self, fresh: bool = False) -> frozenset[str] | None:
+        """The lower-case emails the teacher gave the tutor's rank (the table `tutors`). Kept for CLASSES_TTL, as each
+        sign-in check asks. None before the table is created; without the secret key there are none."""
+        now = time.monotonic()
+        with self._lock:
+            hit = self._ranked
+        if hit and hit[0] > now and not fresh:
+            return hit[1]
+        emails: frozenset[str] | None = frozenset()
+        if self.secret:
+            try:
+                emails = frozenset(r["email"].lower() for r in self._admin("/rest/v1/tutors?select=email"))
+            except AuthUnavailable as e:
+                if "answered 404" not in str(e):
+                    raise
+                log.warning("the table `tutors` is missing (see the README): no student has the tutor's rank")
+                emails = None
+        with self._lock:
+            self._ranked = (now + CLASSES_TTL, emails)
+        return emails
+
+    def set_tutor(self, email: str, on: bool, by: str) -> None:
+        """Gives the account of this email the tutor's rank, or takes it back. `by` is the teacher who gave it."""
+        email = email.lower()
+        try:
+            if on:
+                self._admin("/rest/v1/tutors", "POST", {"email": email, "granted_by": by})
+            else:
+                self._admin(f"/rest/v1/tutors?email=eq.{urllib.parse.quote(email)}", "DELETE")
+        except ClassConflict:   # has it already
+            pass
+        finally:
+            self._ranked = None
+
+    def add_flag(self, row: dict, audio: bytes, mime: str, name: str) -> bool:
+        """Keeps a flagged score: the recording in the storage bucket `flags` under `name`, and the row in the table
+        `flags` with that name as its `audio`. A recording that cannot be stored is logged and the row is kept
+        without it (`audio` null); False tells that. A row that cannot be kept is raised."""
+        kept = False
+        if self.secret:
+            req = urllib.request.Request(
+                f"{self.url}/storage/v1/object/flags/{urllib.parse.quote(name)}", data=audio, method="POST",
+                headers={"Authorization": f"Bearer {self.secret}", "apikey": self.secret, "Content-Type": mime,
+                         "User-Agent": "ihki/1.0"})
+            try:
+                urllib.request.urlopen(req, timeout=TIMEOUT).close()
+                kept = True
+            except (urllib.error.URLError, TimeoutError) as e:  # HTTPError is a URLError
+                log.warning("a flag's recording not stored (is there a storage bucket `flags`? see the README): %s", e)
+        self._admin("/rest/v1/flags", "POST", {**row, "audio": name if kept else None})
+        return kept
+
     def users(self) -> list[dict]:
         """Every account that has signed in: id, email, name (as Google gave it; empty for one who signed in by email)."""
         users: list[dict] = []
@@ -396,11 +459,13 @@ def load_auth() -> SupabaseAuth | None:
                  " and ".join(missing), seen or "none")
         return None
     emails = lambda name: frozenset(re.split(r"[\s,;]+", os.environ.get(name, "").strip().lower())) - {""}
-    teachers = emails("TEACHER_EMAILS")
+    teachers, tutors = emails("TEACHER_EMAILS"), emails("TUTORS_EMAIL")
     secret = os.environ.get("SUPABASE_SECRET_KEY", "").strip()
     log.info("sign-in on: %s", "the students of the classes" if secret else "any account (no SUPABASE_SECRET_KEY)")
     if os.environ.get("ALLOWED_EMAILS", "").strip():
         log.warning("ALLOWED_EMAILS is no longer read: the teacher lists the students in the panel's classes")
     if teachers and not secret:
         log.warning("TEACHER_EMAILS is set without SUPABASE_SECRET_KEY: the management panel has no data to show")
-    return SupabaseAuth(url, key, teachers, secret)
+    if tutors and not secret:
+        log.warning("TUTORS_EMAIL is set without SUPABASE_SECRET_KEY: a flag cannot be saved")
+    return SupabaseAuth(url, key, teachers, secret, tutors)

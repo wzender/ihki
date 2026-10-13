@@ -3856,9 +3856,59 @@ CATEGORIES = [{"id": f"l{lesson_id(*key)}-{tid}", "name": name, "lesson": lesson
 
 # Games live outside the lesson path. Their phrases use the same scoring bank, but they are not topics,
 # do not affect lesson completion, and cannot be assigned as homework.
-GAMES = [{"id": "game-yalla-verb", "name": "יאללה הפועל", "lesson": "1", "bubble": True, "hidden": True,
+GAMES = [{"id": "game-yalla-verb", "name": "פועל נגד הזמן", "lesson": "1", "bubble": True, "hidden": False,
           "unit": "פועל", "task": "אמרו את הפועל בערבית מדוברת: בעבר ואז בעתיד, לפני שהבועה נעלמת"}]
-GAME_ITEMS = {"game-yalla-verb": _base_forms(VERBS_1)}
+
+
+def _verb_hint(unlock: str, sentence: str) -> tuple[str, str]:
+    """The workbook's building and weak/stem class for a game's past + future pair."""
+    defaults = {
+        "1": ("בניין ראשון", "גזרת פַעַל"), "3": ("בניין ראשון", "גזרת פַעַל"),
+        "5": ("בניין ראשון", "גזרת ע״ו"), "6": ("בניין ראשון", "גזרת ע״ו"),
+        "8": ("בניין ראשון", "גזרת פִעֵל"), "10": ("בניין ראשון", "גזרת פִעֵל"),
+        "2.1": ("בניין ראשון", "גזרת פַעַל"), "2.3": ("בניין שני", "גזרת השלמים"),
+        "2.4": ("בניין שני", "גזרת השלמים"), "2.6": ("בניין שלישי", "גזרת השלמים"),
+        "2.7": ("בניין ראשון", "גזרת פִעֵל"), "2.8": ("בניין ראשון", "גזרת הכפולים"),
+        "2.9": ("בניין ראשון", "גזרת פִעֵל"),
+    }
+    past = sentence.split("،", 1)[0]
+    special = {
+        "اجا": ("בניין ראשון", "גזרת ל״א"), "حكى": ("בניין ראשון", "גזרת ל״א"),
+        "اعطى": ("בניין רביעי", "גזרת ל״א"), "اشترى": ("בניין שמיני", "גזרת ל״א"),
+        "اخد": ("בניין ראשון", "גזרת פַעַל"), "شكر": ("בניין ראשון", "גזרת פַעַל"),
+        "تغدّى": ("בניין חמישי", "גזרת ל״א"), "غنّى": ("בניין שני", "גזרת ל״א"),
+        "زاد": ("בניין ראשון", "גזרת ע״י"), "جاب": ("בניין ראשון", "גזרת ע״י"),
+        "باع": ("בניין ראשון", "גזרת ע״י"), "صار": ("בניין ראשון", "גזרת ע״י"),
+        "وقّف": ("בניין שני", "גזרת השלמים"), "استنّى": ("בניין עשירי", "גזרת ל״א"),
+        "لاقى": ("בניין שלישי", "גזרת ל״א"), "ساوى": ("בניין שלישי", "גזרת ל״א"),
+        "نسي": ("בניין ראשון", "גזרת ל״א"), "بكى": ("בניין ראשון", "גזרת ל״א"),
+        "زعّل": ("בניין שני", "גזרת השלמים"), "مشي": ("בניין ראשון", "גזרת ל״א"),
+        "نام": ("בניין ראשון", "גזרת ע״ו"), "عاش": ("בניין ראשון", "גזרת ע״י"),
+    }
+    return special[past] if past in special else defaults[unlock]
+
+
+def _game_verbs() -> list[tuple[str, tuple, str, str]]:
+    """Every verb when first taught: unlock lesson, exercise, building, and class.
+
+    Later review topics repeat earlier verbs; keeping the first occurrence makes the game cumulative without
+    putting the same verb into its pool twice.
+    """
+    out, seen = [], set()
+    for key, topics in LESSONS.items():
+        for tid, _, _, _, items in topics:
+            if tid != "verbs":
+                continue
+            for item in items:
+                signature = item[1]   # the Arabic past + future pair is the stable identity
+                if signature not in seen:
+                    seen.add(signature)
+                    unlock = lesson_id(*key)
+                    out.append((unlock, item, *_verb_hint(unlock, signature)))
+    return out
+
+
+GAME_ITEMS = {"game-yalla-verb": _game_verbs()}
 
 
 def _present_of(key: str) -> tuple[str, list[str]] | None:
@@ -3935,9 +3985,11 @@ def workbook_phrases() -> list[dict]:
                     phrase["seq"] = seq
                 out.append(phrase)
     for game in GAMES:
-        for he, sentence, *he_say in GAME_ITEMS[game["id"]]:
+        for unlock, (he, sentence, *he_say), binyan, gizra in GAME_ITEMS[game["id"]]:
             words = [_word(t) for t in sentence.split()]
-            phrase = dict(cat=game["id"], he=he, tr=" ".join(t for _, t, _ in words), variants=_variants(words))
+            he = re.sub(r"\s*\(עבר, עתיד\)$", "", he)
+            phrase = dict(cat=game["id"], he=he, tr=" ".join(t for _, t, _ in words),
+                          variants=_variants(words), unlock=unlock, binyan=binyan, gizra=gizra)
             say = _voiced(he_say[0] if he_say else he)
             if say != he:
                 phrase["he_say"] = say

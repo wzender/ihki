@@ -5,6 +5,7 @@ Env:  MODEL_ID  (default facebook/wav2vec2-xlsr-53-espeak-cv-ft, or a path to a 
       SAWTAK_API_KEY, SAWTAK_VOICE_ID  (model-answer playback, see app/tts.py)
       SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY  (Google sign-in, see app/auth.py)
       TEACHER_EMAILS, SUPABASE_SECRET_KEY  (the teacher's management panel, its classes and the lesson videos, see app/auth.py)
+      TUTORS_EMAIL  (more accounts that, like the teachers, flag a recording scored wrong, see app/auth.py)
 A local .env file is loaded if present; real environment variables win over it.
 """
 from __future__ import annotations
@@ -15,6 +16,7 @@ import os
 import re
 import time
 import urllib.parse
+import uuid
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -30,8 +32,10 @@ from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .reference import References
 from .scorer import Scorer, decode_audio, load_scorer
+from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
 from .tts import VOICES, SawtakTTS, TTSUnavailable, load_tts
+from .verb_game import VerbExerciseGenerator
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("ihki")
@@ -112,6 +116,19 @@ CREATE_WRITINGS = ("create table public.writings (user_id uuid not null default 
                    'create policy "students add their own writings" on public.writings for insert to authenticated with check (user_id = auth.uid()); '
                    'create policy "students change their own writings" on public.writings for update to authenticated '
                    "using (user_id = auth.uid()) with check (user_id = auth.uid());")
+# A tutor's flags (see auth.py): a recording that was said right and scored wrong, with what the scorer made of it.
+# `ipa` is what was said, so `audio,ipa` of these rows is training data as train/finetune.py reads it.
+CREATE_FLAGS = ("create table public.flags (id bigint generated always as identity primary key, email text not null, "
+                "cat text not null, phrase text not null, he text not null, ar text not null, ipa text not null, heard_ipa text not null, "
+                "score int not null, unrelated boolean not null default false, note text not null default '', result jsonb not null, "
+                "model text not null, version text not null default '', audio text, created_at timestamptz not null default now()); "
+                "alter table public.flags enable row level security; "
+                "insert into storage.buckets (id, name) values ('flags', 'flags') on conflict (id) do nothing;")
+# The students the teacher gave the tutor's rank (see auth.py): theirs in every class, so it is kept by email.
+CREATE_TUTORS = ("create table public.tutors (email text primary key, granted_by text not null default '', "
+                 "created_at timestamptz not null default now()); alter table public.tutors enable row level security;")
+MAX_NOTE = 500
+AUDIO_EXT = {"webm": "webm", "ogg": "ogg", "mp4": "m4a", "mpeg": "mp3", "wav": "wav", "x-wav": "wav"}   # by the upload's type
 TOPIC_LESSON = {c["id"]: c["lesson"] for c in CATEGORIES}   # a topic's lesson: homework is a topic of the class's lessons
 MIGRATE_CLASSES = ("alter table public.classes add column if not exists nicknames jsonb not null default '{}', "
                    "add column if not exists lessons text[] not null default '{}', "
@@ -259,6 +276,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         yield
 
     app = FastAPI(title="ihki", lifespan=lifespan)
+    app.state.verb_game = VerbExerciseGenerator()
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
     def signed_in(request: Request) -> dict | None:
@@ -280,9 +298,15 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, f"class list not available: {e}")
         mine = [c for c in classes if email in c["emails"]]   # a student may be in several classes
         teacher = email in a.teachers
-        if classes and not mine and not teacher:   # before the first class, any account is let in
+        tutor = teacher or email in a.tutors   # a teacher flags a wrong score too
+        if classes and not mine and not tutor:   # before the first class, any account is let in
             raise HTTPException(403, "this account is not on the list")
-        return {**user, "token": token.strip(), "teacher": teacher, "classes": mine}
+        if not tutor:   # the rank the teacher gave in the panel; it lets nobody in by itself
+            try:
+                tutor = email in (a.ranked() or ())
+            except AuthUnavailable as e:
+                log.warning("tutors not read: %s", e)
+        return {**user, "token": token.strip(), "teacher": teacher, "tutor": tutor, "classes": mine}
 
     def teacher_only(user: dict | None = Depends(signed_in)) -> SupabaseAuth:
         if not user or not user["teacher"]:
@@ -350,6 +374,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             if d["id"] not in every or d["date"] < every[d["id"]]["date"]:
                 every[d["id"]] = d
         return {"email": user["email"] if user else "", "teacher": bool(user and user["teacher"]),
+                **({"tutor": True} if user and user["tutor"] else {}),   # the page shows them the flag under a score
                 **({"dailies": sorted(every.values(), key=lambda d: (d["date"], d["id"]))} if user and user["teacher"] else {}),
                 "classes": [{"name": c["name"], "lessons": lessons_of(c), **homework_of(c, topics()),
                              "dailies": dailies_of(c, daily_rows())} for c in mine],
@@ -396,11 +421,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def class_progress(a: SupabaseAuth = Depends(teacher_only)):
         """The teacher's panel: the classes (with their lessons and homework), and every student's summary (see `summary`) with
         "written", their written homework ({topic id: its lines}), with
+        "tutor" (the teacher gave them the tutor's rank, see `set_tutor`; "tutor_fixed" when TEACHER_EMAILS or TUTORS_EMAIL gives it, which the panel cannot change),
         their classes ({name: nickname}) and, as "since", the same summary for each class ({name: summary}) of the attempts
         made since the class was opened: a new class starts clean, whatever its students practised before. The students are the classes' accounts, or every account that signed in
         when there is no class yet; one that never signed in has joined = false."""
         try:
             classes, users, rows, wrote = a.classes(fresh=True), a.users(), a.all_attempts(), a.all_writings()
+            ranked = a.ranked(fresh=True)
         except AuthUnavailable as e:
             raise HTTPException(503, str(e))
         by: dict[str, list[dict]] = {}
@@ -420,7 +447,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         def student(email: str, name: str, joined: bool, mine: list[dict], wrote: dict | None = None) -> dict:
             into = member.get(email.lower(), {})
             since = {n: summary([r for r in mine if n not in opened or utc(r["created_at"]) >= opened[n]], bank) for n in into}
+            fixed = email.lower() in a.teachers | a.tutors
             return {"email": email, "name": name, "joined": joined, "classes": into, "since": since, "written": wrote or {},
+                    "tutor": fixed or email.lower() in (ranked or ()), **({"tutor_fixed": True} if fixed else {}),
                     **summary(mine, bank)}
 
         students = [student(u["email"], u["name"], True, by.get(u["id"], []), written.get(u["id"]))
@@ -432,8 +461,27 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         setup = [{"what": "הטבלה writings לא קיימת ב-Supabase, ולכן שיעורי הבית בכתיבה לא נשמרים: מה שהתלמידים כתבו נשאר במכשיר שלהם "
                           "והפאנל מראה שלא כתבו. אחרי יצירת הטבלה, המשפטים נשלחים בכניסה הבאה של כל תלמיד.",
                   "sql": CREATE_WRITINGS}] if wrote is None else []
+        if ranked is None:
+            setup.append({"what": "הטבלה tutors לא קיימת ב-Supabase, ולכן אי אפשר לתת לתלמיד דרגת מדווח/ת (דגל 🚩 מתחת לציון).",
+                          "sql": CREATE_TUTORS})
         return {"classes": [{**c, "lessons": lessons_of(c), **homework_of(c, lesson_of)} for c in classes], "students": students,
                 "setup": setup}
+
+    @app.put("/api/tutors")
+    def set_tutor(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only), user: dict | None = Depends(signed_in)):
+        """Gives a student the tutor's rank, or takes it back: {"email", "tutor": true or false}. The rank is the
+        student's in every class: they get the flag under each score (see `flag`)."""
+        email = str(body.get("email", "")).strip().lower()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email) or not isinstance(body.get("tutor"), bool):
+            raise HTTPException(400, "צריך כתובת אימייל של תלמיד/ה ו-tutor: true או false")
+        try:
+            a.set_tutor(email, body["tutor"], user["email"].lower())
+        except AuthUnavailable as e:
+            if "answered 404" in str(e):
+                raise HTTPException(503, "הטבלה tutors לא קיימת ב-Supabase. הריצו ב-SQL Editor: "
+                                         f"{CREATE_TUTORS} אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        return {"ok": True}
 
     def class_store_error(e: AuthUnavailable) -> str:
         """The teacher's message when a class cannot be written; a 404 means Supabase has no `classes` table."""
@@ -770,6 +818,67 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"levels": LEVELS, "lessons": LESSONS, "categories": CATEGORIES, "games": GAMES, "phrases": public_phrases(),
                 "voices": [{"id": i, "name": n} for n, i in VOICES.items()]}
 
+    def verb_lessons(user: dict | None) -> list[str]:
+        """Lessons available to this learner, using the existing class rules."""
+        if not user or user["teacher"] or not user["classes"]:
+            return READY_LESSONS
+        return [lesson for lesson in READY_LESSONS
+                if any(lesson in lessons_of(course) for course in user["classes"])]
+
+    @app.get("/api/verb-game")
+    def verb_game(user: dict | None = Depends(signed_in)):
+        """Configuration for "פועל יוצא" and the complete paradigms currently unlocked."""
+        return app.state.verb_game.metadata(verb_lessons(user))
+
+    @app.post("/api/verb-game/question")
+    def verb_question(body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        """Create a Level 1--5 exercise; answers remain server-side."""
+        try:
+            level = int(body.get("level", 1))
+            mastery = body.get("mastery") if isinstance(body.get("mastery"), dict) else {}
+            recent = body.get("recent") if isinstance(body.get("recent"), list) else []
+            return app.state.verb_game.question(level, verb_lessons(user), mastery, list(map(str, recent[-10:])))
+        except (TypeError, ValueError) as e:
+            raise HTTPException(400, str(e))
+        except LookupError as e:
+            raise HTTPException(404, str(e))
+
+    @app.post("/api/verb-game/answer")
+    def verb_answer(body: dict = Body(...), _user: dict | None = Depends(signed_in)):
+        """Grade one opaque question once and return feedback plus measured client response time."""
+        try:
+            return app.state.verb_game.answer(str(body.get("question_id", "")), body.get("answer"),
+                                              int(body.get("response_ms", 0)))
+        except (TypeError, ValueError) as e:
+            raise HTTPException(400, str(e))
+        except LookupError as e:
+            raise HTTPException(410, str(e))
+
+    @app.post("/api/verb-game/speech")
+    def verb_speech(audio: UploadFile = File(...), question_id: str = Form(...),
+                    user: dict | None = Depends(signed_in)):
+        """Evaluate Levels 4–5 audio without turning uncertain recognition into an error."""
+        try:
+            question, phrase = app.state.verb_game.speech_phrase(question_id)
+        except LookupError as e:
+            raise HTTPException(410, str(e))
+        data = audio.file.read(MAX_UPLOAD + 1)
+        if len(data) > MAX_UPLOAD:
+            raise HTTPException(413, "recording too long")
+        try:
+            wav = decode_audio(data)
+        except ValueError:
+            raise HTTPException(400, "could not decode audio")
+        if wav.size < 16_000 * .3:
+            return {"outcome": "uncertain", "counts_as_attempt": False,
+                    "message": "לא נשמע מספיק דיבור. האזינו להקלטה ונסו שוב."}
+        result = SpeechEvaluationService(app.state.scorer).evaluate(
+            wav, phrase, diagnostics=bool(user and user["teacher"]))
+        if result.get("outcome") == "correct":
+            app.state.verb_game.sessions.finish(question_id)
+        result["level"] = question.mode
+        return result
+
     @app.get("/api/health")
     def health():
         s: Scorer = app.state.scorer
@@ -845,6 +954,42 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 "cat": phrase["cat"], "phrase": phrase.get("key", phrase["he"]), "score": round(result["score"]),
                 "unrelated": bool(result.get("unrelated"))})
         return result
+
+    @app.post("/api/flags")
+    def flag(phrase_id: int = Form(...), audio: UploadFile = File(...), note: str = Form(""),
+             user: dict | None = Depends(signed_in)):
+        """A tutor's flag: this recording of the phrase was said right and the score was wrong. The recording is scored
+        again here, so what is kept is the scorer's own answer and not the page's copy of it: the row of `flags`
+        (see CREATE_FLAGS) and the recording beside it. {"ok", "audio": whether the recording was kept too, "flag": the
+        row that was kept, which the page shows the tutor}."""
+        if not user or not user["tutor"]:
+            raise HTTPException(403, "tutors only")
+        phrase = phrase_of(phrase_id)
+        data = audio.file.read(MAX_UPLOAD + 1)
+        if len(data) > MAX_UPLOAD:
+            raise HTTPException(413, "recording too long")
+        try:
+            wav = decode_audio(data)
+        except ValueError:
+            raise HTTPException(400, "could not decode audio")
+        refs = app.state.refs.get(phrase_id, phrase) if app.state.refs else []
+        result = app.state.scorer.score(wav, phrase, refs)
+        if result.get("error"):
+            raise HTTPException(400, result["message"])
+        mime = (audio.content_type or "application/octet-stream").lower()
+        ext = AUDIO_EXT.get(mime.partition(";")[0].strip().rpartition("/")[2], "bin")
+        row = {"email": user["email"].lower(), "cat": phrase["cat"], "phrase": phrase.get("key", phrase["he"]),
+               "he": phrase["he"], "ar": result["variant"]["ar"], "ipa": result["variant"]["ipa"],
+               "heard_ipa": result["heard_ipa"], "score": result["score"], "unrelated": bool(result["unrelated"]),
+               "note": " ".join(note.split())[:MAX_NOTE], "result": result, "model": MODEL_ID, "version": build_version()}
+        try:
+            kept = app.state.auth.add_flag(row, data, mime, f"{date.today():%Y-%m}/{uuid.uuid4().hex}.{ext}")
+        except AuthUnavailable as e:
+            if "answered 404" in str(e):
+                raise HTTPException(503, "הטבלה flags לא קיימת ב-Supabase. הריצו ב-SQL Editor: "
+                                         f"{CREATE_FLAGS} אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        return {"ok": True, "audio": kept, "flag": row}
 
     return app
 

@@ -35,7 +35,8 @@ app/
   phrases.py   phrase bank: accepted variants (Arabic + IPA) per phrase
   grammar.py   day-2 sentences as grammar: every pronoun × positive/negative, for the negation and conjugation buttons
   workbook.py  the course workbook lesson by lesson: each lesson's topics (pronouns, verbs, conjugations, the Hebrew → Arabic and Arabic → Hebrew sentences), and the levels
-  main.py      FastAPI: GET / (page), GET /api/phrases, GET /api/health, POST /api/score
+  verb_game.py "פועל יוצא" levels 1–5: exercise generation, adaptive choice, server-side grading
+  main.py      FastAPI: page, phrases/scoring, and "פועל יוצא" endpoints
 static/index.html   frontend (MediaRecorder → /api/score)
 train/finetune.py   CTC fine-tuning on your own recordings
 tests/              synthetic-emission tests, including an API test through ffmpeg
@@ -59,6 +60,21 @@ Tests (no model needed):
 ```bash
 pip install -r requirements-dev.txt && pytest -q
 ```
+
+## פועל יוצא (Switch & Speak)
+
+The Games tab contains an RTL, touch-first conjugation drill with two paths: learning new verbs and a daily retrieval workout. Levels 1–3 implement recognition, pronoun matching, and timed switching. Level 4 records a spoken conjugation; Level 5 starts with a controlled Palestinian-Arabic prompt and evaluates the target conjugation in the response.
+
+Conjugations come only from complete tables in `app/grammar.py` and the fully populated tables verified from the parsed Level 1/2 booklets. Every added booklet form must resolve to an Arabic entry in `workbook.LEX`; incomplete fill-in tables are excluded. Each verb carries the lesson where it is introduced, and signed-in learners receive only forms from their class's lessons.
+
+API endpoints:
+
+- `GET /api/verb-game` returns the available levels, tenses, and lesson-unlocked verbs.
+- `POST /api/verb-game/question` accepts `{"level": 1..3, "mastery": {...}, "recent": [...]}` and returns an opaque question. Correct answers are not sent to the browser.
+- `POST /api/verb-game/answer` accepts `{"question_id": "...", "answer": ..., "response_ms": 1234}`. A question can be graded only once. For Level 2, `answer` is a map from pronoun-card IDs to form-card IDs.
+- `POST /api/verb-game/speech` accepts multipart `question_id` and `audio` for Levels 4–5. `SpeechEvaluationService` wraps the existing phoneme scorer so another dialect ASR can replace it later. An unrelated or low-confidence recognition returns `outcome: "uncertain"` and `counts_as_attempt: false`; it never becomes a grammatical error automatically.
+
+Mastery is currently stored in browser local storage under `ihki.verbMastery` and `ihki.verbSummary`. `VERB_THRESH` in `static/index.html` configures the 85%/90% recognition gates, the Level 3 median response-time gate, and the 85% spoken-response gate; minimum attempt counts are defined next to it. `LEVELS` in `app/verb_game.py` configures choice counts and response windows. Persistent server mastery and spaced repetition remain separate work.
 
 ## Deploy for the teacher: Hugging Face Spaces (free, https)
 
@@ -103,6 +119,54 @@ The page's "ההתקדמות שלי" button reads these rows back through `GET /
 ### The teacher
 
 `TEACHER_EMAILS` names the teacher's Google account (several are separated by commas or spaces). After sign-in a teacher chooses between **תרגול**, the same practice a student gets, and **ניהול**, the management panel. The panel lists every student with their usage (recordings, those of the last 7 days, days practised, last practice), progress (sentences practised) and grade (the average of the best scores), and pressing a student opens their own screen in place of the class's: their figures, their homework, every lesson of the class with its topics, and their best and weakest sentences, all counted as the class counts. "חזרה לכיתה", or the browser's back button, returns to the class.
+
+### Flags: a score that is wrong
+
+Sometimes a sentence is said right and the system scores it wrong. The teachers (`TEACHER_EMAILS`) report such cases, and `TUTORS_EMAIL` names more accounts that do (several are separated by commas or spaces; they may sign in without being in a class, and get no management panel). The teacher also gives a student this tutor's rank in the panel: at the top of **תלמידים**, the part "🚩 מדווחים על ציונים שגויים" opens a list of every student of every class, each with a box to tick. The rank is the student's, whatever classes they are in, and by itself lets nobody sign in; the panel marks such a student with 🚩 in every class (`PUT /api/tutors`, teachers only: `{"email", "tutor": true|false}`). It is kept by email in the table `tutors`; create it once (until then the panel shows this command):
+
+```sql
+create table public.tutors (
+  email      text primary key,
+  granted_by text not null default '',   -- the teacher who gave the rank
+  created_at timestamptz not null default now()
+);
+alter table public.tutors enable row level security;   -- no policy: only the secret key reads and writes it
+```
+
+Under each score a teacher or a tutor gets an optional note and the button "🚩 אמרתי נכון, המערכת טעתה". Pressing it sends the recording to `POST /api/flags` (teachers and tutors only), which scores it again and keeps what describes the case in the table `flags`, written with `SUPABASE_SECRET_KEY`. A box then shows what was kept in words: the sentence, what the model heard, each word's score, the sounds that were marked down and what took their place, and whether the recording was stored. The row holds:
+
+- who and what: `email`, `cat`, `phrase`, `he`, `note`;
+- the answer the scorer matched (`ar`, `ipa`), its free decode (`heard_ipa`), `score` and `unrelated`;
+- `result`: the whole score response (every word and phoneme with its score and what took its place, the tips, the issues);
+- `model` and `version`, so a flag can be checked against the model and build that produced it;
+- `audio`: the recording's name in the private storage bucket `flags` (null when it could not be stored).
+
+Create the table and the bucket once (until then a flag is refused with this command in the message):
+
+```sql
+create table public.flags (
+  id         bigint generated always as identity primary key,
+  email      text not null,      -- the tutor
+  cat        text not null,      -- the topic id
+  phrase     text not null,
+  he         text not null,      -- the Hebrew prompt
+  ar         text not null,      -- the accepted answer the scorer matched
+  ipa        text not null,      -- its phonemes: what the tutor says was said
+  heard_ipa  text not null,      -- the model's free decode
+  score      int  not null,
+  unrelated  boolean not null default false,
+  note       text not null default '',
+  result     jsonb not null,     -- the whole score response
+  model      text not null,
+  version    text not null default '',
+  audio      text,               -- the recording's name in the storage bucket flags
+  created_at timestamptz not null default now()
+);
+alter table public.flags enable row level security;   -- no policy: only the secret key reads and writes it
+insert into storage.buckets (id, name) values ('flags', 'flags') on conflict (id) do nothing;
+```
+
+The rows are for the teacher to read later in Supabase (Table Editor → `flags`; the recordings under Storage → `flags`), to change the scoring or its calibration. As a flag says the sentence was said as written, `audio,ipa` of these rows is training data in the format `train/finetune.py` reads (see "Fine-tuning").
 
 ### Levels
 

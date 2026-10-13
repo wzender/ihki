@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>אהלא וסהלא</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Secular+One&family=Noto+Naskh+Arabic:wght@500;700&family=Noto+Sans+Mono&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Secular+One&family=Noto+Naskh+Arabic:wght@500;700&family=Noto+Sans+Hebrew:wght@500;700&family=Noto+Sans+Mono&display=swap">
 <style>
 /* Layout: one compact practice card that fits the first screen: prompt, mic, hint, per-word feedback, actions. RTL. */
 :root{
@@ -14,6 +14,9 @@
   --sumac:#A3303F; --sumac-bg:#F6E3E3; --ok:#2F7A4A; --ok-bg:#E1F0E4; --amber:#8A5E0E; --amber-bg:#F5ECD8; --orange:#C45F00;
   --f-display:"Secular One","Assistant",system-ui,sans-serif;
   --f-body:"Assistant",system-ui,"Segoe UI",Arial,sans-serif;
+  /* Noto Sans Hebrew draws the vowel points larger and more distinctly than Assistant,
+     especially the line of patah versus the two dots of tsere on small screens. */
+  --f-tr:"Noto Sans Hebrew","Arial Hebrew","Rubik",sans-serif;
   --f-ar:"Noto Naskh Arabic","Geeza Pro","Arabic Typesetting","Traditional Arabic",serif;
   --f-ipa:"Noto Sans Mono","DejaVu Sans Mono",ui-monospace,monospace;
 }
@@ -89,6 +92,23 @@ body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bot
 #vids button .seen{grid-row:1;grid-column:3}
 #vids button.now{padding-block:16px;background:var(--olive);border-color:var(--olive);color:var(--on-olive);box-shadow:0 3px 0 var(--olive-deep);font-size:17px}
 #vids button.now i,#vids button.now small{color:inherit}
+/* Refer a friend: a compact campaign page inside the home navigation, with the two rewards kept visually distinct. */
+.refer{display:flex;flex-direction:column;gap:14px}
+.refer>header{display:block;text-align:center;padding:8px 6px 2px}
+.refer>header h2{margin:0;font:400 28px/1.25 var(--f-display);color:var(--olive)}
+.refer>header p{margin:5px 0 0;color:var(--muted)}
+.refer-rewards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.refer-reward{padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.refer-reward b{display:block;margin-bottom:5px;color:var(--olive);font-size:18px}
+.refer-reward strong{color:var(--sumac)}
+.refer-copy{margin:0;padding:14px;border-radius:14px;background:var(--olive-soft);text-align:center;font-weight:600}
+.refer h3{margin:2px 0 0;font:400 21px/1.2 var(--f-display)}
+.refer .refer-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.refer .refer-actions :is(a,button){display:flex;justify-content:center;align-items:center;min-height:50px;padding:10px 12px;border-radius:12px;border:1px solid var(--olive);background:var(--surface);color:var(--olive);font:700 16px/1.25 var(--f-body);text-align:center;text-decoration:none;cursor:pointer}
+.refer .refer-actions a:first-child{background:var(--olive);color:var(--on-olive);box-shadow:0 3px 0 var(--olive-deep)}
+.refer-message{margin:0;padding:14px;border:1px dashed var(--line);border-radius:12px;background:var(--surface);white-space:pre-line}
+.refer-terms{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+@media (max-width:430px){.refer-rewards,.refer .refer-actions{grid-template-columns:1fr}}
 /* the way back to the path, at the head of the daily videos' screen (no tab of the foot's bar is lit there) */
 #vids button.back{display:inline-flex;align-self:flex-start;gap:6px;padding:6px 12px;border-radius:10px;background:var(--olive);border-color:var(--olive);color:var(--on-olive);font:700 15px var(--f-body)}
 #dailyDlg{width:min(92vw,380px)}
@@ -148,6 +168,20 @@ body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bot
 .cup.won{background:var(--amber-bg);border-color:var(--amber);box-shadow:0 0 0 6px color-mix(in srgb,var(--amber) 22%,transparent)}
 #toNow{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:8;padding:9px 16px;border:0;border-radius:999px;background:var(--olive);color:var(--on-olive);box-shadow:0 3px 0 var(--olive-deep),0 6px 16px rgb(0 0 0/.25);font:700 14px/1 var(--f-body);cursor:pointer}
 @media (prefers-reduced-motion:reduce){.dot,.chapter{transition:none}.tag,.road .live{animation:none}.sat.now .ring::after{animation:none;opacity:.6}}
+.verb-dlg{width:min(94vw,560px);max-height:92vh;padding:0;border:0;border-radius:20px;background:var(--bg);color:var(--ink);box-shadow:0 18px 70px rgb(0 0 0/.35)}
+.verb-dlg::backdrop{background:rgb(20 28 22/.58)}
+.verb-shell{display:flex;flex-direction:column;gap:14px;padding:16px;min-height:min(76vh,650px)}
+.verb-head{display:flex;align-items:center;gap:10px}.verb-head h2{flex:1;margin:0;font:400 26px var(--f-display)}
+.verb-stats{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}
+.verb-track{height:7px;border-radius:8px;background:var(--line);overflow:hidden}.verb-track i{display:block;height:100%;width:0;background:var(--olive);transition:width .2s}
+.verb-menu{display:grid;gap:10px}.verb-path{padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);text-align:start;font:700 17px var(--f-body);cursor:pointer}.verb-path small{display:block;margin-top:4px;color:var(--muted);font-weight:600}
+.verb-levels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.verb-levels button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:58px;padding:7px 4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-weight:700}.verb-levels button small{font:600 11px/1.25 var(--f-body);color:var(--muted)}.verb-levels button.on{background:var(--olive);color:var(--on-olive)}.verb-levels button.on small{color:inherit}.verb-levels button:disabled{opacity:1;border-style:dashed;color:var(--muted);background:color-mix(in srgb,var(--surface) 75%,var(--line))}.verb-levels button:disabled::before{content:"🔒";font-size:14px;line-height:1}
+.verb-board{display:flex;flex:1;flex-direction:column;gap:12px}.verb-cue{text-align:center}.verb-cue h3{margin:8px 0 2px;font:400 clamp(28px,8vw,42px) var(--f-display)}.verb-cue .ar{font:26px var(--f-ar);color:var(--muted)}
+.verb-pronoun{margin:8px 0 0;font:700 22px/1.65 var(--f-tr);letter-spacing:.025em}.verb-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.verb-choice{min-height:84px;padding:8px 10px 4px;border:2px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);font:700 25px/1.75 var(--f-tr);letter-spacing:.035em;cursor:pointer}.verb-choice .ar{display:block;margin-top:-5px;font:18px/1.25 var(--f-ar);letter-spacing:0;color:var(--muted)}.verb-choice.good{border-color:var(--ok);background:var(--ok-bg)}.verb-choice.bad{border-color:var(--sumac);background:var(--sumac-bg)}
+.verb-match{display:grid;grid-template-columns:1fr 1fr;gap:8px}.verb-match button{min-height:68px;padding:6px 8px 3px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:700 22px/1.7 var(--f-tr);letter-spacing:.03em}.verb-match button small{display:block;margin-top:-5px;font:500 17px/1.5 var(--f-tr);letter-spacing:.02em;color:var(--muted)}.verb-match button.selected{border-color:var(--amber);background:var(--amber-bg)}.verb-match button.done{border-color:var(--ok);opacity:.58}.verb-match .ar{display:block;margin-top:-4px;font:16px/1.25 var(--f-ar);letter-spacing:0}
+.verb-feedback{min-height:44px;padding:10px;border-radius:12px;text-align:center;font-weight:700}.verb-feedback:empty{padding:0}.verb-feedback.good{background:var(--ok-bg);color:var(--ok)}.verb-feedback.bad{background:var(--sumac-bg);color:var(--sumac)}
+.verb-speak{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}.verb-mic{display:grid;place-items:center;width:86px;height:86px;border:0;border-radius:50%;background:var(--olive);color:var(--on-olive);font-size:34px;box-shadow:0 5px 0 var(--olive-deep);cursor:pointer}.verb-mic.live{background:var(--sumac);box-shadow:0 5px 0 color-mix(in srgb,var(--sumac) 70%,#000)}.verb-mic:disabled{opacity:.5}.verb-record-actions{display:flex;gap:8px}.verb-conversation{padding:14px;border-radius:16px;background:var(--olive-soft)}.verb-conversation .ar{font:700 27px/1.6 var(--f-ar)}.verb-answer{font:700 25px/1.7 var(--f-tr);letter-spacing:.035em}
+@media (max-width:410px){.verb-choices{grid-template-columns:1fr}.verb-shell{padding:12px}.verb-choice{min-height:62px}}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
 .meta{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;letter-spacing:.04em;font-variant-numeric:tabular-nums}
 .meta .idx{background:var(--olive-soft);color:var(--olive);font-weight:700;padding:1px 10px;border-radius:999px}
@@ -157,7 +191,7 @@ body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bot
 .prompt .note{display:block;margin-top:4px;font:600 14px/1.3 var(--f-body);color:var(--muted)}
 .task{color:var(--muted);font-size:14px;margin:-6px 0 0}
 .hint{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 16px;padding:6px 12px;border-radius:10px;background:var(--olive-soft)}
-.hint .tr{font-size:22px;font-weight:700}
+.hint .tr{font:700 25px/1.75 var(--f-tr);letter-spacing:.035em}
 /* doubling mark: drawn here, because an Arabic shadda on a Hebrew letter has no glyph on Android */
 .sh{position:relative}
 .sh::before{content:"";position:absolute;top:-.16em;left:50%;transform:translateX(-50%);width:.44em;height:.26em;background:currentColor;-webkit-mask:var(--shadda) center/contain no-repeat;mask:var(--shadda) center/contain no-repeat}
@@ -217,6 +251,15 @@ body.driving .mic::before{display:none} body.driving .mic-zone.two{display:flex}
 .word .n{font-size:12px;line-height:1.5;color:var(--muted);font-variant-numeric:tabular-nums}
 .word .n [lang=ar]{font-family:var(--f-ar);font-size:14px}
 .word .w.bad{background:none;color:var(--sumac)} .word .w.mid{background:none;color:var(--amber)} .word .w.good{background:none;color:var(--ink)}
+.flag-box{display:flex;flex-wrap:wrap;align-items:center;gap:8px;border-top:1px dashed var(--line);padding-top:10px}
+.flag-box input{flex:1 1 180px;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--surface);color:inherit}
+.flag-box .sub{flex-basis:100%;margin:0}
+.flag-facts{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:8px 0 0}
+.flag-facts dt{color:var(--muted);font-size:13px;white-space:nowrap}
+.flag-facts dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.flag-facts .ipa{direction:ltr;text-align:right;font:13px/1.5 ui-monospace,monospace;unicode-bidi:isolate}
+.flag-facts ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
+.flag-facts b.good{color:var(--olive)} .flag-facts b.mid{color:#a86a00} .flag-facts b.bad{color:#9f2f27}
 .tips{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .tips li{padding:6px 10px;border-radius:10px;border:1px solid var(--line);font-size:15px;line-height:1.4}
 .tips .what::after{content:" · "}
@@ -294,8 +337,8 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .modes button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 6px;border:0;border-radius:10px;background:transparent;color:var(--ink);font:700 16px/1.2 var(--f-body);cursor:pointer}
 .modes button small{font:600 12px/1.2 var(--f-body);color:var(--muted)}
 .modes button[aria-selected=true]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.15)}
-#manage.classes :is(#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.classes) #mClasses{display:none}
-#manage.content :is(#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.content) #mContent{display:none}
+#manage.classes :is(#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.classes) #mClasses{display:none}
+#manage.content :is(#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.content) #mContent{display:none}
 /* the content part: a level's name, then a card per lesson with its topics and videos, a row each, and the form that adds a video */
 #mContent{display:flex;flex-direction:column;gap:12px}
 .csec[open]>:not(:last-child){margin-bottom:12px}
@@ -338,9 +381,14 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 #mClasses>.btn{align-self:flex-start}
 #mClasses .card>.btn{align-self:flex-start}
 /* a student's own screen takes the class's place in the panel: the way back, their figures, their lessons, their sentences */
-#manage.student :is(#mTabs,#mHead,#mLessons,#mRoster),#manage:not(.student) #mStudent{display:none}
+#manage.student :is(#mTutors,#mTabs,#mHead,#mLessons,#mRoster),#manage:not(.student) #mStudent{display:none}
 #mStudent{display:flex;flex-direction:column;gap:inherit}
 #mStudent .back{align-self:flex-start}
+#mTutors .note{margin:0;padding:8px 16px}
+#mTutors label{display:flex;align-items:center;gap:10px;padding:7px 16px;border-top:1px solid var(--line);cursor:pointer}
+#mTutors label span{display:flex;flex-direction:column;min-width:0}
+#mTutors label b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mTutors label small{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cform{display:flex;flex-direction:column;gap:10px}
 .cform label{display:flex;flex-direction:column;gap:4px;font:700 14px/1.3 var(--f-body)}
 .cform label small{font-weight:500;color:var(--muted)}
@@ -495,25 +543,56 @@ body.driving .card.storymode .prompt{display:block}
 /* a story's quiz, once it ended: the grade is back on the card, over the mistakes made most often */
 .card.storymode.quizdone .verdict{display:flex}
 .tips li .sub{display:block}
-/* "יאללה הפועל": a Hebrew verb rises in a timed bubble while the microphone listens. */
-.card.bubblemode{min-height:min(610px,72vh);overflow:hidden;position:relative;background:linear-gradient(180deg,#eef8f1 0%,var(--surface) 72%)}
-.card.bubblemode .prompt{position:relative;z-index:1;display:grid;place-items:center;width:clamp(150px,42vw,220px);height:clamp(150px,42vw,220px);margin:clamp(30px,10vh,80px) auto 18px;padding:22px;box-sizing:border-box;border:3px solid #111;border-radius:50%;background:#63bd4d;color:#111;box-shadow:inset -14px -18px 30px rgb(0 0 0/.12),0 14px 30px rgb(0 0 0/.18);animation:verb-rise 9s linear both}
-.card.bubblemode .prompt::before{content:"";position:absolute;inset:-10px;border-radius:50%;border:6px solid #111;clip-path:inset(0);animation:verb-time 9s linear both}
-.card.bubblemode .prompt::after{content:"";position:absolute;left:18%;top:17%;width:18%;height:10%;border-radius:50%;background:rgb(0 0 0/.16);transform:rotate(-28deg)}
-.card.bubblemode .bubble-grade{position:absolute;inset:auto 0 24px;font:800 30px/1 var(--f-display);color:#111;font-variant-numeric:tabular-nums}
+/* "פועל נגד הזמן": a Hebrew verb rises in a timed balloon while the microphone listens. */
+.card.bubblemode{min-height:min(610px,72vh);overflow:hidden;position:relative;background:linear-gradient(180deg,#dff4ff 0%,#f5fbff 68%,var(--surface) 100%)}
+.card.bubblemode .prompt{position:relative;z-index:1;display:grid;place-items:center;width:clamp(150px,42vw,220px);height:clamp(175px,48vw,250px);margin:clamp(30px,10vh,80px) auto 18px;padding:28px;box-sizing:border-box;border:2px solid #2e782a;border-radius:50% 50% 48% 52%/46% 46% 54% 54%;background:radial-gradient(ellipse at 29% 22%,rgb(255 255 255/.88) 0 5%,rgb(255 255 255/.35) 6% 13%,transparent 14%),radial-gradient(ellipse at 36% 29%,#9ce98a 0%,#69c956 30%,#45a83d 66%,#287823 100%);color:#10230e;text-shadow:0 1px 0 rgb(255 255 255/.45);box-shadow:inset 14px 18px 28px rgb(255 255 255/.2),inset -20px -24px 38px rgb(15 76 17/.3),0 22px 30px rgb(37 90 42/.22);animation:verb-rise 12s linear both}
+.card.bubblemode .prompt::before{content:"";position:absolute;inset:-10px;border-radius:50% 50% 48% 52%/46% 46% 54% 54%;border:5px solid #205f20;clip-path:inset(0);animation:verb-time 12s linear both}
+.card.bubblemode .prompt::after{content:"";position:absolute;left:50%;top:calc(100% - 2px);width:25px;height:22px;background:linear-gradient(135deg,#52b747,#277923);clip-path:polygon(50% 0,100% 100%,0 100%);transform:translateX(-50%);filter:drop-shadow(0 3px 2px rgb(0 0 0/.18))}
+.card.bubblemode .bubble-grade{position:absolute;left:50%;bottom:28px;min-width:64px;padding:6px 11px;border:2px solid #fff;border-radius:999px;background:linear-gradient(180deg,#ffd95e,#f2a91d);color:#4c3100;box-shadow:0 3px 0 #a96800,0 6px 12px rgb(66 50 0/.22);font:800 20px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap;transform:translateX(-50%);animation:grade-pop .38s cubic-bezier(.2,1.8,.4,1)}
+.card.bubblemode .bubble-grade::before{content:"★";margin-inline-end:4px;color:#fff;text-shadow:0 1px 1px rgb(92 58 0/.35)}
+.card.bubblemode .bubble-grade.good{background:linear-gradient(180deg,#ffe66f,#ffc52f);color:#513600}
+.card.bubblemode .bubble-grade.mid{background:linear-gradient(180deg,#fff0a7,#efbd3f);color:#513600}
+.card.bubblemode .bubble-grade.bad{background:linear-gradient(180deg,#ffc1a9,#ef7558);color:#642114;box-shadow:0 3px 0 #a43d29,0 6px 12px rgb(66 20 0/.2)}
+.bubble-score{display:flex;position:absolute;top:16px;left:16px;z-index:3;align-items:center;gap:9px;padding:8px 13px;border:2px solid #205f20;border-radius:14px;background:rgb(255 255 255/.9);color:#174f18;box-shadow:0 4px 0 #205f20,0 8px 18px rgb(30 91 36/.18);font:800 15px/1 var(--f-body);font-variant-numeric:tabular-nums;backdrop-filter:blur(5px)}
+.bubble-score[hidden]{display:none}
+.bubble-score b{min-width:1.5ch;font:800 30px/1 var(--f-display);text-align:center}
+.bubble-score.tick b{animation:score-pop .38s cubic-bezier(.2,1.8,.4,1)}
+.bubble-score small{display:block;margin-top:3px;color:#527254;font:700 12px/1 var(--f-body)}
+.bubble-misses{display:flex;position:absolute;top:18px;left:145px;right:12px;z-index:3;align-items:flex-start;gap:3px;direction:ltr;pointer-events:none}
+.bubble-misses[hidden]{display:none}
+.mini-balloon{position:relative;flex:0 0 18px;width:18px;height:22px;border:1px solid #2e782a;border-radius:50% 50% 48% 52%/46% 46% 54% 54%;background:radial-gradient(ellipse at 29% 22%,rgb(255 255 255/.85) 0 8%,transparent 16%),radial-gradient(ellipse at 36% 29%,#9ce98a 0%,#69c956 38%,#287823 100%);box-shadow:inset -3px -4px 5px rgb(15 76 17/.25),0 2px 3px rgb(37 90 42/.22)}
+.mini-balloon::after{content:"";position:absolute;left:50%;top:calc(100% - 1px);width:6px;height:5px;background:#348e30;clip-path:polygon(50% 0,100% 100%,0 100%);transform:translateX(-50%)}
+.mini-balloon.landed{animation:mini-land .3s cubic-bezier(.2,1.7,.4,1)}
+.miss-flight{position:fixed;z-index:30;margin:0;border:2px solid #2e782a;border-radius:50% 50% 48% 52%/46% 46% 54% 54%;background:radial-gradient(ellipse at 29% 22%,rgb(255 255 255/.88) 0 5%,rgb(255 255 255/.35) 6% 13%,transparent 14%),radial-gradient(ellipse at 36% 29%,#9ce98a 0%,#69c956 30%,#45a83d 66%,#287823 100%);box-shadow:inset -14px -18px 30px rgb(15 76 17/.3),0 14px 24px rgb(37 90 42/.2);pointer-events:none}
+.card.bubblemode .prompt.missed{visibility:hidden}
+.bubble-hint{position:absolute;top:84px;left:16px;z-index:3;min-width:150px;max-width:190px;padding:10px 13px;border-radius:12px;background:rgb(255 255 255/.94);color:#174f18;box-shadow:0 4px 14px rgb(30 91 36/.18);font:700 14px/1.35 var(--f-body);animation:hint-in .25s ease-out both}
+.bubble-hint[hidden]{display:none}
+.bubble-hint small{display:block;color:#527254;font-size:11px}
+.bubble-hint .binyan{display:block;margin-top:2px}
+.bubble-hint .gizra{display:block;margin-top:3px;color:#103f13;font:800 23px/1.35 var(--f-display);text-shadow:0 1px 0 #fff}
+.bubble-hint .past{display:block;margin-top:9px;padding-top:7px;border-top:1px solid #c9ddc5}
+.bubble-hint .past[hidden]{display:none}
+.bubble-hint .past b{display:block;margin-top:2px;color:#103f13;font:800 25px/1.2 var(--f-display);direction:rtl}
+.bubble-hint .past em{display:block;margin-top:2px;color:#527254;font:700 17px/1.2 sans-serif;font-style:normal;direction:rtl}
 .card.bubblemode .task{font-weight:700;color:var(--olive)}
 .card.bubblemode .donehint,.card.bubblemode .progress{position:relative;z-index:2}
-.card.bubblemode>:not(.prompt){display:none!important}
+.card.bubblemode>:not(.prompt):not(.bubble-score):not(.bubble-misses):not(.bubble-hint){display:none!important}
 body.bubble-game #wrap>header,body.bubble-game #practice>.roundbar{display:none}
 #gameBack{display:none}
 body.bubble-game #gameBack{display:flex;position:fixed;top:max(12px,env(safe-area-inset-top));right:12px;z-index:12;align-items:center;gap:6px;border:2px solid #111;border-radius:999px;background:#63bd4d;color:#111;padding:9px 14px;font:800 15px/1 var(--f-body);cursor:pointer;box-shadow:0 3px 0 #111}
 body.bubble-game #gameBack:active{transform:translateY(2px);box-shadow:0 1px 0 #111}
-.card.bubblemode .prompt.burst{animation:verb-burst .42s ease-out forwards}
+.card.bubblemode .prompt.burst{animation:verb-burst .28s ease-out forwards}
 .card.bubblemode .prompt.burst::before{animation:none;opacity:0}
-@keyframes verb-rise{from{transform:translateY(78px) scale(.88)}to{transform:translateY(-82px) scale(1.04)}}
+.card.bubblemode .prompt.burst::after{left:50%;top:50%;width:11px;height:11px;border-radius:50% 10% 55% 20%;background:#45a83d;clip-path:none;filter:none;box-shadow:0 -76px 0 #9ce98a,54px -54px 0 #348e30,76px 0 0 #72d261,54px 54px 0 #287823,0 76px 0 #8cdd79,-54px 54px 0 #3b9d35,-76px 0 0 #65c654,-54px -54px 0 #2e842a;animation:verb-splash .32s ease-out forwards}
+@keyframes verb-rise{0%{transform:translateY(78px) rotate(-2deg) scale(.88)}45%{transform:translateY(5px) rotate(2deg) scale(.96)}100%{transform:translateY(-82px) rotate(-1deg) scale(1.04)}}
 @keyframes verb-time{from{clip-path:inset(0)}to{clip-path:inset(100% 0 0 0)}}
-@keyframes verb-burst{0%{transform:scale(1);opacity:1}55%{transform:scale(1.3);opacity:.9}100%{transform:scale(1.75);opacity:0}}
-@media (prefers-reduced-motion:reduce){.card.bubblemode .prompt{animation:none}}
+@keyframes verb-burst{0%{transform:scale(1);opacity:1}35%{transform:scale(1.12,.9);opacity:1}58%{transform:scale(.82,1.18);opacity:.95}100%{transform:scale(1.7);opacity:0}}
+@keyframes verb-splash{0%{transform:translate(-50%,-50%) scale(.15);opacity:0}35%{opacity:1}100%{transform:translate(-50%,-50%) scale(1.65);opacity:0}}
+@keyframes score-pop{0%{transform:scale(1)}45%{transform:scale(1.55);color:#2d9b31}100%{transform:scale(1)}}
+@keyframes grade-pop{0%{transform:translateX(-50%) scale(.25) rotate(-8deg);opacity:0}65%{transform:translateX(-50%) scale(1.18) rotate(3deg);opacity:1}100%{transform:translateX(-50%) scale(1) rotate(0)}}
+@keyframes hint-in{from{transform:translateY(-6px);opacity:0}to{transform:none;opacity:1}}
+@keyframes mini-land{0%{transform:scale(.4)}65%{transform:scale(1.35)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.card.bubblemode .prompt{animation:none}.card.bubblemode .prompt.burst{opacity:0}.card.bubblemode .prompt.burst::after{animation:none;opacity:0}}
 /* Without a microphone ("תרגול שקט ללא ציון"): a Hebrew sentence is answered by hand instead of said, built from its
    Arabic words, tapped in order out of a bank that holds a few words too many. */
 body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#heBtn,.miclab,.phone-btn){display:none}
@@ -578,7 +657,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 
   <div id="today" hidden></div>
   <section id="vids" aria-live="polite"></section>
-  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="games" hidden>משחקים</button><button data-view="library">ספריה דיגיטלית</button></nav>
+  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="games" hidden>משחקים</button><button data-view="library">ספריה דיגיטלית</button><button data-view="refer">חבר מביא חבר</button></nav>
   <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
   <button id="toNow" hidden></button>
 
@@ -597,6 +676,9 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   <div id="envWarn" class="warn" hidden></div>
 
   <main class="card" id="card" aria-live="polite">
+    <div class="bubble-score" id="bubbleScore" hidden><span>ניקוד<small id="bubbleCount"></small></span><b id="bubblePoints">0</b></div>
+    <div class="bubble-misses" id="bubbleMisses" hidden aria-label="בלונים שלא התפוצצו"></div>
+    <div class="bubble-hint" id="bubbleHint" hidden><small>רמז</small><span class="binyan" id="bubbleBinyan"></span><strong class="gizra" id="bubbleGizra"></strong><span class="past" id="bubblePast" hidden><small>עבר · הוא</small><b id="bubblePastText"></b><em id="bubblePastAr" lang="ar"></em></span></div>
     <div class="meta"><span id="counter"></span></div>
     <div class="progress" id="progress" hidden><i id="progressBar"></i></div>
     <div class="donehint" id="doneHint" hidden></div>
@@ -629,6 +711,11 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
       <div class="verdict"><span class="score" id="score"></span><span class="pill" id="pill"></span><div class="words" id="words"></div></div>
       <p class="sub" id="whyHint" hidden></p>
       <ul class="tips" id="tips"></ul>
+      <div class="flag-box" id="flagBox" hidden>
+        <input id="flagNote" maxlength="500" placeholder="מה קרה? (לא חובה)" aria-label="הערה לדיווח">
+        <button class="btn" id="flagBtn" title="ההקלטה, הציון ומה שהמודל שמע נשמרים למורה">🚩 אמרתי נכון, המערכת טעתה</button>
+        <p class="sub" id="flagMsg" role="status"></p>
+      </div>
     </section>
 
     <div class="row" id="varRow" hidden>
@@ -652,6 +739,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
     <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>ההתקדמות בכל כיתה</small></button><button role="tab" data-mode="content">תוכן<small>נושאים, סרטונים וטקסטים</small></button></div>
     <div id="mClasses"></div>
     <div id="mContent"></div>
+    <div class="card hard" id="mTutors" hidden></div>
     <div class="tabs" id="mTabs" role="tablist" aria-label="כיתות" hidden></div>
     <div class="card" id="mHead" hidden></div>
     <div class="card hard" id="mLessons" hidden></div>
@@ -744,6 +832,20 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
     <label>הקראת המשפט בעברית<input type="checkbox" id="readHe"></label>
   </div>
 </dialog>
+<dialog id="verbDlg" class="verb-dlg" aria-labelledby="verbTitle">
+  <div class="verb-shell">
+    <div class="verb-head"><h2 id="verbTitle">פועל יוצא</h2><button class="btn" id="verbClose">סגירה</button></div>
+    <div class="verb-stats"><span id="verbProgress">מוכנים?</span><span id="verbStreak">רצף 0 🔥</span></div>
+    <div class="verb-track"><i id="verbBar"></i></div>
+    <div class="verb-menu" id="verbMenu">
+      <button class="verb-path" data-path="learn">ללמוד פעלים חדשים<small>זיהוי והתאמת גופים, בקצב נוח</small></button>
+      <button class="verb-path" data-path="daily">אימון הפעלים היומי<small>שליפה מהירה וחזרה על מה שכבר נלמד</small></button>
+      <div class="verb-levels" id="verbLevels"></div>
+    </div>
+    <div class="verb-board" id="verbBoard" hidden></div>
+    <div class="verb-feedback" id="verbFeedback" role="status"></div>
+  </div>
+</dialog>
 <dialog id="phoneDlg" aria-labelledby="phoneTitle">
   <div class="dlg-head"><h2 id="phoneTitle">ניתוח פונמות<small>הרצף הצפוי מול הפענוח החופשי של המודל</small></h2><button class="btn" id="phoneClose">סגירה</button></div>
   <p class="phone-note">זהו פירוש המודל להקלטה, ולא תעתיק פונטי מוסמך. תנועות קרובות ואורך תנועה מסומנים כהתאמה מקורבת.</p>
@@ -751,6 +853,10 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   <div class="phone-legend"><span><i class="good"></i>התאמה</span><span><i style="background:var(--olive-soft)"></i>התאמה מקורבת</span><span><i class="bad"></i>החלפה או השמטה</span><span><i class="mid"></i>תוספת</span></div>
   <section id="trackBox"><h3 class="heatmap-title">מיקום הפונמות בזמן</h3><div class="phone-track-wrap"><canvas id="phoneTrack" role="img" aria-label="רצף הפונמות הצפוי והמזוהה לאורך זמן"></canvas></div></section>
   <section id="heatmapBox"><h3 class="heatmap-title">הסתברות פונמות לאורך ההקלטה</h3><div class="heatmap-wrap"><canvas id="phoneHeatmap" role="img" aria-label="מפת חום של הסתברויות הפונמות לאורך ההקלטה"></canvas></div><div class="heatmap-scale"><span>0%</span><i></i><span>100%</span><span>· ★ פונמה צפויה</span></div></section>
+</dialog>
+<dialog id="flagDlg" aria-labelledby="flagTitle">
+  <div class="dlg-head"><h2 id="flagTitle">🚩 הדיווח נשמר<small>זה מה שהמורה יראה על ההקלטה הזו</small></h2><button class="btn" id="flagClose">סגירה</button></div>
+  <dl class="flag-facts" id="flagFacts"></dl>
 </dialog>
 <div id="whyTip" role="tooltip" hidden></div>
 <button id="logoutBtn" hidden>יציאה</button>
@@ -776,6 +882,7 @@ let MY_CLASSES=[], MY_CLASS=null;   // a student's classes ({name, lessons, home
 let daily=null, dailySaid=new Set(), dailyWas={};   // the daily session on the card: its sentence ids, those said in it, and their best scores before it
 let ALL_LEVELS=[], ALL_LESSONS=[], ALL_CATS=[], GAMES=[], MY_LESSONS=null, LESSONS=[], CATS=[], PHRASES=[], cat=store.get("ihki.cat",""), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
 let myAudioUrl=null;
+let TUTOR=false, lastRec=null;   // a teacher, or an account of TUTORS_EMAIL, flags a score that is wrong; the latest recording sent to be scored, {id, blob}
 const phraseOf=id=>PHRASES.find(p=>p.id===id);   // by id: the list skips the phrases that have no tab
 const categoryOf=id=>CATS.find(c=>c.id===id)||GAMES.find(g=>g.id===id);
 
@@ -870,6 +977,7 @@ function endDaily(){   // past the session's last sentence: back to the path, an
    The library: videos that are not on the path, the same ones for every level and class. */
 const dailyVideos=()=>{ const d=today(), seen=new Set(); return (FREE?TEACHER_DAILIES:(MY_CLASS?[MY_CLASS]:MY_CLASSES).flatMap(k=>k.dailies||[])).filter(v=>v.date<=d&&!seen.has(v.id)&&seen.add(v.id)).sort((a,b)=>b.date.localeCompare(a.date)); };
 const libVideos=()=>LIBRARY;
+const VERB_GAME_VISIBLE=false;   // "פועל יוצא" is still under development; flip to true to publish it again.
 function drawNav(){   // the tabs, and the screen of videos when one is on show
   const view=document.body.dataset.view||"", box=$("vids"), d=today();
   for(const b of $("nav").children){
@@ -885,6 +993,11 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
   if(view==="games"){
     const games=GAMES.filter(game=>!game.hidden);
     box.append(mark("","משחקים","h2"));
+    if(VERB_GAME_VISIBLE){
+      const switcher=mark("now","","button");
+      switcher.append(mark("","↻","i"),mark("","פועל יוצא","b"),mark("","מהבנה לשליפה מהירה של הטיית הפועל","small"));
+      switcher.onclick=openVerbGame; box.append(switcher);
+    }
     if(!games.length) box.append(mark("","המשחקים הראשונים יגיעו בקרוב.","p"));
     for(const game of games){
       const b=mark("now","","button"), done=PHRASES.filter(p=>p.cat===game.id&&best[p.id]!=null).length;
@@ -899,6 +1012,50 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     else box.append(mark("",was.length?"להיום אין סרטון חדש. אפשר לחזור לסרטונים הקודמים.":"עוד אין סרטונים יומיים. כשנקבע לסרטון תאריך (בעריכת הכיתה), הוא מופיע כאן מאותו יום.","p"));
     if(was.length) box.append(mark("","הסרטונים הקודמים","h3"));
     for(const v of was) row(v,dailyWatched,"ihki.dailyWatched",dayWord(v.date));
+  }else if(view==="refer"){
+    const page=mark("refer","","section");
+    page.innerHTML=`
+      <header><h2>חבר מביא חבר 🧡</h2><p>כולם מרוויחים, ויש לכם שותף או שותפה לדבר איתם בערבית 💬</p></header>
+      <div class="refer-rewards">
+        <div class="refer-reward"><b>מה אתם מקבלים?</b><strong>200 ₪ הנחה</strong> על הקורס הבא<br>או גיפט קארד בשווי <strong>150 ₪</strong> — לבחירתכם</div>
+        <div class="refer-reward"><b>מה החבר/ה מקבלים?</b><strong>100 ₪ הנחה</strong> על ההצטרפות</div>
+      </div>
+      <p class="refer-copy">שלחו למרב ב־WhatsApp את שם החבר או החברה שאתם מביאים, והיא תדאג לכל השאר.</p>
+      <div class="refer-actions">
+        <a href="https://wa.me/972549898292" target="_blank" rel="noopener">שליחת הודעה למרב</a>
+        <a id="referShare" href="#">שליחת ההודעה לחבר/ה</a>
+        <button id="referCopy" type="button">העתקת ההודעה</button>
+      </div>
+      <h3>הודעה שאפשר להעביר ⬇️</h3>
+      <p class="refer-message">היי 👋
+
+אני בקורס ערבית מדוברת של אַהְלַא וּסַהְלַא, וזה פשוט עובד. הערבית כבר יוצאת לי מהפה 😊
+שיעור אחד בשבוע של שעה וחצי (בזום) ועוד תרגול (בזום, מהבית או מכל מקום
+
+🎁 בגלל שהגעתם דרכי, מגיעה לכם 100 ₪ הנחה על ההצטרפות!
+
+מה עושים?
+שלחו וואטסאפ למרב וכתבו לה שאני שלחתי אותך ההודעה 👇
+📲 054-989-8292
+
+⏳ ההטבה לזמן מוגבל
+יַאללה, בואו נדבר ערבית ביחד 🧡</p>
+      <p class="refer-terms">* המבצע בתוקף מעכשיו ועד 1.1.27, ואינו חל על אנשים שכבר הגיעו דרככם — ועליהם אנו מודים לכם!<br>* כדי ליהנות מההטבה, יש לעדכן אותנו בשם התלמיד/ה שהגיע/ה דרככם עד שבוע לאחר ההרשמה.</p>`;
+    box.append(page);
+    const shareText=`היי 👋\n\nאני בקורס ערבית מדוברת של אַהְלַא וּסַהְלַא, וזה פשוט עובד. הערבית כבר יוצאת לי מהפה 😊\nשיעור אחד בשבוע של שעה וחצי (בזום) ועוד תרגול (בזום, מהבית או מכל מקום\n\n🎁 בגלל שהגעתם דרכי, מגיעה לכם 100 ₪ הנחה על ההצטרפות!\n\nמה עושים?\nשלחו וואטסאפ למרב וכתבו לה שאני שלחתי אותך ההודעה 👇\n📲 054-989-8292\n\n⏳ ההטבה לזמן מוגבל\nיַאללה, בואו נדבר ערבית ביחד 🧡`;
+    $("referShare").href=`https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    $("referCopy").onclick=async e=>{
+      const button=e.currentTarget, copyFallback=()=>{
+        const area=document.createElement("textarea"); area.value=shareText; area.style.position="fixed"; area.style.opacity="0";
+        document.body.append(area); area.select(); const copied=document.execCommand("copy"); area.remove();
+        if(!copied) throw new Error("copy failed");
+      };
+      try{
+        if(navigator.clipboard) await navigator.clipboard.writeText(shareText); else copyFallback();
+        button.textContent="ההודעה הועתקה ✓";
+      }catch{ button.textContent="לא הצלחנו להעתיק"; }
+      setTimeout(()=>button.textContent="העתקת ההודעה",2200);
+    };
   }else{
     box.append(mark("","ספריה דיגיטלית","h2"));
     if(!libVideos().length) box.append(mark("","עוד אין סרטונים בספריה.","p"));
@@ -1188,16 +1345,58 @@ const EXCELLENT=85;   // the score the verdict calls "מצוין"
 // left, it is the whole topic, and a practised sentence shows its best score (see show).
 // `here` is the topic's sentence on the card: not always the round's, because going back passes through the practised ones.
 let ordered=false, topic=[], here=null, showDone=store.get("ihki.showDone",false);
-const BUBBLE_MS=9000;
-let bubbleTimer=null, bubbleDeadline=0, bubbleFor=null, bubbleResolving=false;
+const BUBBLE_MS=12000, BUBBLE_HINT_MS=3000, BUBBLE_PAST_MS=6000, BUBBLE_ROUND=10;
+let bubbleTimer=null, bubbleHintTimer=null, bubblePastTimer=null, bubbleDeadline=0, bubbleFor=null, bubbleResolving=false, bubbleHintShown=false, bubblePastShown=false;
+let bubbleGame={answered:0,correct:0,total:0};
 const bubbleCat=()=>!daily&&(categoryOf(cat)||{}).bubble;
-function pauseBubble(){ if(bubbleTimer){ clearTimeout(bubbleTimer); bubbleTimer=null; } }
-function stopBubble(){ pauseBubble(); bubbleDeadline=0; bubbleFor=null; bubbleResolving=false; }
+function drawBubbleScore(tick=false){
+  const box=$("bubbleScore");
+  $("bubblePoints").textContent=bubbleGame.correct;
+  $("bubbleCount").textContent=`${bubbleGame.answered} מתוך ${bubbleGame.total}`;
+  if(tick){ box.classList.remove("tick"); void box.offsetWidth; box.classList.add("tick"); }
+}
+function countBubble(correct){
+  bubbleGame.answered++; if(correct) bubbleGame.correct++;
+  drawBubbleScore(correct);
+}
+async function keepMissedBalloon(){
+  const source=$("prompt"), shelf=$("bubbleMisses"), from=source.getBoundingClientRect(), mini=mark("mini-balloon","");
+  shelf.append(mini); const to=mini.getBoundingClientRect(); mini.style.visibility="hidden"; source.classList.add("missed");
+  const ghost=mark("miss-flight",""); Object.assign(ghost.style,{left:from.left+"px",top:from.top+"px",width:from.width+"px",height:from.height+"px"}); document.body.append(ghost);
+  if(!matchMedia("(prefers-reduced-motion:reduce)").matches){
+    const dx=to.left+to.width/2-(from.left+from.width/2), dy=to.top+to.height/2-(from.top+from.height/2), scale=to.width/from.width;
+    try{ await ghost.animate([{transform:"translate(0,0) scale(1)"},{transform:`translate(${dx}px,${dy}px) scale(${scale})`}],{duration:360,easing:"cubic-bezier(.4,0,.2,1)",fill:"forwards"}).finished; }catch{}
+  }
+  ghost.remove(); mini.style.visibility=""; mini.classList.add("landed");
+}
+function showBubbleHint(){
+  if(!bubbleCat()||home||bubbleHintShown) return;
+  const p=phraseOf(cur.id); if(!p.binyan&&!p.gizra) return;
+  bubbleHintShown=true; $("bubbleBinyan").textContent=p.binyan||""; $("bubbleGizra").textContent=p.gizra||"";
+  $("bubbleHint").hidden=false;
+}
+function showBubblePast(){
+  if(!bubbleCat()||home||bubblePastShown) return;
+  showBubbleHint(); bubblePastShown=true; const p=phraseOf(cur.id);
+  $("bubblePastText").textContent=(p.tr||"").split(",",1)[0].trim();
+  $("bubblePastAr").textContent=(p.ar||"").split("،",1)[0].trim(); $("bubblePast").hidden=false;
+}
+function pauseBubble(){
+  if(bubbleTimer){ clearTimeout(bubbleTimer); bubbleTimer=null; }
+  if(bubbleHintTimer){ clearTimeout(bubbleHintTimer); bubbleHintTimer=null; }
+  if(bubblePastTimer){ clearTimeout(bubblePastTimer); bubblePastTimer=null; }
+}
+function stopBubble(){ pauseBubble(); bubbleDeadline=0; bubbleFor=null; bubbleResolving=false; bubbleHintShown=false; bubblePastShown=false; }
 function armBubble(){
   pauseBubble();
   if(!bubbleCat()||home) return;
-  if(bubbleFor!==cur.id){ bubbleFor=cur.id; bubbleDeadline=Date.now()+BUBBLE_MS; bubbleResolving=false; }
+  if(bubbleFor!==cur.id){
+    bubbleFor=cur.id; bubbleDeadline=Date.now()+BUBBLE_MS; bubbleResolving=false; bubbleHintShown=false; bubblePastShown=false;
+    $("bubbleHint").hidden=true; $("bubblePast").hidden=true;
+  }
   const left=Math.max(0,bubbleDeadline-Date.now());
+  if(!bubbleHintShown) bubbleHintTimer=setTimeout(()=>{ bubbleHintTimer=null; showBubbleHint(); },Math.max(0,left-(BUBBLE_MS-BUBBLE_HINT_MS)));
+  if(!bubblePastShown) bubblePastTimer=setTimeout(()=>{ bubblePastTimer=null; showBubblePast(); },Math.max(0,left-(BUBBLE_MS-BUBBLE_PAST_MS)));
   bubbleTimer=setTimeout(()=>{
     bubbleTimer=null;
     if(home||!bubbleCat()||bubbleResolving) return;
@@ -1208,7 +1407,14 @@ function armBubble(){
 function setRound(){
   quizOff();
   if(daily){ ordered=true; topic=order=[...daily]; pos=0; marks(); return; }   // the session's sentences, in its own order
-  const list=PHRASES.filter(p=>p.cat===cat&&p.listed!==false);
+  let list=PHRASES.filter(p=>p.cat===cat&&p.listed!==false);
+  if(bubbleCat()){
+    const ready=LESSONS.filter(l=>!l.soon), reached=FREE?ALL_LESSONS.filter(l=>!l.soon).at(-1):ready.find(l=>!tally(lessonList(l)).over)||ready.at(-1);
+    const rank=reached?ALL_LESSONS.findIndex(l=>l.id===reached.id):-1;
+    list=list.filter(p=>!p.unlock||ALL_LESSONS.findIndex(l=>l.id===p.unlock)<=rank);
+    ordered=false; topic=order=shuffle(list).slice(0,BUBBLE_ROUND).map(p=>p.id); pos=0;
+    bubbleGame={answered:0,correct:0,total:order.length}; $("bubbleMisses").replaceChildren(); drawBubbleScore(); marks(); return;
+  }
   ordered=list.length>0&&list.every(p=>p.seq!=null);
   topic=(ordered?list.sort((a,b)=>a.seq-b.seq):shuffle(list)).map(p=>p.id);
   const todo=topic.filter(id=>best[id]==null&&!(quiet&&silent[id])), all=showDone||!todo.length, box=$("showDone");
@@ -1564,7 +1770,8 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   const c=categoryOf(daily?cur.cat:cat), mine=topic.includes(cur.id);   // a topic or game may name its items and its own task
   $("card").classList.toggle("bubblemode",!!c.bubble);
   document.body.classList.toggle("bubble-game",!!c.bubble);
-  $("prompt").classList.remove("burst");
+  $("bubbleScore").hidden=!c.bubble; $("bubbleMisses").hidden=!c.bubble; $("bubbleHint").hidden=true; if(c.bubble) drawBubbleScore();
+  $("prompt").classList.remove("burst","missed");
   if(c.bubble){ $("prompt").style.animation="none"; void $("prompt").offsetWidth; $("prompt").style.animation=""; }
   heStop(); $("heCheck").hidden=true; micZone.classList.toggle("two",heOk&&!!cur.read&&!story);   // a phrase to read can be answered in Hebrew too
   $("task").textContent=cur.read?heOk?HE_TASK:"קראו בקול ותרגמו לעברית":mine&&c.task||"איך אומרים את זה בערבית מדוברת?";
@@ -1786,6 +1993,48 @@ function drawPhoneTrack(data){
   const seconds=(data.duration_ms||0)/1000;
   for(const part of [0,.25,.5,.75,1]) c.fillText(seconds?`${(seconds*part).toFixed(1)}s`:Math.round(part*100)+"%",label+part*plot,height-axis/2);
 }
+/* A tutor's flag under the score: the sentence was said right and the system got it wrong. The recording goes back to
+   the server, which scores it again and keeps it with what it made of it (the table `flags`), for the teacher. */
+$("flagBtn").onclick=async()=>{
+  const rec=lastRec, btn=$("flagBtn"), msg=$("flagMsg");
+  if(!rec) return;
+  btn.disabled=true; msg.textContent="שומר…";
+  try{
+    const fd=new FormData(); fd.append("phrase_id",rec.id); fd.append("audio",rec.blob,"rec"); fd.append("note",$("flagNote").value);
+    const res=await api("/api/flags",{method:"POST",body:fd});
+    if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error(e.detail||res.status); }
+    const out=await res.json();
+    msg.textContent=out.audio?"נשמר למורה, עם ההקלטה. תודה!":"נשמר למורה, אבל בלי ההקלטה (אין מקום אחסון flags ב-Supabase).";
+    $("flagNote").disabled=true;   // one flag for a recording
+    if(out.flag){ drawFlag(out.flag,out.audio); $("flagDlg").showModal(); }
+  }catch(err){ msg.textContent="הדיווח לא נשמר: "+err.message; btn.disabled=false; }
+};
+/* What a flag kept, in words: the sentence, what the model heard in its place, each word's score and the sounds it
+   marked down. `f` is the row of `flags` as the server answered it. */
+function drawFlag(f,audio){
+  const facts=$("flagFacts"), r=f.result; facts.innerHTML="";
+  const fact=(name,...body)=>{ const dd=document.createElement("dd"); dd.append(...body); facts.append(mark("",name,"dt"),dd); return dd; };
+  const tr=text=>{ const s=document.createElement("span"); setTr(s,text||"–"); return s; };
+  const ar=text=>{ const s=mark("ar",text); s.lang="ar"; return s; };
+  const list=items=>{ const ul=document.createElement("ul"); for(const parts of items){ const li=document.createElement("li"); li.append(...parts); ul.append(li); } return ul; };
+  const grade=s=>mark(band(s),Math.round(s),"b");
+  fact("המשפט",f.he);
+  fact("התשובה הנכונה",tr(r.variant.tr)," · ",ar(f.ar));
+  fact("המודל שמע",tr(r.heard_tr));
+  fact("הציון",grade(f.score),f.unrelated?" · המודל חשב שנאמר משפט אחר":" מתוך 100");
+  fact("מילה אחר מילה",list(r.words.map(w=>[tr(w.tr),w.heard_tr&&w.heard_tr!==w.tr?" ← נשמע ":"",w.heard_tr&&w.heard_tr!==w.tr?tr(w.heard_tr):""," · ",grade(w.score)])));
+  // every sound the scorer marked down, weakest first, by its name and what took its place
+  const low=r.words.flatMap(w=>(w.phonemes||[]).filter(p=>p.score<75).map(p=>({...p,word:w.tr}))).sort((a,b)=>a.score-b.score);
+  fact("הגאים שהורדו",low.length?list(low.map(p=>[mark("ipa",p.ipa)," במילה ",tr(p.word),
+    p.heard==="_"?" – לא נשמע":p.heard?" – נשמע כמו ":"",p.heard&&p.heard!=="_"?mark("ipa",p.heard):""," · ",grade(p.score)])):"אף הגה לא ירד מתחת ל-75");
+  if(r.tips.length) fact("מה נאמר לתלמיד",list(r.tips.map(t=>[t.title+": "+t.text])));
+  fact("פונמות צפויות",mark("ipa",f.ipa)).className="ipa";
+  fact("פונמות שנשמעו",mark("ipa",f.heard_ipa||"–")).className="ipa";
+  if(f.note) fact("ההערה שלך",f.note);
+  fact("ההקלטה",audio?"נשמרה עם הדיווח":"לא נשמרה (אין מקום אחסון flags ב-Supabase)");
+  fact("המודל",mark("ipa",f.model+(f.version?" · "+f.version:""))).className="ipa";
+}
+$("flagClose").onclick=()=>$("flagDlg").close();
 $("phoneBtn").onclick=()=>{ if(lastPhone){ drawPhones(lastPhone); $("phoneDlg").showModal(); } };
 $("phoneClose").onclick=()=>$("phoneDlg").close();
 
@@ -1795,6 +2044,8 @@ function render(r){
   if(FREE&&!$("card").classList.contains("storymode")){
     lastPhone=r; $("phoneBtn").hidden=false; $("phoneBtn").disabled=false;
   }
+  $("flagBox").hidden=!(TUTOR&&lastRec&&lastRec.id===cur.id);
+  $("flagBtn").disabled=$("flagNote").disabled=false; $("flagNote").value=$("flagMsg").textContent="";
   $("status").textContent=r.score<30?"רוצים לנסות שוב? לחצו על המיקרופון":"לחצו כדי לנסות שוב";
   $("nextBtn").classList.add("primary");
   $("score").textContent=r.score;
@@ -1862,12 +2113,14 @@ async function bubbleOutcome(r,expired=false){
   bubbleResolving=true;
   if(!expired){
     const old=$("prompt").querySelector(".bubble-grade"); if(old) old.remove();
-    $("prompt").append(mark("bubble-grade",Math.round(r.score)));
+    const score=Math.round(r.score), band=score>=85?"good":score>=60?"mid":"bad";
+    $("prompt").append(mark(`bubble-grade ${band}`,`${score} נק׳`));
   }
   if(correct){
+    countBubble(true);
     stopBubble();
     $("prompt").classList.add("burst");
-    await pause(430);
+    await pause(290);
   }else{
     if(!expired&&Date.now()<bubbleDeadline){
       bubbleResolving=false;
@@ -1875,10 +2128,13 @@ async function bubbleOutcome(r,expired=false){
       autoRec=true; autoRecord();
       return;
     }
+    countBubble(false);
+    await keepMissedBalloon();
+    if(cur.id!==id||home) return;
     const a=await answerAudio(id);
     if(cur.id!==id||home) return;
     if(a) await playUrl(a.url,true); else await speakLocal(cur.ar,"ar");
-    await pause(250);
+    await pause(80);
   }
   bubbleResolving=false;
   if(cur.id===id&&!home&&bubbleCat()) nextPhrase();
@@ -1960,6 +2216,7 @@ async function startRec(auto){   // auto: started by the page for the sentence o
     const blob=new Blob(chunks,{type:rec.mimeType||"audio/webm"});
     if(myAudioUrl) URL.revokeObjectURL(myAudioUrl);
     myAudioUrl=URL.createObjectURL(blob); $("playMine").disabled=false;
+    lastRec={id,blob};
     mic.disabled=true; $("status").textContent="מנתח…";
     try{
       const fd=new FormData(); fd.append("phrase_id",id); fd.append("audio",blob,"rec");
@@ -1993,7 +2250,7 @@ const nextPhrase=()=>{
     if(k<0) roundEnd(); else{ pos=k; show(); }
     return;
   }
-  if(pos+1>=order.length&&(order!==topic||isStory())){ roundEnd(); return; }   // a round of unpractised sentences ended: what is left, or the review
+  if(pos+1>=order.length&&(order!==topic||isStory()||bubbleCat())){ roundEnd(); return; }   // a round of unpractised sentences, a game, or a story ended
   pos=(pos+1)%order.length; if(pos===0&&!ordered) shuffle(order); show();
 };
 $("nextBtn").onclick=nextPhrase;
@@ -2193,7 +2450,7 @@ function drawManage(){
   if(!["classes","students","content"].includes(mMode)) mMode=classes.length?"students":"classes";
   $("mModes").hidden=false; $("manage").classList.toggle("classes",mMode==="classes"); $("manage").classList.toggle("content",mMode==="content");
   for(const b of $("mModes").children) b.setAttribute("aria-selected",b.dataset.mode===mMode);
-  drawClasses(classes); drawContent(); drawTabs(classes); drawHead(klass,students); drawLessons(students,listed); drawRoster(klass,students,listed);
+  drawClasses(classes); drawContent(); drawTutors(); drawTabs(classes); drawHead(klass,students); drawLessons(students,listed); drawRoster(klass,students,listed);
   const one=students.find(s=>s.email===shownStudent);   // a student who left the class has no screen in it
   if(!one) shownStudent="";
   $("manage").classList.toggle("student",!!one); $("mStudent").innerHTML="";
@@ -2380,6 +2637,33 @@ addEventListener("popstate",e=>{
   const to=e.state&&e.state.student||""; if(to===shownStudent||!CLASS) return;
   shownStudent=to; drawManage(); scrollTo(0,to?0:classScroll);
 });
+/* Above the classes' tabs: every student of every class, each with the tutor's rank to tick. The rank is the student's
+   whatever class they are in: one who has it gets the flag under each score, and 🚩 beside their name in the lists. */
+let tutorsOpen=false;
+function drawTutors(){
+  const box=$("mTutors"), all=[...CLASS.students].sort((a,b)=>(a.name||a.email).localeCompare(b.name||b.email,"he"));
+  box.innerHTML=""; box.hidden=!all.length; if(!all.length) return;
+  const sec=part(box), said=mark("note","מי שמסומן רואה דגל 🚩 מתחת לכל ציון, ומדווח כשאמר נכון והמערכת טעתה. הדרגה חלה בכל הכיתות של התלמיד/ה.","p");
+  sec.open=tutorsOpen; sec.ontoggle=()=>{ tutorsOpen=sec.open; };
+  sec.firstChild.append(mark("","🚩 מדווחים על ציונים שגויים"),mark("",`${all.filter(s=>s.tutor).length} מתוך ${all.length} תלמידים`,"small"));
+  sec.append(said);
+  for(const s of all){
+    const row=document.createElement("label"), tick=document.createElement("input"), who=mark("",""), name=mark("",Object.values(s.classes).find(Boolean)||s.name||s.email,"b"), mail=document.createElement("bdi");
+    name.dir="auto"; mail.dir="ltr"; mail.textContent=s.email;
+    const more=mark("","","small"); more.append(mail,[...Object.keys(s.classes).map(c=>" · "+c),s.tutor_fixed?" · נקבע בהגדרות השרת":""].join(""));
+    who.append(name,more);
+    tick.type="checkbox"; tick.checked=!!s.tutor; tick.disabled=!!s.tutor_fixed;
+    tick.onchange=async()=>{
+      const on=tick.checked; tick.disabled=true;
+      try{
+        const res=await api("/api/tutors",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:s.email,tutor:on})});
+        if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
+        s.tutor=on; drawManage();
+      }catch(err){ tick.checked=!on; tick.disabled=false; said.textContent="הדרגה לא נשמרה: "+err.message; }
+    };
+    row.append(tick,who); sec.append(row);
+  }
+}
 function drawTabs(classes){
   const tabs=$("mTabs"); tabs.innerHTML=""; tabs.hidden=!classes.length;
   for(const c of classes){
@@ -2474,7 +2758,7 @@ function drawRoster(klass,students,listed){
   students.sort((a,b)=>(b.last||"").localeCompare(a.last||"")||b.joined-a.joined||a.email.localeCompare(b.email));
   for(const s of students){
     const row=mark("rrow","","button"), who=mark("who","");
-    const shown=mark("",s.nick||s.name||s.email,"b"); shown.dir="auto";   // an address is cut at its end
+    const shown=mark("",(s.nick||s.name||s.email)+(s.tutor?" 🚩":""),"b"); shown.dir="auto"; if(s.tutor) shown.title="מדווח/ת על ציונים שגויים";   // an address is cut at its end
     who.append(shown,mark("",lastSeen(s)+(s.unmatched?` · ${s.unmatched} לא זוהו`:""),"small"));
     who.title=s.email; row.append(who);
     for(const col of cols){ const t=col.of(s), c=mark("cell",""); c.append(ratio(t),bar(t.n?t.done/t.n:0)); c.title=`${col.title}: ${col.did} ${t.done} מתוך ${t.n}`+(t.avg!=null?`, ציון ${t.avg}`:""); row.append(c); }
@@ -2735,6 +3019,117 @@ $("newForm").onsubmit=async e=>{   // "next" checks the step on show; on the las
   buttons.forEach(b=>b.disabled=false);
 };
 
+/* "פועל יוצא" (Switch & Speak), Levels 1--5. Linguistic content and grading come from the server;
+   lightweight mastery is kept on this device. */
+const VERB_ROUND=10, VERB_THRESH={2:.85,3:.90,4:.90,5:.85};
+let verbMeta=null, verbQuestion=null, verbStarted=0, verbLevel=1, verbPath="learn", verbN=0, verbStreak=0, verbRecent=[];
+let verbMastery=store.get("ihki.verbMastery",{}), verbSummary=store.get("ihki.verbSummary",{}), verbPairs={}, verbPicked=null;
+const verbRatio=n=>{const s=verbSummary[n]||{}; return s.attempts?s.correct/s.attempts:0};
+// FREE is set only from /api/me's server-verified teacher flag. Teachers can inspect every level.
+const verbUnlocked=n=>FREE||n===1
+  ||(n===2&&(verbSummary[1]?.attempts||0)>=10&&verbRatio(1)>=VERB_THRESH[2])
+  ||(n===3&&(verbSummary[2]?.attempts||0)>=6&&verbRatio(2)>=VERB_THRESH[3])
+  ||(n===4&&(verbSummary[3]?.attempts||0)>=10&&verbRatio(3)>=VERB_THRESH[4]&&(verbSummary[3]?.median_ms||Infinity)<=2000)
+  ||(n===5&&(verbSummary[4]?.attempts||0)>=6&&verbRatio(4)>=VERB_THRESH[5]);
+function drawVerbLevels(){
+  const box=$("verbLevels"); box.replaceChildren();
+  const reason=n=>{
+    const s=verbSummary[n-1]||{}, accuracy=Math.round(verbRatio(n-1)*100), attempts=s.attempts||0;
+    if(n===4) return `${attempts}/10 ניסיונות · ${accuracy}%/90% · ${s.median_ms?`${(s.median_ms/1000).toFixed(1)}/2.0 שנ׳`:"אין עדיין זמן"}`;
+    if(n===5) return `${attempts}/6 תשובות בקול · ${accuracy}%/85%`;
+    return "השלימו תחילה את הרמה הקודמת";
+  };
+  for(const l of verbMeta?.levels||[]){
+    const locked=!verbUnlocked(l.id), b=mark(l.id===verbLevel?"on":"",`${l.id} · ${l.name}`,"button");
+    b.disabled=locked; if(locked){const why=reason(l.id);b.append(mark("",why,"small"));b.title=why;b.setAttribute("aria-label",`${l.name}, נעול: ${why}`)}
+    b.onclick=()=>{verbLevel=l.id; drawVerbLevels(); startVerbRound();}; box.append(b);
+  }
+}
+async function openVerbGame(){
+  const dlg=$("verbDlg"); $("verbBoard").hidden=true; $("verbMenu").hidden=false; $("verbFeedback").textContent="";
+  dlg.showModal();
+  if(!verbMeta){ const r=await api("/api/verb-game").catch(()=>null); if(!r||!r.ok){$("verbFeedback").textContent="המשחק לא זמין כרגע.";return} verbMeta=await r.json(); }
+  drawVerbLevels();
+}
+$("verbClose").onclick=()=>$("verbDlg").close();
+$("verbDlg").addEventListener("close",()=>{verbQuestion=null});
+for(const b of document.querySelectorAll("[data-path]")) b.onclick=()=>{verbPath=b.dataset.path; verbLevel=verbPath==="daily"?[5,4,3,2,1].find(verbUnlocked):(verbUnlocked(2)?2:1); drawVerbLevels(); startVerbRound();};
+function startVerbRound(){ verbN=0; verbStreak=0; verbRecent=[]; $("verbMenu").hidden=true; $("verbBoard").hidden=false; nextVerb(); }
+async function nextVerb(){
+  if(verbN>=VERB_ROUND){
+    $("verbBoard").innerHTML=`<div class="verb-cue"><h3>כל הכבוד!</h3><p>סיימתם ${VERB_ROUND} שאלות. הרצף הטוב נשמר להמשך.</p><button class="btn primary" id="verbAgain">סבב נוסף</button></div>`;
+    $("verbAgain").onclick=startVerbRound; $("verbFeedback").textContent=""; return;
+  }
+  $("verbFeedback").className="verb-feedback"; $("verbFeedback").textContent=""; $("verbBoard").innerHTML="טוען…";
+  const payload={level:verbLevel,mastery:verbMastery,recent:verbRecent};
+  const r=await api("/api/verb-game/question",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).catch(()=>null);
+  if(!r||!r.ok){$("verbBoard").textContent="לא הצלחנו לטעון שאלה.";return}
+  verbQuestion=await r.json(); verbStarted=performance.now(); verbPairs={}; verbPicked=null;
+  verbRecent.push(verbQuestion.mastery_key); if(verbRecent.length>6) verbRecent.shift();
+  $("verbProgress").textContent=`שאלה ${verbN+1} מתוך ${VERB_ROUND} · רמה ${verbLevel}`; $("verbStreak").textContent=`רצף ${verbStreak} 🔥`; $("verbBar").style.width=`${verbN/VERB_ROUND*100}%`;
+  drawVerbQuestion();
+}
+function cue(q){
+  const top=mark("verb-cue","","div"); top.append(mark("",`${q.verb.name} · ${q.tense.name}`,"h3"),mark("ar",q.verb.arabic,"div")); return top;
+}
+function drawVerbQuestion(){
+  const q=verbQuestion, board=$("verbBoard"); board.replaceChildren(cue(q));
+  if(q.level>=4){
+    if(q.conversation){const c=mark("verb-conversation","","div"); c.append(mark("ar",q.conversation.arabic,"div"),mark("",q.conversation.transliteration,"div"),mark("",q.conversation.hebrew,"small")); const hear=mark("btn","🔊 השמעת השאלה","button"); hear.onclick=()=>{const u=new SpeechSynthesisUtterance(q.conversation.arabic);u.lang="ar-PS";speechSynthesis.cancel();speechSynthesis.speak(u)}; c.append(hear); board.append(c)}
+    else board.append(mark("verb-pronoun",`הגוף: ${q.pronoun.hebrew} · ${q.pronoun.transliteration}`,"p"));
+    const speak=mark("verb-speak","","div"), mic=mark("verb-mic","🎙","button"), status=mark("","לחצו, אמרו את ההטיה ולחצו שוב לסיום","p"), actions=mark("verb-record-actions","","div"); mic.onclick=()=>verbRecord(mic,status,actions); speak.append(mic,status,actions); board.append(speak); return;
+  }
+  if(q.level===2){
+    const grid=mark("verb-match","","div"), left=mark("","","div"), right=mark("","","div");
+    for(const p of q.pronouns){ const b=mark("",p.hebrew,"button"); b.dataset.id=p.id; b.append(mark("",p.transliteration,"small")); b.onclick=()=>pickVerbPair("pronoun",b); left.append(b); }
+    for(const f of q.forms){ const b=mark("",f.transliteration,"button"); b.dataset.id=f.id; b.append(mark("ar",f.arabic)); b.onclick=()=>pickVerbPair("form",b); right.append(b); }
+    grid.append(left,right); board.append(grid); return;
+  }
+  const pron=mark("verb-pronoun",`הגוף: ${q.pronoun.hebrew} · ${q.pronoun.transliteration}`,"p"), choices=mark("verb-choices","","div"); board.append(pron,choices);
+  for(const c of q.choices){ const b=mark("verb-choice",c.transliteration,"button"); b.append(mark("ar",c.arabic)); b.onclick=()=>submitVerb(c.id,b); choices.append(b); }
+}
+function pickVerbPair(kind,b){
+  if(b.classList.contains("done")) return;
+  document.querySelectorAll(`.verb-match button.selected`).forEach(x=>{if((kind==="pronoun")===(x.parentElement===$("verbBoard").querySelector(".verb-match>div:first-child")))x.classList.remove("selected")});
+  b.classList.add("selected"); verbPicked=verbPicked||{}; verbPicked[kind]=b;
+  if(!verbPicked.pronoun||!verbPicked.form) return;
+  verbPairs[verbPicked.pronoun.dataset.id]=verbPicked.form.dataset.id; verbPicked.pronoun.classList.replace("selected","done"); verbPicked.form.classList.replace("selected","done"); verbPicked=null;
+  if(Object.keys(verbPairs).length===verbQuestion.pair_count) submitVerb(verbPairs);
+}
+async function submitVerb(answer,button){
+  const q=verbQuestion; if(!q) return; verbQuestion=null;
+  const elapsed=Math.round(performance.now()-verbStarted), r=await api("/api/verb-game/answer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question_id:q.question_id,answer,response_ms:elapsed})}).catch(()=>null);
+  if(!r||!r.ok){$("verbFeedback").textContent="התשובה לא נבדקה. נסו שאלה חדשה."; setTimeout(nextVerb,900);return}
+  const result=await r.json(), ok=result.correct, feedback=$("verbFeedback");
+  if(button){button.classList.add(ok?"good":"bad"); if(!ok){const right=$("verbBoard").querySelectorAll(".verb-choice"); q.choices.forEach((c,i)=>{if(c.id===result.correct_choice_id)right[i].classList.add("good")})}}
+  if(q.level===2) for(const [pid,good] of Object.entries(result.pair_results||{})){const p=$("verbBoard").querySelector(`[data-id="${pid}"]`), f=$("verbBoard").querySelector(`[data-id="${verbPairs[pid]}"]`); for(const el of [p,f])if(el)el.classList.add(good?"good":"bad")}
+  feedback.className="verb-feedback "+(ok?"good":"bad"); feedback.textContent=ok?`נכון! ${elapsed<2000?"שליפה מהירה ⚡":""}`:`עוד לא. ${result.explanation||"נסו שוב."}`;
+  verbStreak=ok?verbStreak+1:0; verbN++; $("verbStreak").textContent=`רצף ${verbStreak} 🔥`; $("verbBar").style.width=`${verbN/VERB_ROUND*100}%`;
+  const key=q.mastery_key, m=verbMastery[key]||{attempts:0,correct:0,times:[],streak:0}; m.attempts++; if(ok)m.correct++; m.streak=ok?(m.streak||0)+1:0; m.times=[...(m.times||[]),elapsed].slice(-20); m.median_ms=[...m.times].sort((a,b)=>a-b)[m.times.length>>1]; m.last=new Date().toISOString(); verbMastery[key]=m;
+  const s=verbSummary[q.level]||{attempts:0,correct:0,times:[]}; s.attempts++; if(ok)s.correct++; s.times=[...(s.times||[]),elapsed].slice(-30); s.median_ms=[...s.times].sort((a,b)=>a-b)[s.times.length>>1]; verbSummary[q.level]=s; store.set("ihki.verbMastery",verbMastery); store.set("ihki.verbSummary",verbSummary); drawVerbLevels();
+  setTimeout(nextVerb,ok?650:1500);
+}
+let verbRecorder=null, verbChunks=[], verbRecordingUrl=null;
+async function verbRecord(btn,status,actions){
+  if(verbRecorder?.state==="recording"){verbRecorder.stop();return}
+  if(!navigator.mediaDevices||!window.MediaRecorder){status.textContent="הדפדפן הזה אינו תומך בהקלטה.";return}
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}), type=pickType(); verbChunks=[];
+    const rec=verbRecorder=new MediaRecorder(stream,type?{mimeType:type}:{}); rec.ondataavailable=e=>{if(e.data.size)verbChunks.push(e.data)};
+    rec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());btn.classList.remove("live");btn.disabled=true;status.textContent="בודק…";const blob=new Blob(verbChunks,{type:rec.mimeType||"audio/webm"}); if(verbRecordingUrl)URL.revokeObjectURL(verbRecordingUrl);verbRecordingUrl=URL.createObjectURL(blob);await scoreVerbSpeech(blob,btn,status,actions)};
+    rec.start();btn.classList.add("live");status.textContent="מקשיב… לחצו שוב כשסיימתם";
+  }catch{status.textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."}
+}
+async function scoreVerbSpeech(blob,btn,status,actions){
+  const q=verbQuestion, fd=new FormData();fd.append("question_id",q.question_id);fd.append("audio",blob,"answer.webm");const r=await api("/api/verb-game/speech",{method:"POST",body:fd}).catch(()=>null);btn.disabled=false;actions.replaceChildren();
+  const replay=mark("btn","▶ ההקלטה שלי","button");replay.onclick=()=>new Audio(verbRecordingUrl).play();const retry=mark("btn","ניסיון נוסף","button");retry.onclick=()=>{actions.replaceChildren();status.textContent="לחצו והקליטו שוב"};actions.append(replay,retry);
+  if(!r||!r.ok){status.textContent="הבדיקה אינה זמינה כרגע. ההקלטה לא נחשבה כטעות.";return}const result=await r.json(), feedback=$("verbFeedback");feedback.className="verb-feedback "+(result.outcome==="correct"?"good":result.outcome==="uncertain"?"":"bad");feedback.textContent=result.message||"נסו שוב";
+  const answer=mark("verb-answer",result.variant?.tr||"","div");if(result.variant?.ar){answer.append(mark("ar",result.variant.ar));const hear=mark("btn","🔊 תשובה","button");hear.onclick=()=>{const u=new SpeechSynthesisUtterance(result.variant.ar);u.lang="ar-PS";speechSynthesis.cancel();speechSynthesis.speak(u)};actions.append(hear)}actions.before(answer);
+  if(!result.counts_as_attempt)return;
+  const ok=result.outcome==="correct", elapsed=Math.round(performance.now()-verbStarted), key=q.mastery_key,m=verbMastery[key]||{attempts:0,correct:0,times:[],streak:0};m.attempts++;if(ok)m.correct++;m.streak=ok?(m.streak||0)+1:0;m.times=[...(m.times||[]),elapsed].slice(-20);m.median_ms=[...m.times].sort((a,b)=>a-b)[m.times.length>>1];m.last=new Date().toISOString();verbMastery[key]=m;const s=verbSummary[q.level]||{attempts:0,correct:0};s.attempts++;if(ok)s.correct++;verbSummary[q.level]=s;store.set("ihki.verbMastery",verbMastery);store.set("ihki.verbSummary",verbSummary);drawVerbLevels();
+  if(ok){verbQuestion=null;verbStreak++;verbN++;status.textContent="נכון ✓";setTimeout(nextVerb,1100)}
+}
+
 function useLessons(ids){   // the path shows these lessons only (null: every one)
   LESSONS=ALL_LESSONS.filter(l=>!ids||ids.includes(l.id)); if(!LESSONS.length) LESSONS=ALL_LESSONS;
   CATS=ALL_CATS.filter(c=>LESSONS.some(l=>l.id===c.lesson));   // none when every lesson of the student's is still to come
@@ -2797,7 +3192,7 @@ if(AUTH_URL){
         const ok=!res||res.status!==403;   // a server that cannot be reached is not a refusal
         const me=res&&res.ok?await res.json().catch(()=>({})):{}, teacher=!!me.teacher;
         const mine=me.classes||[];   // a teacher practises every lesson and is not asked for a class
-        MY_CLASSES=teacher?[]:mine; MY_CLASS=null; FREE=teacher; TEACHER_DAILIES=me.dailies||[];
+        MY_CLASSES=teacher?[]:mine; MY_CLASS=null; FREE=teacher; TUTOR=!!me.tutor; TEACHER_DAILIES=me.dailies||[];
         $("myClass").textContent=mine.length>1?(teacher?`כיתות: ${mine.map(c=>c.name).join(" · ")}`:"בחירת כיתה"):mine.length?`כיתת ${mine[0].name}`:"";
         $("myClass").classList.toggle("many",MY_CLASSES.length>1); $("myClass").title=MY_CLASSES.length>1?"מעבר לכיתה אחרת":"התלמידים בכיתה שלי";
         MY_LESSONS=me.lessons||null; if(ALL_LESSONS.length) useLessons(MY_LESSONS);
