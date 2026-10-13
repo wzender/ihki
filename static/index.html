@@ -565,7 +565,7 @@ body.driving .card.storymode .prompt{display:block}
 .mini-balloon.landed{animation:mini-land .3s cubic-bezier(.2,1.7,.4,1)}
 .miss-flight{position:fixed;z-index:30;margin:0;border:2px solid #2e782a;border-radius:50% 50% 48% 52%/46% 46% 54% 54%;background:radial-gradient(ellipse at 29% 22%,rgb(255 255 255/.88) 0 5%,rgb(255 255 255/.35) 6% 13%,transparent 14%),radial-gradient(ellipse at 36% 29%,#9ce98a 0%,#69c956 30%,#45a83d 66%,#287823 100%);box-shadow:inset -14px -18px 30px rgb(15 76 17/.3),0 14px 24px rgb(37 90 42/.2);pointer-events:none}
 .card.bubblemode .prompt.missed{visibility:hidden}
-.bubble-hint{position:absolute;top:84px;left:16px;z-index:3;min-width:150px;max-width:190px;padding:10px 13px;border-radius:12px;background:rgb(255 255 255/.94);color:#174f18;box-shadow:0 4px 14px rgb(30 91 36/.18);font:700 14px/1.35 var(--f-body);animation:hint-in .25s ease-out both}
+.bubble-hint{position:absolute;left:50%;bottom:18px;z-index:3;width:max-content;min-width:170px;max-width:min(230px,calc(100% - 32px));box-sizing:border-box;padding:10px 13px;border-radius:12px;background:rgb(255 255 255/.94);color:#174f18;box-shadow:0 4px 14px rgb(30 91 36/.18);font:700 14px/1.35 var(--f-body);animation:hint-in .25s ease-out both}
 .bubble-hint[hidden]{display:none}
 .bubble-hint small{display:block;color:#527254;font-size:11px}
 .bubble-hint .binyan{display:block;margin-top:2px}
@@ -590,7 +590,7 @@ body.bubble-game #gameBack:active{transform:translateY(2px);box-shadow:0 1px 0 #
 @keyframes verb-splash{0%{transform:translate(-50%,-50%) scale(.15);opacity:0}35%{opacity:1}100%{transform:translate(-50%,-50%) scale(1.65);opacity:0}}
 @keyframes score-pop{0%{transform:scale(1)}45%{transform:scale(1.55);color:#2d9b31}100%{transform:scale(1)}}
 @keyframes grade-pop{0%{transform:translateX(-50%) scale(.25) rotate(-8deg);opacity:0}65%{transform:translateX(-50%) scale(1.18) rotate(3deg);opacity:1}100%{transform:translateX(-50%) scale(1) rotate(0)}}
-@keyframes hint-in{from{transform:translateY(-6px);opacity:0}to{transform:none;opacity:1}}
+@keyframes hint-in{from{transform:translate(-50%,6px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 @keyframes mini-land{0%{transform:scale(.4)}65%{transform:scale(1.35)}100%{transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.card.bubblemode .prompt{animation:none}.card.bubblemode .prompt.burst{opacity:0}.card.bubblemode .prompt.burst::after{animation:none;opacity:0}}
 /* Without a microphone ("תרגול שקט ללא ציון"): a Hebrew sentence is answered by hand instead of said, built from its
