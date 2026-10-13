@@ -64,9 +64,11 @@ CREATE_VIDEOS = ("create table public.videos (id bigint generated always as iden
 MIGRATE_VIDEOS = "alter table public.videos add column if not exists pos int, add column if not exists ord int not null default 0;"
 # The daily videos: a library by level; a class gives a video its day (the class's `dailies`: [{"video", "date"}])
 # The library: other videos, which every student browses, whatever the level and the class (its `level` is empty)
+# The library's videos stand in the order the teacher gave them (`ord`; one never moved has none, and comes after those)
 CREATE_LEVEL_VIDEOS = {t: (f"create table public.{t} (id bigint generated always as identity primary key, level text not null, "
-                           "title text not null, url text not null, created_at timestamptz not null default now()); "
+                           f"title text not null, url text not null, {'ord int, ' if t == 'library' else ''}created_at timestamptz not null default now()); "
                            f"alter table public.{t} enable row level security;") for t in ("dailies", "library")}
+MIGRATE_LIBRARY = "alter table public.library add column if not exists ord int;"
 LEVEL_IDS = [v["id"] for v in LEVELS]
 LESSON_LEVEL = {l["id"]: l["level"] for l in LESSONS}
 MAX_DAILIES = 400
@@ -727,6 +729,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if "answered 404" in str(e):
             return (f"הטבלה {table} לא קיימת ב-Supabase. הריצו ב-SQL Editor: "
                     f"{CREATE_LEVEL_VIDEOS[table]} אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
+        if "'ord'" in str(e) or "ord" in str(e) and "column" in str(e):   # a library made before its videos could be moved
+            return f"לטבלה {table} חסרה עמודה. הריצו ב-SQL Editor של Supabase: {MIGRATE_LIBRARY} notify pgrst, 'reload schema';"
         return f"Supabase לא זמין: {e}"
 
     @app.get("/api/dailies")
@@ -742,7 +746,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.get("/api/library")
     def library(user: dict | None = Depends(signed_in)):
         """The video library, which stands outside the path and is one for every level and class: id, title, url
-        (for a teacher only) and embed (its player) of each, in the order they were added."""
+        (for a teacher only) and embed (its player) of each, in the teacher's order (see `order_library`)."""
         if not user:
             return {"library": []}
         try:
@@ -793,6 +797,34 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.delete("/api/library/{video_id}")
     def delete_library(video_id: int, a: SupabaseAuth = Depends(teacher_only)):
         return delete_level_video("library", video_id, a)
+
+    @app.put("/api/library/order")
+    def order_library(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+        """Puts the library's videos in the teacher's order: {"order": [id]}, every video of the library once."""
+        order = body.get("order")
+        if not isinstance(order, list) or not all(isinstance(i, int) and not isinstance(i, bool) for i in order):
+            raise HTTPException(400, "the order is a list of video ids")
+        try:
+            if len(set(order)) != len(order) or set(order) != {v["id"] for v in a.level_videos("library", fresh=True)}:   # added or deleted meanwhile, in another tab
+                raise HTTPException(409, "הספריה השתנתה. רעננו ונסו שוב")
+            a.order_level_videos("library", order)
+        except AuthUnavailable as e:
+            raise HTTPException(503, level_store_error("library", e))
+        return {"ok": True}
+
+    @app.put("/api/library/{video_id}")
+    def rename_library(video_id: int, body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+        """Gives a video of the library another name: {"title"}."""
+        title = " ".join(str(body.get("title", "")).split())
+        if not title or len(title) > MAX_TITLE:
+            raise HTTPException(400, f"לסרטון צריך שם (עד {MAX_TITLE} תווים)")
+        try:
+            if all(v["id"] != video_id for v in a.level_videos("library", fresh=True)):
+                raise HTTPException(404, "הסרטון כבר לא בספריה. רעננו ונסו שוב")
+            a.rename_level_video("library", video_id, title)
+        except AuthUnavailable as e:
+            raise HTTPException(503, level_store_error("library", e))
+        return {"ok": True}
 
     @app.get("/api/classmates")
     def classmates(user: dict | None = Depends(signed_in)):

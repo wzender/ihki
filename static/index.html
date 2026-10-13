@@ -908,7 +908,10 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
       <li>בכרטיס <b>הסרטונים שבספריה</b> לוחצים על <b>+ הוספת סרטון לספריה</b>.</li>
       <li>ממלאים <b>שם הסרטון</b> (עד 80 תווים) ו<b>קישור ל-Vimeo או ל-YouTube</b>.</li>
       <li>לוחצים <b>הוספה</b>.</li></ol>
-    <p>הסרטון מופיע ברשימה של הכרטיס. כפתור <b>צפייה</b> שלידו מאפשר לבדוק שהוא נפתח כמו שצריך. כדי להוסיף סרטונים נוספים חוזרים על שלבים 3 עד 5; הם מוצגים בסדר שבו נוספו.</p>
+    <p>הסרטון מופיע ברשימה של הכרטיס. כפתור <b>צפייה</b> שלידו מאפשר לבדוק שהוא נפתח כמו שצריך. כדי להוסיף סרטונים נוספים חוזרים על שלבים 3 עד 5; סרטון חדש נוסף בסוף הרשימה.</p>
+    <h3>שינוי שם ושינוי סדר</h3>
+    <ul><li><b>שינוי שם:</b> לוחצים <b>שינוי שם</b> ליד הסרטון, מקלידים את השם החדש ומאשרים.</li>
+      <li><b>שינוי סדר:</b> בחיצים <b>↑</b> ו-<b>↓</b> שבשורה של הסרטון מזיזים אותו מקום אחד למעלה או למטה. התלמידים רואים את הסרטונים באותו סדר.</li></ul>
     <h3>מה התלמידים רואים</h3>
     <ul><li>התלמידים מגיעים לסרטונים דרך הלשונית <b>ספריה דיגיטלית</b> שבתחתית המסך.</li>
       <li>כל תלמיד רואה את כל הסרטונים, בלי קשר לשלב או לכיתה שלו.</li>
@@ -916,9 +919,10 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
     <h3>אם משהו לא עובד</h3>
     <ul><li><b>"זה לא קישור לסרטון":</b> בודקים שהקישור הוא של Vimeo או YouTube ושהועתק במלואו.</li>
       <li><b>הודעה שהטבלה <code>library</code> לא קיימת:</b> מריצים פעם אחת ב-SQL Editor של Supabase את הפקודה שמופיעה בהודעה.</li>
+      <li><b>הודעה שלטבלה <code>library</code> חסרה עמודה (בהזזת סרטון):</b> מריצים פעם אחת ב-SQL Editor של Supabase את הפקודה שמופיעה בהודעה.</li>
       <li><b>תלמיד לא רואה סרטון חדש:</b> שירענן את הדף; הרשימה מתעדכנת אצל התלמידים תוך כדקה.</li></ul>
     <h3>מחיקה</h3>
-    <p>ב<b>תוכן</b>, בכרטיס <b>הסרטונים שבספריה</b>, לוחצים <b>מחיקה</b> ליד הסרטון ומאשרים. הסרטון נעלם לכל התלמידים. אין עריכה של שם או קישור: כדי לשנות, מוחקים ומוסיפים מחדש.</p>
+    <p>ב<b>תוכן</b>, בכרטיס <b>הסרטונים שבספריה</b>, לוחצים <b>מחיקה</b> ליד הסרטון ומאשרים. הסרטון נעלם לכל התלמידים. את הקישור אי אפשר לערוך: כדי לשנות אותו, מוחקים ומוסיפים מחדש.</p>
   </article>
 </dialog>
 <div id="whyTip" role="tooltip" hidden></div>
@@ -2586,7 +2590,15 @@ function drawContent(){
       const see=mark("btn","צפייה","button"), del=mark("btn danger","מחיקה","button");
       t.textContent=v.title; title.append(t); link.dir="ltr"; link.textContent=v.url.replace("https://",""); text.append(title,link);
       see.onclick=()=>playVideo(v,true); del.onclick=()=>deleteItem(table,v.id,`את הסרטון ${v.title}`,gone);
-      acts.append(see,del); row.append(mark("","▶︎","i"),text,acts); list.append(row);
+      if(table==="library"){   // the library's videos stand in the teacher's order, and take another name
+        const at=mine.indexOf(v), up=mark("btn move","↑","button"), down=mark("btn move","↓","button"), name=mark("btn","שינוי שם","button");
+        row.dataset.id="library"+v.id; up.title="הזזה למעלה: מוקדם יותר בספריה"; down.title="הזזה למטה: מאוחר יותר בספריה";
+        up.setAttribute("aria-label",`${up.title}, ${v.title}`); down.setAttribute("aria-label",`${down.title}, ${v.title}`);
+        up.disabled=!at; down.disabled=at===mine.length-1;
+        up.onclick=()=>moveShelf(mine,at,-1,list); down.onclick=()=>moveShelf(mine,at,1,list); name.onclick=()=>renameShelf(v);
+        acts.append(up,down,see,name,del);
+      }else acts.append(see,del);
+      row.append(mark("","▶︎","i"),text,acts); list.append(row);
     }
     adder(adds,`+ הוספת ${one}`,[field("שם הסרטון","title",{maxLength:80,placeholder:sample}),
         field("קישור ל-Vimeo או ל-YouTube","url",{inputMode:"url",placeholder:"https://vimeo.com/1233611297/d46ac373c8"})],hint,
@@ -2683,6 +2695,26 @@ async function moveItem(l,items,at,step,list){   // a video or a text changes pl
   await loadContent(); drawContent();
   const me=id(items[at]), moved=[...$("mContent").querySelectorAll(".crow.added")].find(r=>r.dataset.id===me.kind+me.id);   // the keyboard stays on what moved
   const again=moved&&[...moved.querySelectorAll(".move")].find((b,k)=>k===(step<0?0:1)&&!b.disabled)||moved&&moved.querySelector(".move:not(:disabled)"); if(again) again.focus({preventScroll:true});
+}
+async function moveShelf(all,at,step,list){   // a video of the library changes places with its neighbour
+  const order=all.map(v=>v.id), me=order[at]; [order[at],order[at+step]]=[order[at+step],order[at]];
+  list.querySelectorAll("button").forEach(b=>b.disabled=true);
+  try{
+    const res=await send("/api/library/order","PUT",{order});
+    if(!res.ok) alert(await refused(res,"ההזזה"));
+  }catch{ alert("השרת לא זמין."); }
+  await loadContent(); drawContent();
+  const moved=[...$("mContent").querySelectorAll(".crow.added")].find(r=>r.dataset.id==="library"+me);   // the keyboard stays on what moved
+  const again=moved&&[...moved.querySelectorAll(".move")].find((b,k)=>k===(step<0?0:1)&&!b.disabled)||moved&&moved.querySelector(".move:not(:disabled)"); if(again) again.focus({preventScroll:true});
+}
+async function renameShelf(v){
+  const title=(prompt("שם הסרטון (עד 80 תווים):",v.title)||"").trim();
+  if(!title||title===v.title) return;
+  try{
+    const res=await send(`/api/library/${v.id}`,"PUT",{title});
+    if(!res.ok) alert(await refused(res,"שינוי השם"));
+  }catch{ alert("השרת לא זמין."); }
+  await loadContent(); drawContent();
 }
 async function deleteItem(table,id,what,more){
   if(!confirm(`למחוק ${what}? ${table==="videos"||table==="texts"?"זה יירד מהמסלול של התלמידים.":"התלמידים לא יראו אותו עוד."}${more}`)) return;

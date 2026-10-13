@@ -341,7 +341,8 @@ class SupabaseAuth:
         self._videos = None
 
     def level_videos(self, table: str, fresh: bool = False) -> list[dict]:
-        """A level's videos that stand outside the path, in the order they were added: id, level (a level id), title,
+        """A level's videos that stand outside the path, in the order the teacher gave them (`ord`, see
+        `order_level_videos`) and then, those never moved, in the order they were added: id, level (a level id), title,
         url (the Vimeo or YouTube link). `table` is "dailies" (the daily videos) or "library" (the video library,
         which is one for every level: its `level` is empty). Kept for CLASSES_TTL. Without the secret key, or before the table is created, there are none."""
         assert table in ("dailies", "library")
@@ -354,6 +355,7 @@ class SupabaseAuth:
         if self.secret:
             try:
                 rows = self._admin(f"/rest/v1/{table}?select=*&order=id.asc")
+                rows.sort(key=lambda r: (r.get("ord") is None, r.get("ord") or 0, r["id"]))
             except AuthUnavailable as e:
                 if "answered 404" not in str(e):
                     raise
@@ -371,6 +373,22 @@ class SupabaseAuth:
         assert table in ("dailies", "library")
         self._admin(f"/rest/v1/{table}?id=eq.{int(id)}", "DELETE")
         self._level_videos.pop(table, None)
+
+    def rename_level_video(self, table: str, id: int, title: str) -> None:
+        assert table in ("dailies", "library")
+        try:
+            self._admin(f"/rest/v1/{table}?id=eq.{int(id)}", "PATCH", {"title": title})
+        finally:
+            self._level_videos.pop(table, None)
+
+    def order_level_videos(self, table: str, ids: list[int]) -> None:
+        """Puts the table's videos in this order: each one's `ord` is its turn."""
+        assert table in ("dailies", "library")
+        try:
+            for k, id in enumerate(ids):
+                self._admin(f"/rest/v1/{table}?id=eq.{int(id)}", "PATCH", {"ord": k})
+        finally:
+            self._level_videos.pop(table, None)
 
     def ranked(self, fresh: bool = False) -> frozenset[str] | None:
         """The lower-case emails the teacher gave the tutor's rank (the table `tutors`). Kept for CLASSES_TTL, as each

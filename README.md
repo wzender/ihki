@@ -249,7 +249,7 @@ alter table public.dailies enable row level security;
 
 ### Video library
 
-Apart from those there is one library of videos for the whole course: they are not part of the path, need no date, and are the same for every level and class. In **תוכן** the card "ספריה דיגיטלית" comes first, above the levels; the teacher adds a video (a name and a link) and deletes one there. Every student finds them in the "ספריה דיגיטלית" tab of the bar at the screen's foot: a list, and a video plays in the same box as the path's videos. The ones opened are marked (on that device). Create the table once (its `level` column stays empty):
+Apart from those there is one library of videos for the whole course: they are not part of the path, need no date, and are the same for every level and class. In **תוכן** the card "ספריה דיגיטלית" comes first, above the levels; the teacher adds a video (a name and a link), renames one, moves one up or down the list with its arrows, and deletes one there. Every student finds them in the "ספריה דיגיטלית" tab of the bar at the screen's foot: a list, and a video plays in the same box as the path's videos. The ones opened are marked (on that device). Create the table once (its `level` column stays empty):
 
 ```sql
 create table public.library (
@@ -257,9 +257,17 @@ create table public.library (
   level      text not null,                        -- a level id, e.g. 1
   title      text not null,
   url        text not null,
+  ord        int,                                  -- its turn in the list; none until the teacher moves a video
   created_at timestamptz not null default now()
 );
 alter table public.library enable row level security;
+```
+
+A library made before its videos could be moved has no `ord` column; until it is added, moving a video is refused with this command in the message (renaming works without it):
+
+```sql
+alter table public.library add column if not exists ord int;
+notify pgrst, 'reload schema';
 ```
 
 For the video to play inside the page, its Vimeo privacy setting has to allow embedding (on this site's domain, or anywhere); a YouTube video has to allow embedding too (it does unless its owner turned that off), and plays from `youtube-nocookie.com`.

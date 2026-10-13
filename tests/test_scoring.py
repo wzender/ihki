@@ -1008,6 +1008,12 @@ def test_sign_in_guards_the_practice_endpoints():
         def delete_level_video(self, table, id):
             self.days[table] = [v for v in self.days[table] if v["id"] != id]
 
+        def rename_level_video(self, table, id, title):
+            next(v for v in self.days[table] if v["id"] == id)["title"] = title
+
+        def order_level_videos(self, table, ids):
+            self.days[table].sort(key=lambda v: ids.index(v["id"]))
+
         def add_video(self, lesson, title, url, pos, ord):
             self.vids.append({"id": len(self.vids) + 1, "lesson": lesson, "title": title, "url": url, "pos": pos, "ord": ord})
 
@@ -1222,9 +1228,18 @@ def test_sign_in_guards_the_practice_endpoints():
         assert c.delete("/api/library/3", headers=good).status_code == 200
         shelves = c.get("/api/library", headers=good).json()["library"]
         assert [(v["id"], v["title"], v["url"]) for v in shelves] == [(1, "two", link.split("?")[0]), (2, "one", link.split("?")[0])]
+        # a video of the library is renamed, and the library is put in the teacher's order
+        rename = lambda id, **body: c.put(f"/api/library/{id}", json=body, headers=good).status_code
+        order = lambda ids: c.put("/api/library/order", json={"order": ids}, headers=good).status_code
+        assert rename(1, title="  the  first ") == 200 and rename(1, title="") == 400 and rename(1, title="x" * 200) == 400 and rename(9, title="x") == 404
+        assert order([2]) == 409 and order([2, 2]) == 409 and order([2, 1, 9]) == 409 and order("x") == 400 and order(["2", "1"]) == 400
+        assert order([2, 1]) == 200
+        shelves = c.get("/api/library", headers=good).json()["library"]
+        assert [(v["id"], v["title"]) for v in shelves] == [(2, "one"), (1, "the first")]
         c.app.state.auth.teachers = frozenset()
         assert c.get("/api/library", headers=good).json()["library"] == [{k: v for k, v in s.items() if k != "url"} for s in shelves]   # all of it, without the links
         assert shelf(title="x", url=link) == 403 and c.delete("/api/library/1", headers=good).status_code == 403
+        assert rename(1, title="x") == 403 and order([1, 2]) == 403
         assert c.get("/api/dailies", headers=good).status_code == 403 and daily(level=L1, title="x", url=link) == 403 and c.delete("/api/dailies/2", headers=good).status_code == 403
         c.app.state.auth.cls, c.app.state.auth.teachers = [k for k in c.app.state.auth.cls if k["name"] != "D"], frozenset({"a@b.c"})
         new_class = {"name": " October 2026 ", "emails": "S@b.c, new@b.c\nnew@b.c  דנה  \nx@b.c\n",   # an optional nickname
