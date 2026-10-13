@@ -116,7 +116,8 @@ body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bot
 /* the way back to the path, at the head of the daily videos' screen (no tab of the foot's bar is lit there) */
 #vids button.back{display:inline-flex;align-self:flex-start;gap:6px;padding:6px 12px;border-radius:10px;background:var(--olive);border-color:var(--olive);color:var(--on-olive);font:700 15px var(--f-body)}
 #dailyDlg{width:min(92vw,380px)}
-.path{--track:color-mix(in srgb,var(--muted) 75%,var(--bg));position:relative;width:100%;max-width:460px;margin:4px auto 72px}
+.path{--track:color-mix(in srgb,var(--muted) 75%,var(--bg));position:relative;isolation:isolate;width:100%;max-width:460px;margin:4px auto 72px;background:#101510}
+.path::before{content:"";position:absolute;z-index:-1;inset:0;background:url("/static/assets/arabic-calligraphy-path.webp") top center/100% auto repeat-y;mix-blend-mode:screen;filter:brightness(1.9) saturate(.55);opacity:.24;pointer-events:none}
 .road{position:absolute;left:50%;top:0;width:1px;height:100%;overflow:visible;pointer-events:none}
 .road path{fill:none;stroke:var(--line);stroke-width:12;stroke-linecap:round}
 .road .went{stroke:var(--olive)}
@@ -302,6 +303,11 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .tab small{font-weight:600;color:var(--muted);margin-inline-start:6px;font-variant-numeric:tabular-nums}
 .tab[aria-selected=true]{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
 .tab[aria-selected=true] small{color:inherit;opacity:.8}
+.tab .live-now{display:inline-flex;align-items:center;gap:4px;color:var(--ok);font-weight:700}
+.tab .live-now::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 45%,transparent);animation:live-class 1.8s ease-out infinite}
+.tab[aria-selected=true] .live-now{color:var(--on-olive);opacity:1}
+@keyframes live-class{60%,100%{box-shadow:0 0 0 7px color-mix(in srgb,var(--ok) 0%,transparent)}}
+@media (prefers-reduced-motion:reduce){.tab .live-now::before{animation:none}}
 .chead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .chead h2{flex:1;margin:0;font:400 24px/1.1 var(--f-display);overflow-wrap:anywhere}
 .chead p{flex:0 0 100%;margin:0;color:var(--muted);font-size:14px}
@@ -583,7 +589,7 @@ body.driving .card.storymode .prompt{display:block}
 .bubble-score b{min-width:1.5ch;font:800 30px/1 var(--f-display);text-align:center}
 .bubble-score.tick b{animation:score-pop .38s cubic-bezier(.2,1.8,.4,1)}
 .bubble-score small{display:block;margin-top:3px;color:#527254;font:700 12px/1 var(--f-body)}
-.bubble-misses{display:flex;position:absolute;top:18px;left:145px;right:12px;z-index:3;align-items:flex-start;gap:3px;direction:ltr;pointer-events:none}
+.bubble-misses{display:grid;position:absolute;top:18px;left:145px;z-index:3;grid-template-columns:repeat(5,18px);grid-auto-rows:22px;gap:7px 3px;direction:ltr;pointer-events:none}
 .bubble-misses[hidden]{display:none}
 .mini-balloon{position:relative;flex:0 0 18px;width:18px;height:22px;border:1px solid #2e782a;border-radius:50% 50% 48% 52%/46% 46% 54% 54%;background:radial-gradient(ellipse at 29% 22%,rgb(255 255 255/.85) 0 8%,transparent 16%),radial-gradient(ellipse at 36% 29%,#9ce98a 0%,#69c956 38%,#287823 100%);box-shadow:inset -3px -4px 5px rgb(15 76 17/.25),0 2px 3px rgb(37 90 42/.22)}
 .mini-balloon::after{content:"";position:absolute;left:50%;top:calc(100% - 1px);width:6px;height:5px;background:#348e30;clip-path:polygon(50% 0,100% 100%,0 100%);transform:translateX(-50%)}
@@ -1493,7 +1499,7 @@ function showBubbleHint(){
 function showBubblePast(){
   if(!bubbleCat()||home||bubblePastShown) return;
   showBubbleHint(); bubblePastShown=true; const p=phraseOf(cur.id);
-  $("bubblePastText").textContent=(p.tr||"").split(",",1)[0].trim();
+  setTr($("bubblePastText"),(p.tr||"").split(",",1)[0].trim());
   $("bubblePastAr").textContent=(p.ar||"").split("،",1)[0].trim(); $("bubblePast").hidden=false;
 }
 function pauseBubble(){
@@ -2582,7 +2588,11 @@ async function showMode(mode){
   if(mode==="flags"&&!flagsLoaded){ await loadFlags(); drawManage(); }
 }
 for(const b of $("mModes").children) b.onclick=()=>showMode(b.dataset.mode);
-setInterval(()=>{ if(mMode==="flags"&&document.body.classList.contains("manage")&&!document.hidden) loadActivity().then(()=>drawActivityOnly()); },60000);
+setInterval(()=>{
+  if(!document.body.classList.contains("manage")||document.hidden) return;
+  if(mMode==="flags") loadActivity().then(()=>drawActivityOnly());
+  if(mMode==="students"&&CLASS) drawTabs(CLASS.classes||[]);   // let the "active now" hint expire without a page refresh
+},60000);
 
 const FLAG_CATEGORIES={recognition:"המודל לא זיהה הגייה תקינה",valid_variant:"וריאנט הגייה תקין",alternative_answer:"תשובה חלופית נכונה",noise:"רעש או הקלטה בעייתית",other:"אחר"};
 const PHONE_NAMES={"ħ":"ח (ح)","ʕ":"ע (ع)","x":"ח׳ (خ)","χ":"ח׳ (خ)","ɣ":"ע׳ (غ)","r":"ר (ر)","q":"ק (ق)","ʔ":"א/ק (ء/ق)","h":"ה (ه)","sˤ":"צ (ص)","tˤ":"ט (ط)","dˤ":"ד׳ (ض)","ðˤ":"ט׳ (ظ)","k":"כ (ك)","s":"ס (س)","t":"ת (ت)","d":"ד (د)","z":"ז (ز)","ʃ":"ש (ش)","dʒ":"ג׳ (ج)","b":"ב (ب)","f":"פ (ف)","m":"מ (م)","n":"נ (ن)","l":"ל (ل)","w":"ו (و)","j":"י (ي)","g":"ג (ج)","_":"לא נשמע"};
@@ -2972,10 +2982,12 @@ function drawTabs(classes){
   tabs.append(all);
   const classTabs=mark("class-tabs","");
   for(const c of classes){
-    const t=mark("tab","","button"), name=document.createElement("bdi"); t.setAttribute("role","tab");
+    const active=CLASS.students.some(s=>{ const last=((s.since||{})[c.name]||{}).last, time=last&&Date.parse(last); return time&&Date.now()-time<15*60*1000; });
+    const t=mark("tab"+(active?" live":""),"","button"), name=document.createElement("bdi"); t.setAttribute("role","tab");
     name.textContent=c.name; t.append(name);   // isolated, so the count does not join a year in the name
     t.setAttribute("aria-selected",c.name===shownClass);
     t.append(mark("",c.emails.length,"small"));
+    if(active){ t.append(mark("live-now","פעילה עכשיו","small")); t.title="לפחות תלמיד אחד תרגל ב־15 הדקות האחרונות"; }
     t.onclick=()=>{ shownClass=c.name; shownStudent=""; store.set("ihki.mstudentClass",c.name); drawManage(); };
     classTabs.append(t);
   }
