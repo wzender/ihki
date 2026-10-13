@@ -92,7 +92,7 @@ Optional. With `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` set, the page asks 
 
 The email link needs, in Supabase: Authentication → Sign In / Providers → Email enabled; Authentication → URL Configuration → the app's address as the Site URL (or among the Redirect URLs); and Authentication → Emails → SMTP Settings → your own SMTP server, as Supabase's built-in one sends only to the project's team members, a few emails an hour.
 
-Each scored recording is added to the table `attempts`, written with the student's own token so row-level security ties the row to them. Create it once in the Supabase SQL editor:
+Each scored recording adds metadata to the table `attempts`, written with the student's own token so row-level security ties the row to them. The recording bytes are never written to this table or to Storage. Only a teacher/tutor's explicit `/api/flags` report stores its recording in the private `flags` bucket. Create `attempts` once in the Supabase SQL editor:
 
 ```sql
 create table public.attempts (
@@ -102,9 +102,13 @@ create table public.attempts (
   phrase     text not null,      -- the Hebrew prompt
   score      int  not null,      -- 0-100
   unrelated  boolean not null default false,   -- "different sentence?"
+  issues     jsonb not null default '[]'::jsonb, -- compact [{word, expected, heard, score}], never audio
+  model      text not null default '',
+  version    text not null default '',
   created_at timestamptz not null default now()
 );
 create index attempts_user_time on public.attempts (user_id, created_at desc);
+create index attempts_created_at_idx on public.attempts (created_at desc);
 
 alter table public.attempts enable row level security;
 grant select, insert on public.attempts to authenticated;
@@ -112,9 +116,32 @@ create policy "students add their own attempts"  on public.attempts
   for insert to authenticated with check (user_id = auth.uid());
 create policy "students read their own attempts" on public.attempts
   for select to authenticated using (user_id = auth.uid());
+
+-- Anonymous aggregate buckets for the teacher's Monitoring graph. Only the backend service role may call it.
+create or replace function public.activity_buckets(p_hours integer default 24, p_bucket_minutes integer default 15)
+returns table (bucket timestamptz, attempts bigint, active_students bigint)
+language sql stable security invoker set search_path = '' as $$
+  select date_bin(make_interval(mins => greatest(1, least(p_bucket_minutes, 60))), a.created_at,
+                  timestamptz '2000-01-01 00:00:00+00'),
+         count(*)::bigint, count(distinct a.user_id)::bigint
+  from public.attempts a
+  where a.created_at >= now() - make_interval(hours => greatest(1, least(p_hours, 168)))
+  group by 1 order by 1
+$$;
+revoke execute on function public.activity_buckets(integer, integer) from public, anon, authenticated;
+grant execute on function public.activity_buckets(integer, integer) to service_role;
 ```
 
-The page's "ההתקדמות שלי" button reads these rows back through `GET /api/progress` (best score and tries per phrase, recordings, days practised) and shows them per topic; the best scores then follow the student between devices.
+For an existing `attempts` table, add the compact diagnostics once. Until this migration is run, attempts continue to be saved without diagnostics:
+
+```sql
+alter table public.attempts
+  add column if not exists issues jsonb not null default '[]'::jsonb,
+  add column if not exists model text not null default '',
+  add column if not exists version text not null default '';
+```
+
+The page's "ההתקדמות שלי" button reads these rows back through `GET /api/progress` (best score and tries per phrase, recordings, days practised) and shows them per topic; the best scores then follow the student between devices. The teacher's **דיווחים** tab aggregates `issues` without returning student identities. It shows a candidate when the same judgement occurred in at least five attempts, for at least three students and 30% of the students who attempted that phrase. These are investigation candidates, not proof of a scoring error; a teacher must explicitly turn one into a calibration draft and apply it.
 
 ### The teacher
 
@@ -160,13 +187,56 @@ create table public.flags (
   model      text not null,
   version    text not null default '',
   audio      text,               -- the recording's name in the storage bucket flags
+  status     text not null default 'pending', -- pending, confirmed, rejected, or fixed
+  category   text,
+  reviewed_by text,
+  reviewed_at timestamptz,
+  review_note text not null default '',
+  false_issues jsonb not null default '[]'::jsonb, -- [{word, expected, heard}]
   created_at timestamptz not null default now()
 );
 alter table public.flags enable row level security;   -- no policy: only the secret key reads and writes it
 insert into storage.buckets (id, name) values ('flags', 'flags') on conflict (id) do nothing;
 ```
 
-The rows are for the teacher to read later in Supabase (Table Editor → `flags`; the recordings under Storage → `flags`), to change the scoring or its calibration. As a flag says the sentence was said as written, `audio,ipa` of these rows is training data in the format `train/finetune.py` reads (see "Fine-tuning").
+For a `flags` table created before reviews were added, run once:
+
+```sql
+alter table public.flags
+  add column if not exists status text not null default 'pending',
+  add column if not exists category text,
+  add column if not exists reviewed_by text,
+  add column if not exists reviewed_at timestamptz,
+  add column if not exists review_note text not null default '',
+  add column if not exists false_issues jsonb not null default '[]'::jsonb;
+```
+
+The management panel's **דיווחים** tab lets a teacher privately play the recording, confirm or reject each report, classify it, and select the individual sound judgements that were false. The recording is fetched through a teacher-only endpoint, so neither the private bucket nor its secret key is exposed to the browser. The tab also groups confirmed `expected → heard` pairs by reports, reporters, and phrases. Only confirmed reports should be used for calibration; the review and aggregation themselves use the stored result. As a flag says the sentence was said as written, `audio,ipa` of these rows is also training data in the format `train/finetune.py` reads (see "Fine-tuning").
+
+### Calibration proposals
+
+Beside every confirmed `expected → heard` pattern, the teacher can create a calibration proposal. A proposal is only a draft until the teacher chooses its score floor and applies it, globally or to one of the supporting phrases. Applied rules are loaded into the scorer at startup and refreshed immediately after a proposal is applied, updated, or disabled; Supabase is not queried while scoring each recording. Phrase-specific rules take precedence over global ones. Create the private table once:
+
+```sql
+create table public.calibrations (
+  id          bigint generated always as identity primary key,
+  expected    text not null,
+  heard       text not null,
+  floor       numeric not null default 70,
+  scope       text not null default 'global', -- global or phrase
+  phrase      text not null default '',
+  evidence    jsonb not null default '{}',    -- report/reporter counts and supporting phrase keys
+  model       text not null default '',
+  status      text not null default 'draft',  -- draft, applied, or rejected
+  proposed_by text not null,
+  reviewed_by text,
+  reviewed_at timestamptz,
+  created_at  timestamptz not null default now()
+);
+alter table public.calibrations enable row level security;
+```
+
+An applied rule raises only the matching phoneme score to its configured floor; it never lowers a score. The score response includes `calibrated` when a rule changed it, so a flagged result records which rule effect was involved.
 
 ### Levels
 
@@ -203,7 +273,7 @@ A writing topic can be the class's homework like any topic, and is the one offer
 
 In the panel the teacher opens a class in five steps, a question each: its name (such as "מתחילים אוקטובר 2026"), its level (the class studies all the level's lessons; one not written yet opens to the class once it is), its students (ticked from the accounts the panel knows, or added by Google email, each with an optional nickname), its homework, and a summary to confirm, which says where all of it is changed later. That is the class's edit dialog ("עריכה", beside the class in the panel's list of classes): the name, the lessons one by one (by level: a level's box ticks all of it), the homework, and the students, a line each with the Google email and an optional nickname (`dana@gmail.com דנה`); the class is deleted there too. A student may be in several classes: after the opening screen the page asks which one they practise in now, and the learning path shows that class's lessons (a teacher, and anyone before the first class, sees every lesson and is not asked). The page shows the class under the app's name, and pressing it lists the class's students, with a button to move to another class; each student appears by their nickname in it or else their Google name (no addresses; `GET /api/classmates`). Once there is a class, only the classes' students and the teachers can sign in; before the first one, any Google account can.
 
-The panel has three parts, chosen at its top (the third, **תוכן**, is described under "Content and videos"). **כיתות** lists the classes, each with its lessons, students and homework and its buttons: "עריכה", "מחיקה", and "התקדמות התלמידים", which moves to the other part; "כיתה חדשה" opens the steps above. **תלמידים** shows the progress, with a tab per class. A class counts only what its students practised since it was opened (its `created_at`), so a new class starts clean even when its students practised the same lessons before, in another class or in none; the students' own path keeps all they did. A recording that did not match the sentence on the screen (`unrelated`) is no try and has no score, but the panel shows it: "לא זוהו" beside the student, on their screen, and beside each topic it happened in. The tab shows the class's figures, its lessons (each with the sentences the class finds hard: the class average of each student's best score under 70) and its students, with the same columns however many lessons the class has: the homework topic (when one is set), all the class's sentences, and the grade. Before the first class it shows every account that signed in. This replaces the former `ALLOWED_EMAILS`, which is no longer read. The lessons limit what the path shows; the sentences themselves stay public, as before.
+The panel's parts are chosen at its top (**תוכן** is described under "Content and videos"). **כיתות** lists the classes, each with its lessons, students and homework and its buttons: "עריכה", "מחיקה", and "התקדמות התלמידים", which moves to the other part; "כיתה חדשה" opens the steps above. **תלמידים** starts with one unique list of all students, with an "all students" filter and a filter for each class; every row names the student's classes. The all-students view uses the student's overall progress, and their page offers buttons for switching into each class's context. A class filter counts only what its students practised since the class was opened (its `created_at`), so a new class starts clean even when its students practised the same lessons before, in another class or in none; the students' own path keeps all they did. A recording that did not match the sentence on the screen (`unrelated`) is no try and has no score, but the panel shows it: "לא זוהו" beside the student, on their screen, and beside each topic it happened in. A class filter shows the class's figures, its lessons (each with the sentences the class finds hard: the class average of each student's best score under 70) and its students, with the same columns however many lessons the class has: the homework topic (when one is set), all the class's sentences, and the grade. Before the first class it shows every account that signed in. This replaces the former `ALLOWED_EMAILS`, which is no longer read. The lessons limit what the path shows; the sentences themselves stay public, as before.
 
 ### Content and videos
 
@@ -302,6 +372,17 @@ alter table public.texts enable row level security;
 ```
 
 ### Homework
+
+#### מדריך להגדרת שיעורי בית
+
+1. היכנסו לחשבון המורה ובחרו **ניהול** ואז **כיתות**.
+2. בכיתה קיימת לחצו **עריכה**. בעת יצירת כיתה חדשה מגיעים לאותה הגדרה בשלב **שיעורי הבית**.
+3. בשורת שיעורי הבית בחרו נושא מתוך השיעורים שסומנו לכיתה. אפשר לבחור גם **כתיבת משפטים** או טקסט שהוספתם לשיעור.
+4. בחרו תאריך הגשה, אם יש. אפשר להשאיר את התאריך ריק כדי להציג את המטלה ללא מועד אחרון.
+5. כדי לתת יותר ממטלה אחת לחצו **+ הוספת שיעורי בית**, ובחרו נושא ותאריך לכל שורה. אי אפשר לבחור את אותו נושא פעמיים.
+6. לחצו **שמירה**. התלמידים יראו מעל הנושא במסלול בועה של **שיעורי בית** ואת הזמן שנותר להגשה; השינוי יופיע אצלם בפתיחה הבאה של העמוד.
+
+כדי לשנות מטלה חוזרים ל־**ניהול** → **כיתות** → **עריכה** ומשנים את הנושא או התאריך. להסרת מטלה לוחצים **✕** בשורה שלה ושומרים. התקדמות והשלמה מופיעות בכרטיס הכיתה ובמסך התלמידים; מטלת תרגול מושלמת לאחר שכל משפטי הנושא תורגלו, ומטלת כתיבה לאחר שכל השורות מולאו.
 
 A class may have several homeworks at once, a topic each with its own day: for example the last topic of every lesson it studies (the written homework). In the class's dialog each is a row, the topic (named with its lesson) and its day, with "✕" to drop it; "+ הוספת שיעורי בית" adds the last topic of the first ticked lesson that has none yet. A topic can be homework once. On the path every homework topic has its own bubble; in the panel the class's card has a line per homework (who finished, who is still to), the tile counts the students who finished all of them, and the students' "שיעורי בית" column sums them. They are kept in the class's `homeworks` column, `[{"topic", "due"}]`; `homework` and `due` hold the first, as before. What follows describes one homework.
 

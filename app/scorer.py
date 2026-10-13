@@ -163,6 +163,17 @@ class ScorerConfig:
 class Scorer:
     def __init__(self, emit: Emitter, vocab: Vocab, cfg: ScorerConfig | None = None):
         self.emit, self.vocab, self.cfg = emit, vocab, cfg or ScorerConfig()
+        self.calibrations: dict[tuple[str, str, str], float] = {}
+
+    def set_calibrations(self, rows: list[dict]) -> None:
+        """Atomically replaces applied score floors. A blank phrase is a global rule."""
+        rules = {}
+        for row in rows:
+            expected, heard = str(row.get("expected", "")), str(row.get("heard", ""))
+            phrase = str(row.get("phrase", "")) if row.get("scope") == "phrase" else ""
+            if expected and heard:
+                rules[(expected, heard, phrase)] = max(0.0, min(100.0, float(row.get("floor", 0))))
+        self.calibrations = rules
 
     def score(self, wav: np.ndarray, phrase: dict, refs: list[Reference] = (), diagnostics: bool = False) -> dict:
         logp = self.emit(wav)
@@ -346,6 +357,17 @@ class Scorer:
         raw = scores
         scores = [sc if b is None or b >= 100 else replace(sc, score=round(min(100.0, 100.0 * sc.score / max(b, 1.0)), 1))
                   for sc, b in zip(raw, self._baseline(toks, refs))]
+        phrase_key, calibrated = str(phrase.get("key", phrase.get("he", ""))), []
+        adjusted = []
+        for tok, sc in zip(toks, scores):
+            heard_ph = "_" if sc.deleted else (self.vocab.i2t.get(sc.competitor) if sc.competitor is not None else "")
+            floor = self.calibrations.get((tok.phoneme, heard_ph, phrase_key),
+                                          self.calibrations.get((tok.phoneme, heard_ph, "")))
+            if floor is not None and sc.score < floor:
+                calibrated.append({"expected": tok.phoneme, "heard": heard_ph, "from": round(sc.score), "to": round(floor)})
+                sc = replace(sc, score=floor)
+            adjusted.append(sc)
+        scores = adjusted
         forgiven = {t.word for t, sc, r in zip(toks, scores, raw) if sc.score > r.score}
 
         phonemes, tips, seen = [], [], set()
@@ -418,6 +440,8 @@ class Scorer:
             t.pop("idx", None)
         result = {"score": round(overall), "variant": {"ar": ar, "tr": " ".join(tr_words), "ipa": ipa}, "heard_ipa": heard, "heard_tr": " ".join(h for h in heard_words if h),
                   "unrelated": unrelated, "words": words, "tips": tips, "issues": issues, "references": len(refs)}
+        if calibrated:
+            result["calibrated"] = calibrated
         if heatmap is not None:
             result["phoneme_heatmap"] = heatmap
         return result

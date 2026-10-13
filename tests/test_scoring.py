@@ -102,6 +102,18 @@ def test_hebrew_chet_flagged_on_hammam():
     assert 50 <= r["score"] < 85              # one wrong consonant: "almost", not "excellent"
 
 
+def test_applied_phrase_calibration_raises_only_the_matching_confusion():
+    logp = emissions(["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"])
+    scorer = scorer_for(logp)
+    key = TOILET.get("key", TOILET["he"])
+    scorer.set_calibrations([{"expected": "ħ", "heard": "χ", "floor": 70,
+                              "scope": "phrase", "phrase": key}])
+    r = scorer.score(None, TOILET)
+    h = next(p for p in r["words"][1]["phonemes"] if p["ipa"] == "ħ")
+    assert h["score"] == 70 and not h["flagged"]
+    assert r["calibrated"] == [{"expected": "ħ", "heard": "χ", "from": 1, "to": 70}]
+
+
 def test_h_instead_of_pharyngeal():
     logp = emissions(["w", "eː", "n", "i", "l", "h", "a", "m", "aː", "m"])
     r = scorer_for(logp).score(None, TOILET)
@@ -1051,6 +1063,13 @@ def test_sign_in_guards_the_practice_endpoints():
         def all_attempts(self):
             return [{**r, "user_id": "u2"} for r in self.attempts("")[:2]]
 
+        def activity(self, hours=24, bucket_minutes=15):
+            self.activity_args = hours, bucket_minutes
+            return [{"bucket": "2026-10-13T10:00:00+00:00", "attempts": 4, "active_students": 2}]
+
+        def all_attempt_issues(self):
+            return []
+
     with TestClient(create_app(scorer_for(emissions(["w"])), auth=FakeAuth())) as c:
         page = c.get("/").text
         assert 'AUTH_URL="https://proj.supabase.co"' in page and 'AUTH_KEY="sb_publishable_x"' in page
@@ -1099,6 +1118,11 @@ def test_sign_in_guards_the_practice_endpoints():
         assert c.post("/api/classes", json={"name": "September 2026", "emails": "x@b.c", "lessons": ALL[:1]},
                       headers=good).status_code == 200
         assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": True, "tutor": True, "classes": [], "lessons": ALL, "dailies": []}
+        activity = c.get("/api/activity?hours=12&bucket_minutes=30", headers=good)
+        assert activity.json() == {"hours": 12, "bucket_minutes": 30, "buckets": [
+            {"bucket": "2026-10-13T10:00:00+00:00", "attempts": 4, "active_students": 2}]}
+        assert c.app.state.auth.activity_args == (12, 30)
+        assert c.get("/api/activity?hours=0", headers=good).status_code == 422
         # the content part: a teacher adds a video to a ready lesson by its Vimeo link, kept without the sharing parameters
         READY = [l["id"] for l in LESSONS if not l.get("soon")]
         SOON = next(l["id"] for l in LESSONS if l.get("soon"))
@@ -1370,13 +1394,13 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
     monkeypatch.setenv("SAWTAK_API_KEY", "")   # no native baseline from a local .env: the score is the stub's own
 
     from app.auth import AuthUnavailable
-    from app.main import create_app
+    from app.main import MODEL_ID, create_app
 
     class FakeAuth:
         url, key, teachers, tutors = "https://proj.supabase.co", "sb_publishable_x", frozenset(), frozenset({"t@b.c"})
 
         def __init__(self):
-            self.cls, self.flags, self.table, self.rank = [], [], True, frozenset()
+            self.cls, self.flags, self.table, self.rank, self.calibration_rows = [], [], True, frozenset(), []
 
         def user(self, token):
             return {"t": {"id": "u1", "email": "T@b.c"}, "s": {"id": "u2", "email": "s@b.c"}}.get(token)
@@ -1405,6 +1429,40 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
             self.flags.append((row, audio, mime, name))
             return True
 
+        def list_flags(self, status="pending"):
+            if status != "pending":
+                return []
+            return [{"id": i + 1, **row, "status": status} for i, (row, _, __, ___) in enumerate(self.flags)]
+
+        def review_flag(self, flag_id, values):
+            self.review = (flag_id, values)
+
+        def flag_audio(self, flag_id):
+            if flag_id < 1 or flag_id > len(self.flags):
+                return None
+            return self.flags[flag_id - 1][1], self.flags[flag_id - 1][2]
+
+        def calibrations(self, status=None):
+            return [r for r in self.calibration_rows if not status or r["status"] == status]
+
+        def add_calibration(self, row):
+            made = {"id": len(self.calibration_rows) + 1, **row}
+            self.calibration_rows.append(made)
+            return made
+
+        def update_calibration(self, calibration_id, values):
+            next(r for r in self.calibration_rows if r["id"] == calibration_id).update(values)
+
+        def delete_calibration(self, calibration_id):
+            before = len(self.calibration_rows)
+            self.calibration_rows = [r for r in self.calibration_rows if r["id"] != calibration_id]
+            return len(self.calibration_rows) < before
+
+        def all_attempt_issues(self):
+            return [{"user_id": f"u{i}", "phrase": TOILET["he"], "score": 60,
+                     "issues": [{"expected": "ħ", "heard": "χ", "score": 20}],
+                     "model": MODEL_ID, "version": "v"} for i in range(3)]
+
     t = np.arange(16000) / 16000
     buf = io.BytesIO()
     with wave.open(buf, "wb") as w:
@@ -1430,6 +1488,35 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         assert send(c, "t", phrase_id=10**6).status_code == 404
         a.teachers = frozenset({"s@b.c"})   # a teacher flags too
         assert c.get("/api/me", headers={"Authorization": "Bearer s"}).json()["tutor"] is True and send(c, "s").status_code == 200
+        hs = {"Authorization": "Bearer s"}
+        listed = c.get("/api/flags", headers=hs)
+        assert listed.status_code == 200 and len(listed.json()["flags"]) == 2
+        played = c.get("/api/flags/1/audio", headers=hs)
+        assert played.status_code == 200 and played.content == buf.getvalue() and played.headers["content-type"] == "audio/wav"
+        assert c.get("/api/flags/999/audio", headers=hs).status_code == 404
+        review = c.put("/api/flags/1", headers=hs, json={"status": "confirmed", "category": "recognition",
+                       "false_issues": [{"word": 1, "expected": "ħ", "heard": "χ"}], "review_note": "  תקין  "})
+        assert review.status_code == 200
+        assert a.review[0] == 1 and a.review[1]["false_issues"] == [{"word": 1, "expected": "ħ", "heard": "χ"}]
+        assert a.review[1]["review_note"] == "תקין" and a.review[1]["reviewed_by"] == "s@b.c"
+        assert c.put("/api/flags/1", headers=hs, json={"status": "pending", "category": "other"}).status_code == 400
+        patterns = c.get("/api/attempt-patterns", headers=hs).json()["patterns"]
+        assert patterns[0]["expected"] == "ħ" and patterns[0]["heard"] == "χ"
+        assert patterns[0]["students"] == 3 and patterns[0]["student_rate"] == 1
+        proposal = c.post("/api/calibrations", headers=hs, json={"expected": "ħ", "heard": "χ",
+                          "evidence": {"reports": 5, "reporters": 2, "phrases": [TOILET["he"]]}})
+        assert proposal.status_code == 200 and proposal.json()["calibration"]["status"] == "draft"
+        applied = c.put("/api/calibrations/1", headers=hs, json={"status": "applied", "floor": 70,
+                        "scope": "phrase", "phrase": TOILET["he"]})
+        assert applied.status_code == 200 and applied.json()["active"] == 1
+        assert c.app.state.scorer.calibrations[("ħ", "χ", TOILET["he"])] == 70
+        deleted = c.delete("/api/calibrations/1", headers=hs)
+        assert deleted.status_code == 200 and deleted.json()["active"] == 0
+        assert not c.app.state.scorer.calibrations and c.delete("/api/calibrations/1", headers=hs).status_code == 404
+        dismissed = c.post("/api/calibrations", headers=hs, json={"expected": "r", "heard": "ɣ",
+                           "evidence": {"dismissed": True, "source": "confirmed_flags"}})
+        assert dismissed.status_code == 200 and dismissed.json()["calibration"]["status"] == "draft"
+        assert dismissed.json()["calibration"]["evidence"] == {"dismissed": True, "source": "confirmed_flags"}
         a.teachers = frozenset()
         a.table = False   # before the table is created: the command to create it
         r = send(c, "t")

@@ -296,6 +296,8 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .trow.s3{grid-template-columns:1fr auto 3em}
 /* the panel: a tab per class; under it the class's figures, its lessons with the sentences it finds hard, its students */
 .tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+#mTabs{flex-direction:column;align-items:flex-start;overflow:visible}
+#mTabs .class-tabs{display:flex;gap:8px;width:100%;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
 .tab{flex:none;font:700 15px/1 var(--f-body);padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;white-space:nowrap}
 .tab small{font-weight:600;color:var(--muted);margin-inline-start:6px;font-variant-numeric:tabular-nums}
 .tab[aria-selected=true]{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
@@ -332,17 +334,26 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .rrow .who{display:flex;flex-direction:column;min-width:0}
 .rrow .who b{align-self:flex-start;max-width:100%;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rrow .who small{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rrow .who .classes{color:var(--olive)}
 .cell{display:flex;flex-direction:column;align-items:stretch;gap:3px;font:600 12px/1 var(--f-body);color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
 .cell .progress{height:5px;margin:0}
 .rrow .pill,.rrow .none{justify-self:end}
 .rrow .none{color:var(--muted);font-size:12px;text-align:end}
 /* the panel's two parts: the classes (opened, edited, deleted) and the students (their progress, a class at a time) */
-.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:14px;background:var(--line)}
+.modes{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px;border-radius:14px;background:var(--line)}
 .modes button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 6px;border:0;border-radius:10px;background:transparent;color:var(--ink);font:700 16px/1.2 var(--f-body);cursor:pointer}
 .modes button small{font:600 12px/1.2 var(--f-body);color:var(--muted)}
 .modes button[aria-selected=true]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.15)}
 #manage.classes :is(#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.classes) #mClasses{display:none}
 #manage.content :is(#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.content) #mContent{display:none}
+#manage.flags :is(#mClasses,#mContent,#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.flags) #mFlags{display:none}
+.flag-review{gap:10px}.flag-review h2{margin:0}.flag-review .meta{color:var(--muted);font-size:13px}.flag-review fieldset{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:7px}
+.flag-review fieldset label{display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid var(--line);border-radius:9px}.flag-review select,.flag-review textarea{font:inherit;border:1px solid var(--line);border-radius:9px;padding:7px;background:var(--surface);color:var(--ink)}
+.flag-review textarea{width:100%;resize:vertical}.flag-patterns{width:100%;border-collapse:collapse;text-align:start}.flag-patterns :is(th,td){padding:6px;border-bottom:1px solid var(--line)}
+.activity{display:flex;flex-direction:column;gap:12px}.activity-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.activity-head h2{margin:0}.activity-head p{margin:3px 0 0;color:var(--muted);font-size:13px}
+.activity-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.activity-stat{padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}.activity-stat b{display:block;font:400 28px/1 var(--f-display);font-variant-numeric:tabular-nums}.activity-stat small{color:var(--muted);font-size:12px}
+.activity-chart{width:100%;height:190px;overflow:visible}.activity-chart .grid{stroke:var(--line);stroke-width:1}.activity-chart .bar{fill:var(--olive);opacity:.82}.activity-chart .bar:hover{opacity:1}.activity-chart text{fill:var(--muted);font:11px var(--f-body)}
+@media(max-width:560px){.activity-stats{grid-template-columns:1fr}.activity-chart{height:160px}}
 /* the content part: a level's name, then a card per lesson with its topics and videos, a row each, and the form that adds a video */
 #mContent{display:flex;flex-direction:column;gap:12px}
 .guides{display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:var(--muted);font-size:14px}
@@ -394,6 +405,9 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 #manage.student :is(#mTutors,#mTabs,#mHead,#mLessons,#mRoster),#manage:not(.student) #mStudent{display:none}
 #mStudent{display:flex;flex-direction:column;gap:inherit}
 #mStudent .back{align-self:flex-start}
+.student-classes{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px}
+.student-classes>span{color:var(--muted);font-size:13px}
+.student-classes .tab{padding:7px 11px;font-size:13px}
 #mTutors .note{margin:0;padding:8px 16px}
 #mTutors label{display:flex;align-items:center;gap:10px;padding:7px 16px;border-top:1px solid var(--line);cursor:pointer}
 #mTutors label span{display:flex;flex-direction:column;min-width:0}
@@ -746,11 +760,12 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   <section class="wrap" id="manage" aria-labelledby="mTitle">
     <div class="roundbar"><h1 class="mtitle" id="mTitle">ניהול</h1><span class="sep"></span><button class="btn" id="mRefresh">רענון</button><button class="btn primary" id="mPractice">לתרגול</button></div>
     <div class="sub" id="mState" aria-live="polite"></div>
-    <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>ההתקדמות בכל כיתה</small></button><button role="tab" data-mode="content">תוכן<small>נושאים, סרטונים וטקסטים</small></button></div>
+    <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>רשימה ומסנן כיתות</small></button><button role="tab" data-mode="content">תוכן<small>נושאים, סרטונים וטקסטים</small></button><button role="tab" data-mode="flags">ניטור<small>פעילות ודיווחי ציונים</small></button></div>
     <div id="mClasses"></div>
     <div id="mContent"></div>
+    <div id="mFlags"></div>
     <div class="card hard" id="mTutors" hidden></div>
-    <div class="tabs" id="mTabs" role="tablist" aria-label="כיתות" hidden></div>
+    <div class="tabs" id="mTabs" role="tablist" aria-label="סינון תלמידים לפי כיתה" hidden></div>
     <div class="card" id="mHead" hidden></div>
     <div class="card hard" id="mLessons" hidden></div>
     <div class="card hard roster" id="mRoster" hidden></div>
@@ -927,6 +942,28 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
       <li><b>תלמיד לא רואה סרטון חדש:</b> שירענן את הדף; הרשימה מתעדכנת אצל התלמידים תוך כדקה.</li></ul>
     <h3>מחיקה</h3>
     <p>ב<b>תוכן</b>, בכרטיס <b>הסרטונים שבספריה</b>, לוחצים <b>מחיקה</b> ליד הסרטון ומאשרים. הסרטון נעלם לכל התלמידים. את הקישור אי אפשר לערוך: כדי לשנות אותו, מוחקים ומוסיפים מחדש.</p>
+  </article>
+  <article data-guide="homework" data-title="איך מגדירים שיעורי בית" hidden>
+    <p>שיעורי בית הם נושא מתוך אחד השיעורים של הכיתה. אפשר להגדיר כמה מטלות במקביל, ולכל אחת לקבוע תאריך הגשה משלה.</p>
+    <h3>הגדרת שיעורי בית בכיתה קיימת</h3>
+    <ol><li>בראש הפאנל בוחרים בחלק <b>כיתות</b>.</li>
+      <li>ליד הכיתה הרצויה לוחצים <b>עריכה</b>.</li>
+      <li>בחלק <b>שיעורי בית</b> בוחרים בשורה את השיעור, את הנושא לתרגול ואת תאריך ההגשה. התאריך אינו חובה.</li>
+      <li>למטלה נוספת לוחצים <b>+ הוספת שיעורי בית</b> ובוחרים נושא ותאריך בשורה החדשה. אי אפשר לבחור את אותו נושא פעמיים.</li>
+      <li>לוחצים <b>שמירה</b>.</li></ol>
+    <p>בעת פתיחת כיתה חדשה בוחרים מטלה אחת בשלב <b>שיעורי הבית</b>. לאחר פתיחת הכיתה אפשר להוסיף מטלות נוספות דרך <b>עריכה</b>.</p>
+    <h3>אילו נושאים אפשר לבחור</h3>
+    <ul><li>אפשר לבחור רק נושא ששייך לשיעור המסומן לכיתה.</li>
+      <li>אפשר לבחור נושא רגיל לתרגול, <b>כתיבת משפטים</b>, או טקסט שהוספתם לשיעור.</li>
+      <li>אם הנושא הרצוי לא מופיע, חוזרים לחלק <b>השיעורים</b> בחלון העריכה ומסמנים את השיעור שלו.</li></ul>
+    <h3>מה התלמידים רואים</h3>
+    <ul><li>מעל כל נושא שנבחר מופיעה במסלול בועה של <b>שיעורי בית</b>, ובה הזמן שנותר עד ההגשה.</li>
+      <li>מטלת תרגול מושלמת כשכל משפטי הנושא תורגלו. מטלת כתיבה מושלמת כשכל השורות מולאו.</li>
+      <li>השינוי מגיע לתלמידים בפעם הבאה שהם פותחים את העמוד. בפאנל אפשר לראות מי סיים ומי עדיין לא.</li></ul>
+    <h3>שינוי והסרה</h3>
+    <ul><li><b>שינוי נושא או תאריך:</b> חוזרים לעריכת הכיתה, משנים את השורה ולוחצים <b>שמירה</b>.</li>
+      <li><b>הסרת מטלה:</b> לוחצים <b>✕</b> בשורה שלה ואז <b>שמירה</b>.</li>
+      <li><b>מטלה בלי תאריך:</b> משאירים את שדה התאריך ריק; המטלה עדיין תסומן במסלול, ללא מועד אחרון.</li></ul>
   </article>
 </dialog>
 <div id="whyTip" role="tooltip" hidden></div>
@@ -2476,9 +2513,11 @@ function sentence(p,under){   // a sentence as the student sees it, and a small 
   const text=mark("two",""), name=document.createElement("span");
   setTr(name,p.read?p.tr:p.he); text.append(name,mark("",under,"small")); return text;
 }
-/* The panel shows one class at a time (a tab each). Before the first class it shows every account that signed in. */
-let CLASS=null, shownClass=store.get("ihki.mclass","");   // the panel's last answer {classes, students}; the class on show
+/* The students part starts with one unique list; its class tabs are filters and keep class-specific calculations. */
+let CLASS=null, shownClass=store.get("ihki.mstudentClass","*");   // "*" is every student; otherwise the class on show
 let mMode=store.get("ihki.mmode","");   // the panel's part on show: "classes" or "students" (the classes, before the first one)
+let FLAG_REVIEWS={pending:[],confirmed:[]}, CALIBRATIONS=[], ATTEMPT_PATTERNS=[], flagsError="", flagsLoaded=false, flagAudioUrls=[];
+let ACTIVITY=null, activityError="";
 let shownStudent="", classScroll=0;   // the student whose screen is on show (an email; "" for the class's), and where the class's was left
 let CLASS_LESSONS=[], CLASS_SOON=[];   // the ready lessons of the class on show, and those still to come (every lesson before the first class)
 const HARD=70;   // a sentence whose class average (of each student's best score) is under this is flagged as hard
@@ -2505,6 +2544,7 @@ async function loadManage(){
       state.textContent=res.status===403?"הפאנל פתוח למורים בלבד.":`נתוני התלמידים לא זמינים כרגע (${detail}).`; return;
     }
     CLASS=await res.json(); await loadContent();
+    if(mMode==="flags") await loadFlags();
     TEACHER_DAILIES=CLASS.classes.flatMap(classDailies).map(d=>({...d.v,date:d.date})).sort((a,b)=>a.date.localeCompare(b.date));   // as just saved; the earliest day of each comes first
   }catch{ state.textContent="השרת לא זמין."; return; }
   state.textContent=""; state.classList.toggle("setup",!!(CLASS.setup||[]).length);
@@ -2514,7 +2554,7 @@ async function loadManage(){
 }
 function drawManage(){
   const classes=CLASS.classes||[];
-  if(!classes.some(c=>c.name===shownClass)) shownClass=classes.length?classes[0].name:"";
+  if(shownClass!=="*"&&!classes.some(c=>c.name===shownClass)) shownClass="*";
   const klass=classes.find(c=>c.name===shownClass)||null;
   const mine=ALL_LESSONS.filter(l=>!klass||klass.lessons.includes(l.id));
   CLASS_LESSONS=mine.filter(l=>!l.soon); CLASS_SOON=mine.filter(l=>l.soon);
@@ -2522,18 +2562,157 @@ function drawManage(){
   // a student of the class, with its nickname in it and what they practised since it was opened (a new class starts
   // clean); the totals beside their own fields (`tries` stays the per-sentence one)
   const students=CLASS.students.filter(s=>!klass||klass.name in s.classes).map(s=>{ if(klass&&s.since) s={...s,...s.since[klass.name]}; const t=stuTally(s,listed);
-    return {...s,nick:klass?s.classes[klass.name]:Object.values(s.classes).find(Boolean)||"",done:t.done,n:t.n,avg:t.avg}; });
-  if(!["classes","students","content"].includes(mMode)) mMode=classes.length?"students":"classes";
-  $("mModes").hidden=false; $("manage").classList.toggle("classes",mMode==="classes"); $("manage").classList.toggle("content",mMode==="content");
+    return {...s,nick:klass?s.classes[klass.name]:s.name?"":Object.values(s.classes).find(Boolean)||"",classNames:Object.keys(s.classes),done:t.done,n:t.n,avg:t.avg}; });
+  if(!["classes","students","content","flags"].includes(mMode)) mMode=classes.length?"students":"classes";
+  $("mModes").hidden=false; for(const mode of ["classes","content","flags"]) $("manage").classList.toggle(mode,mMode===mode);
   for(const b of $("mModes").children) b.setAttribute("aria-selected",b.dataset.mode===mMode);
-  drawClasses(classes); drawContent(); drawTutors(); drawTabs(classes); drawHead(klass,students); drawLessons(students,listed); drawRoster(klass,students,listed);
+  drawClasses(classes); drawContent(); drawFlags(); drawTutors(); drawTabs(classes); drawHead(klass,students);
+  if(klass||!classes.length) drawLessons(students,listed); else{ $("mLessons").innerHTML=""; $("mLessons").hidden=true; }
+  drawRoster(klass,students,listed);
   const one=students.find(s=>s.email===shownStudent);   // a student who left the class has no screen in it
   if(!one) shownStudent="";
   $("manage").classList.toggle("student",!!one); $("mStudent").innerHTML="";
   if(one) drawStudent(klass,one,listed);
 }
-function showMode(mode){ mMode=mode; store.set("ihki.mmode",mode); drawManage(); }
+async function showMode(mode){
+  mMode=mode; store.set("ihki.mmode",mode); drawManage();
+  if(mode==="flags"&&!flagsLoaded){ await loadFlags(); drawManage(); }
+}
 for(const b of $("mModes").children) b.onclick=()=>showMode(b.dataset.mode);
+setInterval(()=>{ if(mMode==="flags"&&document.body.classList.contains("manage")&&!document.hidden) loadActivity().then(()=>drawActivityOnly()); },60000);
+
+const FLAG_CATEGORIES={recognition:"המודל לא זיהה הגייה תקינה",valid_variant:"וריאנט הגייה תקין",alternative_answer:"תשובה חלופית נכונה",noise:"רעש או הקלטה בעייתית",other:"אחר"};
+const PHONE_NAMES={"ħ":"ח (ح)","ʕ":"ע (ع)","x":"ח׳ (خ)","χ":"ח׳ (خ)","ɣ":"ע׳ (غ)","r":"ר (ر)","q":"ק (ق)","ʔ":"א/ק (ء/ق)","h":"ה (ه)","sˤ":"צ (ص)","tˤ":"ט (ط)","dˤ":"ד׳ (ض)","ðˤ":"ט׳ (ظ)","k":"כ (ك)","s":"ס (س)","t":"ת (ت)","d":"ד (د)","z":"ז (ز)","ʃ":"ש (ش)","dʒ":"ג׳ (ج)","b":"ב (ب)","f":"פ (ف)","m":"מ (م)","n":"נ (ن)","l":"ל (ل)","w":"ו (و)","j":"י (ي)","g":"ג (ج)","_":"לא נשמע"};
+const phoneName=p=>PHONE_NAMES[p]||({a:"אַ",i:"אִ",u:"אֻ",e:"אֶ",o:"אוֹ","aː":"אַא","iː":"אִי","uː":"אוּ","eː":"אֵי","oː":"אוֹ"}[p])||p;
+async function loadActivity(){
+  activityError="";
+  try{ const res=await api("/api/activity?hours=24&bucket_minutes=15"), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); ACTIVITY=data; }
+  catch(err){ ACTIVITY=null; activityError=err.message; }
+}
+async function loadFlags(){
+  flagsError=""; activityError="";
+  const activity=loadActivity();
+  try{
+    const get=async(url,field)=>{ const res=await api(url), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); return data[field]||[]; };
+    const [pending,confirmed,calibrations,attemptPatterns]=await Promise.all([
+      get("/api/flags?status=pending","flags"),get("/api/flags?status=confirmed","flags"),
+      get("/api/calibrations","calibrations"),get("/api/attempt-patterns","patterns")]);
+    FLAG_REVIEWS={pending,confirmed}; CALIBRATIONS=calibrations; ATTEMPT_PATTERNS=attemptPatterns; flagsLoaded=true;
+  }catch(err){ flagsError=err.message; flagsLoaded=true; }
+  await activity;
+}
+function flagIssues(f){
+  const out=[];
+  for(const [word,w] of ((f.result||{}).words||[]).entries()) for(const p of w.phonemes||[]) if(p.flagged)
+    out.push({word,expected:p.ipa,heard:p.heard||"_",label:`${w.tr||w.ar}: ${p.ipa} ← ${p.heard||"חסר"}`});
+  return out;
+}
+function drawFlags(){
+  const box=$("mFlags"); box.innerHTML=""; for(const url of flagAudioUrls) URL.revokeObjectURL(url); flagAudioUrls=[];
+  drawActivity(box);
+  if(!flagsLoaded){ box.append(mark("card","בחרו בניטור כדי לטעון את הנתונים.")); return; }
+  if(flagsError){ const card=mark("card",""); card.append(mark("","לא ניתן לטעון את הדיווחים","h2"),mark("",flagsError,"p")); box.append(card); return; }
+  if(CALIBRATIONS.some(c=>c.status!=="rejected"&&!(c.evidence||{}).dismissed)){
+    const list=mark("card",""); list.append(mark("","הצעות כיול","h2"));
+    for(const c of CALIBRATIONS.filter(c=>c.status!=="rejected"&&!(c.evidence||{}).dismissed)){
+      const row=mark("flag-review",""), title=mark("",`${phoneName(c.expected)} → ${phoneName(c.heard)} · ${c.status==="applied"?"פעיל":"טיוטה"}`,"b");
+      const floor=document.createElement("input"); floor.type="number"; floor.min=0; floor.max=100; floor.value=c.floor; floor.title="ציון מינימום כשמתקיים הבלבול";
+      const scope=document.createElement("select"); for(const [value,label] of [["global","כל המשפטים"],["phrase","משפט מסוים"]]){ const o=document.createElement("option"); o.value=value; o.textContent=label; scope.append(o); } scope.value=c.scope||"global";
+      const phrase=document.createElement("select"), phrases=(c.evidence||{}).phrases||[]; for(const value of phrases){ const o=document.createElement("option"); o.value=value; o.textContent=value; phrase.append(o); } phrase.value=c.phrase||phrases[0]||""; phrase.hidden=scope.value!=="phrase"; scope.onchange=()=>phrase.hidden=scope.value!=="phrase";
+      const actions=mark("row",""), apply=mark("btn primary",c.status==="applied"?"עדכון הכלל":"החלת הכלל","button"), reject=mark("btn danger",c.status==="applied"?"השבתה":"דחייה","button"), del=mark("btn danger","מחיקת ההצעה","button"), msg=mark("msg","");
+      const save=async status=>{ apply.disabled=reject.disabled=true; try{ const res=await api(`/api/calibrations/${c.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status,floor:+floor.value,scope:scope.value,phrase:phrase.value})}), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); flagsLoaded=false; await loadFlags(); drawManage(); }catch(err){ msg.textContent=err.message; apply.disabled=reject.disabled=false; } };
+      del.onclick=async()=>{ if(!confirm("למחוק את הצעת הכיול? לא ניתן לבטל את המחיקה.")) return; apply.disabled=reject.disabled=del.disabled=true; msg.textContent="מוחק…"; try{ const res=await api(`/api/calibrations/${c.id}`,{method:"DELETE"}), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); flagsLoaded=false; await loadFlags(); drawManage(); }catch(err){ msg.textContent="המחיקה נכשלה: "+err.message; apply.disabled=reject.disabled=del.disabled=false; } };
+      apply.onclick=()=>save("applied"); reject.onclick=()=>save("rejected"); actions.append(mark("","ציון מינימום:"),floor,scope,phrase,apply,reject,del,msg); row.append(title,actions); list.append(row);
+    }
+    box.append(list);
+  }
+  const frequent=ATTEMPT_PATTERNS.filter(p=>p.students>=3&&p.attempts>=5&&p.student_rate>=.3);
+  if(frequent.length){
+    const card=mark("card",""); card.append(mark("","דפוסים אצל תלמידים","h2"),mark("meta","מועמדים לבדיקה בלבד: שכיחות אינה מוכיחה שהמערכת טעתה.","p"));
+    const table=mark("flag-patterns","","table"), head=document.createElement("tr"); for(const x of ["משפט וצמד","תלמידים","ניסיונות","שיעור מהמתרגלים","פעולה"]) head.append(mark("",x,"th")); table.append(head);
+    for(const p of frequent){
+      const row=document.createElement("tr"), label=`${p.phrase} · ${phoneName(p.expected)} → ${phoneName(p.heard)}`; for(const x of [label,p.students,p.attempts,`${Math.round(p.student_rate*100)}%`]) row.append(mark("",x,"td"));
+      const cell=document.createElement("td"), exists=CALIBRATIONS.some(c=>c.expected===p.expected&&c.heard===p.heard&&c.status!=="rejected"), propose=mark("btn",exists?"כבר קיימת הצעה":"יצירת טיוטה לבדיקה","button"); propose.disabled=exists;
+      propose.onclick=async()=>{ propose.disabled=true; try{ const evidence={source:"student_attempts",attempts:p.attempts,students:p.students,student_rate:p.student_rate,phrases:[p.phrase],average_score:p.average_score}; const res=await api("/api/calibrations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({expected:p.expected,heard:p.heard,evidence})}), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); flagsLoaded=false; await loadFlags(); drawManage(); }catch(err){ alert("יצירת ההצעה נכשלה: "+err.message); propose.disabled=false; } }; cell.append(propose); row.append(cell); table.append(row);
+    }
+    card.append(table); box.append(card);
+  }
+  const patterns=new Map;
+  for(const f of FLAG_REVIEWS.confirmed) for(const i of f.false_issues||[]){
+    const raw=`${i.expected}→${i.heard||"_"}`, old=patterns.get(raw)||{expected:i.expected,heard:i.heard||"_",n:0,people:new Set,phrases:new Set};
+    old.n++; old.people.add(f.email); old.phrases.add(f.phrase); patterns.set(raw,old);
+  }
+  const uncalibratedPatterns=[...patterns].filter(([,p])=>!CALIBRATIONS.some(c=>c.expected===p.expected&&c.heard===p.heard&&(c.status!=="rejected"||(c.evidence||{}).dismissed)));
+  if(uncalibratedPatterns.length){
+    const card=mark("card",""); card.append(mark("","דפוסים בדיווחים שאושרו","h2"));
+    const table=mark("flag-patterns","","table"), head=document.createElement("tr"); for(const x of ["צמד","מקרים","מדווחים","משפטים"]) head.append(mark("",x,"th")); table.append(head);
+    head.append(mark("","פעולה","th"));
+    for(const [,p] of uncalibratedPatterns.sort((a,b)=>b[1].n-a[1].n)){
+      const row=document.createElement("tr"), label=`${phoneName(p.expected)} → ${phoneName(p.heard)}`; for(const x of [label,p.n,p.people.size,p.phrases.size]) row.append(mark("",x,"td"));
+      const cell=document.createElement("td"), propose=mark("btn","יצירת הצעת כיול","button"), dismiss=mark("btn danger","מחיקה מהרשימה","button");
+      propose.onclick=async()=>{ propose.disabled=true; try{ const res=await api("/api/calibrations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({expected:p.expected,heard:p.heard,evidence:{reports:p.n,reporters:p.people.size,phrases:[...p.phrases]}})}), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); flagsLoaded=false; await loadFlags(); drawManage(); }catch(err){ alert("יצירת ההצעה נכשלה: "+err.message); propose.disabled=false; } }; cell.append(propose); row.append(cell); table.append(row);
+      dismiss.onclick=async()=>{ if(!confirm("להסיר את הדפוס מהרשימה? הדיווחים המקוריים יישמרו.")) return; propose.disabled=dismiss.disabled=true; try{ const evidence={dismissed:true,source:"confirmed_flags",reports:p.n,reporters:p.people.size,phrases:[...p.phrases]}; const res=await api("/api/calibrations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({expected:p.expected,heard:p.heard,evidence})}), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); flagsLoaded=false; await loadFlags(); drawManage(); }catch(err){ alert("הסרת הדפוס נכשלה: "+err.message); propose.disabled=dismiss.disabled=false; } }; cell.append(dismiss); row.append(cell); table.append(row);
+    }
+    card.append(table); box.append(card);
+  }
+  if(!FLAG_REVIEWS.pending.length){ box.append(mark("card","אין כרגע דיווחים שממתינים לבדיקה.")); return; }
+  for(const f of FLAG_REVIEWS.pending){
+    const card=mark("card flag-review",""), title=mark("",f.he||f.phrase,"h2"), result=f.result||{}, issues=flagIssues(f);
+    const ar=mark("",f.ar||"","p"); ar.dir="rtl";
+    card.append(title,ar,mark("meta",`ציון ${f.score} · דווח על ידי ${f.email} · המודל שמע: ${f.heard_ipa||"–"}`,"p"));
+    if(f.note) card.append(mark("",`הערת המדווח/ת: ${f.note}`,"p"));
+    if(f.audio){
+      const audioRow=mark("row",""), play=mark("btn","▶ השמעת ההקלטה","button"), audio=document.createElement("audio"), audioMsg=mark("msg","");
+      audio.controls=true; audio.preload="none"; audio.hidden=true;
+      play.onclick=async()=>{
+        play.disabled=true; audioMsg.textContent="טוען…";
+        try{
+          const res=await api(`/api/flags/${f.id}/audio`), data=res.ok?await res.blob():null;
+          if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
+          const url=URL.createObjectURL(data); flagAudioUrls.push(url); audio.src=url; audio.hidden=false; play.hidden=true; audioMsg.textContent="";
+          audio.play().catch(()=>{});
+        }catch(err){ audioMsg.textContent="ההשמעה נכשלה: "+err.message; play.disabled=false; }
+      };
+      audioRow.append(play,audio,audioMsg); card.append(audioRow);
+    }else card.append(mark("meta","ההקלטה לא נשמרה עם הדיווח הזה.","p"));
+    const field=document.createElement("fieldset"); field.append(mark("","אילו אבחנות של המערכת היו שגויות?","legend"));
+    for(const issue of issues){ const label=document.createElement("label"), input=document.createElement("input"); input.type="checkbox"; input.checked=true; input._issue=issue; label.append(input,issue.label); field.append(label); }
+    if(issues.length) card.append(field); else card.append(mark("meta","בדיווח הזה אין פונמה שסומנה במפורש; עדיין אפשר לסווג ולאשר אותו.","p"));
+    const category=document.createElement("select"); for(const [value,label] of Object.entries(FLAG_CATEGORIES)){ const o=document.createElement("option"); o.value=value; o.textContent=label; category.append(o); }
+    const note=document.createElement("textarea"); note.maxLength=500; note.rows=2; note.placeholder="הערת בדיקה (לא חובה)";
+    const actions=mark("row",""), confirm=mark("btn primary","אישור הדיווח","button"), reject=mark("btn danger","דחייה","button"), msg=mark("msg","");
+    const save=async status=>{
+      confirm.disabled=reject.disabled=true; msg.textContent="שומר…";
+      const false_issues=[...field.querySelectorAll("input:checked")].map(x=>({word:x._issue.word,expected:x._issue.expected,heard:x._issue.heard}));
+      try{
+        const res=await api(`/api/flags/${f.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status,category:category.value,false_issues,review_note:note.value})});
+        const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status);
+        flagsLoaded=false; await loadFlags(); drawManage();
+      }catch(err){ msg.textContent="השמירה נכשלה: "+err.message; confirm.disabled=reject.disabled=false; }
+    };
+    confirm.onclick=()=>save("confirmed"); reject.onclick=()=>save("rejected"); actions.append(category,confirm,reject,msg); card.append(note,actions); box.append(card);
+  }
+}
+function drawActivity(box){
+  const card=mark("card activity",""), head=mark("activity-head",""), title=mark("","פעילות ב־24 השעות האחרונות","h2"), sub=mark("","כל עמודה מייצגת 15 דקות · מתעדכן פעם בדקה","p");
+  const heading=document.createElement("div"); heading.append(title,sub); head.append(heading); card.append(head);
+  if(activityError){ card.append(mark("note",`גרף הפעילות אינו זמין. יש ליצור את פונקציית activity_buckets ב־Supabase (${activityError}).`,"p")); box.append(card); return; }
+  if(!ACTIVITY){ card.append(mark("note","טוען את נתוני הפעילות…","p")); box.append(card); return; }
+  const mins=ACTIVITY.bucket_minutes||15, count=Math.ceil((ACTIVITY.hours||24)*60/mins), now=Date.now(), end=Math.floor(now/(mins*60000))*mins*60000, by=new Map((ACTIVITY.buckets||[]).map(x=>[new Date(x.bucket).getTime(),x]));
+  const rows=Array.from({length:count},(_,i)=>{ const time=end-(count-1-i)*mins*60000, r=by.get(time)||{}; return {time,attempts:+r.attempts||0,active:+r.active_students||0}; });
+  const recent=rows.slice(-Math.ceil(60/mins)), attempts=recent.reduce((n,r)=>n+r.attempts,0), latest=rows[rows.length-1]||{attempts:0,active:0};
+  const stats=mark("activity-stats",""); for(const [n,label] of [[attempts,"תרגולים בשעה האחרונה"],[latest.active,`תלמידים פעילים ב־${mins} הדקות האחרונות`],[latest.attempts,`תרגולים ב־${mins} הדקות האחרונות`]]){ const s=mark("activity-stat",""); s.append(mark("",n,"b"),mark("",label,"small")); stats.append(s); } card.append(stats);
+  const ns="http://www.w3.org/2000/svg", svg=document.createElementNS(ns,"svg"); svg.classList.add("activity-chart"); svg.setAttribute("viewBox","0 0 720 190"); svg.setAttribute("role","img"); svg.setAttribute("aria-label",`גרף פעילות: ${attempts} תרגולים בשעה האחרונה`);
+  const max=Math.max(1,...rows.map(r=>r.attempts)), left=32, top=10, width=678, height=145, gap=.7, bw=width/rows.length;
+  for(const frac of [0,.5,1]){ const y=top+height*(1-frac), line=document.createElementNS(ns,"line"); line.setAttribute("class","grid"); line.setAttribute("x1",left); line.setAttribute("x2",left+width); line.setAttribute("y1",y); line.setAttribute("y2",y); svg.append(line); const t=document.createElementNS(ns,"text"); t.setAttribute("x",0); t.setAttribute("y",y+4); t.textContent=Math.round(max*frac); svg.append(t); }
+  rows.forEach((r,i)=>{ const h=r.attempts/max*height, rect=document.createElementNS(ns,"rect"); rect.setAttribute("class","bar"); rect.setAttribute("x",left+i*bw); rect.setAttribute("y",top+height-h); rect.setAttribute("width",Math.max(.5,bw-gap)); rect.setAttribute("height",h); const tip=document.createElementNS(ns,"title"), time=new Date(r.time).toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}); tip.textContent=`${time}: ${r.attempts} תרגולים, ${r.active} תלמידים`; rect.append(tip); svg.append(rect); });
+  for(const i of [0,Math.floor((rows.length-1)/2),rows.length-1]){ const t=document.createElementNS(ns,"text"), r=rows[i]; t.setAttribute("x",left+i*bw); t.setAttribute("y",180); t.setAttribute("text-anchor",i?i===rows.length-1?"end":"middle":"start"); t.textContent=new Date(r.time).toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}); svg.append(t); }
+  card.append(svg); box.append(card);
+}
+function drawActivityOnly(){
+  const box=$("mFlags"), old=box.firstElementChild, holder=document.createElement("div"); drawActivity(holder);
+  if(old&&old.classList.contains("activity")) old.replaceWith(holder.firstElementChild);
+}
 const lessonsLine=ls=>byLevel(ls).map(g=>`${g.level.name}: ${lessonsWord(g.lessons)} (${g.lessons.filter(l=>!l.soon).length} מוכנים)`).join(" · ");   // "שלב א: שיעורים 1–10 (2 מוכנים)"
 /* The classes' part: a card per class with what it is made of, and its buttons: edit, delete, and on to its students' progress. */
 function drawClasses(classes){
@@ -2555,7 +2734,7 @@ function drawClasses(classes){
     fact("שיעורי בית",...(hws.length?hws:["אין"]));
     const days=classDailies(c);
     if(days.length) fact("סרטונים יומיים",...days.map(d=>mark("",`${d.v.title} · ${dayWord(d.date)}`,"div")));
-    const go=mark("btn","התקדמות התלמידים ‹","button"); go.onclick=()=>{ shownClass=c.name; store.set("ihki.mclass",c.name); shownStudent=""; showMode("students"); scrollTo(0,0); };
+    const go=mark("btn","התקדמות התלמידים ‹","button"); go.onclick=()=>{ shownClass=c.name; store.set("ihki.mstudentClass",c.name); shownStudent=""; showMode("students"); scrollTo(0,0); };
     card.append(top,facts,go); box.append(card);
   }
 }
@@ -2779,30 +2958,41 @@ function drawTutors(){
 }
 function drawTabs(classes){
   const tabs=$("mTabs"); tabs.innerHTML=""; tabs.hidden=!classes.length;
+  const all=mark("tab","כל התלמידים","button"); all.setAttribute("role","tab"); all.setAttribute("aria-selected",shownClass==="*");
+  all.append(mark("",CLASS.students.length,"small"));
+  all.onclick=()=>{ shownClass="*"; shownStudent=""; store.set("ihki.mstudentClass","*"); drawManage(); };
+  tabs.append(all);
+  const classTabs=mark("class-tabs","");
   for(const c of classes){
     const t=mark("tab","","button"), name=document.createElement("bdi"); t.setAttribute("role","tab");
     name.textContent=c.name; t.append(name);   // isolated, so the count does not join a year in the name
     t.setAttribute("aria-selected",c.name===shownClass);
     t.append(mark("",c.emails.length,"small"));
-    t.onclick=()=>{ shownClass=c.name; store.set("ihki.mclass",c.name); drawManage(); };
-    tabs.append(t);
+    t.onclick=()=>{ shownClass=c.name; shownStudent=""; store.set("ihki.mstudentClass",c.name); drawManage(); };
+    classTabs.append(t);
   }
+  tabs.append(classTabs);
 }
 // the homework the class is on now: the one due next, as long as its day has not passed; with none of those, one that
 // has no day; and when every day has passed, the last one
 const currentHw=hws=>{ const d=today(), dated=hws.filter(h=>h.due).sort((a,b)=>a.due.localeCompare(b.due)); return dated.find(h=>h.due>=d)||hws.filter(h=>!h.due).pop()||dated.pop()||null; };
 const hwLesson=h=>lessonName(ALL_LESSONS.find(l=>l.id===h.c.lesson));
-const classHw=klass=>hwOf(klass,ALL_CATS).filter(h=>CLASS_LESSONS.some(l=>l.id===h.c.lesson));   // the homeworks of the class on show, in its ready lessons
+const classHw=klass=>klass?hwOf(klass,ALL_CATS).filter(h=>CLASS_LESSONS.some(l=>l.id===h.c.lesson)):[];   // no shared homework in the all-students view
 function drawHead(klass,students){   // the class's name and its figures; before the first class, where to open one
   const head=$("mHead"); head.innerHTML=""; head.hidden=false;
   const top=mark("chead","");
   if(!klass){
-    top.append(mark("","עוד אין כיתות","h2"));
-    const open=mark("btn primary","פתיחת כיתה","button"); open.onclick=newClass; top.append(open);
-    top.append(mark("","עד שנפתחת כיתה, כל חשבון יכול להיכנס, ולמטה מופיע כל מי שנכנס. מהכיתה הראשונה נכנסים רק התלמידים שבכיתות והמורים.","p"));
-    head.append(top); return;
+    if(!(CLASS.classes||[]).length){
+      top.append(mark("","עוד אין כיתות","h2"));
+      const open=mark("btn primary","פתיחת כיתה","button"); open.onclick=newClass; top.append(open);
+      top.append(mark("","עד שנפתחת כיתה, כל חשבון יכול להיכנס, ולמטה מופיע כל מי שנכנס. מהכיתה הראשונה נכנסים רק התלמידים שבכיתות והמורים.","p"));
+      head.append(top); return;
+    }
+    top.append(mark("","כל התלמידים","h2"),mark("","כל תלמיד מופיע פעם אחת. לבדיקת שיעורי בית והתקדמות מאז פתיחת כיתה, בחרו כיתה במסנן.","p"));
+  }else{
+    top.append(mark("",klass.name,"h2"),mark("",lessonsLine(ALL_LESSONS.filter(l=>klass.lessons.includes(l.id))),"p"));
   }
-  top.append(mark("",klass.name,"h2"),mark("",lessonsLine(ALL_LESSONS.filter(l=>klass.lessons.includes(l.id))),"p")); head.append(top);
+  head.append(top);
   const tiles=mark("tiles",""), tile=(n,what)=>{ const t=mark("tile",""), b=mark("",n,"b"); b.dir="ltr"; t.append(b,mark("",what,"small")); tiles.append(t); };
   const avg=mean(students.filter(s=>s.avg!=null).map(s=>s.avg));
   tile(`${students.filter(s=>s.joined).length}/${students.length}`,"נכנסו לאפליקציה");
@@ -2811,7 +3001,7 @@ function drawHead(klass,students){   // the class's name and its figures; before
   tile(avg??"–","ציון ממוצע");
   const hws=classHw(klass), cur=currentHw(hws), list=listedPhrases(), did=s=>{ const t=topicTally(s,cur.c,list); return t.done>=t.n; };
   // of several homeworks the tile counts the current one (see `currentHw`), and says which lesson's it is
-  tile(cur?`${students.filter(did).length}/${students.length}`:"–",!cur?"אין שיעורי בית":hws.length>1?`סיימו את שיעורי הבית הנוכחיים (${hwLesson(cur)})`:"סיימו את שיעורי הבית");
+  if(klass) tile(cur?`${students.filter(did).length}/${students.length}`:"–",!cur?"אין שיעורי בית":hws.length>1?`סיימו את שיעורי הבית הנוכחיים (${hwLesson(cur)})`:"סיימו את שיעורי הבית");
   head.append(tiles);
   for(const {c:hw,due:day} of hws){   // each homework: how many finished the topic, and who is still to, the furthest from it first
     const todo=students.map(s=>({s,t:topicTally(s,hw,list)})).filter(x=>x.t.done<x.t.n).sort((a,b)=>a.t.done-b.t.done);
@@ -2865,14 +3055,16 @@ function drawRoster(klass,students,listed){
   const cols=[...(cur?[{name:"שיעורי בית",title:`שיעורי בית, ${hwLesson(cur)}, ${cur.c.name}`,did:didWord(cur.c),of:s=>topicTally(s,cur.c,listed)}]:[]),
     ...(CLASS_LESSONS.length?[{name:"כל השיעורים",title:"כל השיעורים",did:"תורגלו",of:s=>stuTally(s,listed)}]:[])];
   const box=$("mRoster"); box.innerHTML=""; box.hidden=false; box.style.setProperty("--cols",["minmax(0,1fr)",...cols.map(()=>"4.2em"),"3em","10px"].join(" "));   // no lesson column when none is ready
-  const h=mark("","תלמידים","h2"); h.append(mark("","לחיצה על תלמיד פותחת את הדף שלו","small")); box.append(h);
-  if(!students.length){ box.append(mark("note","אין עדיין תלמידים בכיתה הזו. מוסיפים אותם תחת „כיתות”, בכפתור „עריכה” של הכיתה.","p")); return; }
+  const h=mark("",klass?"תלמידים בכיתה":"כל התלמידים","h2"); h.append(mark("","לחיצה על תלמיד פותחת את הדף שלו","small")); box.append(h);
+  if(!students.length){ box.append(mark("note",klass?"אין עדיין תלמידים בכיתה הזו. מוסיפים אותם תחת „כיתות”, בכפתור „עריכה” של הכיתה.":"עוד אין תלמידים.","p")); return; }
   const head=mark("rhead",""); head.append(mark("","תלמיד/ה"),...cols.map(c=>mark("",c.name)),mark("","ציון"),mark("","")); box.append(head);
   students.sort((a,b)=>(b.last||"").localeCompare(a.last||"")||b.joined-a.joined||a.email.localeCompare(b.email));
   for(const s of students){
     const row=mark("rrow","","button"), who=mark("who","");
     const shown=mark("",(s.nick||s.name||s.email)+(s.tutor?" 🚩":""),"b"); shown.dir="auto"; if(s.tutor) shown.title="מדווח/ת על ציונים שגויים";   // an address is cut at its end
-    who.append(shown,mark("",lastSeen(s)+(s.unmatched?` · ${s.unmatched} לא זוהו`:""),"small"));
+    who.append(shown);
+    if(!klass&&s.classNames.length) who.append(mark("classes","כיתות: "+s.classNames.join(" · "),"small"));
+    who.append(mark("",lastSeen(s)+(s.unmatched?` · ${s.unmatched} לא זוהו`:""),"small"));
     who.title=s.email; row.append(who);
     for(const col of cols){ const t=col.of(s), c=mark("cell",""); c.append(ratio(t),bar(t.n?t.done/t.n:0)); c.title=`${col.title}: ${col.did} ${t.done} מתוך ${t.n}`+(t.avg!=null?`, ציון ${t.avg}`:""); row.append(c); }
     row.append(s.avg!=null?grade(s.avg):mark("none","–"),mark("go","‹"));   // the arrow says the row opens
@@ -2894,6 +3086,15 @@ function drawStudent(klass,s,listed){
   if(s.nick||s.name) who.append(mail," · ");
   if(klass){ const c=document.createElement("bdi"); c.textContent=klass.name; who.append("כיתת ",c," · "); }
   who.append(lastSeen(s)); top.append(name,who); head.append(top);
+  if(!klass&&s.classNames.length){
+    const filters=mark("student-classes",""); filters.append(mark("","הצגה במסגרת כיתה:","span"));
+    for(const className of s.classNames){
+      const button=mark("tab",className,"button");
+      button.onclick=()=>{ shownClass=className; store.set("ihki.mstudentClass",className); drawManage(); scrollTo(0,0); };
+      filters.append(button);
+    }
+    head.append(filters);
+  }
   const tiles=mark("tiles",""), tile=(n,what)=>{ const t=mark("tile",""), b=mark("",n,"b"); b.dir="ltr"; t.append(b,mark("",what,"small")); tiles.append(t); };
   tile(`${s.done}/${s.n}`,"משפטים תורגלו"); tile(s.week,"הקלטות בשבוע האחרון"); tile(s.days,"ימי תרגול"); tile(s.avg??"–","ציון ממוצע");
   head.append(tiles);
@@ -3004,7 +3205,7 @@ async function sendClass(method,body){
   try{
     const res=await api(editing?`/api/classes/${editing.id}`:"/api/classes",{method,headers:{"Content-Type":"application/json"},body:body&&JSON.stringify(body)});
     if(res.ok){
-      shownClass=method==="DELETE"?"":body.name.trim(); store.set("ihki.mclass",shownClass);
+      shownClass=method==="DELETE"?"*":body.name.trim(); store.set("ihki.mstudentClass",shownClass);
       $("editDlg").close(); loadManage();
     }else msg.textContent=(await res.json().catch(()=>({}))).detail||`השמירה נכשלה (${res.status})`;
   }catch{ msg.textContent="השרת לא זמין."; }
@@ -3122,7 +3323,7 @@ $("newForm").onsubmit=async e=>{   // "next" checks the step on show; on the las
   try{
     const res=await api("/api/classes",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({name,emails,lessons:wizLessons().map(l=>l.id),homework,due:homework?$("newDue").value:"",dailies:daysOf(wiz.days,[wizLevel().id])})});
-    if(res.ok){ shownClass=name; store.set("ihki.mclass",name); $("newDlg").close(); loadManage(); }
+    if(res.ok){ shownClass=name; store.set("ihki.mstudentClass",name); $("newDlg").close(); loadManage(); }
     else{
       const detail=(await res.json().catch(()=>({}))).detail||`הפתיחה נכשלה (${res.status})`;
       if(res.status===409) wizStep(0);   // the name was taken meanwhile: back to it

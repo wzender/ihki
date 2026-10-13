@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import json
 import logging
+import mimetypes
 import os
 import re
 import threading
@@ -124,13 +125,23 @@ class SupabaseAuth:
 
     def record(self, token: str, row: dict) -> None:
         """Adds one row to `attempts` as the student of this token. A failure is logged, never raised."""
-        req = urllib.request.Request(
-            self.url + "/rest/v1/attempts", data=json.dumps(row).encode(), method="POST",
-            headers={"Authorization": f"Bearer {token}", "apikey": self.key, "Content-Type": "application/json",
-                     "Prefer": "return=minimal", "User-Agent": "ihki/1.0"},
-        )
+        def request(values: dict):
+            return urllib.request.Request(
+                self.url + "/rest/v1/attempts", data=json.dumps(values).encode(), method="POST",
+                headers={"Authorization": f"Bearer {token}", "apikey": self.key, "Content-Type": "application/json",
+                         "Prefer": "return=minimal", "User-Agent": "ihki/1.0"})
         try:
-            urllib.request.urlopen(req, timeout=TIMEOUT).close()
+            urllib.request.urlopen(request(row), timeout=TIMEOUT).close()
+        except urllib.error.HTTPError as e:
+            if e.code == 400 and any(k in row for k in ("issues", "model", "version")):
+                legacy = {k: v for k, v in row.items() if k not in ("issues", "model", "version")}
+                try:
+                    urllib.request.urlopen(request(legacy), timeout=TIMEOUT).close()
+                    log.warning("attempt stored without issue diagnostics; migrate the attempts table (see README)")
+                    return
+                except (urllib.error.URLError, TimeoutError) as retry:
+                    e = retry
+            log.warning("attempt not recorded: %s", e)
         except (urllib.error.URLError, TimeoutError) as e:  # HTTPError is a URLError
             log.warning("attempt not recorded: %s", e)
 
@@ -442,6 +453,55 @@ class SupabaseAuth:
         self._admin("/rest/v1/flags", "POST", {**row, "audio": name if kept else None})
         return kept
 
+    def list_flags(self, status: str = "pending") -> list[dict]:
+        """Flagged scores for the teacher's review, newest first."""
+        query = urllib.parse.urlencode({"select": "*", "status": f"eq.{status}", "order": "created_at.desc"})
+        return self._admin(f"/rest/v1/flags?{query}")
+
+    def review_flag(self, flag_id: int, values: dict) -> None:
+        """Records a teacher's decision about one flagged score."""
+        self._admin(f"/rest/v1/flags?id=eq.{int(flag_id)}", "PATCH", values)
+
+    def flag_audio(self, flag_id: int) -> tuple[bytes, str] | None:
+        """Returns one private flag recording and its media type, or None when it was not stored."""
+        query = urllib.parse.urlencode({"select": "audio", "id": f"eq.{int(flag_id)}", "limit": 1})
+        rows = self._admin(f"/rest/v1/flags?{query}")
+        name = rows[0].get("audio") if rows else None
+        if not name:
+            return None
+        req = urllib.request.Request(
+            f"{self.url}/storage/v1/object/flags/{urllib.parse.quote(name)}",
+            headers={"Authorization": f"Bearer {self.secret}", "apikey": self.secret, "User-Agent": "ihki/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
+                data = res.read()
+                media_type = res.headers.get_content_type()
+        except (urllib.error.URLError, TimeoutError) as e:
+            raise AuthUnavailable(f"flag audio unavailable: {e}") from e
+        if media_type == "application/octet-stream":
+            media_type = mimetypes.guess_type(name)[0] or media_type
+        return data, media_type
+
+    def calibrations(self, status: str | None = None) -> list[dict]:
+        """Calibration proposals, optionally filtered by their workflow status."""
+        params = {"select": "*", "order": "created_at.desc"}
+        if status:
+            params["status"] = f"eq.{status}"
+        return self._admin(f"/rest/v1/calibrations?{urllib.parse.urlencode(params)}")
+
+    def add_calibration(self, row: dict) -> dict:
+        """Creates one draft calibration proposal and returns its stored row."""
+        made = self._admin("/rest/v1/calibrations", "POST", row)
+        return made[0] if made else row
+
+    def update_calibration(self, calibration_id: int, values: dict) -> None:
+        """Updates and optionally applies or rejects a calibration proposal."""
+        self._admin(f"/rest/v1/calibrations?id=eq.{int(calibration_id)}", "PATCH", values)
+
+    def delete_calibration(self, calibration_id: int) -> bool:
+        """Deletes a calibration proposal or rule; returns whether it existed."""
+        return bool(self._admin(f"/rest/v1/calibrations?id=eq.{int(calibration_id)}", "DELETE"))
+
     def users(self) -> list[dict]:
         """Every account that has signed in: id, email, name (as Google gave it; empty for one who signed in by email)."""
         users: list[dict] = []
@@ -461,6 +521,29 @@ class SupabaseAuth:
             query = urllib.parse.urlencode({"select": "user_id,cat,phrase,score,unrelated,created_at",
                                             "order": "id.desc", "limit": PAGE, "offset": len(rows)})
             batch = self._admin(f"/rest/v1/attempts?{query}")
+            rows += batch
+            if len(batch) < PAGE:
+                break
+        return rows
+
+    def activity(self, hours: int = 24, bucket_minutes: int = 15) -> list[dict]:
+        """Aggregated attempt counts for the teacher's monitoring graph; the RPC returns no student identities."""
+        return self._admin("/rest/v1/rpc/activity_buckets", "POST",
+                           {"p_hours": hours, "p_bucket_minutes": bucket_minutes})
+
+    def all_attempt_issues(self) -> list[dict] | None:
+        """Compact phoneme issues from all attempts. None means the diagnostic columns have not been migrated yet."""
+        rows: list[dict] = []
+        while len(rows) < MAX_CLASS_ATTEMPTS:
+            query = urllib.parse.urlencode({"select": "user_id,phrase,score,issues,model,version",
+                                            "unrelated": "is.false", "order": "id.desc",
+                                            "limit": PAGE, "offset": len(rows)})
+            try:
+                batch = self._admin(f"/rest/v1/attempts?{query}")
+            except AuthUnavailable as e:
+                if any(name in str(e) for name in ("issues", "model", "version")):
+                    return None
+                raise
             rows += batch
             if len(batch) < PAGE:
                 break

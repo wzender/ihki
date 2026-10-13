@@ -123,13 +123,31 @@ CREATE_WRITINGS = ("create table public.writings (user_id uuid not null default 
 CREATE_FLAGS = ("create table public.flags (id bigint generated always as identity primary key, email text not null, "
                 "cat text not null, phrase text not null, he text not null, ar text not null, ipa text not null, heard_ipa text not null, "
                 "score int not null, unrelated boolean not null default false, note text not null default '', result jsonb not null, "
-                "model text not null, version text not null default '', audio text, created_at timestamptz not null default now()); "
+                "model text not null, version text not null default '', audio text, status text not null default 'pending', "
+                "category text, reviewed_by text, reviewed_at timestamptz, review_note text not null default '', "
+                "false_issues jsonb not null default '[]'::jsonb, created_at timestamptz not null default now()); "
                 "alter table public.flags enable row level security; "
                 "insert into storage.buckets (id, name) values ('flags', 'flags') on conflict (id) do nothing;")
+MIGRATE_FLAGS = ("alter table public.flags add column if not exists status text not null default 'pending', "
+                 "add column if not exists category text, add column if not exists reviewed_by text, "
+                 "add column if not exists reviewed_at timestamptz, add column if not exists review_note text not null default '', "
+                 "add column if not exists false_issues jsonb not null default '[]'::jsonb;")
+FLAG_STATUSES = frozenset({"pending", "confirmed", "rejected", "fixed"})
+FLAG_CATEGORIES = frozenset({"recognition", "valid_variant", "alternative_answer", "noise", "other"})
+CREATE_CALIBRATIONS = ("create table public.calibrations (id bigint generated always as identity primary key, "
+                       "expected text not null, heard text not null, floor numeric not null default 70, "
+                       "scope text not null default 'global', phrase text not null default '', evidence jsonb not null default '{}', "
+                       "model text not null default '', status text not null default 'draft', proposed_by text not null, "
+                       "reviewed_by text, reviewed_at timestamptz, created_at timestamptz not null default now()); "
+                       "alter table public.calibrations enable row level security;")
+CALIBRATION_STATUSES = frozenset({"draft", "applied", "rejected"})
 # The students the teacher gave the tutor's rank (see auth.py): theirs in every class, so it is kept by email.
 CREATE_TUTORS = ("create table public.tutors (email text primary key, granted_by text not null default '', "
                  "created_at timestamptz not null default now()); alter table public.tutors enable row level security;")
 MAX_NOTE = 500
+MIGRATE_ATTEMPT_ISSUES = ("alter table public.attempts add column if not exists issues jsonb not null default '[]'::jsonb, "
+                          "add column if not exists model text not null default '', "
+                          "add column if not exists version text not null default '';" )
 AUDIO_EXT = {"webm": "webm", "ogg": "ogg", "mp4": "m4a", "mpeg": "mp3", "wav": "wav", "x-wav": "wav"}   # by the upload's type
 TOPIC_LESSON = {c["id"]: c["lesson"] for c in CATEGORIES}   # a topic's lesson: homework is a topic of the class's lessons
 MIGRATE_CLASSES = ("alter table public.classes add column if not exists nicknames jsonb not null default '{}', "
@@ -275,6 +293,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         # the playback voices double as the native baseline of the scores (see reference.py)
         app.state.refs = References(app.state.scorer, app.state.tts, list(VOICES.values())) if app.state.tts else None
         app.state.auth = auth or load_auth()
+        if app.state.auth and hasattr(app.state.auth, "calibrations"):
+            try:
+                rows = app.state.auth.calibrations("applied")
+                app.state.scorer.set_calibrations([r for r in rows if not r.get("model") or r.get("model") == MODEL_ID])
+            except AuthUnavailable as e:
+                log.warning("calibrations not loaded: %s", e)
         yield
 
     app = FastAPI(title="ihki", lifespan=lifespan)
@@ -469,6 +493,16 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"classes": [{**c, "lessons": lessons_of(c), **homework_of(c, lesson_of)} for c in classes], "students": students,
                 "setup": setup}
 
+    @app.get("/api/activity")
+    def activity(hours: int = Query(24, ge=1, le=168), bucket_minutes: int = Query(15, ge=1, le=60),
+                 a: SupabaseAuth = Depends(teacher_only)):
+        """Anonymous, aggregated practice activity for the teacher's monitoring graph."""
+        try:
+            return {"hours": hours, "bucket_minutes": bucket_minutes,
+                    "buckets": a.activity(hours, bucket_minutes)}
+        except AuthUnavailable as e:
+            raise HTTPException(503, str(e))
+
     @app.put("/api/tutors")
     def set_tutor(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only), user: dict | None = Depends(signed_in)):
         """Gives a student the tutor's rank, or takes it back: {"email", "tutor": true or false}. The rank is the
@@ -484,6 +518,164 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                                          f"{CREATE_TUTORS} אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
             raise HTTPException(503, f"Supabase לא זמין: {e}")
         return {"ok": True}
+
+    @app.get("/api/flags")
+    def flags(status: str = Query("pending"), a: SupabaseAuth = Depends(teacher_only)):
+        """The score reports awaiting a teacher's decision (or one reviewed state)."""
+        if status not in FLAG_STATUSES:
+            raise HTTPException(400, "invalid flag status")
+        try:
+            return {"flags": a.list_flags(status)}
+        except AuthUnavailable as e:
+            detail = str(e)
+            if "status" in detail or "false_issues" in detail:
+                raise HTTPException(503, f"לטבלה flags חסרות עמודות הבדיקה. הריצו ב-SQL Editor: {MIGRATE_FLAGS}")
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+
+    @app.put("/api/flags/{flag_id}")
+    def review_flag(flag_id: int, body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+                    user: dict | None = Depends(signed_in)):
+        """Confirms or rejects a report and records which displayed sound judgements were false."""
+        status, category = body.get("status"), body.get("category")
+        issues = body.get("false_issues", [])
+        if status not in FLAG_STATUSES - {"pending"} or category not in FLAG_CATEGORIES:
+            raise HTTPException(400, "invalid flag review")
+        if not isinstance(issues, list) or len(issues) > 30:
+            raise HTTPException(400, "invalid false_issues")
+        clean = []
+        for issue in issues:
+            if not isinstance(issue, dict) or not isinstance(issue.get("word"), int):
+                raise HTTPException(400, "invalid false_issues")
+            expected, heard = str(issue.get("expected", ""))[:20], str(issue.get("heard", ""))[:20]
+            if not expected:
+                raise HTTPException(400, "invalid false_issues")
+            clean.append({"word": max(0, issue["word"]), "expected": expected, "heard": heard})
+        values = {"status": status, "category": category, "false_issues": clean,
+                  "review_note": " ".join(str(body.get("review_note", "")).split())[:MAX_NOTE],
+                  "reviewed_by": user["email"].lower(), "reviewed_at": datetime.now(timezone.utc).isoformat()}
+        try:
+            a.review_flag(flag_id, values)
+        except AuthUnavailable as e:
+            detail = str(e)
+            if any(column in detail for column in ("status", "category", "false_issues", "reviewed_by")):
+                raise HTTPException(503, f"לטבלה flags חסרות עמודות הבדיקה. הריצו ב-SQL Editor: {MIGRATE_FLAGS}")
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        return {"ok": True}
+
+    @app.get("/api/flags/{flag_id}/audio")
+    def flag_audio(flag_id: int, a: SupabaseAuth = Depends(teacher_only)):
+        """Streams a private flagged recording to a teacher without exposing the storage bucket or secret key."""
+        try:
+            found = a.flag_audio(flag_id)
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"ההקלטה לא זמינה כרגע: {e}")
+        if found is None:
+            raise HTTPException(404, "לדיווח הזה אין הקלטה שמורה")
+        data, media_type = found
+        return Response(data, media_type=media_type, headers={"Cache-Control": "private, no-store"})
+
+    def calibration_error(e: AuthUnavailable) -> HTTPException:
+        if "answered 404" in str(e):
+            return HTTPException(503, f"הטבלה calibrations לא קיימת. הריצו ב-SQL Editor: {CREATE_CALIBRATIONS}")
+        return HTTPException(503, f"כללי הכיול לא זמינים: {e}")
+
+    def reload_calibrations(a: SupabaseAuth) -> None:
+        rows = a.calibrations("applied")
+        app.state.scorer.set_calibrations([r for r in rows if not r.get("model") or r.get("model") == MODEL_ID])
+
+    @app.get("/api/calibrations")
+    def calibration_proposals(a: SupabaseAuth = Depends(teacher_only)):
+        try:
+            return {"calibrations": a.calibrations()}
+        except AuthUnavailable as e:
+            raise calibration_error(e)
+
+    @app.get("/api/attempt-patterns")
+    def attempt_patterns(a: SupabaseAuth = Depends(teacher_only)):
+        """Repeated phoneme judgements among students, aggregated without returning identities or recordings."""
+        try:
+            rows = a.all_attempt_issues()
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"דפוסי התלמידים לא זמינים: {e}")
+        if rows is None:
+            raise HTTPException(503, f"לטבלה attempts חסרות עמודות האבחון. הריצו ב-SQL Editor: {MIGRATE_ATTEMPT_ISSUES}")
+        phrase_students: dict[str, set[str]] = {}
+        patterns: dict[tuple[str, str, str, str, str], dict] = {}
+        for row in rows:
+            if row.get("model") and row.get("model") != MODEL_ID:
+                continue
+            phrase, student = str(row.get("phrase", "")), str(row.get("user_id", ""))
+            phrase_students.setdefault(phrase, set()).add(student)
+            seen = set()
+            for issue in row.get("issues") or []:
+                if not isinstance(issue, dict):
+                    continue
+                expected, heard = str(issue.get("expected", ""))[:20], str(issue.get("heard", ""))[:20]
+                pair = (expected, heard)
+                if not expected or not heard or pair in seen:
+                    continue
+                seen.add(pair)
+                key = (phrase, expected, heard, str(row.get("model", "")), str(row.get("version", "")))
+                p = patterns.setdefault(key, {"phrase": phrase, "expected": expected, "heard": heard,
+                                              "model": key[3], "version": key[4], "attempts": 0,
+                                              "students": set(), "scores": []})
+                p["attempts"] += 1
+                p["students"].add(student)
+                p["scores"].append(row.get("score", 0))
+        result = []
+        for p in patterns.values():
+            students = len(p.pop("students")); scores = p.pop("scores"); total = len(phrase_students.get(p["phrase"], ()))
+            result.append({**p, "students": students, "student_rate": round(students / total, 2) if total else 0,
+                           "average_score": round(sum(scores) / len(scores)) if scores else 0})
+        result.sort(key=lambda p: (p["students"], p["attempts"]), reverse=True)
+        return {"patterns": result}
+
+    @app.post("/api/calibrations")
+    def propose_calibration(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+                            user: dict | None = Depends(signed_in)):
+        expected, heard = str(body.get("expected", ""))[:20], str(body.get("heard", ""))[:20]
+        evidence = body.get("evidence", {})
+        if not expected or not heard or not isinstance(evidence, dict):
+            raise HTTPException(400, "invalid calibration proposal")
+        row = {"expected": expected, "heard": heard, "floor": 70, "scope": "global", "phrase": "",
+               "evidence": evidence, "model": MODEL_ID, "status": "draft", "proposed_by": user["email"].lower()}
+        try:
+            return {"calibration": a.add_calibration(row)}
+        except AuthUnavailable as e:
+            raise calibration_error(e)
+
+    @app.put("/api/calibrations/{calibration_id}")
+    def decide_calibration(calibration_id: int, body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+                           user: dict | None = Depends(signed_in)):
+        status, scope, phrase = body.get("status"), body.get("scope", "global"), str(body.get("phrase", ""))[:200]
+        floor = body.get("floor", 70)
+        if status not in CALIBRATION_STATUSES or scope not in {"global", "phrase"} or isinstance(floor, bool):
+            raise HTTPException(400, "invalid calibration decision")
+        try:
+            floor = float(floor)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "invalid calibration floor")
+        if not 0 <= floor <= 100 or scope == "phrase" and not phrase:
+            raise HTTPException(400, "invalid calibration scope or floor")
+        values = {"status": status, "scope": scope, "phrase": phrase if scope == "phrase" else "", "floor": floor,
+                  "reviewed_by": user["email"].lower(), "reviewed_at": datetime.now(timezone.utc).isoformat()}
+        try:
+            a.update_calibration(calibration_id, values)
+            reload_calibrations(a)
+        except AuthUnavailable as e:
+            raise calibration_error(e)
+        return {"ok": True, "active": len(app.state.scorer.calibrations)}
+
+    @app.delete("/api/calibrations/{calibration_id}")
+    def delete_calibration(calibration_id: int, a: SupabaseAuth = Depends(teacher_only)):
+        """Deletes a draft or applied calibration rule and immediately refreshes the scorer's active rules."""
+        try:
+            if not a.delete_calibration(calibration_id):
+                raise HTTPException(404, "calibration proposal not found")
+            reload_calibrations(a)
+        except AuthUnavailable as e:
+            raise calibration_error(e)
+        return {"ok": True, "active": len(app.state.scorer.calibrations)}
 
     def class_store_error(e: AuthUnavailable) -> str:
         """The teacher's message when a class cannot be written; a 404 means Supabase has no `classes` table."""
@@ -982,9 +1174,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         refs = app.state.refs.get(phrase_id, phrase) if app.state.refs else []
         result = app.state.scorer.score(wav, phrase, refs, diagnostics=bool(user and user["teacher"]))
         if user and result.get("score") is not None:   # the student's progress; sent after the answer
+            issues = [{"word": wi, "expected": p["ipa"], "heard": p.get("heard") or "_", "score": round(p["score"])}
+                      for wi, word in enumerate(result.get("words", [])) for p in word.get("phonemes", []) if p.get("flagged")]
             tasks.add_task(app.state.auth.record, user["token"], {
                 "cat": phrase["cat"], "phrase": phrase.get("key", phrase["he"]), "score": round(result["score"]),
-                "unrelated": bool(result.get("unrelated"))})
+                "unrelated": bool(result.get("unrelated")), "issues": issues[:12], "model": MODEL_ID,
+                "version": build_version()})
         return result
 
     @app.post("/api/flags")
