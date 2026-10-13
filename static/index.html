@@ -351,6 +351,7 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .flag-review fieldset label{display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid var(--line);border-radius:9px}.flag-review select,.flag-review textarea{font:inherit;border:1px solid var(--line);border-radius:9px;padding:7px;background:var(--surface);color:var(--ink)}
 .flag-review textarea{width:100%;resize:vertical}.flag-patterns{width:100%;border-collapse:collapse;text-align:start}.flag-patterns :is(th,td){padding:6px;border-bottom:1px solid var(--line)}
 .activity{display:flex;flex-direction:column;gap:12px}.activity-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.activity-head h2{margin:0}.activity-head p{margin:3px 0 0;color:var(--muted);font-size:13px}
+.activity-head select{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}
 .activity-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.activity-stat{padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}.activity-stat b{display:block;font:400 28px/1 var(--f-display);font-variant-numeric:tabular-nums}.activity-stat small{color:var(--muted);font-size:12px}
 .activity-chart{width:100%;height:190px;overflow:visible}.activity-chart .grid{stroke:var(--line);stroke-width:1}.activity-chart .bar{fill:var(--olive);opacity:.82}.activity-chart .bar:hover{opacity:1}.activity-chart text{fill:var(--muted);font:11px var(--f-body)}
 @media(max-width:560px){.activity-stats{grid-template-columns:1fr}.activity-chart{height:160px}}
@@ -2519,6 +2520,7 @@ let CLASS=null, shownClass=store.get("ihki.mstudentClass","*");   // "*" is ever
 let mMode=store.get("ihki.mmode","");   // the panel's part on show: "classes" or "students" (the classes, before the first one)
 let FLAG_REVIEWS={pending:[],confirmed:[]}, CALIBRATIONS=[], ATTEMPT_PATTERNS=[], flagsError="", flagsLoaded=false, flagAudioUrls=[];
 let ACTIVITY=null, activityError="";
+let activityHours=+store.get("ihki.activityHours","24"); if(![24,168].includes(activityHours)) activityHours=24;
 let shownStudent="", classScroll=0;   // the student whose screen is on show (an email; "" for the class's), and where the class's was left
 let CLASS_LESSONS=[], CLASS_SOON=[];   // the ready lessons of the class on show, and those still to come (every lesson before the first class)
 const HARD=70;   // a sentence whose class average (of each student's best score) is under this is flagged as hard
@@ -2587,7 +2589,8 @@ const PHONE_NAMES={"ħ":"ח (ح)","ʕ":"ע (ع)","x":"ח׳ (خ)","χ":"ח׳ (خ)
 const phoneName=p=>PHONE_NAMES[p]||({a:"אַ",i:"אִ",u:"אֻ",e:"אֶ",o:"אוֹ","aː":"אַא","iː":"אִי","uː":"אוּ","eː":"אֵי","oː":"אוֹ"}[p])||p;
 async function loadActivity(){
   activityError="";
-  try{ const res=await api("/api/activity?hours=24&bucket_minutes=15"), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); ACTIVITY=data; }
+  const mins=activityHours===168?60:15;
+  try{ const res=await api(`/api/activity?hours=${activityHours}&bucket_minutes=${mins}`), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); ACTIVITY=data; }
   catch(err){ ACTIVITY=null; activityError=err.message; }
 }
 async function loadFlags(){
@@ -2695,8 +2698,12 @@ function drawFlags(){
   }
 }
 function drawActivity(box){
-  const card=mark("card activity",""), head=mark("activity-head",""), title=mark("","פעילות ב־24 השעות האחרונות","h2"), sub=mark("","כל עמודה מייצגת 15 דקות · מתעדכן פעם בדקה","p");
-  const heading=document.createElement("div"); heading.append(title,sub); head.append(heading); card.append(head);
+  const days=activityHours===168, range=days?"7 הימים":"24 השעות", bucket=days?"שעה":"15 דקות";
+  const card=mark("card activity",""), head=mark("activity-head",""), title=mark("",`פעילות ב־${range} האחרונים`,"h2"), sub=mark("",`כל עמודה מייצגת ${bucket} · מתעדכן פעם בדקה`,"p");
+  const heading=document.createElement("div"), select=document.createElement("select"); heading.append(title,sub);
+  for(const [value,label] of [[24,"24 שעות"],[168,"7 ימים"]]){ const option=document.createElement("option"); option.value=value; option.textContent=label; option.selected=activityHours===value; select.append(option); }
+  select.setAttribute("aria-label","טווח גרף הפעילות"); select.onchange=async()=>{ activityHours=+select.value; store.set("ihki.activityHours",activityHours); ACTIVITY=null; drawActivityOnly(); await loadActivity(); drawActivityOnly(); };
+  head.append(heading,select); card.append(head);
   if(activityError){ card.append(mark("note",`גרף הפעילות אינו זמין. יש ליצור את פונקציית activity_buckets ב־Supabase (${activityError}).`,"p")); box.append(card); return; }
   if(!ACTIVITY){ card.append(mark("note","טוען את נתוני הפעילות…","p")); box.append(card); return; }
   const mins=ACTIVITY.bucket_minutes||15, count=Math.ceil((ACTIVITY.hours||24)*60/mins), now=Date.now(), end=Math.floor(now/(mins*60000))*mins*60000, by=new Map((ACTIVITY.buckets||[]).map(x=>[new Date(x.bucket).getTime(),x]));
@@ -2706,8 +2713,8 @@ function drawActivity(box){
   const ns="http://www.w3.org/2000/svg", svg=document.createElementNS(ns,"svg"); svg.classList.add("activity-chart"); svg.setAttribute("viewBox","0 0 720 190"); svg.setAttribute("role","img"); svg.setAttribute("aria-label",`גרף פעילות: ${attempts} תרגולים בשעה האחרונה`);
   const max=Math.max(1,...rows.map(r=>r.attempts)), left=32, top=10, width=678, height=145, gap=.7, bw=width/rows.length;
   for(const frac of [0,.5,1]){ const y=top+height*(1-frac), line=document.createElementNS(ns,"line"); line.setAttribute("class","grid"); line.setAttribute("x1",left); line.setAttribute("x2",left+width); line.setAttribute("y1",y); line.setAttribute("y2",y); svg.append(line); const t=document.createElementNS(ns,"text"); t.setAttribute("x",0); t.setAttribute("y",y+4); t.textContent=Math.round(max*frac); svg.append(t); }
-  rows.forEach((r,i)=>{ const h=r.attempts/max*height, rect=document.createElementNS(ns,"rect"); rect.setAttribute("class","bar"); rect.setAttribute("x",left+i*bw); rect.setAttribute("y",top+height-h); rect.setAttribute("width",Math.max(.5,bw-gap)); rect.setAttribute("height",h); const tip=document.createElementNS(ns,"title"), time=new Date(r.time).toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}); tip.textContent=`${time}: ${r.attempts} תרגולים, ${r.active} תלמידים`; rect.append(tip); svg.append(rect); });
-  for(const i of [0,Math.floor((rows.length-1)/2),rows.length-1]){ const t=document.createElementNS(ns,"text"), r=rows[i]; t.setAttribute("x",left+i*bw); t.setAttribute("y",180); t.setAttribute("text-anchor",i?i===rows.length-1?"end":"middle":"start"); t.textContent=new Date(r.time).toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}); svg.append(t); }
+  rows.forEach((r,i)=>{ const h=r.attempts/max*height, rect=document.createElementNS(ns,"rect"); rect.setAttribute("class","bar"); rect.setAttribute("x",left+i*bw); rect.setAttribute("y",top+height-h); rect.setAttribute("width",Math.max(.5,bw-gap)); rect.setAttribute("height",h); const tip=document.createElementNS(ns,"title"), time=new Date(r.time).toLocaleString("he-IL",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}); tip.textContent=`${time}: ${r.attempts} תרגולים, ${r.active} תלמידים`; rect.append(tip); svg.append(rect); });
+  for(const i of [0,Math.floor((rows.length-1)/2),rows.length-1]){ const t=document.createElementNS(ns,"text"), r=rows[i]; t.setAttribute("x",left+i*bw); t.setAttribute("y",180); t.setAttribute("text-anchor",i?i===rows.length-1?"end":"middle":"start"); t.textContent=new Date(r.time).toLocaleString("he-IL",days?{day:"numeric",month:"numeric",timeZone:"Asia/Jerusalem"}:{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}); svg.append(t); }
   card.append(svg); box.append(card);
 }
 function drawActivityOnly(){
