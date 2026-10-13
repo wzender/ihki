@@ -78,6 +78,10 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 #nav{position:fixed;inset:auto 0 0 0;z-index:8;display:flex;justify-content:center;gap:4px;padding:6px 10px calc(6px + env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--line)}
 #nav button{position:relative;flex:1;max-width:160px;padding:10px 6px;border:0;border-radius:10px;background:none;color:var(--muted);font:700 14px/1.2 var(--f-body);cursor:pointer}
 #nav button[aria-current=page]{background:var(--olive-soft);color:var(--olive)}
+#nav button.promo{color:var(--orange);animation:refer-pulse 1.8s ease-in-out infinite}
+#nav button.promo::after{content:"🎁 הטבה";position:absolute;top:-11px;inset-inline-end:4px;padding:2px 6px;border-radius:999px;background:var(--orange);color:#fff;font:700 11px/1.35 var(--f-body);white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,.2)}
+@keyframes refer-pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--orange) 0%,transparent)}50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--orange) 22%,transparent)}}
+@media (prefers-reduced-motion:reduce){#nav button.promo{animation:none}}
 body:not(.home) #nav,body.manage #nav,body:not(.home) #vids,body.manage #vids,body:not([data-view]) #vids,body[data-view] #path,body[data-view] #today,body[data-view] #toNow,body[data-view] .maphint{display:none}
 body.home:not(.manage){padding-bottom:84px}
 body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bottom:62px}
@@ -1133,7 +1137,12 @@ function showView(view){   // "" is the path, which is laid out again: it was no
   if(view) document.body.dataset.view=view; else delete document.body.dataset.view;
   scrollTo(0,0); drawPath(true);
 }
-for(const b of $("nav").children) b.onclick=()=>showView(b.dataset.view);
+const referTab=$("nav").querySelector('[data-view="refer"]'), referSeenKey="ihki.referSeen.2027";
+if(!store.get(referSeenKey,false)) referTab.classList.add("promo");
+for(const b of $("nav").children) b.onclick=()=>{
+  if(b===referTab){ store.set(referSeenKey,true); b.classList.remove("promo"); }
+  showView(b.dataset.view);
+};
 function drawToday(){   // above the path: the daily session, and the homework to do
   const box=$("today"), n=CATS.length?dailyPlan().length:0;
   box.innerHTML=""; drawNav();
