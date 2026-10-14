@@ -72,6 +72,15 @@ header{display:flex;align-items:center;gap:4px 12px;flex-wrap:wrap}
    A locked topic (one before it is not finished) is grey with a padlock. */
 body.home #practice,body.home #driveBtn,body:not(.home) #path,body:not(.home) #today,body:not(.home) #toNow,body.home .where,body:not(.home) .brand,body:not(.home) .maphint{display:none}
 header .sub.maphint{flex:0 0 100%;color:var(--ink)}
+/* the student's guide (static/guide.html): a round "?" beside the class pill, and once, a line under the hint */
+.help{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;border:1px solid var(--olive);background:var(--surface);color:var(--olive);font:700 17px/1 var(--f-body);text-decoration:none;box-shadow:0 2px 0 var(--line)}
+.help:hover{background:var(--olive-soft)}
+#myClass:empty+.help{margin-inline-start:auto}
+.guidetip{flex:0 0 100%;display:flex;align-items:center;gap:8px;padding-block:6px;padding-inline:12px 6px;border-radius:12px;background:var(--olive-soft);border:1px solid var(--olive)}
+.guidetip a{flex:1;min-width:0;color:var(--olive-deep);font-weight:700;text-decoration:none}
+.guidetip button{flex:none;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:15px;cursor:pointer}
+body:not(.home) .help,body.manage .help,body:not(.home) .guidetip,body.manage .guidetip,body[data-view] .guidetip{display:none}
+.sethelp{display:block;margin-top:12px;color:var(--olive);font-weight:700}
 /* Above the path, and staying in sight as it scrolls, three in a row: the day's video, the daily session and the nearest
    homework. (The homework is on the path itself too: the bubble over its topic counts the days left.) */
 #today{position:sticky;top:0;z-index:7;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:stretch;width:100%;max-width:460px;margin:0 auto;padding:6px 0;background:var(--bg)}
@@ -704,7 +713,9 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
     <div class="brand">אהלא וסהלא</div>
     <button id="myClass"></button>
     <div class="where"><small id="lessonName"></small><span id="catName"></span></div>
+    <a class="help" id="helpLink" href="/static/guide.html" title="איך מתרגלים: מדריך קצר" aria-label="איך מתרגלים: מדריך קצר">?</a>
     <div class="sub maphint">בחרו נושא במסלול ותרגלו אותו בקול</div>
+    <div class="guidetip" id="guideTip" hidden><a href="/static/guide.html">חדשים כאן? מדריך של דקה ←</a><button type="button" id="guideTipClose" aria-label="סגירה" title="סגירה">✕</button></div>
     <button class="drive" id="toManage" hidden>ניהול</button>
     <button class="drive" id="driveBtn" title="מצב נסיעה: האפליקציה מקריאה, מקשיבה ואומרת את ההערכה בקול"><svg class="ic" aria-hidden="true"><use href="#i-car"/></svg> עבור למצב נסיעה</button>
   </header>
@@ -886,6 +897,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
     <label>מהירות<select id="speed"><option value="0.8">x0.8</option><option value="1">x1</option><option value="1.5">x1.5</option></select></label>
     <label>הקראת המשפט בעברית<input type="checkbox" id="readHe"></label>
   </div>
+  <a class="sethelp" href="/static/guide.html#settings">מה עושה כל הגדרה?</a>
 </dialog>
 <dialog id="verbDlg" class="verb-dlg" aria-labelledby="verbTitle">
   <div class="verb-shell">
@@ -2408,6 +2420,10 @@ $("prevBtn").onclick=()=>{   // the sentence before this one in the topic, pract
 function arVoice(){ const vs=speechSynthesis.getVoices(); return vs.find(v=>/^ar[-_](PS|JO|LB|SY|IL)/i.test(v.lang))||vs.find(v=>/^ar/i.test(v.lang)); }
 if("speechSynthesis" in window) speechSynthesis.getVoices();
 const ttsUrls={};   // "phrase id|voice" -> {url} of the server-generated answer
+// the guide's line for a new student: until it is opened or closed once
+const guideSeen=()=>{ store.set("ihki.guideSeen",true); $("guideTip").hidden=true; };
+$("guideTip").hidden=store.get("ihki.guideSeen",false);
+$("guideTip").querySelector("a").onclick=guideSeen; $("guideTipClose").onclick=guideSeen; $("helpLink").onclick=guideSeen;
 $("readHe").checked=store.get("ihki.readHe",false);
 $("readHe").onchange=()=>{
   store.set("ihki.readHe",$("readHe").checked);

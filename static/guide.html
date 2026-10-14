@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#4B6A2C">
+<title>איך מתרגלים · אהלא וסהלא</title>
+<link rel="icon" href="/static/icons/icon-192.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Secular+One&family=Noto+Sans+Hebrew:wght@500;700&display=swap">
+<style>
+/* Layout: one narrow RTL column; each section pairs a drawn mock of the app with a numbered key beside it (stacked on phones). */
+:root{
+  --bg:#EEF0E8; --surface:#FAFBF6; --ink:#1C241D; --muted:#5E685C; --line:#D5DACB;
+  --olive:#4B6A2C; --olive-deep:#36501D; --on-olive:#FFFFFF; --olive-soft:#E3EAD6;
+  --sumac:#A3303F; --sumac-bg:#F6E3E3; --ok:#2F7A4A; --ok-bg:#E1F0E4; --amber:#8A5E0E; --amber-bg:#F5ECD8; --gold:#B8860B; --gold-bg:#F7EBC6;
+  --f-display:"Secular One","Assistant",system-ui,sans-serif;
+  --f-body:"Assistant",system-ui,"Segoe UI",Arial,sans-serif;
+  --f-tr:"Noto Sans Hebrew","Arial Hebrew",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141915; --surface:#1D241F; --ink:#E7EBE2; --muted:#9AA595; --line:#2F3830;
+  --olive:#93B85F; --olive-deep:#6E8F42; --on-olive:#10150F; --olive-soft:#26301F;
+  --sumac:#E77B87; --sumac-bg:#3A1E23; --ok:#6CC08A; --ok-bg:#1C3324; --amber:#E0B45A; --amber-bg:#3A2F17; --gold:#E8C35A; --gold-bg:#3A3217;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141915; --surface:#1D241F; --ink:#E7EBE2; --muted:#9AA595; --line:#2F3830;
+  --olive:#93B85F; --olive-deep:#6E8F42; --on-olive:#10150F; --olive-soft:#26301F;
+  --sumac:#E77B87; --sumac-bg:#3A1E23; --ok:#6CC08A; --ok-bg:#1C3324; --amber:#E0B45A; --amber-bg:#3A2F17; --gold:#E8C35A; --gold-bg:#3A3217;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 17px/1.6 var(--f-body);margin:0;padding-inline:max(16px,env(safe-area-inset-left),env(safe-area-inset-right));padding-block:max(18px,env(safe-area-inset-top)) max(48px,env(safe-area-inset-bottom));-webkit-text-size-adjust:100%}
+main{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:44px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;text-wrap:balance;margin:0}
+h1{font-size:clamp(30px,6vw,44px);line-height:1.1}
+h2{font-size:26px;line-height:1.2}
+h3{font-size:19px}
+p{margin:0}
+.lead{color:var(--muted);max-width:60ch;font-size:18px}
+.eyebrow{font:700 13px/1 var(--f-body);letter-spacing:.06em;color:var(--olive)}
+header.top{display:flex;flex-direction:column;gap:12px}
+section{display:flex;flex-direction:column;gap:16px}
+.sechead{display:flex;flex-direction:column;gap:6px}
+.sechead p{color:var(--muted);max-width:62ch}
+.tr{font-family:var(--f-tr)}
+
+/* a drawn screen and its numbered key */
+.pair{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:720px){.pair{grid-template-columns:minmax(0,1fr)}}
+.phone{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding-block:14px;padding-inline:24px;display:flex;flex-direction:column;gap:10px;box-shadow:0 3px 0 var(--line);position:relative}
+.n{display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:50%;background:var(--sumac);color:#fff;font:700 13px/1 var(--f-body);flex:none;font-variant-numeric:tabular-nums}
+.phone .n{position:absolute;z-index:2;box-shadow:0 0 0 2px var(--surface)}
+.at{position:relative}
+.at>.n{top:50%;right:-25px;transform:translateY(-50%)}
+.at.l>.n{right:auto;left:-25px}
+.m-foot.at>.n{top:-14px;transform:none}
+.key{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.key li{display:flex;gap:10px;align-items:flex-start}
+.key li div{min-width:0}
+.key b{display:block;font-weight:700}
+.key span.d{color:var(--muted);font-size:16px}
+
+/* mock pieces, in the app's own shapes */
+.m-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.m-brand{font:400 18px/1 var(--f-display)}
+.m-pill{padding:4px 10px;border-radius:999px;border:1px solid var(--line);font:700 12px/1.2 var(--f-body);background:var(--bg)}
+.m-drive{margin-inline-start:auto;padding:4px 10px;border-radius:999px;border:1px solid var(--olive);color:var(--olive);font:700 12px/1.2 var(--f-body)}
+.m-today{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.m-today div{border:1px solid var(--line);border-radius:12px;padding:6px 4px;text-align:center;font:700 13px/1.25 var(--f-body);background:var(--bg)}
+.m-today div small{display:block;font-weight:400;color:var(--muted);font-size:11px}
+.m-today .hot{border-color:var(--olive);background:var(--olive-soft)}
+.m-nav{display:flex;gap:4px;flex-wrap:wrap}
+.m-nav span:not(.n){font:600 12px/1 var(--f-body);padding:6px 8px;border-radius:8px;color:var(--muted)}
+.m-nav span.on:not(.n){background:var(--olive);color:var(--on-olive)}
+.m-level{font:400 15px/1.2 var(--f-display);text-align:center;color:var(--olive-deep)}
+.m-level small{display:block;font:400 11px var(--f-body);color:var(--muted)}
+.m-chapter{border-radius:14px;background:var(--olive);color:var(--on-olive);padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font:700 14px/1.2 var(--f-body)}
+.m-chapter small{font-weight:400;opacity:.85}
+.m-chapter i{display:block;height:4px;border-radius:2px;background:rgba(255,255,255,.3);margin-top:4px;position:relative;overflow:hidden}
+.m-chapter i::after{content:"";position:absolute;inset:0 auto 0 0;width:55%;background:var(--on-olive)}
+.road{position:relative;height:520px}
+.road svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.road .thread{fill:none;stroke:var(--line);stroke-width:4;stroke-linecap:round}
+.road .went{fill:none;stroke:var(--ok);stroke-width:4;stroke-dasharray:1 10;stroke-linecap:round}
+.stop{position:absolute;display:flex;align-items:center;gap:8px;transform:translateY(-50%)}
+.stop.L{flex-direction:row-reverse}
+.stop.L .lbl{text-align:left}
+.ball{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;flex:none;position:relative;font:700 18px/1 var(--f-body);background:var(--surface);border:3px solid var(--line);color:var(--muted)}
+.ball.started{background:conic-gradient(var(--olive) 0 40%,var(--line) 40% 100%);border:0}
+.ball.started::before{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--surface)}
+.ball.started span{position:relative}
+.ball.now{border-color:var(--olive);color:var(--olive);box-shadow:0 0 0 6px var(--olive-soft)}
+.ball.done{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.ball.gold{background:var(--gold-bg);border-color:var(--gold);color:var(--gold)}
+.ball.locked{opacity:.6;font-size:18px}
+.ball.video{border-style:dashed;color:var(--olive)}
+.ball .badge{position:absolute;top:-4px;inset-inline-end:-4px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;background:var(--ok);color:#fff}
+.ball.gold .badge{background:var(--gold)}
+.lbl{font:700 13px/1.25 var(--f-body);max-width:120px}
+.lbl small{display:block;font-weight:400;color:var(--muted);font-size:11.5px}
+.chip{display:inline-block;margin-top:2px;padding:1px 6px;border-radius:6px;font:700 10.5px/1.4 var(--f-body);background:var(--olive-soft);color:var(--olive-deep)}
+.chip.read{background:var(--amber-bg);color:var(--amber)}
+.tag{position:absolute;bottom:calc(100% + 6px);right:50%;transform:translateX(50%);white-space:nowrap;background:var(--olive);color:var(--on-olive);font:700 11px/1.2 var(--f-body);padding:4px 8px;border-radius:8px}
+.tag::after{content:"";position:absolute;top:100%;right:50%;transform:translateX(50%);border:5px solid transparent;border-top-color:var(--olive)}
+.tag.hw{background:var(--amber);color:var(--surface)}
+.tag.hw::after{border-top-color:var(--amber)}
+.tag small{display:block;font-weight:400;font-size:10px;opacity:.9}
+.cup{position:absolute;transform:translate(50%,-50%);font-size:28px}
+
+/* the practice card */
+.m-bar{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.m-btn{border:1px solid var(--line);border-radius:10px;padding:5px 8px;font:600 12px/1.2 var(--f-body);background:var(--surface);color:var(--ink);white-space:nowrap}
+.m-btn.p{background:var(--olive);color:var(--on-olive);border-color:var(--olive)}
+.m-card{border:1px solid var(--line);border-radius:16px;padding:14px 12px;display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center;background:var(--bg);position:relative}
+.m-meta{align-self:stretch;display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.m-prompt{font:400 26px/1.2 var(--f-display)}
+.m-task{font-size:13px;color:var(--muted);margin-top:-6px}
+.m-mics{display:flex;align-items:center;gap:14px}
+.m-mic{width:64px;height:64px;border-radius:50%;background:var(--olive);color:var(--on-olive);display:grid;place-items:center;box-shadow:0 0 0 7px var(--olive-soft)}
+.m-mic.he{width:46px;height:46px;background:var(--surface);color:var(--olive);border:2px solid var(--olive);box-shadow:none}
+.m-mic svg{width:26px;height:26px}
+.m-status{font-size:12px;color:var(--muted)}
+.m-result{align-self:stretch;border-top:1px dashed var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px;align-items:center}
+.m-score{display:flex;gap:8px;align-items:center}
+.m-score b{font:400 28px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.pill{padding:3px 10px;border-radius:999px;font:700 12px/1.3 var(--f-body)}
+.pill.good{background:var(--ok-bg);color:var(--ok)}
+.pill.mid{background:var(--amber-bg);color:var(--amber)}
+.pill.bad{background:var(--sumac-bg);color:var(--sumac)}
+.m-words{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;font:700 17px/1.3 var(--f-tr)}
+.m-words span{padding:2px 6px;border-radius:6px}
+.w-ok{background:var(--ok-bg);color:var(--ok)}
+.w-near{background:var(--amber-bg);color:var(--amber)}
+.m-sp{flex:1}
+.m-flag{font-size:11.5px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:3px 8px;background:var(--surface)}
+.m-foot{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;align-self:stretch}
+.m-foot span:not(.n){border:1px solid var(--line);border-radius:10px;padding:6px 2px;font:600 11px/1.2 var(--f-body);text-align:center;background:var(--surface)}
+
+/* the settings dialog */
+.m-btn.gear.hl{background:var(--olive-soft);border-color:var(--olive);box-shadow:0 0 0 4px var(--olive-soft)}
+.dlg{border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:12px;background:var(--bg);box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.dlg-h{display:flex;justify-content:space-between;align-items:center;font-size:15px}
+.dlg .row{display:flex;justify-content:space-between;align-items:center;gap:8px;font:600 14px/1.3 var(--f-body);padding:8px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+.sel{border:1px solid var(--line);border-radius:8px;padding:3px 10px;font-weight:700;background:var(--bg)}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;direction:ltr}
+.seg i{font-style:normal;padding:3px 8px;font-size:12.5px}
+.seg i.on{background:var(--olive);color:var(--on-olive)}
+.tg{width:38px;height:22px;border-radius:999px;background:var(--line);position:relative;flex:none}
+.tg::after{content:"";position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--surface)}
+.tg.on{background:var(--olive)}
+.tg.on::after{right:auto;left:3px}
+
+/* topic cards */
+.topics{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.topic{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.topic .th{display:flex;align-items:center;gap:12px}
+.topic .ball{width:44px;height:44px;font-size:16px}
+.topic .th div{min-width:0}
+.topic .th small{display:block;color:var(--muted);font-size:13.5px}
+.topic p{font-size:15.5px}
+.flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font:700 13px/1.3 var(--f-body)}
+.flow span{padding:3px 8px;border-radius:8px;background:var(--bg);border:1px solid var(--line)}
+.flow i{font-style:normal;color:var(--muted)}
+.ex{font-size:13.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px}
+.ex b{color:var(--ink);font-weight:600}
+
+/* legend of states */
+.states{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.state{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:14px 10px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.state b{font-size:15px}
+.state span{font-size:13.5px;color:var(--muted)}
+.score-scale{display:flex;flex-direction:column;gap:6px}
+.scale{display:flex;height:34px;border-radius:10px;overflow:hidden;font:700 13px/34px var(--f-body);text-align:center;direction:ltr}
+.scale div{min-width:0;white-space:nowrap;overflow:hidden}
+.scale .bad{flex:60;background:var(--sumac-bg);color:var(--sumac)}
+.scale .mid{flex:25;background:var(--amber-bg);color:var(--amber)}
+.scale .good{flex:15;background:var(--ok-bg);color:var(--ok)}
+.ticks{display:flex;direction:ltr;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ticks span:nth-child(1){flex:60}.ticks span:nth-child(2){flex:25}.ticks span:nth-child(3){flex:15}
+
+.tips{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.tip{border-inline-start:3px solid var(--olive);padding:4px 12px;display:flex;flex-direction:column;gap:4px}
+.tip p{font-size:15.5px;color:var(--muted)}
+.jump{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--line)}
+.jump::-webkit-scrollbar{display:none}
+.jump a{flex:none;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;font:700 14px/1.2 var(--f-body)}
+.jump a:focus-visible{outline:2px solid var(--olive);outline-offset:2px}
+section{scroll-margin-top:60px}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+@media (max-width:720px){
+  .pair .phone{max-width:380px;width:100%;margin-inline:auto}
+}
+@media (max-width:520px){
+  body{font-size:16px;padding-block:18px 40px}
+  main{gap:34px}
+  h2{font-size:23px}
+  .lead{font-size:16.5px}
+  .phone{padding-block:12px;border-radius:18px}
+  .key{gap:10px}
+  .key span.d{font-size:15px}
+  .topics{grid-template-columns:minmax(0,1fr)}
+  .states{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .state{padding:12px 8px}
+  .tips{grid-template-columns:minmax(0,1fr)}
+  .lbl{font-size:12.5px;max-width:104px}
+  .m-btn{padding:5px 7px}
+}
+.back{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1px solid var(--olive);background:var(--olive);color:var(--on-olive);font:700 15px/1.2 var(--f-body);text-decoration:none;min-height:40px}
+.back:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+a,button{-webkit-tap-highlight-color:transparent}
+.jump a{min-height:36px;display:inline-flex;align-items:center}
+</style>
+
+</head>
+<body>
+<main>
+  <a class="back" id="back" href="/">→ חזרה לאפליקציה</a>
+  <header class="top">
+    <span class="eyebrow">אהלא וסהלא · מדריך קצר</span>
+    <h1>איך מתרגלים במסלול</h1>
+    <p class="lead">המסלול הוא הדרך שלכם בין השיעורים. כל עיגול בדרך הוא נושא: בוחרים אותו, שומעים, אומרים בקול ומקבלים ציון על ההגייה. כאן תמצאו מה עושה כל כפתור, ומה ההבדל בין סוגי הנושאים.</p>
+  </header>
+
+  <nav class="jump" aria-label="תוכן המדריך"><a href="#path">המסלול</a><a href="#states">העיגולים</a><a href="#kinds">סוגי נושאים</a><a href="#practice">התרגול</a><a href="#settings">הגדרות</a><a href="#tips">טיפים</a></nav>
+
+  <!-- 1. the path screen -->
+  <section id="path">
+    <div class="sechead">
+      <h2>מסך המסלול</h2>
+      <p>זה המסך שנפתח אחרי הכניסה. הוא נפתח תמיד על הנושא שכדאי לתרגל עכשיו.</p>
+    </div>
+    <div class="pair">
+      <div class="phone" aria-label="דוגמה של מסך המסלול">
+        <div class="m-head at"><span class="n">1</span><span class="m-brand">אהלא וסהלא</span><span class="m-pill">כיתה ב׳ ▾</span><span class="m-drive">🚗 מצב נסיעה</span></div>
+        <div class="m-today at l"><span class="n">2</span>
+          <div class="hot">סרטון יומי<small>יום 3 · ברכות</small></div>
+          <div>תרגול יומי<small>10 משפטים</small></div>
+          <div>שיעורי בית<small>עוד יומיים</small></div>
+        </div>
+        <div class="m-nav at"><span class="n">3</span><span class="on">מסלול</span><span>ספריה דיגיטלית</span><span>חבר מביא חבר</span></div>
+        <div class="m-level">שלב א׳<small>8 מתוך 10 שיעורים מוכנים</small></div>
+        <div class="m-chapter at l"><span class="n">4</span><div>שיעור 3<i></i></div><small>תורגלו 22 מתוך 40</small></div>
+        <div class="road">
+          <svg viewBox="0 0 310 520" preserveAspectRatio="none" aria-hidden="true">
+            <path class="thread" d="M155 40 C155 84 230 84 230 128 C230 172 155 172 155 216 C155 260 80 260 80 304 C80 348 155 348 155 392 C155 436 230 436 230 480 L230 515"/>
+            <path class="went" d="M155 40 C155 84 230 84 230 128 C230 172 155 172 155 216 C155 260 80 260 80 304"/>
+          </svg>
+          <div class="stop" style="right:calc(50% - 26px);top:40px"><div class="ball gold"><span class="badge">★</span>1</div><div class="lbl">פעלים<small>תורגלו 8 מתוך 8</small></div></div>
+          <div class="stop" style="right:calc(26% - 26px);top:128px"><div class="ball done"><span class="badge">✓</span>2</div><div class="lbl">משפטים א׳<span class="chip">עב׳ ← ער׳</span><small>תורגלו 10 מתוך 10</small></div></div>
+          <div class="stop" style="right:calc(50% - 26px);top:216px"><div class="ball video"><span class="badge">✓</span>▶&#xFE0E;</div><div class="lbl">בשוק<small>✓ נצפה</small></div></div>
+          <span class="n" style="top:292px;right:-25px">5</span>
+          <div class="stop L" style="left:calc(26% - 26px);top:304px"><div class="ball started now"><div class="tag">התחילו</div><span>3</span></div><div class="lbl">משפטים א׳<span class="chip read">ער׳ ← עב׳</span><small>תורגלו 4 מתוך 10</small></div></div>
+          <div class="stop" style="right:calc(50% - 26px);top:392px"><div class="ball"><div class="tag hw">שיעורי בית<small>עוד יומיים</small></div>💬</div><div class="lbl">סיפור השוק<small>תורגלו 0 מתוך 12</small></div></div>
+          <span class="n" style="top:468px;right:-25px">6</span>
+          <div class="stop" style="right:calc(26% - 26px);top:480px"><div class="ball locked">🔒</div><div class="lbl">כתיבת משפטים<small>נעול</small></div></div>
+        </div>
+      </div>
+      <ol class="key">
+        <li><span class="n">1</span><div><b>הכיתה ומצב נסיעה</b><span class="d">לחיצה על שם הכיתה מראה את חברי הכיתה, או מחליפה כיתה אם אתם ביותר מאחת. <b style="display:inline">מצב נסיעה</b> מקריא את המשפט, מקשיב לתשובה ואומר את ההערכה בקול, בלי להסתכל על המסך.</span></div></li>
+        <li><span class="n">2</span><div><b>שלושה קיצורים להיום</b><span class="d"><b style="display:inline">סרטון יומי</b> שהמורה קבע להיום (מודגש עד שצופים). <b style="display:inline">תרגול יומי</b>: סבב של 10 משפטים, חצי לשיפור וחצי חדשים מהשיעור הנוכחי. <b style="display:inline">שיעורי בית</b>: פותח ישר את הנושא הקרוב להגשה.</span></div></li>
+        <li><span class="n">3</span><div><b>לשוניות</b><span class="d">המסלול, הספרייה הדיגיטלית (סרטונים וטקסטים) וחבר מביא חבר.</span></div></li>
+        <li><span class="n">4</span><div><b>כותרת השיעור</b><span class="d">הפס מראה כמה מהשיעור תורגל. לחיצה עליה פותחת את הנושא הבא שעוד לא נגמר. בסוף כל שיעור יש גביע 🏆 שמזהיב כשהשיעור הושלם.</span></div></li>
+        <li><span class="n">5</span><div><b>הנושא של עכשיו</b><span class="d">מסומן בהילה ובבועה „התחילו” או „המשך”. אם גללתם רחוק, הכפתור „חזרה לנושא הנוכחי” מחזיר אליו.</span></div></li>
+        <li><span class="n">6</span><div><b>נושאים נעולים</b><span class="d">נפתחים כשמתרגלים את כל המשפטים בנושאים שלפניהם. נושא שהוא שיעורי בית פתוח תמיד, וסרטון או כתיבה לא נועלים את מה שאחריהם.</span></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 2. topic states -->
+  <section id="states">
+    <div class="sechead">
+      <h2>מה אומר כל עיגול</h2>
+      <p>הטבעת סביב העיגול מתמלאת לפי כמה משפטים כבר אמרתם בנושא. החוט בין העיגולים נצבע ירוק אחרי נושא שנגמר.</p>
+    </div>
+    <div class="states">
+      <div class="state"><div class="ball">4</div><b>עוד לא התחלתם</b><span>המספר הוא מקום הנושא בשיעור</span></div>
+      <div class="state"><div class="ball started"><span>3</span></div><b>בתהליך</b><span>הטבעת מראה כמה כבר תורגל</span></div>
+      <div class="state"><div class="ball done"><span class="badge">✓</span>2</div><b>הושלם</b><span>כל המשפטים נאמרו לפחות פעם אחת</span></div>
+      <div class="state"><div class="ball gold"><span class="badge">★</span>1</div><b>זהב</b><span>כל המשפטים קיבלו „מצוין” (85 ומעלה)</span></div>
+      <div class="state"><div class="ball locked">🔒</div><b>נעול</b><span>קודם מסיימים את הנושאים שלפניו</span></div>
+      <div class="state"><div class="ball" style="border-color:var(--amber);margin-top:22px"><div class="tag hw" style="font-size:10px">עוד 3 ימים</div>5</div><b>שיעורי בית</b><span>הבועה סופרת את הימים עד ההגשה</span></div>
+    </div>
+  </section>
+
+  <!-- 3. topic kinds -->
+  <section id="kinds">
+    <div class="sechead">
+      <h2>סוגי הנושאים</h2>
+      <p>הסמל בעיגול והתווית מתחת לשם אומרים איזה סוג תרגול מחכה בפנים.</p>
+    </div>
+    <div class="topics">
+      <article class="topic">
+        <div class="th"><div class="ball now">1</div><div><h3>עברית ← ערבית</h3><small>תווית ירוקה <span class="chip">עב׳ ← ער׳</span></small></div></div>
+        <div class="flow"><span>רואים עברית</span><i>←</i><span>אומרים בערבית</span><i>←</i><span>ציון הגייה</span></div>
+        <p>הסוג הנפוץ. מופיע משפט בעברית, ואתם אומרים אותו בערבית מדוברת. מי שלא בטוח לוחץ „הצג תשובה”. בנושאים האלה יש גם <b>תרגול שקט ללא ציון</b>: מרכיבים את המשפט מאוסף מילים, בלי מיקרופון.</p>
+        <p class="ex"><b>למשל:</b> משפטים א׳ וב׳, פעלים, הטיות בעבר, המספרים, הזוגי, עבר ועתיד</p>
+      </article>
+      <article class="topic">
+        <div class="th"><div class="ball now">2</div><div><h3>ערבית ← עברית</h3><small>תווית צהובה <span class="chip read">ער׳ ← עב׳</span></small></div></div>
+        <div class="flow"><span>רואים תעתיק</span><i>←</i><span>קוראים בקול</span><i>←</i><span>מתרגמים</span></div>
+        <p>מופיע משפט בערבית בתעתיק עברי. יש שני מיקרופונים: <b>ע</b> לקריאה בערבית, עם ציון על ההגייה, ו<b>א</b> לתרגום בעברית, עם ציון על התרגום שלא נשמר. „הצג תרגום” מראה את התרגום הנכון.</p>
+        <p class="ex"><b>למשל:</b> משפטים: ערבית ← עברית, שאלות על סיפור המוסך, קפטן איוב</p>
+      </article>
+      <article class="topic">
+        <div class="th"><div class="ball now">💬</div><div><h3>שיחה, סיפור ושיר</h3><small>סמל בועת דיבור</small></div></div>
+        <div class="flow"><span>כל השורות על המסך</span><i>←</i><span>אומרים בתורן</span></div>
+        <p>אומרים את השורות אחת אחרי השנייה. <b>השמעת השיחה</b> מקריאה הכול מההתחלה (עם אפשרות „ערבית בלבד”), ו<b>בוחן</b> מבקש לומר את כל השיחה ברצף ונותן ציון לכל שורה ובסוף ציון כולל. בשיחה יש שני דוברים, בסיפור קול אחד.</p>
+        <p class="ex"><b>למשל:</b> שיחת היכרות, סיפור השוק, סיפור הפלאפל, שיר הצבעים</p>
+      </article>
+      <article class="topic">
+        <div class="th"><div class="ball now">✎&#xFE0E;</div><div><h3>כתיבת משפטים</h3><small>סמל עיפרון, בסוף כל שיעור</small></div></div>
+        <div class="flow"><span>מטלה מהחוברת</span><i>←</i><span>כותבים משפטים</span><i>←</i><span>המורה קורא</span></div>
+        <p>שיעורי הבית של החוברת: כותבים משפטים משלכם לפי ההנחיה, שורה לכל משפט. הטקסט נשמר אוטומטית, המורה קורא אותו בפאנל, ואין ציון.</p>
+        <p class="ex"><b>נספר כ:</b> „נכתבו 3 מתוך 5”</p>
+      </article>
+      <article class="topic">
+        <div class="th"><div class="ball video">▶&#xFE0E;</div><div><h3>סרטון</h3><small>עיגול מקווקו</small></div></div>
+        <div class="flow"><span>צופים</span><i>←</i><span>✓ נצפה</span></div>
+        <p>סרטון שהמורה הוסיף לשיעור, במקום שלו בדרך. אחרי צפייה מופיע עליו ✓. סרטון לא נועל את הנושאים שאחריו.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- 4. the practice screen -->
+  <section id="practice">
+    <div class="sechead">
+      <h2>מסך התרגול</h2>
+      <p>נפתח כשבוחרים נושא. כאן אומרים את המשפטים ורואים מה המערכת שמעה.</p>
+    </div>
+    <div class="pair">
+      <div class="phone" aria-label="דוגמה של מסך התרגול">
+        <div class="m-bar at"><span class="n">1</span><span class="m-btn p">→ חזרה למסלול</span><span class="m-sp"></span><span class="m-btn">☰ רשימה</span><span class="m-btn gear">⚙</span></div>
+        <div class="m-card">
+          <div class="m-meta"><span>3 / 10</span><span>משפטים א׳</span></div>
+          <div class="at l" style="display:flex;flex-direction:column;gap:6px;padding-inline:14px"><span class="n">2</span>
+            <div class="m-prompt">מה שלומך?</div>
+            <div class="m-task">איך אומרים את זה בערבית מדוברת?</div>
+          </div>
+          <div class="m-mics at"><span class="n">3</span>
+            <div class="m-mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></svg></div>
+          </div>
+          <div class="m-status">לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים</div>
+          <span class="m-btn">תרגול שקט ללא ציון</span>
+          <div class="m-result at l"><span class="n">4</span>
+            <div class="m-score"><b>78</b><span class="pill mid">כמעט</span></div>
+            <div class="m-words tr"><span class="w-ok">כִּיף</span><span class="w-near">חָאלַכּ</span></div>
+          </div>
+          <div class="m-foot at"><span class="n">5</span><span>🔊 השמע</span><span>▶ הקלטה</span><span>הצג תשובה</span><span>הקודם</span><span>הבא</span></div>
+        </div>
+      </div>
+      <ol class="key">
+        <li><span class="n">1</span><div><b>שורת הכלים</b><span class="d"><b style="display:inline">חזרה למסלול</b> מימין. משמאל <b style="display:inline">רשימת המשפטים</b>, עם הציון הכי טוב בכל משפט, ו־⚙ <b style="display:inline">הגדרות ההשמעה</b> בפינה השמאלית העליונה (פירוט בהמשך).</span></div></li>
+        <li><span class="n">2</span><div><b>המשפט</b><span class="d">מה שצריך לומר, ומעליו המיקום בנושא.</span></div></li>
+        <li><span class="n">3</span><div><b>המיקרופון</b><span class="d">לוחצים פעם אחת ומדברים, וההקלטה נעצרת לבד. בלי מיקרופון אפשר לבחור <b style="display:inline">תרגול שקט</b> ולהרכיב את המשפט ממילים.</span></div></li>
+        <li><span class="n">4</span><div><b>הציון</b><span class="d">כל מילה נצבעת לפי מה שנשמע: ירוק נאמר נכון, צהוב כמעט. מתחת מופיעים טיפים לשיפור.</span></div></li>
+        <li><span class="n">5</span><div><b>הכפתורים למטה</b><span class="d"><b style="display:inline">השמע</b> את התשובה הנכונה, <b style="display:inline">הקלטה</b> כדי לשמוע את עצמכם, <b style="display:inline">הצג תשובה</b>, ומעבר בין משפטים. בחלק מהנושאים יש גם <b style="display:inline">שלילה</b> ו<b style="display:inline">הטיית פעלים</b>: אותו משפט בשלילה או בגוף אחר.</span></div></li>
+      </ol>
+    </div>
+    <div class="score-scale" aria-label="סולם הציונים">
+      <h3>סולם הציון</h3>
+      <div class="scale"><div class="bad">נסו שוב</div><div class="mid">כמעט</div><div class="good">מצוין</div></div>
+      <div class="ticks"><span>0</span><span>60</span><span>85–100</span></div>
+    </div>
+  </section>
+
+
+  <!-- 5. playback settings -->
+  <section id="settings">
+    <div class="sechead">
+      <h2>הגדרות השמעה ⚙</h2>
+      <p>במסך התרגול, בפינה השמאלית העליונה, יש כפתור ⚙. הוא פותח חלון עם שלוש הגדרות. הבחירה נשמרת במכשיר לפעם הבאה.</p>
+    </div>
+    <div class="pair">
+      <div class="phone" aria-label="דוגמה של חלון הגדרות ההשמעה">
+        <div class="m-bar"><span class="m-btn p">→ חזרה למסלול</span><span class="m-sp"></span><span class="m-btn">☰ רשימה</span><span class="m-btn gear hl">⚙</span></div>
+        <div class="dlg">
+          <div class="dlg-h"><b>הגדרות השמעה</b><span class="m-btn">סגירה</span></div>
+          <div class="row at l"><span class="n">1</span><span>קול ההשמעה</span><span class="sel">אמיר ▾</span></div>
+          <div class="row at l"><span class="n">2</span><span>מהירות</span><span class="seg"><i>x0.8</i><i class="on">x1</i><i>x1.5</i></span></div>
+          <div class="row at l"><span class="n">3</span><span>הקראת המשפט בעברית</span><span class="tg on" aria-hidden="true"></span></div>
+        </div>
+      </div>
+      <ol class="key">
+        <li><span class="n">1</span><div><b>קול ההשמעה</b><span class="d">בוחרים מי מקריא את הערבית: <b style="display:inline">אמיר</b>, <b style="display:inline">ראאף</b> או <b style="display:inline">חנאן</b>. זה הקול של „השמע” ושל סיפורים. בשיחה יש לכל דובר קול משלו.</span></div></li>
+        <li><span class="n">2</span><div><b>מהירות</b><span class="d"><b style="display:inline">x0.8</b> לאט יותר, כדי לשמוע כל הברה. <b style="display:inline">x1</b> רגיל. <b style="display:inline">x1.5</b> מהיר, לאימון הבנת שמיעה.</span></div></li>
+        <li><span class="n">3</span><div><b>הקראת המשפט בעברית</b><span class="d">כשמסומן, כל משפט חדש מוקרא בקול בעברית לפני שעונים, כך שאפשר לתרגל בלי לקרוא מהמסך. בנושאי ערבית ← עברית אין הקראה, כי העברית היא התשובה.</span></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 6. tips -->
+  <section id="tips">
+    <div class="sechead"><h2>כמה טיפים</h2></div>
+    <div class="tips">
+      <div class="tip"><h3>לא יודעים מה לתרגל?</h3><p>לחצו „תרגול יומי”. הסבב בוחר לבד משפטים לשיפור ומשפטים חדשים.</p></div>
+      <div class="tip"><h3>רוצים זהב?</h3><p>חזרו לנושא שהושלם ושפרו כל משפט ל־85 ומעלה. נשמר תמיד הציון הכי טוב.</p></div>
+      <div class="tip"><h3>בדרך לעבודה?</h3><p>מצב נסיעה מקריא, מקשיב ונותן משוב בקול, משפט אחרי משפט.</p></div>
+      <div class="tip"><h3>ציון נמוך מסיבה לא ברורה?</h3><p>דברו קרוב למיקרופון, בשקט סביב, ולחצו „השמע” כדי לשמוע שוב את הנוסח הנכון.</p></div>
+    </div>
+  </section>
+</main>
+<script>
+// opened from the app: go back to where the student was; opened from a shared link: to the app's start
+document.getElementById("back").onclick=e=>{
+  try{ if(document.referrer&&new URL(document.referrer).origin===location.origin&&history.length>1){ e.preventDefault(); history.back(); } }catch{}
+};
+</script>
+</body>
+</html>
+
