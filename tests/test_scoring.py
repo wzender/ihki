@@ -213,6 +213,13 @@ def test_tts_endpoint_serves_phrase_audio_and_503_without_key():
         assert c.get("/api/health").json()["tts"] is True
 
 
+def test_tts_vowels_palestinian_fiil_past_without_changing_other_words():
+    from app.tts import pronunciation_text
+
+    assert pronunciation_text("هوّ سمع موسيقى، وبعدين رجع ولعب") == "هوّ سِمِع موسيقى، وبعدين رِجِع ولِعِب"
+    assert pronunciation_text("سمعت سمعو يسمع") == "سمعت سمعو يسمع"
+
+
 def test_spelling_variants_of_a_sound_are_not_errors():
     # the multilingual vocab spells one sound several ways; the model saying t̪ / ɾ / æ for t / r / a is not a mistake
     syms = SYMS + ["t", "t̪", "tː", "r", "ɾ", "æ", "b"]

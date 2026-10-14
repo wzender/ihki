@@ -34,7 +34,7 @@ from .reference import References
 from .scorer import Scorer, decode_audio, load_scorer
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
-from .tts import VOICES, SawtakTTS, TTSUnavailable, load_tts
+from .tts import VOICES, SawtakTTS, TTSUnavailable, load_tts, pronunciation_text
 from .verb_game import VerbExerciseGenerator
 
 logging.basicConfig(level=logging.INFO)
@@ -1127,7 +1127,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         names = {i: n for n, i in VOICES.items()}
         if voice and voice not in names:
             raise HTTPException(400, "unknown voice")
-        text = phrase_of(phrase_id)["variants"][0][0]
+        text = pronunciation_text(phrase_of(phrase_id)["variants"][0][0])
         if app.state.tts is None:
             raise HTTPException(503, "tts not configured")
         try:

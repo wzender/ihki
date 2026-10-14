@@ -14,6 +14,7 @@ import io
 import json
 import logging
 import os
+import re
 import threading
 import urllib.error
 import urllib.parse
@@ -32,6 +33,28 @@ VOICES = {
     "רַאאִף": "273d81b2-991b-5b76-8525-eeacc6a3d759",
     "חנאן": "e41781f5-127c-5eb0-b83c-50bf52a64caf",
 }
+
+# Unvowelled three-letter Palestinian past forms are often read by a TTS as MSA
+# (for example سمع as samaʿa).  Keep the course spelling untouched, but give the
+# voice the short vowels taught in the workbook's fiʿil pattern.
+_PAST_FIIL = {
+    "شرب": "شِرِب", "طلع": "طِلِع", "سمع": "سِمِع", "فهم": "فِهِم", "رجع": "رِجِع",
+    "نزل": "نِزِل", "وصل": "وِصِل", "ضحك": "ضِحِك", "لبس": "لِبِس", "لعب": "لِعِب",
+}
+_ARABIC_WORD = re.compile(r"[\u0621-\u064A\u066E-\u06D3]+")
+
+
+def pronunciation_text(text: str) -> str:
+    """Add only pronunciation-critical vowels for TTS; never changes displayed Arabic."""
+    def voiced(match: re.Match[str]) -> str:
+        word = match.group()
+        if word in _PAST_FIIL:
+            return _PAST_FIIL[word]
+        if word[:1] in ("و", "ف") and word[1:] in _PAST_FIIL:
+            return word[0] + _PAST_FIIL[word[1:]]
+        return word
+
+    return _ARABIC_WORD.sub(voiced, text)
 
 
 class TTSUnavailable(Exception):
