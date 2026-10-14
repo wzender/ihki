@@ -605,11 +605,11 @@ body.driving .card.storymode .prompt{display:block}
 /* a story's quiz, once it ended: the grade is back on the card, over the mistakes made most often */
 .card.storymode.quizdone .verdict{display:flex}
 .tips li .sub{display:block}
-/* "פועל נגד הזמן": a Hebrew verb rises in a timed balloon while the microphone listens. */
-.card.bubblemode{min-height:min(610px,72vh);overflow:hidden;position:relative;background:linear-gradient(180deg,#dff4ff 0%,#f5fbff 68%,var(--surface) 100%)}
-.card.bubblemode .prompt{position:relative;z-index:1;display:grid;place-items:center;width:clamp(150px,42vw,220px);height:clamp(175px,48vw,250px);margin:clamp(30px,10vh,80px) auto 18px;padding:28px;box-sizing:border-box;border:2px solid #2e782a;border-radius:50% 50% 48% 52%/46% 46% 54% 54%;background:radial-gradient(ellipse at 29% 22%,rgb(255 255 255/.88) 0 5%,rgb(255 255 255/.35) 6% 13%,transparent 14%),radial-gradient(ellipse at 36% 29%,#9ce98a 0%,#69c956 30%,#45a83d 66%,#287823 100%);color:#10230e;text-shadow:0 1px 0 rgb(255 255 255/.45);box-shadow:inset 14px 18px 28px rgb(255 255 255/.2),inset -20px -24px 38px rgb(15 76 17/.3),0 22px 30px rgb(37 90 42/.22);animation:verb-rise 12s linear both}
-.card.bubblemode .prompt::before{content:"";position:absolute;inset:-10px;border-radius:50% 50% 48% 52%/46% 46% 54% 54%;border:5px solid #205f20;clip-path:inset(0);animation:verb-time 12s linear both}
-.card.bubblemode .prompt::after{content:"";position:absolute;left:50%;top:calc(100% - 2px);width:25px;height:22px;background:linear-gradient(135deg,#52b747,#277923);clip-path:polygon(50% 0,100% 100%,0 100%);transform:translateX(-50%);filter:drop-shadow(0 3px 2px rgb(0 0 0/.18))}
+/* "פועל נגד הזמן": every prompt is a bead; correct answers join the misbaha above. */
+.card.bubblemode{min-height:min(610px,72vh);overflow:hidden;position:relative;background:#101510 url("/static/assets/arabic-calligraphy-path.webp?v=7") top center/100% auto repeat-y}
+.card.bubblemode .prompt{position:relative;z-index:1;display:grid;place-items:center;width:clamp(160px,44vw,220px);aspect-ratio:1;margin:clamp(72px,13vh,105px) auto 18px;padding:40px 28px 28px;box-sizing:border-box;border:3px solid #1b2118;border-radius:50%;background:radial-gradient(circle at 50% 15%,#151a13 0 7px,#899b79 8px 11px,transparent 12px),radial-gradient(circle at 31% 25%,rgb(255 255 255/.72) 0 4%,transparent 5%),radial-gradient(circle at 38% 34%,#aabd98 0%,#718363 37%,#4a5941 72%,#303a2b 100%);color:#f7faef;text-shadow:0 2px 1px rgb(0 0 0/.45);box-shadow:inset 13px 16px 24px rgb(255 255 255/.14),inset -18px -22px 30px rgb(10 17 9/.38),0 18px 28px rgb(0 0 0/.38);animation:bead-rise 12s linear both}
+.card.bubblemode .prompt::before{content:"";position:absolute;inset:-10px;border-radius:50%;border:5px solid #aabd98;clip-path:inset(0);animation:verb-time 12s linear both}
+.card.bubblemode .prompt::after{content:"";position:absolute;left:50%;top:13px;width:15px;height:15px;border-radius:50%;background:#111710;box-shadow:inset 0 3px 4px #050705,0 1px 0 rgb(255 255 255/.24);transform:translateX(-50%)}
 .card.bubblemode .bubble-grade{position:absolute;left:50%;bottom:28px;min-width:64px;padding:6px 11px;border:2px solid #fff;border-radius:999px;background:linear-gradient(180deg,#ffd95e,#f2a91d);color:#4c3100;box-shadow:0 3px 0 #a96800,0 6px 12px rgb(66 50 0/.22);font:800 20px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap;transform:translateX(-50%);animation:grade-pop .38s cubic-bezier(.2,1.8,.4,1)}
 .card.bubblemode .bubble-grade::before{content:"★";margin-inline-end:4px;color:#fff;text-shadow:0 1px 1px rgb(92 58 0/.35)}
 .card.bubblemode .bubble-grade.good{background:linear-gradient(180deg,#ffe66f,#ffc52f);color:#513600}
@@ -620,13 +620,32 @@ body.driving .card.storymode .prompt{display:block}
 .bubble-score b{min-width:1.5ch;font:800 30px/1 var(--f-display);text-align:center}
 .bubble-score.tick b{animation:score-pop .38s cubic-bezier(.2,1.8,.4,1)}
 .bubble-score small{display:block;margin-top:3px;color:#527254;font:700 12px/1 var(--f-body)}
-.bubble-misses{display:grid;position:absolute;top:18px;left:145px;z-index:3;grid-template-columns:repeat(5,18px);grid-auto-rows:22px;gap:7px 3px;direction:ltr;pointer-events:none}
-.bubble-misses[hidden]{display:none}
-.mini-balloon{position:relative;flex:0 0 18px;width:18px;height:22px;border:1px solid #2e782a;border-radius:50% 50% 48% 52%/46% 46% 54% 54%;background:radial-gradient(ellipse at 29% 22%,rgb(255 255 255/.85) 0 8%,transparent 16%),radial-gradient(ellipse at 36% 29%,#9ce98a 0%,#69c956 38%,#287823 100%);box-shadow:inset -3px -4px 5px rgb(15 76 17/.25),0 2px 3px rgb(37 90 42/.22)}
-.mini-balloon::after{content:"";position:absolute;left:50%;top:calc(100% - 1px);width:6px;height:5px;background:#348e30;clip-path:polygon(50% 0,100% 100%,0 100%);transform:translateX(-50%)}
-.mini-balloon.landed{animation:mini-land .3s cubic-bezier(.2,1.7,.4,1)}
-.miss-flight{position:fixed;z-index:30;margin:0;border:2px solid #2e782a;border-radius:50% 50% 48% 52%/46% 46% 54% 54%;background:radial-gradient(ellipse at 29% 22%,rgb(255 255 255/.88) 0 5%,rgb(255 255 255/.35) 6% 13%,transparent 14%),radial-gradient(ellipse at 36% 29%,#9ce98a 0%,#69c956 30%,#45a83d 66%,#287823 100%);box-shadow:inset -14px -18px 30px rgb(15 76 17/.3),0 14px 24px rgb(37 90 42/.2);pointer-events:none}
-.card.bubblemode .prompt.missed{visibility:hidden}
+.bubble-beads{display:grid;position:absolute;top:10px;left:145px;z-index:3;width:150px;height:88px;box-sizing:border-box;grid-template-columns:repeat(5,18px);grid-template-rows:repeat(2,22px);align-items:center;justify-items:center;padding:3px 0 0 36px;direction:ltr;pointer-events:none}
+.bubble-beads[hidden]{display:none}
+.misbaha-cord{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.misbaha-cord path{fill:none;stroke-linecap:round}
+.misbaha-cord .cord-shadow{stroke:#38280a;stroke-width:7;filter:drop-shadow(1px 2px 1px rgb(0 0 0/.65))}
+.misbaha-cord .cord-base{stroke:#b67d10;stroke-width:4.5}
+.misbaha-cord .cord-weave-a,.misbaha-cord .cord-weave-b{stroke-width:3.6;stroke-dasharray:6 6}
+.misbaha-cord .cord-weave-a{stroke:#f3c64c}
+.misbaha-cord .cord-weave-b{stroke:#8e5b08;stroke-dashoffset:6}
+.misbaha-cord .cord-glint{stroke:#fff1a6;stroke-width:1.1;stroke-dasharray:2 10;stroke-dashoffset:1;opacity:.8}
+.misbaha-cord .imam{fill:url(#imamGold);stroke:#6e4508;stroke-width:1.2;filter:drop-shadow(1px 2px 1px rgb(0 0 0/.45))}
+.misbaha-cord .tassel-cap{fill:#191916;stroke:#090a08;stroke-width:1}
+.misbaha-cord .tassel-thread{fill:none;stroke:#171713;stroke-width:1.35;stroke-linecap:round;opacity:.95}
+.mini-bead{position:relative;z-index:1;width:19px;height:19px;border:1px solid #72500d;border-radius:50%;background:radial-gradient(circle at 50% 50%,#704708 0 2px,transparent 3px),radial-gradient(circle at 29% 23%,#fff1a0 0 9%,transparent 11%),radial-gradient(circle at 38% 34%,#ffe27a,#d7a423 44%,#8e5b08 100%);box-shadow:inset -3px -4px 5px rgb(91 55 4/.32),0 2px 3px rgb(0 0 0/.38)}
+.mini-bead::after{content:"";position:absolute;inset:3px;border:1px dotted rgb(112 71 8/.65);border-radius:50%;box-shadow:0 0 0 1px rgb(255 231 135/.28)}
+.mini-bead:nth-of-type(1){grid-area:1/1}.mini-bead:nth-of-type(2){grid-area:1/2}.mini-bead:nth-of-type(3){grid-area:1/3}.mini-bead:nth-of-type(4){grid-area:1/4}.mini-bead:nth-of-type(5){grid-area:1/5}
+.mini-bead:nth-of-type(6){grid-area:2/5}.mini-bead:nth-of-type(7){grid-area:2/4}.mini-bead:nth-of-type(8){grid-area:2/3}.mini-bead:nth-of-type(9){grid-area:2/2}.mini-bead:nth-of-type(10){grid-area:2/1}
+.mini-bead.good{border-color:#1b2118;background:radial-gradient(circle at 50% 50%,#151a13 0 2px,transparent 3px),radial-gradient(circle at 31% 25%,#e2ead8 0 8%,transparent 10%),radial-gradient(circle at 38% 34%,#aabd98,#718363 44%,#35402f 100%);box-shadow:inset -3px -4px 5px rgb(10 17 9/.3),0 2px 3px rgb(0 0 0/.35)}
+.mini-bead.good::after{border-color:rgb(40 55 34/.65);box-shadow:0 0 0 1px rgb(226 234 216/.26)}
+.mini-bead.failed{border-color:#7d3d37;background:radial-gradient(circle at 50% 50%,#552622 0 2px,transparent 3px),radial-gradient(circle at 31% 25%,#ffe1da 0 8%,transparent 10%),radial-gradient(circle at 38% 34%,#efaaa0,#d77970 44%,#9b4f48 100%);box-shadow:inset -3px -4px 5px rgb(91 35 30/.25),0 2px 3px rgb(0 0 0/.35)}
+.mini-bead.failed::after{border-color:rgb(108 43 38/.6);box-shadow:0 0 0 1px rgb(255 225 218/.28)}
+.mini-bead.landed{animation:mini-land .3s cubic-bezier(.2,1.7,.4,1)}
+.bead-flight{position:fixed;z-index:30;margin:0;border:3px solid #72500d;border-radius:50%;background:radial-gradient(circle at 50% 15%,#704708 0 7px,#d9a82c 8px 11px,transparent 12px),radial-gradient(circle at 31% 25%,rgb(255 246 186/.82) 0 4%,transparent 5%),radial-gradient(circle at 38% 34%,#ffe27a,#d7a423 42%,#8e5b08 100%);box-shadow:inset -14px -18px 30px rgb(91 55 4/.32),0 14px 24px rgb(0 0 0/.3);pointer-events:none}
+.bead-flight.good{border-color:#1b2118;background:radial-gradient(circle at 50% 15%,#151a13 0 7px,#899b79 8px 11px,transparent 12px),radial-gradient(circle at 31% 25%,rgb(255 255 255/.72) 0 4%,transparent 5%),radial-gradient(circle at 38% 34%,#aabd98,#718363 42%,#303a2b 100%);box-shadow:inset -14px -18px 30px rgb(10 17 9/.35),0 14px 24px rgb(0 0 0/.3)}
+.bead-flight.failed{border-color:#7d3d37;background:radial-gradient(circle at 50% 15%,#552622 0 7px,#d98980 8px 11px,transparent 12px),radial-gradient(circle at 31% 25%,rgb(255 255 255/.7) 0 4%,transparent 5%),radial-gradient(circle at 38% 34%,#efaaa0,#d77970 42%,#9b4f48 100%)}
+.card.bubblemode .prompt.collected{visibility:hidden}
 .bubble-hint{position:absolute;left:50%;bottom:18px;z-index:3;width:max-content;min-width:170px;max-width:min(230px,calc(100% - 32px));box-sizing:border-box;padding:10px 13px;border-radius:12px;background:rgb(255 255 255/.94);color:#174f18;box-shadow:0 4px 14px rgb(30 91 36/.18);font:700 14px/1.35 var(--f-body);animation:hint-in .25s ease-out both}
 .bubble-hint[hidden]{display:none}
 .bubble-hint small{display:block;color:#527254;font-size:11px}
@@ -638,24 +657,19 @@ body.driving .card.storymode .prompt{display:block}
 .bubble-hint .past em{display:block;margin-top:2px;color:#527254;font:700 17px/1.2 sans-serif;font-style:normal;direction:rtl}
 .card.bubblemode .task{font-weight:700;color:var(--olive)}
 .card.bubblemode .donehint,.card.bubblemode .progress{position:relative;z-index:2}
-.card.bubblemode>:not(.prompt):not(.bubble-score):not(.bubble-misses):not(.bubble-hint){display:none!important}
+.card.bubblemode>:not(.prompt):not(.bubble-score):not(.bubble-beads):not(.bubble-hint){display:none!important}
 body.bubble-game #wrap>header,body.bubble-game #practice>.roundbar{display:none}
 #gameBack{display:none}
 body.bubble-game #gameBack{display:flex;position:fixed;top:max(12px,env(safe-area-inset-top));right:12px;z-index:12;width:40px;height:40px;align-items:center;justify-content:center;border:2px solid #111;border-radius:50%;background:#63bd4d;color:#111;padding:0;cursor:pointer;box-shadow:0 3px 0 #111}
 body.bubble-game #gameBack .ic{width:20px;height:20px}
 body.bubble-game #gameBack:active{transform:translateY(2px);box-shadow:0 1px 0 #111}
-.card.bubblemode .prompt.burst{animation:verb-burst .28s ease-out forwards}
-.card.bubblemode .prompt.burst::before{animation:none;opacity:0}
-.card.bubblemode .prompt.burst::after{left:50%;top:50%;width:11px;height:11px;border-radius:50% 10% 55% 20%;background:#45a83d;clip-path:none;filter:none;box-shadow:0 -76px 0 #9ce98a,54px -54px 0 #348e30,76px 0 0 #72d261,54px 54px 0 #287823,0 76px 0 #8cdd79,-54px 54px 0 #3b9d35,-76px 0 0 #65c654,-54px -54px 0 #2e842a;animation:verb-splash .32s ease-out forwards}
-@keyframes verb-rise{0%{transform:translateY(78px) rotate(-2deg) scale(.88)}45%{transform:translateY(5px) rotate(2deg) scale(.96)}100%{transform:translateY(-82px) rotate(-1deg) scale(1.04)}}
+@keyframes bead-rise{0%{transform:translateY(54px) rotate(-3deg) scale(.9)}50%{transform:translateY(2px) rotate(2deg) scale(.97)}100%{transform:translateY(-58px) rotate(-2deg) scale(1.02)}}
 @keyframes verb-time{from{clip-path:inset(0)}to{clip-path:inset(100% 0 0 0)}}
-@keyframes verb-burst{0%{transform:scale(1);opacity:1}35%{transform:scale(1.12,.9);opacity:1}58%{transform:scale(.82,1.18);opacity:.95}100%{transform:scale(1.7);opacity:0}}
-@keyframes verb-splash{0%{transform:translate(-50%,-50%) scale(.15);opacity:0}35%{opacity:1}100%{transform:translate(-50%,-50%) scale(1.65);opacity:0}}
 @keyframes score-pop{0%{transform:scale(1)}45%{transform:scale(1.55);color:#2d9b31}100%{transform:scale(1)}}
 @keyframes grade-pop{0%{transform:translateX(-50%) scale(.25) rotate(-8deg);opacity:0}65%{transform:translateX(-50%) scale(1.18) rotate(3deg);opacity:1}100%{transform:translateX(-50%) scale(1) rotate(0)}}
 @keyframes hint-in{from{transform:translate(-50%,6px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 @keyframes mini-land{0%{transform:scale(.4)}65%{transform:scale(1.35)}100%{transform:scale(1)}}
-@media (prefers-reduced-motion:reduce){.card.bubblemode .prompt{animation:none}.card.bubblemode .prompt.burst{opacity:0}.card.bubblemode .prompt.burst::after{animation:none;opacity:0}}
+@media (prefers-reduced-motion:reduce){.card.bubblemode .prompt{animation:none}}
 /* Without a microphone ("תרגול שקט ללא ציון"): a Hebrew sentence is answered by hand instead of said, built from its
    Arabic words, tapped in order out of a bank that holds a few words too many. */
 body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#heBtn,.miclab,.phone-btn){display:none}
@@ -742,7 +756,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 
   <main class="card" id="card" aria-live="polite">
     <div class="bubble-score" id="bubbleScore" hidden><span>ניקוד<small id="bubbleCount"></small></span><b id="bubblePoints">0</b></div>
-    <div class="bubble-misses" id="bubbleMisses" hidden aria-label="בלונים שלא התפוצצו"></div>
+    <div class="bubble-beads" id="bubbleBeads" hidden aria-label="תוצאות במסבחה: ירוק בלי רמז, צהוב עם רמז ואדום בכישלון"><svg class="misbaha-cord" viewBox="0 0 150 88" aria-hidden="true"><defs><linearGradient id="imamGold" x1="0" x2="1"><stop stop-color="#845308"/><stop offset=".28" stop-color="#f5ce57"/><stop offset=".58" stop-color="#b8790d"/><stop offset=".82" stop-color="#ffe68a"/><stop offset="1" stop-color="#744607"/></linearGradient></defs><path class="cord-shadow" d="M36 14H120Q134 14 134 25T120 36H36"/><path class="cord-base" d="M36 14H120Q134 14 134 25T120 36H36"/><path class="cord-weave-a" d="M36 14H120Q134 14 134 25T120 36H36"/><path class="cord-weave-b" d="M36 14H120Q134 14 134 25T120 36H36"/><path class="cord-glint" d="M36 14H120Q134 14 134 25T120 36H36"/><path class="cord-base" d="M36 36H27"/><rect class="imam" x="9" y="31" width="21" height="10" rx="5"/><rect class="tassel-cap" x="4" y="30" width="7" height="12" rx="2"/><path class="tassel-thread" d="M7 42Q8 55 2 75M7 42Q12 57 8 80M7 42Q16 58 15 82M7 42Q20 56 22 78M7 42Q24 53 29 73M7 42Q18 48 35 67M7 42Q13 62 3 84M7 42Q21 61 18 85"/></svg></div>
     <div class="bubble-hint" id="bubbleHint" hidden><small>רמז</small><span class="binyan" id="bubbleBinyan"></span><strong class="gizra" id="bubbleGizra"></strong><span class="past" id="bubblePast" hidden><small>עבר · הוא</small><b id="bubblePastText"></b><em id="bubblePastAr" lang="ar"></em></span></div>
     <div class="meta"><span id="counter"></span></div>
     <div class="progress" id="progress" hidden><i id="progressBar"></i></div>
@@ -1519,10 +1533,10 @@ function countBubble(correct){
   bubbleGame.answered++; if(correct) bubbleGame.correct++;
   drawBubbleScore(correct);
 }
-async function keepMissedBalloon(){
-  const source=$("prompt"), shelf=$("bubbleMisses"), from=source.getBoundingClientRect(), mini=mark("mini-balloon","");
-  shelf.append(mini); const to=mini.getBoundingClientRect(); mini.style.visibility="hidden"; source.classList.add("missed");
-  const ghost=mark("miss-flight",""); Object.assign(ghost.style,{left:from.left+"px",top:from.top+"px",width:from.width+"px",height:from.height+"px"}); document.body.append(ghost);
+async function collectBead(result){
+  const source=$("prompt"), shelf=$("bubbleBeads"), from=source.getBoundingClientRect(), tone=result==="clean"?" good":result==="failed"?" failed":"", mini=mark(`mini-bead${tone}`,"");
+  shelf.append(mini); const to=mini.getBoundingClientRect(); mini.style.visibility="hidden"; source.classList.add("collected");
+  const ghost=mark(`bead-flight${tone}`,""); Object.assign(ghost.style,{left:from.left+"px",top:from.top+"px",width:from.width+"px",height:from.height+"px"}); document.body.append(ghost);
   if(!matchMedia("(prefers-reduced-motion:reduce)").matches){
     const dx=to.left+to.width/2-(from.left+from.width/2), dy=to.top+to.height/2-(from.top+from.height/2), scale=to.width/from.width;
     try{ await ghost.animate([{transform:"translate(0,0) scale(1)"},{transform:`translate(${dx}px,${dy}px) scale(${scale})`}],{duration:360,easing:"cubic-bezier(.4,0,.2,1)",fill:"forwards"}).finished; }catch{}
@@ -1573,7 +1587,7 @@ function setRound(){
     const rank=reached?ALL_LESSONS.findIndex(l=>l.id===reached.id):-1;
     list=list.filter(p=>!p.unlock||ALL_LESSONS.findIndex(l=>l.id===p.unlock)<=rank);
     ordered=false; topic=order=shuffle(list).slice(0,BUBBLE_ROUND).map(p=>p.id); pos=0;
-    bubbleGame={answered:0,correct:0,total:order.length}; $("bubbleMisses").replaceChildren(); drawBubbleScore(); marks(); return;
+    bubbleGame={answered:0,correct:0,total:order.length}; $("bubbleBeads").querySelectorAll(".mini-bead").forEach(b=>b.remove()); drawBubbleScore(); marks(); return;
   }
   ordered=list.length>0&&list.every(p=>p.seq!=null);
   topic=(ordered?list.sort((a,b)=>a.seq-b.seq):shuffle(list)).map(p=>p.id);
@@ -1930,8 +1944,8 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   const c=categoryOf(daily?cur.cat:cat), mine=topic.includes(cur.id);   // a topic or game may name its items and its own task
   $("card").classList.toggle("bubblemode",!!c.bubble);
   document.body.classList.toggle("bubble-game",!!c.bubble);
-  $("bubbleScore").hidden=!c.bubble; $("bubbleMisses").hidden=!c.bubble; $("bubbleHint").hidden=true; if(c.bubble) drawBubbleScore();
-  $("prompt").classList.remove("burst","missed");
+  $("bubbleScore").hidden=!c.bubble; $("bubbleBeads").hidden=!c.bubble; $("bubbleHint").hidden=true; if(c.bubble) drawBubbleScore();
+  $("prompt").classList.remove("collected");
   if(c.bubble){ $("prompt").style.animation="none"; void $("prompt").offsetWidth; $("prompt").style.animation=""; }
   heStop(); $("heCheck").hidden=true; micZone.classList.toggle("two",heOk&&!!cur.read&&!story);   // a phrase to read can be answered in Hebrew too
   $("task").textContent=cur.read?heOk?HE_TASK:"קראו בקול ותרגמו לעברית":mine&&c.task||"איך אומרים את זה בערבית מדוברת?";
@@ -2277,10 +2291,10 @@ async function bubbleOutcome(r,expired=false){
     $("prompt").append(mark(`bubble-grade ${band}`,`${score} נק׳`));
   }
   if(correct){
+    const hinted=bubbleHintShown||bubblePastShown;
     countBubble(true);
     stopBubble();
-    $("prompt").classList.add("burst");
-    await pause(290);
+    await collectBead(hinted?"hinted":"clean");
   }else{
     if(!expired&&Date.now()<bubbleDeadline){
       bubbleResolving=false;
@@ -2289,7 +2303,8 @@ async function bubbleOutcome(r,expired=false){
       return;
     }
     countBubble(false);
-    await keepMissedBalloon();
+    stopBubble();
+    await collectBead("failed");
     if(cur.id!==id||home) return;
     const a=await answerAudio(id);
     if(cur.id!==id||home) return;
