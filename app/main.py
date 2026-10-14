@@ -14,6 +14,7 @@ import hashlib
 import logging
 import os
 import re
+import subprocess
 import time
 import urllib.parse
 import uuid
@@ -246,6 +247,38 @@ def build_version() -> str:
         h.update(f.read_bytes())
     newest = max(f.stat().st_mtime for f in files)
     return f"{h.hexdigest()[:7]} · {time.strftime('%Y-%m-%d %H:%M', time.gmtime(newest))} UTC"
+
+
+def build_metadata() -> dict[str, str]:
+    """Deployment details for the teacher panel, with useful local-development fallbacks."""
+    files = sorted(Path(__file__).resolve().parent.glob("*.py")) + [STATIC / "index.html"]
+    h = hashlib.sha1()
+    for f in files:
+        h.update(f.read_bytes())
+    newest = max(f.stat().st_mtime for f in files)
+    commit = next((os.environ.get(name, "").strip() for name in
+                   ("GIT_COMMIT", "COMMIT_SHA", "SOURCE_VERSION", "SPACE_REVISION")
+                   if os.environ.get(name, "").strip()), "")
+    message = os.environ.get("GIT_COMMIT_MESSAGE", "").strip()
+    if not commit or not message:
+        try:
+            git = subprocess.run(
+                ["git", "log", "-1", "--format=%H%n%s"], cwd=STATIC.parent, check=True,
+                capture_output=True, text=True, timeout=2,
+            ).stdout.splitlines()
+            if not commit and git:
+                commit = git[0].strip()
+            if not message and len(git) > 1:
+                message = git[1].strip()
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return {
+        "version": os.environ.get("APP_VERSION", "").strip() or h.hexdigest()[:7],
+        "updated_at": os.environ.get("BUILD_DATE", "").strip()
+        or datetime.fromtimestamp(newest, timezone.utc).isoformat(timespec="seconds"),
+        "commit": commit or "unknown",
+        "commit_message": message,
+    }
 
 
 def utc(stamp: str) -> datetime:
@@ -1114,7 +1147,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.get("/api/health")
     def health():
         s: Scorer = app.state.scorer
-        return {"version": build_version(), "model": MODEL_ID, "tts": app.state.tts is not None,
+        return {"version": build_version(), "build": build_metadata(), "model": MODEL_ID, "tts": app.state.tts is not None,
                 "references": app.state.refs is not None, "sign_in": app.state.auth is not None,
                 "phoneme_fallbacks": s.vocab.downgraded}
 

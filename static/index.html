@@ -308,6 +308,16 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .mtitle{font:400 24px/1 var(--f-display);margin:0}
 #mState.setup{padding:10px 12px;border:1px solid var(--sumac);border-radius:10px;color:var(--ink)}
 #mState.setup code{display:block;margin-top:6px;font-size:12px;overflow-wrap:anywhere;user-select:all}
+.build-info{padding:14px 16px;margin-top:4px;font-variant-numeric:tabular-nums}
+.build-info h2{margin:0;font:400 20px/1.2 var(--f-display)}
+.build-info>p{margin:3px 0 12px;color:var(--muted);font-size:13px}
+.build-info dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
+.build-info dl>div{min-width:0;padding:9px 10px;border-radius:9px;background:var(--bg)}
+.build-info dt{margin-bottom:3px;color:var(--muted);font-size:12px;font-weight:600}
+.build-info dd{margin:0;color:var(--ink);font-size:14px;overflow-wrap:anywhere}
+.build-info code{direction:ltr;unicode-bidi:isolate;user-select:all}
+#manage:not(.flags) #mBuild{display:none}
+@media(max-width:560px){.build-info dl{grid-template-columns:1fr}}
 .hard>.note{margin:0;padding:4px 16px 8px;color:var(--muted);font-size:14px}
 /* inside a student, each part (the best sentences, the weakest, every lesson) opens and closes on its heading */
 .sec>summary{cursor:pointer;list-style:none;display:grid;grid-template-columns:1fr auto 3em;gap:4px 10px;align-items:center;padding:8px 16px;border-top:1px solid var(--line);font:700 15px/1.4 var(--f-body)}
@@ -839,6 +849,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
     <div class="card hard" id="mLessons" hidden></div>
     <div class="card hard roster" id="mRoster" hidden></div>
     <div id="mStudent"></div>
+    <section class="build-info card" id="mBuild" aria-labelledby="mBuildTitle" hidden></section>
   </section>
 </div>
 <dialog id="listDlg" aria-labelledby="listTitle">
@@ -2634,7 +2645,8 @@ async function loadManage(){
   const state=$("mState");
   state.textContent="טוען…"; state.classList.remove("setup");
   try{
-    const res=await api("/api/class"); await ready;
+    const [res,healthRes]=await Promise.all([api("/api/class"),fetch("/api/health").catch(()=>null)]); await ready;
+    if(healthRes?.ok) drawBuild((await healthRes.json()).build);
     if(!res.ok){
       const detail=(await res.json().catch(()=>({}))).detail||res.status;
       state.textContent=res.status===403?"הפאנל פתוח למורים בלבד.":`נתוני התלמידים לא זמינים כרגע (${detail}).`; return;
@@ -2647,6 +2659,18 @@ async function loadManage(){
   for(const x of CLASS.setup||[]){   // a table the teacher still has to create in Supabase: what is missing, and the command
     const code=mark("",x.sql,"code"); code.dir="ltr"; state.append(mark("",x.what,"b"),mark(""," הריצו ב-SQL Editor של Supabase:"),code); }
   drawManage();
+}
+function drawBuild(info){
+  const box=$("mBuild");
+  if(!info) return;
+  const updated=new Date(info.updated_at), date=Number.isNaN(updated.valueOf())?info.updated_at:
+    new Intl.DateTimeFormat("he-IL",{dateStyle:"short",timeStyle:"short"}).format(updated);
+  const list=document.createElement("dl");
+  const item=(label,value,code=false)=>{ const row=document.createElement("div"), dt=document.createElement("dt"), dd=document.createElement("dd"), val=document.createElement(code?"code":"span"); dt.textContent=label; val.textContent=value||"לא זמין"; dd.append(val); row.append(dt,dd); return row; };
+  list.append(item("מספר גרסה",info.version),item("עדכון אחרון",date),item("Commit ID",info.commit,true),item("הודעת commit",info.commit_message));
+  const title=mark("","פרטי המערכת","h2"); title.id="mBuildTitle";
+  box.replaceChildren(title,mark("","מידע טכני לזיהוי הגרסה שפועלת כעת.","p"),list);
+  box.hidden=false;
 }
 function drawManage(){
   const classes=CLASS.classes||[];
