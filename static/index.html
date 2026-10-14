@@ -607,8 +607,19 @@ body.driving .card.storymode .prompt{display:block}
 .tips li .sub{display:block}
 /* "פועל נגד הזמן": every prompt is a bead; correct answers join the misbaha above. */
 .card.bubblemode{min-height:min(610px,72vh);overflow:hidden;position:relative;background:#101510 url("/static/assets/arabic-calligraphy-path.webp?v=7") top center/100% auto repeat-y}
-.card.bubblemode .prompt{position:relative;z-index:1;display:grid;place-items:center;width:clamp(160px,44vw,220px);aspect-ratio:1;margin:clamp(72px,13vh,105px) auto 18px;padding:40px 28px 28px;box-sizing:border-box;border:3px solid #1b2118;border-radius:50%;background:radial-gradient(circle at 50% 15%,#151a13 0 7px,#899b79 8px 11px,transparent 12px),radial-gradient(circle at 31% 25%,rgb(255 255 255/.72) 0 4%,transparent 5%),radial-gradient(circle at 38% 34%,#aabd98 0%,#718363 37%,#4a5941 72%,#303a2b 100%);color:#f7faef;text-shadow:0 2px 1px rgb(0 0 0/.45);box-shadow:inset 13px 16px 24px rgb(255 255 255/.14),inset -18px -22px 30px rgb(10 17 9/.38),0 18px 28px rgb(0 0 0/.38);animation:bead-rise 9s linear both,bead-color 9s linear both}
-.card.bubblemode .prompt::before{content:"";position:absolute;inset:-10px;border-radius:50%;border:5px solid #aabd98;clip-path:inset(0);animation:verb-time 9s linear both,bead-ring 9s linear both}
+@property --bead-hole{syntax:"<color>";inherits:true;initial-value:#151a13}
+@property --bead-neck{syntax:"<color>";inherits:true;initial-value:#899b79}
+@property --bead-light{syntax:"<color>";inherits:true;initial-value:#fff}
+@property --bead-a{syntax:"<color>";inherits:true;initial-value:#aabd98}
+@property --bead-b{syntax:"<color>";inherits:true;initial-value:#718363}
+@property --bead-c{syntax:"<color>";inherits:true;initial-value:#4a5941}
+@property --bead-d{syntax:"<color>";inherits:true;initial-value:#303a2b}
+@property --bead-ring{syntax:"<color>";inherits:true;initial-value:#aabd98}
+.card.bubblemode .prompt{--bead-hole:#151a13;--bead-neck:#899b79;--bead-light:#fff;--bead-a:#aabd98;--bead-b:#718363;--bead-c:#4a5941;--bead-d:#303a2b;--bead-ring:#aabd98;position:relative;z-index:1;display:grid;place-items:center;width:clamp(160px,44vw,220px);aspect-ratio:1;margin:clamp(72px,13vh,105px) auto 18px;padding:40px 28px 28px;box-sizing:border-box;border:3px solid #1b2118;border-radius:50%;background:radial-gradient(circle at 50% 15%,var(--bead-hole) 0 7px,var(--bead-neck) 8px 11px,transparent 12px),radial-gradient(circle at 31% 25%,color-mix(in srgb,var(--bead-light) 72%,transparent) 0 4%,transparent 5%),radial-gradient(circle at 38% 34%,var(--bead-a) 0%,var(--bead-b) 37%,var(--bead-c) 72%,var(--bead-d) 100%);color:#f7faef;text-shadow:0 2px 1px rgb(0 0 0/.45);box-shadow:inset 13px 16px 24px rgb(255 255 255/.14),inset -18px -22px 30px rgb(10 17 9/.38),0 18px 28px rgb(0 0 0/.38);animation:bead-rise 9s linear both;transition:--bead-hole .4s ease,--bead-neck .4s ease,--bead-light .4s ease,--bead-a .4s ease,--bead-b .4s ease,--bead-c .4s ease,--bead-d .4s ease,--bead-ring .4s ease,border-color .4s ease,color .4s ease,text-shadow .4s ease}
+.card.bubblemode .prompt.bead-yellow{--bead-hole:#704708;--bead-neck:#d9a82c;--bead-light:#fff6ba;--bead-a:#ffe27a;--bead-b:#d7a423;--bead-c:#aa7110;--bead-d:#714507;--bead-ring:#e2b32e;border-color:#72500d;color:#3c2800;text-shadow:0 1px 0 rgb(255 247 194/.6)}
+.card.bubblemode .prompt.bead-orange{--bead-hole:#74360b;--bead-neck:#e8943c;--bead-light:#fff0d3;--bead-a:#ffbd72;--bead-b:#e78329;--bead-c:#c75f1d;--bead-d:#913c12;--bead-ring:#e78329;border-color:#924d12;color:#481d05;text-shadow:0 1px 0 rgb(255 224 173/.55)}
+.card.bubblemode .prompt.bead-red{--bead-hole:#552622;--bead-neck:#d98980;--bead-light:#fff;--bead-a:#efaaa0;--bead-b:#d77970;--bead-c:#b85d55;--bead-d:#843e38;--bead-ring:#d77970;border-color:#7d3d37;color:#481713;text-shadow:0 1px 0 rgb(255 225 218/.55)}
+.card.bubblemode .prompt::before{content:"";position:absolute;inset:-10px;border-radius:50%;border:5px solid var(--bead-ring);clip-path:inset(0);animation:verb-time 9s linear both}
 .card.bubblemode .prompt::after{content:"";position:absolute;left:50%;top:13px;width:15px;height:15px;border-radius:50%;background:#111710;box-shadow:inset 0 3px 4px #050705,0 1px 0 rgb(255 255 255/.24);transform:translateX(-50%)}
 .card.bubblemode .bubble-grade{position:absolute;left:50%;bottom:28px;min-width:64px;padding:6px 11px;border:2px solid #fff;border-radius:999px;background:linear-gradient(180deg,#ffd95e,#f2a91d);color:#4c3100;box-shadow:0 3px 0 #a96800,0 6px 12px rgb(66 50 0/.22);font:800 20px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap;transform:translateX(-50%);animation:grade-pop .38s cubic-bezier(.2,1.8,.4,1)}
 .card.bubblemode .bubble-grade::before{content:"★";margin-inline-end:4px;color:#fff;text-shadow:0 1px 1px rgb(92 58 0/.35)}
@@ -667,20 +678,12 @@ body.bubble-game #gameBack{display:flex;position:fixed;top:max(12px,env(safe-are
 body.bubble-game #gameBack .ic{width:20px;height:20px}
 body.bubble-game #gameBack:active{transform:translateY(2px);box-shadow:0 1px 0 #111}
 @keyframes bead-rise{0%{transform:translateY(54px) rotate(-3deg) scale(.9)}50%{transform:translateY(2px) rotate(2deg) scale(.97)}100%{transform:translateY(-58px) rotate(-2deg) scale(1.02)}}
-/* Matches the hint clock: green 0–3s, yellow 3–6s, orange 6–9s; only expiry is red. */
-@keyframes bead-color{
-  0%,24.99%{border-color:#1b2118;background:radial-gradient(circle at 50% 15%,#151a13 0 7px,#899b79 8px 11px,transparent 12px),radial-gradient(circle at 31% 25%,rgb(255 255 255/.72) 0 4%,transparent 5%),radial-gradient(circle at 38% 34%,#aabd98 0%,#718363 37%,#4a5941 72%,#303a2b 100%);color:#f7faef;text-shadow:0 2px 1px rgb(0 0 0/.45)}
-  25%,49.99%{border-color:#72500d;background:radial-gradient(circle at 50% 15%,#704708 0 7px,#d9a82c 8px 11px,transparent 12px),radial-gradient(circle at 31% 25%,rgb(255 246 186/.82) 0 4%,transparent 5%),radial-gradient(circle at 38% 34%,#ffe27a 0%,#d7a423 40%,#aa7110 73%,#714507 100%);color:#3c2800;text-shadow:0 1px 0 rgb(255 247 194/.6)}
-  50%,99.99%{border-color:#924d12;background:radial-gradient(circle at 50% 15%,#74360b 0 7px,#e8943c 8px 11px,transparent 12px),radial-gradient(circle at 31% 25%,rgb(255 240 211/.78) 0 4%,transparent 5%),radial-gradient(circle at 38% 34%,#ffbd72 0%,#e78329 40%,#c75f1d 73%,#913c12 100%);color:#481d05;text-shadow:0 1px 0 rgb(255 224 173/.55)}
-  100%{border-color:#7d3d37;background:radial-gradient(circle at 50% 15%,#552622 0 7px,#d98980 8px 11px,transparent 12px),radial-gradient(circle at 31% 25%,rgb(255 255 255/.7) 0 4%,transparent 5%),radial-gradient(circle at 38% 34%,#efaaa0 0%,#d77970 40%,#b85d55 73%,#843e38 100%);color:#481713;text-shadow:0 1px 0 rgb(255 225 218/.55)}
-}
-@keyframes bead-ring{0%,24.99%{border-color:#aabd98}25%,49.99%{border-color:#e2b32e}50%,99.99%{border-color:#e78329}100%{border-color:#d77970}}
 @keyframes verb-time{from{clip-path:inset(0)}to{clip-path:inset(100% 0 0 0)}}
 @keyframes score-pop{0%{transform:scale(1)}45%{transform:scale(1.55);color:#2d9b31}100%{transform:scale(1)}}
 @keyframes grade-pop{0%{transform:translateX(-50%) scale(.25) rotate(-8deg);opacity:0}65%{transform:translateX(-50%) scale(1.18) rotate(3deg);opacity:1}100%{transform:translateX(-50%) scale(1) rotate(0)}}
 @keyframes hint-in{from{transform:translate(-50%,6px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 @keyframes mini-land{0%{transform:scale(.4)}65%{transform:scale(1.35)}100%{transform:scale(1)}}
-@media (prefers-reduced-motion:reduce){.card.bubblemode .prompt{animation:bead-color 9s linear both}}
+@media (prefers-reduced-motion:reduce){.card.bubblemode .prompt{animation:none;transition:none}}
 /* Without a microphone ("תרגול שקט ללא ציון"): a Hebrew sentence is answered by hand instead of said, built from its
    Arabic words, tapped in order out of a bank that holds a few words too many. */
 body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#heBtn,.miclab,.phone-btn){display:none}
@@ -1563,17 +1566,21 @@ async function collectBead(result){
   }
   ghost.remove(); mini.style.visibility=""; mini.classList.add("landed");
 }
+const BUBBLE_TONES=["bead-yellow","bead-orange","bead-red"];
+function setBubbleTone(tone=""){
+  const prompt=$("prompt"); prompt.classList.remove(...BUBBLE_TONES); if(tone) prompt.classList.add(`bead-${tone}`);
+}
 function showBubbleHint(){
   if(!bubbleCat()||home||bubbleHintShown) return;
   const p=phraseOf(cur.id); if(!p.binyan&&!p.gizra) return;
   bubbleHintShown=true; $("bubbleBinyan").textContent=p.binyan||""; $("bubbleGizra").textContent=p.gizra||"";
-  $("bubbleHint").hidden=false;
+  $("bubbleHint").hidden=false; setBubbleTone("yellow");
 }
 function showBubblePast(){
   if(!bubbleCat()||home||bubblePastShown) return;
   showBubbleHint(); bubblePastShown=true; const p=phraseOf(cur.id);
   setTr($("bubblePastText"),(p.tr||"").split(",",1)[0].trim());
-  $("bubblePastAr").textContent=(p.ar||"").split("،",1)[0].trim(); $("bubblePast").hidden=false;
+  $("bubblePastAr").textContent=(p.ar||"").split("،",1)[0].trim(); $("bubblePast").hidden=false; setBubbleTone("orange");
 }
 function pauseBubble(){
   if(bubbleTimer){ clearTimeout(bubbleTimer); bubbleTimer=null; }
@@ -1965,7 +1972,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   $("card").classList.toggle("bubblemode",!!c.bubble);
   document.body.classList.toggle("bubble-game",!!c.bubble);
   $("bubbleScore").hidden=!c.bubble; $("bubbleBeads").hidden=!c.bubble; $("bubbleHint").hidden=true; if(c.bubble) drawBubbleScore();
-  $("prompt").classList.remove("collected");
+  $("prompt").classList.remove("collected"); setBubbleTone();
   if(c.bubble){ $("prompt").style.animation="none"; void $("prompt").offsetWidth; $("prompt").style.animation=""; }
   heStop(); $("heCheck").hidden=true; micZone.classList.toggle("two",heOk&&!!cur.read&&!story);   // a phrase to read can be answered in Hebrew too
   $("task").textContent=cur.read?heOk?HE_TASK:"קראו בקול ותרגמו לעברית":mine&&c.task||"איך אומרים את זה בערבית מדוברת?";
@@ -2323,7 +2330,9 @@ async function bubbleOutcome(r,expired=false){
       return;
     }
     countBubble(false);
+    setBubbleTone("red");
     stopBubble();
+    await pause(400);
     await collectBead("failed");
     if(cur.id!==id||home) return;
     const a=await answerAudio(id);
