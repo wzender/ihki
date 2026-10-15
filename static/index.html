@@ -111,6 +111,64 @@ body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bot
 #vids button small{font:600 13px/1.2 var(--f-body);color:var(--muted)}
 #vids button .when{grid-column:2}
 #vids button .seen{grid-row:1;grid-column:3}
+/* The verb table: every verb taught up to the lesson the slider is on, a card per גזרה, coloured by its בניין. Dense, so a
+   lesson's verbs fit on a screen; on a wide screen the cards flow into as many columns as fit. Tapping the Arabic says it. */
+body[data-view=verbs] .wrap{max-width:none}
+body[data-view=verbs] #vids{max-width:none;gap:6px;margin-top:0}
+#vids .vt-top{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:6px 14px}
+.vt-bar{display:flex;flex-direction:column;gap:8px}
+@media (min-width:900px){.vt-bar{display:grid;grid-template-columns:minmax(0,28em) minmax(0,1fr);align-items:center;gap:14px}}
+#vids .vt-top h2{margin:0}
+#vids .vt-search{width:100%;padding:7px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:600 15px var(--f-body)}
+#vids .vt-search:focus{outline:2px solid var(--olive);outline-offset:1px}
+.vt-slide{padding:2px 12px 0;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.vt-slide label{display:flex;align-items:baseline;gap:8px;font-weight:700;font-size:15px;line-height:1.3}
+.vt-slide label output{color:var(--olive);font:400 19px/1.2 var(--f-display)}
+.vt-slide label small{margin-inline-start:auto;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
+.vt-range{position:relative;--thumb:20px;padding-bottom:22px}
+.vt-range input{display:block;width:100%;margin:2px 0 0;accent-color:var(--olive);height:var(--thumb);cursor:pointer}
+#vids .vt-anchor{position:absolute;top:calc(var(--thumb) + 2px);inset-inline-start:calc(var(--at) * (100% - var(--thumb)) + var(--thumb) / 2);transform:translateX(50%);
+  display:flex;flex-direction:column;align-items:center;gap:0;padding:0 4px;border:0;border-radius:6px;background:none;color:var(--muted);font:700 11px/1.15 var(--f-body);white-space:nowrap;grid-template-columns:none}
+#vids .vt-anchor::before{content:"";width:2px;height:6px;background:currentColor}
+#vids .vt-anchor.me{color:var(--olive)}
+/* a label at either end of the bar stays inside it, its mark at the stop */
+#vids .vt-anchor.end{transform:translateX(100%);align-items:flex-end}
+#vids .vt-anchor.end::before{margin-inline-end:6px}
+#vids .vt-anchor.start{transform:none;align-items:flex-start}
+#vids .vt-anchor.start::before{margin-inline-start:6px}
+#vids .vt-anchor.low{padding-top:15px}#vids .vt-anchor.low::before{height:21px;margin-top:-15px}
+.vt-range:has(.low){padding-bottom:38px}
+.vt-ticks{position:absolute;top:calc(var(--thumb) / 2 + 2px);inset-inline:calc(var(--thumb) / 2);height:0;pointer-events:none}
+.vt-ticks i{position:absolute;inset-inline-start:var(--at);top:5px;width:1px;height:4px;background:var(--line)}
+.vt-cards{columns:14em;column-gap:8px}
+.vt-cards.bare .vt-note{display:none}   /* the explanations put away: the card's heading tells it on hover */
+#vids .vt-tips{margin-inline-start:6px;padding:2px 9px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--muted);font:700 12px/1.4 var(--f-body);display:inline-block}
+#vids .vt-tips[aria-pressed=true]{background:var(--olive-soft);border-color:var(--olive);color:var(--olive-deep)}
+.vt-gizra{--c:var(--olive);--c-bg:var(--olive-soft);margin:0 0 8px;box-decoration-break:clone;-webkit-box-decoration-break:clone;padding:4px 7px 2px;border:1px solid var(--line);border-top:3px solid var(--c);border-radius:9px;background:var(--surface)}
+.vt-gizra[data-b="2"]{--c:var(--amber);--c-bg:var(--amber-bg)}.vt-gizra[data-b="3"]{--c:var(--sumac);--c-bg:var(--sumac-bg)}
+.vt-gizra[data-b="4"]{--c:var(--ok);--c-bg:var(--ok-bg)}.vt-gizra[data-b="5"]{--c:var(--orange);--c-bg:var(--amber-bg)}
+.vt-gizra[data-b="8"]{--c:var(--muted);--c-bg:var(--bg)}.vt-gizra[data-b="10"]{--c:var(--ink);--c-bg:var(--bg)}
+#vids .vt-gizra h3{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 7px;margin:0;font:700 14px/1.3 var(--f-body)}
+.vt-gizra h3 .bn{color:var(--c)}
+.vt-gizra h3 .pat{font:700 13px var(--f-tr);color:var(--muted);letter-spacing:.02em}
+.vt-gizra h3 small{margin-inline-start:auto;color:var(--muted);font-weight:700;font-size:12px;font-variant-numeric:tabular-nums}
+#vids .vt-note{margin:2px 0 2px;padding:3px 6px;border:0;border-radius:6px;background:var(--c-bg);color:var(--ink);font-size:12px;line-height:1.35}
+.vt-note .tr{font:700 12.5px var(--f-tr);letter-spacing:.02em}
+.vt-gizra h3,.vt-note{break-after:avoid;break-inside:avoid}
+.vt-gizra.short{break-inside:avoid}   /* only a long card goes on in the next column */
+.vt-row{break-inside:avoid;display:grid;grid-template-columns:minmax(0,6em) minmax(0,1fr);align-items:center;gap:4px;min-height:22px;border-top:1px solid var(--line)}
+.vt-note+.vt-row,h3+.vt-row{border-top:0}
+.vt-he{display:flex;align-items:baseline;gap:4px;min-width:0;font-weight:700;font-size:14px;line-height:1.2}
+.vt-he span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vt-he sub{flex:none;min-width:1.6em;color:var(--muted);font-size:10.5px;font-weight:600;vertical-align:baseline;font-variant-numeric:tabular-nums}
+.vt-row.new .vt-he sub{color:var(--surface);background:var(--c);border-radius:999px;text-align:center}
+#vids .vt-say{display:flex;align-items:baseline;gap:8px;min-width:0;overflow:hidden;padding:0 6px;border:0;border-radius:7px;background:none;color:var(--ink);text-align:start;font:inherit;cursor:pointer}
+#vids .vt-say:hover,#vids .vt-say:focus-visible{background:var(--c-bg)}
+#vids .vt-say.on{background:var(--c);color:var(--surface)}
+.vt-say .tr{flex:none;font:700 15.5px/1.35 var(--f-tr);letter-spacing:.025em;white-space:nowrap}
+.vt-say .tr i{font-style:normal;opacity:.5;margin-inline:3px}
+@media (max-width:420px){.vt-row{grid-template-columns:minmax(0,7.2em) minmax(0,1fr)}}
+.vt-empty{display:none}.vt-none .vt-empty{display:block}
 #vids button.now{padding-block:16px;background:var(--olive);border-color:var(--olive);color:var(--on-olive);box-shadow:0 3px 0 var(--olive-deep);font-size:17px}
 #vids button.now i,#vids button.now small{color:inherit}
 /* Refer a friend: a compact campaign page inside the home navigation, with the two rewards kept visually distinct. */
@@ -888,7 +946,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 
   <div id="today" hidden></div>
   <section id="vids" aria-live="polite"></section>
-  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="games" hidden>משחקים</button><button data-view="library">ספריה דיגיטלית</button><button data-view="refer">חבר מביא חבר</button></nav>
+  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="library">ספריה דיגיטלית</button><button data-view="refer">חבר מביא חבר</button></nav>
   <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
   <button id="toNow" hidden></button>
 
@@ -1370,6 +1428,8 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
       b.append(mark("","●","i"),mark("",game.name,"b"),mark("",done?`תורגלו ${done} פעלים`:"אמרו עבר ועתיד לפני שהבועה נעלמת","small"));
       b.onclick=()=>pickCat(game.id); box.append(b);
     }
+  }else if(view==="verbs"){
+    drawVerbTable(box);
   }else if(view==="daily"){
     const mine=dailyVideos(), now=mine.filter(v=>v.date===d), was=mine.filter(v=>v.date<d), back=mark("back","","button");
     back.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> חזרה למסלול'; back.onclick=()=>showView("");
@@ -1427,6 +1487,111 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     if(!libVideos().length) box.append(mark("","עוד אין סרטונים בספריה.","p"));
     for(const v of libVideos()) row(v,libWatched,"ihki.libWatched","");
   }
+}
+/* The verb table. Its verbs are the "פועל נגד הזמן" game's: every verb once, in the lesson that first teaches it, with its
+   בניין and גזרה (workbook.py, `_game_verbs`). A student sees those of the lessons up to the one they are on, a teacher all. */
+const VT_BINYANIM={   // the past and future pattern of each בניין, in the course's transliteration
+  "בניין ראשון":"פַעַל / פִעֵל", "בניין שני":"פַעַّל – יְפַעֵّל", "בניין שלישי":"פַאעַל – יְפַאעֵל", "בניין רביעי":"אַפְעַל",
+  "בניין חמישי":"תְפַעַّל – יִתְפַעַّל", "בניין שמיני":"אִפְתַעַל – יִפְתְעִל", "בניין עשירי":"אִסְתַפְעַל – יִסְתַפְעִל"};
+const VT_GIZROT=["גזרת פַעַל","גזרת פִעֵל","גזרת השלמים","גזרת ע״ו","גזרת ע״י","גזרת הכפולים","גזרת ל״א"];
+const VT_NOTES={   // what the verbs of a גזרה, in its בניין, have in common
+  "בניין ראשון|גזרת פַעַל":'עבר בשתי תנועות a: <span class="tr">פַתַח, קַעַד</span>. העתיד ב־a או ב־u: <span class="tr">יִפְתַח, יֻקְעֹד</span>, ולכן לומדים כל פועל עם העתיד שלו.',
+  "בניין ראשון|גזרת פִעֵל":'עבר ב־i ואז e: <span class="tr">פִהֵם, סִמֵע</span>. העתיד כמעט תמיד ב־a: <span class="tr">יִפְהַם, יִסְמַע</span>.',
+  "בניין ראשון|גזרת ע״ו":'שתי אותיות ו־א ארוכה באמצע: <span class="tr">רַאח, קַאל</span>. בעתיד ה־א הופכת ל־וּ: <span class="tr">יִרוּח, יִקוּל</span>. בגוף ראשון ושני היא נופלת: <span class="tr">רֻחֵת</span>.',
+  "בניין ראשון|גזרת ע״י":'עבר כמו בגזרת ע״ו: <span class="tr">גַ\'אבּ, בַּאע</span>, אבל בעתיד ה־א הופכת ל־י: <span class="tr">יְגִ\'יבּ, יְבִּיע</span>.',
+  "בניין ראשון|גזרת הכפולים":'שתי אותיות ושדה על השנייה: <span class="tr">חַטّ – יְחֻטّ</span>. בגוף ראשון ושני נוסף <span class="tr">־ֵית</span>: <span class="tr">חַטֵّית</span>.',
+  "בניין ראשון|גזרת ל״א":'הפועל נגמר בתנועה: בעבר <span class="tr">־ַא</span> או <span class="tr">־ִי</span> (<span class="tr">חַכַּא, נִסִי</span>), בעתיד <span class="tr">־ִי</span> או <span class="tr">־ַא</span> (<span class="tr">יִחְכִּי, יִנְסַא</span>). בגוף ראשון ושני: <span class="tr">חַכֵית</span>.',
+  "בניין שני|גזרת השלמים":'שדה על האות האמצעית: <span class="tr">נַזַّל – יְנַזֵّל</span>. לרוב גורם למישהו אחר לעשות: <span class="tr">נִזֵל</span> ירד, <span class="tr">נַזַّל</span> הוריד.',
+  "בניין שני|גזרת ל״א":'שדה באמצע, והסוף כמו בגזרת ל״א: <span class="tr">עַ\'נַّא – יְעַ\'נִّי</span>.',
+  "בניין שלישי|גזרת השלמים":'א ארוכה אחרי האות הראשונה: <span class="tr">סַאעַד – יְסַאעֵד</span>. בעתיד e לפני האות האחרונה.',
+  "בניין שלישי|גזרת ל״א":'א ארוכה אחרי האות הראשונה, והסוף כמו בגזרת ל״א: <span class="tr">לַאקַא – יְלַאקִי</span>.',
+  "בניין רביעי|גזרת ל״א":'א בראש הפועל: <span class="tr">אַעְטַא – יֵעַטִי</span>.',
+  "בניין חמישי|גזרת ל״א":'ת בראש ושדה באמצע; בעתיד נשארת ה־a: <span class="tr">תְעַ\'דַّא – יִתְעַ\'דַّא</span>.',
+  "בניין שמיני|גזרת ל״א":'ת אחרי האות הראשונה: <span class="tr">אִשְתַרַא – יִשְתְרִי</span>.',
+  "בניין עשירי|גזרת ל״א":'אִסְתַ בראש הפועל: <span class="tr">אִסְתַנַّא – יִסְתַנַّא</span>.'};
+const VT_NUMBER={"בניין ראשון":1,"בניין שני":2,"בניין שלישי":3,"בניין רביעי":4,"בניין חמישי":5,"בניין שמיני":8,"בניין עשירי":10};
+const vtPlain=s=>s.normalize("NFD").replace(/[֑-ׇّ'״"]/g,"");   // for the search: no points, no geresh
+let vtQuery="", vtAt=null, vtOnly=null;   // the search, the lesson the slider is on (its id), the pair being said
+function reachedRank(){   // the place, in every lesson, of the lesson the student is on (a teacher: the last ready one)
+  const ready=LESSONS.filter(l=>!l.soon), reached=FREE?ALL_LESSONS.filter(l=>!l.soon).at(-1):ready.find(l=>!tally(lessonList(l)).over)||ready.at(-1);
+  return reached?ALL_LESSONS.findIndex(l=>l.id===reached.id):-1;
+}
+function drawVerbTable(box){
+  const lessons=LESSONS.filter(l=>!l.soon), place=id=>ALL_LESSONS.findIndex(l=>l.id===id);
+  const all=PHRASES.filter(p=>p.binyan&&GAMES.some(g=>g.id===p.cat));
+  const top=mark("vt-top","","div"), search=mark("vt-search","","input");
+  search.type="search"; search.placeholder="חיפוש: בעברית או בתעתיק"; search.value=vtQuery;
+  top.append(mark("","טבלת הפעלים","h2"),search);
+  if(!lessons.length||!all.length){ box.append(top,mark("","הפעלים יופיעו כאן כשתגיעו לשיעור הראשון.","p")); return; }
+  // the slider: a stop per lesson of the class; anchors for the lesson the student is on and for the last one
+  const rank=reachedRank(), me=Math.max(0,lessons.findIndex(l=>place(l.id)===rank)), end=lessons.length-1;
+  if(!lessons.some(l=>l.id===vtAt)) vtAt=lessons[me].id;
+  const slide=mark("vt-slide","","div"), label=document.createElement("label"), out=document.createElement("output"), count=mark("","","small");
+  const range=mark("vt-range","","div"), input=document.createElement("input"), ticks=mark("vt-ticks","","div");
+  input.type="range"; input.min=0; input.max=end; input.step=1; input.value=lessons.findIndex(l=>l.id===vtAt); input.id="vtLesson";
+  input.setAttribute("aria-label","הפעלים עד השיעור"); label.htmlFor="vtLesson"; label.append("הפעלים עד",out,count);
+  const at=i=>end?i/end:0;
+  for(let i=0;i<=end;i++){ const t=document.createElement("i"); t.style.setProperty("--at",`${at(i)*100}%`); ticks.append(t); }
+  const anchor=(i,text,cls)=>{
+    const b=mark(`vt-anchor ${cls}`,text,"button"); b.type="button"; b.style.setProperty("--at",at(i));
+    b.onclick=()=>{ input.value=i; input.oninput(); }; range.append(b);
+  };
+  range.append(input,ticks);
+  if(me===end) anchor(end,"📍 השיעור שלי · אחרון","me end");
+  else{   // near the end, the student's lesson takes a lower row, so the two labels do not cover each other
+    anchor(me,"📍 השיעור שלי",`me${me===0?" start":""}${at(end)-at(me)<.3?" low":""}`); anchor(end,`🏁 ${lessons[end].name}`,"end");
+  }
+  slide.append(label,range);
+  const cards=mark("vt-cards","","div"), bar=mark("vt-bar","","div");
+  const tips=mark("vt-tips","💡 הסברים","button"); tips.type="button";   // what the verbs of each גזרה share: shown, or put away to fit more
+  const setTips=(on,keep)=>{ tips.setAttribute("aria-pressed",on); cards.classList.toggle("bare",!on); if(keep) store.set("ihki.vtTips",on); };
+  const chosen=store.get("ihki.vtTips",null);
+  tips.onclick=()=>setTips(tips.getAttribute("aria-pressed")!=="true",true); setTips(chosen??true); label.append(tips);
+  bar.append(top,slide); box.append(bar,mark("vt-empty","לא נמצא פועל כזה.","p"),cards);
+  const filter=()=>{   // rows, then the cards left with none, are hidden
+    const q=vtPlain(vtQuery.trim());
+    for(const row of cards.querySelectorAll(".vt-row")) row.hidden=!!q&&!row.dataset.find.includes(q);
+    for(const card of cards.querySelectorAll(".vt-gizra")) card.hidden=!card.querySelector(".vt-row:not([hidden])");
+    box.classList.toggle("vt-none",!cards.querySelector(".vt-gizra:not([hidden])"));
+  };
+  const draw=()=>{   // the cards of the verbs up to the slider's lesson; those of that lesson itself are marked new
+    const upto=place(vtAt), verbs=all.filter(p=>place(p.unlock)<=upto), short=id=>((ALL_LESSONS.find(l=>l.id===id)||{}).name||"").replace(/\D+/g,"");
+    out.textContent=(lessons.find(l=>l.id===vtAt)||{}).name||"";
+    const before=ALL_LEVELS.filter(v=>v.id!==lessons[0].level&&ALL_LESSONS.some(l=>l.level===v.id&&place(l.id)<place(lessons[0].id)));
+    count.textContent=`${verbs.length} פעלים${before.length?` · כולל כל פעלי ${before.map(v=>v.name).join(", ")}`:""}`;   // a later level's class starts with all the earlier levels' verbs
+    cards.replaceChildren();
+    const byB=(a,b)=>(VT_NUMBER[a.binyan]||99)-(VT_NUMBER[b.binyan]||99)||VT_GIZROT.indexOf(a.gizra)-VT_GIZROT.indexOf(b.gizra);
+    const groups=[...new Set([...verbs].sort(byB).map(p=>`${p.binyan}|${p.gizra}`))];
+    for(const key of groups){
+      const [binyan,gizra]=key.split("|"), list=verbs.filter(p=>`${p.binyan}|${p.gizra}`===key);
+      const card=mark(`vt-gizra${list.length>10?"":" short"}`,"","section"), h=document.createElement("h3");
+      card.dataset.b=VT_NUMBER[binyan]||"";
+      h.append(mark("bn",binyan,"span"),mark("",gizra,"span"),mark("pat",VT_BINYANIM[binyan]||"","bdi"),mark("",`${list.length}`,"small"));
+      card.append(h);
+      if(VT_NOTES[key]){ const n=mark("vt-note","","p"); n.innerHTML=VT_NOTES[key]; h.title=n.textContent; card.append(n); }
+      for(const p of list){
+        const row=mark(`vt-row${p.unlock===vtAt?" new":""}`,"","div"), he=mark("vt-he","","div"), [past,future]=p.tr.split(/,\s*/);
+        const sub=mark("",short(p.unlock),"sub"); sub.title=(ALL_LESSONS.find(l=>l.id===p.unlock)||{}).name||"";
+        he.append(sub,mark("",p.he,"span"));
+        const say=mark("vt-say","","button"), tr=mark("tr","","bdi");
+        say.type="button"; say.title="השמעה"; say.setAttribute("aria-label",`השמעה: ${p.he}`);
+        tr.append(past,mark("","·","i"),future||""); say.append(tr);
+        say.onclick=async()=>{
+          if(vtOnly) vtOnly.classList.remove("on"); vtOnly=say; say.classList.add("on");
+          const a=await answerAudio(p.id); if(a) await playUrl(a.url,true); else await speakLocal(p.ar,"ar");
+          say.classList.remove("on");
+        };
+        row.dataset.find=vtPlain(`${p.he} ${p.tr} ${p.ar}`); row.append(he,say); card.append(row);
+      }
+      cards.append(card);
+    }
+    filter();
+  };
+  input.oninput=()=>{ vtAt=lessons[+input.value].id; draw(); };
+  search.oninput=()=>{ vtQuery=search.value; filter(); };
+  draw();
+  // on a wide screen the table is meant to fit in one: unless the student chose, the explanations give way when it does not
+  if(chosen==null&&innerWidth>=900) requestAnimationFrame(()=>{ if(cards.getBoundingClientRect().bottom>innerHeight-$("nav").offsetHeight) setTips(false); });
 }
 function showView(view){   // "" is the path, which is laid out again: it was not while hidden
   if(view) document.body.dataset.view=view; else delete document.body.dataset.view;
@@ -1931,8 +2096,7 @@ function setRound(){
   if(daily){ ordered=true; topic=order=[...daily]; pos=0; marks(); return; }   // the session's sentences, in its own order
   let list=PHRASES.filter(p=>p.cat===cat&&p.listed!==false);
   if(bubbleCat()){
-    const ready=LESSONS.filter(l=>!l.soon), reached=FREE?ALL_LESSONS.filter(l=>!l.soon).at(-1):ready.find(l=>!tally(lessonList(l)).over)||ready.at(-1);
-    const rank=reached?ALL_LESSONS.findIndex(l=>l.id===reached.id):-1;
+    const rank=reachedRank();
     list=list.filter(p=>!p.unlock||ALL_LESSONS.findIndex(l=>l.id===p.unlock)<=rank);
     ordered=false; topic=order=shuffle(list).slice(0,BUBBLE_ROUND).map(p=>p.id); pos=0;
     bubbleGame={answered:0,correct:0,total:order.length}; $("bubbleBeads").querySelectorAll(".mini-bead").forEach(b=>b.remove()); drawBubbleScore(); marks(); return;
