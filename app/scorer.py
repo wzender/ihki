@@ -11,11 +11,14 @@ from typing import Callable, Protocol
 
 import numpy as np
 
-from .align import GopConfig, ctc_viterbi, edit_distance, greedy_decode, score_tokens
-from .tips import NO_DELETION_TIP, VOWELS, letter_reason, sound_name, tip_for
-from .translit import CONSONANTS as _HEB_C, VOWELS as _HEB_V, to_hebrew, word_letters, word_to_hebrew
+from .align import Alignment, GopConfig, TokenScore, ctc_viterbi, edit_distance, greedy_decode, score_tokens
+from .archi import archify, diphthong_variants, split_token, written
+from .phones import base
+from .rules import EXEMPTIONS, Rules, elided_article, near_vowels, load as load_rules  # noqa: F401 (re-exported)
+from .tips import VOWELS, letter_reason, sound_name, tip_for
+from .translit import CONSONANTS as _HEB_C, HEARD_ONLY as _HEB_HEARD, VOWELS as _HEB_V, to_hebrew, word_letters, word_to_hebrew
 
-HEBREW_SOUNDS = set(_HEB_C) | set(_HEB_V)
+HEBREW_SOUNDS = set(_HEB_C) | set(_HEB_V) | set(_HEB_HEARD)
 
 log = logging.getLogger("ihki.scorer")
 
@@ -24,25 +27,11 @@ MAX_SECONDS = 32  # the recording includes the time to read the sentence and thi
 
 # Fallbacks when the model vocab lacks a phoneme. The first symbol found in the vocab wins.
 FALLBACKS = {
-    "sˤ": ["sˤ", "sˠ", "s"], "tˤ": ["tˤ", "tˠ", "t"], "dˤ": ["dˤ", "dˠ", "d"],
+    "sˤ": ["sˤ", "sˠ", "s"], "tˤ": ["tˤ", "tˠ", "t"], "dˤ": ["dˤ", "dˠ", "d"], "zˤ": ["zˤ", "zˠ", "z"],
     "ðˤ": ["ðˤ", "ðˠ", "zˤ", "z"], "dʒ": ["dʒ", "d͡ʒ", "ʒ"],
     "aː": ["aː", "a"], "iː": ["iː", "i"], "uː": ["uː", "u"], "eː": ["eː", "e"], "oː": ["oː", "o"],
     "x": ["x", "χ"], "ɣ": ["ɣ", "ʁ"], "q": ["q", "k"], "r": ["r", "ɾ"], "g": ["ɡ", "g"],
 }
-
-
-# The model's vocab is multilingual (392 symbols) and spells one sound several ways: t / t̪ / tʰ / tː,
-# r / ɾ, a / æ / ɐ, x / χ. Left alone, a correctly said t loses to its own spelling variant t̪.
-# base() names the sound a symbol stands for; Vocab.merge() pools the posteriors of each sound.
-_STRIP = set("ːʰʲ.^[:\"\u032a\u0329\u031d\u031e\u030a\u0303")  # length, aspiration, palatalisation, dental, syllabic, nasal ...
-_SAME = {"æ": "a", "ɐ": "a", "ɑ": "a", "ä": "a", "ʌ": "a", "ɪ": "i", "ʊ": "u", "ɛ": "e", "ɔ": "o",
-         "ɾ": "r", "ɫ": "l", "ɡ": "g", "χ": "x", "ʁ": "ɣ", "ʒ": "dʒ", "dZ": "dʒ", "tS": "tʃ", "S": "ʃ"}
-
-
-def base(symbol: str) -> str:
-    """The sound a model symbol stands for, ignoring length and spelling variants. Emphatics stay distinct."""
-    s = "".join(c for c in symbol if c not in _STRIP)
-    return _SAME.get(s, s) or symbol
 
 
 class Emitter(Protocol):
@@ -51,10 +40,11 @@ class Emitter(Protocol):
 
 
 class Vocab:
-    def __init__(self, token_to_id: dict[str, int], blank_token: str = "<pad>"):
+    def __init__(self, token_to_id: dict[str, int], blank_token: str = "<pad>", rules: Rules | None = None):
         self.t2i = token_to_id
         self.i2t = {i: t for t, i in token_to_id.items()}
         self.blank = token_to_id[blank_token]
+        self.rules = rules or load_rules()
         self.downgraded: dict[str, str] = {}
         # sound classes: every id points at one representative id (the plain symbol when the vocab has it)
         groups: dict[str, list[int]] = {}
@@ -63,12 +53,20 @@ class Vocab:
                 groups.setdefault(base(t), []).append(i)
         self.canon = {i: i for i in self.i2t}
         self._groups: list[tuple[int, list[int]]] = []
+        self.rep_of: dict[str, int] = {}  # base() name -> representative id
         for name, ids in groups.items():
             rep = token_to_id.get(name, ids[0]) if token_to_id.get(name) in ids else ids[0]
+            self.rep_of[name] = rep
             for i in ids:
                 self.canon[i] = rep
             if len(ids) > 1:
                 self._groups.append((rep, ids))
+        # Letters with several correct realisations (archi.py): one virtual id per (symbol, realisations),
+        # numbered after the real vocab, whose column extend() fills with the pooled posterior of its members.
+        self.n_real = max(self.i2t) + 1
+        self.members: dict[int, set[int]] = {}
+        self._classes: dict[tuple[str, frozenset[int]], int] = {}
+        self.class_missing: dict[str, set[str]] = {}  # symbol -> realisations the model has no symbol for
 
     def merge(self, logp: np.ndarray) -> np.ndarray:
         """Pool each sound's spelling variants into its representative column; the other columns go silent."""
@@ -76,6 +74,53 @@ class Vocab:
         for rep, ids in self._groups:
             out[:, ids] = -1e9
             out[:, rep] = np.logaddexp.reduce(logp[:, ids], axis=1)
+        return out
+
+    def sound_id(self, phone: str) -> int | None:
+        """The representative id of a sound (any spelling of it), or None if the model has no symbol for it."""
+        return self.rep_of.get(base(phone))
+
+    def model_id(self, phone: str) -> int | None:
+        """The id the model hears `phone` as: its own, else its first FALLBACKS stand-in (ðˤ -> z), else None."""
+        for cand in [phone, *FALLBACKS.get(phone, [])]:
+            i = self.sound_id(cand)
+            if i is not None:
+                return i
+        return None
+
+    def add_class(self, symbol: str, phones: list[str]) -> int:
+        """The id that stands for 'any of `phones`': a virtual id, or the real one when only one is in the model.
+        A realisation the model lacks is heard as its stand-in, as a plain phoneme would be (zˤ as z)."""
+        ids: list[int] = []
+        for ph in phones:
+            i = self.model_id(ph)
+            if i is None:
+                self.class_missing.setdefault(symbol, set()).add(ph)
+                continue
+            if i != self.sound_id(ph):
+                self.downgraded[ph] = self.i2t[i]
+            if i not in ids:
+                ids.append(i)
+        if not ids:
+            raise KeyError(f"no realisation of {symbol} ({phones}) is in the model vocab")
+        if len(ids) == 1:
+            return ids[0]
+        key = (symbol, frozenset(ids))
+        if key not in self._classes:
+            vid = self.n_real + len(self._classes)
+            self._classes[key], self.members[vid] = vid, set(ids)
+            self.i2t[vid], self.canon[vid] = symbol, vid
+        return self._classes[key]
+
+    def extend(self, logp: np.ndarray) -> np.ndarray:
+        """Merged posteriors with one more column per class: the pooled posterior of its realisations."""
+        logp = logp[:, :self.n_real]
+        if not self.members:
+            return logp
+        out = np.full((logp.shape[0], self.n_real + len(self.members)), -1e9, dtype=logp.dtype)
+        out[:, :logp.shape[1]] = logp
+        for vid, ids in self.members.items():
+            out[:, vid] = np.logaddexp.reduce(logp[:, sorted(ids)], axis=1)
         return out
 
     def resolve(self, phoneme: str) -> list[int]:
@@ -97,54 +142,52 @@ class Vocab:
         self.downgraded[phoneme] = " ".join(self.i2t[i] for i in ids)
         return ids
 
+    def token(self, tok: str) -> tuple[list[int], str, str]:
+        """A token of an IPA string (a phoneme, or an archi.py symbol "Q:ʔ") -> (model ids, phoneme as written, sound).
+
+        The sound is the symbol for a many-ways letter, the phoneme otherwise."""
+        sym, members, ph = split_token(tok)
+        if sym is None:
+            return self.resolve(tok), tok, tok
+        phones = members or self.rules.members(sym, written=base(ph) if ph else None)
+        ph = ph or (phones[0] if phones else sym)
+        try:
+            return [self.add_class(sym, phones)], ph, sym
+        except KeyError:
+            return self.resolve(ph), ph, sym
+
 
 LETTER_GOOD = 75  # a letter scoring under this is coloured on the page (`band` in static/index.html)
 
 
 @dataclass
 class TargetToken:
-    phoneme: str  # phoneme as written in phrases.py
-    id: int       # model token id
-    word: int     # word index in the variant
+    phoneme: str    # phoneme as written in phrases.py
+    id: int         # model token id (a virtual id for a letter with several correct realisations)
+    word: int       # word index in the variant
+    sound: str = ""  # what the token stands for: the archi.py symbol (Q) or the phoneme itself
+
+    def __post_init__(self):
+        self.sound = self.sound or self.phoneme
 
 
 def tokenize(ipa: str, vocab: Vocab) -> list[TargetToken]:
     """IPA string -> model tokens. Geminates (and any repeated id) collapse to one CTC token."""
     out: list[TargetToken] = []
     for w, word in enumerate(ipa.split("|")):
-        for ph in word.split():
-            for tid in vocab.resolve(ph):
+        for tok in word.split():
+            ids, ph, sound = vocab.token(tok)
+            for tid in ids:
                 if out and out[-1].id == tid:
                     continue
-                out.append(TargetToken(ph, tid, w))
+                out.append(TargetToken(ph, tid, w, sound))
     return out
-
-
-_VOWEL_GROUPS = [set("iɪeɛ"), set("uʊoɔ"), set("aæɐɑəɛe")]  # a raised towards e is ordinary Palestinian speech
-
-
-def near_vowels(expected: str, heard: str | None) -> bool:
-    """Same vowel with another length, or the neighbouring quality (i/e, u/o, a/ə, a/e)."""
-    if expected not in VOWELS or not heard:
-        return False
-    e, h = expected.rstrip("ː"), heard.rstrip("ː")
-    return any(e in g and h in g for g in _VOWEL_GROUPS)
-
-
-def elided_article(toks: list[TargetToken], i: int, ar_words: list[str]) -> bool:
-    """Is token i the vowel of the article ال right after a word that ends in a vowel?
-
-    There it is not said (على الطّاولة is ʕ a l a | tˤ tˤ aː w l e), so its absence is not an error.
-    """
-    t = toks[i]
-    return (i > 0 and t.phoneme in VOWELS and toks[i - 1].word == t.word - 1 and toks[i - 1].phoneme in VOWELS
-            and t.word < len(ar_words) and ar_words[t.word].startswith("ال"))
 
 
 @dataclass
 class Reference:
     """How the model scored a native voice saying a phrase: the baseline a learner is measured against."""
-    sounds: list[tuple[int, str]]  # (word, phoneme) of each sound of the variant the voice said
+    sounds: list[tuple[int, str]]  # (word, sound) of each sound of the variant the voice said (Q, not ʔ / k)
     scores: list[float]            # their scores, same order
 
 
@@ -154,16 +197,42 @@ class ScorerConfig:
     unrelated_ratio: float = 0.65   # normalised edit distance above which we say "different sentence"
     issue_below: float = 90.0       # phoneme score under which it is listed as imprecise
     max_issues: int = 8
+    max_tips: int | None = None     # None: as many as the rules document says (scoring.max_tips)
     near_vowel_floor: float = 90.0  # a vowel heard as its neighbour (i/e, u/o, a/ə, short/long) scores at least this
     word_min_weight: float = 0.5    # word score = this much weakest phoneme, the rest the mean of its phonemes
     ref_min_mean: float = 60.0      # a native reference whose mean phoneme score is under this is not trusted
     gop: GopConfig = field(default_factory=GopConfig)
 
 
+@dataclass
+class Fit:
+    """The accepted variant the audio fits best, and how each of its sounds scored."""
+    ar: str
+    ipa: str                 # as written in the phrase bank (display, transliteration)
+    aipa: str                # the same with archi.py symbols, one token per phoneme of `ipa`
+    toks: list[TargetToken]
+    al: Alignment
+    scores: list[TokenScore]
+    heard_ids: list[int]     # greedy decode, real symbols only
+    unrelated: bool
+    logp: np.ndarray         # merged posteriors with the class columns (Vocab.extend)
+    # for the teacher's stage-by-stage view (Scorer._trace)
+    candidates: list[tuple[str, str, float | None]] = field(default_factory=list)  # (ar, ipa, path log-prob)
+    gop_scores: list[TokenScore] = field(default_factory=list)   # before the exemptions
+    exempted: list[str | None] = field(default_factory=list)     # per token, the exemption that applied
+    distance: int = 0        # edit distance of the greedy decode from the chosen variant
+
+
 class Scorer:
     def __init__(self, emit: Emitter, vocab: Vocab, cfg: ScorerConfig | None = None):
         self.emit, self.vocab, self.cfg = emit, vocab, cfg or ScorerConfig()
+        self.rules = vocab.rules
         self.calibrations: dict[tuple[str, str, str], float] = {}
+        # the sounds a competitor is named by: Arabic, the Hebrew sounds the rules expect instead, and their labels;
+        # anything else the multilingual model offers (clicks, retroflexes) is reported as "not clear"
+        names = (set(HEBREW_SOUNDS) | self.rules.interference() | set(self.rules.heard_labels)
+                 | {p for s in self.rules.archiphonemes for p in self.rules.members(s)})
+        self.named = {i for i in (vocab.sound_id(n) for n in names) if i is not None}
 
     def set_calibrations(self, rows: list[dict]) -> None:
         """Atomically replaces applied score floors. A blank phrase is a global rule."""
@@ -186,18 +255,18 @@ class Scorer:
         fit = self._fit(self.vocab.merge(self.emit(wav)), phrase)
         if fit is None:
             return None
-        _, _, toks, _, scores, _, unrelated = fit
-        if unrelated or float(np.mean([sc.score for sc in scores])) < self.cfg.ref_min_mean:
+        if fit.unrelated or float(np.mean([sc.score for sc in fit.scores])) < self.cfg.ref_min_mean:
             return None
-        return Reference([(t.word, t.phoneme) for t in toks], [sc.score for sc in scores])
+        return Reference([(t.word, t.sound) for t in fit.toks], [sc.score for sc in fit.scores])
 
     @staticmethod
     def _baseline(toks: list[TargetToken], refs: list[Reference]) -> list[float | None]:
         """Per target token, the lowest score a native reference got on the same sound (None: no reference has it).
 
         References may have said another accepted variant: only the sounds the two variants share are matched.
+        Sounds are compared by symbol, so a voice that said ق as q is a baseline for a learner who says ʔ.
         """
-        sounds = [(t.word, t.phoneme) for t in toks]
+        sounds = [(t.word, t.sound) for t in toks]
         out: list[float | None] = [None] * len(toks)
         for ref in refs:
             for a, b, n in SequenceMatcher(None, ref.sounds, sounds, autojunk=False).get_matching_blocks():
@@ -213,7 +282,7 @@ class Scorer:
             row = []
             for ph in word.split():
                 idx = []
-                for tid in self.vocab.resolve(ph):
+                for tid in self.vocab.token(ph)[0]:
                     tid = self.vocab.canon[tid]
                     if tid != last:
                         n, last = n + 1, tid
@@ -236,7 +305,7 @@ class Scorer:
         """How each target token is written in the phrase bank, geminates included ("m m")."""
         runs: list[tuple[int, str, int]] = []  # (word, phoneme, repeat)
         for w, word in enumerate(ipa.split("|")):
-            for ph in word.split():
+            for ph in map(written, word.split()):
                 if runs and runs[-1][:2] == (w, ph):
                     runs[-1] = (w, ph, runs[-1][2] + 1)
                 else:
@@ -250,6 +319,7 @@ class Scorer:
 
         A sound heard as expected is written the way the answer writes it (length, gemination, emphasis:
         things the scorer does not tell apart), so the two lines differ only where the scorer heard a difference.
+        A letter with several correct realisations is written as the one said (כּ for a rural ق), not coloured.
         """
         n_words = len(ipa.split("|"))
         starts = [None] * n_words  # first frame of each expected word
@@ -261,57 +331,81 @@ class Scorer:
                 expected[t] = (tok.id, spell)
         heard: list[list[str]] = [[] for _ in range(n_words)]
         prev, w = None, 0
-        for t, i in enumerate(logp.argmax(1)):
+        for t, i in enumerate(logp[:, :self.vocab.n_real].argmax(1)):
             i = int(i)
             if i != prev and i != self.vocab.blank:
                 while w + 1 < n_words and starts[w + 1] is not None and t >= starts[w + 1]:
                     w += 1
                 ph = base(self.vocab.i2t[i])
-                if expected.get(t, (None,))[0] == i:
-                    heard[w].append(expected[t][1])
+                tid, spell = expected.get(t, (None, ""))
+                if tid == i:
+                    heard[w].append(spell)
+                elif i in self.vocab.members.get(tid, ()):
+                    heard[w].append(spell if base(spell.split()[0]) == ph else ph)
                 elif ph in HEBREW_SOUNDS:
                     heard[w].append(ph)
             prev = i
         # the Arabic spelling is passed so the heard line follows the answer's conventions (ק for ق, silent ל)
         return [word_to_hebrew(" ".join(phs), ar_words[w] if w < len(ar_words) else "") for w, phs in enumerate(heard)]
 
-    def _fit(self, logp: np.ndarray, phrase: dict):
-        """The accepted variant the audio fits best and the score of each of its sounds, from merged
-        posteriors: (arabic, ipa, tokens, alignment, scores, greedy decode, unrelated), or None if too short."""
-        blank = self.vocab.blank
-        heard_ids = greedy_decode(logp, blank)
-        best = None
+    def _variants(self, phrase: dict) -> list[tuple[str, str, str, list[TargetToken]]]:
+        """(arabic, ipa, ipa with symbols, tokens) for each accepted variant and its diphthong forms. Variants
+        that differ only in how a many-ways letter is said (ʔ / q / k for ق) become one: the first written.
+        A diphthong form the model has no symbols for is left out."""
+        out, seen = [], set()
         for ar, ipa in phrase["variants"]:
-            toks = self._targets(ipa)
-            al = ctc_viterbi(logp, [t.id for t in toks], blank)
-            if al and (best is None or al.total_logp > best[3].total_logp):
-                best = (ar, ipa, toks, al)
+            for n, form in enumerate((ipa, *diphthong_variants(ar, ipa))):
+                aipa = archify(ar, form)
+                if aipa in seen:
+                    continue
+                seen.add(aipa)
+                try:
+                    out.append((ar, form, aipa, self._targets(aipa)))
+                except KeyError:
+                    if n == 0:
+                        raise
+        return out
+
+    def _fit(self, logp: np.ndarray, phrase: dict) -> Fit | None:
+        """The accepted variant the audio fits best and the score of each of its sounds, from merged
+        posteriors, or None if the recording is too short for every variant."""
+        blank, vocab = self.vocab.blank, self.vocab
+        heard_ids = greedy_decode(logp[:, :vocab.n_real], blank)
+        cands = self._variants(phrase)
+        ext = vocab.extend(logp)  # after tokenising: a variant may have brought a new class
+        best, tried = None, []
+        for ar, ipa, aipa, toks in cands:
+            al = ctc_viterbi(ext, [t.id for t in toks], blank)
+            tried.append((ar, ipa, round(al.total_logp, 2) if al else None))
+            if al and (best is None or al.total_logp > best[4].total_logp):
+                best = (ar, ipa, aipa, toks, al)
         if best is None:
             return None
 
-        ar, ipa, toks, al = best
+        ar, ipa, aipa, toks, al = best
         ids = [t.id for t in toks]
         ar_words = ar.split()
-        scores = score_tokens(logp, al, ids, blank, self.cfg.gop)
-        # A glottal stop that is simply not there is how natives say it too (انا, اهلا): not an error.
-        # The same goes for the article's vowel after a vowel (على الطّاولة).
-        # A glottal stop replaced by another consonant (ق said as k) still counts.
-        scores = [replace(sc, score=100.0)
-                  if sc.deleted and (t.phoneme in NO_DELETION_TIP or elided_article(toks, i, ar_words)) else sc
-                  for i, (t, sc) in enumerate(zip(toks, scores))]
-        # Neighbouring vowel qualities and vowel length vary between speakers and towns (il / el),
-        # and the model confuses them on its own: not worth marking a word down for.
-        scores = [replace(sc, score=max(sc.score, self.cfg.near_vowel_floor))
-                  if sc.competitor is not None and near_vowels(t.phoneme, self.vocab.i2t.get(sc.competitor)) else sc
-                  for t, sc in zip(toks, scores)]
-        unrelated = bool(edit_distance(heard_ids, ids) / max(1, len(ids)) > self.cfg.unrelated_ratio)
-        return ar, ipa, toks, al, scores, heard_ids, unrelated
+        scores = score_tokens(ext, al, ids, blank, self.cfg.gop, [vocab.members.get(i) for i in ids],
+                              vocab.n_real, self.named)
+        gop_scores, exempted = list(scores), [None] * len(scores)
+        for i, (t, sc) in enumerate(zip(toks, scores)):
+            heard = vocab.i2t.get(sc.competitor) if sc.competitor is not None else None
+            for name, applies, floor in EXEMPTIONS:
+                if applies(toks, i, sc, heard, ar_words):
+                    scores[i] = replace(sc, score=max(sc.score, 100.0 if floor is None else getattr(self.cfg, floor)))
+                    exempted[i] = name
+                    break
+        same = lambda h, t: h == t or h in vocab.members.get(t, ())
+        distance = edit_distance(heard_ids, ids, same)
+        unrelated = bool(distance / max(1, len(ids)) > self.cfg.unrelated_ratio)
+        return Fit(ar, ipa, aipa, toks, al, scores, heard_ids, unrelated, ext, tried, gop_scores, exempted, distance)
 
     def _heatmap(self, logp: np.ndarray, toks: list[TargetToken], alignment, scores,
                  duration_s: float | None) -> dict:
         """A compact posterior heatmap for teacher diagnostics: expected sounds, strongest competitors and blank.
 
         Max-pooling preserves short phoneme peaks while capping the response at 180 time columns.
+        A letter with several correct realisations is one row, the pooled posterior, labelled "ʔ/k/q".
         """
         expected_ids = list(dict.fromkeys(t.id for t in toks))
         competitor_ids = list(dict.fromkeys(sc.competitor for sc in scores
@@ -319,7 +413,8 @@ class Scorer:
         ids = expected_ids + competitor_ids + ([self.vocab.blank] if self.vocab.blank not in expected_ids else [])
         frames, bins = len(logp), min(len(logp), 180)
         edges = np.linspace(0, frames, bins + 1, dtype=int)
-        labels = {t.id: t.phoneme for t in toks}
+        labels = {t.id: ("/".join(self.vocab.i2t[m] for m in sorted(self.vocab.members[t.id]))
+                         if t.id in self.vocab.members else t.phoneme) for t in toks}
         rows = []
         for token_id in ids:
             probability = np.exp(logp[:, token_id])
@@ -327,7 +422,7 @@ class Scorer:
             rows.append({"phoneme": labels.get(token_id, "blank" if token_id == self.vocab.blank
                                                 else self.vocab.i2t.get(token_id, "?")),
                          "expected": token_id in expected_ids, "values": values})
-        greedy = logp.argmax(1)
+        greedy = logp[:, :self.vocab.n_real].argmax(1)
         heard = []
         start = 0
         for end in range(1, frames + 1):
@@ -343,26 +438,55 @@ class Scorer:
                 "frames": frames, "frame_bins": bins, "rows": rows,
                 "tracks": {"expected": expected, "heard": heard}}
 
+    def _beyond_margin(self, tok: TargetToken, sc: TokenScore, heard: str | None) -> bool:
+        """Is the competitor likelier than the target by more than the pair's margin? Pairs the model confuses
+        on natives too (emphatics, a dropped h) need a clearer win before they count as a mistake."""
+        targets = [tok.sound, tok.phoneme]
+        if sc.deleted:
+            return sc.peak <= self.cfg.gop.deleted_peak - self.rules.margin(targets, "_")
+        if heard is None:
+            return True
+        return -sc.gop >= self.rules.margin(targets, heard)
+
+    def _dialect(self, toks: list[TargetToken], scores: list[TokenScore]) -> dict:
+        """Which dialect the accepted realisations point to: {"dialect": urban | rural} when they agree,
+        {"mixed_dialect": True} when one is urban-only and another rural-only. Never part of the score."""
+        seen: set[str] = set()
+        for t, sc in zip(toks, scores):
+            if sc.realised is None or sc.score < self.cfg.issue_below:
+                continue
+            ds = self.rules.dialects_of(t.sound, base(self.vocab.i2t[sc.realised]))
+            if len(ds) == 1:
+                seen |= ds
+        if len(seen) > 1:
+            return {"mixed_dialect": True}
+        return {"dialect": next(iter(seen))} if seen else {}
+
     def score_logp(self, logp: np.ndarray, phrase: dict, refs: list[Reference] = (), diagnostics: bool = False,
                    duration_s: float | None = None) -> dict:
         logp = self.vocab.merge(logp)
         fit = self._fit(logp, phrase)
         if fit is None:
             return {"error": "too_short", "message": "ההקלטה קצרה מדי. החזיקו את הכפתור ואמרו את כל המשפט."}
-        ar, ipa, toks, al, scores, heard_ids, unrelated = fit
-        heard = " ".join(self.vocab.i2t[i] for i in heard_ids)
+        ar, ipa, toks, al, scores, unrelated = fit.ar, fit.ipa, fit.toks, fit.al, fit.scores, fit.unrelated
+        i2t = self.vocab.i2t
+        heard = " ".join(i2t[i] for i in fit.heard_ids)
         # Measure against what the model gives a native on the same sound: a sound it misses in the
         # reference voice too (ʕ in على heard as dropped) is the model's weakness, not the learner's.
-        heatmap = self._heatmap(logp, toks, al, scores, duration_s) if diagnostics else None
-        raw = scores
+        heatmap = self._heatmap(fit.logp, toks, al, scores, duration_s) if diagnostics else None
+        raw, bases = scores, self._baseline(toks, refs)
         scores = [sc if b is None or b >= 100 else replace(sc, score=round(min(100.0, 100.0 * sc.score / max(b, 1.0)), 1))
-                  for sc, b in zip(raw, self._baseline(toks, refs))]
+                  for sc, b in zip(raw, bases)]
+        after_baseline = scores
+        # teacher floors, by symbol first (Q), then by the phoneme written (rows made before symbols existed)
         phrase_key, calibrated = str(phrase.get("key", phrase.get("he", ""))), []
-        adjusted = []
+        adjusted, floors = [], []
         for tok, sc in zip(toks, scores):
-            heard_ph = "_" if sc.deleted else (self.vocab.i2t.get(sc.competitor) if sc.competitor is not None else "")
-            floor = self.calibrations.get((tok.phoneme, heard_ph, phrase_key),
-                                          self.calibrations.get((tok.phoneme, heard_ph, "")))
+            heard_ph = "_" if sc.deleted else (i2t.get(sc.competitor) if sc.competitor is not None else "")
+            floor = next((self.calibrations[k] for k in ((tok.sound, heard_ph, phrase_key), (tok.sound, heard_ph, ""),
+                                                         (tok.phoneme, heard_ph, phrase_key), (tok.phoneme, heard_ph, ""))
+                          if k in self.calibrations), None)
+            floors.append(floor)
             if floor is not None and sc.score < floor:
                 calibrated.append({"expected": tok.phoneme, "heard": heard_ph, "from": round(sc.score), "to": round(floor)})
                 sc = replace(sc, score=floor)
@@ -372,16 +496,26 @@ class Scorer:
 
         phonemes, tips, seen = [], [], set()
         heard_as = []   # per phoneme, what took its place ("_": nothing), flagged or not: the reason a letter gives
+        checks = []     # per phoneme, the rule for what took its place (None: no rule)
+        beyond = []     # per phoneme, whether what took its place won by the pair's margin
         ar_words = ar.split()
         tr_words = to_hebrew(ipa, ar)
         for idx, (tok, sc) in enumerate(zip(toks, scores)):
-            heard_ph = "_" if sc.deleted else (self.vocab.i2t.get(sc.competitor) if sc.competitor is not None else None)
-            flagged = bool(sc.score < self.cfg.flag_below) and tok.phoneme not in VOWELS
+            heard_ph = "_" if sc.deleted else (i2t.get(sc.competitor) if sc.competitor is not None else None)
+            check = self.rules.check([tok.sound, tok.phoneme], heard_ph)
+            beyond.append(self._beyond_margin(tok, sc, heard_ph))
+            flagged = bool(sc.score < self.cfg.flag_below) and tok.phoneme not in VOWELS and beyond[-1]
             heard_as.append(heard_ph)
-            phonemes.append({"ipa": tok.phoneme, "word": tok.word, "score": sc.score,
-                             "flagged": flagged, "heard": heard_ph if flagged else None})
+            checks.append(check)
+            p = {"ipa": tok.phoneme, "word": tok.word, "score": sc.score,
+                 "flagged": flagged, "heard": heard_ph if flagged else None}
+            if tok.sound != tok.phoneme:
+                p["sound"] = tok.sound
+            if sc.realised is not None:
+                p["realised"] = base(i2t[sc.realised])
+            phonemes.append(p)
             if flagged and not unrelated:
-                tip = tip_for(tok.phoneme, heard_ph)
+                tip = tip_for(tok.sound, heard_ph, check)
                 if tip and tip["key"] not in seen:
                     seen.add(tip["key"])
                     tip["word"] = ar_words[tok.word] if tok.word < len(ar_words) else ""
@@ -391,9 +525,9 @@ class Scorer:
                     tips.append(tip)
 
         n_words = len(ipa.split("|"))
-        heard_words = self._heard_hebrew(logp, toks, al, ipa, ar_words)
+        heard_words = self._heard_hebrew(logp, toks, al, fit.aipa, ar_words)
         words, k = [], self.cfg.word_min_weight
-        carriers, ipa_words = self._carriers(ipa), ipa.split("|")
+        carriers, ipa_words = self._carriers(fit.aipa), ipa.split("|")
         for w in range(n_words):
             ws = [p["score"] for p in phonemes if p["word"] == w]
             # the transliteration letter by letter, each with the weakest score among its sounds; a letter the
@@ -404,7 +538,7 @@ class Scorer:
                 worst = min(got, key=lambda i: phonemes[i]["score"]) if got else None
                 letter = {"t": text, "score": phonemes[worst]["score"] if got else None}
                 if got and letter["score"] < LETTER_GOOD and not unrelated:
-                    letter.update(letter_reason(phonemes[worst]["ipa"], heard_as[worst]))
+                    letter.update(letter_reason(toks[worst].sound, heard_as[worst], checks[worst]))
                 letters.append(letter)
             if w in forgiven and min(ws) >= self.cfg.issue_below:
                 heard_words[w] = tr_words[w]  # what differs from the answer here is what a native voice gets too
@@ -418,7 +552,10 @@ class Scorer:
         overall = 0.5 * phone_mean + 0.5 * word_mean  # one wrong consonant must pull the sentence down
         if unrelated:
             overall = min(overall, 30.0)
-        tips = sorted(tips, key=lambda t: t["score"])[:4]  # most crucial first: the worst-scoring sounds
+        # most crucial first: the mistakes that change meaning (severity 3), then the worst-scoring sounds
+        max_tips = self.cfg.max_tips or int(self.rules.scoring.get("max_tips", 4))
+        tips = sorted(tips, key=lambda t: (-t["severity"], t["score"]))[:max_tips]
+        tip_idx, issue_idx = {t["idx"] for t in tips}, []
 
         # Anything short of 100 must say why: every imprecise sound that did not get a full tip,
         # weakest first. If nothing is clearly off, name the weakest few.
@@ -427,24 +564,104 @@ class Scorer:
             tipped = {t.pop("idx") for t in tips}
             rest = sorted((i for i in range(len(toks)) if i not in tipped and scores[i].score < 100),
                           key=lambda i: scores[i].score)
-            picked = [i for i in rest if scores[i].score < self.cfg.issue_below]
+            picked = [i for i in rest if scores[i].score < self.cfg.issue_below and beyond[i]]
             if not picked and not tips:
                 picked = rest[:3]
-            for i in picked[:self.cfg.max_issues]:
+            issue_idx = picked[:self.cfg.max_issues]
+            for i in issue_idx:
                 tok, sc = toks[i], scores[i]
-                comp = self.vocab.i2t.get(sc.competitor) if sc.competitor is not None else None
-                issues.append({"sound": sound_name(tok.phoneme) or tok.phoneme, "word_tr": tr_words[tok.word],
-                               "score": round(sc.score), "missing": bool(sc.deleted),
+                comp = i2t.get(sc.competitor) if sc.competitor is not None else None
+                issues.append({"sound": sound_name(tok.sound) or sound_name(tok.phoneme) or tok.phoneme,
+                               "word_tr": tr_words[tok.word], "score": round(sc.score), "missing": bool(sc.deleted),
                                "heard": None if sc.deleted else sound_name(comp)})
         for t in tips:
             t.pop("idx", None)
         result = {"score": round(overall), "variant": {"ar": ar, "tr": " ".join(tr_words), "ipa": ipa}, "heard_ipa": heard, "heard_tr": " ".join(h for h in heard_words if h),
-                  "unrelated": unrelated, "words": words, "tips": tips, "issues": issues, "references": len(refs)}
+                  "unrelated": unrelated, "words": words, "tips": tips, "issues": issues, "references": len(refs),
+                  **self._dialect(toks, scores)}
         if calibrated:
             result["calibrated"] = calibrated
         if heatmap is not None:
             result["phoneme_heatmap"] = heatmap
+        if diagnostics:
+            result["trace"] = self._trace(fit, refs, bases, after_baseline, floors, scores, phonemes, checks, beyond,
+                                          words, tips, tip_idx, set(issue_idx), phone_mean, word_mean, overall, heard)
         return result
+
+    def _trace(self, fit: Fit, refs, bases, after_baseline, floors, scores, phonemes, checks, beyond,
+               words, tips, tip_idx, issue_idx, phone_mean, word_mean, overall, heard) -> dict:
+        """Every stage of the classification with its numbers, weights and thresholds, for the teacher's view
+        (the 'stages' part of the phoneme analysis). Nothing here changes the result."""
+        cfg, g, i2t = self.cfg, self.cfg.gop, self.vocab.i2t
+        p = lambda lp: round(float(np.exp(lp)), 4) if lp > -1e20 else 0.0
+        max_tips = cfg.max_tips or int(self.rules.scoring.get("max_tips", 4))
+        n = len(fit.toks)
+        tokens = []
+        for i, (tok, gsc, sc) in enumerate(zip(fit.toks, fit.gop_scores, scores)):
+            heard_ph = "_" if gsc.deleted else (i2t.get(gsc.competitor) if gsc.competitor is not None else None)
+            members = self.vocab.members.get(tok.id)
+            targets = [tok.sound, tok.phoneme]
+            confidence = min(1.0, p(gsc.peak) / g.confident_peak)
+            check = checks[i]
+            b = bases[i]
+            stages = [
+                {"stage": "gop", "score": gsc.score},
+                {"stage": "exemption", "score": fit.scores[i].score, "applied": fit.exempted[i]},
+                {"stage": "baseline", "score": after_baseline[i].score, "ref": b,
+                 "applied": b is not None and b < 100},
+                {"stage": "calibration", "score": sc.score, "floor": floors[i],
+                 "applied": floors[i] is not None and after_baseline[i].score < floors[i]},
+            ]
+            tokens.append({
+                "i": i, "word": tok.word, "ipa": tok.phoneme, "sound": tok.sound,
+                "class": sorted(base(i2t[m]) for m in members) if members else None,
+                "realised": base(i2t[gsc.realised]) if gsc.realised is not None else None,
+                "span": list(fit.al.spans[i]), "window": list(gsc.window),
+                "p_target": p(gsc.peak), "competitor": heard_ph if not gsc.deleted else None,
+                "competitor_other": gsc.other, "p_competitor": p(gsc.comp_peak),
+                "gop": gsc.gop, "confidence": round(confidence, 3),
+                "gop_factor": round(float(np.exp(gsc.gop * g.leniency)), 3),
+                "confidence_factor": round(float(np.sqrt(confidence)), 3),
+                "deleted": gsc.deleted, "stages": stages, "final": sc.score,
+                "margin": {"needed": self.rules.margin(targets, "_" if gsc.deleted else heard_ph),
+                           "got": (round(g.deleted_peak - gsc.peak, 3) if gsc.deleted else round(-gsc.gop, 3)),
+                           "beyond": beyond[i]},
+                "vowel": tok.phoneme in VOWELS, "weight": 0.5 if tok.phoneme in VOWELS else 1.0,
+                "flagged": phonemes[i]["flagged"],
+                "rule": {"id": check.rule, "title": self.rules.titles.get(check.rule, check.rule),
+                         "severity": check.severity} if check else None,
+                "tip": i in tip_idx, "issue": i in issue_idx,
+            })
+        return {
+            "config": {
+                "leniency": g.leniency, "confident_peak": g.confident_peak,
+                "deleted_peak": round(float(np.exp(g.deleted_peak)), 3),
+                "deleted_comp": round(float(np.exp(g.deleted_comp)), 3),
+                "flag_below": cfg.flag_below, "issue_below": cfg.issue_below, "near_vowel_floor": cfg.near_vowel_floor,
+                "word_min_weight": cfg.word_min_weight, "vowel_weight": 0.5, "unrelated_ratio": cfg.unrelated_ratio,
+                "unrelated_cap": 30.0, "letter_good": LETTER_GOOD, "max_tips": max_tips, "max_issues": cfg.max_issues,
+                "ref_min_mean": cfg.ref_min_mean, "margin_default": float(self.rules.scoring.get("margin_default", 0.0)),
+                "margins": [{"target": t, "heard": h, "margin": m} for (t, h), m in sorted(self.rules.margins.items())],
+                "exemptions": [name for name, _, _ in EXEMPTIONS],
+            },
+            "variants": [{"ar": ar, "ipa": ipa, "logp": lp, "chosen": ar == fit.ar and ipa == fit.ipa}
+                         for ar, ipa, lp in fit.candidates],
+            "aipa": fit.aipa,
+            "unrelated": {"heard": heard, "distance": fit.distance, "tokens": n,
+                          "ratio": round(fit.distance / max(1, n), 3), "threshold": cfg.unrelated_ratio,
+                          "unrelated": fit.unrelated},
+            "references": [{"mean": round(float(np.mean(r.scores)), 1), "sounds": len(r.sounds)} for r in refs],
+            "tokens": tokens,
+            "words": [{"tr": w["tr"], "scores": [ph["score"] for ph in w["phonemes"]],
+                       "min": min((ph["score"] for ph in w["phonemes"]), default=0.0),
+                       "mean": round(float(np.mean([ph["score"] for ph in w["phonemes"]])), 1) if w["phonemes"] else 0.0,
+                       "score": w["score"]} for w in words],
+            "sentence": {"phone_mean": round(phone_mean, 1), "word_mean": round(word_mean, 1),
+                         "phone_weight": 0.5, "word_weight": 0.5,
+                         "before_cap": round(0.5 * phone_mean + 0.5 * word_mean, 1), "final": round(overall),
+                         "capped": fit.unrelated},
+            "tips": [{"key": t["key"], "severity": t["severity"], "score": t["score"]} for t in tips],
+        }
 
 
 # ---------- real model ----------
@@ -500,8 +717,10 @@ def load_scorer(model_id: str) -> Scorer:
     # resolve every phoneme once at startup so missing symbols show up in the logs and /api/health
     from .phrases import PHRASES
     for p in PHRASES:
-        for _, ipa in p["variants"]:
-            tokenize(ipa, vocab)
+        for ar, ipa in p["variants"]:
+            tokenize(archify(ar, ipa), vocab)
     if vocab.downgraded:
         log.warning("phonemes mapped to fallbacks: %s", vocab.downgraded)
+    if vocab.class_missing:
+        log.warning("realisations the model cannot hear, left out of their letter's class: %s", vocab.class_missing)
     return scorer

@@ -5,6 +5,8 @@ Phonemes are in the IPA used by phrases.py; HEARD_ALIASES maps model outputs ont
 """
 import re
 
+from .rules import load as load_rules
+
 NAMES = {
     "ħ": "ח (ح)", "ʕ": "ע (ع)", "x": "ח' (خ)", "ɣ": "ע' (غ)", "r": "ר (ر)",
     "q": "ק (ق)", "ʔ": "עצירה סותמית (ء / ق)", "h": "ה (ه)",
@@ -12,6 +14,9 @@ NAMES = {
     "k": "כ (ك)", "s": "ס (س)", "t": "ת (ت)", "d": "ד (د)", "z": "ז (ز)",
     "ʃ": "ש (ش)", "dʒ": "ג' (ج)", "b": "ב (ب)", "f": "פ (ف)", "m": "מ (م)",
     "n": "נ (ن)", "l": "ל (ل)", "w": "ו (و)", "j": "י (ي)",
+    "tʃ": "צ' (tʃ)", "θ": "ת' (th)", "ð": "ד״ (th)",
+    # letters with several correct realisations (archi.py): named by the letter, not by one way of saying it
+    "Q": "ק (ق)", "K": "כ (ك)", "TH": "ת' (ث)", "DH": "ד״ (ذ)", "ZH": "ט' (ظ)", "J": "ג' (ج)",
 }
 
 # model output symbol -> symbol used in TIPS keys
@@ -49,6 +54,7 @@ TIPS = {
 
 # bare Arabic letter in a tip text -> "Hebrew (Arabic)", so Arabic never appears without a Hebrew reading
 _PAIRED = {name[name.index("(") + 1]: name for name in NAMES.values() if "/" not in name}
+DEFAULT_SEVERITY = 2  # a tip no rule in pronunciation-rules.md grades
 _BARE_AR = re.compile(r"(?<!\()[\u0621-\u064a](?![\u0621-\u064a])")
 
 
@@ -64,14 +70,17 @@ VOWEL_NAMES = {
 
 
 def sound_name(phoneme: str | None) -> str | None:
-    """Hebrew name of a phoneme (expected or heard), or None if we have no name for it."""
+    """Hebrew name of a phoneme (expected or heard), or None if we have no name for it.
+    Sounds Arabic does not have (p, v, ts) are named by the labels of pronunciation-rules.md."""
+    if phoneme is None:
+        return None
     phoneme = HEARD_ALIASES.get(phoneme, phoneme)
-    return NAMES.get(phoneme) or VOWEL_NAMES.get(phoneme)
+    return NAMES.get(phoneme) or VOWEL_NAMES.get(phoneme) or load_rules().label(phoneme)
 
 
-def letter_reason(expected: str, heard: str | None) -> dict:
+def letter_reason(expected: str, heard: str | None, check=None) -> dict:
     """Why a letter of the answer is coloured: {"why": the sound and what was heard in its place ("_": nothing was),
-    "tip": how to say it, for the substitutions TIPS covers}."""
+    "tip": how to say it, from the rule for that substitution (`check`, rules.Check) or TIPS}."""
     name = sound_name(expected) or expected
     heard = HEARD_ALIASES.get(heard, heard)
     other = sound_name(heard)
@@ -81,27 +90,34 @@ def letter_reason(expected: str, heard: str | None) -> dict:
         why = f"{name} נשמעה כמו {other}"
     else:
         why = f"{name} לא נשמעה בבירור"
-    text = TIPS.get((expected, heard))
+    text = check.feedback if check else TIPS.get((expected, heard))
     return {"why": why, **({"tip": with_hebrew(text)} if text else {})}
 
 
 VOWELS = {"a", "i", "u", "e", "o", "aː", "iː", "uː", "eː", "oː"}
-# the urban glottal stop is often dropped by natives too; don't nag about it
-NO_DELETION_TIP = {"ʔ"}
+# the glottal stop (ء, and ق said the urban way) is often dropped by natives too; don't nag about it
+NO_DELETION_TIP = {"ʔ", "Q"}
 
 
-def tip_for(expected: str, heard: str | None) -> dict | None:
-    """Feedback for one flagged phoneme, or None if there is nothing useful to say."""
+def tip_for(expected: str, heard: str | None, check=None) -> dict | None:
+    """Feedback for one flagged phoneme, or None if there is nothing useful to say.
+
+    `check` (rules.Check) is the rule of pronunciation-rules.md for this substitution: its feedback and
+    severity win over TIPS. The key stays "expected>heard" either way."""
     if expected in VOWELS:
         return None
     heard = HEARD_ALIASES.get(heard, heard) if heard else "_"
     if heard == "_" and expected in NO_DELETION_TIP:
         return None
     name = NAMES.get(expected, expected)
+    key = f"{expected}>{heard}"
+    if check:
+        return {"title": name, "text": with_hebrew(check.feedback), "key": key, "severity": check.severity}
     text = TIPS.get((expected, heard))
     if text:
-        return {"title": name, "text": with_hebrew(text), "key": f"{expected}>{heard}"}
+        return {"title": name, "text": with_hebrew(text), "key": key, "severity": DEFAULT_SEVERITY}
     if heard == "_":
-        return {"title": name, "text": "לא נשמעה בבירור.", "key": f"{expected}>_"}
-    text = f"נשמעה כמו {NAMES[heard]}." if heard in NAMES else "נשמעה אחרת מהצפוי."
-    return {"title": name, "text": text, "key": f"{expected}>{heard}"}
+        return {"title": name, "text": "לא נשמעה בבירור.", "key": key, "severity": DEFAULT_SEVERITY}
+    other = sound_name(heard)
+    text = f"נשמעה כמו {other}." if other else "נשמעה אחרת מהצפוי."
+    return {"title": name, "text": text, "key": key, "severity": DEFAULT_SEVERITY}

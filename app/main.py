@@ -32,6 +32,7 @@ from .auth import AuthUnavailable, ClassConflict, SupabaseAuth, load_auth
 from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .reference import References
+from .rules import check_detectable
 from .scorer import Scorer, decode_audio, load_scorer
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
@@ -1169,7 +1170,10 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         s: Scorer = app.state.scorer
         return {"version": build_version(), "build": build_metadata(), "model": MODEL_ID, "tts": app.state.tts is not None,
                 "references": app.state.refs is not None, "sign_in": app.state.auth is not None,
-                "phoneme_fallbacks": s.vocab.downgraded}
+                "phoneme_fallbacks": s.vocab.downgraded,
+                # per rule of pronunciation-rules.md: can this model catch it at all (and if not, why)
+                "rules": check_detectable(s.rules, lambda ph: s.vocab.sound_id(ph) is not None, s.vocab.model_id),
+                "dialect_realisations_missing": {k: sorted(v) for k, v in s.vocab.class_missing.items()}}
 
     @app.get("/api/tts/{phrase_id}", dependencies=members)
     def tts_phrase(phrase_id: int, voice: str = Query("", max_length=64)):

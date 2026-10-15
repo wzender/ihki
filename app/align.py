@@ -71,8 +71,12 @@ class TokenScore:
     score: float      # 0..100
     gop: float        # log ratio target vs strongest competitor, <= 0
     peak: float       # max log-posterior of the target inside its window
-    competitor: int | None  # strongest non-target, non-blank token in the window
+    competitor: int | None  # strongest non-target, non-blank token in the window (None: nothing, or a sound we do not name)
     deleted: bool     # target barely present and nothing else either
+    realised: int | None = None  # a class target (several correct realisations): the one said
+    other: bool = False          # the strongest competitor is a sound outside the named set
+    comp_peak: float = NEG       # max log-posterior of the strongest competitor (named or not) in the window
+    window: tuple[int, int] = (0, 0)  # [start, end) frames the target and its competitors were read from
 
 
 @dataclass
@@ -86,14 +90,20 @@ class GopConfig:
 
 
 def score_tokens(logp: np.ndarray, align: Alignment, tokens: list[int], blank: int,
-                 cfg: GopConfig = GopConfig()) -> list[TokenScore]:
+                 cfg: GopConfig = GopConfig(), accept: list[set[int] | None] | None = None,
+                 n_real: int | None = None, named: set[int] | None = None) -> list[TokenScore]:
     """Per-token GOP.
 
     The window of token i runs from the end of token i-1 to the start of token i+1, so it covers
     the blank frames around the emission where a substituted phoneme typically peaks.
     The neighbours' own labels are excluded from the competitor set (coarticulation is not an error).
+
+    A class token (a virtual column pooling its correct realisations, `accept[i]` their ids) is scored on the
+    pooled column; its members are not competitors. Competitors come from the first `n_real` columns only, and
+    one outside `named` is reported as `other` rather than by name.
     """
     T = logp.shape[0]
+    accept = accept or [None] * len(tokens)
     out: list[TokenScore] = []
     for i, tok in enumerate(tokens):
         a = align.spans[i - 1][1] if i > 0 else 0
@@ -101,13 +111,16 @@ def score_tokens(logp: np.ndarray, align: Alignment, tokens: list[int], blank: i
         a, b = min(a, align.spans[i][0]), max(b, align.spans[i][1])
         seg = logp[a:b]
         peak = float(seg[:, tok].max())
+        members = accept[i] or set()
+        realised = max(members, key=lambda m: seg[:, m].max()) if members else None
 
-        masked = seg.max(0).copy()
+        masked = (seg[:, :n_real] if n_real else seg).max(0).copy()
         masked[blank] = NEG
-        masked[tok] = NEG
-        for j in (i - 1, i + 1):
+        for j in (i - 1, i, i + 1):
             if 0 <= j < len(tokens):
-                masked[tokens[j]] = NEG
+                for x in {tokens[j], *(accept[j] or ())}:
+                    if x < len(masked):
+                        masked[x] = NEG
         comp = int(masked.argmax())
         comp_peak = float(masked[comp])
 
@@ -115,8 +128,11 @@ def score_tokens(logp: np.ndarray, align: Alignment, tokens: list[int], blank: i
         deleted = bool(peak < cfg.deleted_peak and comp_peak < cfg.deleted_comp)
         confidence = min(1.0, float(np.exp(peak)) / cfg.confident_peak)
         score = 100.0 * float(np.exp(gop * cfg.leniency)) * float(np.sqrt(confidence))
+        present = comp_peak > NEG / 2
+        other = bool(present and named is not None and comp not in named)
         out.append(TokenScore(round(score, 1), round(gop, 3), round(peak, 3),
-                              comp if comp_peak > NEG / 2 else None, deleted))
+                              comp if present and not other else None, deleted, realised, other,
+                              round(comp_peak, 3), (int(a), int(b))))
     return out
 
 
@@ -131,10 +147,11 @@ def greedy_decode(logp: np.ndarray, blank: int) -> list[int]:
     return out
 
 
-def edit_distance(a: list, b: list) -> int:
+def edit_distance(a: list, b: list, same=None) -> int:
+    same = same or (lambda x, y: x == y)
     d = list(range(len(b) + 1))
     for i, x in enumerate(a, 1):
         prev, d[0] = d[0], i
         for j, y in enumerate(b, 1):
-            prev, d[j] = d[j], min(d[j] + 1, d[j - 1] + 1, prev + (x != y))
+            prev, d[j] = d[j], min(d[j] + 1, d[j - 1] + 1, prev + (not same(x, y)))
     return d[len(b)]

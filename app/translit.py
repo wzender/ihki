@@ -10,7 +10,12 @@ CONSONANTS = {
     "ʔ": "א", "b": "בּ", "t": "ת", "dʒ": "ג'", "ħ": "ח", "x": "ח'", "d": "ד", "r": "ר", "z": "ז",
     "s": "ס", "ʃ": "ש", "sˤ": "צ", "dˤ": "ד'", "tˤ": "ט", "ðˤ": "ט'", "ʕ": "ע", "ɣ": "ע'", "f": "פ",
     "q": "ק", "k": "כּ", "g": "ג", "l": "ל", "m": "מ", "n": "נ", "h": "ה", "w": "ו", "j": "י",
+    # rural realisations (pronunciation-rules.md, section 1)
+    "tʃ": "צ'", "θ": "ת'", "ð": "ד״",
 }
+# Sounds Arabic does not have, written only in the line of what was heard, never in an answer: a Hebrew
+# speaker's p for ف, v for و / ب, and Hebrew צ (ts) for ص. Without them the heard line would drop the letter.
+HEARD_ONLY = {"p": "פּ", "v": "ב", "β": "ב", "ʋ": "ב", "ts": "טס"}
 # vowel -> ((mark on the consonant, letter after it) mid-word, (same) word-finally)
 VOWELS = {
     "a": (("ַ", ""), ("ַ", "א")), "i": (("ִ", ""), ("ִ", "י")), "u": (("ֻ", ""), ("", "וּ")),
@@ -23,8 +28,8 @@ SHADDA, SHVA = "\u0651", "\u05b0"
 
 
 def _letter(base: str, marks: str) -> str:
-    """Points go on the letter itself, before a geresh."""
-    return base[0] + marks + base[1:] if base.endswith("'") else base + marks
+    """Points go on the letter itself, before a geresh (or gershayim), and on the first letter of טס."""
+    return base[0] + marks + base[1:] if len(base) > 1 and base[1] != "\u05bc" else base + marks
 
 
 def word_letters(ipa_word: str, ar_word: str = "") -> list[tuple[str, list[int]]]:
@@ -51,7 +56,7 @@ def word_letters(ipa_word: str, ar_word: str = "") -> list[tuple[str, list[int]]
         if ph in VOWELS:  # vowel with no consonant before it (word-initial): carry it on an alef
             base, shadda = "א", ""
         else:
-            base, shadda = CONSONANTS.get(ph, ph), ""
+            base, shadda = CONSONANTS.get(ph) or HEARD_ONLY.get(ph, ph), ""
             i += 1
             if i < len(phs) and phs[i] == ph:  # geminate
                 shadda = SHADDA

@@ -2,6 +2,7 @@ fastapi>=0.110
 uvicorn[standard]>=0.29
 python-multipart>=0.0.9
 numpy>=1.26
+pyyaml>=6.0  # the scorer reads its rules from the yaml blocks of static/assets/pronunciation-rules.md
 transformers>=4.41
 huggingface_hub>=0.23
 # torch: CPU build installed separately in the Dockerfile (see README for local installs)

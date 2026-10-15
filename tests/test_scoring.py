@@ -120,13 +120,172 @@ def test_h_instead_of_pharyngeal():
     assert r["tips"][0]["key"] == "ħ>h"
 
 
-def test_k_for_urban_qaf_picks_closest_variant_and_tips():
-    # learner says "kaddeesh" for قديش: closest variant is the glottal-stop one, ʔ flagged as k
+def test_k_for_qaf_is_rural_and_correct():
+    # learner says "kaddeesh" for قديش: rural Palestinian, so ق is accepted as k; the answer stays the urban one
     logp = emissions(["k", "a", "d", "eː", "ʃ", "i", "s", "aː", "ʕ", "a"])
     r = scorer_for(logp).score(None, TIME)
-    keys = [t["key"] for t in r["tips"]]
-    assert r["variant"]["ipa"].startswith("ʔ")
-    assert "ʔ>k" in keys
+    q = r["words"][0]["phonemes"][0]
+    assert r["variant"]["ipa"].startswith("ʔ") and q["sound"] == "Q" and q["realised"] == "k"
+    assert q["score"] >= 90 and not q["flagged"] and not r["tips"] and r["score"] >= 90
+    assert r["words"][0]["heard_tr"].startswith("כּ")      # written as said, not coloured as a mistake
+
+
+# ---------- dialects and Hebrew-speaker rules (docs/scoring-dialects-plan.md) ----------
+
+def custom_scorer(extra, phones, frames=3, gap=2, peak=0.9):
+    """A scorer over SYMS plus `extra`, hearing `phones` cleanly."""
+    syms = SYMS + [s for s in extra if s not in SYMS]
+    vocab = {s: i for i, s in enumerate(syms)}
+
+    def row(sym, p):
+        r = np.full(len(syms), (1 - p) / (len(syms) - 1))
+        r[vocab[sym]] = p
+        return r
+
+    rows = [row("<pad>", 0.95)] * gap
+    for ph in phones:
+        rows += [row(ph, peak)] * frames + [row("<pad>", 0.95)] * gap
+    return Scorer(lambda wav: np.log(np.array(rows)), Vocab(vocab))
+
+
+COFFEE = {"variants": [("قهوة", "ʔ a h w e")]}
+
+
+def test_q_for_qaf_is_accepted():
+    r = scorer_for(emissions(["q", "a", "d", "eː", "ʃ", "i", "s", "aː", "ʕ", "a"])).score(None, TIME)
+    assert r["words"][0]["phonemes"][0]["realised"] == "q" and not r["tips"] and r["score"] >= 90
+
+
+def test_dropped_qaf_between_vowels_is_not_an_error():
+    r = scorer_for(emissions(["a", "h", "w", "e"])).score(None, COFFEE)
+    assert r["score"] >= 90 and not r["tips"] and not any(i["missing"] for i in r["issues"])
+
+
+def test_hamza_is_not_a_qaf():
+    # اهلا is written with ء: kahla is not a dialect form, it is a mistake
+    phrase = {"variants": [("اهلا", "ʔ a h l a")]}
+    r = scorer_for(emissions(["k", "a", "h", "l", "a"])).score(None, phrase)
+    p = r["words"][0]["phonemes"][0]
+    assert "sound" not in p and p["flagged"] and p["heard"] == "k"
+    assert [t["key"] for t in r["tips"]] == ["ʔ>k"]
+
+
+def test_reference_is_matched_by_letter_not_by_realisation():
+    ref = scorer_for(emissions(["q", "a", "h", "w", "e"])).reference(None, COFFEE)   # the voice says ق as q
+    assert ref.sounds[0] == (0, "Q")
+    r = scorer_for(emissions(["ʔ", "a", "h", "w", "e"])).score(None, COFFEE, [ref])
+    assert r["score"] >= 95 and not r["tips"] and r["references"] == 1
+
+
+def test_mixed_dialect_is_noted_but_not_marked_down():
+    phrase = {"variants": [("قديش قهوة", "ʔ a d d eː ʃ | ʔ a h w e")]}
+    mixed = scorer_for(emissions(["ʔ", "a", "d", "eː", "ʃ", "k", "a", "h", "w", "e"])).score(None, phrase)
+    assert mixed["mixed_dialect"] and mixed["score"] >= 90 and not mixed["tips"]
+    rural = scorer_for(emissions(["k", "a", "d", "eː", "ʃ", "k", "a", "h", "w", "e"])).score(None, phrase)
+    assert rural["dialect"] == "rural" and "mixed_dialect" not in rural
+
+
+def test_rural_kaf_and_tha():
+    phrase = {"variants": [("كثير", "k t iː r")]}
+    r = custom_scorer(["tʃ", "θ", "r", "iː", "t"], ["tʃ", "θ", "iː", "r"]).score(None, phrase)
+    assert [p.get("realised") for p in r["words"][0]["phonemes"][:2]] == ["tʃ", "θ"]
+    assert r["score"] >= 90 and not r["tips"] and r["dialect"] == "rural"
+    r = custom_scorer(["tʃ", "θ", "r", "iː", "t"], ["tʃ", "t", "iː", "r"]).score(None, phrase)
+    assert r["mixed_dialect"] and r["score"] >= 90          # rural ك with urban ث
+
+
+def test_final_ta_marbuta_vowel_may_be_a_e_or_i():
+    for vowel in ("a", "e", "i"):
+        r = scorer_for(emissions(["ʔ", "a", "h", "w", vowel])).score(None, COFFEE)
+        assert r["words"][0]["phonemes"][-1]["score"] >= 95, vowel
+
+
+def test_diphthong_for_long_vowel():
+    # بيت said as bayt (rural / older speech) for beet
+    phrase = {"variants": [("بيت", "b eː t")]}
+    r = custom_scorer(["b", "t", "j"], ["b", "a", "j", "t"]).score(None, phrase)
+    assert r["score"] >= 90 and not r["tips"] and r["variant"]["ipa"] == "b a j t"
+
+
+def test_archify_places_each_letter():
+    from app.archi import archify, unresolved
+    assert archify("قديش الساعة", "ʔ a d d eː ʃ | i s s aː ʕ a") == "Q:ʔ a d d eː ʃ | i s s aː ʕ E:a"
+    assert archify("انا من القدس", "ʔ a n a | m i n | i l q u d s") == "ʔ a n a | m i n | i l Q:q u d s"
+    assert archify("شكرا كثير", "ʃ u k r a n | k t iː r") == "ʃ u K:k r a n | K:k TH:t iː r"
+    assert archify("قهوة", "Q:k a h w e") == "Q:k a h w e"                  # written by hand: left alone
+    assert unresolved("بعثت", "b a ʕ a t t") == [("بعثت", "ث")]             # ث and ت said as one geminate
+
+
+def test_every_qaf_in_the_bank_is_placed():
+    from app.archi import unresolved
+    bad = {(w, ipa) for p in PHRASES for ar, ipa in p["variants"] for w, letter in unresolved(ar, ipa) if letter == "ق"}
+    assert not bad, f"mark these ق by hand in the phrase (Q:ʔ): {sorted(bad)[:10]}"
+
+
+def test_emphatic_heard_plain_is_a_mistake_with_the_rules_feedback():
+    from app.rules import load
+    phrase = {"variants": [("ظهر", "ðˤ u h r")]}
+    r = custom_scorer(["ðˤ", "dˤ", "zˤ", "z", "u", "r"], ["z", "u", "h", "r"]).score(None, phrase)
+    assert [t["key"] for t in r["tips"]] == ["ZH>z"]
+    assert r["tips"][0]["text"] == load().check("ZH", "z").feedback and r["tips"][0]["severity"] == 2
+
+
+def margin_scorer(competitor_ratio):
+    """طين where tˤ is weak (p 0.07) and plain t is `competitor_ratio` times likelier in the same frames."""
+    syms = SYMS + ["tˤ", "t"]
+    vocab = {s: i for i, s in enumerate(syms)}
+    V = len(syms)
+
+    def row(probs):
+        r = np.full(V, 1e-4)
+        for sym, p in probs.items():
+            r[vocab[sym]] = p
+        return r / r.sum()
+
+    rows = [row({"<pad>": 0.95})] * 2
+    rows += [row({"tˤ": 0.07, "t": 0.07 * competitor_ratio, "<pad>": 0.8})] * 3 + [row({"<pad>": 0.95})] * 2
+    for ph in ("i", "n"):
+        rows += [row({ph: 0.9})] * 3 + [row({"<pad>": 0.95})] * 2
+    return Scorer(lambda wav: np.log(np.array(rows)), Vocab(vocab))
+
+
+def test_emphatic_needs_a_clear_win_before_it_is_flagged():
+    phrase = {"variants": [("طين", "tˤ i n")]}
+    under = margin_scorer(1.8).score(None, phrase)        # plain t under twice as likely: the model's doubt
+    p = under["words"][0]["phonemes"][0]
+    assert p["score"] < 50 and not p["flagged"] and not under["tips"]
+    over = margin_scorer(2.5).score(None, phrase)
+    assert over["words"][0]["phonemes"][0]["flagged"] and [t["key"] for t in over["tips"]] == ["tˤ>t"]
+
+
+@pytest.mark.parametrize("ar,ipa,extra,said,key,heard_letter", [
+    ("فنجان", "f i n dʒ aː n", ["f", "p", "dʒ"], ["p", "i", "n", "dʒ", "aː", "n"], "f>p", "פּ"),
+    ("وين", "w eː n", ["v"], ["v", "eː", "n"], "w>v", "ב"),
+    ("بس", "b a s", ["b", "v"], ["v", "a", "s"], "b>v", "ב"),
+    ("صباح", "sˤ a b aː ħ", ["sˤ", "ts", "b"], ["ts", "a", "b", "aː", "ħ"], "sˤ>ts", "טס"),
+    ("مرة", "m a r r a", ["r", "ʁ"], ["m", "a", "ʁ", "a"], "r>ʁ", None),
+])
+def test_hebrew_speaker_substitutions(ar, ipa, extra, said, key, heard_letter):
+    from app.rules import load
+    r = custom_scorer(extra, said).score(None, {"variants": [(ar, ipa)]})
+    tip = next(t for t in r["tips"] if t["key"] == key)
+    expected, heard = key.split(">")
+    assert tip["text"] == load().check(expected, heard).feedback
+    if heard_letter:                    # a sound Arabic does not have is still written in the heard line
+        assert heard_letter in r["heard_tr"].replace("\u05b0", "").replace("\u05b7", "").replace("\u05b4", "")
+
+
+def test_a_sound_outside_arabic_and_hebrew_is_not_named():
+    # the multilingual model offers a click for ħ: reported as unclear, not as "heard as ǀ"
+    r = custom_scorer(["ǀ"], ["w", "eː", "n", "i", "l", "ǀ", "a", "m", "aː", "m"]).score(None, TOILET)
+    h = next(p for p in r["words"][1]["phonemes"] if p["ipa"] == "ħ")
+    assert h["flagged"] and h["heard"] is None
+
+
+def test_meaning_changing_mistakes_lead_the_tips():
+    # w said as v (severity 2) and ħ as Hebrew ח (severity 3): ħ leads even though v scored lower
+    r = custom_scorer(["v"], ["v", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"]).score(None, TOILET)
+    assert [t["key"] for t in r["tips"]][:2] == ["ħ>x", "w>v"]
 
 
 def test_unrelated_sentence():
@@ -210,7 +369,8 @@ def test_tts_endpoint_serves_phrase_audio_and_503_without_key():
         assert r.headers["x-tts-voice-id"] == voices[1]["id"] and unquote(r.headers["x-tts-voice-name"]) == voices[1]["name"]
         assert c.get("/api/tts/0?voice=not-in-the-list").status_code == 400
         assert c.get("/api/tts/9999").status_code == 404
-        assert c.get("/api/health").json()["tts"] is True
+        health = c.get("/api/health").json()
+        assert health["tts"] is True and health["rules"]["pharyngeal_h"]["detectable"]
 
 
 def test_spelling_variants_of_a_sound_are_not_errors():
@@ -1546,3 +1706,18 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         assert "create table public.tutors" in c.get("/api/class", headers=tok("t")).json()["setup"][-1]["sql"]
         r = rank("t", email="s@b.c", tutor=True)
         assert r.status_code == 503 and "create table public.tutors" in r.json()["detail"]
+
+
+def test_teacher_trace_follows_every_stage():
+    # ħ said as χ, then forgiven by a teacher floor: each stage of the trace shows where the score came from
+    logp = emissions(["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"])
+    scorer = scorer_for(logp)
+    assert "trace" not in scorer.score(None, TOILET)                     # students do not get it
+    scorer.set_calibrations([{"expected": "ħ", "heard": "χ", "floor": 60}])
+    t = scorer.score_logp(logp, TOILET, diagnostics=True)["trace"]
+    assert t["config"]["flag_below"] == 50 and t["config"]["leniency"] == 0.5 and t["variants"][0]["chosen"]
+    h = next(x for x in t["tokens"] if x["ipa"] == "ħ")
+    assert [s["stage"] for s in h["stages"]] == ["gop", "exemption", "baseline", "calibration"]
+    assert h["stages"][0]["score"] < 50 and h["stages"][3]["applied"] and h["final"] == 60
+    assert h["competitor"] == "χ" and h["rule"]["severity"] == 3 and not h["flagged"]
+    assert t["sentence"]["final"] == round(0.5 * t["sentence"]["phone_mean"] + 0.5 * t["sentence"]["word_mean"])

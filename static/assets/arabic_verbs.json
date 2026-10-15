@@ -1,0 +1,451 @@
+{
+  "alif": {
+    "source": {
+    "title": "פעלים בערבית מדוברת המתחילים באליף",
+    "url": "https://www.youtube.com/watch?v=c95B23kxOws",
+    "dialect": "Palestinian spoken Arabic",
+    "notes": "One entry per unique verb, in video order. The video repeats أبطل and أخذ. Phonemes use the scorer alphabet and are space-separated."
+    },
+    "verbs": [
+    {"hebrew": "בא", "timestamp": "01:03", "past": {"arabic": "اجا", "phonemes": "ʔ a dʒ a"}, "future": {"arabic": "يجي", "phonemes": "j i dʒ i"}},
+    {"hebrew": "לקח", "timestamp": "01:12", "past": {"arabic": "اخد", "phonemes": "ʔ a x a d"}, "future": {"arabic": "ياخد", "phonemes": "j oː x i d", "accepted_phonemes": ["j aː x u d", "j oː x u d"]}},
+    {"hebrew": "חייך", "timestamp": "01:21", "past": {"arabic": "ابتسم", "phonemes": "ʔ i b t a s a m"}, "future": {"arabic": "يبتسم", "phonemes": "j i b t a s i m"}},
+    {"hebrew": "דחה", "timestamp": "01:29", "past": {"arabic": "أجّل", "phonemes": "ʔ a dʒ dʒ a l"}, "future": {"arabic": "يأجّل", "phonemes": "j ʔ a dʒ dʒ i l"}},
+    {"hebrew": "השכיר", "timestamp": "01:39", "past": {"arabic": "أجّر", "phonemes": "ʔ a dʒ dʒ a r"}, "future": {"arabic": "يأجّر", "phonemes": "j ʔ a dʒ dʒ i r"}},
+    {"hebrew": "הדהים", "timestamp": "01:55", "past": {"arabic": "أدهش", "phonemes": "ʔ a d h a ʃ"}, "future": {"arabic": "يدهش", "phonemes": "j i d h a ʃ"}},
+    {"hebrew": "ירד", "timestamp": "02:03", "past": {"arabic": "انخفض", "phonemes": "ʔ i n x a f a dˤ"}, "future": {"arabic": "ينخفض", "phonemes": "j i n x a f i dˤ"}},
+    {"hebrew": "הדגיש", "timestamp": "02:13", "past": {"arabic": "أبرز", "phonemes": "ʔ a b r a z"}, "future": {"arabic": "يبرز", "phonemes": "j i b r u z"}},
+    {"hebrew": "נטרל, פירק", "timestamp": "02:21", "past": {"arabic": "أبطل", "phonemes": "ʔ a b tˤ a l"}, "future": {"arabic": "يبطل", "phonemes": "j i b tˤ a l"}},
+    {"hebrew": "אירח לחברה, ישב עם אורח כדי שלא יישאר לבד", "timestamp": "02:30", "past": {"arabic": "آنس", "phonemes": "ʔ aː n a s"}, "future": {"arabic": "يآنس", "phonemes": "j ʔ aː n i s"}},
+    {"hebrew": "התעניין, החשיב", "timestamp": "02:46", "past": {"arabic": "اهتمّ", "phonemes": "ʔ i h t a m m"}, "future": {"arabic": "يهتمّ", "phonemes": "j i h t a m m"}},
+    {"hebrew": "היה חלוק בדעתו", "timestamp": "02:52", "past": {"arabic": "اختلف", "phonemes": "ʔ i x t a l a f"}, "future": {"arabic": "يختلف", "phonemes": "j i x t a l i f"}},
+    {"hebrew": "בחר", "timestamp": "03:19", "past": {"arabic": "اختار", "phonemes": "ʔ i x t aː r"}, "future": {"arabic": "يختار", "phonemes": "j i x t aː r"}},
+    {"hebrew": "המציא", "timestamp": "03:28", "past": {"arabic": "اخترع", "phonemes": "ʔ i x t a r a ʕ"}, "future": {"arabic": "يخترع", "phonemes": "j i x t a r i ʕ"}},
+    {"hebrew": "גילה", "timestamp": "03:39", "past": {"arabic": "اكتشف", "phonemes": "ʔ i k t a ʃ a f"}, "future": {"arabic": "يكتشف", "phonemes": "j i k t a ʃ i f"}},
+    {"hebrew": "התחזה", "timestamp": "03:51", "past": {"arabic": "انتحل", "phonemes": "ʔ i n t a ħ a l"}, "future": {"arabic": "ينتحل", "phonemes": "j i n t a ħ i l"}},
+    {"hebrew": "נפצע", "timestamp": "04:00", "past": {"arabic": "انجرح", "phonemes": "ʔ i n dʒ a r a ħ"}, "future": {"arabic": "ينجرح", "phonemes": "j i n dʒ a r i ħ"}},
+    {"hebrew": "נדרס", "timestamp": "04:09", "past": {"arabic": "اندهس", "phonemes": "ʔ i n d a h a s"}, "future": {"arabic": "يندهس", "phonemes": "j i n d a h i s"}},
+    {"hebrew": "התהפך", "timestamp": "04:27", "past": {"arabic": "انقلب", "phonemes": "ʔ i n Q a l a b"}, "future": {"arabic": "ينقلب", "phonemes": "j i n Q a l i b"}},
+    {"hebrew": "עבר ממקום למקום", "timestamp": "04:35", "past": {"arabic": "انتقل", "phonemes": "ʔ i n t a Q a l"}, "future": {"arabic": "ينتقل", "phonemes": "j i n t a Q i l"}},
+    {"hebrew": "הבשיל", "timestamp": "04:45", "past": {"arabic": "استوى", "phonemes": "ʔ i s t a w a"}, "future": {"arabic": "يستوي", "phonemes": "j i s t a w i"}},
+    {"hebrew": "ייבא", "timestamp": "04:54", "past": {"arabic": "استورد", "phonemes": "ʔ i s t a w r a d"}, "future": {"arabic": "يستورد", "phonemes": "j i s t a w r i d"}},
+    {"hebrew": "חשב", "timestamp": "05:04", "past": {"arabic": "افتكر", "phonemes": "ʔ i f t a k a r"}, "future": {"arabic": "يفتكر", "phonemes": "j i f t a k i r"}},
+    {"hebrew": "עבד", "timestamp": "05:14", "past": {"arabic": "اشتغل", "phonemes": "ʔ i ʃ t a ɣ a l", "accepted_phonemes": ["ʔ a ʃ t ɣ i l", "ʔ a ʃ t i ɣ i l"]}, "future": {"arabic": "يشتغل", "phonemes": "j i ʃ t a ɣ i l"}},
+    {"hebrew": "ניצת, נדלק", "timestamp": "05:23", "past": {"arabic": "اشتعل", "phonemes": "ʔ i ʃ t a ʕ a l"}, "future": {"arabic": "يشتعل", "phonemes": "j i ʃ t a ʕ i l"}},
+    {"hebrew": "השתתף", "timestamp": "05:33", "past": {"arabic": "اشترك", "phonemes": "ʔ i ʃ t a r a k"}, "future": {"arabic": "يشترك", "phonemes": "j i ʃ t a r i k"}},
+    {"hebrew": "אימץ פתרון או קיבל החלטה", "timestamp": "05:42", "past": {"arabic": "اتّخذ", "phonemes": "ʔ i t t a x a d"}, "future": {"arabic": "يتّخذ", "phonemes": "j i t t a x i d"}},
+    {"hebrew": "נשען על חפץ", "timestamp": "05:54", "past": {"arabic": "اتّكأ", "phonemes": "ʔ i t t a k a ʔ"}, "future": {"arabic": "يتّكئ", "phonemes": "j i t t a k i ʔ"}},
+    {"hebrew": "הסכים", "timestamp": "06:07", "past": {"arabic": "اتّفق", "phonemes": "ʔ i t t a f a Q"}, "future": {"arabic": "يتّفق", "phonemes": "j i t t a f i Q"}},
+    {"hebrew": "התקשר", "timestamp": "06:15", "past": {"arabic": "اتّصل", "phonemes": "ʔ i t t a sˤ a l"}, "future": {"arabic": "يتّصل", "phonemes": "j i t t a sˤ i l"}},
+    {"hebrew": "התעייף", "timestamp": "06:24", "past": {"arabic": "اتعب", "phonemes": "ʔ i t ʕ a b"}, "future": {"arabic": "يتعب", "phonemes": "j i t ʕ a b"}},
+    {"hebrew": "עלה", "timestamp": "06:34", "past": {"arabic": "ارتفع", "phonemes": "ʔ i r t a f a ʕ"}, "future": {"arabic": "يرتفع", "phonemes": "j i r t a f i ʕ"}},
+    {"hebrew": "שיתף", "timestamp": "06:43", "past": {"arabic": "أشرك", "phonemes": "ʔ a ʃ r a k"}, "future": {"arabic": "يشرك", "phonemes": "j i ʃ r i k"}},
+    {"hebrew": "אלתר", "timestamp": "06:51", "past": {"arabic": "ارتجل", "phonemes": "ʔ i r t a dʒ a l"}, "future": {"arabic": "يرتجل", "phonemes": "j i r t a dʒ i l"}},
+    {"hebrew": "הרחיק", "timestamp": "07:08", "past": {"arabic": "أبعد", "phonemes": "ʔ a b ʕ a d"}, "future": {"arabic": "يبعد", "phonemes": "j i b ʕ i d"}},
+    {"hebrew": "הזניח", "timestamp": "07:19", "past": {"arabic": "أهمل", "phonemes": "ʔ a h m a l"}, "future": {"arabic": "يهمل", "phonemes": "j i h m i l"}},
+    {"hebrew": "איחר", "timestamp": "07:53", "past": {"arabic": "اتأخّر", "phonemes": "ʔ i t ʔ a x x a r"}, "future": {"arabic": "يتأخّر", "phonemes": "j i t ʔ a x x a r"}},
+    {"hebrew": "תמך ב־, אישר", "timestamp": "08:02", "past": {"arabic": "أكّد", "phonemes": "ʔ a k k a d"}, "future": {"arabic": "يأكّد", "phonemes": "j ʔ a k k i d"}},
+    {"hebrew": "אכל", "timestamp": "08:08", "past": {"arabic": "اكل", "phonemes": "ʔ a k a l"}, "future": {"arabic": "ياكل", "phonemes": "j oː k u l", "accepted_phonemes": ["j oː k i l", "j aː k u l"]}},
+    {"hebrew": "ציווה", "timestamp": "08:36", "past": {"arabic": "أمر", "phonemes": "ʔ a m a r"}, "future": {"arabic": "يأمر", "phonemes": "j ʔ a m u r"}},
+    {"hebrew": "נתן שהות", "timestamp": "08:40", "past": {"arabic": "أمهل", "phonemes": "ʔ a m h a l"}, "future": {"arabic": "يمهل", "phonemes": "j i m h i l"}},
+    {"hebrew": "סיים", "timestamp": "08:54", "past": {"arabic": "أنهى", "phonemes": "ʔ a n h a"}, "future": {"arabic": "ينهي", "phonemes": "j i n h i"}},
+    {"hebrew": "ייסד", "timestamp": "09:01", "past": {"arabic": "أسّس", "phonemes": "ʔ a s s a s"}, "future": {"arabic": "يأسّس", "phonemes": "j ʔ a s s i s"}},
+    {"hebrew": "שיכר", "timestamp": "09:10", "past": {"arabic": "أسكر", "phonemes": "ʔ a s k a r"}, "future": {"arabic": "يسكر", "phonemes": "j i s k i r"}},
+    {"hebrew": "מיהר", "timestamp": "09:24", "past": {"arabic": "أسرع", "phonemes": "ʔ a s r a ʕ"}, "future": {"arabic": "يسرع", "phonemes": "j i s r a ʕ"}},
+    {"hebrew": "נתן", "timestamp": "09:33", "past": {"arabic": "أعطى", "phonemes": "ʔ a ʕ tˤ a"}, "future": {"arabic": "يعطي", "phonemes": "j i ʕ tˤ i"}},
+    {"hebrew": "הדביק במחלה", "timestamp": "09:40", "past": {"arabic": "أعدى", "phonemes": "ʔ a ʕ d a"}, "future": {"arabic": "يعدي", "phonemes": "j i ʕ d i"}},
+    {"hebrew": "הכריז", "timestamp": "09:48", "past": {"arabic": "أعلن", "phonemes": "ʔ a ʕ l a n"}, "future": {"arabic": "يعلن", "phonemes": "j i ʕ l i n"}},
+    {"hebrew": "פטר", "timestamp": "09:56", "past": {"arabic": "أعفى", "phonemes": "ʔ a ʕ f a"}, "future": {"arabic": "يعفي", "phonemes": "j i ʕ f i"}},
+    {"hebrew": "עיוור, סינוור", "timestamp": "10:05", "past": {"arabic": "أعمى", "phonemes": "ʔ a ʕ m a"}, "future": {"arabic": "يعمي", "phonemes": "j i ʕ m i"}},
+    {"hebrew": "השביע את רצונו של", "timestamp": "10:12", "past": {"arabic": "أرضى", "phonemes": "ʔ a r dˤ a"}, "future": {"arabic": "يرضي", "phonemes": "j i r dˤ i"}},
+    {"hebrew": "סימן, אותת", "timestamp": "10:23", "past": {"arabic": "أشّر", "phonemes": "ʔ a ʃ ʃ a r"}, "future": {"arabic": "يأشّر", "phonemes": "j ʔ a ʃ ʃ i r"}},
+    {"hebrew": "השפיע", "timestamp": "10:32", "past": {"arabic": "أثّر", "phonemes": "ʔ a TH TH a r"}, "future": {"arabic": "يأثّر", "phonemes": "j ʔ a TH TH i r"}},
+    {"hebrew": "השלים בין, תיקן", "timestamp": "10:41", "past": {"arabic": "أصلح", "phonemes": "ʔ a sˤ l a ħ"}, "future": {"arabic": "يصلح", "phonemes": "j i sˤ l i ħ"}}
+    ]
+  },
+  "ba": {
+    "source": {
+      "title": "פעלים שימושיים בערבית מדוברת — אות בא",
+      "url": "https://www.youtube.com/watch?v=w19b7mJ-j4U",
+      "dialect": "Palestinian spoken Arabic",
+      "notes": "One entry per verb, in video order. Phonemes use the scorer alphabet and are space-separated."
+    },
+    "verbs": [
+      {"hebrew": "התחיל", "timestamp": "01:39", "past": {"arabic": "بدأ", "phonemes": "b a d a ʔ"}, "future": {"arabic": "يبدأ", "phonemes": "j i b d a ʔ"}},
+      {"hebrew": "בכה", "timestamp": "01:48", "past": {"arabic": "بكى", "phonemes": "b a k a"}, "future": {"arabic": "يبكي", "phonemes": "j i b k i"}},
+      {"hebrew": "נשאר", "timestamp": "01:57", "past": {"arabic": "بقي", "phonemes": "b a Q i"}, "future": {"arabic": "يبقى", "phonemes": "j i b Q a"}},
+      {"hebrew": "מכר", "timestamp": "02:06", "past": {"arabic": "باع", "phonemes": "b aː ʕ"}, "future": {"arabic": "يبيع", "phonemes": "j i b iː ʕ"}},
+      {"hebrew": "אירח מישהו כל הלילה", "timestamp": "02:17", "past": {"arabic": "بات", "phonemes": "b aː t"}, "future": {"arabic": "يبيت", "phonemes": "j i b iː t"}},
+      {"hebrew": "נזף, דיבר בצורה קשה", "timestamp": "02:26", "past": {"arabic": "بهدل", "phonemes": "b a h d a l"}, "future": {"arabic": "يبهدل", "phonemes": "j i b a h d i l"}},
+      {"hebrew": "החליף, שינה", "timestamp": "02:36", "past": {"arabic": "بدّل", "phonemes": "b a d d a l"}, "future": {"arabic": "يبدّل", "phonemes": "j i b a d d i l"}},
+      {"hebrew": "חפר באדמה", "timestamp": "02:46", "past": {"arabic": "بحش", "phonemes": "b a ħ a ʃ"}, "future": {"arabic": "يبحش", "phonemes": "j i b ħ a ʃ"}},
+      {"hebrew": "סיווג", "timestamp": "02:56", "past": {"arabic": "بوّب", "phonemes": "b a w w a b"}, "future": {"arabic": "يبوّب", "phonemes": "j i b a w w i b"}},
+      {"hebrew": "הפסיק, חזר בו", "timestamp": "03:06", "past": {"arabic": "بطّل", "phonemes": "b a tˤ tˤ a l"}, "future": {"arabic": "يبطّل", "phonemes": "j i b a tˤ tˤ i l"}},
+      {"hebrew": "הופיע, נמצא", "timestamp": "03:15", "past": {"arabic": "بيّن", "phonemes": "b a j j a n"}, "future": {"arabic": "يبيّن", "phonemes": "j i b a j j i n"}},
+      {"hebrew": "הודיע", "timestamp": "03:25", "past": {"arabic": "بلّغ", "phonemes": "b a l l a ɣ"}, "future": {"arabic": "يبلّغ", "phonemes": "j i b a l l i ɣ"}},
+      {"hebrew": "בלע", "timestamp": "03:38", "past": {"arabic": "بلع", "phonemes": "b a l a ʕ"}, "future": {"arabic": "يبلع", "phonemes": "j i b l a ʕ"}},
+      {"hebrew": "התחיל", "timestamp": "03:44", "past": {"arabic": "بلّش", "phonemes": "b a l l a ʃ"}, "future": {"arabic": "يبلّش", "phonemes": "j i b a l l i ʃ"}},
+      {"hebrew": "בכה בקול, יילל", "timestamp": "04:05", "past": {"arabic": "بعق", "phonemes": "b a ʕ a Q"}, "future": {"arabic": "يبعق", "phonemes": "j i b ʕ a Q"}},
+      {"hebrew": "פיזר וגם בזבז", "timestamp": "04:14", "past": {"arabic": "بعتر", "phonemes": "b a ʕ t a r"}, "future": {"arabic": "يبعتر", "phonemes": "j i b a ʕ t i r"}},
+      {"hebrew": "בנה", "timestamp": "04:23", "past": {"arabic": "بنى", "phonemes": "b a n a"}, "future": {"arabic": "يبني", "phonemes": "j i b n i"}},
+      {"hebrew": "הצדיק", "timestamp": "04:30", "past": {"arabic": "برّر", "phonemes": "b a r r a r"}, "future": {"arabic": "يبرّر", "phonemes": "j i b a r r i r"}},
+      {"hebrew": "כיער", "timestamp": "04:37", "past": {"arabic": "بشّع", "phonemes": "b a ʃ ʃ a ʕ"}, "future": {"arabic": "يبشّع", "phonemes": "j i b a ʃ ʃ i ʕ"}},
+      {"hebrew": "תכנת", "timestamp": "04:47", "past": {"arabic": "برمج", "phonemes": "b a r m a dʒ"}, "future": {"arabic": "يبرمج", "phonemes": "j i b a r m i dʒ"}},
+      {"hebrew": "שיחד", "timestamp": "05:11", "past": {"arabic": "برطل", "phonemes": "b a r tˤ a l"}, "future": {"arabic": "يبرطل", "phonemes": "j i b a r tˤ i l"}}
+    ]
+  },
+  "jim": {
+    "source": {"title": "פעלים שימושיים בערבית מדוברת — אות ג'ים", "url": "https://www.youtube.com/watch?v=A90bTU8w3BY", "dialect": "Palestinian spoken Arabic"},
+    "verbs": [
+      {"hebrew":"הביא","past":{"arabic":"جاب","phonemes":"J aː b"},"future":{"arabic":"يجيب","phonemes":"j i J iː b"}},
+      {"hebrew":"ענה","past":{"arabic":"جاوب","phonemes":"J aː w a b"},"future":{"arabic":"يجاوب","phonemes":"j i J aː w i b"}},
+      {"hebrew":"גרר, סחב","past":{"arabic":"جرجر","phonemes":"J a r J a r"},"future":{"arabic":"يجرجر","phonemes":"j i J a r J i r"}},
+      {"hebrew":"ניסה","past":{"arabic":"جرّب","phonemes":"J a r r a b"},"future":{"arabic":"يجرّب","phonemes":"j i J a r r i b"}},
+      {"hebrew":"הקפיא","past":{"arabic":"جمّد","phonemes":"J a m m a d"},"future":{"arabic":"يجمّد","phonemes":"j i J a m m i d"}},
+      {"hebrew":"ייבש","past":{"arabic":"جفّف","phonemes":"J a f f a f"},"future":{"arabic":"يجفّف","phonemes":"j i J a f f i f"}},
+      {"hebrew":"חידש","past":{"arabic":"جدّد","phonemes":"J a d d a d"},"future":{"arabic":"يجدّد","phonemes":"j i J a d d i d"}},
+      {"hebrew":"רץ, קרה, זרם","past":{"arabic":"جرى","phonemes":"J a r a"},"future":{"arabic":"يجري","phonemes":"j i J r i"}},
+      {"hebrew":"גמל, העניש","past":{"arabic":"جازى","phonemes":"J aː z a"},"future":{"arabic":"يجازي","phonemes":"j i J aː z i"}},
+      {"hebrew":"גרר, סחב","past":{"arabic":"جرّ","phonemes":"J a r r"},"future":{"arabic":"يجرّ","phonemes":"j i J u r r"}}
+    ]
+  },
+  "dal": {
+    "source": {"title":"פעלים שימושיים בערבית מדוברת — אות דאל","url":"https://www.youtube.com/watch?v=Wu2oeHyKujo","dialect":"Palestinian spoken Arabic"},
+    "verbs": [
+      {"hebrew":"אבד","past":{"arabic":"ضاع","phonemes":"dˤ aː ʕ"},"future":{"arabic":"يضيع","phonemes":"j i dˤ iː ʕ"}},
+      {"hebrew":"סידר, הסדיר","past":{"arabic":"دبّر","phonemes":"d a b b a r"},"future":{"arabic":"يدبّر","phonemes":"j i d a b b i r"}},
+      {"hebrew":"צבע","past":{"arabic":"دهن","phonemes":"d a h a n"},"future":{"arabic":"يدهن","phonemes":"j i d h a n"}},
+      {"hebrew":"דרס","past":{"arabic":"دهس","phonemes":"d a h a s"},"future":{"arabic":"يدهس","phonemes":"j i d h a s"}},
+      {"hebrew":"חיפש","past":{"arabic":"دوّر على","phonemes":"d a w w a r ʕ a l a"},"future":{"arabic":"يدوّر على","phonemes":"j i d a w w i r ʕ a l a"}},
+      {"hebrew":"עישן","past":{"arabic":"دخّن","phonemes":"d a x x a n"},"future":{"arabic":"يدخّن","phonemes":"j i d a x x i n"}},
+      {"hebrew":"הצביע על, הראה","past":{"arabic":"دلّ على","phonemes":"d a l l ʕ a l a"},"future":{"arabic":"يدلّ على","phonemes":"j i d u l l ʕ a l a"}},
+      {"hebrew":"שילם, דחף","past":{"arabic":"دفع","phonemes":"d a f a ʕ"},"future":{"arabic":"يدفع","phonemes":"j i d f a ʕ"}},
+      {"hebrew":"דפק","past":{"arabic":"دقّ","phonemes":"d a Q Q"},"future":{"arabic":"يدقّ","phonemes":"j i d u Q Q"}},
+      {"hebrew":"עזב, נטש","past":{"arabic":"دشّر","phonemes":"d a ʃ ʃ a r"},"future":{"arabic":"يدشّر","phonemes":"j i d a ʃ ʃ i r"}},
+      {"hebrew":"סובב, הפנה","past":{"arabic":"دار","phonemes":"d aː r"},"future":{"arabic":"يدير","phonemes":"j i d iː r"}}
+    ]
+  },
+  "ha": {
+    "source": {"title":"פעלים שימושיים בערבית מדוברת — אות ה","url":"https://www.youtube.com/watch?v=le--lfAYjgE","dialect":"Palestinian spoken Arabic"},
+    "verbs": [
+      {"hebrew":"ברח","past":{"arabic":"هرب","phonemes":"h a r a b"},"future":{"arabic":"يهرب","phonemes":"j i h r a b"}},
+      {"hebrew":"היגר","past":{"arabic":"هاجر","phonemes":"h aː J a r"},"future":{"arabic":"يهاجر","phonemes":"j i h aː J i r"}},
+      {"hebrew":"הגלה, גרם להגר","past":{"arabic":"هجّر","phonemes":"h a J J a r"},"future":{"arabic":"يهجّر","phonemes":"j i h a J J i r"}},
+      {"hebrew":"נפל, ירד","past":{"arabic":"هبط","phonemes":"h a b a tˤ"},"future":{"arabic":"يهبط","phonemes":"j i h b a tˤ"}},
+      {"hebrew":"הוריד, החליש","past":{"arabic":"هبّط","phonemes":"h a b b a tˤ"},"future":{"arabic":"يهبّط","phonemes":"j i h a b b i tˤ"}},
+      {"hebrew":"התכוון, שאף","past":{"arabic":"هدف","phonemes":"h a d a f"},"future":{"arabic":"يهدف","phonemes":"j i h d a f"}},
+      {"hebrew":"בירך","past":{"arabic":"هنّى","phonemes":"h a n n a"},"future":{"arabic":"يهنّي","phonemes":"j i h a n n i"}},
+      {"hebrew":"הריע, קרא","past":{"arabic":"هتف","phonemes":"h a t a f"},"future":{"arabic":"يهتف","phonemes":"j i h t i f"}}
+    ]
+  },
+  "waw": {
+    "source": {"title":"פעלים שימושיים בערבית מדוברת — אות ואו","url":"https://www.youtube.com/watch?v=r5nOxemdyMI","dialect":"Palestinian spoken Arabic"},
+    "verbs": [
+      {"hebrew":"מצא","past":{"arabic":"وجد","phonemes":"w a J a d"},"future":{"arabic":"يجد","phonemes":"j i J i d"}},
+      {"hebrew":"הביא למקום","past":{"arabic":"ودّى","phonemes":"w a d d a"},"future":{"arabic":"يودّي","phonemes":"j i w a d d i"}},
+      {"hebrew":"נפרד","past":{"arabic":"ودّع","phonemes":"w a d d a ʕ"},"future":{"arabic":"يودّع","phonemes":"j i w a d d i ʕ"}},
+      {"hebrew":"מינה, הסמיך","past":{"arabic":"وكّل","phonemes":"w a k k a l"},"future":{"arabic":"يوكّل","phonemes":"j i w a k k i l"}},
+      {"hebrew":"עצר, עמד","past":{"arabic":"وقف","phonemes":"w a Q a f"},"future":{"arabic":"يوقف","phonemes":"j i w Q a f"}},
+      {"hebrew":"ייבא","past":{"arabic":"ورّد","phonemes":"w a r r a d"},"future":{"arabic":"يورّد","phonemes":"j i w a r r i d"}},
+      {"hebrew":"הנמיך","past":{"arabic":"وطّى","phonemes":"w a tˤ tˤ a"},"future":{"arabic":"يوطّي","phonemes":"j i w a tˤ tˤ i"}},
+      {"hebrew":"חיבר, הוביל, הביא","past":{"arabic":"وصّل","phonemes":"w a sˤ sˤ a l"},"future":{"arabic":"يوصّل","phonemes":"j i w a sˤ sˤ i l"}}
+    ]
+  },
+  "zay": {
+    "source": {"title":"פעלים שימושיים בערבית מדוברת — אות זאי","url":"https://www.youtube.com/watch?v=Qgal8RB1N00","dialect":"Palestinian spoken Arabic"},
+    "verbs": [
+      {"hebrew":"כעס, התרגז","past":{"arabic":"زعل","phonemes":"z a ʕ a l"},"future":{"arabic":"يزعل","phonemes":"j i z ʕ a l"}},
+      {"hebrew":"זז, הסיר","past":{"arabic":"زاح","phonemes":"z aː ħ"},"future":{"arabic":"يزيح","phonemes":"j i z iː ħ"}},
+      {"hebrew":"סיפק, צייד","past":{"arabic":"زوّد","phonemes":"z a w w a d"},"future":{"arabic":"يزوّد","phonemes":"j i z a w w i d"}},
+      {"hebrew":"צפר","past":{"arabic":"زمّر","phonemes":"z a m m a r"},"future":{"arabic":"يزمّر","phonemes":"j i z a m m i r"}},
+      {"hebrew":"הוסיף, גדל","past":{"arabic":"زاد","phonemes":"z aː d"},"future":{"arabic":"يزيد","phonemes":"j i z iː d"}},
+      {"hebrew":"ביקר","past":{"arabic":"زار","phonemes":"z aː r"},"future":{"arabic":"يزور","phonemes":"j i z uː r"}},
+      {"hebrew":"הזכיר, ציטט","past":{"arabic":"ذكر","phonemes":"DH a k a r"},"future":{"arabic":"يذكر","phonemes":"j i DH k u r"}},
+      {"hebrew":"הזכיר למישהו","past":{"arabic":"ذكّر","phonemes":"DH a k k a r"},"future":{"arabic":"يذكّر","phonemes":"j i DH a k k i r"}},
+      {"hebrew":"דחף","past":{"arabic":"زقّ","phonemes":"z a Q Q"},"future":{"arabic":"يزقّ","phonemes":"j i z u Q Q"}},
+      {"hebrew":"זייף","past":{"arabic":"زيّف","phonemes":"z a j j a f"},"future":{"arabic":"يزيّف","phonemes":"j i z a j j i f"}},
+      {"hebrew":"שחט","past":{"arabic":"ذبح","phonemes":"DH a b a ħ"},"future":{"arabic":"يذبح","phonemes":"j i DH b a ħ"}},
+      {"hebrew":"נמאס לו","past":{"arabic":"زهق","phonemes":"z a h a Q"},"future":{"arabic":"يزهق","phonemes":"j i z h a Q"}},
+      {"hebrew":"החליק, גרם להחליק","past":{"arabic":"زحلق","phonemes":"z a ħ l a Q"},"future":{"arabic":"يزحلق","phonemes":"j i z a ħ l i Q"}}
+    ]
+  },
+  "kha": {
+    "source": {"title":"פעלים שימושיים בערבית מדוברת — אות ח'א","url":"https://www.youtube.com/watch?v=RJnw8Bjtvlg","dialect":"Palestinian spoken Arabic"},
+    "verbs": [
+      {"hebrew":"בגד","past":{"arabic":"خان","phonemes":"x aː n"},"future":{"arabic":"يخون","phonemes":"j i x uː n"}},
+      {"hebrew":"נגמר, הסתיים","past":{"arabic":"خلص","phonemes":"x a l a sˤ"},"future":{"arabic":"يخلص","phonemes":"j i x l a sˤ"}},
+      {"hebrew":"הפסיד","past":{"arabic":"خسر","phonemes":"x a s a r"},"future":{"arabic":"يخسر","phonemes":"j i x s a r"}},
+      {"hebrew":"התקלקל","past":{"arabic":"خرب","phonemes":"x a r a b"},"future":{"arabic":"يخرب","phonemes":"j i x r a b"}},
+      {"hebrew":"פחד","past":{"arabic":"خاف","phonemes":"x aː f"},"future":{"arabic":"يخاف","phonemes":"j i x aː f"}},
+      {"hebrew":"הודיע, סיפר","past":{"arabic":"خبّر","phonemes":"x a b b a r"},"future":{"arabic":"يخبّر","phonemes":"j i x a b b i r"}},
+      {"hebrew":"אחסן","past":{"arabic":"خزّن","phonemes":"x a z z a n"},"future":{"arabic":"يخزّن","phonemes":"j i x a z z i n"}},
+      {"hebrew":"התבייש","past":{"arabic":"خجل","phonemes":"x a J a l"},"future":{"arabic":"يخجل","phonemes":"j i x J a l"}},
+      {"hebrew":"השאיר, נטש","past":{"arabic":"خلّى","phonemes":"x a l l a"},"future":{"arabic":"يخلّي","phonemes":"j i x a l l i"}},
+      {"hebrew":"השאיר אחריו, הוליד","past":{"arabic":"خلّف","phonemes":"x a l l a f"},"future":{"arabic":"يخلّف","phonemes":"j i x a l l i f"}},
+      {"hebrew":"יצר, ברא","past":{"arabic":"خلق","phonemes":"x a l a Q"},"future":{"arabic":"يخلق","phonemes":"j i x l a Q"}},
+      {"hebrew":"הפחית","past":{"arabic":"خفّف","phonemes":"x a f f a f"},"future":{"arabic":"يخفّف","phonemes":"j i x a f f i f"}},
+      {"hebrew":"התערבב, התחבר","past":{"arabic":"خالط","phonemes":"x aː l a tˤ"},"future":{"arabic":"يخالط","phonemes":"j i x aː l i tˤ"}},
+      {"hebrew":"אכזב","past":{"arabic":"خيّب","phonemes":"x a j j a b"},"future":{"arabic":"يخيّب","phonemes":"j i x a j j i b"}},
+      {"hebrew":"חתם","past":{"arabic":"ختم","phonemes":"x a t a m"},"future":{"arabic":"يختم","phonemes":"j i x t i m"}},
+      {"hebrew":"קלקל","past":{"arabic":"خرّب","phonemes":"x a r r a b"},"future":{"arabic":"يخرّب","phonemes":"j i x a r r i b"}},
+      {"hebrew":"יצא","past":{"arabic":"خرج","phonemes":"x a r a J"},"future":{"arabic":"يخرج","phonemes":"j i x r a J"}},
+      {"hebrew":"נשא נאום","past":{"arabic":"خطب","phonemes":"x a tˤ a b"},"future":{"arabic":"يخطب","phonemes":"j i x tˤ a b"}}
+    ]
+  },
+  "ta_emphatic": {
+    "source":{"title":"פעלים שימושיים בערבית מדוברת — אות טא","url":"https://www.youtube.com/watch?v=qYeEWydByZU","dialect":"Palestinian spoken Arabic"},
+    "verbs":[
+      {"hebrew":"נרפא, היה טוב","past":{"arabic":"طاب","phonemes":"tˤ aː b"},"future":{"arabic":"يطيب","phonemes":"j i tˤ iː b"}},
+      {"hebrew":"הדפיס","past":{"arabic":"طبع","phonemes":"tˤ a b a ʕ"},"future":{"arabic":"يطبع","phonemes":"j i tˤ b a ʕ"}},
+      {"hebrew":"האריך, התעכב","past":{"arabic":"طوّل","phonemes":"tˤ a w w a l"},"future":{"arabic":"يطوّل","phonemes":"j i tˤ a w w i l"}},
+      {"hebrew":"דרש, ביקש","past":{"arabic":"طلب","phonemes":"tˤ a l a b"},"future":{"arabic":"يطلب","phonemes":"j i tˤ l a b"}},
+      {"hebrew":"האכיל","past":{"arabic":"طعّم","phonemes":"tˤ a ʕ ʕ a m"},"future":{"arabic":"يطعّم","phonemes":"j i tˤ a ʕ ʕ i m"}},
+      {"hebrew":"היה מסוגל לסבול","past":{"arabic":"طاق","phonemes":"tˤ aː Q"},"future":{"arabic":"يطيق","phonemes":"j i tˤ iː Q"}},
+      {"hebrew":"הרגיע","past":{"arabic":"طمّن","phonemes":"tˤ a m m a n"},"future":{"arabic":"يطمّن","phonemes":"j i tˤ a m m i n"}},
+      {"hebrew":"פיצח","past":{"arabic":"طقش","phonemes":"tˤ a Q a ʃ"},"future":{"arabic":"يطقش","phonemes":"j i tˤ Q a ʃ"}},
+      {"hebrew":"התעלם","past":{"arabic":"طنّش","phonemes":"tˤ a n n a ʃ"},"future":{"arabic":"يطنّش","phonemes":"j i tˤ a n n i ʃ"}},
+      {"hebrew":"עף","past":{"arabic":"طار","phonemes":"tˤ aː r"},"future":{"arabic":"يطير","phonemes":"j i tˤ iː r"}},
+      {"hebrew":"רדף","past":{"arabic":"طارد","phonemes":"tˤ aː r a d"},"future":{"arabic":"يطارد","phonemes":"j i tˤ aː r i d"}},
+      {"hebrew":"כיבה","past":{"arabic":"طفّى","phonemes":"tˤ a f f a"},"future":{"arabic":"يطفّي","phonemes":"j i tˤ a f f i"}},
+      {"hebrew":"יישם","past":{"arabic":"طبّق","phonemes":"tˤ a b b a Q"},"future":{"arabic":"يطبّق","phonemes":"j i tˤ a b b i Q"}},
+      {"hebrew":"הציץ, ביקר","past":{"arabic":"طلّ","phonemes":"tˤ a l l"},"future":{"arabic":"يطلّ","phonemes":"j i tˤ u l l"}},
+      {"hebrew":"שאף","past":{"arabic":"طمح","phonemes":"tˤ a m a ħ"},"future":{"arabic":"يطمح","phonemes":"j i tˤ m a ħ"}},
+      {"hebrew":"התיז","past":{"arabic":"طرّش","phonemes":"tˤ a r r a ʃ"},"future":{"arabic":"يطرّش","phonemes":"j i tˤ a r r i ʃ"}}
+    ]
+  },
+  "kaf": {
+    "source":{"title":"פעלים שימושיים בערבית מדוברת — אות כאף","url":"https://www.youtube.com/watch?v=wSoGsCXTyig","dialect":"Palestinian spoken Arabic"},
+    "verbs":[
+      {"hebrew":"יצר, הרכיב","past":{"arabic":"كوّن","phonemes":"k a w w a n"},"future":{"arabic":"يكوّن","phonemes":"j i k a w w i n"}},
+      {"hebrew":"המשיך, השלים","past":{"arabic":"كمّل","phonemes":"k a m m a l"},"future":{"arabic":"يكمّل","phonemes":"j i k a m m i l"}},
+      {"hebrew":"טאטא","past":{"arabic":"كنس","phonemes":"k a n a s"},"future":{"arabic":"يكنس","phonemes":"j i k n u s"}},
+      {"hebrew":"שפך","past":{"arabic":"كبّ","phonemes":"k a b b"},"future":{"arabic":"يكبّ","phonemes":"j i k u b b"}},
+      {"hebrew":"חרק שיניים","past":{"arabic":"كدّ","phonemes":"k a d d"},"future":{"arabic":"يكدّ","phonemes":"j i k u d d"}},
+      {"hebrew":"עלה במחיר","past":{"arabic":"كلّف","phonemes":"k a l l a f"},"future":{"arabic":"يكلّف","phonemes":"j i k a l l i f"}},
+      {"hebrew":"גדל","past":{"arabic":"كبر","phonemes":"k a b a r"},"future":{"arabic":"يكبر","phonemes":"j i k b a r"}},
+      {"hebrew":"קימט את המצח","past":{"arabic":"كشّر","phonemes":"k a ʃ ʃ a r"},"future":{"arabic":"يكشّر","phonemes":"j i k a ʃ ʃ i r"}},
+      {"hebrew":"שבר","past":{"arabic":"كسر","phonemes":"k a s a r"},"future":{"arabic":"يكسر","phonemes":"j i k s a r"}},
+      {"hebrew":"כתב","past":{"arabic":"كتب","phonemes":"k a t a b"},"future":{"arabic":"يكتب","phonemes":"j i k t u b"}},
+      {"hebrew":"צבר","past":{"arabic":"كدّس","phonemes":"k a d d a s"},"future":{"arabic":"يكدّس","phonemes":"j i k a d d i s"}},
+      {"hebrew":"עשה בלגן","past":{"arabic":"كركب","phonemes":"k a r k a b"},"future":{"arabic":"يكركب","phonemes":"j i k a r k i b"}},
+      {"hebrew":"חזר על","past":{"arabic":"كرّر","phonemes":"k a r r a r"},"future":{"arabic":"يكرّر","phonemes":"j i k a r r i r"}},
+      {"hebrew":"גירש","past":{"arabic":"كشّ","phonemes":"k a ʃ ʃ"},"future":{"arabic":"يكشّ","phonemes":"j i k u ʃ ʃ"}}
+    ]
+  },
+  "lam": {
+    "source":{"title":"פעלים שימושיים בערבית מדוברת — אות לאם","url":"https://www.youtube.com/watch?v=-Jd2w7EEs90","dialect":"Palestinian spoken Arabic"},
+    "verbs":[
+      {"hebrew":"צופף","past":{"arabic":"لزّ","phonemes":"l a z z"},"future":{"arabic":"يلزّ","phonemes":"j i l u z z"}},
+      {"hebrew":"עקץ, הכיש, צרב","past":{"arabic":"لسع","phonemes":"l a s a ʕ"},"future":{"arabic":"يلسع","phonemes":"j i l s a ʕ"}},
+      {"hebrew":"הפציר","past":{"arabic":"لحّ","phonemes":"l a ħ ħ"},"future":{"arabic":"يلحّ","phonemes":"j i l i ħ ħ"}},
+      {"hebrew":"אסף","past":{"arabic":"لمّ","phonemes":"l a m m"},"future":{"arabic":"يلمّ","phonemes":"j i l u m m"}},
+      {"hebrew":"האשים, גינה","past":{"arabic":"لام","phonemes":"l aː m"},"future":{"arabic":"يلوم","phonemes":"j i l uː m"}},
+      {"hebrew":"לימד בשינון","past":{"arabic":"لقّن","phonemes":"l a Q Q a n"},"future":{"arabic":"يلقّن","phonemes":"j i l a Q Q i n"}},
+      {"hebrew":"מילא בקשה","past":{"arabic":"لبّى","phonemes":"l a b b a"},"future":{"arabic":"يلبّي","phonemes":"j i l a b b i"}},
+      {"hebrew":"לבש","past":{"arabic":"لبس","phonemes":"l a b a s"},"future":{"arabic":"يلبس","phonemes":"j i l b a s"}},
+      {"hebrew":"הלביש","past":{"arabic":"لبّس","phonemes":"l a b b a s"},"future":{"arabic":"يلبّس","phonemes":"j i l a b b i s"}},
+      {"hebrew":"טייח, העלים","past":{"arabic":"لفلف","phonemes":"l a f l a f"},"future":{"arabic":"يلفلف","phonemes":"j i l a f l i f"}},
+      {"hebrew":"סטר","past":{"arabic":"لطش","phonemes":"l a tˤ a ʃ"},"future":{"arabic":"يلطش","phonemes":"j i l tˤ a ʃ"}},
+      {"hebrew":"רמז","past":{"arabic":"لمّح","phonemes":"l a m m a ħ"},"future":{"arabic":"يلمّح","phonemes":"j i l a m m i ħ"}}
+    ]
+  },
+  "mim": {
+    "source":{"title":"פעלים שימושיים בערבית מדוברת — אות מים","url":"https://www.youtube.com/watch?v=yKUcU45Ngpg","dialect":"Palestinian spoken Arabic"},
+    "verbs":[
+      {"hebrew":"דחה ועיכב","past":{"arabic":"ماطل","phonemes":"m aː tˤ a l"},"future":{"arabic":"يماطل","phonemes":"j i m aː tˤ i l"}},
+      {"hebrew":"עסק ב־, הפעיל","past":{"arabic":"مارس","phonemes":"m aː r a s"},"future":{"arabic":"يمارس","phonemes":"j i m aː r i s"}},
+      {"hebrew":"מת","past":{"arabic":"مات","phonemes":"m aː t"},"future":{"arabic":"يموت","phonemes":"j i m uː t"}},
+      {"hebrew":"מימן","past":{"arabic":"موّل","phonemes":"m a w w a l"},"future":{"arabic":"يموّل","phonemes":"j i m a w w i l"}},
+      {"hebrew":"קרע לגזרים","past":{"arabic":"مزّع","phonemes":"m a z z a ʕ"},"future":{"arabic":"يمزّع","phonemes":"j i m a z z i ʕ"}},
+      {"hebrew":"הבחין בין","past":{"arabic":"ميّز","phonemes":"m a j j a z"},"future":{"arabic":"يميّز","phonemes":"j i m a j j i z"}},
+      {"hebrew":"מילא","past":{"arabic":"ملا","phonemes":"m a l a"},"future":{"arabic":"يملي","phonemes":"j i m l i"}},
+      {"hebrew":"שיבח","past":{"arabic":"مدح","phonemes":"m a d a ħ"},"future":{"arabic":"يمدح","phonemes":"j i m d a ħ"}},
+      {"hebrew":"סיפק","past":{"arabic":"موّن","phonemes":"m a w w a n"},"future":{"arabic":"يموّن","phonemes":"j i m a w w i n"}},
+      {"hebrew":"שטף, היה בעלים","past":{"arabic":"ملك","phonemes":"m a l a k"},"future":{"arabic":"يملك","phonemes":"j i m l u k"}},
+      {"hebrew":"ליטף, החליק","past":{"arabic":"ملّس","phonemes":"m a l l a s"},"future":{"arabic":"يملّس","phonemes":"j i m a l l i s"}},
+      {"hebrew":"העניק","past":{"arabic":"منح","phonemes":"m a n a ħ"},"future":{"arabic":"يمنح","phonemes":"j i m n a ħ"}},
+      {"hebrew":"מנע, אסר","past":{"arabic":"منع","phonemes":"m a n a ʕ"},"future":{"arabic":"يمنع","phonemes":"j i m n a ʕ"}},
+      {"hebrew":"מצץ","past":{"arabic":"مصّ","phonemes":"m a sˤ sˤ"},"future":{"arabic":"يمصّ","phonemes":"j i m u sˤ sˤ"}},
+      {"hebrew":"העמיד פנים","past":{"arabic":"مثّل","phonemes":"m a TH TH a l"},"future":{"arabic":"يمثّل","phonemes":"j i m a TH TH i l"}},
+      {"hebrew":"ערבב","past":{"arabic":"مزج","phonemes":"m a z a J"},"future":{"arabic":"يمزج","phonemes":"j i m z a J"}},
+      {"hebrew":"התנדנד","past":{"arabic":"مرجح","phonemes":"m a r J a ħ"},"future":{"arabic":"يمرجح","phonemes":"j i m a r J i ħ"}},
+      {"hebrew":"הוליך, הפעיל","past":{"arabic":"مشّى","phonemes":"m a ʃ ʃ a"},"future":{"arabic":"يمشّي","phonemes":"j i m a ʃ ʃ i"}},
+      {"hebrew":"עבר","past":{"arabic":"مرق","phonemes":"m a r a Q"},"future":{"arabic":"يمرق","phonemes":"j i m r u Q"}}
+    ]
+  },
+  "nun": {
+    "source":{"title":"פעלים שימושיים בערבית מדוברת — אות נון","url":"https://www.youtube.com/watch?v=KdipB6ik22Y","dialect":"Palestinian spoken Arabic"},
+    "verbs":[
+      {"hebrew":"ישן, שכב","past":{"arabic":"نام","phonemes":"n aː m"},"future":{"arabic":"ينام","phonemes":"j i n aː m"}},
+      {"hebrew":"הרדים","past":{"arabic":"نوّم","phonemes":"n a w w a m"},"future":{"arabic":"ينوّم","phonemes":"j i n a w w i m"}},
+      {"hebrew":"שכח","past":{"arabic":"نسي","phonemes":"n a s i"},"future":{"arabic":"ينسى","phonemes":"j i n s a"}},
+      {"hebrew":"השכיח","past":{"arabic":"نسّى","phonemes":"n a s s a"},"future":{"arabic":"ينسّي","phonemes":"j i n a s s i"}},
+      {"hebrew":"התנמנם","past":{"arabic":"نعس","phonemes":"n i ʕ i s"},"future":{"arabic":"ينعس","phonemes":"j i n ʕ a s"}},
+      {"hebrew":"נשף, נשם","past":{"arabic":"نفش","phonemes":"n a f a ʃ"},"future":{"arabic":"ينفش","phonemes":"j i n f u ʃ"}},
+      {"hebrew":"ניתר","past":{"arabic":"نطّ","phonemes":"n a tˤ tˤ"},"future":{"arabic":"ينطّ","phonemes":"j i n u tˤ tˤ"}},
+      {"hebrew":"העביר, העתיק","past":{"arabic":"نقل","phonemes":"n a Q a l"},"future":{"arabic":"ينقل","phonemes":"j i n Q u l"}},
+      {"hebrew":"התחרה","past":{"arabic":"نافس","phonemes":"n aː f a s"},"future":{"arabic":"ينافس","phonemes":"j i n aː f i s"}},
+      {"hebrew":"ניקה","past":{"arabic":"نضّف","phonemes":"n a dˤ dˤ a f"},"future":{"arabic":"ينضّف","phonemes":"j i n a dˤ dˤ i f"}},
+      {"hebrew":"בחר","past":{"arabic":"نقّى","phonemes":"n a Q Q a"},"future":{"arabic":"ينقّي","phonemes":"j i n a Q Q i"}},
+      {"hebrew":"סגר","past":{"arabic":"نتّ","phonemes":"n a t t"},"future":{"arabic":"ينتّ","phonemes":"j i n u t t"}}
+    ]
+  },
+  "sin": {
+    "source":{"title":"פעלים שימושיים בערבית מדוברת — אות סין","url":"https://www.youtube.com/watch?v=DlM_AscrScY","dialect":"Palestinian spoken Arabic"},
+    "verbs":[
+      {"hebrew":"החביא, שמר","past":{"arabic":"ستر","phonemes":"s a t a r"},"future":{"arabic":"يستر","phonemes":"j i s t u r"}},
+      {"hebrew":"שמע","past":{"arabic":"سمع","phonemes":"s a m i ʕ"},"future":{"arabic":"يسمع","phonemes":"j i s m a ʕ"}},
+      {"hebrew":"עזר","past":{"arabic":"ساعد","phonemes":"s aː ʕ a d"},"future":{"arabic":"يساعد","phonemes":"j i s aː ʕ i d"}},
+      {"hebrew":"כישף","past":{"arabic":"سحر","phonemes":"s a ħ a r"},"future":{"arabic":"يسحر","phonemes":"j i s ħ a r"}},
+      {"hebrew":"שאל","past":{"arabic":"سأل","phonemes":"s a ʔ a l"},"future":{"arabic":"يسأل","phonemes":"j i s ʔ a l"}},
+      {"hebrew":"גר, שכן","past":{"arabic":"سكن","phonemes":"s a k a n"},"future":{"arabic":"يسكن","phonemes":"j i s k u n"}},
+      {"hebrew":"השתלט","past":{"arabic":"سيطر","phonemes":"s a j tˤ a r"},"future":{"arabic":"يسيطر","phonemes":"j i s a j tˤ i r"}},
+      {"hebrew":"נסע","past":{"arabic":"سافر","phonemes":"s aː f a r"},"future":{"arabic":"يسافر","phonemes":"j i s aː f i r"}},
+      {"hebrew":"הרגיז","past":{"arabic":"سفّن","phonemes":"s a f f a n"},"future":{"arabic":"يسفّن","phonemes":"j i s a f f i n"}},
+      {"hebrew":"סלח","past":{"arabic":"سامح","phonemes":"s aː m a ħ"},"future":{"arabic":"يسامح","phonemes":"j i s aː m i ħ"}},
+      {"hebrew":"גנב","past":{"arabic":"سرق","phonemes":"s a r a Q"},"future":{"arabic":"يسرق","phonemes":"j i s r u Q"}},
+      {"hebrew":"שתק","past":{"arabic":"سكت","phonemes":"s a k a t"},"future":{"arabic":"يسكت","phonemes":"j i s k u t"}},
+      {"hebrew":"צחק","past":{"arabic":"سخف","phonemes":"s a x a f"},"future":{"arabic":"يسخف","phonemes":"j i s x a f"}},
+      {"hebrew":"קילל","past":{"arabic":"سبّ","phonemes":"s a b b"},"future":{"arabic":"يسبّ","phonemes":"j i s u b b"}},
+      {"hebrew":"עזב","past":{"arabic":"ساب","phonemes":"s aː b"},"future":{"arabic":"يسيب","phonemes":"j i s iː b"}},
+      {"hebrew":"שיבח, עזר לשחות","past":{"arabic":"سبّح","phonemes":"s a b b a ħ"},"future":{"arabic":"يسبّح","phonemes":"j i s a b b i ħ"}},
+      {"hebrew":"הקל","past":{"arabic":"سهّل","phonemes":"s a h h a l"},"future":{"arabic":"يسهّل","phonemes":"j i s a h h i l"}},
+      {"hebrew":"סידר, עשה","past":{"arabic":"سوّى","phonemes":"s a w w a"},"future":{"arabic":"يسوّي","phonemes":"j i s a w w i"}}
+    ]
+  },
+  "ayn": {
+    "source":{"title":"פעלים שימושיים בערבית מדוברת — אות עין","url":"https://www.youtube.com/watch?v=BZU4jitxcuU","dialect":"Palestinian spoken Arabic"},
+    "verbs":[
+      {"hebrew":"גילה עירנות","past":{"arabic":"وعى","phonemes":"w a ʕ a"},"future":{"arabic":"يوعى","phonemes":"j i w ʕ a"}},
+      {"hebrew":"לימד","past":{"arabic":"علّم","phonemes":"ʕ a l l a m"},"future":{"arabic":"يعلّم","phonemes":"j i ʕ a l l i m"}},
+      {"hebrew":"כעס","past":{"arabic":"عكّر","phonemes":"ʕ a k k a r"},"future":{"arabic":"يعكّر","phonemes":"j i ʕ a k k i r"}},
+      {"hebrew":"הזיע","past":{"arabic":"عرق","phonemes":"ʕ a r i Q"},"future":{"arabic":"يعرق","phonemes":"j i ʕ r a Q"}},
+      {"hebrew":"איפס, כיוון","past":{"arabic":"عيّر","phonemes":"ʕ a j j a r"},"future":{"arabic":"يعيّر","phonemes":"j i ʕ a j j i r"}},
+      {"hebrew":"הכיר, ידע","past":{"arabic":"عرف","phonemes":"ʕ i r i f"},"future":{"arabic":"يعرف","phonemes":"j i ʕ r a f"}},
+      {"hebrew":"בירך לכבוד חג","past":{"arabic":"عايد","phonemes":"ʕ aː j a d"},"future":{"arabic":"يعايد","phonemes":"j i ʕ aː j i d"}},
+      {"hebrew":"ספר","past":{"arabic":"عدّ","phonemes":"ʕ a d d"},"future":{"arabic":"يعدّ","phonemes":"j i ʕ u d d"}},
+      {"hebrew":"חזר על","past":{"arabic":"عاد","phonemes":"ʕ aː d"},"future":{"arabic":"يعيد","phonemes":"j i ʕ iː d"}},
+      {"hebrew":"שם מכשול","past":{"arabic":"عرقل","phonemes":"ʕ a r Q a l"},"future":{"arabic":"يعرقل","phonemes":"j i ʕ a r Q i l"}},
+      {"hebrew":"חי","past":{"arabic":"عاش","phonemes":"ʕ aː ʃ"},"future":{"arabic":"يعيش","phonemes":"j i ʕ iː ʃ"}},
+      {"hebrew":"עבר, נכנס","past":{"arabic":"عبر","phonemes":"ʕ a b a r"},"future":{"arabic":"يعبر","phonemes":"j i ʕ b u r"}},
+      {"hebrew":"התעקש","past":{"arabic":"عاند","phonemes":"ʕ aː n a d"},"future":{"arabic":"يعاند","phonemes":"j i ʕ aː n i d"}},
+      {"hebrew":"נתן פיצוי","past":{"arabic":"عوّض","phonemes":"ʕ a w w a dˤ"},"future":{"arabic":"يعوّض","phonemes":"j i ʕ a w w i dˤ"}},
+      {"hebrew":"אהב, חיבב","past":{"arabic":"عزّ","phonemes":"ʕ a z z"},"future":{"arabic":"يعزّ","phonemes":"j i ʕ i z z"}},
+      {"hebrew":"הדיח, מיהר","past":{"arabic":"عجّل","phonemes":"ʕ a J J a l"},"future":{"arabic":"يعجّل","phonemes":"j i ʕ a J J i l"}},
+      {"hebrew":"בנה","past":{"arabic":"عمّر","phonemes":"ʕ a m m a r"},"future":{"arabic":"يعمّر","phonemes":"j i ʕ a m m i r"}}
+    ]
+  },
+  "ghayn": {
+    "source":{"title":"פעלים שימושיים בערבית מדוברת — אות ע'ין","url":"https://www.youtube.com/watch?v=kqtBFuKjx8o","dialect":"Palestinian spoken Arabic"},
+    "verbs":[
+      {"hebrew":"עזב, נעלם","past":{"arabic":"غاب","phonemes":"ɣ aː b"},"future":{"arabic":"يغيب","phonemes":"j i ɣ iː b"}},
+      {"hebrew":"שקע","past":{"arabic":"غرق","phonemes":"ɣ i r i Q"},"future":{"arabic":"يغرق","phonemes":"j i ɣ r a Q"}},
+      {"hebrew":"שטף","past":{"arabic":"غسل","phonemes":"ɣ a s a l"},"future":{"arabic":"يغسل","phonemes":"j i ɣ s i l"}},
+      {"hebrew":"כיסה","past":{"arabic":"غطّى","phonemes":"ɣ a tˤ tˤ a"},"future":{"arabic":"يغطّي","phonemes":"j i ɣ a tˤ tˤ i"}},
+      {"hebrew":"שינה","past":{"arabic":"غيّر","phonemes":"ɣ a j j a r"},"future":{"arabic":"يغيّر","phonemes":"j i ɣ a j j i r"}},
+      {"hebrew":"רתח","past":{"arabic":"غلى","phonemes":"ɣ a l a"},"future":{"arabic":"يغلي","phonemes":"j i ɣ l i"}},
+      {"hebrew":"ניצח","past":{"arabic":"غلب","phonemes":"ɣ a l a b"},"future":{"arabic":"يغلب","phonemes":"j i ɣ l a b"}},
+      {"hebrew":"סלח","past":{"arabic":"غفر","phonemes":"ɣ a f a r"},"future":{"arabic":"يغفر","phonemes":"j i ɣ f i r"}}
+    ]
+  },
+  "fa": {
+    "source":{"title":"פעלים שימושיים בערבית מדוברת — אות פא","url":"https://www.youtube.com/watch?v=pCn0vhBVR5Q","dialect":"Palestinian spoken Arabic"},
+    "verbs":[
+      {"hebrew":"נכשל","past":{"arabic":"فشل","phonemes":"f a ʃ a l"},"future":{"arabic":"يفشل","phonemes":"j i f ʃ a l"}},
+      {"hebrew":"הבין","past":{"arabic":"فهم","phonemes":"f i h i m"},"future":{"arabic":"يفهم","phonemes":"j i f h a m"}},
+      {"hebrew":"פתח","past":{"arabic":"فتح","phonemes":"f a t a ħ"},"future":{"arabic":"يفتح","phonemes":"j i f t a ħ"}},
+      {"hebrew":"נכנס, עבר","past":{"arabic":"فات","phonemes":"f aː t"},"future":{"arabic":"يفوت","phonemes":"j i f uː t"}},
+      {"hebrew":"הפריד","past":{"arabic":"فرّق","phonemes":"f a r r a Q"},"future":{"arabic":"يفرّق","phonemes":"j i f a r r i Q"}},
+      {"hebrew":"ברח","past":{"arabic":"فلّ","phonemes":"f a l l"},"future":{"arabic":"يفلّ","phonemes":"j i f u l l"}},
+      {"hebrew":"חשב, הניח","past":{"arabic":"فكّر","phonemes":"f a k k a r"},"future":{"arabic":"يفكّر","phonemes":"j i f a k k i r"}},
+      {"hebrew":"שחרר, התיר","past":{"arabic":"فكّ","phonemes":"f a k k"},"future":{"arabic":"يفكّ","phonemes":"j i f u k k"}},
+      {"hebrew":"התעורר","past":{"arabic":"فاق","phonemes":"f aː Q"},"future":{"arabic":"يفيق","phonemes":"j i f iː Q"}},
+      {"hebrew":"הפסיק, ניתק","past":{"arabic":"فصل","phonemes":"f a sˤ a l"},"future":{"arabic":"يفصل","phonemes":"j i f sˤ a l"}}
+    ]
+  },
+  "dad": {
+    "source":{"title":"פעלים שימושיים בערבית מדוברת — אות דאד","url":"https://www.youtube.com/watch?v=ULZkU-MoU6w","dialect":"Palestinian spoken Arabic"},
+    "verbs":[
+      {"hebrew":"היכה","past":{"arabic":"ضرب","phonemes":"dˤ a r a b"},"future":{"arabic":"يضرب","phonemes":"j i dˤ r u b"}},
+      {"hebrew":"צחק","past":{"arabic":"ضحك","phonemes":"dˤ i ħ i k"},"future":{"arabic":"يضحك","phonemes":"j i dˤ ħ a k"}},
+      {"hebrew":"נשאר","past":{"arabic":"ضلّ","phonemes":"dˤ a l l"},"future":{"arabic":"يضلّ","phonemes":"j i dˤ a l l"}},
+      {"hebrew":"הלך לאיבוד","past":{"arabic":"ضاع","phonemes":"dˤ aː ʕ"},"future":{"arabic":"يضيع","phonemes":"j i dˤ iː ʕ"}},
+      {"hebrew":"הבטיח","past":{"arabic":"ضمن","phonemes":"dˤ a m a n"},"future":{"arabic":"يضمن","phonemes":"j i dˤ m a n"}},
+      {"hebrew":"לחץ","past":{"arabic":"ضغط","phonemes":"dˤ a ɣ a tˤ"},"future":{"arabic":"يضغط","phonemes":"j i dˤ ɣ a tˤ"}}
+    ]
+  },
+  "sad": {
+    "source":{"title":"פעלים שימושיים בערבית מדוברת — אות צאד","url":"https://www.youtube.com/watch?v=jCpab4z3dXY","dialect":"Palestinian spoken Arabic"},
+    "verbs":[
+      {"hebrew":"קרה","past":{"arabic":"صار","phonemes":"sˤ aː r"},"future":{"arabic":"يصير","phonemes":"j i sˤ iː r"}},
+      {"hebrew":"צעק","past":{"arabic":"صرخ","phonemes":"sˤ a r a x"},"future":{"arabic":"يصرخ","phonemes":"j i sˤ r a x"}},
+      {"hebrew":"תיקן","past":{"arabic":"صلّح","phonemes":"sˤ a l l a ħ"},"future":{"arabic":"يصلّح","phonemes":"j i sˤ a l l i ħ"}},
+      {"hebrew":"צם","past":{"arabic":"صام","phonemes":"sˤ aː m"},"future":{"arabic":"يصوم","phonemes":"j i sˤ uː m"}},
+      {"hebrew":"צילם","past":{"arabic":"صوّر","phonemes":"sˤ a w w a r"},"future":{"arabic":"يصوّر","phonemes":"j i sˤ a w w i r"}},
+      {"hebrew":"סגר","past":{"arabic":"سكّر","phonemes":"s a k k a r"},"future":{"arabic":"يسكّر","phonemes":"j i s a k k i r"}},
+      {"hebrew":"התעורר","past":{"arabic":"صحي","phonemes":"sˤ i ħ i"},"future":{"arabic":"يصحى","phonemes":"j i sˤ ħ a"}}
+    ]
+  },
+  "qaf": {
+    "source":{"title":"פעלים שימושיים בערבית מדוברת — אות קאף","url":"https://www.youtube.com/watch?v=zx4scJYgYAM","dialect":"Palestinian spoken Arabic"},
+    "verbs":[
+      {"hebrew":"אמר","past":{"arabic":"قال","phonemes":"Q aː l"},"future":{"arabic":"يقول","phonemes":"j i Q uː l"}},
+      {"hebrew":"קרא","past":{"arabic":"قرأ","phonemes":"Q a r a ʔ"},"future":{"arabic":"يقرأ","phonemes":"j i Q r a ʔ"}},
+      {"hebrew":"ישב","past":{"arabic":"قعد","phonemes":"Q a ʕ a d"},"future":{"arabic":"يقعد","phonemes":"j i Q ʕ a d"}},
+      {"hebrew":"קם","past":{"arabic":"قام","phonemes":"Q aː m"},"future":{"arabic":"يقوم","phonemes":"j i Q uː m"}},
+      {"hebrew":"החליט","past":{"arabic":"قرّر","phonemes":"Q a r r a r"},"future":{"arabic":"يقرّر","phonemes":"j i Q a r r i r"}},
+      {"hebrew":"חתך","past":{"arabic":"قطع","phonemes":"Q a tˤ a ʕ"},"future":{"arabic":"يقطع","phonemes":"j i Q tˤ a ʕ"}},
+      {"hebrew":"סגר","past":{"arabic":"قفل","phonemes":"Q a f a l"},"future":{"arabic":"يقفل","phonemes":"j i Q f u l"}},
+      {"hebrew":"הסכים","past":{"arabic":"قبل","phonemes":"Q i b i l"},"future":{"arabic":"يقبل","phonemes":"j i Q b a l"}},
+      {"hebrew":"מדד","past":{"arabic":"قاس","phonemes":"Q aː s"},"future":{"arabic":"يقيس","phonemes":"j i Q iː s"}},
+      {"hebrew":"פגש","past":{"arabic":"قابل","phonemes":"Q aː b a l"},"future":{"arabic":"يقابل","phonemes":"j i Q aː b i l"}}
+    ]
+  },
+  "ra": {
+    "source":{"title":"פעלים שימושיים בערבית מדוברת — אות רא","url":"https://www.youtube.com/watch?v=fMIJT4HowVg","dialect":"Palestinian spoken Arabic"},
+    "verbs":[
+      {"hebrew":"הלך","past":{"arabic":"راح","phonemes":"r aː ħ"},"future":{"arabic":"يروح","phonemes":"j i r uː ħ"}},
+      {"hebrew":"ראה","past":{"arabic":"رأى","phonemes":"r a ʔ a"},"future":{"arabic":"يرى","phonemes":"j i r a"}},
+      {"hebrew":"חזר","past":{"arabic":"رجع","phonemes":"r a J a ʕ"},"future":{"arabic":"يرجع","phonemes":"j i r J a ʕ"}},
+      {"hebrew":"ענה","past":{"arabic":"ردّ","phonemes":"r a d d"},"future":{"arabic":"يردّ","phonemes":"j i r u d d"}},
+      {"hebrew":"רכב","past":{"arabic":"ركب","phonemes":"r i k i b"},"future":{"arabic":"يركب","phonemes":"j i r k a b"}},
+      {"hebrew":"רץ","past":{"arabic":"ركض","phonemes":"r a k a dˤ"},"future":{"arabic":"يركض","phonemes":"j i r k u dˤ"}},
+      {"hebrew":"סידר","past":{"arabic":"رتّب","phonemes":"r a t t a b"},"future":{"arabic":"يرتّب","phonemes":"j i r a t t i b"}},
+      {"hebrew":"זרק","past":{"arabic":"رمى","phonemes":"r a m a"},"future":{"arabic":"يرمي","phonemes":"j i r m i"}},
+      {"hebrew":"ניצח","past":{"arabic":"ربح","phonemes":"r i b i ħ"},"future":{"arabic":"يربح","phonemes":"j i r b a ħ"}},
+      {"hebrew":"גידל","past":{"arabic":"ربّى","phonemes":"r a b b a"},"future":{"arabic":"يربّي","phonemes":"j i r a b b i"}}
+    ]
+  },
+  "shin": {
+    "source":{"title":"פעלים שימושיים בערבית מדוברת — אות שין","url":"https://www.youtube.com/watch?v=yrL4wM1-jH8","dialect":"Palestinian spoken Arabic"},
+    "verbs":[
+      {"hebrew":"ראה","past":{"arabic":"شاف","phonemes":"ʃ aː f"},"future":{"arabic":"يشوف","phonemes":"j i ʃ uː f"}},
+      {"hebrew":"שתה","past":{"arabic":"شرب","phonemes":"ʃ i r i b"},"future":{"arabic":"يشرب","phonemes":"j i ʃ r a b"}},
+      {"hebrew":"עבד","past":{"arabic":"اشتغل","phonemes":"ʔ i ʃ t a ɣ a l"},"future":{"arabic":"يشتغل","phonemes":"j i ʃ t a ɣ i l"}},
+      {"hebrew":"קנה","past":{"arabic":"شرى","phonemes":"ʃ a r a"},"future":{"arabic":"يشري","phonemes":"j i ʃ r i"}},
+      {"hebrew":"הסביר","past":{"arabic":"شرح","phonemes":"ʃ a r a ħ"},"future":{"arabic":"يشرح","phonemes":"j i ʃ r a ħ"}},
+      {"hebrew":"הדליק","past":{"arabic":"شغّل","phonemes":"ʃ a ɣ ɣ a l"},"future":{"arabic":"يشغّل","phonemes":"j i ʃ a ɣ ɣ i l"}},
+      {"hebrew":"סחב","past":{"arabic":"شال","phonemes":"ʃ aː l"},"future":{"arabic":"يشيل","phonemes":"j i ʃ iː l"}},
+      {"hebrew":"השתתף","past":{"arabic":"شارك","phonemes":"ʃ aː r a k"},"future":{"arabic":"يشارك","phonemes":"j i ʃ aː r i k"}},
+      {"hebrew":"קילל","past":{"arabic":"شتم","phonemes":"ʃ a t a m"},"future":{"arabic":"يشتم","phonemes":"j i ʃ t u m"}},
+      {"hebrew":"משך","past":{"arabic":"شدّ","phonemes":"ʃ a d d"},"future":{"arabic":"يشدّ","phonemes":"j i ʃ u d d"}}
+    ]
+  },
+  "ta": {
+    "source":{"title":"פעלים שימושיים בערבית מדוברת — אות תא, חלק 1","url":"https://www.youtube.com/watch?v=z41lWU0o54M","dialect":"Palestinian spoken Arabic"},
+    "verbs":[
+      {"hebrew":"עזב","past":{"arabic":"ترك","phonemes":"t a r a k"},"future":{"arabic":"يترك","phonemes":"j i t r u k"}},
+      {"hebrew":"עייף","past":{"arabic":"تعب","phonemes":"t i ʕ i b"},"future":{"arabic":"يتعب","phonemes":"j i t ʕ a b"}},
+      {"hebrew":"למד","past":{"arabic":"تعلّم","phonemes":"t a ʕ a l l a m"},"future":{"arabic":"يتعلّم","phonemes":"j i t a ʕ a l l a m"}},
+      {"hebrew":"דיבר","past":{"arabic":"تكلّم","phonemes":"t k a l l a m"},"future":{"arabic":"يتكلّم","phonemes":"j i t k a l l a m"}},
+      {"hebrew":"התחתן","past":{"arabic":"تجوّز","phonemes":"t J a w w a z"},"future":{"arabic":"يتجوّز","phonemes":"j i t J a w w a z"}},
+      {"hebrew":"איחר","past":{"arabic":"تأخّر","phonemes":"t ʔ a x x a r"},"future":{"arabic":"يتأخّر","phonemes":"j i t ʔ a x x a r"}},
+      {"hebrew":"התקשר","past":{"arabic":"اتّصل","phonemes":"ʔ i t t a sˤ a l"},"future":{"arabic":"يتّصل","phonemes":"j i t t a sˤ i l"}},
+      {"hebrew":"השתנה","past":{"arabic":"تغيّر","phonemes":"t ɣ a j j a r"},"future":{"arabic":"يتغيّر","phonemes":"j i t ɣ a j j a r"}},
+      {"hebrew":"הסכים","past":{"arabic":"اتّفق","phonemes":"ʔ i t t a f a Q"},"future":{"arabic":"يتّفق","phonemes":"j i t t a f i Q"}},
+      {"hebrew":"התקדם","past":{"arabic":"تقدّم","phonemes":"t Q a d d a m"},"future":{"arabic":"يتقدّم","phonemes":"j i t Q a d d a m"}},
+      {"hebrew":"תרגם","past":{"arabic":"ترجم","phonemes":"t a r J a m"},"future":{"arabic":"يترجم","phonemes":"j i t a r J i m"}},
+      {"hebrew":"נזכר","past":{"arabic":"تذكّر","phonemes":"t DH a k k a r"},"future":{"arabic":"يتذكّر","phonemes":"j i t DH a k k a r"}}
+    ]
+  }
+}

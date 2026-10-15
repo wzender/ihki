@@ -310,6 +310,7 @@ body.driving .mic::before{display:none} body.driving .mic-zone.two{display:flex}
 .flag-facts{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:8px 0 0}
 .flag-facts dt{color:var(--muted);font-size:13px;white-space:nowrap}
 .flag-facts dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.phone-dialect{direction:rtl;text-align:right;margin-top:6px;font-size:13px;color:var(--muted)}
 .flag-facts .ipa{direction:ltr;text-align:right;font:13px/1.5 ui-monospace,monospace;unicode-bidi:isolate}
 .flag-facts ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
 .flag-facts b.good{color:var(--olive)} .flag-facts b.mid{color:#a86a00} .flag-facts b.bad{color:#9f2f27}
@@ -571,6 +572,55 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 .dlg-head h2{font:400 22px/1 var(--f-display);margin:0}
 .dlg-head h2 small{display:block;margin-top:4px;font:600 13px/1.3 var(--f-body);color:var(--muted)}
 .phone-note{margin:4px 0 12px;color:var(--muted);font-size:13px}
+/* the phoneme analysis is a teacher's desktop tool: it takes the whole screen */
+#phoneDlg{width:min(98vw,1880px);max-height:95vh}
+.stage-flow{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.stage-card{position:relative;display:flex;flex-direction:column;gap:6px;padding:10px 10px 9px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:12px;line-height:1.35;cursor:default}
+.stage-card:not(:last-child)::after{content:"←";position:absolute;left:-10px;top:14px;color:var(--muted);font-size:13px}
+.stage-card:hover,.stage-card.on{border-color:var(--olive);box-shadow:0 0 0 2px var(--olive-soft)}
+.stage-card h4{margin:0;font:700 13px/1.25 var(--f-body)}
+.stage-card h4 b{display:inline-grid;place-items:center;width:19px;height:19px;margin-inline-end:5px;border-radius:50%;background:var(--olive);color:#fff;font-size:11px}
+.stage-card .what{color:var(--muted)}
+.stage-card dl{display:grid;grid-template-columns:1fr auto;gap:2px 6px;margin:0}
+.stage-card dt{color:var(--muted)}
+.stage-card dd{margin:0;font-weight:700;font-variant-numeric:tabular-nums;direction:ltr;text-align:left}
+.stage-card .formula{direction:ltr;text-align:left;overflow-wrap:anywhere;padding:4px 6px;border-radius:6px;background:var(--surface);font:12px/1.4 ui-monospace,monospace}
+.stage-card .got{margin-top:auto;padding-top:6px;border-top:1px dashed var(--line);font-weight:700}
+.stage-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stage-panel{border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px}
+.stage-panel h4{margin:0 0 6px;font:700 13px/1.3 var(--f-body)}
+.stage-panel table{width:100%;border-collapse:collapse}
+.stage-panel td,.stage-panel th{padding:3px 6px;border-bottom:1px solid var(--line);text-align:start;font-variant-numeric:tabular-nums}
+.stage-panel tr.chosen{background:var(--ok-bg)}
+.stage-panel .eq{direction:ltr;text-align:left;font:13px/1.7 ui-monospace,monospace}
+.ltr{direction:ltr;unicode-bidi:isolate;font-family:ui-monospace,monospace}
+.stage-bar{position:relative;height:10px;margin:6px 0 2px;border-radius:999px;background:var(--line);direction:ltr}
+.stage-bar i{position:absolute;inset:0 auto 0 0;border-radius:999px;background:var(--olive)}
+.stage-bar b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--sumac)}
+.stage-table-wrap{overflow:auto;max-height:62vh;border:1px solid var(--line);border-radius:10px}
+.stage-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;font-variant-numeric:tabular-nums}
+.stage-table th{position:sticky;top:0;z-index:1;background:var(--surface);padding:6px 7px;border-bottom:1px solid var(--line);font:700 12px/1.25 var(--f-body);text-align:center;vertical-align:bottom}
+.stage-table th small{display:block;font-weight:500;color:var(--muted)}
+.stage-table td{padding:5px 7px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
+.stage-table tr.stage-word td{background:var(--olive-soft);font-weight:700;text-align:start}
+.stage-table tr.stage-word td .eq{display:inline-block;font:12px ui-monospace,monospace;direction:ltr;unicode-bidi:isolate;margin-inline-start:28px;font-weight:500;color:var(--muted)}
+.stage-table td.ok{background:var(--ok-bg);color:var(--ok)}
+.stage-table td.mid{background:var(--amber-bg);color:var(--amber)}
+.stage-table td.bad{background:var(--sumac-bg);color:var(--sumac)}
+.stage-table td.chg{box-shadow:inset 0 0 0 2px var(--olive)}
+.stage-table td.skip{color:var(--muted)}
+.stage-table td small{display:block;font-size:11px;color:var(--muted);font-weight:500}
+.stage-table .dec-flag{color:var(--sumac);font-weight:700}
+.stage-table .dec-issue{color:var(--amber);font-weight:700}
+.stage-table .dec-ok{color:var(--ok)}
+#stagesBox[data-hl="gop"] .st-gop,#stagesBox[data-hl="exemption"] .st-exemption,#stagesBox[data-hl="baseline"] .st-baseline,
+#stagesBox[data-hl="calibration"] .st-calibration,#stagesBox[data-hl="decision"] .st-decision,#stagesBox[data-hl="variant"] .st-variant,
+#stagesBox[data-hl="tips"] .st-tips{outline:2px solid var(--olive);outline-offset:-2px}
+#stagesBox[data-hl="word"] tr.stage-word td,#stagesBox[data-hl="sentence"] #stageSentence,#stagesBox[data-hl="unrelated"] #stageVariants{outline:2px solid var(--olive);outline-offset:-2px}
+.stage-legend{display:flex;gap:8px 16px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:var(--muted)}
+.stage-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:4px}
+.stage-legend .ok{background:var(--ok-bg)}.stage-legend .mid{background:var(--amber-bg)}.stage-legend .bad{background:var(--sumac-bg)}
+.stage-legend .chg{box-shadow:inset 0 0 0 2px var(--olive)}
 .phone-rows{direction:ltr;overflow-x:auto;padding:3px 0 8px}
 .phone-row{display:grid;grid-template-columns:72px repeat(var(--phones),minmax(34px,1fr));gap:4px;min-width:max-content;margin-bottom:5px;align-items:stretch}
 .phone-row>span{display:grid;place-items:center;min-height:34px;padding:3px 5px;border-radius:7px;background:var(--bg);font:600 16px/1.2 sans-serif}
@@ -976,6 +1026,15 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   <p class="phone-note">זהו פירוש המודל להקלטה, ולא תעתיק פונטי מוסמך. תנועות קרובות ואורך תנועה מסומנים כהתאמה מקורבת.</p>
   <div class="phone-rows" id="phoneRows"></div>
   <div class="phone-legend"><span><i class="good"></i>התאמה</span><span><i style="background:var(--olive-soft)"></i>התאמה מקורבת</span><span><i class="bad"></i>החלפה או השמטה</span><span><i class="mid"></i>תוספת</span></div>
+  <section id="stagesBox" hidden>
+    <h3 class="heatmap-title">שלבי הסיווג</h3>
+    <p class="phone-note">כל הגה עובר את השלבים לפי הסדר. הכרטיסים מציגים את הספים והמשקלים של כל שלב ומה קרה בהקלטה הזו. מעבר עם העכבר על כרטיס מדגיש את העמודות שלו בטבלה.</p>
+    <div class="stage-flow" id="stageFlow"></div>
+    <div class="stage-grid"><div class="stage-panel" id="stageVariants"></div><div class="stage-panel" id="stageSentence"></div></div>
+    <h3 class="heatmap-title">הגה אחר הגה</h3>
+    <div class="stage-table-wrap"><table class="stage-table" id="stageTable"></table></div>
+    <div class="stage-legend"><span><i class="ok"></i>מעל סף הרשימה</span><span><i class="mid"></i>בין סף הסימון לסף הרשימה</span><span><i class="bad"></i>מתחת לסף הסימון</span><span><i class="chg"></i>השלב שינה את הציון</span></div>
+  </section>
   <section id="trackBox"><h3 class="heatmap-title">מיקום הפונמות בזמן</h3><div class="phone-track-wrap"><canvas id="phoneTrack" role="img" aria-label="רצף הפונמות הצפוי והמזוהה לאורך זמן"></canvas></div></section>
   <section id="heatmapBox"><h3 class="heatmap-title">הסתברות פונמות לאורך ההקלטה</h3><div class="heatmap-wrap"><canvas id="phoneHeatmap" role="img" aria-label="מפת חום של הסתברויות הפונמות לאורך ההקלטה"></canvas></div><div class="heatmap-scale"><span>0%</span><i></i><span>100%</span><span>· ★ פונמה צפויה</span></div></section>
 </dialog>
@@ -2170,7 +2229,8 @@ function alignPhones(expected,heard){
   return out.reverse();
 }
 function drawPhones(r){
-  const expected=r.words.flatMap(w=>(w.phonemes||[]).map(p=>p.ipa)), heard=(r.heard_ipa||"").trim().split(/\s+/).filter(Boolean);
+  // a letter with several correct realisations (ق: ʔ / k / q) is compared with the one said, so an accepted one is not a mismatch
+  const expected=r.words.flatMap(w=>(w.phonemes||[]).map(p=>p.realised&&!p.flagged?p.realised:p.ipa)), heard=(r.heard_ipa||"").trim().split(/\s+/).filter(Boolean);
   const aligned=alignPhones(expected,heard), rows=$("phoneRows"); rows.innerHTML=""; rows.style.setProperty("--phones",aligned.length);
   const make=(name,which)=>{
     const row=mark("phone-row","","div"); row.append(mark("phone-label",name));
@@ -2182,8 +2242,144 @@ function drawPhones(r){
     rows.append(row);
   };
   make("צפוי",0); make("המודל שמע",1);
+  const dialect=r.mixed_dialect?"ניב: מעורב (עירוני וכפרי באותו משפט, לא הוריד ציון)":r.dialect==="urban"?"ניב: עירוני":r.dialect==="rural"?"ניב: כפרי":"";
+  if(dialect) rows.append(mark("phone-dialect",dialect,"div"));
   drawPhoneTrack(r.phoneme_heatmap);
   drawHeatmap(r.phoneme_heatmap);
+  drawStages(r);
+}
+// The classification stage by stage (r.trace, teachers only): the flow with each stage's thresholds and weights,
+// then every sound through the stages. Scores are 0..100; probabilities are the model's posteriors in the sound's window.
+const EXEMPTION_NAMES={glottal_dropped:"עצירה סותמית שהושמטה (ء / ق)",article_vowel_elided:"תנועת ה־ال אחרי תנועה",near_vowel:"תנועה קרובה"};
+function drawStages(r){
+  const box=$("stagesBox"), t=r.trace;
+  if(!t){ box.hidden=true; return; }
+  box.hidden=false;
+  const c=t.config, toks=t.tokens;
+  const E=(tag,cls,...kids)=>{ const e=document.createElement(tag); if(cls) e.className=cls; for(const k of kids) if(k!=null&&k!=="") e.append(k); return e; };
+  const num=(x,d=1)=>x==null?"—":String(Math.round(x*10**d)/10**d);
+  const pct=x=>x==null?"—":x>0&&x<0.001?"<0.1%":num(100*x,1)+"%";
+  const ltr=x=>E("span","ltr",String(x));
+  const band=s=>s>=c.issue_below?"ok":s>=c.flag_below?"mid":"bad";
+  const count=f=>toks.filter(f).length;
+  const stageOf=(x,name)=>x.stages.find(s=>s.stage===name);
+
+  // the flow: one card per stage, in order
+  const flow=$("stageFlow"); flow.innerHTML="";
+  const card=(id,n,title,what,params,formula,got)=>{
+    const el=E("div","stage-card",E("h4","",E("b","",String(n)),title),E("div","what",what));
+    el.dataset.stage=id;
+    if(params.length){ const dl=E("dl"); for(const [k,v] of params) dl.append(E("dt","",k),E("dd","",String(v))); el.append(dl); }
+    if(formula) el.append(E("div","formula",formula));
+    el.append(E("div","got",got));
+    el.onmouseenter=()=>{ box.dataset.hl=id; };
+    el.onmouseleave=()=>{ delete box.dataset.hl; };
+    flow.append(el);
+  };
+  const chosen=t.variants.find(v=>v.chosen)||{};
+  const u=t.unrelated, sen=t.sentence;
+  const flaggedN=count(x=>x.flagged), issueN=count(x=>x.issue), underFlag=count(x=>x.final<c.flag_below&&!x.flagged);
+  card("variant",1,"בחירת וריאנט","יישור כפוי (Viterbi) של כל וריאנט מקובל, כולל צורות דיפתונג; הסימנים המופשטים (Q, K, TH...) מאחדים מימושים.",
+    [["וריאנטים שנבדקו",t.variants.length],["קריטריון","log P מסלול מרבי"]],null,
+    `נבחר: log P ${num(chosen.logp,2)}`);
+  card("unrelated",2,"משפט אחר?","מרחק עריכה בין הפענוח החופשי לווריאנט, יחסית למספר ההגאים.",
+    [["סף יחסי",c.unrelated_ratio],["תקרת ציון",c.unrelated_cap]],`${u.distance} / ${u.tokens} = ${u.ratio}`,
+    u.unrelated?"משפט אחר: הציון מוגבל, בלי טיפים":"אותו משפט");
+  card("gop",3,"GOP לכל הגה","יחס בין ההגה הצפוי למתחרה החזק בחלון שלו, מוכפל בביטחון.",
+    [["λ סלחנות",c.leniency],["p לביטחון מלא",c.confident_peak],["השמטה: p צפוי <",c.deleted_peak],["… וגם p מתחרה <",c.deleted_comp]],
+    `100·e^(GOP·${c.leniency})·√min(1,p/${c.confident_peak})`,
+    `${count(x=>stageOf(x,"gop").score<c.flag_below)} הגאים מתחת ל־${c.flag_below} · ${count(x=>x.deleted)} הושמטו`);
+  card("exemption",4,"פטורים (6.3)","מה שהמודל שומע כטעות אבל הוא דיבור רגיל.",
+    c.exemptions.map(e=>[EXEMPTION_NAMES[e]||e,e==="near_vowel"?"≥ "+c.near_vowel_floor:"100"]),null,
+    `${count(x=>stageOf(x,"exemption").applied)} פטורים הוחלו`);
+  card("baseline",5,"קו בסיס ילידי","ציון ההגה מחולק בציון שהמודל נותן לקול הילידי על אותו הגה.",
+    [["הקלטות ילידיות",t.references.length],["ממוצע מינימלי לאמון",c.ref_min_mean]],"min(100, 100·score / ref)",
+    `${count(x=>stageOf(x,"baseline").applied)} הגאים הותאמו`);
+  card("calibration",6,"כיול מורה","רצפות שהמורה אישר לבלבול מסוים (צפוי → נשמע).",
+    [["מפתח","סמל, ואז הגה כתוב"]],"max(score, floor)",
+    `${count(x=>stageOf(x,"calibration").applied)} רצפות הוחלו`);
+  card("decision",7,"החלטת סימון","עיצור מסומן אם הציון נמוך והמתחרה ניצח במרווח של הזוג.",
+    [["סימון: ציון <",c.flag_below],["מרווח ברירת מחדל",c.margin_default],["זוגות עם מרווח",c.margins.length],["רשימת אי־דיוק: ציון <",c.issue_below]],
+    "−GOP ≥ margin(target, heard)",
+    `${flaggedN} מסומנים · ${issueN} ברשימה${underFlag?` · ${underFlag} נמוכים אך לא סומנו`:""}`);
+  card("word",8,"ציון מילה","שילוב של ההגה החלש במילה וממוצע ההגאים שלה.",
+    [["k משקל החלש",c.word_min_weight]],`k·min + (1−k)·mean`,
+    t.words.map(w=>Math.round(w.score)).join(" · "));
+  card("sentence",9,"ציון משפט","ממוצע הגאים משוקלל (תנועה במשקל נמוך) וממוצע המילים.",
+    [["משקל תנועה",c.vowel_weight],["ממוצע הגאים",sen.phone_weight],["ממוצע מילים",sen.word_weight]],
+    `${sen.phone_weight}·${sen.phone_mean} + ${sen.word_weight}·${sen.word_mean}`,
+    `${sen.before_cap} → ${sen.final}${sen.capped?" (מוגבל)":""}`);
+  card("tips",10,"טיפים","מהמסומנים: חומרה גבוהה קודם, ואז הציון הנמוך.",
+    [["מקסימום",c.max_tips],["מקסימום ברשימה",c.max_issues]],null,
+    t.tips.length?t.tips.map(x=>`${x.key} (${x.severity})`).join(" · "):"אין טיפים");
+
+  // variants and the "different sentence" check
+  const vp=$("stageVariants"); vp.innerHTML="";
+  vp.append(E("h4","","1–2 · הווריאנטים והבדיקה למשפט אחר"));
+  const vt=E("table"); vt.append(E("tr","",E("th","","ערבית"),E("th","","IPA"),E("th","","log P")));
+  for(const v of [...t.variants].sort((a,b)=>(b.logp??-1e9)-(a.logp??-1e9))){
+    const row=E("tr",v.chosen?"chosen":"",E("td","",v.ar),E("td","",ltr(v.ipa)),E("td","",ltr(v.logp==null?"קצר מדי":num(v.logp,2))));
+    vt.append(row);
+  }
+  vp.append(vt,E("div","",E("small","","עם סמלים: "),ltr(t.aipa)),E("div","",E("small","","הפענוח החופשי: "),ltr(u.heard||"—")));
+  const bar=E("div","stage-bar"), fill=E("i"), mk=E("b");
+  fill.style.width=Math.min(100,100*u.ratio)+"%"; mk.style.left=100*u.threshold+"%"; bar.append(fill,mk);
+  vp.append(bar,E("small","",`מרחק יחסי ${u.ratio} · הסף ${u.threshold} (הקו האדום)`));
+
+  // word and sentence formulas with this attempt's numbers
+  const sp=$("stageSentence"); sp.innerHTML="";
+  sp.append(E("h4","","8–9 · מילים ומשפט"));
+  const wt=E("table"); wt.append(E("tr","",E("th","","מילה"),E("th","","min"),E("th","","mean"),E("th","","k·min+(1−k)·mean")));
+  for(const w of t.words) wt.append(E("tr","",E("td","",w.tr),E("td","",ltr(num(w.min))),E("td","",ltr(num(w.mean))),
+    E("td","",ltr(`${c.word_min_weight}·${num(w.min)} + ${num(1-c.word_min_weight,2)}·${num(w.mean)} = ${num(w.score)}`))));
+  const vowels=toks.filter(x=>x.vowel).length;
+  sp.append(wt,E("div","eq",`phone_mean = Σ(w·score)/Σw  (w=${c.vowel_weight} ×${vowels} vowels, 1 ×${toks.length-vowels} consonants) = ${sen.phone_mean}`),
+    E("div","eq",`word_mean = ${sen.word_mean}`),
+    E("div","eq",`score = ${sen.phone_weight}·${sen.phone_mean} + ${sen.word_weight}·${sen.word_mean} = ${sen.before_cap}${sen.capped?` → min(·, ${c.unrelated_cap})`:""} → ${sen.final}`));
+
+  // every sound through the stages
+  const tb=$("stageTable"); tb.innerHTML="";
+  const head=[["#",""],["הגה","כתוב · סמל · מחלקה"],["חלון","פריימים",""],["P צפוי","","gop"],["מתחרה","P","gop"],["GOP","log יחס","gop"],
+    ["e^(GOP·λ)",`λ=${c.leniency}`,"gop"],["√ביטחון",`p/${c.confident_peak}`,"gop"],["ציון GOP","","gop"],["פטור","","exemption"],
+    ["קו בסיס","ref","baseline"],["כיול","floor","calibration"],["סופי","",""],["מרווח","בפועל / נדרש","decision"],
+    ["החלטה",`סימון <${c.flag_below} · רשימה <${c.issue_below}`,"decision"],["כלל","חומרה","tips"],["משקל","","sentence"]];
+  const hr=E("tr"); for(const [a,b,st] of head){ const th=E("th",st?"st-"+st:"",a,b?E("small","",b):null); hr.append(th); } tb.append(E("thead","",hr));
+  const body=E("tbody");
+  t.words.forEach((w,wi)=>{
+    body.append(E("tr","stage-word",(()=>{ const td=E("td","",`מילה ${wi+1}: ${w.tr} · ${num(w.score)}`,E("span","eq",`k·min + (1−k)·mean = ${c.word_min_weight}·${num(w.min)} + ${num(1-c.word_min_weight,2)}·${num(w.mean)} = ${num(w.score)}`)); td.colSpan=head.length; return td; })()));
+    for(const x of toks.filter(x=>x.word===wi)){
+      const gop=stageOf(x,"gop"), ex=stageOf(x,"exemption"), bl=stageOf(x,"baseline"), cal=stageOf(x,"calibration");
+      const who=E("td","",ltr(x.ipa));
+      if(x.sound!==x.ipa) who.append(E("small","",ltr(x.sound+(x.class?" {"+x.class.join(",")+"}":"")+(x.realised?" → "+x.realised:""))));
+      const comp=E("td","st-gop",x.deleted?"הושמט":x.competitor_other?"צליל לא מוכר":x.competitor?ltr(x.competitor):"—",E("small","",pct(x.p_competitor)));
+      const step=(st,stage,label)=>{ const td=E("td","st-"+stage+(st.applied?" chg "+band(st.score):" skip"),st.applied?num(st.score):"·");
+        if(label) td.append(E("small","",label)); return td; };
+      const m=x.margin, beyondTxt=m.beyond?"✓":"✗";
+      let dec, decCls;
+      if(x.flagged){ dec="מסומן"; decCls="dec-flag"; }
+      else if(x.issue){ dec="ברשימה"; decCls="dec-issue"; }
+      else if(x.final<c.flag_below&&x.vowel){ dec="תנועה: לא מסומנת"; decCls="dec-issue"; }
+      else if(x.final<c.flag_below&&!m.beyond){ dec="מרווח לא הושג"; decCls="dec-issue"; }
+      else if(x.final<c.issue_below){ dec="נמוך, לא ברשימה"; decCls="dec-issue"; }
+      else { dec="תקין"; decCls="dec-ok"; }
+      const decTd=E("td","st-decision",E("span",decCls,dec)); if(x.tip) decTd.append(E("small","","+ טיפ"));
+      body.append(E("tr","",
+        E("td","",String(x.i+1)), who,
+        E("td","",ltr(`${x.window[0]}–${x.window[1]}`),E("small","",ltr(`span ${x.span[0]}–${x.span[1]}`))),
+        E("td","st-gop",pct(x.p_target)), comp,
+        E("td","st-gop",ltr(num(x.gop,3))), E("td","st-gop",ltr(num(x.gop_factor,3))), E("td","st-gop",ltr(num(x.confidence_factor,3))),
+        E("td","st-gop "+band(gop.score),num(gop.score)),
+        step(ex,"exemption",ex.applied?(EXEMPTION_NAMES[ex.applied]||ex.applied):""),
+        step(bl,"baseline",bl.ref!=null?"ref "+num(bl.ref):""),
+        step(cal,"calibration",cal.floor!=null?"floor "+num(cal.floor):""),
+        E("td",band(x.final),num(x.final)),
+        E("td","st-decision",ltr(`${num(m.got,2)} / ${num(m.needed,2)} ${beyondTxt}`)),
+        decTd,
+        E("td","st-tips",x.rule?x.rule.title:"—",x.rule?E("small","","חומרה "+x.rule.severity):null),
+        E("td","st-sentence",String(x.weight))));
+    }
+  });
+  tb.append(body);
 }
 function heatColor(value){
   const stops=[[245,247,245],[159,196,172],[40,116,93],[240,180,60],[159,47,39]], x=Math.max(0,Math.min(100,value))/25;
