@@ -344,6 +344,17 @@ def test_dropped_glottal_stop_is_not_an_error():
     assert not r["tips"] and not any("עצירה" in i["sound"] for i in r["issues"])
 
 
+def test_ana_explicitly_accepts_the_natural_vowell_initial_form():
+    from app.grammar import PRONOUNS
+
+    ana = next(p for p in PRONOUNS if p[0] == "ana")
+    assert ("انا", "a n a") in ana[3]
+    phrase = {"variants": ana[3]}
+    r = scorer_for(emissions(["a", "n", "a"])).score(None, phrase)
+    assert r["variant"]["ipa"] == "a n a" and r["score"] >= 90
+    assert not r["tips"] and not r["issues"]
+
+
 def test_tts_endpoint_serves_phrase_audio_and_503_without_key():
     from fastapi.testclient import TestClient
 

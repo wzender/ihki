@@ -15,7 +15,9 @@ import itertools
 # subject pronouns, in the order used by every verb table below
 #            key       Hebrew    course tr   (arabic, ipa) readings, main one first
 PRONOUNS = [
-    ("ana",   "אני",    "אַנַא",    [("انا", "ʔ a n a")]),
+    # The initial glottal stop is routinely absent in natural Palestinian speech.  Keep both alignments so a weak
+    # breathy onset is not forced against ʔ and reported as h, while the written and displayed form stays identical.
+    ("ana",   "אני",    "אַנַא",    [("انا", "ʔ a n a"), ("انا", "a n a")]),
     ("inte",  "אתה",    "אִנְתֵ",    [("انت", "ʔ i n t e"), ("انت", "ʔ i n t a")]),
     ("inti",  "את",     "אִנְתִי",   [("انتي", "ʔ i n t i")]),
     ("huwwe", "הוא",    "הוּّ",     [("هوّ", "h u w w e"), ("هو", "h uː")]),
