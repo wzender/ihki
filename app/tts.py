@@ -27,6 +27,8 @@ TIMEOUT = 60
 # The single Sawtak voice used throughout the application.
 RAEF_VOICE_ID = "273d81b2-991b-5b76-8525-eeacc6a3d759"
 VOICES = {"רַאאִף": RAEF_VOICE_ID}
+# A female voice, only for the lines a dialogue gives her (workbook.LINE_VOICES); never offered on the page.
+LINE_VOICES = {"חנאן": "e41781f5-127c-5eb0-b83c-50bf52a64caf"}
 
 class TTSUnavailable(Exception):
     """No key configured, or the provider refused / failed. The message is safe to show."""
@@ -104,9 +106,9 @@ class SawtakTTS:
             return removed
 
     def wav(self, text: str, voice: str = "") -> tuple[bytes, str]:
-        """(WAV, Raef's voice id) for `text`, using the disk cache when available."""
+        """(WAV, voice id) for `text` in Raef's voice, or a dialogue line's own (LINE_VOICES); cached on disk."""
         with self._lock:
-            voice = RAEF_VOICE_ID
+            voice = voice if voice in LINE_VOICES.values() else RAEF_VOICE_ID
             path = self._path(text, voice)
             if path.exists():
                 return path.read_bytes(), voice

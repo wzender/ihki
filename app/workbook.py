@@ -3769,9 +3769,14 @@ LESSON_TABS = [{"id": lesson_id(level, n), "name": f"שיעור {shown}", "level
 # Topics the page lays out as a story: a conversation, all its lines on the card, said one after the other.
 # A conversation has its two speakers' voices, by name in the voice list: the odd lines are the first one's, the even the
 # second's. A story has none: it is told in the voice the student chose.
-STORIES = {"l2-talk": ("אמיר", "ראאף"), "l3-story": (), "l4-story": (), "l5-story": (), "l6-story": (), "l8-story": (), "l9-story": (), "l10-story": (), "l2.1-story": (), "l2.2-story": (), "l2.3-talk": ("אמיר", "ראאף"), "l2.3-story": (), "l2.4-talk": ("אמיר", "ראאף"), "l2.4-talk2": ("אמיר", "ראאף"), "l2.5-story": (), "l2.6-story": (), "l2.7-story": (), "l2.8-story": (), "l2.9-song": (), "l2.9-story": ()}
+STORIES = {"l2-talk": ("אמיר", "ראאף"), "l3-story": (), "l4-story": (), "l5-story": (), "l6-story": ("איוב", "נסרין"), "l8-story": (), "l9-story": (), "l10-story": (), "l2.1-story": (), "l2.2-story": (), "l2.3-talk": ("אמיר", "ראאף"), "l2.3-story": (), "l2.4-talk": ("אמיר", "ראאף"), "l2.4-talk2": ("אמיר", "ראאף"), "l2.5-story": (), "l2.6-story": (), "l2.7-story": (), "l2.8-story": (), "l2.9-song": (), "l2.9-story": ()}
 # What the card calls a topic's items where they are not sentences ("פועל 1 מתוך 4"), by topic id in any lesson,
 # and what it asks for where the answer is two forms said together.
+# A dialogue whose lines open with their speaker ("איוב: ..."): topic -> {speaker: the voice that plays them, "" for Raef's}.
+# The name is cut from what is said and scored and kept as the line's `speaker`, which the page writes before it;
+# a line without a name goes on in the last speaker's voice.
+DIALOGUES = {"l6-story": {"איוב": "", "נסרין": "חנאן"}}
+SPEAKER = re.compile(r"^(\S+): ")
 UNITS = {"days": "מילה", "hours": "שעה", "pron": "מילה", "verbs": "פועל", "dual": "מילה", "family": "מילה", "nums": "מילה", "fem": "מילה", "colors": "צבע", "adj": "תואר", "dem": "מילה"}
 TASKS = {"verbs": "אמרו את הפועל בערבית מדוברת: בעבר ואז בעתיד",
          "dual": "אמרו בערבית מדוברת: ביחיד ואז בזוגי",
@@ -4103,7 +4108,12 @@ def workbook_phrases() -> list[dict]:
     out = []
 
     def add(key, tid, kind, in_order, items, **extra):
+        speakers, who, said = DIALOGUES.get(f"l{lesson_id(*key)}-{tid}", {}), None, None
         for seq, (he, sentence, *he_say) in enumerate(items, 1):
+            m = SPEAKER.match(he)
+            if m and m[1] in speakers:
+                who = said = m[1]
+                he, sentence = he[m.end():], SPEAKER.sub("", sentence)
             words = [_word(t) for t in sentence.split()]
             phrase = dict(cat=f"l{lesson_id(*key)}-{tid}", he=he, tr=" ".join(t for _, t, _ in words),
                           variants=_variants(words), read=kind == "read", **extra)
@@ -4112,6 +4122,10 @@ def workbook_phrases() -> list[dict]:
                 phrase["he_say"] = say
             if in_order:
                 phrase["seq"] = seq
+            if said:
+                phrase["speaker"], said = said, None
+            if speakers.get(who):
+                phrase["voice"] = speakers[who]
             out.append(phrase)
 
     for key, topics in LESSONS.items():

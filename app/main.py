@@ -37,7 +37,7 @@ from .rules import TOGGLES, check_detectable
 from .scorer import Scorer, decode_audio, load_scorer
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
-from .tts import RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts
+from .tts import LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts
 from .verb_game import VerbExerciseGenerator
 
 logging.basicConfig(level=logging.INFO)
@@ -1230,13 +1230,14 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/tts/{phrase_id}", dependencies=members)
     def tts_phrase(phrase_id: int):
-        """The model answer spoken by Raef. 503 tells the page to use the device voice."""
-        names = {i: n for n, i in VOICES.items()}
-        text = point_arabic(*phrase_of(phrase_id)["variants"][0])
+        """The model answer spoken by Raef, or by a dialogue line's own voice. 503 tells the page to use the device voice."""
+        names = {i: n for n, i in {**VOICES, **LINE_VOICES}.items()}
+        phrase = phrase_of(phrase_id)
+        text = point_arabic(*phrase["variants"][0])
         if app.state.tts is None:
             raise HTTPException(503, "tts not configured")
         try:
-            data, used = app.state.tts.wav(text, RAEF_VOICE_ID)
+            data, used = app.state.tts.wav(text, LINE_VOICES.get(phrase.get("voice"), RAEF_VOICE_ID))
         except TTSUnavailable as e:
             raise HTTPException(503, str(e))
         tts = app.state.tts  # debug: lets the page show which voice spoke

@@ -774,7 +774,7 @@ def test_workbook_lesson_6():
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "פתרו את כל השיעור השישי" in hw["task"] and "פעם אחת בעבר ופעם אחת בעתיד" in hw["task"]
     story = mine[cats.index("l6-story")]
-    assert story["story"] and "voices" not in story
+    assert story["story"] and story["voices"] == ["איוב", "נסרין"]
     pub = public_phrases()
     assert [sum(p["cat"] == c for p in pub) for c in cats] == [24, 13, 5, 40, 11, 13, 12, 12, 12]
     reads = ("l6-read", "l6-read2", "l6-meetread")
@@ -789,6 +789,12 @@ def test_workbook_lesson_6():
     assert by["l6-past", "אתם נכנסתם"]["tr"] == "אִנְתוּ פֻתّוּ" and by["l6-past", "אני ראיתי"]["tr"] == "אַנַא שֻפֵת"
     p = next(p for p in PHRASES if p["cat"] == "l6-futsay" and p["seq"] == 3)
     assert p["tr"] == "אִחְנַא סַבַּחְנַא פִי אֵלְבַּחַר, בֻּכְּרַא נִסְבַּח פִי אֵלְבִּרְכֵּה."
+    # a dialogue: the speaker is written before a turn's first line but neither said nor scored;
+    # נסרין's turns are in Hanan's voice, איוב's in Raef's
+    lines = [p for p in PHRASES if p["cat"] == "l6-story"]
+    assert not any(":" in p["he"] or ":" in p["variants"][0][0] for p in lines)
+    assert [(p["seq"], p["speaker"]) for p in lines if "speaker" in p] == [(1, "איוב"), (2, "נסרין"), (3, "איוב"), (10, "נסרין")]
+    assert [p["seq"] for p in lines if p.get("voice") == "חנאן"] == [2, 10, 11, 12]
     p = next(p for p in PHRASES if p["cat"] == "l6-story" and p["seq"] == 9)
     assert p["tr"] == "לַוְ כַּאן עִנְד-י מַרַה זַיֵّ-כּ..." and p["variants"][0][0].endswith("زيّك...")
 

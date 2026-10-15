@@ -149,6 +149,6 @@ def public_phrases():
     return [
         {"id": i, "cat": p["cat"], "he": p["he"], "tr": p["tr"], "ar": p["variants"][0][0],
          "ar_pointed": point_arabic(*p["variants"][0]),
-         **{k: p[k] for k in ("grp", "pron", "neg", "listed", "seq", "read", "unlock", "binyan", "gizra") if k in p}}
+         **{k: p[k] for k in ("grp", "pron", "neg", "listed", "seq", "read", "unlock", "binyan", "gizra", "speaker") if k in p}}
         for i, p in enumerate(PHRASES) if p["cat"] in shown
     ]
