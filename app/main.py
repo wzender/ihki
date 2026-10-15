@@ -288,9 +288,9 @@ def utc(stamp: str) -> datetime:
 
 def summary(rows: list[dict], texts: dict[int, dict] | None = None) -> dict:
     """One student's attempts summed up: best score and tries per phrase id, recordings (all, and of the last
-    7 days), days practised, time of the last one. A recording that did not match the sentence on the screen
-    (unrelated) is a recording, on its day, but no try and no score: such ones are counted per phrase id in "missed",
-    and all together in "unmatched"."""
+    7 days), days practised, time of the last one. Every non-empty scored recording is a try and completes its
+    exercise, including one the recognizer labels unrelated. Those are still counted per phrase id in "missed"
+    and all together in "unmatched" as diagnostics."""
     shown = {c["id"] for c in CATEGORIES + GAMES}
     ids = {(p["cat"], p["he"]): i for i, p in enumerate(PHRASES) if p["cat"] in shown}
     ids.update({(p["cat"], p["key"]): i for i, p in (texts or {}).items()})   # the lines of the teacher's texts (see `text_bank`)
@@ -310,7 +310,7 @@ def summary(rows: list[dict], texts: dict[int, dict] | None = None) -> dict:
             unmatched += 1
             if i is not None:
                 missed[i] = missed.get(i, 0) + 1
-        elif i is not None:   # a sentence the page no longer lists still counts as a recording
+        if i is not None:   # a sentence the page no longer lists still counts as a recording
             best[i] = max(best.get(i, 0), r["score"])
             tries[i] = tries.get(i, 0) + 1
     return {"best": best, "tries": tries, "missed": missed, "unmatched": unmatched, "recordings": len(rows), "days": len(days), "week": week,
@@ -1139,10 +1139,30 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                     "message": "לא נשמע מספיק דיבור. האזינו להקלטה ונסו שוב."}
         result = SpeechEvaluationService(app.state.scorer).evaluate(
             wav, phrase, diagnostics=bool(user and user["teacher"]))
-        if result.get("outcome") == "correct":
-            app.state.verb_game.sessions.finish(question_id)
         result["level"] = question.mode
         return result
+
+    @app.post("/api/verb-game/flag")
+    def verb_flag(question_id: str = Form(...), audio: UploadFile = File(...), note: str = Form(""),
+                  user: dict | None = Depends(signed_in)):
+        """A tutor reports an incorrect judgement of a dynamic spoken verb answer."""
+        if not user or not user["tutor"]:
+            raise HTTPException(403, "tutors only")
+        try:
+            _question, phrase = app.state.verb_game.speech_phrase(question_id)
+        except LookupError as e:
+            raise HTTPException(410, str(e))
+        data = audio.file.read(MAX_UPLOAD + 1)
+        if len(data) > MAX_UPLOAD:
+            raise HTTPException(413, "recording too long")
+        try:
+            wav = decode_audio(data)
+        except ValueError:
+            raise HTTPException(400, "could not decode audio")
+        result = app.state.scorer.score(wav, phrase, [])
+        if result.get("error"):
+            raise HTTPException(400, result["message"])
+        return save_flag(phrase, result, data, audio.content_type, note, user)
 
     @app.get("/api/health")
     def health():
@@ -1244,7 +1264,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         result = app.state.scorer.score(wav, phrase, refs)
         if result.get("error"):
             raise HTTPException(400, result["message"])
-        mime = (audio.content_type or "application/octet-stream").lower()
+        return save_flag(phrase, result, data, audio.content_type, note, user)
+
+    def save_flag(phrase: dict, result: dict, data: bytes, content_type: str | None,
+                  note: str, user: dict) -> dict:
+        """Store a reviewed-score candidate from a bank phrase or a dynamic verb-game phrase."""
+        mime = (content_type or "application/octet-stream").lower()
         ext = AUDIO_EXT.get(mime.partition(";")[0].strip().rpartition("/")[2], "bin")
         row = {"email": user["email"].lower(), "cat": phrase["cat"], "phrase": phrase.get("key", phrase["he"]),
                "he": phrase["he"], "ar": result["variant"]["ar"], "ipa": result["variant"]["ipa"],

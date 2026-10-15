@@ -217,6 +217,7 @@ body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bot
 .verb-match{display:grid;grid-template-columns:1fr 1fr;gap:8px}.verb-match button{min-height:68px;padding:6px 8px 3px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:700 22px/1.7 var(--f-tr);letter-spacing:.03em}.verb-match button small{display:block;margin-top:-5px;font:500 17px/1.5 var(--f-tr);letter-spacing:.02em;color:var(--muted)}.verb-match button.selected{border-color:var(--amber);background:var(--amber-bg)}.verb-match button.done{border-color:var(--ok);opacity:.58}.verb-match .ar{display:block;margin-top:-4px;font:16px/1.25 var(--f-ar);letter-spacing:0}
 .verb-feedback{min-height:44px;padding:10px;border-radius:12px;text-align:center;font-weight:700}.verb-feedback:empty{padding:0}.verb-feedback.good{background:var(--ok-bg);color:var(--ok)}.verb-feedback.bad{background:var(--sumac-bg);color:var(--sumac)}
 .verb-speak{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}.verb-mic{display:grid;place-items:center;width:86px;height:86px;border:0;border-radius:50%;background:var(--olive);color:var(--on-olive);font-size:34px;box-shadow:0 5px 0 var(--olive-deep);cursor:pointer}.verb-mic.live{background:var(--sumac);box-shadow:0 5px 0 color-mix(in srgb,var(--sumac) 70%,#000)}.verb-mic:disabled{opacity:.5}.verb-record-actions{display:flex;gap:8px}.verb-conversation{padding:14px;border-radius:16px;background:var(--olive-soft)}.verb-conversation .ar{font:700 27px/1.6 var(--f-ar)}.verb-answer{font:700 25px/1.7 var(--f-tr);letter-spacing:.035em}
+.verb-record-actions{flex-wrap:wrap;justify-content:center}.verb-report{border-color:var(--sumac);color:var(--sumac)}.verb-report:disabled{opacity:.65}
 @media (max-width:410px){.verb-choices{grid-template-columns:1fr}.verb-shell{padding:12px}.verb-choice{min-height:62px}}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
 .meta{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;letter-spacing:.04em;font-variant-numeric:tabular-nums}
@@ -226,13 +227,30 @@ body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bot
 .prompt{font:400 clamp(22px,5vw,30px)/1.2 var(--f-display);text-wrap:balance;margin:0}
 .prompt .note{display:block;margin-top:4px;font:600 14px/1.3 var(--f-body);color:var(--muted)}
 .task{color:var(--muted);font-size:14px;margin:-6px 0 0}
-.hint{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 16px;padding:6px 12px;border-radius:10px;background:var(--olive-soft)}
-.hint .tr{font:700 25px/1.75 var(--f-tr);letter-spacing:.035em}
+.hint{display:flex;flex-direction:column;gap:5px;padding:9px 12px;border-radius:10px;background:var(--olive-soft)}
+.hint-label{color:var(--muted);font-size:13px}
+.word-reveals{display:flex}
+.word-reveal{width:100%;min-height:2.65em;padding:5px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);box-shadow:0 2px 0 var(--line);font:700 23px/1.45 var(--f-tr);letter-spacing:.025em;cursor:pointer;overflow:hidden}
+.word-reveal>*{filter:blur(6px);opacity:.62;transition:filter .16s ease,opacity .16s ease}
+.word-reveal:hover{border-color:var(--olive);background:color-mix(in srgb,var(--surface) 72%,var(--olive-soft))}
+.word-reveal.revealed{border-color:var(--olive);box-shadow:none}
+.word-reveal.scored{cursor:default}
+.word-reveal.revealed>*{filter:none;opacity:1}
+.word-reveal .ar{display:block;margin-top:-4px;font:500 16px/1.25 var(--f-ar);letter-spacing:0;color:var(--muted)}
+.word-reveal .he{display:block;margin-top:2px;font:600 17px/1.35 var(--f-body);letter-spacing:0;color:var(--muted)}
+.word-reveal .analysis-key{display:block;margin-bottom:5px;font:600 12px/1.3 var(--f-body);letter-spacing:0;color:var(--muted)}
+.word-reveal .analyzed{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px 12px}
+.word-reveal .analysis-word{display:grid;grid-template-rows:auto auto;justify-items:center;min-width:2em}
+.word-reveal .analysis-word .expected{font:700 23px/1.45 var(--f-tr);letter-spacing:.025em}
+.word-reveal .analysis-word .heard-word{width:100%;margin-top:2px;padding-top:3px;border-top:1px solid var(--line);font:600 17px/1.4 var(--f-tr);letter-spacing:.02em;color:var(--muted);text-align:center}
+.word-reveal .analysis-word .heard-word.empty{font-family:var(--f-body);font-weight:500}
+.word-reveal .analyzed .bad{color:var(--sumac)}
+.word-reveal .analyzed .mid{color:var(--amber)}
+.word-reveal .analyzed .good{color:inherit}
 /* doubling mark: drawn here, because an Arabic shadda on a Hebrew letter has no glyph on Android */
 .sh{position:relative}
 .sh::before{content:"";position:absolute;top:-.04em;left:50%;transform:translateX(-50%);width:.44em;height:.26em;background:currentColor;-webkit-mask:var(--shadda) center/contain no-repeat;mask:var(--shadda) center/contain no-repeat}
 :root{--shadda:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1v2a2 2 0 0 0 4 0v-1M5 3a2 2 0 0 0 4 0v-2' fill='none' stroke='%23000' stroke-width='1.3' stroke-linecap='round'/%3E%3C/svg%3E")}
-.hint .arline{font:500 16px/1.4 var(--f-ar);color:var(--muted)}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .btn{font:600 15px var(--f-body);border-radius:10px;padding:6px 12px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink)}
 /* the card's action bar: one line on a phone, the same gap between all its buttons; the icon ones share the width left
@@ -243,7 +261,6 @@ body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bot
 .bar .btn.primary small{color:inherit}
 .bar .btn .ic{margin:2px 0 1px}
 .bar .cd{display:flex;align-items:center;gap:4px;line-height:1}
-.bar #answerBtn{flex:0 0 auto;padding:6px 12px}
 .btn.primary{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
 .btn:disabled{opacity:.45;cursor:default}
 :focus-visible{outline:3px solid var(--olive);outline-offset:2px}
@@ -606,10 +623,13 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 /* A coloured letter knows why (what the sound was heard as). The dotted line under it says it can be asked: the mouse
    resting on it shows the reason, and so does a tap, in a bubble over the letter. */
 .word .w span.bad{background:none;color:var(--sumac)} .word .w span.mid{background:none;color:var(--amber)} .word .w span.good{background:none;color:inherit}
-.sline .tr .why,.word .w .why{text-decoration:underline dotted;text-decoration-thickness:2px;text-underline-offset:5px;cursor:help;-webkit-tap-highlight-color:transparent}
+.sline .tr .why,.word .w .why,.word-reveal .why{text-decoration:underline dotted;text-decoration-thickness:2px;text-underline-offset:5px;cursor:help;-webkit-tap-highlight-color:transparent}
 #whyTip{position:fixed;z-index:20;max-width:min(300px,calc(100vw - 16px));padding:8px 12px;border-radius:10px;background:var(--ink);color:var(--bg);font:500 14px/1.4 var(--f-body);box-shadow:0 6px 18px rgb(0 0 0/.3);pointer-events:none}
 #whyTip b{display:block;font-weight:700}
 #whyHint{margin:0}
+@media (hover:none),(max-width:520px){
+  #whyTip{inset:auto 8px calc(10px + env(safe-area-inset-bottom));max-width:none;text-align:center}
+}
 .card.storymode .prompt,.card.storymode .donehint,.card.storymode .task,.card.storymode .verdict,body.driving .story{display:none}
 body.driving .card.storymode .prompt{display:block}
 /* a story's quiz, once it ended: the grade is back on the card, over the mistakes made most often */
@@ -805,13 +825,13 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
     </div>
     <div class="donehint" id="heCheck" hidden></div>
 
-    <div class="hint" id="hint" hidden>
-      <div class="tr" id="hintTr"></div>
-      <div class="arline" id="hintAr" lang="ar" hidden></div>
+    <div class="hint" id="hint">
+      <span class="hint-label" id="hintLabel">לחצו על הכרטיסייה כדי לגלות את התשובה</span>
+      <div class="word-reveals" id="wordReveals"></div>
     </div>
 
     <section class="result" id="result" hidden>
-      <div class="verdict"><span class="score" id="score"></span><span class="pill" id="pill"></span><div class="words" id="words"></div></div>
+      <div class="verdict"><span class="score" id="score"></span><span class="pill" id="pill"></span><div class="words" id="words" hidden></div></div>
       <p class="sub" id="whyHint" hidden></p>
       <ul class="tips" id="tips"></ul>
       <div class="flag-box" id="flagBox" hidden>
@@ -828,7 +848,6 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
     <div class="row bar">
       <button class="btn" id="speakBtn" title="השמעת התשובה" aria-label="השמעת התשובה"><svg class="ic" aria-hidden="true"><use href="#i-sound"/></svg><small>השמע</small></button>
       <button class="btn" id="playMine" title="ההקלטה שלי, אחרי שהקלטתם" aria-label="ההקלטה שלי" disabled><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg><small>הקלטה</small></button>
-      <button class="btn" id="answerBtn">הצג תשובה</button>
       <button class="btn" id="prevBtn" title="המשפט הקודם" aria-label="המשפט הקודם"><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg><small>הקודם</small></button>
       <button class="btn" id="nextBtn" title="המשפט הבא" aria-label="המשפט הבא"><span class="cd"><b id="nextLeft"></b><svg class="ic" aria-hidden="true"><use href="#i-next"/></svg></span><small>הבא</small></button>
     </div>
@@ -1767,15 +1786,21 @@ function recordWhenReady(){
 function litWord(into,w){
   for(const l of w.letters){
     const sp=document.createElement("span"); if(l.score!=null) sp.className=band(l.score); setTr(sp,l.t);
-    if(l.why){ sp.classList.add("why"); sp.title=l.why+(l.tip?"\n"+l.tip:""); sp.onclick=e=>{ e.stopPropagation(); showWhy(sp,l); }; }   // not the line's own click
+    if(l.why){
+      sp.classList.add("why"); sp.title=l.why+(l.tip?"\n"+l.tip:""); sp.tabIndex=0; sp.setAttribute("role","button");
+      sp.setAttribute("aria-label",l.why+(l.tip?". "+l.tip:""));
+      sp.onclick=e=>{ e.stopPropagation(); showWhy(sp,l); };   // not the line's own click
+      sp.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); e.stopPropagation(); showWhy(sp,l); } };
+    }
     into.append(sp);
   }
 }
 const hasWhy=r=>r.words.some(w=>(w.letters||[]).some(l=>l.why));
-const WHY_HINT=(matchMedia("(hover:none)").matches?"הקישו על":"עמדו עם העכבר על")+" אות עם קו מנוקד כדי לראות מה נשמע במקומה";
+const WHY_HINT=(matchMedia("(hover:none)").matches?"הקישו על":"עמדו עם העכבר על")+" הגה עם קו מנוקד כדי לקבל הסבר";
 function showWhy(el,l){   // the bubble over the letter, or under it when there is no room above
   const tip=$("whyTip"); tip.innerHTML=""; tip.append(mark("",l.why,"b")); if(l.tip) tip.append(mark("",l.tip));
   tip.hidden=false;
+  if(matchMedia("(hover:none), (max-width:520px)").matches){ tip.style.left=tip.style.top=""; return; }
   const r=el.getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
   tip.style.left=Math.max(8,Math.min(innerWidth-w-8,r.left+r.width/2-w/2))+"px";
   tip.style.top=(r.top-h-8>=8?r.top-h-8:r.bottom+8)+"px";
@@ -1787,9 +1812,10 @@ for(const ev of ["pointerdown","keydown"]) addEventListener(ev,()=>{
   cancelAutoNext();   // any click or key keeps the sentence on screen
   if(hePending!=null){ const id=hePending; hePending=null; if(cur&&cur.id===id&&heAudio) heAudio.play().catch(()=>{}); }
 },true);
-// A grade above AUTO_NEXT moves on by itself after the grade has been seen for a moment; show() then reads the next prompt.
+// A grade at AUTO_NEXT.minimum or above moves on by itself after the grade has been seen for a moment; lower grades
+// stay on the card until the student presses "next", so there is time to inspect the pronunciation feedback.
 // The seconds left are counted down on the "next sentence" button.
-const AUTO_NEXT={above:80, seconds:3};
+const AUTO_NEXT={minimum:85, seconds:3};
 let autoNext=null;
 function cancelAutoNext(){ clearInterval(autoNext); autoNext=null; $("nextLeft").textContent=""; }
 function startAutoNext(){
@@ -1914,7 +1940,7 @@ $("quizBtn").onclick=()=>{
 };
 async function quizLine(r){   // a line was graded: its score on the line, and on to the next line that has none
   const q=quiz, id=cur.id;
-  if(!r.unrelated) keepScore(id,r.score);
+  keepScore(id,r.score);   // every recording with speech completes the line; empty recordings never reach this function
   q.got[id]=storyLast[id]=r; drawStory();
   if(q.over){ quizEnd(); return; }   // it was still being graded when the quiz ended
   const run=++storyRun; $("status").textContent=`ציון ${r.score}`;
@@ -1936,7 +1962,7 @@ function quizEnd(){
   }
   const top=Object.values(by).sort((a,b)=>b.n-a.n||a.low-b.low).slice(0,QUIZ.tips);
   $("score").textContent=s; $("pill").className="pill "+(s>=EXCELLENT?"good":s>=60?"mid":"bad"); $("pill").textContent=s>=EXCELLENT?"מצוין":s>=60?"כמעט":"נסו שוב";
-  const words=$("words"), tips=$("tips"); words.innerHTML=""; tips.innerHTML="";
+  const words=$("words"), tips=$("tips"); words.innerHTML=""; words.hidden=false; tips.innerHTML="";
   $("whyHint").hidden=true;
   words.append(mark("sub",`ציון הבוחן · נאמרו ${said.length} מתוך ${topic.length} משפטים`));
   top.forEach((g,k)=>{
@@ -1987,7 +2013,6 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   if(c.bubble){ $("prompt").style.animation="none"; void $("prompt").offsetWidth; $("prompt").style.animation=""; }
   heStop(); $("heCheck").hidden=true; micZone.classList.toggle("two",heOk&&!!cur.read&&!story);   // a phrase to read can be answered in Hebrew too
   $("task").textContent=cur.read?heOk?HE_TASK:"קראו בקול ותרגמו לעברית":mine&&c.task||"איך אומרים את זה בערבית מדוברת?";
-  $("answerBtn").textContent=cur.read?"הצג תרגום":"הצג תשובה";
   $("catName").textContent=c.name; $("lessonName").textContent=lessonName(LESSONS.find(l=>l.id===c.lesson));
   // the number and the bar are the sentence's place in the topic, whatever the round holds
   const b=best[cur.id], at=topic.indexOf(cur.id), hintBox=$("doneHint");
@@ -2000,7 +2025,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
     const n=document.createElement("b"); n.textContent=b;
     hintBox.className="donehint "+(b>=EXCELLENT?"good":b>=60?"mid":"bad"); hintBox.textContent="✓ כבר תרגלתם את המשפט הזה · הציון הטוב ביותר:"; hintBox.append(n);
   }
-  $("hint").hidden=true; $("hintAr").hidden=true; $("result").hidden=true;
+  drawWordReveals(); $("words").hidden=true; $("result").hidden=true;
   $("status").textContent=wait?IDLE:"ההקלטה מתחילה ונעצרת לבד";
   drawSilent();
   $("playMine").disabled=true; $("nextBtn").classList.remove("primary");   // the microphone is the one thing to press until there is a score
@@ -2042,7 +2067,7 @@ function drawSilent(){
     if(picked.map(i=>bank[i]).join(" ")!==words.join(" ")){ line.classList.add("bad"); $("status").textContent="עוד לא. שנו את הסדר ונסו שוב"; return; }
     done=true; draw();
     silent[p.id]=1; store.set("ihki.silent",silent); if(daily) dailySaid.add(p.id);
-    $("status").textContent="נכון ✓"; $("answerBtn").onclick(); $("nextBtn").classList.add("primary");
+    $("status").textContent="נכון ✓"; revealAllWords(); $("nextBtn").classList.add("primary");
   };
   draw(); box.append(line,pool,check);
 }
@@ -2109,8 +2134,8 @@ $("heBtn").onclick=async()=>{
     box.textContent="ציון התרגום:"; box.append(mark("",Math.round(share*100),"b"));   // the grade: the share of the translation's words that were heard
     box.append(` · ${share>=HE.pass?"✓ תרגום נכון":share>=HE.near?"כמעט":"לא דומה לתרגום"} · זוהו ${n} מתוך ${want.length} מילים · נשמע: ${said}`);
     box.hidden=false;
-    if(share>=HE.pass){ $("answerBtn").onclick(); $("nextBtn").classList.add("primary"); status.textContent="נכון ✓ אפשר גם לקרוא את המשפט בערבית, לציון על ההגייה"; }
-    else status.textContent="נסו שוב, או לחצו על ״הצג תרגום״: ייתכן שניסחתם אחרת";
+    if(share>=HE.pass){ revealAllWords(); $("nextBtn").classList.add("primary"); status.textContent="נכון ✓ אפשר גם לקרוא את המשפט בערבית, לציון על ההגייה"; }
+    else status.textContent="נסו שוב, או גלו את מילות התרגום: ייתכן שניסחתם אחרת";
   };
   try{ r.start(); }catch{ heRec=null; $("status").textContent="זיהוי הדיבור בעברית לא זמין כרגע. נסו שוב, או קראו את המשפט בערבית"; return; }
   btn.classList.add("live"); $("result").hidden=true; $("heCheck").hidden=true;
@@ -2265,24 +2290,14 @@ function render(r){
   pill.className="pill "+(s>=85?"good":s>=60?"mid":"bad");
   pill.textContent= r.unrelated ? "משפט אחר?" : s>=85?"מצוין": s>=60?"כמעט":"נסו שוב";
 
-  const words=$("words"); words.innerHTML="";
-  const legend=document.createElement("div"); legend.className="word legend";
-  legend.innerHTML='<div class="w">הנכון</div><div class="h">נשמע</div>'; words.appendChild(legend);
-  for(const w of r.words){
-    const box=document.createElement("div"); box.className="word";
-    const ar=document.createElement("div");   // letter by letter, as a story's line; a result without letters colours the whole word
-    if(w.letters&&w.letters.length){ ar.className="w"; litWord(ar,w); } else{ ar.className="w "+band(w.score); setTr(ar,w.tr); }
-    const hd=document.createElement("div"); hd.className="h"; setTr(hd,w.heard_tr||"–");
-    const n=document.createElement("div"); n.className="n"; n.textContent=Math.round(w.score)+" · ";
-    const a=document.createElement("span"); a.lang="ar"; a.textContent=w.ar; n.append(a);
-    box.append(ar,hd,n); words.appendChild(box);
-  }
+  $("words").hidden=true;
+  drawAnalyzedAnswer(r);
 
   $("whyHint").hidden=!hasWhy(r); $("whyHint").textContent=WHY_HINT;
   const tips=$("tips"); tips.innerHTML="";
   if(r.unrelated){
     const li=document.createElement("li");
-    li.innerHTML='<span class="what">ההקלטה לא דומה למשפט הצפוי</span><span>ייתכן שבחרתם ניסוח אחר. לחצו "הצג תשובה" ונסו את הנוסח המוצע.</span>';
+    li.innerHTML='<span class="what">ההקלטה לא דומה למשפט הצפוי</span><span>ייתכן שבחרתם ניסוח אחר. גלו את מילות התשובה ונסו את הנוסח המוצע.</span>';
     tips.appendChild(li);
   }
   for(const t of r.tips){
@@ -2306,14 +2321,12 @@ function render(r){
   }
   $("result").hidden=false;
   if($("story").hidden) $("result").scrollIntoView({block:"nearest",behavior:"smooth"});   // a story keeps its lines in view
-  if(!r.unrelated){   // a "different sentence" is not practice; the server leaves it out too
-    keepScore(cur.id,s); if(daily) dailySaid.add(cur.id);
-  }
+  keepScore(cur.id,s); if(daily) dailySaid.add(cur.id);   // only an empty recording is not practice
   const story=!driving&&!$("story").hidden;
   if(story){ storyLast[cur.id]=r; drawStory(); }   // the line was said: its grade and its Arabic appear on it
   if(story&&!(!r.unrelated&&s>STORY.pass)) storyRetry();
   if(bubbleCat()){ bubbleOutcome(r); return; }
-  if(!driving&&!r.unrelated&&s>AUTO_NEXT.above){   // driving mode moves on by itself, in its own loop
+  if(!driving&&!r.unrelated&&s>=AUTO_NEXT.minimum){   // driving mode moves on by itself, in its own loop
     $("status").textContent=`ציון ${s} ✓ עוברים למשפט הבא`;
     startAutoNext();
   }
@@ -2438,7 +2451,7 @@ async function startRec(auto){   // auto: started by the page for the sentence o
       const res=await api("/api/score",{method:"POST",body:fd});
       if(!res.ok) throw new Error(res.status);
       const r=await res.json();
-      if(home&&!r.error&&!r.unrelated) keepScore(id,r.score);   // graded after the student went back to the path: it still counts
+      if(home&&!r.error) keepScore(id,r.score);   // graded after the student went back to the path: it still counts
       if(home||cur.id!==id){ mic.disabled=false; finishRec({kind:"cancel"}); recordWhenReady(); return; }   // moved on while it was analysed
       render(r); mic.disabled=false; finishRec(r.error?{kind:"nospeech"}:{kind:"result",r});
     }catch(err){ $("status").textContent="הניתוח נכשל ("+err.message+"). נסו שוב."; mic.disabled=false; finishRec({kind:"fail"}); }
@@ -2447,8 +2460,40 @@ async function startRec(auto){   // auto: started by the page for the sentence o
 }
 $("playMine").onclick=()=>{ if(myAudioUrl) new Audio(myAudioUrl).play(); };
 
-/* ---------- hint, answer, TTS ---------- */
-$("answerBtn").onclick=()=>{ setTr($("hintTr"),cur.read?cur.he:cur.tr); $("hintAr").textContent=cur.ar; $("hint").hidden=false; $("hintAr").hidden=false; };
+/* ---------- word-by-word answer, TTS ---------- */
+function revealWord(button){
+  if(button.classList.contains("revealed")) return;
+  button.classList.add("revealed"); button.removeAttribute("aria-label");
+  for(const child of button.children) child.removeAttribute("aria-hidden");
+}
+function revealAllWords(){ for(const button of $("wordReveals").children) revealWord(button); }
+function drawAnalyzedAnswer(r){
+  const card=$("wordReveals").firstElementChild; if(!card) return;
+  const main=mark("analyzed","","span");
+  r.words.forEach(word=>{
+    const pair=mark("analysis-word","","span"), expected=mark("expected","","span");
+    if(word.letters&&word.letters.length) litWord(expected,word);
+    else{ expected.classList.add(band(word.score)); setTr(expected,word.tr); }
+    const heard=mark(`heard-word${word.heard_tr?"":" empty"}`,"","span"); setTr(heard,word.heard_tr||"לא זוהה");
+    pair.append(expected,heard); main.append(pair);
+  });
+  card.replaceChildren(mark("analysis-key","למעלה: התשובה · למטה: המערכת שמעה","small"),main);
+  card.append(mark("ar",cur.ar,"small"));
+  if(cur.read) card.append(mark("he",cur.he,"small"));
+  card.classList.add("revealed","scored"); card.removeAttribute("role"); card.removeAttribute("tabindex"); card.removeAttribute("aria-label"); card.onclick=null; card.onkeydown=null;
+  $("hintLabel").textContent=hasWhy(r)?WHY_HINT:"התשובה וניתוח ההגייה";
+}
+function drawWordReveals(){
+  const box=$("wordReveals"), answer=(cur.read?cur.he:cur.tr).trim();
+  box.replaceChildren();
+  const button=mark("word-reveal","","div"); button.setAttribute("role","button"); button.tabIndex=0;
+  button.setAttribute("aria-label",cur.read?"גלו את התרגום לעברית":"גלו את התרגום לערבית");
+  const main=mark("",answer); setTr(main,answer); main.setAttribute("aria-hidden","true"); button.append(main);
+  if(!cur.read){ const ar=mark("ar",cur.ar,"small"); ar.setAttribute("aria-hidden","true"); button.append(ar); }
+  button.onclick=()=>revealWord(button); box.append(button);
+  button.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); revealWord(button); } };
+  $("hintLabel").textContent=cur.read?"לחצו על הכרטיסייה כדי לגלות את התרגום לעברית":"לחצו על הכרטיסייה כדי לגלות את התרגום לערבית";
+}
 $("negBtn").onclick=()=>variation("negate");
 $("conjBtn").onclick=()=>variation("conjugate");
 function roundEnd(){   // a story stops at its end and waits for the microphone button; other topics go straight on
@@ -3570,9 +3615,16 @@ async function scoreVerbSpeech(blob,btn,status,actions){
   const replay=mark("btn","▶ ההקלטה שלי","button");replay.onclick=()=>new Audio(verbRecordingUrl).play();const retry=mark("btn","ניסיון נוסף","button");retry.onclick=()=>{actions.replaceChildren();status.textContent="לחצו והקליטו שוב"};actions.append(replay,retry);
   if(!r||!r.ok){status.textContent="הבדיקה אינה זמינה כרגע. ההקלטה לא נחשבה כטעות.";return}const result=await r.json(), feedback=$("verbFeedback");feedback.className="verb-feedback "+(result.outcome==="correct"?"good":result.outcome==="uncertain"?"":"bad");feedback.textContent=result.message||"נסו שוב";
   const answer=mark("verb-answer",result.variant?.tr||"","div");if(result.variant?.ar){answer.append(mark("ar",result.variant.ar));const hear=mark("btn","🔊 תשובה","button");hear.onclick=()=>{const u=new SpeechSynthesisUtterance(result.variant.ar);u.lang="ar-PS";speechSynthesis.cancel();speechSynthesis.speak(u)};actions.append(hear)}actions.before(answer);
+  if(TUTOR){const report=mark("btn verb-report","🚩 דווחו על טעות בבדיקה","button");report.title="ההקלטה, שתי המילים הצפויות ומה שהמודל שמע יישלחו לניטור";report.onclick=()=>reportVerbScore(q.question_id,blob,report,status);actions.append(report)}
   if(!result.counts_as_attempt)return;
   const ok=result.outcome==="correct", elapsed=Math.round(performance.now()-verbStarted), key=q.mastery_key,m=verbMastery[key]||{attempts:0,correct:0,times:[],streak:0};m.attempts++;if(ok)m.correct++;m.streak=ok?(m.streak||0)+1:0;m.times=[...(m.times||[]),elapsed].slice(-20);m.median_ms=[...m.times].sort((a,b)=>a-b)[m.times.length>>1];m.last=new Date().toISOString();verbMastery[key]=m;const s=verbSummary[q.level]||{attempts:0,correct:0};s.attempts++;if(ok)s.correct++;verbSummary[q.level]=s;store.set("ihki.verbMastery",verbMastery);store.set("ihki.verbSummary",verbSummary);drawVerbLevels();
-  if(ok){verbQuestion=null;verbStreak++;verbN++;status.textContent="נכון ✓";setTimeout(nextVerb,1100)}
+  if(ok){verbQuestion=null;verbStreak++;verbN++;status.textContent="נכון ✓";if(TUTOR){const next=mark("btn primary","השאלה הבאה","button");next.onclick=nextVerb;actions.append(next)}else setTimeout(nextVerb,1100)}
+}
+async function reportVerbScore(questionId,blob,button,status){
+  button.disabled=true;button.textContent="שולח…";const fd=new FormData();fd.append("question_id",questionId);fd.append("audio",blob,"answer.webm");fd.append("note","דיווח ממשחק פועל יוצא");
+  const r=await api("/api/verb-game/flag",{method:"POST",body:fd}).catch(()=>null);
+  if(r?.ok){button.textContent="✓ הדיווח נשלח";status.textContent="הדיווח נשמר בטאב ניטור. תודה!";return}
+  const detail=r?(await r.json().catch(()=>({}))).detail:"";button.disabled=false;button.textContent="🚩 נסו לשלוח שוב";status.textContent=`הדיווח לא נשמר${detail?`: ${detail}`:"."}`;
 }
 
 function useLessons(ids){   // the path shows these lessons only (null: every one)

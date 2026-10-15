@@ -1320,11 +1320,11 @@ def test_sign_in_guards_the_practice_endpoints():
             "best": {str(PHRASES.index(VERB)): 88}, "tries": {str(PHRASES.index(VERB)): 1}, "missed": {}, "unmatched": 0,
             "recordings": 1, "days": 1,
             "week": student["since"]["October 2026"]["week"], "last": "2026-10-09T10:00:00+00:00"}}
-        # a recording that did not match its sentence is counted apart: a recording, but no try and no score
+        # a recording with speech completes the exercise even when it did not match; it is also counted diagnostically
         from app.main import summary
         off = summary([{"cat": VERB["cat"], "phrase": VERB["he"], "score": 12, "unrelated": True, "created_at": "2026-10-09T11:00:00+00:00"},
                        {"cat": VERB["cat"], "phrase": VERB["he"], "score": 70, "unrelated": False, "created_at": "2026-10-09T10:00:00+00:00"}])
-        assert (off["best"], off["tries"], off["missed"]) == ({PHRASES.index(VERB): 70}, {PHRASES.index(VERB): 1}, {PHRASES.index(VERB): 1})
+        assert (off["best"], off["tries"], off["missed"]) == ({PHRASES.index(VERB): 70}, {PHRASES.index(VERB): 2}, {PHRASES.index(VERB): 1})
         assert (off["unmatched"], off["recordings"], off["last"]) == (1, 2, "2026-10-09T11:00:00+00:00")
         c.app.state.auth.cls[0]["created_at"] = "2026-10-10T00:00:00+00:00"   # opened after both
         since = c.get("/api/class", headers=good).json()["students"][0]["since"]["October 2026"]

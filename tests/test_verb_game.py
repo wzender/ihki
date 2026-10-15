@@ -86,6 +86,7 @@ def test_spoken_questions_keep_expected_forms_server_side(game, level):
     stored, phrase = game.speech_phrase(q["question_id"])
     assert stored.mode == level
     assert phrase["variants"]
+    assert phrase["cat"] == "verb-game" and phrase["key"] == q["mastery_key"] and phrase["he"]
     assert all(ar and ipa for ar, ipa in phrase["variants"])
     if level == 5:
         assert q["conversation"]["arabic"]

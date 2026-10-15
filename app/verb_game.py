@@ -251,13 +251,14 @@ class VerbExerciseGenerator:
         else:
             verb, pron = self._target(verbs, mastery, recent)
         form = _form(verb, pron)
+        p = PRONOUNS[pron]
         variants = [(form["arabic"], ipa) for ipa in form["ipas"]]
         if level == 5:
             pron_ar, pron_ipa = PRONOUNS[0][3][0]
             variants += [(f"{pron_ar} {form['arabic']}", f"{pron_ipa} | {ipa}") for ipa in form["ipas"]]
-        phrase = {"variants": variants}
+        phrase = {"variants": variants, "cat": "verb-game", "key": f"{verb}:past:{p[0]}:spoken",
+                  "he": f"{p[1]} · {VERB_META[verb]['name']} (עבר)"}
         qid = self.sessions.put(StoredQuestion(level, verb, {}, time.monotonic(), phrase=phrase))
-        p = PRONOUNS[pron]
         result = {
             "question_id": qid, "level": level, "tense": {"id": "past", "name": "עבר"},
             "verb": {"id": verb, "name": VERB_META[verb]["name"], "arabic": _form(verb, 3)["arabic"]},

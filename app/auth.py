@@ -146,11 +146,11 @@ class SupabaseAuth:
             log.warning("attempt not recorded: %s", e)
 
     def attempts(self, token: str) -> list[dict]:
-        """The student's attempts, newest first, without the "different sentence" ones: cat, phrase, score,
-        created_at. Row-level security limits them to the token's student. What cannot be read is logged."""
+        """The student's non-empty scored recordings, newest first: cat, phrase, score, unrelated, created_at.
+        Row-level security limits them to the token's student. What cannot be read is logged."""
         rows: list[dict] = []
         while len(rows) < MAX_ATTEMPTS:
-            query = urllib.parse.urlencode({"select": "cat,phrase,score,created_at", "unrelated": "is.false",
+            query = urllib.parse.urlencode({"select": "cat,phrase,score,unrelated,created_at",
                                             "order": "created_at.desc", "limit": PAGE, "offset": len(rows)})
             try:
                 batch = self._get(f"/rest/v1/attempts?{query}", token, self.key)
@@ -514,8 +514,8 @@ class SupabaseAuth:
         return users
 
     def all_attempts(self) -> list[dict]:
-        """Every student's attempts, as `attempts` gives one student's, each with its user_id, and with the "different
-        sentence" ones too (unrelated = true): the panel shows them beside the progress they are not part of."""
+        """Every student's attempts, as `attempts` gives one student's, each with its user_id. "Different sentence"
+        rows remain marked as unrelated for diagnostics, but count toward progress like every non-empty recording."""
         rows: list[dict] = []
         while len(rows) < MAX_CLASS_ATTEMPTS:
             query = urllib.parse.urlencode({"select": "user_id,cat,phrase,score,unrelated,created_at",

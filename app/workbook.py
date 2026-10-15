@@ -3,7 +3,7 @@
 A topic is a list of items, each written once as (Hebrew, Arabic), and is one of three kinds:
   "say":  Hebrew -> Arabic. The usual flow: Hebrew prompt, the student says it in Arabic.
   "read": Arabic -> Hebrew. The page shows the transliteration, the student reads it aloud (and is
-          scored on it) and checks the translation with "הצג תרגום".
+          scored on it) and can reveal the translation one word at a time.
   "write": the workbook's homework, sentences of the student's own. It has no items: the page shows its task
           (WRITING) and a line for each sentence. What is written is kept for the student (the Supabase table
           `writings`) and read by the teacher in the panel. Nothing is said or scored.
