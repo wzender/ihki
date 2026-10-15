@@ -32,7 +32,7 @@ from .auth import AuthUnavailable, ClassConflict, SupabaseAuth, load_auth
 from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .reference import References
-from .rules import check_detectable
+from .rules import TOGGLES, check_detectable
 from .scorer import Scorer, decode_audio, load_scorer
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
@@ -143,6 +143,10 @@ CREATE_CALIBRATIONS = ("create table public.calibrations (id bigint generated al
                        "reviewed_by text, reviewed_at timestamptz, created_at timestamptz not null default now()); "
                        "alter table public.calibrations enable row level security;")
 CALIBRATION_STATUSES = frozenset({"draft", "applied", "rejected"})
+# The teacher's switches over the rules of pronunciation-rules.md (rules.TOGGLES): a rule with no row is on.
+CREATE_SCORING_RULES = ("create table public.scoring_rules (id text primary key, active boolean not null default true, "
+                        "updated_by text not null default '', updated_at timestamptz not null default now()); "
+                        "alter table public.scoring_rules enable row level security;")
 # The students the teacher gave the tutor's rank (see auth.py): theirs in every class, so it is kept by email.
 CREATE_TUTORS = ("create table public.tutors (email text primary key, granted_by text not null default '', "
                  "created_at timestamptz not null default now()); alter table public.tutors enable row level security;")
@@ -333,6 +337,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 app.state.scorer.set_calibrations([r for r in rows if not r.get("model") or r.get("model") == MODEL_ID])
             except AuthUnavailable as e:
                 log.warning("calibrations not loaded: %s", e)
+        if app.state.auth and hasattr(app.state.auth, "scoring_rules"):
+            try:
+                reload_scoring_rules(app.state.auth)
+            except AuthUnavailable as e:   # no table yet: every rule stays on
+                log.warning("scoring rule switches not loaded: %s", e)
         yield
 
     app = FastAPI(title="ihki", lifespan=lifespan)
@@ -624,6 +633,47 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def reload_calibrations(a: SupabaseAuth) -> None:
         rows = a.calibrations("applied")
         app.state.scorer.set_calibrations([r for r in rows if not r.get("model") or r.get("model") == MODEL_ID])
+
+    def reload_scoring_rules(a: SupabaseAuth) -> None:
+        app.state.scorer.set_disabled(r["id"] for r in a.scoring_rules() if not r.get("active", True))
+
+    def scoring_rules_error(e: AuthUnavailable) -> HTTPException:
+        if "answered 404" in str(e):
+            return HTTPException(503, f"הטבלה scoring_rules לא קיימת. הריצו ב-SQL Editor: {CREATE_SCORING_RULES}")
+        return HTTPException(503, f"כללי ההגייה לא זמינים: {e}")
+
+    @app.get("/api/scoring-rules")
+    def scoring_rules(a: SupabaseAuth = Depends(teacher_only)):
+        """Every rule taken from pronunciation-rules.md, with whether it is on. All are on until a teacher says otherwise.
+        `stored` is False while the table is missing: the list still shows, but cannot be changed."""
+        s: Scorer = app.state.scorer
+        stored, rows = True, {}
+        try:
+            rows = {r["id"]: r for r in a.scoring_rules()}
+        except AuthUnavailable as e:
+            if "answered 404" not in str(e):
+                raise scoring_rules_error(e)
+            stored = False
+        detectable = check_detectable(s.rules, lambda ph: s.vocab.sound_id(ph) is not None, s.vocab.model_id)
+        return {"stored": stored, "create_sql": None if stored else CREATE_SCORING_RULES, "rules": [
+            {"id": t.id, "group": t.group, "section": t.section, "title": t.title, "description": t.description,
+             "active": t.id not in s.disabled,
+             "updated_by": rows.get(t.id, {}).get("updated_by", ""), "updated_at": rows.get(t.id, {}).get("updated_at"),
+             # a section-3 rule this model cannot hear at all (vowel length): switching it changes nothing
+             "detectable": detectable.get(t.id.removeprefix("rule_"), {}).get("detectable", True)}
+            for t in TOGGLES]}
+
+    @app.put("/api/scoring-rules/{rule_id}")
+    def switch_scoring_rule(rule_id: str, body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+                            user: dict | None = Depends(signed_in)):
+        if rule_id not in {t.id for t in TOGGLES} or not isinstance(body.get("active"), bool):
+            raise HTTPException(400, "unknown rule or invalid switch")
+        try:
+            a.set_scoring_rule(rule_id, body["active"], user["email"].lower())
+            reload_scoring_rules(a)
+        except AuthUnavailable as e:
+            raise scoring_rules_error(e)
+        return {"ok": True, "disabled": sorted(app.state.scorer.disabled)}
 
     @app.get("/api/calibrations")
     def calibration_proposals(a: SupabaseAuth = Depends(teacher_only)):

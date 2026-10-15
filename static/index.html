@@ -414,7 +414,19 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 #manage.flags :is(#mClasses,#mContent,#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.flags) #mFlags{display:none}
 .flag-review{gap:10px}.flag-review h2{margin:0}.flag-review .meta{color:var(--muted);font-size:13px}.flag-review fieldset{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:7px}
 .flag-review fieldset label{display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid var(--line);border-radius:9px}.flag-review select,.flag-review textarea{font:inherit;border:1px solid var(--line);border-radius:9px;padding:7px;background:var(--surface);color:var(--ink)}
-.flag-review textarea{width:100%;resize:vertical}.flag-patterns{width:100%;border-collapse:collapse;text-align:start}.flag-patterns :is(th,td){padding:6px;border-bottom:1px solid var(--line)}
+.flag-review textarea{width:100%;resize:vertical}
+.scoring-rules summary{cursor:pointer;font-size:17px}.scoring-rules details[open] summary{margin-bottom:8px}
+.scoring-rules .meta{color:var(--muted);font-size:13px}
+.rule-group h3{margin:14px 0 6px;font:700 14px/1.3 var(--f-body)}
+.rule-row{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;cursor:pointer}
+.rule-row input{margin-top:3px;width:17px;height:17px;flex:none}
+.rule-row.off{background:var(--bg);color:var(--muted)}
+.rule-text{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline}
+.rule-sec{font-size:12px;color:var(--muted)}
+.rule-desc{flex-basis:100%;font-size:13px;color:var(--muted)}
+.rule-note{flex-basis:100%;font-size:12px;color:var(--amber)}
+.rule-warn{padding:8px 10px;border-radius:10px;background:var(--amber-bg);color:var(--amber);font-size:13px}
+.rule-warn code{display:block;margin-top:4px;white-space:pre-wrap;word-break:break-all}.flag-patterns{width:100%;border-collapse:collapse;text-align:start}.flag-patterns :is(th,td){padding:6px;border-bottom:1px solid var(--line)}
 .activity{display:flex;flex-direction:column;gap:12px}.activity-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.activity-head h2{margin:0}.activity-head p{margin:3px 0 0;color:var(--muted);font-size:13px}
 .activity-head select{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}
 .activity-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.activity-stat{padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}.activity-stat b{display:block;font:400 28px/1 var(--f-display);font-variant-numeric:tabular-nums}.activity-stat small{color:var(--muted);font-size:12px}
@@ -613,7 +625,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 .stage-table .dec-flag{color:var(--sumac);font-weight:700}
 .stage-table .dec-issue{color:var(--amber);font-weight:700}
 .stage-table .dec-ok{color:var(--ok)}
-#stagesBox[data-hl="gop"] .st-gop,#stagesBox[data-hl="exemption"] .st-exemption,#stagesBox[data-hl="baseline"] .st-baseline,
+#stagesBox[data-hl="gop"] .st-gop,#stagesBox[data-hl="exemption"] .st-exemption,#stagesBox[data-hl="exemption"] .st-insertion,#stagesBox[data-hl="baseline"] .st-baseline,
 #stagesBox[data-hl="calibration"] .st-calibration,#stagesBox[data-hl="decision"] .st-decision,#stagesBox[data-hl="variant"] .st-variant,
 #stagesBox[data-hl="tips"] .st-tips{outline:2px solid var(--olive);outline-offset:-2px}
 #stagesBox[data-hl="word"] tr.stage-word td,#stagesBox[data-hl="sentence"] #stageSentence,#stagesBox[data-hl="unrelated"] #stageVariants{outline:2px solid var(--olive);outline-offset:-2px}
@@ -2289,9 +2301,10 @@ function drawStages(r){
     [["λ סלחנות",c.leniency],["p לביטחון מלא",c.confident_peak],["השמטה: p צפוי <",c.deleted_peak],["… וגם p מתחרה <",c.deleted_comp]],
     `100·e^(GOP·${c.leniency})·√min(1,p/${c.confident_peak})`,
     `${count(x=>stageOf(x,"gop").score<c.flag_below)} הגאים מתחת ל־${c.flag_below} · ${count(x=>x.deleted)} הושמטו`);
-  card("exemption",4,"פטורים (6.3)","מה שהמודל שומע כטעות אבל הוא דיבור רגיל.",
-    c.exemptions.map(e=>[EXEMPTION_NAMES[e]||e,e==="near_vowel"?"≥ "+c.near_vowel_floor:"100"]),null,
-    `${count(x=>stageOf(x,"exemption").applied)} פטורים הוחלו`);
+  card("exemption",4,"פטורים ותוספות","מה שהמודל שומע כטעות אבל הוא דיבור רגיל (6.3), ותנועה שנוספה בין עיצורים (3.10).",
+    [...c.exemptions.map(e=>[EXEMPTION_NAMES[e]||e,e==="near_vowel"?"≥ "+c.near_vowel_floor:"100"]),
+     ...(c.insertion?[["תנועה בין עיצורים: תקרה",c.insertion.score_cap],["… p תנועה ≥",c.insertion.min_peak],["… פריימים ≥",c.insertion.min_frames]]:[])],null,
+    `${count(x=>stageOf(x,"exemption").applied)} פטורים · ${count(x=>(stageOf(x,"insertion")||{}).applied)} תוספות תנועה`);
   card("baseline",5,"קו בסיס ילידי","ציון ההגה מחולק בציון שהמודל נותן לקול הילידי על אותו הגה.",
     [["הקלטות ילידיות",t.references.length],["ממוצע מינימלי לאמון",c.ref_min_mean]],"min(100, 100·score / ref)",
     `${count(x=>stageOf(x,"baseline").applied)} הגאים הותאמו`);
@@ -2340,7 +2353,7 @@ function drawStages(r){
   // every sound through the stages
   const tb=$("stageTable"); tb.innerHTML="";
   const head=[["#",""],["הגה","כתוב · סמל · מחלקה"],["חלון","פריימים",""],["P צפוי","","gop"],["מתחרה","P","gop"],["GOP","log יחס","gop"],
-    ["e^(GOP·λ)",`λ=${c.leniency}`,"gop"],["√ביטחון",`p/${c.confident_peak}`,"gop"],["ציון GOP","","gop"],["פטור","","exemption"],
+    ["e^(GOP·λ)",`λ=${c.leniency}`,"gop"],["√ביטחון",`p/${c.confident_peak}`,"gop"],["ציון GOP","","gop"],["פטור","","exemption"],["תנועה נוספת","3.10","insertion"],
     ["קו בסיס","ref","baseline"],["כיול","floor","calibration"],["סופי","",""],["מרווח","בפועל / נדרש","decision"],
     ["החלטה",`סימון <${c.flag_below} · רשימה <${c.issue_below}`,"decision"],["כלל","חומרה","tips"],["משקל","","sentence"]];
   const hr=E("tr"); for(const [a,b,st] of head){ const th=E("th",st?"st-"+st:"",a,b?E("small","",b):null); hr.append(th); } tb.append(E("thead","",hr));
@@ -2348,7 +2361,7 @@ function drawStages(r){
   t.words.forEach((w,wi)=>{
     body.append(E("tr","stage-word",(()=>{ const td=E("td","",`מילה ${wi+1}: ${w.tr} · ${num(w.score)}`,E("span","eq",`k·min + (1−k)·mean = ${c.word_min_weight}·${num(w.min)} + ${num(1-c.word_min_weight,2)}·${num(w.mean)} = ${num(w.score)}`)); td.colSpan=head.length; return td; })()));
     for(const x of toks.filter(x=>x.word===wi)){
-      const gop=stageOf(x,"gop"), ex=stageOf(x,"exemption"), bl=stageOf(x,"baseline"), cal=stageOf(x,"calibration");
+      const gop=stageOf(x,"gop"), ex=stageOf(x,"exemption"), ins=stageOf(x,"insertion")||{score:ex.score}, bl=stageOf(x,"baseline"), cal=stageOf(x,"calibration");
       const who=E("td","",ltr(x.ipa));
       if(x.sound!==x.ipa) who.append(E("small","",ltr(x.sound+(x.class?" {"+x.class.join(",")+"}":"")+(x.realised?" → "+x.realised:""))));
       const comp=E("td","st-gop",x.deleted?"הושמט":x.competitor_other?"צליל לא מוכר":x.competitor?ltr(x.competitor):"—",E("small","",pct(x.p_competitor)));
@@ -2357,6 +2370,7 @@ function drawStages(r){
       const m=x.margin, beyondTxt=m.beyond?"✓":"✗";
       let dec, decCls;
       if(x.flagged){ dec="מסומן"; decCls="dec-flag"; }
+      else if(ins.applied){ dec="תנועה מיותרת"; decCls="dec-flag"; }
       else if(x.issue){ dec="ברשימה"; decCls="dec-issue"; }
       else if(x.final<c.flag_below&&x.vowel){ dec="תנועה: לא מסומנת"; decCls="dec-issue"; }
       else if(x.final<c.flag_below&&!m.beyond){ dec="מרווח לא הושג"; decCls="dec-issue"; }
@@ -2370,6 +2384,7 @@ function drawStages(r){
         E("td","st-gop",ltr(num(x.gop,3))), E("td","st-gop",ltr(num(x.gop_factor,3))), E("td","st-gop",ltr(num(x.confidence_factor,3))),
         E("td","st-gop "+band(gop.score),num(gop.score)),
         step(ex,"exemption",ex.applied?(EXEMPTION_NAMES[ex.applied]||ex.applied):""),
+        step(ins,"insertion",ins.applied?"נוספה "+ins.applied:""),
         step(bl,"baseline",bl.ref!=null?"ref "+num(bl.ref):""),
         step(cal,"calibration",cal.floor!=null?"floor "+num(cal.floor):""),
         E("td",band(x.final),num(x.final)),
@@ -2864,6 +2879,7 @@ function sentence(p,under){   // a sentence as the student sees it, and a small 
 let CLASS=null, shownClass=store.get("ihki.mstudentClass","*");   // "*" is every student; otherwise the class on show
 let mMode=store.get("ihki.mmode","");   // the panel's part on show: "classes" or "students" (the classes, before the first one)
 let FLAG_REVIEWS={pending:[],confirmed:[]}, CALIBRATIONS=[], ATTEMPT_PATTERNS=[], flagsError="", flagsLoaded=false, flagAudioUrls=[];
+let SCORING_RULES=null, scoringRulesError="";   // the rules of pronunciation-rules.md and whether each is on (see drawScoringRules)
 let ACTIVITY=null, activityError="";
 let activityHours=+store.get("ihki.activityHours","24"); if(![24,168].includes(activityHours)) activityHours=24;
 let shownStudent="", classScroll=0;   // the student whose screen is on show (an email; "" for the class's), and where the class's was left
@@ -2965,6 +2981,11 @@ async function loadFlags(){
       get("/api/calibrations","calibrations"),get("/api/attempt-patterns","patterns")]);
     FLAG_REVIEWS={pending,confirmed}; CALIBRATIONS=calibrations; ATTEMPT_PATTERNS=attemptPatterns; flagsLoaded=true;
   }catch(err){ flagsError=err.message; flagsLoaded=true; }
+  try{   // apart from the reports: a missing table here must not hide them
+    const res=await api("/api/scoring-rules"), data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.detail||res.status);
+    SCORING_RULES=data; scoringRulesError="";
+  }catch(err){ SCORING_RULES=null; scoringRulesError=err.message; }
   await activity;
 }
 function flagIssues(f){
@@ -2973,10 +2994,58 @@ function flagIssues(f){
     out.push({word,expected:p.ipa,heard:p.heard||"_",label:`${w.tr||w.ar}: ${p.ipa} ← ${p.heard||"חסר"}`});
   return out;
 }
+// The rules taken from pronunciation-rules.md, each with a switch. All are on by default; switching one off brings back
+// the behaviour from before the document, for every student, from the next recording on.
+const RULE_GROUPS={accept:"מה נחשב נכון (ניבים)",judge:"איך נשפטת טעות",feedback:"מה נאמר לתלמיד"};
+function drawScoringRules(box){
+  const card=mark("card scoring-rules",""), details=document.createElement("details"), summary=document.createElement("summary");
+  card.append(details); details.append(summary); box.append(card);
+  if(!SCORING_RULES){ summary.textContent="כללי ההגייה"; details.append(mark("msg","לא ניתן לטעון את הכללים: "+(scoringRulesError||""),"p")); return; }
+  const rules=SCORING_RULES.rules, on=rules.filter(r=>r.active).length;
+  summary.append(mark("","כללי ההגייה מהמסמך","b"),mark("meta",` · ${on} מתוך ${rules.length} פעילים`));
+  details.append(mark("meta","הכללים שנוספו לציון מתוך pronunciation-rules.md. כולם פעילים כברירת מחדל. כיבוי כלל מחזיר את ההתנהגות שלפני המסמך, לכל התלמידים, מההקלטה הבאה.","p"));
+  if(!SCORING_RULES.stored){
+    const warn=mark("rule-warn",""); warn.append(mark("","כדי לשנות כללים צריך ליצור את הטבלה scoring_rules. הריצו ב-SQL Editor של Supabase:","p"),mark("ltr",SCORING_RULES.create_sql,"code"));
+    details.append(warn);
+  }
+  const msg=mark("msg","");
+  const actions=mark("row",""), all=mark("btn","הפעלת כל הכללים","button");
+  all.disabled=!SCORING_RULES.stored||on===rules.length;
+  all.onclick=async()=>{ all.disabled=true; msg.textContent="שומר…";
+    try{ for(const r of rules.filter(r=>!r.active)){ const res=await api(`/api/scoring-rules/${r.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({active:true})}); if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status); r.active=true; }
+      msg.textContent=""; box.innerHTML=""; drawFlags();
+    }catch(err){ msg.textContent="השמירה נכשלה: "+err.message; all.disabled=false; } };
+  actions.append(all,msg); details.append(actions);
+  for(const [group,label] of Object.entries(RULE_GROUPS)){
+    const list=rules.filter(r=>r.group===group); if(!list.length) continue;
+    const section=mark("rule-group",""); section.append(mark("",label,"h3"));
+    for(const r of list){
+      const row=document.createElement("label"), input=document.createElement("input"), text=mark("rule-text","");
+      row.className="rule-row"+(r.active?"":" off"); input.type="checkbox"; input.checked=r.active; input.disabled=!SCORING_RULES.stored;
+      text.append(mark("",r.title,"b"),mark("rule-sec",`סעיף ${r.section}`),mark("rule-desc",r.description,"span"));
+      if(!r.detectable) text.append(mark("rule-note","המודל הנוכחי לא מבחין בזה, כך שהכלל לא משנה דבר כרגע","span"));
+      if(r.updated_by) text.append(mark("rule-note",`${r.active?"הופעל":"כובה"} על ידי ${r.updated_by}`,"span"));
+      input.onchange=async()=>{
+        input.disabled=true; msg.textContent="שומר…";
+        try{
+          const res=await api(`/api/scoring-rules/${r.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({active:input.checked})});
+          const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status);
+          r.active=input.checked; row.classList.toggle("off",!r.active); msg.textContent="";
+          summary.lastChild.textContent=` · ${rules.filter(x=>x.active).length} מתוך ${rules.length} פעילים`;
+          all.disabled=rules.every(x=>x.active);
+        }catch(err){ input.checked=!input.checked; msg.textContent="השמירה נכשלה: "+err.message; }
+        input.disabled=false;
+      };
+      row.append(input,text); section.append(row);
+    }
+    details.append(section);
+  }
+}
 function drawFlags(){
   const box=$("mFlags"); box.innerHTML=""; for(const url of flagAudioUrls) URL.revokeObjectURL(url); flagAudioUrls=[];
   drawActivity(box);
   if(!flagsLoaded){ box.append(mark("card","בחרו בניטור כדי לטעון את הנתונים.")); return; }
+  drawScoringRules(box);
   if(flagsError){ const card=mark("card",""); card.append(mark("","לא ניתן לטעון את הדיווחים","h2"),mark("",flagsError,"p")); box.append(card); return; }
   if(CALIBRATIONS.some(c=>c.status!=="rejected"&&!(c.evidence||{}).dismissed)){
     const list=mark("card",""); list.append(mark("","הצעות כיול","h2"));

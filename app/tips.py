@@ -84,7 +84,9 @@ def letter_reason(expected: str, heard: str | None, check=None) -> dict:
     name = sound_name(expected) or expected
     heard = HEARD_ALIASES.get(heard, heard)
     other = sound_name(heard)
-    if heard == "_":
+    if heard and heard.startswith("+"):   # a vowel added before this consonant (rules 3.10)
+        why = f"נוספה {sound_name(heard[1:]) or 'תנועה'} לפני {name}"
+    elif heard == "_":
         why = f"{name} לא נשמעה"
     elif other and other != name:
         why = f"{name} נשמעה כמו {other}"
@@ -104,7 +106,7 @@ def tip_for(expected: str, heard: str | None, check=None) -> dict | None:
 
     `check` (rules.Check) is the rule of pronunciation-rules.md for this substitution: its feedback and
     severity win over TIPS. The key stays "expected>heard" either way."""
-    if expected in VOWELS:
+    if expected in VOWELS and not check:   # a short vowel gets a tip only from a rule that flags it (3.11)
         return None
     heard = HEARD_ALIASES.get(heard, heard) if heard else "_"
     if heard == "_" and expected in NO_DELETION_TIP:

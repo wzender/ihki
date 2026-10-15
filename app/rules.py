@@ -55,6 +55,10 @@ class Rules:
     titles: dict[str, str]                       # rule id -> title
     heard_labels: dict[str, str]
     margins: dict[tuple[str, str], float] = field(default_factory=dict)
+    # a vowel heard between two consonants of a word (3.10): rule, severity, min_peak, min_frames, score_cap, feedback
+    insertion: dict | None = None
+    # short vowels a rule flags although short vowels are not flagged (6.3 #7): vowel -> rule id (3.11: u)
+    flag_vowels: dict[str, str] = field(default_factory=dict)
 
     def members(self, symbol: str, written: str | None = None) -> list[str]:
         """The correct realisations of an abstract symbol, in base() names, first the dialects' own.
@@ -123,7 +127,13 @@ def parse(text: str) -> Rules:
     archi, dialects, optional, scoring, labels = {}, ["urban", "rural"], False, {}, {}
     checks: dict[tuple[str, str], Check] = {}
     titles: dict[str, str] = {}
+    insertion, flag_vowels = None, {}
     for doc in _blocks(text):
+        if "insertion" in doc:
+            titles[doc["id"]] = doc.get("title", doc["id"])
+            insertion = {"rule": doc["id"], **doc["insertion"]}
+        for v in doc.get("flag_vowels", []):
+            flag_vowels[str(v)] = doc["id"]
         if "archiphonemes" in doc:
             archi = {k: {d: list(v.get(d, [])) for d in ("urban", "rural", "also_ok", "optional")}
                      for k, v in doc["archiphonemes"].items()}
@@ -140,7 +150,7 @@ def parse(text: str) -> Rules:
                     key = (norm(str(c["target"])), norm(str(heard)))
                     # two spellings of one sound (ʁ and ɣ) meet here: the first rule written wins
                     checks.setdefault(key, Check(doc["id"], key[0], key[1], int(c["severity"]), str(c["feedback"])))
-    rules = Rules(archi, dialects, optional, scoring, checks, titles, labels)
+    rules = Rules(archi, dialects, optional, scoring, checks, titles, labels, insertion=insertion, flag_vowels=flag_vowels)
     for m in scoring.get("margins", []):
         # base() drops vowel length, so a margin for long vowels would land on quality pairs (a / i) it was not meant for
         for t in (t for t in m["target"] if "ː" not in str(t)):
@@ -235,3 +245,87 @@ EXEMPTIONS = [
     ("article_vowel_elided", _article_vowel_elided, None),
     ("near_vowel", _near_vowel, "near_vowel_floor"),
 ]
+
+
+# ---------- the rules a teacher can switch off (ניטור): every behaviour taken from pronunciation-rules.md ----------
+
+@dataclass(frozen=True)
+class Toggle:
+    id: str
+    group: str        # "accept": what counts as correct · "judge": how a mistake is judged · "feedback": what is said
+    section: str      # where pronunciation-rules.md has it
+    title: str
+    description: str  # what the scorer does while the rule is on; off is the behaviour before the document
+
+
+def _toggles() -> list[Toggle]:
+    letters = [
+        ("Q", "ق", "ʔ (עירוני), k (כפרי) או q", "אַהְוֶה, כַּהְוֶה וקַהְוֶה נכונות שלושתן."),
+        ("K", "ك", "k או tʃ (כפרי)", "כַּלְבּ וצ'ַלְבּ נכונות שתיהן."),
+        ("TH", "ث", "t או θ (כפרי), ו־s במילים ספרותיות כשהמשפט כותב s", "תְלַאתֶה ות'לַאת'ֶה נכונות שתיהן."),
+        ("DH", "ذ", "d או ð (כפרי), ו־z במילים ספרותיות כשהמשפט כותב z", "דַהַבּ וד״ַהַבּ נכונות שתיהן."),
+        ("ZH", "ظ", "dˤ, zˤ או ðˤ", "ד'ֻהְר וט'ֻהְר נכונות שתיהן."),
+        ("J", "ج", "dʒ או ʒ", "ג' כמו בג'ינס או ז' כמו בז'קט."),
+    ]
+    out = [Toggle(f"dialect_{s}", "accept", "5", f"{ar}: {said}",
+                  f"כל המימושים נכונים, וההגה נמדד מול סכום ההסתברויות שלהם (6.1). {ex} "
+                  f"כבוי: נבדק רק המימוש שכתוב במשפט.") for s, ar, said, ex in letters]
+    out += [
+        Toggle("final_vowel", "accept", "6.3 #5", "תנועה סופית של ة: a, e או i",
+               "אַהְוֶה, אַהְוַה ואַהְוִי נכונות. כבוי: נבדקת התנועה שכתובה במשפט."),
+        Toggle("diphthong", "accept", "6.3 #8", "eː גם כ־aj, ו־oː גם כ־aw",
+               "בֵּית ובַּיְת נכונות שתיהן (נבדק כווריאנט נוסף). כבוי: רק התנועה הארוכה."),
+        Toggle("glottal_dropped", "judge", "6.3 #1–2", "עצירה סותמית שהושמטה אינה טעות",
+               "ʔ (ء, ו־ق עירונית) שלא נשמעה מקבלת ציון מלא, כמו אצל דוברים ילידיים (אַנַא ← אנה)."),
+        Toggle("article_vowel_elided", "judge", "6.3 #3", "תנועת ה־ال אחרי תנועה",
+               "ה־i של ال שלא נאמרה אחרי מילה שמסתיימת בתנועה (עַלַא לְ...) אינה טעות."),
+        Toggle("near_vowel", "judge", "6.3 #7", "תנועות קרובות",
+               "תנועה שנשמעה כשכנתה (i/e, u/o, a/e) או באורך אחר מקבלת לפחות 90."),
+        Toggle("margins", "judge", "6.2", "מרווח ביטחון לזוגות שהמודל מבלבל",
+               "עיצור מודגש נחשב שגוי רק אם הרגיל סביר ממנו פי 2 בערך, ħ מול h פי 1.5, "
+               "ו־h נחשבת שנבלעה רק אם היא חלשה פי 2 מסף ההשמטה. "
+               "כבוי: כל מתחרה שמנצח מסמן טעות."),
+        Toggle("unnamed_sounds", "judge", "7", "צליל שאינו בערבית או בעברית לא נקרא בשמו",
+               "כשהמודל הרב־לשוני שומע צליל זר (נקישה, צליל רטרופלקסי) הוא מדווח כ'לא ברור'. כבוי: נאמר שם הסמל."),
+        Toggle("tips_by_severity", "feedback", "6.2", "סדר הטיפים לפי חומרה, עד 3",
+               "טעות שמשנה משמעות (ח, ע) מוצגת לפני מבטא, ואחריה הציון הנמוך. כבוי: לפי הציון בלבד, עד 4."),
+    ]
+    own = {
+        "cluster": "תנועה שהמודל שומע בבירור בין שני עיצורים של אותה מילה (katiir במקום ktiir) מורידה את העיצור השני "
+                   "לכל היותר ל־60, עם טיפ בחומרה 1. לא בצרור שפותח את המשפט, ולא ליד w או j. כבוי: תנועה שנוספה לא נבדקת.",
+        "kubutz": "u אחרי עיצור היא התנועה הקצרה היחידה שמסומנת: כשנשמטה, או נשמעה כ־e, i או שווא. "
+                  "כ־o היא עדיין תנועה קרובה. כבוי: כמו שאר התנועות הקצרות, לא מסומנת.",
+    }
+    for rule_id, title, section in (("pharyngeal_h", "ח לועית", "3.1"), ("ayin", "ע לועית", "3.2"),
+                                    ("emphatics", "עיצורים מודגשים", "3.3"), ("r_tap", "ר מתגלגלת", "3.4"),
+                                    ("ghain", "ע' היא ה־ר העברית", "3.5"), ("h", "ה נהגית תמיד", "3.6"),
+                                    ("w", "ו היא w", "3.7"), ("b", "ב היא תמיד b", "3.7"), ("f", "פ היא תמיד f", "3.7"),
+                                    ("vowel_length", "תנועה ארוכה", "3.8"), ("jim", "ג' ולא g", "3.9"),
+                                    ("cluster", "שני עיצורים צמודים", "3.10"), ("kubutz", "קובוץ ברור", "3.11")):
+        out.append(Toggle(f"rule_{rule_id}", "judge" if rule_id in own else "feedback", section, title,
+                          own.get(rule_id) or
+                          f"הטיפ והחומרה (בסוגריים) מהמסמך כשנשמע: {_confusions(rule_id)}. "
+                          "כבוי: טיפ כללי בחומרה בינונית; ההחלטה אם לסמן לא משתנה."))
+    return out
+
+
+def _confusions(rule_id: str) -> str:
+    """'ח ← ח עברית (3), ה (2), נבלעת (2)': the substitutions a section-3 rule speaks for, in Hebrew labels."""
+    rules = load()
+    by_target: dict[str, list[str]] = {}
+    for c in rules.checks.values():
+        if c.rule == rule_id:
+            heard = rules.label(c.heard) or c.heard
+            item = f"{'נבלעת' if c.heard == '_' else heard} ({c.severity})"
+            if item not in by_target.setdefault(c.target, []):
+                by_target[c.target].append(item)
+    return "; ".join(f"{_LETTER.get(t, t)} ← {', '.join(items)}" for t, items in by_target.items())
+
+
+# a target sound by the letter of the transliteration (section 1), for the teacher's list
+_LETTER = {"ħ": "ח", "ʕ": "ע", "sˤ": "צ", "tˤ": "ט", "dˤ": "ד'", "ZH": "ט'", "r": "ר", "ɣ": "ע'", "h": "ה", "w": "ו",
+           "b": "ב", "f": "פ", "J": "ג'", "a": "אַא", "i": "ִי", "u": "וּ", "e": "ֵי", "o": "וֹ"}
+
+
+TOGGLES = _toggles()
+TOGGLE_IDS = frozenset(t.id for t in TOGGLES)

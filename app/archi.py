@@ -117,8 +117,9 @@ def _align(letters: list[str], units: list[str]) -> tuple[dict[int, set[int]], f
     return matched, best
 
 
-def archify_word(ipa_word: str, ar_word: str) -> tuple[str, list[str]]:
-    """One word: its IPA with symbol tokens, and the letters that could not be placed (ambiguous)."""
+def archify_word(ipa_word: str, ar_word: str, off: frozenset[str] = frozenset()) -> tuple[str, list[str]]:
+    """One word: its IPA with symbol tokens, and the letters that could not be placed (ambiguous).
+    Symbols in `off` (switched off by the teacher) are left as the phoneme the phrase writes."""
     phs = ipa_word.split()
     if any(split_token(p)[0] for p in phs):
         return ipa_word, []      # the phrase writes its symbols itself
@@ -127,7 +128,7 @@ def archify_word(ipa_word: str, ar_word: str) -> tuple[str, list[str]]:
     out, unresolved = list(phs), []
     for i, letter in enumerate(letters):
         sym = LETTER_SYMBOL.get(letter)
-        if sym is None:
+        if sym is None or sym in off:
             continue
         hits = matched.get(i, {-1})
         if len(hits) != 1:
@@ -139,21 +140,21 @@ def archify_word(ipa_word: str, ar_word: str) -> tuple[str, list[str]]:
         for k in units[j][1]:
             out[k] = f"{sym}:{phs[k]}"
     # the vowel of a final ة (and ه written for it): a, e and i are all correct (section 6.3 #5)
-    if (out and ar_word.endswith(("ة", "ه")) and "لله" not in ar_word
+    if ("E" not in off and out and ar_word.endswith(("ة", "ه")) and "لله" not in ar_word
             and base(out[-1]) in {"a", "e", "i"} and len(out) > 1):
         out[-1] = f"E:{out[-1]}"
     return " ".join(out), unresolved
 
 
 @lru_cache(maxsize=32768)  # the whole phrase bank (~12k variants) and the verb game's forms
-def archify(ar: str, ipa: str) -> str:
+def archify(ar: str, ipa: str, off: frozenset[str] = frozenset()) -> str:
     """The variant's IPA with each phoneme of a many-ways letter rewritten as its symbol (see the module doc).
 
     A variant whose Arabic and IPA word counts differ is returned as it is."""
     ipa_words, ar_words = ipa.split("|"), ar.split()
     if len(ipa_words) != len(ar_words):
         return ipa
-    return " | ".join(archify_word(w.strip(), a)[0] for w, a in zip(ipa_words, ar_words))
+    return " | ".join(archify_word(w.strip(), a, off)[0] for w, a in zip(ipa_words, ar_words))
 
 
 def unresolved(ar: str, ipa: str) -> list[tuple[str, str]]:

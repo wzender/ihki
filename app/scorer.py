@@ -14,7 +14,7 @@ import numpy as np
 from .align import Alignment, GopConfig, TokenScore, ctc_viterbi, edit_distance, greedy_decode, score_tokens
 from .archi import archify, diphthong_variants, split_token, written
 from .phones import base
-from .rules import EXEMPTIONS, Rules, elided_article, near_vowels, load as load_rules  # noqa: F401 (re-exported)
+from .rules import EXEMPTIONS, TOGGLE_IDS, Check, Rules, elided_article, near_vowels, load as load_rules  # noqa: F401 (re-exported)
 from .tips import VOWELS, letter_reason, sound_name, tip_for
 from .translit import CONSONANTS as _HEB_C, HEARD_ONLY as _HEB_HEARD, VOWELS as _HEB_V, to_hebrew, word_letters, word_to_hebrew
 
@@ -220,6 +220,8 @@ class Fit:
     candidates: list[tuple[str, str, float | None]] = field(default_factory=list)  # (ar, ipa, path log-prob)
     gop_scores: list[TokenScore] = field(default_factory=list)   # before the exemptions
     exempted: list[str | None] = field(default_factory=list)     # per token, the exemption that applied
+    exempt_scores: list[TokenScore] = field(default_factory=list)  # after the exemptions, before the inserted vowels
+    inserted: dict[int, str] = field(default_factory=dict)        # token -> the vowel heard before it (rules 3.10)
     distance: int = 0        # edit distance of the greedy decode from the chosen variant
 
 
@@ -233,6 +235,59 @@ class Scorer:
         names = (set(HEBREW_SOUNDS) | self.rules.interference() | set(self.rules.heard_labels)
                  | {p for s in self.rules.archiphonemes for p in self.rules.members(s)})
         self.named = {i for i in (vocab.sound_id(n) for n in names) if i is not None}
+        self.disabled: frozenset[str] = frozenset()  # rules.TOGGLES the teacher switched off (ניטור)
+
+    def set_disabled(self, ids) -> None:
+        """Atomically replaces the switched-off rules; unknown ids are ignored."""
+        self.disabled = frozenset(ids) & TOGGLE_IDS
+
+    def _on(self, toggle: str) -> bool:
+        return toggle not in self.disabled
+
+    def _off_symbols(self) -> frozenset[str]:
+        """The archi.py symbols not to use: letters whose dialect rule is off, and E for the final-vowel rule."""
+        off = {t.removeprefix("dialect_") for t in self.disabled if t.startswith("dialect_")}
+        return frozenset(off | ({"E"} if "final_vowel" in self.disabled else set()))
+
+    def _check(self, tok: TargetToken, heard: str | None):
+        """The rule of pronunciation-rules.md for this substitution, unless the teacher switched it off.
+        A rule for a short vowel (3.11: u) speaks for that vowel only, not for its long form (base() drops length)."""
+        check = self.rules.check([tok.sound, tok.phoneme], heard)
+        if check and check.target in self.rules.flag_vowels and tok.phoneme != check.target:
+            return None
+        return check if check and self._on(f"rule_{check.rule}") else None
+
+    def _flag_vowel(self, toks: list[TargetToken], i: int) -> bool:
+        """Is token i a short vowel a rule flags (3.11: u after a consonant of the same word, not the و of 'and')?"""
+        t = toks[i]
+        rule = self.rules.flag_vowels.get(t.phoneme)
+        return bool(rule and self._on(f"rule_{rule}") and i > 0 and toks[i - 1].word == t.word
+                    and toks[i - 1].phoneme not in VOWELS)
+
+    _GLIDES = {"w", "j"}  # the way into or out of a glide sounds like a vowel in anyone's speech
+
+    def _insertions(self, logp: np.ndarray, toks: list[TargetToken], al: Alignment) -> dict[int, str]:
+        """Rules 3.10: token -> the vowel the model clearly heard between it and the consonant before it, in one word
+        (katiir for ktiir). The cluster that opens the sentence is spared (6.3 #16), and so are pairs with w or j."""
+        spec = self.rules.insertion
+        if not spec or not self._on(f"rule_{spec['rule']}"):
+            return {}
+        vowels = {i: base(self.vocab.i2t[i]) for i in (self.vocab.sound_id(v) for v in ("a", "e", "i", "o", "u", "ə"))
+                  if i is not None}
+        real = logp[:, :self.vocab.n_real]
+        greedy = real.argmax(1)
+        min_peak, min_frames = float(np.log(spec.get("min_peak", 0.5))), int(spec.get("min_frames", 2))
+        out: dict[int, str] = {}
+        for j in range(2, len(toks)):     # j == 1 is the cluster that opens the sentence
+            a, b = toks[j - 1], toks[j]
+            if (a.word != b.word or a.phoneme in VOWELS or b.phoneme in VOWELS
+                    or {base(a.phoneme), base(b.phoneme)} & self._GLIDES):
+                continue
+            frames = [t for t in range(al.spans[j - 1][0], al.spans[j][1])
+                      if int(greedy[t]) in vowels and real[t, greedy[t]] >= min_peak]
+            if len(frames) >= min_frames:
+                out[j] = vowels[int(greedy[frames[0]])]
+        return out
 
     def set_calibrations(self, rows: list[dict]) -> None:
         """Atomically replaces applied score floors. A blank phrase is a global rule."""
@@ -352,10 +407,11 @@ class Scorer:
         """(arabic, ipa, ipa with symbols, tokens) for each accepted variant and its diphthong forms. Variants
         that differ only in how a many-ways letter is said (ʔ / q / k for ق) become one: the first written.
         A diphthong form the model has no symbols for is left out."""
-        out, seen = [], set()
+        out, seen, off = [], set(), self._off_symbols()
         for ar, ipa in phrase["variants"]:
-            for n, form in enumerate((ipa, *diphthong_variants(ar, ipa))):
-                aipa = archify(ar, form)
+            forms = (ipa, *diphthong_variants(ar, ipa)) if self._on("diphthong") else (ipa,)
+            for n, form in enumerate(forms):
+                aipa = archify(ar, form, off)
                 if aipa in seen:
                     continue
                 seen.add(aipa)
@@ -386,19 +442,25 @@ class Scorer:
         ids = [t.id for t in toks]
         ar_words = ar.split()
         scores = score_tokens(ext, al, ids, blank, self.cfg.gop, [vocab.members.get(i) for i in ids],
-                              vocab.n_real, self.named)
+                              vocab.n_real, self.named if self._on("unnamed_sounds") else None)
         gop_scores, exempted = list(scores), [None] * len(scores)
         for i, (t, sc) in enumerate(zip(toks, scores)):
             heard = vocab.i2t.get(sc.competitor) if sc.competitor is not None else None
             for name, applies, floor in EXEMPTIONS:
-                if applies(toks, i, sc, heard, ar_words):
+                if self._on(name) and applies(toks, i, sc, heard, ar_words):
                     scores[i] = replace(sc, score=max(sc.score, 100.0 if floor is None else getattr(self.cfg, floor)))
                     exempted[i] = name
                     break
+        exempt_scores = list(scores)
+        inserted = self._insertions(logp, toks, al)
+        cap = float((self.rules.insertion or {}).get("score_cap", 60))
+        for j in inserted:
+            scores[j] = replace(scores[j], score=min(scores[j].score, cap))
         same = lambda h, t: h == t or h in vocab.members.get(t, ())
         distance = edit_distance(heard_ids, ids, same)
         unrelated = bool(distance / max(1, len(ids)) > self.cfg.unrelated_ratio)
-        return Fit(ar, ipa, aipa, toks, al, scores, heard_ids, unrelated, ext, tried, gop_scores, exempted, distance)
+        return Fit(ar, ipa, aipa, toks, al, scores, heard_ids, unrelated, ext, candidates=tried, gop_scores=gop_scores,
+                   exempted=exempted, exempt_scores=exempt_scores, inserted=inserted, distance=distance)
 
     def _heatmap(self, logp: np.ndarray, toks: list[TargetToken], alignment, scores,
                  duration_s: float | None) -> dict:
@@ -438,15 +500,25 @@ class Scorer:
                 "frames": frames, "frame_bins": bins, "rows": rows,
                 "tracks": {"expected": expected, "heard": heard}}
 
+    def _max_tips(self) -> int:
+        """As many tips as the rules document says (3), or the 4 of before when its severity order is off."""
+        if self.cfg.max_tips:
+            return self.cfg.max_tips
+        return int(self.rules.scoring.get("max_tips", 4)) if self._on("tips_by_severity") else 4
+
     def _beyond_margin(self, tok: TargetToken, sc: TokenScore, heard: str | None) -> bool:
         """Is the competitor likelier than the target by more than the pair's margin? Pairs the model confuses
         on natives too (emphatics, a dropped h) need a clearer win before they count as a mistake."""
         targets = [tok.sound, tok.phoneme]
         if sc.deleted:
-            return sc.peak <= self.cfg.gop.deleted_peak - self.rules.margin(targets, "_")
+            return sc.peak <= self.cfg.gop.deleted_peak - self._margin(targets, "_")
         if heard is None:
             return True
-        return -sc.gop >= self.rules.margin(targets, heard)
+        return -sc.gop >= self._margin(targets, heard)
+
+    def _margin(self, targets: list[str], heard: str | None) -> float:
+        """The pair's margin (rules 6.2), or the default for every pair when the teacher switched margins off."""
+        return self.rules.margin(targets if self._on("margins") else [], heard)
 
     def _dialect(self, toks: list[TargetToken], scores: list[TokenScore]) -> dict:
         """Which dialect the accepted realisations point to: {"dialect": urban | rural} when they agree,
@@ -502,13 +574,21 @@ class Scorer:
         tr_words = to_hebrew(ipa, ar)
         for idx, (tok, sc) in enumerate(zip(toks, scores)):
             heard_ph = "_" if sc.deleted else (i2t.get(sc.competitor) if sc.competitor is not None else None)
-            check = self.rules.check([tok.sound, tok.phoneme], heard_ph)
+            check = self._check(tok, heard_ph)
             beyond.append(self._beyond_margin(tok, sc, heard_ph))
-            flagged = bool(sc.score < self.cfg.flag_below) and tok.phoneme not in VOWELS and beyond[-1]
-            heard_as.append(heard_ph)
-            checks.append(check)
+            flagged = (bool(sc.score < self.cfg.flag_below) and beyond[-1]
+                       and (tok.phoneme not in VOWELS or self._flag_vowel(toks, idx)))
+            if idx in fit.inserted:   # a vowel before this consonant (3.10): the reason its letter gives
+                spec = self.rules.insertion
+                heard_as.append("+" + fit.inserted[idx])
+                checks.append(Check(spec["rule"], tok.phoneme, "+", int(spec["severity"]), str(spec["feedback"])))
+            else:
+                heard_as.append(heard_ph)
+                checks.append(check)
             p = {"ipa": tok.phoneme, "word": tok.word, "score": sc.score,
                  "flagged": flagged, "heard": heard_ph if flagged else None}
+            if idx in fit.inserted:
+                p["inserted"] = fit.inserted[idx]
             if tok.sound != tok.phoneme:
                 p["sound"] = tok.sound
             if sc.realised is not None:
@@ -523,6 +603,13 @@ class Scorer:
                     tip["idx"] = idx
                     tip["score"] = round(sc.score)
                     tips.append(tip)
+            if idx in fit.inserted and not unrelated and "cluster" not in seen:
+                seen.add("cluster")
+                spec = self.rules.insertion
+                tips.append({"title": self.rules.titles.get(spec["rule"], spec["rule"]), "text": str(spec["feedback"]),
+                             "key": spec["rule"], "severity": int(spec["severity"]),
+                             "word": ar_words[tok.word] if tok.word < len(ar_words) else "",
+                             "word_tr": tr_words[tok.word], "idx": idx, "score": round(sc.score)})
 
         n_words = len(ipa.split("|"))
         heard_words = self._heard_hebrew(logp, toks, al, fit.aipa, ar_words)
@@ -553,8 +640,9 @@ class Scorer:
         if unrelated:
             overall = min(overall, 30.0)
         # most crucial first: the mistakes that change meaning (severity 3), then the worst-scoring sounds
-        max_tips = self.cfg.max_tips or int(self.rules.scoring.get("max_tips", 4))
-        tips = sorted(tips, key=lambda t: (-t["severity"], t["score"]))[:max_tips]
+        max_tips = self._max_tips()
+        tips = (sorted(tips, key=lambda t: (-t["severity"], t["score"])) if self._on("tips_by_severity")
+                else sorted(tips, key=lambda t: t["score"]))[:max_tips]
         tip_idx, issue_idx = {t["idx"] for t in tips}, []
 
         # Anything short of 100 must say why: every imprecise sound that did not get a full tip,
@@ -571,6 +659,11 @@ class Scorer:
             for i in issue_idx:
                 tok, sc = toks[i], scores[i]
                 comp = i2t.get(sc.competitor) if sc.competitor is not None else None
+                if i in fit.inserted:
+                    issues.append({"sound": "תנועה מיותרת לפני " + (sound_name(tok.phoneme) or tok.phoneme),
+                                   "word_tr": tr_words[tok.word], "score": round(sc.score), "missing": False,
+                                   "heard": sound_name(fit.inserted[i])})
+                    continue
                 issues.append({"sound": sound_name(tok.sound) or sound_name(tok.phoneme) or tok.phoneme,
                                "word_tr": tr_words[tok.word], "score": round(sc.score), "missing": bool(sc.deleted),
                                "heard": None if sc.deleted else sound_name(comp)})
@@ -594,7 +687,7 @@ class Scorer:
         (the 'stages' part of the phoneme analysis). Nothing here changes the result."""
         cfg, g, i2t = self.cfg, self.cfg.gop, self.vocab.i2t
         p = lambda lp: round(float(np.exp(lp)), 4) if lp > -1e20 else 0.0
-        max_tips = cfg.max_tips or int(self.rules.scoring.get("max_tips", 4))
+        max_tips = self._max_tips()
         n = len(fit.toks)
         tokens = []
         for i, (tok, gsc, sc) in enumerate(zip(fit.toks, fit.gop_scores, scores)):
@@ -606,7 +699,8 @@ class Scorer:
             b = bases[i]
             stages = [
                 {"stage": "gop", "score": gsc.score},
-                {"stage": "exemption", "score": fit.scores[i].score, "applied": fit.exempted[i]},
+                {"stage": "exemption", "score": fit.exempt_scores[i].score, "applied": fit.exempted[i]},
+                {"stage": "insertion", "score": fit.scores[i].score, "applied": fit.inserted.get(i)},
                 {"stage": "baseline", "score": after_baseline[i].score, "ref": b,
                  "applied": b is not None and b < 100},
                 {"stage": "calibration", "score": sc.score, "floor": floors[i],
@@ -623,7 +717,7 @@ class Scorer:
                 "gop_factor": round(float(np.exp(gsc.gop * g.leniency)), 3),
                 "confidence_factor": round(float(np.sqrt(confidence)), 3),
                 "deleted": gsc.deleted, "stages": stages, "final": sc.score,
-                "margin": {"needed": self.rules.margin(targets, "_" if gsc.deleted else heard_ph),
+                "margin": {"needed": self._margin(targets, "_" if gsc.deleted else heard_ph),
                            "got": (round(g.deleted_peak - gsc.peak, 3) if gsc.deleted else round(-gsc.gop, 3)),
                            "beyond": beyond[i]},
                 "vowel": tok.phoneme in VOWELS, "weight": 0.5 if tok.phoneme in VOWELS else 1.0,
@@ -641,8 +735,12 @@ class Scorer:
                 "word_min_weight": cfg.word_min_weight, "vowel_weight": 0.5, "unrelated_ratio": cfg.unrelated_ratio,
                 "unrelated_cap": 30.0, "letter_good": LETTER_GOOD, "max_tips": max_tips, "max_issues": cfg.max_issues,
                 "ref_min_mean": cfg.ref_min_mean, "margin_default": float(self.rules.scoring.get("margin_default", 0.0)),
-                "margins": [{"target": t, "heard": h, "margin": m} for (t, h), m in sorted(self.rules.margins.items())],
-                "exemptions": [name for name, _, _ in EXEMPTIONS],
+                "margins": [{"target": t, "heard": h, "margin": m} for (t, h), m in sorted(self.rules.margins.items())]
+                if self._on("margins") else [],
+                "exemptions": [name for name, _, _ in EXEMPTIONS if self._on(name)],
+                "insertion": ({k: self.rules.insertion[k] for k in ("score_cap", "min_peak", "min_frames")}
+                              if self.rules.insertion and self._on(f"rule_{self.rules.insertion['rule']}") else None),
+                "disabled": sorted(self.disabled),
             },
             "variants": [{"ar": ar, "ipa": ipa, "logp": lp, "chosen": ar == fit.ar and ipa == fit.ipa}
                          for ar, ipa, lp in fit.candidates],

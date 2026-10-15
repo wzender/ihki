@@ -60,6 +60,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 
 log = logging.getLogger("ihki.auth")
 TIMEOUT = 10
@@ -207,14 +208,14 @@ class SupabaseAuth:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
             return json.load(res)
 
-    def _admin(self, path: str, method: str = "GET", body: dict | None = None):
+    def _admin(self, path: str, method: str = "GET", body: dict | None = None, prefer: str = "return=representation"):
         """A call with the secret key, for the teacher's panel. Unlike a student's own progress, a failure is raised."""
         if not self.secret:
             raise AuthUnavailable("SUPABASE_SECRET_KEY is not set")
         req = urllib.request.Request(
             self.url + path, method=method, data=json.dumps(body).encode() if body is not None else None,
             headers={"Authorization": f"Bearer {self.secret}", "apikey": self.secret, "Content-Type": "application/json",
-                     "Prefer": "return=representation", "User-Agent": "ihki/1.0"})
+                     "Prefer": prefer, "User-Agent": "ihki/1.0"})
         try:
             with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
                 return json.loads(res.read() or b"null")
@@ -501,6 +502,17 @@ class SupabaseAuth:
     def delete_calibration(self, calibration_id: int) -> bool:
         """Deletes a calibration proposal or rule; returns whether it existed."""
         return bool(self._admin(f"/rest/v1/calibrations?id=eq.{int(calibration_id)}", "DELETE"))
+
+    def scoring_rules(self) -> list[dict]:
+        """The teacher's switches over the rules of pronunciation-rules.md: id, active, updated_by, updated_at.
+        A rule with no row is on."""
+        return self._admin("/rest/v1/scoring_rules?select=*") or []
+
+    def set_scoring_rule(self, rule_id: str, active: bool, by: str) -> None:
+        """Switches one rule on or off (an upsert on its id)."""
+        self._admin("/rest/v1/scoring_rules", "POST", {"id": rule_id, "active": bool(active), "updated_by": by,
+                                                       "updated_at": datetime.now(timezone.utc).isoformat()},
+                    prefer="resolution=merge-duplicates,return=minimal")
 
     def users(self) -> list[dict]:
         """Every account that has signed in: id, email, name (as Google gave it; empty for one who signed in by email)."""

@@ -1561,6 +1561,7 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
 
         def __init__(self):
             self.cls, self.flags, self.table, self.rank, self.calibration_rows = [], [], True, frozenset(), []
+            self.rule_rows = {}
 
         def user(self, token):
             return {"t": {"id": "u1", "email": "T@b.c"}, "s": {"id": "u2", "email": "s@b.c"}}.get(token)
@@ -1617,6 +1618,16 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
             before = len(self.calibration_rows)
             self.calibration_rows = [r for r in self.calibration_rows if r["id"] != calibration_id]
             return len(self.calibration_rows) < before
+
+        def scoring_rules(self):
+            if self.rule_rows is None:
+                raise AuthUnavailable("supabase answered 404: no table")
+            return list(self.rule_rows.values())
+
+        def set_scoring_rule(self, rule_id, active, by):
+            if self.rule_rows is None:
+                raise AuthUnavailable("supabase answered 404: no table")
+            self.rule_rows[rule_id] = {"id": rule_id, "active": active, "updated_by": by}
 
         def all_attempt_issues(self):
             return [{"user_id": f"u{i}", "phrase": TOILET["he"], "score": 60,
@@ -1677,6 +1688,21 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
                            "evidence": {"dismissed": True, "source": "confirmed_flags"}})
         assert dismissed.status_code == 200 and dismissed.json()["calibration"]["status"] == "draft"
         assert dismissed.json()["calibration"]["evidence"] == {"dismissed": True, "source": "confirmed_flags"}
+        # the rules of pronunciation-rules.md: all on, a teacher switches one off, and the scorer follows at once
+        listed = c.get("/api/scoring-rules", headers=hs).json()
+        assert listed["stored"] and all(r["active"] for r in listed["rules"]) and len(listed["rules"]) >= 20
+        assert all(isinstance(r["detectable"], bool) and r["title"] and r["description"] for r in listed["rules"])
+        assert c.put("/api/scoring-rules/dialect_Q", headers=hs, json={"active": False}).json()["disabled"] == ["dialect_Q"]
+        assert c.app.state.scorer.disabled == {"dialect_Q"} and a.rule_rows["dialect_Q"]["updated_by"] == "s@b.c"
+        assert not next(r for r in c.get("/api/scoring-rules", headers=hs).json()["rules"] if r["id"] == "dialect_Q")["active"]
+        assert c.put("/api/scoring-rules/nope", headers=hs, json={"active": False}).status_code == 400
+        assert c.put("/api/scoring-rules/margins", headers=hs, json={"active": "no"}).status_code == 400
+        assert c.put("/api/scoring-rules/margins", headers={"Authorization": "Bearer t"}, json={"active": False}).status_code == 403
+        assert c.put("/api/scoring-rules/dialect_Q", headers=hs, json={"active": True}).json()["disabled"] == []
+        a.rule_rows = None   # no table yet: the list still shows, all on, with the SQL to create it
+        missing = c.get("/api/scoring-rules", headers=hs).json()
+        assert not missing["stored"] and "create table public.scoring_rules" in missing["create_sql"]
+        assert c.put("/api/scoring-rules/margins", headers=hs, json={"active": False}).status_code == 503
         a.teachers = frozenset()
         a.table = False   # before the table is created: the command to create it
         r = send(c, "t")
@@ -1708,6 +1734,88 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         assert r.status_code == 503 and "create table public.tutors" in r.json()["detail"]
 
 
+def test_switched_off_rules_bring_back_the_old_behaviour():
+    kaddeesh = emissions(["k", "a", "d", "eː", "ʃ", "i", "s", "aː", "ʕ", "a"])
+    s = scorer_for(kaddeesh)
+    assert not s.score(None, TIME)["tips"]                                    # rural ق accepted
+    s.set_disabled({"dialect_Q", "not-a-rule"})
+    assert s.disabled == {"dialect_Q"}
+    assert [t["key"] for t in s.score(None, TIME)["tips"]] == ["ʔ>k"]          # as before the document
+    # the emphatic margin: off, plain t winning by less than twice is a mistake again
+    phrase = {"variants": [("طين", "tˤ i n")]}
+    s = margin_scorer(1.8)
+    assert not s.score(None, phrase)["tips"]
+    s.set_disabled({"margins"})
+    assert [t["key"] for t in s.score(None, phrase)["tips"]] == ["tˤ>t"]
+    # a section-3 rule off: the general tip and severity instead of the document's
+    s = custom_scorer(["p", "f", "dʒ"], ["p", "i", "n", "dʒ", "aː", "n"])
+    fin = {"variants": [("فنجان", "f i n dʒ aː n")]}
+    assert s.score(None, fin)["tips"][0]["text"].startswith("נהגתה p")
+    s.set_disabled({"rule_f"})
+    tip = s.score(None, fin)["tips"][0]
+    assert tip["key"] == "f>p" and not tip["text"].startswith("נהגתה p") and tip["severity"] == 2
+    # the final vowel of ة: off, i for e is marked down like any other vowel
+    s = scorer_for(emissions(["ʔ", "a", "h", "w", "i"]))
+    assert s.score(None, COFFEE)["words"][0]["phonemes"][-1]["score"] >= 95
+    s.set_disabled({"final_vowel", "near_vowel"})
+    assert s.score(None, COFFEE)["words"][0]["phonemes"][-1]["score"] < 50
+
+
+THANKS = {"variants": [("شكرا كتير", "ʃ u k r a n | k t iː r")]}
+CLUSTER_SYMS = ["r", "t", "iː", "u", "ʃ"]
+
+
+def test_vowel_between_two_consonants_is_a_mistake_mid_sentence():
+    clean = custom_scorer(CLUSTER_SYMS, ["ʃ", "u", "k", "r", "a", "n", "k", "t", "iː", "r"]).score(None, THANKS)
+    assert not clean["tips"] and clean["score"] >= 95
+    s = custom_scorer(CLUSTER_SYMS, ["ʃ", "u", "k", "r", "a", "n", "k", "a", "t", "iː", "r"])   # katiir
+    r = s.score(None, THANKS)
+    t = next(p for p in r["words"][1]["phonemes"] if p["ipa"] == "t")
+    assert t["inserted"] == "a" and t["score"] == 60 and [x["key"] for x in r["tips"]] == ["cluster"]
+    assert r["tips"][0]["severity"] == 1 and "ktiir" in r["tips"][0]["text"] and r["score"] < clean["score"]
+    letter = next(l for l in r["words"][1]["letters"] if "ת" in l["t"])
+    assert letter["why"].startswith("נוספה") and "ktiir" in letter["tip"]
+    s.set_disabled({"rule_cluster"})                       # switched off: not checked, as before
+    assert not s.score(None, THANKS)["tips"]
+
+
+def test_vowel_in_the_cluster_that_opens_the_sentence_is_fine():
+    # ketiir at the start of a sentence (6.3 #16), and the way into a glide (shuway)
+    r = custom_scorer(["t", "iː", "r"], ["k", "e", "t", "iː", "r"]).score(None, {"variants": [("كتير", "k t iː r")]})
+    assert not r["tips"] and r["score"] >= 95
+    phrase = {"variants": [("شو شوي", "ʃ u | ʃ w a j j")]}
+    r = custom_scorer(["ʃ", "u", "j"], ["ʃ", "u", "ʃ", "u", "w", "a", "j"]).score(None, phrase)
+    assert not any(t["key"] == "cluster" for t in r["tips"])
+
+
+LAWYER = {"variants": [("محامي", "m u ħ aː m i")]}
+
+
+@pytest.mark.parametrize("said,flagged", [
+    (["m", "u", "ħ", "aː", "m", "i"], False),
+    (["m", "ħ", "aː", "m", "i"], True),            # mħaami: the u swallowed
+    (["m", "e", "ħ", "aː", "m", "i"], True),       # said as e
+    (["m", "o", "ħ", "aː", "m", "i"], False),      # o is a near vowel
+])
+def test_kubutz_is_a_distinct_vowel(said, flagged):
+    r = custom_scorer(["u", "o"], said).score(None, LAWYER)
+    u = r["words"][0]["phonemes"][1]
+    assert u["ipa"] == "u" and u["flagged"] == flagged, u
+    if flagged:
+        assert r["tips"][0]["text"].startswith("ה־u") and r["tips"][0]["severity"] == 1
+
+
+def test_only_short_u_after_a_consonant_is_flagged():
+    s = custom_scorer(["u", "o"], ["m", "ħ", "aː", "m", "i"])
+    s.set_disabled({"rule_kubutz"})                       # switched off: like any other short vowel
+    assert not s.score(None, LAWYER)["words"][0]["phonemes"][1]["flagged"]
+    # the و of "and" (u m a) and a long uː (ʃ uː f) are not the kubutz rule's
+    r = custom_scorer(["u"], ["m", "a"]).score(None, {"variants": [("وما", "u m a")]})
+    assert not r["words"][0]["phonemes"][0]["flagged"]
+    r = custom_scorer(["u", "uː", "f", "ʃ"], ["ʃ", "e", "f"]).score(None, {"variants": [("شوف", "ʃ uː f")]})
+    assert not r["words"][0]["phonemes"][1]["flagged"] and not r["tips"]
+
+
 def test_teacher_trace_follows_every_stage():
     # ħ said as χ, then forgiven by a teacher floor: each stage of the trace shows where the score came from
     logp = emissions(["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"])
@@ -1717,7 +1825,7 @@ def test_teacher_trace_follows_every_stage():
     t = scorer.score_logp(logp, TOILET, diagnostics=True)["trace"]
     assert t["config"]["flag_below"] == 50 and t["config"]["leniency"] == 0.5 and t["variants"][0]["chosen"]
     h = next(x for x in t["tokens"] if x["ipa"] == "ħ")
-    assert [s["stage"] for s in h["stages"]] == ["gop", "exemption", "baseline", "calibration"]
-    assert h["stages"][0]["score"] < 50 and h["stages"][3]["applied"] and h["final"] == 60
+    assert [s["stage"] for s in h["stages"]] == ["gop", "exemption", "insertion", "baseline", "calibration"]
+    assert h["stages"][0]["score"] < 50 and h["stages"][4]["applied"] and h["final"] == 60
     assert h["competitor"] == "χ" and h["rule"]["severity"] == 3 and not h["flagged"]
     assert t["sentence"]["final"] == round(0.5 * t["sentence"]["phone_mean"] + 0.5 * t["sentence"]["word_mean"])

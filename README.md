@@ -238,6 +238,20 @@ alter table public.calibrations enable row level security;
 
 An applied rule raises only the matching phoneme score to its configured floor; it never lowers a score. The score response includes `calibrated` when a rule changed it, so a flagged result records which rule effect was involved.
 
+### Pronunciation rules
+
+The scorer reads its dialect and Hebrew-speaker rules from the yaml blocks of `static/assets/pronunciation-rules.md` (see `app/rules.py` and `docs/scoring-dialects-plan.md`). The **ניטור** tab lists every rule taken from that document, under **כללי ההגייה מהמסמך**: which realisations of a letter count as correct, how a mistake is judged (exemptions, per-pair margins), and the feedback each rule gives. All are on by default. A teacher can switch one off, which brings back the behaviour from before the document for every student from the next recording on. The switches are loaded into the scorer at startup and refreshed right after a change. Create the private table once (without it the list still shows, all on, and cannot be changed):
+
+```sql
+create table public.scoring_rules (
+  id         text primary key,                 -- a rule of rules.TOGGLES, e.g. dialect_Q, margins, rule_pharyngeal_h
+  active     boolean not null default true,
+  updated_by text not null default '',
+  updated_at timestamptz not null default now()
+);
+alter table public.scoring_rules enable row level security;
+```
+
 ### Levels
 
 The course has levels, each with a planned number of lessons (`LEVELS` in `app/workbook.py`: שלב א and שלב ב, 10 lessons each). Every lesson in `LESSONS` is keyed by its level and number, `(level, lesson)`; one outside the plan stops the app at startup. The path shows each level under its name, and the lessons not written yet as "בקרוב". Level 1's lessons keep their first ids ("1", topics "l1-…") so recorded attempts and saved classes still match; later levels' are "2.1", topics "l2.1-…".
