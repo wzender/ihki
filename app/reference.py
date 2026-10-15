@@ -16,6 +16,7 @@ import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor, wait
 
+from .arabic_diacritics import point_arabic
 from .scorer import Reference, Scorer, decode_audio
 
 log = logging.getLogger("ihki.reference")
@@ -39,7 +40,7 @@ class References:
 
     def get(self, phrase_id: int, phrase: dict) -> list[Reference]:
         """The references of a phrase that are ready within the wait."""
-        text = phrase["variants"][0][0]
+        text = point_arabic(*phrase["variants"][0])
         jobs: list[tuple[tuple[int, str], Future]] = []
         with self._lock:
             for n, voice in enumerate(self.voices):
@@ -67,3 +68,18 @@ class References:
             if ref is not None:
                 refs.append(ref)
         return refs
+
+    def invalidate(self, phrase_id: int | None = None, voice: str | None = None) -> int:
+        """Forget matching in-memory baselines so the next score rebuilds them from the current WAV."""
+        with self._lock:
+            keys = [key for key in self._jobs
+                    if (phrase_id is None or key[0] == phrase_id) and (voice is None or key[1] == voice)]
+            for key in keys:
+                job = self._jobs.pop(key)
+                job.cancel()  # harmless when generation or analysis has already started
+                self._retry_at.pop(key, None)
+            retry_keys = [key for key in self._retry_at
+                          if (phrase_id is None or key[0] == phrase_id) and (voice is None or key[1] == voice)]
+            for key in retry_keys:
+                self._retry_at.pop(key, None)
+            return len(keys)

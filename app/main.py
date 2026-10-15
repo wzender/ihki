@@ -2,7 +2,7 @@
 
 Run:  uvicorn app.main:app --host 0.0.0.0 --port 7860
 Env:  MODEL_ID  (default facebook/wav2vec2-xlsr-53-espeak-cv-ft, or a path to a fine-tuned checkpoint)
-      SAWTAK_API_KEY, SAWTAK_VOICE_ID  (model-answer playback, see app/tts.py)
+      SAWTAK_API_KEY  (model-answer playback with the Raef voice, see app/tts.py)
       SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY  (Google sign-in, see app/auth.py)
       TEACHER_EMAILS, SUPABASE_SECRET_KEY  (the teacher's management panel, its classes and the lesson videos, see app/auth.py)
       TUTORS_EMAIL  (more accounts that, like the teachers, flag a recording scored wrong, see app/auth.py)
@@ -28,6 +28,7 @@ from fastapi import BackgroundTasks, Body, Depends, FastAPI, File, Form, HTTPExc
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from .arabic_diacritics import point_arabic
 from .auth import AuthUnavailable, ClassConflict, SupabaseAuth, load_auth
 from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
@@ -36,7 +37,7 @@ from .rules import TOGGLES, check_detectable
 from .scorer import Scorer, decode_audio, load_scorer
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
-from .tts import VOICES, SawtakTTS, TTSUnavailable, load_tts
+from .tts import RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts
 from .verb_game import VerbExerciseGenerator
 
 logging.basicConfig(level=logging.INFO)
@@ -91,7 +92,8 @@ def placed(rows: list[dict], lesson: str) -> list[dict]:
 # bank's: TEXT_BASE + the text's id * TEXT_SPAN + the line's number, so it holds as texts come and go.
 TEXT_BASE, TEXT_SPAN = 1_000_000, 1000
 MAX_LINES, MAX_LINE = 200, 300
-VOICE_NAMES = [re.sub(r"[\u0591-\u05c7]", "", name) for name in VOICES]   # as a topic names its voices: without the points
+# Historical dialogues retain their speaker names even though every line is now played by Raef.
+VOICE_NAMES = ["אמיר", "ראאף", "חנאן"]
 CREATE_TEXTS = ("create table public.texts (id bigint generated always as identity primary key, lesson text not null, "
                 "title text not null, voices text[] not null default '{}', lines jsonb not null, pos int, "
                 "ord int not null default 0, created_at timestamptz not null default now()); "
@@ -952,7 +954,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"categories": [{"id": f"t{r['id']}", "name": r["title"], "lesson": r["lesson"], "story": True, "text": r["id"],
                                 **({"voices": r["voices"]} if r["voices"] else {}), "pos": r["pos"], "ord": r["ord"],
                                 **({"guessed": built(r)[1]} if user["teacher"] else {})} for r in rows],
-                "phrases": [{"id": i, "cat": p["cat"], "he": p["he"], "tr": p["tr"], "ar": p["variants"][0][0], "seq": p["seq"]}
+                "phrases": [{"id": i, "cat": p["cat"], "he": p["he"], "tr": p["tr"], "ar": p["variants"][0][0],
+                             "ar_pointed": point_arabic(*p["variants"][0]), "seq": p["seq"]}
                             for i, p in text_bank(rows).items()]}
 
     def text_store_error(e: AuthUnavailable) -> str:
@@ -1226,26 +1229,34 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 "dialect_realisations_missing": {k: sorted(v) for k, v in s.vocab.class_missing.items()}}
 
     @app.get("/api/tts/{phrase_id}", dependencies=members)
-    def tts_phrase(phrase_id: int, voice: str = Query("", max_length=64)):
-        """The model answer (first variant) spoken by the TTS voice. 503 tells the page to use the device voice.
-
-        `voice` picks one of the voices in tts.VOICES instead of the configured one.
-        """
+    def tts_phrase(phrase_id: int):
+        """The model answer spoken by Raef. 503 tells the page to use the device voice."""
         names = {i: n for n, i in VOICES.items()}
-        if voice and voice not in names:
-            raise HTTPException(400, "unknown voice")
-        text = phrase_of(phrase_id)["variants"][0][0]
+        text = point_arabic(*phrase_of(phrase_id)["variants"][0])
         if app.state.tts is None:
             raise HTTPException(503, "tts not configured")
         try:
-            data, used = app.state.tts.wav(text, voice)
+            data, used = app.state.tts.wav(text, RAEF_VOICE_ID)
         except TTSUnavailable as e:
             raise HTTPException(503, str(e))
         tts = app.state.tts  # debug: lets the page show which voice spoke
         return Response(data, media_type="audio/wav", headers={
-            "Cache-Control": "private, max-age=86400", "X-TTS-Provider": "sawtakarabi.ai",
+            "Cache-Control": "private, no-store", "X-TTS-Provider": "sawtakarabi.ai",
             "X-TTS-Voice-Id": urllib.parse.quote(used),
             "X-TTS-Voice-Name": urllib.parse.quote(names.get(used) or getattr(tts, "voice_name", ""))})
+
+    @app.delete("/api/tts-cache")
+    def clear_tts_cache(_a: SupabaseAuth = Depends(teacher_only)):
+        """Delete generated Sawtak recordings; the next playback generates them again."""
+        if app.state.tts is None:
+            raise HTTPException(503, "tts not configured")
+        try:
+            removed = app.state.tts.clear_cache()
+        except TTSUnavailable as e:
+            raise HTTPException(503, str(e))
+        if app.state.refs:
+            app.state.refs.invalidate()
+        return {"ok": True, "removed": removed}
 
     @app.get("/api/prompt-audio/{phrase_id}", dependencies=members)
     def prompt_audio(phrase_id: int, engine: str = "gtts"):

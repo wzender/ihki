@@ -4,7 +4,6 @@ The API key stays on the server: the browser asks for a phrase by id and gets a 
 Only phrases from the phrase bank can be synthesised, and each one is generated once and cached on disk.
 
 Env:  SAWTAK_API_KEY   required; without it /api/tts answers 503 and the page falls back to the device voice
-      SAWTAK_VOICE_ID  optional; default is the most liked ready Palestinian voice in the catalog
       TTS_CACHE_DIR    optional; default ~/.cache/ihki-tts
 """
 from __future__ import annotations
@@ -16,7 +15,6 @@ import logging
 import os
 import threading
 import urllib.error
-import urllib.parse
 import urllib.request
 import wave
 from pathlib import Path
@@ -24,23 +22,20 @@ from pathlib import Path
 log = logging.getLogger("ihki.tts")
 BASE_URL = "https://api.sawtakarabi.ai/v1"
 MODEL = "arabic-tts-1"
-PALESTINIAN = ["ps", "ps-central", "ps-westbank", "ps-north", "ps-nablus", "ps-galilee", "ps-hebron", "ps-south", "ps-gaza"]
+CACHE_VERSION = "raef-pointed-enhanced-provider-default-v1"
 TIMEOUT = 60
-# Voices the page offers in its drop-down (name shown -> Sawtak voice id). Only these can be requested.
-VOICES = {
-    "אמיר": "5db8ef83-ac37-4a17-be23-e20446290367",
-    "רַאאִף": "273d81b2-991b-5b76-8525-eeacc6a3d759",
-    "חנאן": "e41781f5-127c-5eb0-b83c-50bf52a64caf",
-}
+# The single Sawtak voice used throughout the application.
+RAEF_VOICE_ID = "273d81b2-991b-5b76-8525-eeacc6a3d759"
+VOICES = {"רַאאִף": RAEF_VOICE_ID}
 
 class TTSUnavailable(Exception):
     """No key configured, or the provider refused / failed. The message is safe to show."""
 
 
 class SawtakTTS:
-    def __init__(self, api_key: str, voice_id: str = "", cache_dir: Path | None = None):
-        self.api_key, self.voice_id = api_key, voice_id
-        self.voice_name = ""  # known only when the voice was picked from the catalog
+    def __init__(self, api_key: str, voice_id: str = RAEF_VOICE_ID, cache_dir: Path | None = None):
+        self.api_key, self.voice_id = api_key, RAEF_VOICE_ID
+        self.voice_name = "רַאאִף"
         self.cache_dir = cache_dir or Path.home() / ".cache" / "ihki-tts"
         self._lock = threading.Lock()  # one generation at a time; also guards the voice lookup
 
@@ -65,50 +60,59 @@ class SawtakTTS:
             log.warning("sawtak %s unreachable: %s", path, e)
             raise TTSUnavailable("tts provider unreachable") from None
 
-    def _voice(self) -> str:
-        if not self.voice_id:
-            query = urllib.parse.urlencode(
-                [("dialect", d) for d in PALESTINIAN] + [("sort", "most_liked"), ("limit", "25")])
-            with self._request(f"/voices?{query}") as res:
-                voices = [v for v in json.load(res).get("data", []) if v.get("status") == "ready"]
-            if not voices:
-                raise TTSUnavailable("no Palestinian voice in the catalog; set SAWTAK_VOICE_ID")
-            self.voice_id, self.voice_name = voices[0]["id"], voices[0].get("name") or ""
-            log.info("sawtak voice: %s (%s, %s)", voices[0].get("name"), self.voice_id,
-                     (voices[0].get("labels") or {}).get("dialect"))
-        return self.voice_id
-
     def _path(self, text: str, voice: str) -> Path:
-        return self.cache_dir / (hashlib.sha1(f"{MODEL}|{voice}|{text}".encode()).hexdigest() + ".wav")
+        return self.cache_dir / (hashlib.sha1(f"{CACHE_VERSION}|{MODEL}|{voice}|{text}".encode()).hexdigest() + ".wav")
 
     def cached(self, text: str, voice: str) -> bool:
         """Has this voice said `text` before? Then wav() answers from disk, without the provider."""
         return self._path(text, voice).exists()
 
-    def wav(self, text: str, voice: str = "") -> tuple[bytes, str]:
-        """(WAV, voice id) for `text`, from the cache when this voice has said it before.
+    def _generate(self, text: str, voice: str) -> bytes:
+        """Generate one uncached WAV recording."""
+        # Sawtak currently returns 320 seconds of silence whenever `temperature` is present,
+        # including for 0 and 0.1. Omitting it uses the provider's deterministic supported path.
+        with self._request("/audio/speech", {"model": MODEL, "voice": voice, "input": text,
+                                             "response_format": "pcm", "enhance_pronunciation": True,
+                                             }) as res:
+            rate = int(res.headers.get("X-Sample-Rate", 24000))
+            pcm = res.read()
+        if len(pcm) < rate // 5:
+            raise TTSUnavailable("tts provider returned no audio")
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(rate)
+            w.writeframes(pcm[: len(pcm) // 2 * 2])
+        return buf.getvalue()
 
-        `voice` overrides the configured voice for this call (the page's voice drop-down).
-        """
+    def clear_cache(self) -> int:
+        """Delete only generated audio files from this instance's dedicated cache directory."""
         with self._lock:
-            voice = voice or self._voice()
+            if not self.cache_dir.is_dir():
+                return 0
+            removed = 0
+            for path in self.cache_dir.iterdir():
+                if path.is_file() and (path.suffix == ".wav" or path.name.endswith(".tmp")):
+                    try:
+                        path.unlink()
+                        removed += 1
+                    except FileNotFoundError:
+                        pass
+                    except OSError as e:
+                        raise TTSUnavailable(f"could not clear voice cache: {e}") from None
+            return removed
+
+    def wav(self, text: str, voice: str = "") -> tuple[bytes, str]:
+        """(WAV, Raef's voice id) for `text`, using the disk cache when available."""
+        with self._lock:
+            voice = RAEF_VOICE_ID
             path = self._path(text, voice)
             if path.exists():
                 return path.read_bytes(), voice
-            # enhance_pronunciation: the phrase bank is unvowelled, so let the voice's dialect add the tashkeel
-            with self._request("/audio/speech", {"model": MODEL, "voice": voice, "input": text,
-                                                 "response_format": "pcm", "enhance_pronunciation": True}) as res:
-                rate = int(res.headers.get("X-Sample-Rate", 24000))
-                pcm = res.read()
-            if len(pcm) < rate // 5:  # an error after streaming starts just cuts the audio short
-                raise TTSUnavailable("tts provider returned no audio")
-            buf = io.BytesIO()
-            with wave.open(buf, "wb") as w:  # raw stream is signed 16-bit little-endian mono
-                w.setnchannels(1)
-                w.setsampwidth(2)
-                w.setframerate(rate)
-                w.writeframes(pcm[: len(pcm) // 2 * 2])
-            data = buf.getvalue()
+            # The caller supplies the phrase's Palestinian vowel marks. Sawtak preserves existing
+            # marks; enhancement fills remaining pronunciation cues using the selected voice's dialect.
+            data = self._generate(text, voice)
             try:
                 self.cache_dir.mkdir(parents=True, exist_ok=True)
                 tmp = path.with_suffix(".tmp")
@@ -125,4 +129,4 @@ def load_tts() -> SawtakTTS | None:
         log.info("SAWTAK_API_KEY not set: playback uses the device voice")
         return None
     cache = os.environ.get("TTS_CACHE_DIR", "").strip()
-    return SawtakTTS(key, os.environ.get("SAWTAK_VOICE_ID", "").strip(), Path(cache) if cache else None)
+    return SawtakTTS(key, RAEF_VOICE_ID, Path(cache) if cache else None)

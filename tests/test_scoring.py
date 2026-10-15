@@ -361,24 +361,24 @@ def test_tts_endpoint_serves_phrase_audio_and_503_without_key():
     from app.main import create_app
 
     class FakeTTS:
-        voice_id, voice_name = "v-123", "ليلى"
+        from app.tts import RAEF_VOICE_ID
+        voice_id, voice_name = RAEF_VOICE_ID, "רַאאִף"
 
         def wav(self, text, voice=""):
-            assert text == PHRASES[0]["variants"][0][0]
-            return b"RIFFfake", voice or self.voice_id
+            from app.arabic_diacritics import point_arabic
+            assert text == point_arabic(*PHRASES[0]["variants"][0])
+            assert voice == self.voice_id
+            return b"RIFFfake", self.voice_id
 
     with TestClient(create_app(scorer_for(emissions(["w"])), FakeTTS())) as c:
         r = c.get("/api/tts/0")
         assert r.status_code == 200 and r.headers["content-type"] == "audio/wav" and r.content == b"RIFFfake"
-        assert r.headers["x-tts-provider"] == "sawtakarabi.ai" and r.headers["x-tts-voice-id"] == "v-123"
-        from urllib.parse import unquote
+        assert r.headers["x-tts-provider"] == "sawtakarabi.ai" and r.headers["x-tts-voice-id"] == FakeTTS.voice_id
 
         from app.tts import VOICES
         voices = c.get("/api/phrases").json()["voices"]
         assert [v["name"] for v in voices] == list(VOICES)
-        r = c.get("/api/tts/0?voice=" + voices[1]["id"])
-        assert r.headers["x-tts-voice-id"] == voices[1]["id"] and unquote(r.headers["x-tts-voice-name"]) == voices[1]["name"]
-        assert c.get("/api/tts/0?voice=not-in-the-list").status_code == 400
+        assert voices == [{"id": FakeTTS.voice_id, "name": "רַאאִף"}]
         assert c.get("/api/tts/9999").status_code == 404
         health = c.get("/api/health").json()
         assert health["tts"] is True and health["rules"]["pharyngeal_h"]["detectable"]
@@ -545,8 +545,10 @@ def test_references_use_one_generated_voice_and_any_cached_one():
         refs = References(s, tts, ["first", "never-played", "played"])
         assert len(refs.get(7, ALA)) == 2 and calls == ["first", "played"]
         assert len(refs.get(7, ALA)) == 2 and len(calls) == 2            # kept in memory
+        assert refs.invalidate(7, "first") == 1
+        assert len(refs.get(7, ALA)) == 2 and calls == ["first", "played", "first"]
         tts.down = True
-        assert refs.get(8, ALA) == [] and refs.get(8, ALA) == [] and len(calls) == 4   # failures are not retried at once
+        assert refs.get(8, ALA) == [] and refs.get(8, ALA) == [] and len(calls) == 5   # failures are not retried at once
     finally:
         reference.decode_audio = orig
 
@@ -1354,7 +1356,8 @@ def test_sign_in_guards_the_practice_endpoints():
                                       "pos": N1, "ord": 2, "guessed": ["זַלַמֶה"]}   # the course has the other words
         assert "voices" not in d["categories"][1] and d["categories"][1]["ord"] == 3
         line1, line2, line3 = d["phrases"][:3]
-        assert line1 == {"id": 1_001_000, "cat": "t1", "he": "שלום", "tr": "מַרְחַבַּא", "ar": "مرحبا", "seq": 1}
+        assert line1 == {"id": 1_001_000, "cat": "t1", "he": "שלום", "tr": "מַרְחַבַּא", "ar": "مرحبا",
+                         "ar_pointed": "مَرْحَبَا", "seq": 1}
         assert (line2["id"], line2["ar"], line3["ar"]) == (1_001_001, "كيف حالك؟", "مرحبا يا زلمة") and len(d["phrases"]) == 6
         # a line is a phrase like the bank's: it has a prompt and an answer to play, and its recordings count (two lines
         # with the same Hebrew stay apart)

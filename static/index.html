@@ -1013,7 +1013,6 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 <dialog id="setDlg" aria-labelledby="setTitle">
   <div class="dlg-head"><h2 id="setTitle">הגדרות השמעה</h2><button class="btn" id="setClose">סגירה</button></div>
   <div class="voicebox">
-    <label>קול ההשמעה<select id="voiceId"></select></label>
     <label>מהירות<select id="speed"><option value="0.8">x0.8</option><option value="1">x1</option><option value="1.5">x1.5</option></select></label>
     <label>הקראת המשפט בעברית<input type="checkbox" id="readHe"></label>
   </div>
@@ -2689,7 +2688,7 @@ function drawAnalyzedAnswer(r){
     pair.append(expected,heard); main.append(pair);
   });
   card.replaceChildren(mark("analysis-key","למעלה: התשובה · למטה: המערכת שמעה","small"),main);
-  card.append(mark("ar",cur.ar,"small"));
+  card.append(mark("ar",cur.ar_pointed||cur.ar,"small"));
   if(cur.read) card.append(mark("he",cur.he,"small"));
   card.classList.add("revealed","scored"); card.removeAttribute("role"); card.removeAttribute("tabindex"); card.removeAttribute("aria-label"); card.onclick=null; card.onkeydown=null;
   $("hintLabel").textContent=hasWhy(r)?WHY_HINT:"התשובה וניתוח ההגייה";
@@ -2700,7 +2699,7 @@ function drawWordReveals(){
   const button=mark("word-reveal","","div"); button.setAttribute("role","button"); button.tabIndex=0;
   button.setAttribute("aria-label",cur.read?"גלו את התרגום לעברית":"גלו את התרגום לערבית");
   const main=mark("",answer); setTr(main,answer); main.setAttribute("aria-hidden","true"); button.append(main);
-  if(!cur.read){ const ar=mark("ar",cur.ar,"small"); ar.setAttribute("aria-hidden","true"); button.append(ar); }
+  if(!cur.read){ const ar=mark("ar",cur.ar_pointed||cur.ar,"small"); ar.setAttribute("aria-hidden","true"); button.append(ar); }
   button.onclick=()=>revealWord(button); box.append(button);
   button.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); revealWord(button); } };
   $("hintLabel").textContent=cur.read?"לחצו על הכרטיסייה כדי לגלות את התרגום לעברית":"לחצו על הכרטיסייה כדי לגלות את התרגום לערבית";
@@ -2730,7 +2729,7 @@ $("prevBtn").onclick=()=>{   // the sentence before this one in the topic, pract
 };
 function arVoice(){ const vs=speechSynthesis.getVoices(); return vs.find(v=>/^ar[-_](PS|JO|LB|SY|IL)/i.test(v.lang))||vs.find(v=>/^ar/i.test(v.lang)); }
 if("speechSynthesis" in window) speechSynthesis.getVoices();
-const ttsUrls={};   // "phrase id|voice" -> {url} of the server-generated answer
+const ttsUrls={};   // phrase id -> {url} of Raef's server-generated answer
 // the guide's line for a new student: until it is opened or closed once
 const guideSeen=()=>{ store.set("ihki.guideSeen",true); $("guideTip").hidden=true; };
 $("guideTip").hidden=store.get("ihki.guideSeen",false);
@@ -2740,41 +2739,49 @@ $("readHe").onchange=()=>{
   store.set("ihki.readHe",$("readHe").checked);
   if(!(rec&&rec.state==="recording")) promptRead=readPrompt();
 };
-$("voiceId").onchange=()=>store.set("ihki.voice",$("voiceId").value);   // Sawtak voice of the playback; options come from the server
 // Speed of the Arabic answer. The provider has no speed setting: the browser plays the same audio slower or faster, at the same pitch.
 $("speed").value=String(store.get("ihki.speed",1)); if(!$("speed").value) $("speed").value="1";
 $("speed").onchange=()=>store.set("ihki.speed",+$("speed").value);
 const answerRate=()=>+$("speed").value||1;
 function answerPlayer(url){ const a=new Audio(url); a.preservesPitch=true; a.playbackRate=answerRate(); return a; }
-let ttsOff=false;   // server has no TTS key: stop asking
-// A story is a dialogue: its lines are said in turn by the topic's two voices, found by name (without the points) in
-// the server's list, so the speakers sound apart. Anywhere else, and when a name is not in the list, the chosen voice.
-function lineVoice(id){
-  const sel=$("voiceId"), c=!daily&&CATS.find(c=>c.id===cat)||{}, k=topic.indexOf(id);
-  const name=c.story&&c.voices&&k>=0&&c.voices[k%2], o=name&&[...sel.options].find(o=>o.text.replace(/[\u0591-\u05C7]/g,"")===name);
-  return o?o.value:sel.value;
+let playbackContext=null;
+function unlockPlayback(){
+  try{
+    playbackContext=playbackContext||new (window.AudioContext||window.webkitAudioContext)();
+    playbackContext.resume(); return playbackContext;
+  }catch{return null}
 }
+async function playAnswer(recording,context){
+  const audio=answerPlayer(recording.url);
+  try{ await audio.play(); return; }catch(error){ if(!context) throw error; }
+  const buffer=await context.decodeAudioData(await recording.blob.arrayBuffer());
+  const source=context.createBufferSource(); source.buffer=buffer; source.playbackRate.value=answerRate();
+  source.connect(context.destination); source.start();
+}
+let ttsOff=false;   // server has no TTS key: stop asking
 async function answerAudio(id){   // {url} of the Sawtak answer, or null when the server voice is unavailable
-  const voice=lineVoice(id), key=id+"|"+voice;
-  if(!ttsOff && !ttsUrls[key]){
+  if(!ttsOff && !ttsUrls[id]){
     try{
-      const res=await api("/api/tts/"+id+(voice?"?voice="+encodeURIComponent(voice):""));
+      const res=await api("/api/tts/"+id+"?v=5");
       if(res.ok){
-        ttsUrls[key]={url:URL.createObjectURL(await res.blob())};
+        const blob=await res.blob(); ttsUrls[id]={blob,url:URL.createObjectURL(blob)};
       }else{
         const detail=(await res.json().catch(()=>({}))).detail||res.status;
         if(detail==="tts not configured") ttsOff=true;   // no key on the server: stop asking
       }
     }catch{}
   }
-  return ttsUrls[key]||null;
+  return ttsUrls[id]||null;
 }
 $("speakBtn").onclick=async()=>{
-  const id=cur.id, btn=$("speakBtn");
-  btn.disabled=true; const a=await answerAudio(id); btn.disabled=false;
-  if(a){ if(cur.id===id){ answerPlayer(a.url).play(); } return; }
+  const id=cur.id, btn=$("speakBtn"), label=btn.querySelector("small"), context=unlockPlayback();
+  btn.disabled=true; label.textContent="טוען…"; const a=await answerAudio(id); btn.disabled=false; label.textContent="השמע";
+  if(a){
+    if(cur.id===id) try{ await playAnswer(a,context); }catch{ $("status").textContent="הדפדפן חסם את ההשמעה. נסו שוב."; }
+    return;
+  }
   if(!("speechSynthesis" in window)) return;
-  const u=new SpeechSynthesisUtterance(cur.ar); const v=arVoice();
+  const u=new SpeechSynthesisUtterance(cur.ar_pointed||cur.ar); const v=arVoice();
   if(v){u.voice=v;u.lang=v.lang;} else u.lang="ar-SA";
   u.rate=.85*answerRate(); speechSynthesis.cancel(); speechSynthesis.speak(u);
 };
@@ -3044,6 +3051,7 @@ function drawScoringRules(box){
 function drawFlags(){
   const box=$("mFlags"); box.innerHTML=""; for(const url of flagAudioUrls) URL.revokeObjectURL(url); flagAudioUrls=[];
   drawActivity(box);
+  drawTtsCacheControls(box);
   if(!flagsLoaded){ box.append(mark("card","בחרו בניטור כדי לטעון את הנתונים.")); return; }
   drawScoringRules(box);
   if(flagsError){ const card=mark("card",""); card.append(mark("","לא ניתן לטעון את הדיווחים","h2"),mark("",flagsError,"p")); box.append(card); return; }
@@ -3128,6 +3136,23 @@ function drawFlags(){
     confirm.onclick=()=>save("confirmed"); reject.onclick=()=>save("rejected"); actions.append(category,confirm,reject,msg); card.append(note,actions); box.append(card);
   }
 }
+function drawTtsCacheControls(box){
+  const card=mark("card",""), title=mark("","מטמון הקלטות Sawtak","h2"), text=mark("","מחיקה גורמת ליצירה מחדש של הקלטות התשובה בהשמעה הבאה. גם הקלטות שנבחרו ידנית יימחקו.","p");
+  const row=mark("row",""), button=mark("btn","מחיקת מטמון ההקלטות","button"), msg=mark("msg","");
+  button.onclick=async()=>{
+    if(!confirm("למחוק את כל הקלטות התשובה מהמטמון? גם הקלטות שנבחרו ידנית יימחקו, ולא ניתן לבטל את הפעולה.")) return;
+    button.disabled=true; msg.textContent="מוחק…";
+    try{
+      const res=await api("/api/tts-cache",{method:"DELETE"}), data=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(data.detail||res.status);
+      for(const value of Object.values(ttsUrls)) URL.revokeObjectURL(value.url);
+      for(const key of Object.keys(ttsUrls)) delete ttsUrls[key];
+      msg.textContent=`נמחקו ${data.removed} קבצי מטמון.`;
+    }catch(err){ msg.textContent="המחיקה נכשלה: "+err.message; }
+    button.disabled=false;
+  };
+  row.append(button,msg); card.append(title,text,row); box.append(card);
+}
 function drawActivity(box){
   const days=activityHours===168, range=days?"7 הימים":"24 השעות", bucket=days?"שעה":"15 דקות";
   const card=mark("card activity",""), head=mark("activity-head",""), title=mark("",`פעילות ב־${range} האחרונים`,"h2"), sub=mark("",`כל עמודה מייצגת ${bucket} · מתעדכן פעם בדקה`,"p");
@@ -3194,7 +3219,7 @@ function drawContent(){
   const guides=mark("guides","מדריכים:","div");
   for(const a of $("guideDlg").querySelectorAll("article")){ const b=mark("btn",a.dataset.title,"button"); b.onclick=()=>showGuide(a.dataset.guide); guides.append(b); }
   box.append(guides);
-  const voices=[...$("voiceId").options].filter(o=>o.value).map(o=>o.text.replace(/[֑-ׇ]/g,""));
+  const voices=["ראאף"];
   const adder=(adds,label,fields,note,submit)=>{   // a closed form under a lesson, or under a level's daily videos
     const add=document.createElement("details"), form=document.createElement("form"), row=mark("row",""), msg=mark("msg","");
     add.className="vadd"; add.append(mark("btn",label,"summary"),form); form.className="cform"; msg.setAttribute("role","alert");
@@ -3901,8 +3926,6 @@ const ready=fetch("/api/phrases").then(r=>r.json()).then(d=>{
   ALL_LEVELS=d.levels||[]; ALL_LESSONS=d.lessons; ALL_CATS=d.categories; GAMES=d.games||[]; PHRASES=d.phrases;
   $("nav").querySelector('[data-view="games"]').hidden=!GAMES.some(game=>!game.hidden);
   for(const c of ALL_CATS) c.name=c.name.replace(/ ← /g,"\u00a0←\u00a0");   // the arrow never ends a line
-  for(const v of d.voices||[]) $("voiceId").add(new Option(v.name,v.id));
-  const saved=store.get("ihki.voice",""); if((d.voices||[]).some(v=>v.id===saved)) $("voiceId").value=saved;
   useLessons(MY_LESSONS);
   startCat(); opened=true;
 }).catch(()=>{ $("prompt").textContent="השרת לא זמין."; });

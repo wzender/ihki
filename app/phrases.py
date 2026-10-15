@@ -11,6 +11,7 @@ Conventions (Palestinian urban speech as the main form):
   Emphatics are written with ˤ (sˤ tˤ dˤ ðˤ), long vowels with ː.
   Geminates are written doubled; the tokenizer collapses them for CTC.
 """
+from .arabic_diacritics import point_arabic
 from .grammar import day2_phrases
 from .workbook import CATEGORIES as WORKBOOK_CATEGORIES, GAMES as WORKBOOK_GAMES, LESSON_TABS, LEVEL_TABS, workbook_phrases
 
@@ -147,6 +148,7 @@ def public_phrases():
     shown = {c["id"] for c in CATEGORIES + GAMES}
     return [
         {"id": i, "cat": p["cat"], "he": p["he"], "tr": p["tr"], "ar": p["variants"][0][0],
+         "ar_pointed": point_arabic(*p["variants"][0]),
          **{k: p[k] for k in ("grp", "pron", "neg", "listed", "seq", "read", "unlock", "binyan", "gizra") if k in p}}
         for i, p in enumerate(PHRASES) if p["cat"] in shown
     ]
