@@ -475,6 +475,52 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 #writeLines{margin:0;padding-inline-start:1.5em;display:grid;gap:8px}
 #writeLines input{width:100%;box-sizing:border-box;font:500 17px/1.5 var(--f-body);padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
 #writeDlg small{display:block;margin-top:12px;color:var(--muted);font-size:14px}
+/* a lesson's new words, before anything is said: a card a word, the Hebrew first and the Arabic on a tap */
+#learnDlg{width:min(92vw,440px)}
+.lprog{display:flex;justify-content:space-between;gap:8px;font:600 14px/1.2 var(--f-body);color:var(--muted);margin-top:4px}
+.lbar{display:flex;gap:3px;margin:6px 0 12px}
+.lbar i{flex:1;height:8px;border-radius:4px;background:var(--line)}
+.lbar i.cur{background:color-mix(in srgb,var(--olive) 45%,var(--line))}
+.lbar i.again{background:color-mix(in srgb,var(--sumac) 45%,var(--surface))}
+.lbar i.known{background:var(--olive)}
+#learnCard{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:18px 12px;border:1px solid var(--line);border-radius:16px;background:var(--bg)}
+.lq{margin:0;font:600 14px/1.3 var(--f-body);color:var(--muted)}
+.lhe{margin:0;font:700 40px/1.2 var(--f-tr)}
+.lreveal{width:100%;min-height:130px;border:2px dashed var(--line);border-radius:14px;background:var(--surface);color:var(--muted);font:600 16px/1.3 var(--f-body);cursor:pointer}
+.lreveal:hover{border-color:var(--olive);color:var(--olive)}
+.lback{width:100%;padding-top:14px;border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:4px}
+.ltr{margin:0;font:700 36px/1.35 var(--f-tr);letter-spacing:.02em;color:var(--olive)}
+.lar{margin:0;font:700 28px/1.5 var(--f-ar);color:var(--muted)}
+.lplay{display:flex;align-items:center;gap:12px;margin-top:8px}
+.lplay .mic{width:56px;height:56px}
+.lplay .btn{min-height:44px;border-radius:999px;padding:0 16px}
+#learnSay{min-height:1.4em;color:var(--olive);font:600 13px/1.4 var(--f-body)}
+.lacts{display:grid;gap:10px;margin-top:12px}
+.lacts.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.lacts .btn{min-height:52px;font-size:17px;font-weight:700;border-radius:12px}
+.lacts .again{border-color:var(--sumac);color:var(--sumac)}
+.lacts small{grid-column:1/-1;text-align:center;color:var(--muted);font-size:13px}
+#learnDone{text-align:center}
+.ldone{margin:8px 0 2px;font:400 24px/1.2 var(--f-display)}
+#learnSum{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;text-align:start}
+#learnSum li{display:flex;flex-direction:column;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+#learnSum li.again{border-color:color-mix(in srgb,var(--sumac) 50%,var(--line));background:var(--sumac-bg)}
+#learnSum b{font:700 15px/1.25 var(--f-body)}
+#learnSum span{font:700 16px/1.35 var(--f-tr);color:var(--olive)}
+/* "התאימו זוגות": the Hebrew in one column, the transliteration in the other; a tap on each joins a pair */
+#matchDlg{width:min(92vw,440px)}
+#matchHow{margin-top:2px;text-align:center}
+#matchBoard{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+.mcol{display:flex;flex-direction:column;gap:8px}
+.mtile{min-height:56px;padding:6px 10px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);box-shadow:0 2px 0 var(--line);cursor:pointer;font:700 18px/1.25 var(--f-body)}
+.mtile.tr{font:700 20px/1.35 var(--f-tr)}
+.mtile:hover{border-color:var(--olive)}
+.mtile[aria-pressed="true"]{border-color:var(--olive);background:var(--olive-soft);box-shadow:inset 0 0 0 1px var(--olive)}
+.mtile.ok{border-color:var(--ok);background:var(--ok-bg);color:var(--ok);box-shadow:none;cursor:default;opacity:.55}
+.mtile.no{border-color:var(--sumac);background:var(--sumac-bg);animation:mismatch .3s}
+@keyframes mismatch{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+@media (prefers-reduced-motion:reduce){.mtile.no{animation:none}}
+#matchDone{text-align:center}
 .wrote{margin:0;padding:0 16px 8px;padding-inline-start:3em;color:var(--muted);font-size:15px}
 #mClasses{display:flex;flex-direction:column;gap:inherit}
 #mClasses>.btn{align-self:flex-start}
@@ -990,6 +1036,48 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   <ol id="writeLines"></ol>
   <small id="writeNote" aria-live="polite"></small>
 </dialog>
+<dialog id="learnDlg" aria-labelledby="learnTitle">
+  <div class="dlg-head"><h2 id="learnTitle"></h2><button class="btn" id="learnClose">סגירה</button></div>
+  <div class="lprog"><span id="learnCount"></span><span id="learnLeft"></span></div>
+  <div class="lbar" id="learnBar" aria-hidden="true"></div>
+  <div id="learnCard">
+    <p class="lq">איך אומרים בערבית?</p>
+    <p class="lhe" id="learnHe"></p>
+    <button class="lreveal" id="learnReveal">נסו להיזכר, ואז הקישו לגילוי</button>
+    <div class="lback" id="learnBack" hidden>
+      <p class="ltr" id="learnTr"></p>
+      <p class="lar" id="learnAr" lang="ar" dir="rtl"></p>
+      <div class="lplay">
+        <button class="mic" id="learnPlay" title="השמעת המילה" aria-label="השמעת המילה"><svg class="ic" aria-hidden="true"><use href="#i-sound"/></svg></button>
+        <button class="btn" id="learnSlow" title="השמעה לאט">לאט</button>
+      </div>
+      <small id="learnSay" aria-live="polite"></small>
+    </div>
+  </div>
+  <div class="lacts" id="learnActs1"><button class="btn primary" id="learnShow">גלו את המילה</button></div>
+  <div class="lacts two" id="learnActs2" hidden>
+    <button class="btn again" id="learnAgain">עוד לא</button><button class="btn primary" id="learnKnow">✓ ידעתי</button>
+    <small>מילה שסימנתם "עוד לא" תחזור בסוף הסבב</small>
+  </div>
+  <div id="learnDone" hidden>
+    <p class="ldone" id="learnDoneTitle"></p>
+    <p class="sub" id="learnDoneSub"></p>
+    <ul id="learnSum"></ul>
+    <div class="lacts"><button class="btn primary" id="learnNext"></button><button class="btn" id="learnRound">סבב נוסף על המילים</button></div>
+  </div>
+</dialog>
+<dialog id="matchDlg" aria-labelledby="matchTitle">
+  <div class="dlg-head"><h2 id="matchTitle"></h2><button class="btn" id="matchClose">סגירה</button></div>
+  <div class="lprog"><span id="matchRound"></span><span id="matchMiss" aria-live="polite"></span></div>
+  <div class="lbar" id="matchBar" aria-hidden="true"></div>
+  <p class="lq" id="matchHow">הקישו על מילה בעברית ועל התעתיק שלה</p>
+  <div id="matchBoard"><div class="mcol" id="matchHe" aria-label="עברית"></div><div class="mcol" id="matchTr" aria-label="תעתיק"></div></div>
+  <div id="matchDone" hidden>
+    <p class="ldone" id="matchDoneTitle"></p>
+    <p class="sub" id="matchDoneSub"></p>
+    <div class="lacts"><button class="btn primary" id="matchNext"></button><button class="btn" id="matchAgain">משחק נוסף</button></div>
+  </div>
+</dialog>
 <dialog id="classDlg" aria-labelledby="classTitle">
   <div class="dlg-head"><h2 id="classTitle"></h2><button class="btn" id="classClose">סגירה</button></div>
   <div id="mates"></div>
@@ -1206,7 +1294,7 @@ function homeworks(){
   const from=hwOf(MY_CLASS,CATS).length?[MY_CLASS]:MY_CLASSES, by=new Map(), now=new Date(), days=n=>n===1?"יום":n===2?"יומיים":`${n} ימים`;
   for(const h of from.flatMap(k=>hwOf(k,CATS))){ const was=by.get(h.c); if(!was||(h.due||"9")<(was.due||"9")) by.set(h.c,h); }
   return [...by.values()].map(({c,due})=>{
-    const t=c.write?wTally(c):tally(PHRASES.filter(p=>p.listed!==false&&p.cat===c.id));
+    const t=topicT(c);
     const left=due?Math.round((new Date(due+"T00:00")-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5):null;
     const msg=left==null?(t.done?"המשך":"התחילו"):left<0?`באיחור של ${days(-left)}`:left===0?"מגישים היום!":left===1?"מגישים מחר!":`נשארו ${days(left)}`;
     return {c,l:LESSONS.find(l=>l.id===c.lesson),t,msg,left,state:left==null||left>1?"":left<0?"late":"soon"};
@@ -1482,7 +1570,140 @@ $("writeClose").onclick=()=>$("writeDlg").close();
 $("writeDlg").addEventListener("close",()=>{
   if(writeTimer){ clearTimeout(writeTimer); writeTimer=null; sendWriting(writeOpen); }   // what was just written is sent at once
   writeOpen=null; if(home&&!document.body.classList.contains("manage")) drawPath(true); });
-const openCat=c=>c.write?writeTopic(c):pickCat(c.id);
+/* A lesson's new words ("learn" topic): a card a word, before the lesson's speaking topics, which stay locked until
+   every word was marked known once. Nothing is scored; what the student knows is kept on the device. A round goes
+   through the words not known yet (all of them, shuffled, when every one is); "not yet" sends a word to the round's end. */
+let learned=store.get("ihki.learned",{}), learning=null;   // {topic id: the ids of its words known}; the round on screen
+const lWords=c=>PHRASES.filter(p=>p.cat===c.id).sort((a,b)=>(a.seq??0)-(b.seq??0));
+function lTally(c){ const ids=new Set(learned[c.id]||[]), list=lWords(c), done=list.filter(p=>ids.has(p.id)).length; return {done,n:list.length,over:list.length>0&&done>=list.length,gold:false}; }
+const topicT=c=>c.write?wTally(c):c.learn?lTally(c):c.match?mTally(c):tally(PHRASES.filter(p=>p.listed!==false&&p.cat===c.id));
+function nextUp(btn,c,dlg){   // the button that goes on to the lesson's next topic, when there is one
+  const its=lessonItems(c.lesson).filter(it=>it.c).map(it=>it.c), next=its[its.indexOf(c)+1];
+  btn.hidden=!next; if(!next) return;
+  btn.textContent=next.learn||next.match||next.write?`המשך: ${next.name}`:`עכשיו לדבר: ${next.name}`;
+  btn.onclick=()=>{ $(dlg).close(); openCat(next); };
+}
+function learnTopic(c){
+  const words=lWords(c), known=new Set(learned[c.id]||[]), left=words.filter(p=>!known.has(p.id));
+  learning={c,words,queue:(left.length?left:shuffle([...words])).map(p=>p.id),again:new Set()};
+  $("learnTitle").replaceChildren(c.name,mark("",lessonName(LESSONS.find(l=>l.id===c.lesson)),"small"));
+  learnCard(); if(!$("learnDlg").open) $("learnDlg").showModal();
+}
+function learnCard(){
+  const L=learning, n=L.words.length, left=L.queue.length;
+  $("learnCount").textContent=`${n-left} מתוך ${n} נלמדו`; $("learnLeft").textContent=left?`נשארו ${left}`:"הסבב הושלם";
+  $("learnBar").replaceChildren(...L.words.map(p=>mark(!L.queue.includes(p.id)?"known":p.id===L.queue[0]?"cur":L.again.has(p.id)?"again":"","","i")));
+  for(const id of ["learnCard","learnActs1"]) $(id).hidden=!left;
+  $("learnActs2").hidden=true; $("learnDone").hidden=!!left;
+  if(!left) return learnDone();
+  $("learnHe").textContent=phraseOf(L.queue[0]).he; $("learnBack").hidden=true; $("learnReveal").hidden=false; $("learnSay").textContent="";
+}
+function learnShow(){
+  const p=phraseOf(learning.queue[0]);
+  setTr($("learnTr"),p.tr); $("learnAr").textContent=p.ar_pointed||p.ar;
+  $("learnBack").hidden=false; $("learnReveal").hidden=true; $("learnActs1").hidden=true; $("learnActs2").hidden=false;
+  learnPlay(false);
+}
+async function learnPlay(slow){   // the word in the answers' voice (the device's when the server has none); slow: at 0.7 of the chosen speed
+  const id=learning.queue[0], p=phraseOf(id), context=unlockPlayback(), say=$("learnSay");
+  say.textContent="טוען…"; const a=await answerAudio(id);
+  if(!learning||learning.queue[0]!==id) return;
+  say.textContent="";
+  if(a){
+    try{ if(slow){ const au=answerPlayer(a.url); au.playbackRate=answerRate()*.7; await au.play(); } else await playAnswer(a,context); }
+    catch{ say.textContent="הדפדפן חסם את ההשמעה. נסו שוב."; }
+    return;
+  }
+  if(!("speechSynthesis" in window)) return;
+  const u=new SpeechSynthesisUtterance(p.ar_pointed||p.ar), v=arVoice();
+  if(v){u.voice=v;u.lang=v.lang;} else u.lang="ar-SA";
+  u.rate=.85*answerRate()*(slow?.7:1); speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+function learnMark(know){
+  const L=learning, id=L.queue.shift();
+  if(know){ learned[L.c.id]=[...new Set([...(learned[L.c.id]||[]),id])]; store.set("ihki.learned",learned); }
+  else{ L.queue.push(id); L.again.add(id); }
+  learnCard();
+}
+function learnDone(){
+  const L=learning, n=L.words.length, again=L.again.size;
+  $("learnDoneTitle").textContent=`כל ${n} המילים נלמדו`;
+  $("learnDoneSub").textContent=again?`${again===1?"מילה אחת חזרה":`${again} מילים חזרו`} יותר מפעם אחת. הן מסומנות למטה.`:"ידעתם את כולן כבר בפעם הראשונה.";
+  $("learnSum").replaceChildren(...L.words.map(p=>{ const li=mark(L.again.has(p.id)?"again":"","","li"), tr=mark("","","span"); setTr(tr,p.tr); li.append(mark("",p.he,"b"),tr); return li; }));
+  nextUp($("learnNext"),L.c,"learnDlg");
+}
+$("learnReveal").onclick=$("learnShow").onclick=learnShow;
+$("learnPlay").onclick=()=>learnPlay(false); $("learnSlow").onclick=()=>learnPlay(true);
+$("learnKnow").onclick=()=>learnMark(true); $("learnAgain").onclick=()=>learnMark(false);
+$("learnRound").onclick=()=>learnTopic(learning.c);
+$("learnClose").onclick=()=>$("learnDlg").close();
+$("learnDlg").addEventListener("close",()=>{ learning=null; if(home&&!document.body.classList.contains("manage")) drawPath(true); });
+/* "התאימו זוגות" (a match topic): the lesson's new words in rounds of up to five, the Hebrew in one column and the
+   transliteration, shuffled, in the other; a tap on each joins a pair, and a joined pair is heard. A word matched
+   once counts toward the topic, which, like the words, holds back a lesson not yet practised; a game with no
+   mistake earns the star. Kept on the device, as the words are. */
+let matched=store.get("ihki.matched",{}), matching=null;   // {topic id: {ids: the words matched, gold}}; the game on screen
+function mTally(c){
+  const m=matched[c.id]||{}, ids=new Set(m.ids||[]), list=lWords({id:c.match}), done=list.filter(p=>ids.has(p.id)).length, over=list.length>0&&done>=list.length;
+  return {done,n:list.length,over,gold:over&&!!m.gold};
+}
+function matchTopic(c){
+  const words=shuffle([...lWords({id:c.match})]), k=Math.ceil(words.length/5), rounds=[];   // 19 words: rounds of 5, 5, 5, 4
+  for(let i=0;i<k;i++) rounds.push(words.slice(Math.round(i*words.length/k),Math.round((i+1)*words.length/k)));
+  matching={c,rounds,round:0,miss:0,sel:{},left:0,start:Date.now()};
+  $("matchTitle").replaceChildren(c.name,mark("",lessonName(LESSONS.find(l=>l.id===c.lesson)),"small"));
+  $("matchBoard").hidden=$("matchHow").hidden=false; $("matchDone").hidden=true;
+  matchRound(); if(!$("matchDlg").open) $("matchDlg").showModal();
+}
+function matchRound(){
+  const M=matching, ws=M.rounds[M.round]; M.sel={}; M.left=ws.length;
+  const tile=(p,side)=>{
+    const b=mark("mtile"+(side==="tr"?" tr":""),"","button"); b.dataset.id=p.id; b.dataset.side=side; b.setAttribute("aria-pressed","false");
+    if(side==="tr") setTr(b,p.tr); else b.textContent=p.he;
+    b.onclick=()=>matchTap(b); return b;
+  };
+  $("matchHe").replaceChildren(...shuffle([...ws]).map(p=>tile(p,"he")));
+  $("matchTr").replaceChildren(...shuffle([...ws]).map(p=>tile(p,"tr")));
+  matchHead();
+}
+function matchHead(){
+  const M=matching, n=M.rounds.length;
+  $("matchRound").textContent=M.round<n?`סבב ${M.round+1} מתוך ${n}`:"המשחק הושלם"; $("matchMiss").textContent=M.miss?`טעויות: ${M.miss}`:"בלי טעויות";
+  $("matchBar").replaceChildren(...M.rounds.map((_,i)=>mark(i<M.round?"known":i===M.round?"cur":"","","i")));
+}
+function matchTap(b){
+  const M=matching, side=b.dataset.side, was=M.sel[side];
+  if(was) was.setAttribute("aria-pressed","false");
+  if(was===b){ delete M.sel[side]; return; }   // a second tap lets go of it
+  b.setAttribute("aria-pressed","true"); M.sel[side]=b;
+  const o=M.sel[side==="he"?"tr":"he"]; if(!o) return;
+  M.sel={};
+  if(o.dataset.id===b.dataset.id){
+    for(const t of [o,b]){ t.classList.add("ok"); t.disabled=true; t.setAttribute("aria-pressed","false"); }
+    const id=+b.dataset.id, m=matched[M.c.id]||{ids:[]}; m.ids=[...new Set([...m.ids,id])]; matched[M.c.id]=m; store.set("ihki.matched",matched);
+    matchSay(id);
+    if(--M.left===0) setTimeout(()=>{ if(matching!==M) return; if(++M.round<M.rounds.length) matchRound(); else matchDone(); },600);
+  }else{
+    M.miss++; matchHead();
+    for(const t of [o,b]){ t.classList.add("no"); t.setAttribute("aria-pressed","false"); }
+    setTimeout(()=>{ for(const t of [o,b]) t.classList.remove("no"); },500);
+  }
+}
+async function matchSay(id){   // the server's voice only: the device's would talk over the next taps
+  const a=await answerAudio(id); if(a&&matching) try{ await answerPlayer(a.url).play(); }catch{}
+}
+function matchDone(){
+  const M=matching, n=M.rounds.flat().length, s=Math.round((Date.now()-M.start)/1000);
+  if(!M.miss){ matched[M.c.id]={...matched[M.c.id],gold:true}; store.set("ihki.matched",matched); }
+  matchHead(); $("matchBoard").hidden=$("matchHow").hidden=true; $("matchDone").hidden=false;
+  $("matchDoneTitle").textContent=`כל ${n} הזוגות הותאמו`;
+  $("matchDoneSub").textContent=`${!M.miss?"בלי אף טעות!":M.miss===1?"טעות אחת":`${M.miss} טעויות`} · ${s<60?`${s} שניות`:`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")} דקות`}`;
+  nextUp($("matchNext"),M.c,"matchDlg");
+}
+$("matchAgain").onclick=()=>matchTopic(matching.c);
+$("matchClose").onclick=()=>$("matchDlg").close();
+$("matchDlg").addEventListener("close",()=>{ matching=null; if(home&&!document.body.classList.contains("manage")) drawPath(true); });
+const openCat=c=>c.write?writeTopic(c):c.learn?learnTopic(c):c.match?matchTopic(c):pickCat(c.id);
 function drawPath(stay){
   const box=$("path"), listed=PHRASES.filter(p=>p.listed!==false), NS="http://www.w3.org/2000/svg";
   drawToday();
@@ -1512,14 +1733,14 @@ function drawPath(stay){
       const b=mark("chapter soon",""); b.style.top=y+"px"; b.append(mark("",lessonsWord(run)),mark("","בקרוב","small")); box.append(b);
       y+=52+28; continue;
     }
-    const items=lessonItems(l.id), cats=items.filter(it=>it.c).map(it=>it.c), parts=cats.map(c=>c.write?wTally(c):tally(listed.filter(p=>p.cat===c.id)));
+    const items=lessonItems(l.id), cats=items.filter(it=>it.c).map(it=>it.c), parts=cats.map(topicT);
     const whole=tally(listed.filter(p=>cats.some(c=>c.id===p.cat))), now=!whole.over&&next;
     const todo=Math.max(0,parts.findIndex(t=>!t.over));   // the topic to do now, when this is the lesson to do now
     if(now) next=false;
     const shut=items.map(({c})=>{   // locked: a topic before it is not finished (a written one, like a video, holds nothing back)
       if(!c) return !open;
       const t=parts[cats.indexOf(c)], s=!open&&!t.done&&!hws.some(h=>h.c===c);
-      if(t.n&&!t.over&&!c.write&&!FREE) open=false;
+      if(t.n&&!t.over&&!c.write&&!((c.learn||c.match)&&whole.done)&&!FREE) open=false;   // new words and their game hold back only a lesson not yet practised
       return s;
     });
     const go=parts.every(t=>t.over)?cats[0]:cats.find((c,i)=>!parts[i].over&&!shut[items.findIndex(it=>it.c===c)]);   // the topic the banner opens: none in a locked lesson
@@ -1550,7 +1771,7 @@ function drawPath(stay){
       }
       const i=cats.indexOf(c), t=parts[i], cur=now&&i===todo, [b,dot]=ball(t,cur), [x,label]=seat(b,at);
       const hw=hws.find(h=>h.c===c), mine=!!hw;   // a homework topic: its bubble counts the days left
-      dot.textContent=c.story?"💬":c.write?"✎\uFE0E":n;   // the number stays; a finished topic gets a badge, the one to do now and the homework a bubble
+      dot.textContent=c.story?"💬":c.write?"✎\uFE0E":c.learn?"📖":c.match?"🧩":n;   // the number stays; a finished topic gets a badge, the one to do now and the homework a bubble
       if(t.over) dot.before(mark("badge",t.gold?"★":"✓"));
       // a homework keeps its bubble until its day, done or not: it can still be changed, and the day stays in sight
       if(t.over?mine&&hw.left!=null&&hw.left>=0:cur||mine){
@@ -1561,7 +1782,7 @@ function drawPath(stay){
       const way=c.name.match(WAY);   // "משפטים: עברית ← ערבית א'" is drawn as "משפטים א'" and a chip with the direction
       label.append(mark("",way?way[1]+way[4]:c.name,"b"));
       if(way) label.append(mark("way"+(way[2]==="ערבית"?" read":""),`${SHORT[way[2]]||way[2]}\u00a0←\u00a0${SHORT[way[3]]||way[3]}`));
-      const did=c.write?"נכתבו":"תורגלו";
+      const did=c.write?"נכתבו":c.learn?"נלמדו":c.match?"הותאמו":"תורגלו";
       label.append(mine&&t.over?mark("","✓ שיעורי הבית הושלמו 🎉","small"):count(t,did)); b.append(label);
       b.title=(mine&&!t.over?`שיעורי בית, ${hw.msg}. `:"")+`${c.name}: ${did} ${t.done} מתוך ${t.n}`; b.setAttribute("aria-label",b.title);
       b.onclick=()=>openCat(c); if(shut[at]) lock(b,dot,c.name); box.append(b);
@@ -2307,7 +2528,7 @@ function drawStages(r){
   card("baseline",5,"קו בסיס ילידי","ציון ההגה מחולק בציון שהמודל נותן לקול הילידי על אותו הגה.",
     [["הקלטות ילידיות",t.references.length],["ממוצע מינימלי לאמון",c.ref_min_mean]],"min(100, 100·score / ref)",
     `${count(x=>stageOf(x,"baseline").applied)} הגאים הותאמו`);
-  card("calibration",6,"כיול מורה","רצפות שהמורה אישר לבלבול מסוים (צפוי → נשמע).",
+  card("calibration",6,"כיול","רצפות שהמורה אישר, ובנוסף רצפה שמרנית כאשר מודל הבסיס מחמיץ ע לועית.",
     [["מפתח","סמל, ואז הגה כתוב"]],"max(score, floor)",
     `${count(x=>stageOf(x,"calibration").applied)} רצפות הוחלו`);
   card("decision",7,"החלטת סימון","עיצור מסומן אם הציון נמוך והמתחרה ניצח במרווח של הזוג.",
@@ -3281,7 +3502,7 @@ function drawContent(){
         const lines=c?listed.filter(p=>p.cat===c.id).length:0;
         if(n){
           const row=mark("crow","","li");
-          row.append(mark("",c.story?"💬":c.write?"✎\uFE0E":n,"i"),mark("",c.name,"b"),mark("",c.write?`כתיבה · ${c.write.lines} משפטים`:`${c.story?c.voices?"שיחה":"סיפור":"תרגול"} · ${lines} ${c.unit==="מילה"?"מילים":c.unit==="פועל"?"פעלים":"משפטים"}`,"small")); list.append(row); return;
+          row.append(mark("",c.story?"💬":c.write?"✎\uFE0E":c.learn?"📖":c.match?"🧩":n,"i"),mark("",c.name,"b"),mark("",c.write?`כתיבה · ${c.write.lines} משפטים`:c.learn?`מילים חדשות · ${PHRASES.filter(p=>p.cat===c.id).length} מילים`:c.match?`משחק · התאמת זוגות על המילים החדשות`:`${c.story?c.voices?"שיחה":"סיפור":"תרגול"} · ${lines} ${c.unit==="מילה"?"מילים":c.unit==="פועל"?"פעלים":"משפטים"}`,"small")); list.append(row); return;
         }
         const it=v||c, row=mark("crow added","","li"), text=mark("two",""), title=mark("","","b"), t=document.createElement("bdi"), acts=mark("acts","");
         const up=mark("btn move","↑","button"), down=mark("btn move","↓","button"), see=mark("btn",v?"צפייה":"תרגול","button"), del=mark("btn danger","מחיקה","button");
@@ -3577,7 +3798,7 @@ function drawStudent(klass,s,listed){
   for(const l of CLASS_LESSONS){
     const t=stuTally(s,lessonPhrases(l,listed)), sec=part(lessons); sec.classList.add("lsum");
     sec.firstChild.append(mark("",lessonName(l)),mark("",t.done?`תורגלו ${t.done} מתוך ${t.n} משפטים`:t.missed?`ניסה/תה, לא זוהה (${t.missed})`:"עוד לא התחיל/ה","small"),t.avg!=null?grade(t.avg):mark("none","–"),bar(t.n?t.done/t.n:0));
-    for(const c of ALL_CATS.filter(c=>c.lesson===l.id)){
+    for(const c of ALL_CATS.filter(c=>c.lesson===l.id&&!c.learn&&!c.match)){   // the new words are learned on the student's device: nothing to show
       const t=topicTally(s,c,listed), row=mark("trow"+(t.done?"":" untouched"),"");
       row.append(mark("",c.name),mark("",triesText(t),"small"),ratio(t),t.avg!=null?grade(t.avg):mark("none","–")); sec.append(row);
       if(c.write&&t.done){   // a writing topic: the sentences themselves
@@ -3646,7 +3867,7 @@ function editClass(c){
    "+" adds the last topic of the first ticked lesson that has no homework yet: its written homework, where it has one. */
 function hwRow(topic,due){
   const row=mark("hwrow",""), les=document.createElement("select"), sel=document.createElement("select"), day=Object.assign(document.createElement("input"),{type:"date",value:due||""}), del=mark("btn","✕","button");
-  const topics=id=>lessonItems(id).filter(it=>it.c).map(it=>it.c), fill=()=>{ sel.replaceChildren(); for(const c of topics(les.value)) sel.add(new Option(c.name,c.id)); };
+  const topics=id=>lessonItems(id).filter(it=>it.c&&!it.c.learn&&!it.c.match).map(it=>it.c), fill=()=>{ sel.replaceChildren(); for(const c of topics(les.value)) sel.add(new Option(c.name,c.id)); };
   for(const l of ALL_LESSONS.filter(l=>!l.soon)) les.add(new Option(lessonName(l),l.id));
   les.value=(ALL_CATS.find(c=>c.id===topic)||{}).lesson||les.value; fill(); sel.value=topic;
   les.onchange=()=>{ fill(); const last=topics(les.value).filter(c=>!c.text).pop(); if(last) sel.value=last.id; };   // another lesson: its last topic, which is its homework
@@ -3751,7 +3972,7 @@ function wizHomework(){   // the topics of the level's ready lessons, under thei
   hw.innerHTML=""; hw.add(new Option(ready.length?"בלי שיעורי בית בינתיים":"לרמה הזו עוד אין שיעורים מוכנים",""));
   for(const l of ready){
     const g=document.createElement("optgroup"); g.label=l.name; hw.append(g);
-    for(const t of ALL_CATS.filter(t=>t.lesson===l.id)) g.append(new Option(t.name,t.id));
+    for(const t of ALL_CATS.filter(t=>t.lesson===l.id&&!t.learn&&!t.match)) g.append(new Option(t.name,t.id));
   }
   const own=writeHomework(ready);   // offered from the start: the teacher has only the day to set
   hw.value=[...hw.options].some(o=>o.value===was)&&(was||wiz.hwSeen)?was:own?own.id:""; wiz.hwSeen=true; hw.disabled=!ready.length;

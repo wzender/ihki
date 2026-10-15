@@ -286,6 +286,8 @@ So a sound the TTS voice scores 40 on and the learner scores 40 on becomes 100. 
 
 Confirmed tutor flags can become calibration rules `(expected, heard, phrase?) → floor`. A rule is looked up by sound symbol first, then by written phoneme, phrase-specific before global. It raises a matching token to `floor` and never lowers it. Applied floors are listed in `result.calibrated`.
 
+The base multilingual model also has one conservative built-in calibration: when expected `ʕ` is classified as deleted (`_`), its score is raised to 60. This prevents a known false negative from producing a definite “ع was swallowed” warning, while retaining a meaningful penalty. An explicit teacher calibration for `ʕ → _` overrides this floor.
+
 ### 6.6 Stage 6: is it a mistake? Flags, margins, rules
 
 Final per-token scores now exist. The decision to **flag** a token (show "heard as X" and a tip) needs all three of:

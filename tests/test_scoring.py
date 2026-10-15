@@ -114,6 +114,23 @@ def test_applied_phrase_calibration_raises_only_the_matching_confusion():
     assert r["calibrated"] == [{"expected": "ħ", "heard": "χ", "from": 1, "to": 70}]
 
 
+def test_deleted_ayin_gets_conservative_builtin_calibration():
+    phrase = {"variants": [("مع", "m a ʕ")]}
+    scorer = scorer_for(emissions(["m", "a"]))
+    r = scorer.score(None, phrase, diagnostics=True)
+    ayin = next(p for p in r["words"][0]["phonemes"] if p["ipa"] == "ʕ")
+    trace = next(p for p in r["trace"]["tokens"] if p["ipa"] == "ʕ")
+    calibration = next(s for s in trace["stages"] if s["stage"] == "calibration")
+    assert ayin["score"] == 60 and not ayin["flagged"]
+    assert calibration == {"stage": "calibration", "score": 60, "floor": 60, "applied": True}
+    applied = r["calibrated"][0]
+    assert applied["expected"] == "ʕ" and applied["heard"] == "_"
+    assert applied["from"] < 50 and applied["to"] == 60
+    scorer.set_calibrations([{"expected": "ʕ", "heard": "_", "floor": 75, "scope": "global"}])
+    overridden = scorer.score(None, phrase)
+    assert next(p for p in overridden["words"][0]["phonemes"] if p["ipa"] == "ʕ")["score"] == 75
+
+
 def test_h_instead_of_pharyngeal():
     logp = emissions(["w", "eː", "n", "i", "l", "h", "a", "m", "aː", "m"])
     r = scorer_for(logp).score(None, TOILET)
@@ -553,11 +570,14 @@ def test_references_use_one_generated_voice_and_any_cached_one():
         reference.decode_audio = orig
 
 
+WORD_TOPICS = lambda c: c.get("learn") or c.get("match")   # a lesson's new words and their game (test_workbook_new_words)
+
+
 def test_workbook_lesson_1():
     from app.phrases import CATEGORIES, GAMES, LESSONS, public_phrases
 
     assert [l["id"] for l in LESSONS if not l.get("soon")] == ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9"]
-    assert [c["id"] for c in CATEGORIES if c["lesson"] == "1"] == ["l1-pron", "l1-verbs", "l1-past", "l1-say", "l1-read", "l1-hw"]
+    assert [c["id"] for c in CATEGORIES if c["lesson"] == "1"] == ["l1-new", "l1-pairs", "l1-pron","l1-verbs", "l1-past", "l1-say", "l1-read", "l1-hw"]
     assert GAMES == [{"id": "game-yalla-verb", "name": "יאללה הפועל", "lesson": "1", "bubble": True, "hidden": True,
                       "unit": "פועל", "task": "אמרו את הפועל בערבית מדוברת: בעבר ואז בעתיד, לפני שהבועה נעלמת"}]
     hw = next(c for c in CATEGORIES if c["id"] == "l1-hw")["write"]   # the workbook's homework: a task and five sentences to write, with nothing to say
@@ -584,6 +604,33 @@ def test_workbook_lesson_1():
     assert any(i.startswith("i l m ʕ a l l i m | q a ʕ a d") for _, i in p["variants"])   # rural ق accepted
 
 
+def test_workbook_new_words():
+    from app.phrases import CATEGORIES, LESSONS, public_phrases
+
+    # every lesson opens with its new words, learned before anything is said, then a game on them; lesson 7, a review,
+    # brings too few new words for either
+    for l in (l["id"] for l in LESSONS if not l.get("soon")):
+        mine = [c for c in CATEGORIES if c["lesson"] == l]
+        if l == "7":
+            assert not any(WORD_TOPICS(c) for c in mine)
+            continue
+        words, pairs = mine[:2]
+        assert (words["id"], words["name"], words["learn"]) == (f"l{l}-new", "מילים חדשות", True)
+        assert (pairs["id"], pairs["name"], pairs["match"]) == (f"l{l}-pairs", "התאימו זוגות", f"l{l}-new")   # it deals the words' cards
+        assert not any(WORD_TOPICS(c) for c in mine[2:])
+    cards = [p for p in public_phrases() if p["cat"].endswith("-new")]
+    assert all(p["listed"] is False and not p["read"] for p in cards)   # no tally, daily round or teacher figure counts them
+    assert not any(p["cat"].endswith("-pairs") for p in PHRASES)
+    count = lambda l: sum(p["cat"] == f"l{l}-new" for p in cards)
+    assert [count(l) for l in ("1", "2", "6", "2.8")] == [19, 20, 10, 10] and min(map(count, ["3", "4", "5", "8", "9", "10"])) >= 13
+    # added at the bank's end: the ids of the phrases before them, which recorded attempts name, do not move
+    ids = [i for i, p in enumerate(PHRASES) if p["cat"].endswith("-new")]
+    assert ids == list(range(len(PHRASES) - len(ids), len(PHRASES)))
+    by = {(p["cat"], p["he"]): p for p in cards}
+    assert (by["l1-new", "דלת"]["ar"], by["l1-new", "דלת"]["tr"]) == ("باب", "בַּאבּ") and by["l1-new", "מתי"]["tr"] == "אֵימְתַא"
+    assert by["l5-new", "בבקשה"]["ar"] == "من فضلك" and by["l2.1-new", "מוקדם"]["ar"] == "بكّير"
+
+
 def test_levels_plan_every_lesson():
     from app.phrases import CATEGORIES, LESSONS, LEVELS
     from app.workbook import LESSONS as WRITTEN, LEVELS as PLAN, lesson_id
@@ -603,7 +650,7 @@ def test_workbook_lesson_2():
     from app.phrases import CATEGORIES, public_phrases
 
     cats = ["l2-dual", "l2-family", "l2-poss", "l2-say", "l2-say2", "l2-read", "l2-talk", "l2-meet"]
-    assert [c["id"] for c in CATEGORIES if c["lesson"] == "2"] == cats + ["l2-hw"]   # the lesson ends with its written homework
+    assert [c["id"] for c in CATEGORIES if c["lesson"] == "2" and not WORD_TOPICS(c)] == cats + ["l2-hw"]   # the lesson ends with its written homework
     hw = next(c for c in CATEGORIES if c["id"] == "l2-hw")["write"]
     assert hw["lines"] == 5 and "פתרו את כל השיעור השני" in hw["task"] and "קַעַד / יֻקְעֹד – ישב" in hw["task"]
     pub = public_phrases()
@@ -636,7 +683,7 @@ def test_workbook_lesson_3():
     from app.phrases import CATEGORIES, public_phrases
 
     cats = ["l3-verbs", "l3-past", "l3-read", "l3-say", "l3-say2", "l3-nums", "l3-numread", "l3-numsay", "l3-story"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "3"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "3" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l3-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "פתרו את כל השיעור השלישי" in hw["task"] and "נַקַל / יֻנְקֹל – עבר (דירה, עבודה)" in hw["task"]
@@ -666,7 +713,7 @@ def test_workbook_lesson_4():
     from app.phrases import CATEGORIES, public_phrases
 
     cats = ["l4-verbs", "l4-past", "l4-read", "l4-read2", "l4-say", "l4-say2", "l4-story", "l4-meet", "l4-meetread"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "4"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "4" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l4-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "פתרו את כל השיעור הרביעי" in hw["task"] and "אִשְתַרַא / יִשְתְרִי – קנה" in hw["task"]
@@ -695,7 +742,7 @@ def test_workbook_lesson_5():
     # the workbook's order: more of lesson 4's story, the negation, then the new verbs and the market story
     cats = ["l5-meet", "l5-meetread", "l5-neg", "l5-neg2", "l5-verbs", "l5-past", "l5-read", "l5-story", "l5-aread",
             "l5-say", "l5-say2", "l5-say3"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "5"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "5" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l5-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "פתרו את כל השיעור החמישי" in hw["task"] and "זַאר / יִזוּר – ביקר" in hw["task"]
@@ -722,7 +769,7 @@ def test_workbook_lesson_6():
     from app.phrases import CATEGORIES, public_phrases
 
     cats = ["l6-fut", "l6-futsay", "l6-verbs", "l6-past", "l6-read", "l6-read2", "l6-story", "l6-meet", "l6-meetread"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "6"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "6" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l6-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "פתרו את כל השיעור השישי" in hw["task"] and "פעם אחת בעבר ופעם אחת בעתיד" in hw["task"]
@@ -751,7 +798,7 @@ def test_workbook_lesson_7():
 
     # a review lesson: no new verbs and no story
     cats = ["l7-fem", "l7-dual", "l7-nums", "l7-count", "l7-verbs", "l7-read", "l7-say", "l7-say2"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "7"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "7" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l7-hw"] and not any(c.get("story") for c in mine)
     assert mine[0]["task"] == "אמרו בערבית מדוברת: בזכר ואז בנקבה" and mine[1]["task"].endswith("ביחיד ואז בזוגי")
     hw = mine[-1]["write"]
@@ -775,7 +822,7 @@ def test_workbook_lesson_8():
 
     cats = ["l8-howmany", "l8-verbs", "l8-past", "l8-read", "l8-read2", "l8-read3", "l8-colors", "l8-colread", "l8-story",
             "l8-colsay", "l8-colsay2"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "8"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "8" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l8-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "פתרו את כל השיעור השמיני" in hw["task"] and "פעלים וצבעים" in hw["task"]
@@ -806,7 +853,7 @@ def test_workbook_lesson_9():
 
     cats = ["l9-story", "l9-aread", "l9-asay", "l9-verbs", "l9-past", "l9-want", "l9-read", "l9-read2", "l9-say", "l9-mix",
             "l9-mixread"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "9"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "9" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l9-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "השיעור התשיעי" in hw["task"] and "אחד בעבר ואחד בעתיד" in hw["task"]
@@ -834,7 +881,7 @@ def test_workbook_lesson_10():
 
     cats = ["l10-adj", "l10-compread", "l10-compread2", "l10-verbs", "l10-past", "l10-read", "l10-read2", "l10-say", "l10-say2",
             "l10-dem", "l10-story", "l10-phrases"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "10"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "10" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l10-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "השיעור העשירי" in hw["task"] and "אחד בעבר ואחד בעתיד" in hw["task"]
@@ -865,7 +912,7 @@ def test_workbook_level_2_lesson_1():
 
     # the second workbook (שלב ב') opens with the lesson it numbers the tenth: five verbs, and the future after لازم and رح
     cats = ["l2.1-verbs", "l2.1-past", "l2.1-must", "l2.1-will", "l2.1-read", "l2.1-read2", "l2.1-say", "l2.1-say2", "l2.1-story"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "2.1"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.1" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l2.1-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "רַח ולַאזֵם" in hw["task"] and "רַבַּט / יֻרְבֹּט – קשר" in hw["task"]
@@ -894,7 +941,7 @@ def test_workbook_level_2_lesson_2():
 
     # the workbook's eleventh lesson: the days of the week and the present, which is بـ on the future form
     cats = ["l2.2-days", "l2.2-pres", "l2.2-read", "l2.2-read2", "l2.2-read3", "l2.2-say", "l2.2-say2", "l2.2-story", "l2.2-fread"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "2.2"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.2" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l2.2-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "ואז בהוו'ה" in hw["task"]
@@ -923,7 +970,7 @@ def test_workbook_level_2_lesson_3():
     # the workbook's twelfth lesson: the clock, and בניין שני (פַעַّל) beside the פִעֵל verbs it is made from
     cats = ["l2.3-hours", "l2.3-clock", "l2.3-talk", "l2.3-read", "l2.3-read2", "l2.3-say", "l2.3-say2", "l2.3-verbs", "l2.3-past",
             "l2.3-vread", "l2.3-vread2", "l2.3-vsay", "l2.3-vsay2", "l2.3-story"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "2.3"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.3" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l2.3-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "שַרַّבּ – השקה" in hw["task"] and "עבר – עתיד – הווה" in hw["task"]
@@ -956,7 +1003,7 @@ def test_workbook_level_2_lesson_4():
     # the workbook's thirteenth lesson: five more of בניין שני, the three words for "that" (انّه, ما, الّي), and a phone call
     cats = ["l2.4-verbs", "l2.4-past", "l2.4-vread", "l2.4-vread2", "l2.4-vsay", "l2.4-vsay2", "l2.4-rel", "l2.4-rread", "l2.4-rread2",
             "l2.4-rsay", "l2.4-rsay2", "l2.4-words", "l2.4-talk", "l2.4-talk2"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "2.4"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.4" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l2.4-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "פַכַּّר / יְפַכֵּّר – חשב" in hw["task"]
@@ -987,7 +1034,7 @@ def test_workbook_level_2_lesson_5():
     # the workbook's fourteenth lesson: גזרת ע"י, what صار does, and the garage story
     cats = ["l2.5-verbs", "l2.5-past", "l2.5-pres", "l2.5-sar", "l2.5-vread", "l2.5-vread2", "l2.5-vsay", "l2.5-words", "l2.5-story",
             "l2.5-ask", "l2.5-sread", "l2.5-ssay", "l2.5-adj"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "2.5"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.5" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l2.5-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "צַאר / יְצִיר – נהיה" in hw["task"]
@@ -1017,7 +1064,7 @@ def test_workbook_level_2_lesson_6():
     # the workbook's fifteenth lesson: בניין שלישי, the old jar's story, and "him" after a vowel
     cats = ["l2.6-verbs", "l2.6-past", "l2.6-pres", "l2.6-vread", "l2.6-vread2", "l2.6-vread3", "l2.6-vsay", "l2.6-words", "l2.6-story",
             "l2.6-ask", "l2.6-him"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "2.6"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.6" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l2.6-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "לַאקַא / יְלַאקִי – מצא" in hw["task"]
@@ -1045,7 +1092,7 @@ def test_workbook_level_2_lesson_7():
     # the workbook's sixteenth lesson: the imperative, more of פִעֵל, and Yusef's bus
     cats = ["l2.7-imp", "l2.7-verbs", "l2.7-past", "l2.7-pres", "l2.7-ex", "l2.7-fill", "l2.7-fill2", "l2.7-isay", "l2.7-words", "l2.7-pre",
             "l2.7-story", "l2.7-ask", "l2.7-sread", "l2.7-ssay"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "2.7"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.7" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l2.7-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "ואז בציווי" in hw["task"] and "וִקֵע / יוֹקַע – נפל" in hw["task"]
@@ -1076,7 +1123,7 @@ def test_workbook_level_2_lesson_8():
     # the workbook's seventeenth lesson: גזרת הכפולים, عم for what is happening now, and the song شاطر شاطر
     cats = ["l2.8-verbs", "l2.8-past", "l2.8-pres", "l2.8-vread", "l2.8-vread2", "l2.8-vsay", "l2.8-vsay2", "l2.8-am", "l2.8-amsay",
             "l2.8-amsay2", "l2.8-words", "l2.8-story"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "2.8"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.8" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l2.8-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "דַֿלّ / יְדַֿלّ – נשאר" in hw["task"] and "ורק אז בציווי" in hw["task"]
@@ -1106,7 +1153,7 @@ def test_workbook_level_2_lesson_9():
     # the workbook's eighteenth and last lesson: the active participle, a song from Egypt, and the father, the son and the donkey
     cats = ["l2.9-part", "l2.9-part2", "l2.9-verbs", "l2.9-ex", "l2.9-pread", "l2.9-pread2", "l2.9-psay", "l2.9-psay2", "l2.9-psay3",
             "l2.9-words", "l2.9-song", "l2.9-story"]
-    mine = [c for c in CATEGORIES if c["lesson"] == "2.9"]
+    mine = [c for c in CATEGORIES if c["lesson"] == "2.9" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l2.9-hw"]
     hw = mine[-1]["write"]
     assert hw["lines"] == 5 and "בבינוני הפועל" in hw["task"] and "עַאש / יְעִיש – חי" in hw["task"]

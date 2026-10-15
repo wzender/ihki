@@ -201,6 +201,7 @@ class ScorerConfig:
     near_vowel_floor: float = 90.0  # a vowel heard as its neighbour (i/e, u/o, a/ə, short/long) scores at least this
     word_min_weight: float = 0.5    # word score = this much weakest phoneme, the rest the mean of its phonemes
     ref_min_mean: float = 60.0      # a native reference whose mean phoneme score is under this is not trusted
+    ayin_deleted_floor: float = 60.0 # the base model often drops a correctly pronounced pharyngeal ʕ
     gop: GopConfig = field(default_factory=GopConfig)
 
 
@@ -550,7 +551,8 @@ class Scorer:
         scores = [sc if b is None or b >= 100 else replace(sc, score=round(min(100.0, 100.0 * sc.score / max(b, 1.0)), 1))
                   for sc, b in zip(raw, bases)]
         after_baseline = scores
-        # teacher floors, by symbol first (Q), then by the phoneme written (rows made before symbols existed)
+        # Teacher floors take priority. The base model has a recurring false negative for pharyngeal ʕ;
+        # when it reports only silence there, keep a modest penalty instead of claiming it was certainly absent.
         phrase_key, calibrated = str(phrase.get("key", phrase.get("he", ""))), []
         adjusted, floors = [], []
         for tok, sc in zip(toks, scores):
@@ -558,6 +560,8 @@ class Scorer:
             floor = next((self.calibrations[k] for k in ((tok.sound, heard_ph, phrase_key), (tok.sound, heard_ph, ""),
                                                          (tok.phoneme, heard_ph, phrase_key), (tok.phoneme, heard_ph, ""))
                           if k in self.calibrations), None)
+            if floor is None and tok.sound == "ʕ" and heard_ph == "_":
+                floor = self.cfg.ayin_deleted_floor
             floors.append(floor)
             if floor is not None and sc.score < floor:
                 calibrated.append({"expected": tok.phoneme, "heard": heard_ph, "from": round(sc.score), "to": round(floor)})
@@ -735,6 +739,7 @@ class Scorer:
                 "word_min_weight": cfg.word_min_weight, "vowel_weight": 0.5, "unrelated_ratio": cfg.unrelated_ratio,
                 "unrelated_cap": 30.0, "letter_good": LETTER_GOOD, "max_tips": max_tips, "max_issues": cfg.max_issues,
                 "ref_min_mean": cfg.ref_min_mean, "margin_default": float(self.rules.scoring.get("margin_default", 0.0)),
+                "ayin_deleted_floor": cfg.ayin_deleted_floor,
                 "margins": [{"target": t, "heard": h, "margin": m} for (t, h), m in sorted(self.rules.margins.items())]
                 if self._on("margins") else [],
                 "exemptions": [name for name, _, _ in EXEMPTIONS if self._on(name)],

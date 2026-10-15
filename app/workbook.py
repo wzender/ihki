@@ -1,6 +1,11 @@
 """The course workbooks (שלב א', שלב ב') lesson by lesson: the student picks a lesson, then one of its topics.
 
-A topic is a list of items, each written once as (Hebrew, Arabic), and is one of three kinds:
+A topic is a list of items, each written once as (Hebrew, Arabic), and is one of five kinds:
+  "learn": the lesson's new words, before anything is said. The page shows them as cards: the Hebrew, then on a tap
+          the transliteration, the Arabic and its voice; the student marks each one known or not yet. Nothing is
+          scored, and the cards are not `listed` (see workbook_phrases), so no tally counts them.
+  "match": a game on those words ("התאימו זוגות"): the Hebrew in one column, the transliteration in the other, and
+          the student joins the pairs. It has no items: its category names the lesson's "learn" topic (`match`).
   "say":  Hebrew -> Arabic. The usual flow: Hebrew prompt, the student says it in Arabic.
   "read": Arabic -> Hebrew. The page shows the transliteration, the student reads it aloud (and is
           scored on it) and can reveal the translation one word at a time.
@@ -1567,6 +1572,12 @@ FIRST_LESSON = {2: 10}
 # aloud)]); sentence numbering is the workbook's. Every lesson names its level.
 LESSONS = {
     (1, 1): [
+        ("new", "מילים חדשות", "learn", True, [
+        ("דלת", "باب"), ("מכונית", "سيّارة"), ("שאלה", "سؤال"), ("הרופא", "الدّكتور"), ("כלב", "كلب"), ("בית", "بيت"),
+        ("שולחן", "طاولة"), ("ילד", "ولد"), ("ילדה, בת", "بنت"), ("שכונה", "حارة"), ("כיסא", "كرسي"), ("מטוס", "طيّارة"),
+        ("חבר", "صاحب"), ("עם", "مع"), ("ב, בתוך, יש", "في"), ("איפה", "وين"), ("מי", "مين"), ("מדוע", "ليش"), ("מתי", "ايمتى"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("pron", "הגופים", "say", True, [(_plain(he) + " / הן" * (he == "הֵם"), ar, he) for he, ar in zip(HE_PRONOUNS, AR_PRONOUNS)]),
         ("verbs", "פעלים", "say", True, _base_forms(VERBS_1)),
         ("past", "הטיות בעבר", "say", False, _past(VERBS_1)),
@@ -1609,6 +1620,13 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (1, 2): [
+        ("new", "מילים חדשות", "learn", True, [
+        ("לפני", "قبل"), ("אצל, יש ל", "عند"), ("שם", "اسم"), ("הים", "البحر"), ("אחר כך", "بعدين"),
+        ("אבל, רק", "بسّ"), ("נשוי", "متجوّز"), ("רווק", "عزّابي"), ("קטנה", "صغيرة"), ("חדש", "جديد"),
+        ("מסעדה", "المطعم"), ("חלון", "شبّاك"), ("חדר", "غرفة"), ("בית ספר", "المدرسة"), ("כאן", "هون"),
+        ("כלומר", "يعني"), ("שמח", "مبسوط"), ("טעים", "زاكي"), ("מטבח", "المطبخ"), ("הכפר, העיר", "البلد"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("dual", "הזוגי", "say", True, [(f"{he}, {he2}", f"{ar}، {ar2}") for he, he2, ar, ar2 in DUALS]),
         ("family", "המשפחה", "say", True, FAMILY),
         ("poss", "כינויי הקניין", "say", False, _possessives(POSSESSIVE_DRILL)),
@@ -1737,6 +1755,13 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (1, 3): [
+        ("new", "מילים חדשות", "learn", True, [
+        ("קילו", "كيلو"), ("מספר (טלפון)", "رقم"), ("לכאן", "لهون"), ("אותו ה...", "نفس"), ("הבריכה", "البركة"),
+        ("חביתה", "عجّة"), ("תפוחים", "تفّاح"), ("בשר", "لحم"), ("שעה", "ساعة"), ("אתמול", "امبارح"), ("הר", "جبل"),
+        ("העיר", "المدينة"), ("שקל", "شيكل"), ("בחוץ", "برّا"), ("תפוחי אדמה", "بطاطا"), ("בתים", "بيوت"),
+        ("דלתות", "ابواب"), ("כיסאות", "كراسي"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("verbs", "פעלים", "say", True, _base_forms(VERBS_3)),
         ("past", "הטיות בעבר", "say", False, _past(VERBS_3)),
         ("read", "משפטים: ערבית ← עברית", "read", True, [
@@ -1839,6 +1864,13 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (1, 4): [
+        ("new", "מילים חדשות", "learn", True, [
+        ("רחוק", "بعيد"), ("קרוב", "قريب"), ("לא (לפני שם ותואר)", "مش"), ("קפה", "قهوة"), ("המוכר", "البيّاع"),
+        ("סוכר", "سكّر"), ("אני רוצה", "بدّي"), ("עוד, שני", "تاني"), ("אם, אילו", "لو"), ("רעב", "جوعان"),
+        ("השוק", "السّوق"), ("הילדים", "الاولاد"), ("משהו", "اشي"), ("עוגה", "كعكة"), ("תה", "شاي"),
+        ("עייף", "تعبان"), ("בלי", "بدون"), ("כל", "كلّ"), ("שכן", "جار"), ("תודה", "شكرا"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("verbs", "פעלים", "say", True, _base_forms(VERBS_4)),
         ("past", "הטיות בעבר", "say", False, _past(VERBS_4)),
         ("read", "משפטים: ערבית ← עברית א'", "read", True, [
@@ -1952,6 +1984,14 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (1, 5): [
+        ("new", "מילים חדשות", "learn", True, [
+        ("לא (לפני פועל)", "ما"), ("קצת, חלק מ", "بعض"), ("בערך", "حوالي"), ("מחיר", "حقّ"), ("בבקשה", "من فضلك"),
+        ("חצי", "نصّ"), ("מחר", "بكرا"), ("באמת, בחיי", "والله"), ("בית החולים", "المستشفى"), ("פעם", "مرّة"),
+        ("אחרי, עוד", "بعد"), ("חנות", "محلّ"), ("זמן", "وقت"), ("ירקות", "خضرة"), ("פירות", "فواكه"),
+        ("ממתקים", "حلويات"), ("כי, בשביל", "عشان"), ("המפתח", "المفتاح"), ("חודש", "شهر"), ("מתנה", "هديّة"),
+        ("שם (מקום)", "هناك"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("meet", "שכני החדש: עברית ← ערבית", "say", True, [
         ("סלח לי, מה סיפרת לאחי ומדוע נכנסת לבית הוריי?", "لو سمحت، شو حكيت لاخوي وليش دخلت على بيت اهلي؟", "סלח לי, מה סִפַּרְתָּ לאחי ומדוע נִכְנַסְתָּ לבית הוריי?"),
         ("כאשר באתם לבית דודי (מצד אבא), אני ישבתי ודיברתי איתו.", "لمّا اجيتو على بيت عمّي، انا قعدت وحكيت معه."),
@@ -2114,6 +2154,11 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (1, 6): [
+        ("new", "מילים חדשות", "learn", True, [
+        ("לבדי", "لحالي"), ("מיטה", "تخت"), ("המונית", "التّاكسي"), ("כמו", "زيّ"), ("המסיבה", "الحفلة"),
+        ("האיש", "الزّلمة"), ("פנוי, ריק", "فاضي"), ("קר", "بارد"), ("כתוב, גורל", "مكتوب"), ("זה", "هادا"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("fut", "הטיות בעתיד", "say", False, _past(FUTURE_6)),
         ("futsay", "עבר ועתיד: עברית ← ערבית", "say", True, [
         ("אני לא נכנסתי לבית, אני אכנס בעוד שבוע.", "انا ما دخلت على البيت، انا ادخل كمان اسبوع."),
@@ -2277,6 +2322,13 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (1, 8): [
+        ("new", "מילים חדשות", "learn", True, [
+        ("נמצא, יש", "موجود"), ("ככה", "هيك"), ("צבע", "لون"), ("מוזיקה", "موسيقى"), ("מובן", "مفهوم"),
+        ("העבודה", "الشّغل"), ("חתונה", "عرس"), ("שיר", "غنوة"), ("השמש", "الشّمس"), ("מכנסיים", "بنطلون"),
+        ("העץ", "الشّجرة"), ("חשוב", "مهمّ"), ("כסף", "مصاري"), ("דקה", "دقيقة"), ("השכנים", "الجيران"),
+        ("השמלה", "الفستان"), ("מים", "ميّ"), ("המשרד", "المكتب"), ("גבינה", "جبنة"), ("פרח", "وردة"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("howmany", "אַכַּם וקַדֵّיש: עברית ← ערבית", "say", True, [
         ("לאחותך הגדולה, כמה ילדים יש לה? לאחותי יש שבעה ילדים. (לאישה)", "اختك#f الكبيرة، اكم ولد عندها؟ اختي عندها سبع اولاد.", "לַאֲחוֹתֵךְ הגדולה, כמה ילדים יש לה? לאחותי יש שבעה ילדים."),
         ("כמה אנשים היו במכונית? במכונית היו גבר ושלושה ילדים.", "اكم واحد كان في السّيّارة؟ في السّيّارة كانو زلمة وتلات اولاد."),
@@ -2409,6 +2461,12 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (1, 9): [
+        ("new", "מילים חדשות", "learn", True, [
+        ("ליד", "جنب"), ("בלי סוכר", "سادة"), ("חלב", "حليب"), ("שבוע", "جمعة"), ("יום שישי", "الجمعة"),
+        ("המסגד", "الجامع"), ("האוניברסיטה", "الجامعة"), ("המרפסת", "البلكونة"), ("מלון", "اوتيل"), ("שלם", "كامل"),
+        ("הדרום", "الجنوب"), ("ראש", "راس"), ("קצרה", "قصيرة"), ("מרק", "شوربة"), ("השבוע הבא", "الاسبوع الجاي"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("story", "סיפור הקפה", "say", True, [
         ("שלום! שמי אשרף, קוראים לי גם אבו כאמל, אני נשוי לאלהאם,", "مرحبا! اسمي اشرف، بيقولولي كمان ابو كامل، انا متجوّز لالهام،"),
         ("יש לי שני בנים ושלוש בנות, ה' ישמור אותם!", "عندي ولدين وتلات بنات الله يخلّيهم!"),
@@ -2521,6 +2579,12 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (1, 10): [
+        ("new", "מילים חדשות", "learn", True, [
+        ("העולם, האנשים", "العالم"), ("בצל", "بصل"), ("כמובן", "طبعا"), ("זיתים", "زيتون"), ("המחברת", "الدّفتر"),
+        ("עכשיו", "هسّا"), ("כדורגל", "فوتبول"), ("תיק", "شنطة"), ("רבע", "ربع"), ("רעיון", "فكرة"),
+        ("החיים", "الحياة"), ("חוף", "شطّ"), ("רכבת", "ترين"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("adj", "ערך היתרון", "say", True, [(f"{base}, יותר {base}{sep}{note}", f"{ar}، {comp}") for he, ar, comp in COMPARATIVES
                                              for base, sep, note in [he.partition(" (")]]),
         ("compread", "ערך היתרון וההפלגה: ערבית ← עברית א'", "read", True, [
@@ -2653,6 +2717,13 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (2, 1): [   # the second workbook's first lesson, which it numbers the tenth
+        ("new", "מילים חדשות", "learn", True, [
+        ("מוקדם", "بكّير"), ("המכולת", "البقالة"), ("בעל המכולת", "البقّال"), ("בוקר", "صباح"), ("בבוקר", "الصّبح"),
+        ("הקניון", "المول"), ("ספר", "كتاب"), ("לב", "قلب"), ("בערך", "تقريبا"), ("אורחים", "ضيوف"),
+        ("בסדר, מוכן", "حاضر"), ("קישואים", "كوسا"), ("חצילים", "بيتنجان"), ("ממולא", "محشي"), ("רגע", "لحظة"),
+        ("רשימה", "لستة"), ("שקית", "كيس"), ("פלפל", "فلفل"), ("שוקולד", "شوكولاطة"), ("כסף קטן", "فراطة"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("verbs", "פעלים", "say", True, _base_forms(VERBS_2_1)),
         ("past", "הטיות בעבר", "say", False, _past(VERBS_2_1)),
         ("must", "העתיד עם לַאזֵם", "say", False, _before_future("لازم", HE_MUST, MUST_2_1)),
@@ -2745,6 +2816,12 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (2, 2): [   # the workbook's eleventh lesson
+        ("new", "מילים חדשות", "learn", True, [
+        ("תמיד", "دايما"), ("מנהל", "مدير"), ("בדרך כלל", "عادة"), ("העבר", "الماضي"), ("החדשות", "الاخبار"),
+        ("כריך", "ساندويشة"), ("כרוב", "ملفوف"), ("חמוצים", "مكابيس"), ("צ'יפס", "شيبس"), ("טחינה", "طحينة"),
+        ("רוטב חריף", "شطّة"), ("העמבה", "العمبة"), ("ממרח שום", "تومة"), ("לדעתי", "حسب رايي"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("days", "ימי השבוע", "say", True, [(he, f"يوم {ar}") for he, ar in DAYS] + [("שבוע", "اسبوع"), ("חודש", "شهر"), ("שנה", "سنة")]),
         ("pres", "ההווה עם בּ", "say", False, _present(PRESENT_2_2)),
         ("read", "ההווה: ערבית ← עברית א'", "read", True, [
@@ -2834,6 +2911,13 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (2, 3): [   # the workbook's twelfth lesson
+        ("new", "מילים חדשות", "learn", True, [
+        ("בדיוק", "بالزّبط"), ("עכשיו", "هلّق"), ("הכוס", "الكاسة"), ("הדרך", "الطّريق"),
+        ("האחות (בבית חולים)", "الممرّضة"), ("מתחת", "تحت"), ("הערב", "المسا"), ("יום הולדת", "عيد ميلاد"),
+        ("שבור", "مكسور"), ("האופניים", "البسكليت"), ("הטלפון הנייד", "الموبايل"), ("קרה", "باردة"), ("מהר", "بسرعة"),
+        ("סיגריה", "سيجارة"), ("רגוע, נוח", "مرتاح"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("hours", "השעות", "say", True, [(f"השעה {he}", f"السّاعة {ar}") for he, ar in HOURS]),
         ("clock", "השעון: רבע, שליש, חצי", "say", True, [
         ("רבע שעה", "ربع ساعة"), ("שליש שעה (עשרים דקות)", "تلت ساعة"), ("חצי שעה", "نصّ ساعة"), ("שלושת רבעי שעה", "تلات ارباع ساعة"),
@@ -2967,6 +3051,12 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (2, 4): [   # the workbook's thirteenth lesson
+        ("new", "מילים חדשות", "learn", True, [
+        ("בעיה", "مشكلة"), ("בטוב", "بخير"), ("שניות", "ثواني"), ("די, נגמר", "خلاص"), ("בית הקפה", "المقهى"),
+        ("ליטר", "ليتر"), ("הטלפון", "البلفون"), ("הפתגם", "المثل"), ("מישהו", "حدّ"), ("אלפים", "آلاف"),
+        ("כן", "نعم"), ("טוב", "خير"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("verbs", "בניין שני: חמישה פעלים", "say", False, [(f"{he} (עבר, עתיד)", f"{past}، {future}") for he, past, future in FAAAL_2_4]),
         ("past", "חשב ושר בעבר", "say", False, _past(VERBS_2_4)),
         ("vread", "הבניין השני: ערבית ← עברית א'", "read", True, [
@@ -3113,6 +3203,12 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (2, 5): [   # the workbook's fourteenth lesson
+        ("new", "מילים חדשות", "learn", True, [
+        ("מלח", "ملح"), ("המנוע", "الماتور"), ("מהנדס", "مهندس"), ("שמן", "زيت"), ("מתנות", "هدايا"),
+        ("בגדים", "اواعي"), ("נורה", "لمبة"), ("כבוד", "احترام"), ("הפנצ'ריה", "البنشر"), ("החתן", "العريس"),
+        ("הכלה", "العروس"), ("הארוחה", "الوجبة"), ("בשבילך", "منشانك"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("verbs", "גזרת ע\"י ופעלי הסיפור", "say", False, [(f"{he} (עבר, עתיד)", f"{past}، {future}") for he, past, future in BASES_2_5]),
         ("past", "הביא ונהיה בעבר", "say", False, _past(VERBS_2_5)),
         ("pres", "מביא ונהיה בהווה", "say", False, _present(PRESENT_2_5)),
@@ -3218,6 +3314,13 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (2, 6): [   # the workbook's fifteenth lesson
+        ("new", "מילים חדשות", "learn", True, [
+        ("טובה, ידוע", "معروف"), ("ישנה", "قديمة"), ("אשתו", "زوجته"), ("הווטרינר", "البيطري"), ("שאלות", "اسئلة"),
+        ("בטוח", "اكيد"), ("האנשים", "النّاس"), ("עין", "عين"), ("התמרים", "التّمر"), ("הדקל", "النّخلة"),
+        ("עתיקה", "عتيقة"), ("זולה", "رخيصة"), ("יקרה", "غالية"), ("אבל", "لكن"), ("דינר", "دينار"),
+        ("המסכן", "المسكين"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("verbs", "הבניין השלישי: חמישה פעלים", "say", False, [(f"{he} (עבר, עתיד)", f"{past}، {future}") for he, past, future in BASES_2_6]),
         ("past", "עזר ומצא בעבר", "say", False, _past(VERBS_2_6)),
         ("pres", "עוזר ומוצא בהווה", "say", False, _present(PRESENT_2_6)),
@@ -3306,6 +3409,12 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (2, 7): [   # the workbook's sixteenth lesson
+        ("new", "מילים חדשות", "learn", True, [
+        ("התחנה", "المحطّة"), ("מלאה", "مليانة"), ("צומת", "مفرق"), ("שקרן", "كذّاب"), ("המבחן", "الامتحان"),
+        ("הנושא", "الموضوع"), ("הדלק", "البنزين"), ("מהנדסת", "مهندسة"), ("חזקה", "قويّة"), ("דם", "دمّ"),
+        ("צעירים", "شباب"), ("חבל", "حبل"), ("השקר", "الكذب"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("imp", "הציווי", "say", True, [
         ("כנס!", "فوت!"), ("הבא!", "جيب!"), ("חשוב!", "فكّر#imp!"), ("עדכן אותי!", "خبّرني#imp!"), ("עזור לי!", "ساعدني#imp!"),
         ("ילד, שמע!", "يا ولد اسمع#imp!"), ("ילדה, שמעי!", "يا بنت اسمعي#imp!"), ("ילדים, שמעו!", "يا اولاد اسمعو#imp!"),
@@ -3422,6 +3531,11 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (2, 8): [   # the workbook's seventeenth lesson
+        ("new", "מילים חדשות", "learn", True, [
+        ("הכאב", "الوجع"), ("אספירין", "اسبرين"), ("הבריאות", "الصّحّة"), ("פיצה", "بيتزا"), ("פסטה", "باستا"),
+        ("החוקים", "القوانين"), ("האהבה", "الحبّ"), ("אפילו, עד", "حتّى"), ("בקרוב", "قريبا"), ("לבד", "وحده"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("verbs", "גזרת הכפולים", "say", False, [(f"{he} (עבר, עתיד)", f"{past}، {future}") for he, past, future in BASES_2_8]),
         ("past", "נשאר ושם בעבר", "say", False, _past(VERBS_2_8)),
         ("pres", "נשאר ואוהב בהווה", "say", False, _present(PRESENT_2_8)),
@@ -3519,6 +3633,12 @@ LESSONS = {
         ("hw", "כתיבת משפטים", "write", True, []),
     ],
     (2, 9): [   # the workbook's eighteenth lesson
+        ("new", "מילים חדשות", "learn", True, [
+        ("בושה", "عيب"), ("העני", "الفقير"), ("אוזניות", "سمّاعات"), ("התאנים", "التّين"), ("צופר", "زمّور"),
+        ("המחשב", "الحاسوب"), ("המוכתר", "المختار"), ("השנה", "السّنة"), ("נימוס", "ادب"), ("מספיק", "كفاية"),
+        ("שלום", "سلام"),
+        ]),
+        ("pairs", "התאימו זוגות", "match", True, []),
         ("part", "הבינוני הפועל: ארבע הצורות", "say", True, [(f"{he}, {he}ה, {he}ים, {he}ות" if not full else full, f"{ar}، {ar}ة، {ar}ين، {ar}ات") for he, ar, full in ACTIVE_2_9]),
         ("part2", "פועל והבינוני שלו", "say", True, [(f"{past_he} – {he}", f"{past}، {ar}") for past_he, he, past, ar in ACTIVE_PAIRS_2_9]),
         ("verbs", "חמישה פעלים חדשים", "say", False, [(f"{he} (עבר, עתיד)", f"{past}، {future}") for he, past, future in BASES_2_9]),
@@ -3847,8 +3967,15 @@ WRITING = {"l1-hw": ("כתבו חמישה משפטים בערבית בעבר ע�
                        "מַע – עם, כִּיף – איך, שוּ / אֵיש – מה, קַבֵּל – לפני, בַּעַדֵין – אח\"כ, בַּעֵד – אחרי, מַע בַּעַדֿ – יחד, "
                        "תַ'אנִי יוֹם – למחרת, לַמַّא – כאשר, קַדֵّיש / אַכַּם – כמה, לַחַאלִי – לבדי, זַיّ – כמו, קַבֵּל מַא – לפני ש, "
                        "זַיّ מַא – כמו ש, בַּעֵד מַא – אחרי ש, אִלִّי – מי ש, ש (אחרי שם עצם).", 5)}
+def _words_topic(key: tuple[int, int]) -> str:
+    """The lesson's "learn" topic, whose words its "match" game deals."""
+    return next(f"l{lesson_id(*key)}-{tid}" for tid, _, kind, *_ in LESSONS[key] if kind == "learn")
+
+
 CATEGORIES = [{"id": f"l{lesson_id(*key)}-{tid}", "name": name, "lesson": lesson_id(*key),
                **({"write": dict(zip(("task", "lines"), WRITING[f"l{lesson_id(*key)}-{tid}"]))} if kind == "write" else {}),
+               **({"learn": True} if kind == "learn" else {}),
+               **({"match": _words_topic(key)} if kind == "match" else {}),
                **({"story": True} if f"l{lesson_id(*key)}-{tid}" in STORIES else {}),
                **({"voices": list(STORIES[f"l{lesson_id(*key)}-{tid}"])} if STORIES.get(f"l{lesson_id(*key)}-{tid}") else {}),
                **({"unit": UNITS[tid]} if tid in UNITS else {}), **({"task": TASKS[tid]} if tid in TASKS else {})}
@@ -3970,20 +4097,27 @@ def _variants(words: list[tuple[str, str, list[str]]]) -> list[tuple[str, str]]:
 def workbook_phrases() -> list[dict]:
     """The lessons' items as phrases (see phrases.py). `seq` keeps an ordered topic's order and
     `read` marks the Arabic -> Hebrew ones, where the page shows `tr` and hides `he`;
-    `he_say` is the pointed Hebrew for the prompt voice, where the plain text is misread."""
+    `he_say` is the pointed Hebrew for the prompt voice, where the plain text is misread.
+    A phrase's id is its place in the bank and recorded attempts name it, so the "learn" cards, which came later,
+    are added at the end, after the games'."""
     out = []
+
+    def add(key, tid, kind, in_order, items, **extra):
+        for seq, (he, sentence, *he_say) in enumerate(items, 1):
+            words = [_word(t) for t in sentence.split()]
+            phrase = dict(cat=f"l{lesson_id(*key)}-{tid}", he=he, tr=" ".join(t for _, t, _ in words),
+                          variants=_variants(words), read=kind == "read", **extra)
+            say = _voiced(he_say[0] if he_say else he)
+            if say != he:
+                phrase["he_say"] = say
+            if in_order:
+                phrase["seq"] = seq
+            out.append(phrase)
+
     for key, topics in LESSONS.items():
         for tid, _, kind, in_order, items in topics:
-            for seq, (he, sentence, *he_say) in enumerate(items, 1):
-                words = [_word(t) for t in sentence.split()]
-                phrase = dict(cat=f"l{lesson_id(*key)}-{tid}", he=he, tr=" ".join(t for _, t, _ in words),
-                              variants=_variants(words), read=kind == "read")
-                say = _voiced(he_say[0] if he_say else he)
-                if say != he:
-                    phrase["he_say"] = say
-                if in_order:
-                    phrase["seq"] = seq
-                out.append(phrase)
+            if kind != "learn":
+                add(key, tid, kind, in_order, items)
     for game in GAMES:
         for unlock, (he, sentence, *he_say), binyan, gizra in GAME_ITEMS[game["id"]]:
             words = [_word(t) for t in sentence.split()]
@@ -3994,4 +4128,8 @@ def workbook_phrases() -> list[dict]:
             if say != he:
                 phrase["he_say"] = say
             out.append(phrase)
+    for key, topics in LESSONS.items():
+        for tid, _, kind, in_order, items in topics:
+            if kind == "learn":
+                add(key, tid, kind, in_order, items, listed=False)
     return out
