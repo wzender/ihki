@@ -1896,3 +1896,16 @@ def test_teacher_trace_follows_every_stage():
     assert h["stages"][0]["score"] < 50 and h["stages"][4]["applied"] and h["final"] == 60
     assert h["competitor"] == "χ" and h["rule"]["severity"] == 3 and not h["flagged"]
     assert t["sentence"]["final"] == round(0.5 * t["sentence"]["phone_mean"] + 0.5 * t["sentence"]["word_mean"])
+
+
+def test_trace_carries_frames_curves_and_paths():
+    from app.scorer import frame_energy
+
+    r = scorer_for(emissions(["w", "eː", "n", "i", "l", "ħ", "a", "m", "aː", "m"])).score(None, TOILET, diagnostics=True)
+    t = r["trace"]
+    assert t["frames"]["count"] > 0 and t["frames"]["energy"] is None                 # no audio: no energy
+    tok = t["tokens"][0]
+    assert len(tok["curves"]["target"]) == len(tok["curves"]["blank"]) and tok["curves"]["prev"] is None
+    assert all(v["tokens"] for v in t["variants"]) and sum(v["chosen"] for v in t["variants"]) == 1
+    e = frame_energy(np.r_[np.zeros(320), np.ones(320)], 2)
+    assert np.allclose(e, [0, 1])

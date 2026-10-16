@@ -29,6 +29,7 @@ from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .arabic_diacritics import point_arabic
+from . import lab
 from .auth import AuthUnavailable, ClassConflict, SupabaseAuth, load_auth
 from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
@@ -156,6 +157,19 @@ MAX_NOTE = 500
 MIGRATE_ATTEMPT_ISSUES = ("alter table public.attempts add column if not exists issues jsonb not null default '[]'::jsonb, "
                           "add column if not exists model text not null default '', "
                           "add column if not exists version text not null default '';" )
+# The lab's recordings (see lab.py): an item of the diagnostic list, who said it, and whether it was said right
+# (`label` "correct") or with one planted mistake (`label` "mistake", `mistake` {"index", "expected"}: the sound of the
+# item's first reading that was said wrong). `flagged` is the sounds the scorer marked down, as "expected>heard".
+CREATE_LAB = ("create table public.lab_samples (id bigint generated always as identity primary key, email text not null, "
+              "item text not null, ar text not null, ipa text not null, speaker text not null default '', label text not null, "
+              "mistake jsonb, device text not null default '', score int not null, heard_ipa text not null, "
+              "flagged jsonb not null default '[]'::jsonb, result jsonb not null, model text not null, "
+              "version text not null default '', audio text, created_at timestamptz not null default now()); "
+              "alter table public.lab_samples enable row level security; "
+              "insert into storage.buckets (id, name) values ('lab', 'lab') on conflict (id) do nothing;")
+MAX_SPEAKER = 40
+# The lab's automatic test: the list said by the TTS voices, each kept as a speaker of its own ("TTS ראאף")
+LAB_TTS_VOICES = {**{name.translate({c: None for c in range(0x591, 0x5c8)}): v for name, v in VOICES.items()}, **LINE_VOICES}
 AUDIO_EXT = {"webm": "webm", "ogg": "ogg", "mp4": "m4a", "mpeg": "mp3", "wav": "wav", "x-wav": "wav"}   # by the upload's type
 TOPIC_LESSON = {c["id"]: c["lesson"] for c in CATEGORIES}   # a topic's lesson: homework is a topic of the class's lessons
 MIGRATE_CLASSES = ("alter table public.classes add column if not exists nicknames jsonb not null default '{}', "
@@ -626,6 +640,221 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(404, "לדיווח הזה אין הקלטה שמורה")
         data, media_type = found
         return Response(data, media_type=media_type, headers={"Cache-Control": "private, no-store"})
+
+    def lab_error(e: AuthUnavailable) -> HTTPException:
+        if "answered 404" in str(e):
+            return HTTPException(503, f"הטבלה lab_samples לא קיימת. הריצו ב-SQL Editor: {CREATE_LAB} "
+                                      "אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
+        return HTTPException(503, f"Supabase לא זמין: {e}")
+
+    @app.get("/api/lab")
+    def lab_items(speaker: str = Query(""), a: SupabaseAuth = Depends(teacher_only)):
+        """The lab's diagnostic list, with how many recordings each item has (`counts`) and, with `speaker`, how many
+        of them are that speaker's (`mine`: the lab's test marks an item submitted by it). `setup` is the SQL to run
+        while the table is missing: the list still shows and scores, but nothing is kept."""
+        try:
+            rows, setup = a.lab_samples(), ""
+        except AuthUnavailable as e:
+            if "answered 404" not in str(e):
+                raise lab_error(e)
+            rows, setup = [], CREATE_LAB
+        counts: dict[str, dict[str, int]] = {}
+        mine: dict[str, dict[str, int]] = {}
+        who = " ".join(speaker.split())[:MAX_SPEAKER]
+        for r in rows:
+            label = r["label"] if r["label"] in ("correct", "mistake") else "correct"
+            for tally in (counts, mine) if who and (r.get("speaker") or "") == who else (counts,):
+                tally.setdefault(r["item"], {"correct": 0, "mistake": 0})[label] += 1
+        return {"items": lab.public_items(), "groups": lab.GROUPS, "counts": counts, "mine": mine, "setup": setup}
+
+    @app.post("/api/lab/score")
+    def lab_score(request: Request, item: str = Form(...), audio: UploadFile = File(...), speaker: str = Form(""),
+                  mistake: int = Form(-1), save: bool = Form(True), a: SupabaseAuth = Depends(teacher_only),
+                  user: dict | None = Depends(signed_in)):
+        """Scores a recording of a lab item as a practice recording is scored (with the native baseline), with the
+        teacher's stage-by-stage trace, and keeps it with its label unless `save` is off. `mistake` is the index of the
+        planted mistake among the item's sounds (-1: said right). {"result", "saved": whether the row was kept,
+        "audio": whether the recording was kept too, "error": why the row was not kept}."""
+        found = lab.BY_ID.get(item)
+        if found is None:
+            raise HTTPException(404, "no such lab item")
+        sounds = [x for x in found["variants"][0][1].split() if x != "|"]
+        if not -1 <= mistake < len(sounds):
+            raise HTTPException(400, "invalid mistake")
+        data = audio.file.read(MAX_UPLOAD + 1)
+        if len(data) > MAX_UPLOAD:
+            raise HTTPException(413, "recording too long")
+        try:
+            wav = decode_audio(data)
+        except ValueError:
+            raise HTTPException(400, "could not decode audio")
+        if wav.size < 16_000 * 0.3:
+            return {"result": {"error": "too_short", "message": "לא נשמע דיבור. נסו שוב, קרוב יותר למיקרופון."}, "saved": False}
+        phrase = lab.phrase(found)
+        refs = app.state.refs.get(phrase["key"], phrase) if app.state.refs else []
+        result = app.state.scorer.score(wav, phrase, refs, diagnostics=True)
+        if not save:
+            return {"result": result, "saved": False}
+        mime = (audio.content_type or "application/octet-stream").lower()
+        ext = AUDIO_EXT.get(mime.partition(";")[0].strip().rpartition("/")[2], "bin")
+        flagged = [f"{p.get('sound', p['ipa'])}>{p.get('heard') or '_'}" for w in result.get("words", [])
+                   for p in w.get("phonemes", []) if p.get("flagged")]
+        row = {"email": user["email"].lower(), "item": item, "ar": result["variant"]["ar"], "ipa": result["variant"]["ipa"],
+               "speaker": " ".join(speaker.split())[:MAX_SPEAKER], "label": "correct" if mistake < 0 else "mistake",
+               "mistake": None if mistake < 0 else {"index": mistake, "expected": sounds[mistake]},
+               "device": request.headers.get("user-agent", "")[:200], "score": result["score"],
+               "heard_ipa": result["heard_ipa"], "flagged": flagged, "result": result, "model": MODEL_ID,
+               "version": build_version()}
+        try:
+            kept = a.add_lab_sample(row, data, mime, f"{date.today():%Y-%m}/{uuid.uuid4().hex}.{ext}")
+        except AuthUnavailable as e:
+            return {"result": result, "saved": False, "error": lab_error(e).detail}
+        return {"result": result, "saved": True, "audio": kept}
+
+    def lab_tts_audio(item: str, voice: str) -> tuple[dict, bytes]:
+        """The lab item and its first reading said by a TTS voice (by name, LAB_TTS_VOICES), as a WAV."""
+        found = lab.BY_ID.get(item)
+        if found is None:
+            raise HTTPException(404, "no such lab item")
+        if voice not in LAB_TTS_VOICES:
+            raise HTTPException(400, "unknown voice")
+        if app.state.tts is None:
+            raise HTTPException(503, "אין TTS בשרת הזה (SAWTAK_API_KEY לא מוגדר)")
+        try:
+            data, _ = app.state.tts.wav(point_arabic(*found["variants"][0]), LAB_TTS_VOICES[voice])
+        except TTSUnavailable as e:
+            raise HTTPException(503, f"ה-TTS לא זמין: {e}")
+        return found, data
+
+    @app.get("/api/lab/tts")
+    def lab_tts_voices(a: SupabaseAuth = Depends(teacher_only)):
+        """The voices the automatic test can use (none without TTS on this server)."""
+        return {"voices": list(LAB_TTS_VOICES) if app.state.tts else []}
+
+    @app.get("/api/lab/tts/{item}")
+    def lab_tts_listen(item: str, voice: str = Query(...), a: SupabaseAuth = Depends(teacher_only)):
+        """What the automatic test sent for an item: the voice's WAV (cached, so no new synthesis)."""
+        return Response(lab_tts_audio(item, voice)[1], media_type="audio/wav", headers={"Cache-Control": "private, no-store"})
+
+    @app.post("/api/lab/tts")
+    def lab_tts_score(item: str = Form(...), voice: str = Form(...), save: bool = Form(True),
+                      a: SupabaseAuth = Depends(teacher_only), user: dict | None = Depends(signed_in)):
+        """The automatic test, one item: a TTS voice says it, and it is scored and kept as said right by the speaker
+        "TTS <voice>", like an approved take of the test. Scored without the native baseline, which is made of the same
+        voice and would measure every sound against itself. {"result", "saved", "audio", "speaker", "error"?}."""
+        found, data = lab_tts_audio(item, voice)
+        try:
+            wav = decode_audio(data)
+        except ValueError:
+            raise HTTPException(502, "the TTS audio could not be decoded")
+        phrase = lab.phrase(found)
+        result = app.state.scorer.score(wav, phrase, [], diagnostics=True)
+        speaker = f"TTS {voice}"
+        if result.get("error") or not save:
+            return {"result": result, "saved": False, "speaker": speaker}
+        row = {"email": user["email"].lower(), "item": item, "ar": result["variant"]["ar"], "ipa": result["variant"]["ipa"],
+               "speaker": speaker, "label": "correct", "mistake": None, "device": f"tts:{LAB_TTS_VOICES[voice]}",
+               "score": result["score"], "heard_ipa": result["heard_ipa"], "flagged": lab.flagged_sounds(result),
+               "result": result, "model": MODEL_ID, "version": build_version()}
+        try:
+            kept = a.add_lab_sample(row, data, "audio/wav", f"{date.today():%Y-%m}/tts-{uuid.uuid4().hex}.wav")
+        except AuthUnavailable as e:
+            return {"result": result, "saved": False, "speaker": speaker, "error": lab_error(e).detail}
+        return {"result": result, "saved": True, "audio": kept, "speaker": speaker}
+
+    @app.get("/api/lab/results")
+    def lab_results(speaker: str = Query(""), a: SupabaseAuth = Depends(teacher_only)):
+        """The benchmark of the lab's recordings as they were scored (see lab.benchmark), of one speaker or of all;
+        with the confirmed flags' false issues beside each sound. scripts/bench.py rescores them with the current scorer."""
+        try:
+            samples = a.lab_samples(full=True)
+        except AuthUnavailable as e:
+            raise lab_error(e)
+        try:
+            reports = a.list_flags("confirmed")
+        except AuthUnavailable as e:   # the reports are a side column: the benchmark stands without them
+            log.warning("confirmed flags not read for the lab: %s", e)
+            reports = []
+        speakers = sorted({s.get("speaker") or "" for s in samples})
+        if speaker:
+            samples = [s for s in samples if (s.get("speaker") or "") == speaker]
+        return {**lab.benchmark(samples, reports=reports), "speakers": speakers, "model": MODEL_ID,
+                "version": build_version(), "samples": [s["id"] for s in samples if s.get("audio")]}
+
+    @app.post("/api/lab/samples/{sample_id}/rescore")
+    def lab_rescore_sample(sample_id: int, a: SupabaseAuth = Depends(teacher_only)):
+        """A lab recording scored again by the current scorer (as practice scores, with the native baseline), nothing
+        kept: {"id", "result": what the benchmark reads of it (lab.compact)}. The page rescores the recordings one by
+        one and sends the results to POST /api/lab/results."""
+        try:
+            row = a.lab_sample(sample_id)
+            found = a.lab_audio(sample_id) if row else None
+        except AuthUnavailable as e:
+            raise lab_error(e)
+        if row is None or row["item"] not in lab.BY_ID:
+            raise HTTPException(404, "no such lab recording")
+        if found is None:
+            raise HTTPException(404, "להקלטה הזו אין קובץ שמור")
+        try:
+            wav = decode_audio(found[0])
+        except ValueError:
+            raise HTTPException(400, "could not decode audio")
+        phrase = lab.phrase(lab.BY_ID[row["item"]])
+        refs = app.state.refs.get(phrase["key"], phrase) if app.state.refs else []
+        return {"id": sample_id, "result": lab.compact(app.state.scorer.score(wav, phrase, refs))}
+
+    @app.post("/api/lab/results")
+    def lab_rescored_results(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+        """The benchmark of rescored recordings ({"results": {sample id: result}}, from the rescore above), beside the
+        benchmark of the same recordings as they were stored: {"now", "stored", "model", "version"}."""
+        given = body.get("results")
+        if not isinstance(given, dict) or len(given) > 5000:
+            raise HTTPException(400, "invalid results")
+        try:
+            results = {int(k): v for k, v in given.items() if isinstance(v, dict)}
+        except ValueError:
+            raise HTTPException(400, "invalid results")
+        try:
+            samples = [s for s in a.lab_samples(full=True) if s["id"] in results]
+        except AuthUnavailable as e:
+            raise lab_error(e)
+        try:
+            reports = a.list_flags("confirmed")
+        except AuthUnavailable as e:
+            log.warning("confirmed flags not read for the lab: %s", e)
+            reports = []
+        return {"now": lab.benchmark(samples, results, reports), "stored": lab.benchmark(samples, reports=reports),
+                "model": MODEL_ID, "version": build_version()}
+
+    @app.post("/api/lab/flags/{flag_id}/rescore")
+    def lab_rescore_flag(flag_id: int, a: SupabaseAuth = Depends(teacher_only)):
+        """A flagged recording scored again by the current scorer, against what was kept with the flag: {"old",
+        "new": score and flagged sounds, "issues": the sounds a teacher marked as wrongly flagged, each with
+        `still` (flagged again), "result": the new result with its trace}."""
+        try:
+            row = a.flag(flag_id)
+            found = a.flag_audio(flag_id) if row else None
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        if row is None:
+            raise HTTPException(404, "no such flag")
+        if found is None:
+            raise HTTPException(404, "לדיווח הזה אין הקלטה שמורה")
+        try:
+            wav = decode_audio(found[0])
+        except ValueError:
+            raise HTTPException(400, "could not decode audio")
+        phrase = lab.flag_phrase(row)
+        key = next((i for i, p in enumerate(PHRASES) if p is phrase), ("flag", phrase.get("key")))
+        refs = app.state.refs.get(key, phrase) if app.state.refs else []
+        result = app.state.scorer.score(wav, phrase, refs, diagnostics=True)
+        if result.get("error"):
+            raise HTTPException(400, result["message"])
+        old = row.get("result") or {}
+        return {"old": {"score": row.get("score"), "flagged": lab.flagged_sounds(old)},
+                "new": {"score": result["score"], "flagged": lab.flagged_sounds(result)},
+                "issues": [{**i, "still": lab.still_flagged(result, i)} for i in row.get("false_issues") or []],
+                "result": result}
 
     def calibration_error(e: AuthUnavailable) -> HTTPException:
         if "answered 404" in str(e):

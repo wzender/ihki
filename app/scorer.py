@@ -205,6 +205,16 @@ class ScorerConfig:
     gop: GopConfig = field(default_factory=GopConfig)
 
 
+def frame_energy(wav: np.ndarray | None, frames: int) -> np.ndarray | None:
+    """RMS energy of the audio under each of the model's `frames` (they split the recording evenly, ~20 ms each)."""
+    if wav is None or frames <= 0 or len(wav) == 0:
+        return None
+    edges = np.linspace(0, len(wav), frames + 1).astype(int)
+    sq = np.concatenate([[0.0], np.cumsum(np.asarray(wav, dtype=np.float64) ** 2)])
+    n = np.maximum(edges[1:] - edges[:-1], 1)
+    return np.sqrt((sq[edges[1:]] - sq[edges[:-1]]) / n)
+
+
 @dataclass
 class Fit:
     """The accepted variant the audio fits best, and how each of its sounds scored."""
@@ -224,6 +234,8 @@ class Fit:
     exempt_scores: list[TokenScore] = field(default_factory=list)  # after the exemptions, before the inserted vowels
     inserted: dict[int, str] = field(default_factory=dict)        # token -> the vowel heard before it (rules 3.10)
     distance: int = 0        # edit distance of the greedy decode from the chosen variant
+    energy: np.ndarray | None = None   # per frame RMS (frame_energy), when the audio was given
+    paths: list[list[str]] = field(default_factory=list)   # each candidate's tokens (archi symbols), as `candidates`
 
 
 class Scorer:
@@ -303,12 +315,13 @@ class Scorer:
     def score(self, wav: np.ndarray, phrase: dict, refs: list[Reference] = (), diagnostics: bool = False) -> dict:
         logp = self.emit(wav)
         duration_s = len(wav) / SAMPLE_RATE if wav is not None else None
-        return self.score_logp(logp, phrase, refs, diagnostics, duration_s)
+        return self.score_logp(logp, phrase, refs, diagnostics, duration_s, frame_energy(wav, len(logp)))
 
     def reference(self, wav: np.ndarray, phrase: dict) -> Reference | None:
         """The baseline from a native recording of the phrase, or None when the model does not
         recognise the phrase in it (then it says nothing about single sounds)."""
-        fit = self._fit(self.vocab.merge(self.emit(wav)), phrase)
+        logp = self.emit(wav)
+        fit = self._fit(self.vocab.merge(logp), phrase, frame_energy(wav, len(logp)))
         if fit is None:
             return None
         if fit.unrelated or float(np.mean([sc.score for sc in fit.scores])) < self.cfg.ref_min_mean:
@@ -423,17 +436,18 @@ class Scorer:
                         raise
         return out
 
-    def _fit(self, logp: np.ndarray, phrase: dict) -> Fit | None:
+    def _fit(self, logp: np.ndarray, phrase: dict, energy: np.ndarray | None = None) -> Fit | None:
         """The accepted variant the audio fits best and the score of each of its sounds, from merged
         posteriors, or None if the recording is too short for every variant."""
         blank, vocab = self.vocab.blank, self.vocab
         heard_ids = greedy_decode(logp[:, :vocab.n_real], blank)
         cands = self._variants(phrase)
         ext = vocab.extend(logp)  # after tokenising: a variant may have brought a new class
-        best, tried = None, []
+        best, tried, paths = None, [], []
         for ar, ipa, aipa, toks in cands:
             al = ctc_viterbi(ext, [t.id for t in toks], blank)
             tried.append((ar, ipa, round(al.total_logp, 2) if al else None))
+            paths.append([t.sound for t in toks])
             if al and (best is None or al.total_logp > best[4].total_logp):
                 best = (ar, ipa, aipa, toks, al)
         if best is None:
@@ -461,7 +475,8 @@ class Scorer:
         distance = edit_distance(heard_ids, ids, same)
         unrelated = bool(distance / max(1, len(ids)) > self.cfg.unrelated_ratio)
         return Fit(ar, ipa, aipa, toks, al, scores, heard_ids, unrelated, ext, candidates=tried, gop_scores=gop_scores,
-                   exempted=exempted, exempt_scores=exempt_scores, inserted=inserted, distance=distance)
+                   exempted=exempted, exempt_scores=exempt_scores, inserted=inserted, distance=distance, energy=energy,
+                   paths=paths)
 
     def _heatmap(self, logp: np.ndarray, toks: list[TargetToken], alignment, scores,
                  duration_s: float | None) -> dict:
@@ -536,9 +551,9 @@ class Scorer:
         return {"dialect": next(iter(seen))} if seen else {}
 
     def score_logp(self, logp: np.ndarray, phrase: dict, refs: list[Reference] = (), diagnostics: bool = False,
-                   duration_s: float | None = None) -> dict:
+                   duration_s: float | None = None, energy: np.ndarray | None = None) -> dict:
         logp = self.vocab.merge(logp)
-        fit = self._fit(logp, phrase)
+        fit = self._fit(logp, phrase, energy)
         if fit is None:
             return {"error": "too_short", "message": "ההקלטה קצרה מדי. החזיקו את הכפתור ואמרו את כל המשפט."}
         ar, ipa, toks, al, scores, unrelated = fit.ar, fit.ipa, fit.toks, fit.al, fit.scores, fit.unrelated
@@ -682,19 +697,28 @@ class Scorer:
             result["phoneme_heatmap"] = heatmap
         if diagnostics:
             result["trace"] = self._trace(fit, refs, bases, after_baseline, floors, scores, phonemes, checks, beyond,
-                                          words, tips, tip_idx, set(issue_idx), phone_mean, word_mean, overall, heard)
+                                          words, tips, tip_idx, set(issue_idx), phone_mean, word_mean, overall, heard,
+                                          duration_s)
         return result
 
     def _trace(self, fit: Fit, refs, bases, after_baseline, floors, scores, phonemes, checks, beyond,
-               words, tips, tip_idx, issue_idx, phone_mean, word_mean, overall, heard) -> dict:
+               words, tips, tip_idx, issue_idx, phone_mean, word_mean, overall, heard,
+               duration_s: float | None = None) -> dict:
         """Every stage of the classification with its numbers, weights and thresholds, for the teacher's view
         (the 'stages' part of the phoneme analysis). Nothing here changes the result."""
         cfg, g, i2t = self.cfg, self.cfg.gop, self.vocab.i2t
         p = lambda lp: round(float(np.exp(lp)), 4) if lp > -1e20 else 0.0
         max_tips = self._max_tips()
-        n = len(fit.toks)
+        n, T = len(fit.toks), len(fit.logp)
+        pr = lambda col, a, b: [round(float(x), 3) for x in np.exp(fit.logp[a:b, col])] if col is not None else None
         tokens = []
         for i, (tok, gsc, sc) in enumerate(zip(fit.toks, fit.gop_scores, scores)):
+            # the frames the curves show: the sound's window (score_tokens) and a few around it
+            ca, cb = max(0, gsc.window[0] - 4), min(T, gsc.window[1] + 4)
+            curves = {"start": ca, "target": pr(tok.id, ca, cb), "competitor": pr(gsc.competitor, ca, cb),
+                      "prev": pr(fit.toks[i - 1].id, ca, cb) if i else None,
+                      "next": pr(fit.toks[i + 1].id, ca, cb) if i + 1 < n else None,
+                      "blank": pr(self.vocab.blank, ca, cb)}
             heard_ph = "_" if gsc.deleted else (i2t.get(gsc.competitor) if gsc.competitor is not None else None)
             members = self.vocab.members.get(tok.id)
             targets = [tok.sound, tok.phoneme]
@@ -714,7 +738,7 @@ class Scorer:
                 "i": i, "word": tok.word, "ipa": tok.phoneme, "sound": tok.sound,
                 "class": sorted(base(i2t[m]) for m in members) if members else None,
                 "realised": base(i2t[gsc.realised]) if gsc.realised is not None else None,
-                "span": list(fit.al.spans[i]), "window": list(gsc.window),
+                "span": list(fit.al.spans[i]), "window": list(gsc.window), "curves": curves,
                 "p_target": p(gsc.peak), "competitor": heard_ph if not gsc.deleted else None,
                 "competitor_other": gsc.other, "p_competitor": p(gsc.comp_peak),
                 "gop": gsc.gop, "confidence": round(confidence, 3),
@@ -747,8 +771,12 @@ class Scorer:
                               if self.rules.insertion and self._on(f"rule_{self.rules.insertion['rule']}") else None),
                 "disabled": sorted(self.disabled),
             },
-            "variants": [{"ar": ar, "ipa": ipa, "logp": lp, "chosen": ar == fit.ar and ipa == fit.ipa}
-                         for ar, ipa, lp in fit.candidates],
+            "variants": [{"ar": ar, "ipa": ipa, "logp": lp, "chosen": ar == fit.ar and ipa == fit.ipa,
+                          "tokens": fit.paths[k] if k < len(fit.paths) else []}
+                         for k, (ar, ipa, lp) in enumerate(fit.candidates)],
+            "frames": {"count": T, "ms": round(1000 * duration_s / T, 2) if duration_s and T else 20.0,
+                       "energy": ([round(float(e), 3) for e in fit.energy / max(float(fit.energy.max()), 1e-9)]
+                                  if fit.energy is not None else None)},
             "aipa": fit.aipa,
             "unrelated": {"heard": heard, "distance": fit.distance, "tokens": n,
                           "ratio": round(fit.distance / max(1, n), 3), "threshold": cfg.unrelated_ratio,

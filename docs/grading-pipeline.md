@@ -214,6 +214,7 @@ flowchart LR
 
 **Window.** Token *i*'s window runs from the end of token *i−1* to the start of token *i+1* (clamped to include its own span). It therefore contains the blank frames around the emission, which is where a substituted phoneme typically peaks when the path was forced through the target.
 
+
 **Target peak.** `peak = max_t logp[t, target]` inside the window. For a class token this is the pooled column. `realised` names the member with the highest peak (used for dialect detection and display).
 
 **Competitor.** Over the real columns only (no virtual columns), take each column's max inside the window. Then mask:
@@ -428,7 +429,7 @@ flowchart TD
 }
 ```
 
-`trace` is the place to start when debugging a surprising score. It holds the candidate variants with their path log-probs, the unrelated ratio, and per token: window, p_target, competitor, gop, confidence factor, each stage's score, margin needed vs. got, rule, and whether the token became a tip or an issue.
+`trace` is the place to start when debugging a surprising score. Its full schema is [docs/trace-schema.ts](trace-schema.ts), and the trace dashboard ([static/trace.html](../static/trace.html), "לוח אבחון" in the lab and the phoneme dialog) draws it: the frames around a sound with its window, its score stage by stage, the candidate readings and the unrelated gauge, and the sentence with its aggregation. It holds the candidate variants with their path log-probs, the unrelated ratio, and per token: window, p_target, competitor, gop, confidence factor, each stage's score, margin needed vs. got, rule, and whether the token became a tip or an issue.
 
 ---
 

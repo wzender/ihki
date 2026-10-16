@@ -37,6 +37,10 @@ Flags: a teacher, a tutor, and an account in TUTORS_EMAIL, gets a flag under eac
 wrong. A flag keeps what describes the case in the Supabase table `flags`, and the recording itself in the storage
 bucket `flags`, both written with the secret key: the material for changing the scoring, and later for fine-tuning.
 
+Lab: a teacher's recordings of the lab's diagnostic list (see lab.py), each labelled said right or with one planted
+mistake, in the Supabase table `lab_samples` and the storage bucket `lab`, written with the secret key: the
+benchmark set of the phoneme recognition.
+
 Writing: a lesson's written homework (see workbook.py) is kept in the Supabase table `writings`, a row per student
 and topic, written with the student's own token like the attempts, so it follows them to any device. The panel
 reads every student's with the secret key.
@@ -436,21 +440,41 @@ class SupabaseAuth:
         finally:
             self._ranked = None
 
+    def _put_object(self, bucket: str, name: str, data: bytes, mime: str) -> bool:
+        """Stores a recording in a private storage bucket; False (logged) when it cannot be stored."""
+        if not self.secret:
+            return False
+        req = urllib.request.Request(
+            f"{self.url}/storage/v1/object/{bucket}/{urllib.parse.quote(name)}", data=data, method="POST",
+            headers={"Authorization": f"Bearer {self.secret}", "apikey": self.secret, "Content-Type": mime,
+                     "User-Agent": "ihki/1.0"})
+        try:
+            urllib.request.urlopen(req, timeout=TIMEOUT).close()
+            return True
+        except (urllib.error.URLError, TimeoutError) as e:  # HTTPError is a URLError
+            log.warning("a recording not stored (is there a storage bucket `%s`? see the README): %s", bucket, e)
+            return False
+
+    def _get_object(self, bucket: str, name: str) -> tuple[bytes, str]:
+        """A recording of a private storage bucket and its media type."""
+        req = urllib.request.Request(
+            f"{self.url}/storage/v1/object/{bucket}/{urllib.parse.quote(name)}",
+            headers={"Authorization": f"Bearer {self.secret}", "apikey": self.secret, "User-Agent": "ihki/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
+                data = res.read()
+                media_type = res.headers.get_content_type()
+        except (urllib.error.URLError, TimeoutError) as e:
+            raise AuthUnavailable(f"{bucket} audio unavailable: {e}") from e
+        if media_type == "application/octet-stream":
+            media_type = mimetypes.guess_type(name)[0] or media_type
+        return data, media_type
+
     def add_flag(self, row: dict, audio: bytes, mime: str, name: str) -> bool:
         """Keeps a flagged score: the recording in the storage bucket `flags` under `name`, and the row in the table
         `flags` with that name as its `audio`. A recording that cannot be stored is logged and the row is kept
         without it (`audio` null); False tells that. A row that cannot be kept is raised."""
-        kept = False
-        if self.secret:
-            req = urllib.request.Request(
-                f"{self.url}/storage/v1/object/flags/{urllib.parse.quote(name)}", data=audio, method="POST",
-                headers={"Authorization": f"Bearer {self.secret}", "apikey": self.secret, "Content-Type": mime,
-                         "User-Agent": "ihki/1.0"})
-            try:
-                urllib.request.urlopen(req, timeout=TIMEOUT).close()
-                kept = True
-            except (urllib.error.URLError, TimeoutError) as e:  # HTTPError is a URLError
-                log.warning("a flag's recording not stored (is there a storage bucket `flags`? see the README): %s", e)
+        kept = self._put_object("flags", name, audio, mime)
         self._admin("/rest/v1/flags", "POST", {**row, "audio": name if kept else None})
         return kept
 
@@ -463,25 +487,41 @@ class SupabaseAuth:
         """Records a teacher's decision about one flagged score."""
         self._admin(f"/rest/v1/flags?id=eq.{int(flag_id)}", "PATCH", values)
 
+    def flag(self, flag_id: int) -> dict | None:
+        """One flag's row, or None."""
+        rows = self._admin(f"/rest/v1/flags?{urllib.parse.urlencode({'select': '*', 'id': f'eq.{int(flag_id)}', 'limit': 1})}")
+        return rows[0] if rows else None
+
     def flag_audio(self, flag_id: int) -> tuple[bytes, str] | None:
         """Returns one private flag recording and its media type, or None when it was not stored."""
         query = urllib.parse.urlencode({"select": "audio", "id": f"eq.{int(flag_id)}", "limit": 1})
         rows = self._admin(f"/rest/v1/flags?{query}")
         name = rows[0].get("audio") if rows else None
-        if not name:
-            return None
-        req = urllib.request.Request(
-            f"{self.url}/storage/v1/object/flags/{urllib.parse.quote(name)}",
-            headers={"Authorization": f"Bearer {self.secret}", "apikey": self.secret, "User-Agent": "ihki/1.0"})
-        try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
-                data = res.read()
-                media_type = res.headers.get_content_type()
-        except (urllib.error.URLError, TimeoutError) as e:
-            raise AuthUnavailable(f"flag audio unavailable: {e}") from e
-        if media_type == "application/octet-stream":
-            media_type = mimetypes.guess_type(name)[0] or media_type
-        return data, media_type
+        return self._get_object("flags", name) if name else None
+
+    def add_lab_sample(self, row: dict, audio: bytes, mime: str, name: str) -> bool:
+        """Keeps a lab recording (see lab.py): the recording in the storage bucket `lab`, the row in the table
+        `lab_samples`. As with a flag, a recording that cannot be stored leaves the row without it (False)."""
+        kept = self._put_object("lab", name, audio, mime)
+        self._admin("/rest/v1/lab_samples", "POST", {**row, "audio": name if kept else None}, prefer="return=minimal")
+        return kept
+
+    def lab_samples(self, full: bool = False) -> list[dict]:
+        """The lab's recordings, oldest first: what labels each one (and, with `full`, the scorer's whole result)."""
+        cols = "*" if full else "id,item,speaker,label,mistake,score,heard_ipa,flagged,model,audio,created_at"
+        return self._admin(f"/rest/v1/lab_samples?{urllib.parse.urlencode({'select': cols, 'order': 'id.asc'})}")
+
+    def lab_sample(self, sample_id: int) -> dict | None:
+        """One lab recording's row, without the scorer's result, or None."""
+        query = urllib.parse.urlencode({"select": "id,item,speaker,label,mistake,audio", "id": f"eq.{int(sample_id)}",
+                                        "limit": 1})
+        rows = self._admin(f"/rest/v1/lab_samples?{query}")
+        return rows[0] if rows else None
+
+    def lab_audio(self, sample_id: int) -> tuple[bytes, str] | None:
+        """One lab recording and its media type, or None when it was not stored."""
+        row = self.lab_sample(sample_id)
+        return self._get_object("lab", row["audio"]) if row and row.get("audio") else None
 
     def calibrations(self, status: str | None = None) -> list[dict]:
         """Calibration proposals, optionally filtered by their workflow status."""

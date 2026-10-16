@@ -23,23 +23,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from dotenv import load_dotenv  # noqa: E402
 
 from app.auth import load_auth  # noqa: E402
-from app.phrases import PHRASES  # noqa: E402
+from app.lab import flag_phrase as phrase_for, flagged_sounds as sounds  # noqa: E402
 from app.scorer import decode_audio, load_scorer  # noqa: E402
-
-
-def phrase_for(row: dict) -> dict:
-    """The bank phrase a flag was said for, or (a verb-game or text line) the variant it was scored on."""
-    key = row.get("phrase")
-    for p in PHRASES:
-        if p.get("key", p["he"]) == key:
-            return p
-    return {"variants": [(row["ar"], row["ipa"])], "key": key, "he": row.get("he", ""), "cat": row.get("cat", "")}
-
-
-def sounds(result: dict) -> list[str]:
-    """The flagged sounds of a result, as 'ipa>heard'."""
-    return [f"{p.get('sound', p['ipa'])}>{p['heard']}" for w in result.get("words", []) for p in w.get("phonemes", [])
-            if p.get("flagged")]
 
 
 def main() -> int:

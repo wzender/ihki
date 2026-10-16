@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>לוח אבחון ציון</title>
+<!--
+  The trace dashboard: one recording through the scorer, for engineers, linguists and teachers. It reads a scoring
+  result with its teacher's trace (schema: docs/trace-schema.ts), from the page that opened it (the lab, the phoneme
+  dialog: localStorage "ihki.trace"), from a JSON file, or the mock of scripts/mock_trace.py.
+  Four panels follow one selected sound: hovering it anywhere (a letter of the sentence, its block on the time
+  strip, its node on the winning path) shows it everywhere; a click pins it.
+    1. the frames around it: target, competitor and neighbour posteriors, energy, and the window it was read from
+       (the end of the sound before to the start of the one after, where a substitution peaks)
+    2. its score stage by stage (GOP → exemption → cluster cap → native baseline → teacher floor)
+    3. the readings the audio was aligned to, and the different-sentence gauge
+    4. the sentence by word and sound, and how sounds add up to words and words to the sentence
+-->
+<style>
+:root{
+  color-scheme:light;
+  --page:#f9f9f7; --surface:#fcfcfb; --raise:#f2f1ed;
+  --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10);
+  --s1:#2a78d6; --s2:#eb6834; --wash1:rgba(42,120,214,.10);
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --good-bg:#e4f4e4; --warn-bg:#fdf1d4; --crit-bg:#f8e1e1;
+  --good-ink:#006300; --warn-ink:#7a5200; --crit-ink:#a32626;
+  --neutral:#898781; --font:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-ar:"Noto Naskh Arabic","Geeza Pro","Arabic Typesetting","Traditional Arabic",serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --page:#0d0d0d; --surface:#1a1a19; --raise:#232321;
+    --ink:#f0efec; --ink-2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+    --s1:#3987e5; --s2:#d95926; --wash1:rgba(57,135,229,.16);
+    --good-bg:#16301a; --warn-bg:#36290b; --crit-bg:#3a1c1c; --good-ink:#5cc95c; --warn-ink:#f2c45a; --crit-ink:#ef8080;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#0d0d0d; --surface:#1a1a19; --raise:#232321;
+  --ink:#f0efec; --ink-2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+  --s1:#3987e5; --s2:#d95926; --wash1:rgba(57,135,229,.16);
+  --good-bg:#16301a; --warn-bg:#36290b; --crit-bg:#3a1c1c; --good-ink:#5cc95c; --warn-ink:#f2c45a; --crit-ink:#ef8080;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.5 var(--font)}
+main{max-width:1280px;margin:0 auto;padding:16px;display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+h1{margin:0;font-size:22px;font-weight:700}
+h2{margin:0;font-size:16px;font-weight:700}
+.sub{color:var(--ink-2);font-size:13px}
+.muted{color:var(--muted)}
+.ltr{direction:ltr;unicode-bidi:isolate}
+.ipa{direction:ltr;unicode-bidi:isolate;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.ar{font-family:var(--f-ar);direction:rtl}
+.spacer{flex:1}
+button,select,label.file{font:600 13px var(--font);border:1px solid var(--axis);background:var(--surface);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer}
+button:hover,label.file:hover{background:var(--raise)}
+label.file input{display:none}
+.panel{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:14px 16px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.panel>.head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+.grid2{display:grid;gap:14px;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)}
+@media (max-width:900px){.grid2{grid-template-columns:minmax(0,1fr)}}
+svg{display:block;width:100%;height:auto;overflow:visible}
+svg text{font:11px var(--font);fill:var(--muted)}
+svg .lbl{fill:var(--ink-2)}
+svg .strong{fill:var(--ink);font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--ink-2)}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-inline-end:5px}
+.legend i.box{height:10px;width:14px;border-radius:3px}
+.facts{display:flex;flex-wrap:wrap;gap:6px}
+.facts span{background:var(--raise);border-radius:8px;padding:3px 8px;font-size:12px;color:var(--ink-2)}
+.facts b{color:var(--ink);font-weight:700}
+/* status: never colour alone (a mark and a word) */
+.band-good{background:var(--good-bg);color:var(--good-ink)} .band-warn{background:var(--warn-bg);color:var(--warn-ink)} .band-crit{background:var(--crit-bg);color:var(--crit-ink)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-inline-end:4px;vertical-align:middle}
+.dot.good{background:var(--good)} .dot.warn{background:var(--warn)} .dot.crit{background:var(--crit)}
+/* panel 4: the sentence */
+.sentence{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+.word{border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;border:2px solid transparent}
+.word.hl{border-color:var(--ink-2)}
+.word .tr{font-size:20px;font-weight:700;line-height:1.3}
+.word .ar{font-size:17px;color:var(--ink-2);line-height:1.2}
+.word .ws{font-size:12px;font-weight:600}
+.phones{display:flex;gap:3px;direction:ltr}
+.ph{font:600 13px ui-monospace,monospace;min-width:24px;padding:3px 5px;border-radius:6px;background:var(--surface);border:1px solid var(--ring);cursor:pointer;text-align:center;color:var(--ink)}
+.ph.good{box-shadow:inset 0 -3px 0 var(--good)} .ph.warn{box-shadow:inset 0 -3px 0 var(--warn)} .ph.crit{box-shadow:inset 0 -3px 0 var(--crit)}
+.ph.flag::after{content:"!";color:var(--crit-ink);margin-inline-start:2px}
+.ph.sel{outline:2px solid var(--s1);outline-offset:1px}
+.tree{display:flex;flex-direction:column;gap:8px}
+.tree .node{background:var(--raise);border-radius:10px;padding:6px 10px;font-size:13px}
+.tree .node b{font-size:15px}
+.tree .row{display:flex;flex-wrap:wrap;gap:8px}
+.tree .wnode{background:var(--raise);border-radius:10px;padding:6px 10px;font-size:12px;cursor:default;border:2px solid transparent}
+.tree .wnode.hl{border-color:var(--s1)}
+.tree .formula{font-size:12px;color:var(--ink-2)}
+/* panel 3 */
+.paths{display:flex;flex-direction:column;gap:6px}
+.path{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:center}
+.path .lp{font:12px ui-monospace,monospace;color:var(--ink-2);direction:ltr;text-align:left;min-width:64px}
+.path .lp b{color:var(--ink)}
+.chain{display:flex;flex-wrap:wrap;gap:2px;direction:ltr;align-items:center}
+.node{font:12px ui-monospace,monospace;padding:2px 5px;border-radius:5px;border:1px solid var(--axis);color:var(--ink-2)}
+.path.win .node{background:var(--s1);border-color:var(--s1);color:#fff;cursor:pointer}
+.path.win .node.sel{outline:2px solid var(--ink);outline-offset:1px}
+.node.diff{border-color:var(--s2);color:var(--ink);font-weight:700}
+.chain .sep{width:6px;height:1px;background:var(--axis)}
+.path.win .lp::after{content:" ✓ נבחר";color:var(--ink);font-family:var(--font)}
+/* tooltip */
+#tip{position:fixed;z-index:10;pointer-events:none;max-width:320px;background:var(--surface);color:var(--ink);border:1px solid var(--ring);border-radius:10px;padding:8px 10px;font-size:12.5px;line-height:1.45;box-shadow:0 6px 20px rgba(0,0,0,.18);display:none}
+#tip .t{font-weight:700;font-size:13px;margin-bottom:2px}
+#tip .row{display:flex;justify-content:space-between;gap:12px}
+#tip .row span:first-child{color:var(--ink-2)}
+#tip .tiptext{margin-top:4px;padding-top:4px;border-top:1px solid var(--grid);color:var(--ink-2)}
+.empty{padding:30px;text-align:center;color:var(--ink-2)}
+table.data{border-collapse:collapse;font-size:12px;width:100%}
+table.data th,table.data td{padding:3px 6px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
+details summary{cursor:pointer;color:var(--ink-2);font-size:12px}
+.scroll{overflow-x:auto}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>לוח אבחון ציון</h1>
+    <span class="sub" id="what"></span>
+    <span class="spacer"></span>
+    <button id="prev" title="ההגה הקודם (←)">→</button><span class="sub" id="pos"></span><button id="next" title="ההגה הבא (→)">←</button>
+    <button id="mock">דוגמה</button>
+    <label class="file">טעינת JSON<input type="file" id="file" accept="application/json,.json"></label>
+  </header>
+
+  <section class="panel" id="p4" aria-labelledby="p4h">
+    <div class="head"><h2 id="p4h">המשפט, מילה אחר מילה</h2><span class="sub">מעבר עם העכבר על הגה מציג אותו בכל הלוחות; לחיצה מקבעת</span></div>
+    <div class="sentence" id="sentence"></div>
+    <div class="legend"><span><span class="dot good"></span>75 ומעלה</span><span><span class="dot warn"></span>50–74</span><span><span class="dot crit"></span>מתחת ל־50</span><span>! סומן כטעות</span></div>
+    <details><summary>עץ הצבירה: הגאים ← מילים ← משפט</summary><div class="tree" id="tree"></div></details>
+  </section>
+
+  <div class="grid2">
+    <section class="panel" id="p1" aria-labelledby="p1h">
+      <div class="head"><h2 id="p1h">פריימים וחלון</h2><span class="sub" id="p1sub"></span></div>
+      <div id="overview" dir="ltr"></div>
+      <div id="frames" dir="ltr"></div>
+      <div class="legend" id="p1legend"></div>
+      <div class="facts" id="p1facts"></div>
+    </section>
+    <section class="panel" id="p2" aria-labelledby="p2h">
+      <div class="head"><h2 id="p2h">הציון שלב אחר שלב</h2><span class="sub" id="p2sub"></span></div>
+      <div id="waterfall" dir="ltr"></div>
+      <div class="facts" id="p2facts"></div>
+    </section>
+  </div>
+
+  <section class="panel" id="p3" aria-labelledby="p3h">
+    <div class="head"><h2 id="p3h">קריאות מועמדות (Viterbi) ומדד "משפט אחר"</h2><span class="sub" id="p3sub"></span></div>
+    <div class="grid2">
+      <div class="paths" id="paths"></div>
+      <div><div id="gauge" dir="ltr"></div><div class="facts" id="p3facts"></div></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <details><summary>טבלת הגאים (כל המספרים)</summary><div class="scroll"><table class="data" id="table"></table></div></details>
+  </section>
+</main>
+<div id="tip" role="tooltip"></div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const NS="http://www.w3.org/2000/svg";
+function el(tag,attrs={},...kids){ const e=document.createElement(tag); for(const [k,v] of Object.entries(attrs)) if(v!=null) k==="class"?e.className=v:k==="text"?e.textContent=v:e.setAttribute(k,v); for(const k of kids) if(k!=null) e.append(k); return e; }
+function sv(tag,attrs={},text){ const e=document.createElementNS(NS,tag); for(const [k,v] of Object.entries(attrs)) if(v!=null) e.setAttribute(k,v); if(text!=null) e.textContent=text; return e; }
+const fmt=(x,d=1)=>x==null?"—":String(Math.round(x*10**d)/10**d);
+const pct=x=>x==null?"—":x>0&&x<.001?"<0.1%":fmt(100*x,1)+"%";
+const band=s=>s>=75?"good":s>=50?"warn":"crit";
+const BAND_NAME={good:"טוב",warn:"כמעט",crit:"חלש"};
+const STAGE_NAME={gop:"GOP גולמי",exemption:"פטורים",insertion:"תקרת צרור",baseline:"קו בסיס ילידי",calibration:"רצפת כיול",final:"סופי"};
+const EXEMPT_NAME={glottal_dropped:"עצירה סותמית שהושמטה",article_vowel_elided:"תנועת ال אחרי תנועה",near_vowel:"תנועה קרובה"};
+
+let R=null, T=null, PH=[], sel=0, pinned=false;
+
+/* ---------- loading ---------- */
+function load(result,source){
+  if(!result||!result.trace||!result.trace.tokens){ show("בקובץ אין trace. פתחו את הלוח מהמעבדה או מניתוח הפונמות של מורה, או טענו את הדוגמה."); return; }
+  R=result; T=result.trace; PH=(R.words||[]).flatMap(w=>w.phonemes||[]);
+  const worst=T.tokens.reduce((b,t)=>t.final<b.final?t:b,T.tokens[0]), asked=+new URLSearchParams(location.search).get("i");
+  sel=asked>=0&&asked<T.tokens.length&&new URLSearchParams(location.search).has("i")?asked:worst?worst.i:0; pinned=new URLSearchParams(location.search).has("i");
+  $("what").textContent=`${source} · ציון ${R.score}`+(R.phrase?` · ${R.phrase.he}`:"");
+  drawAll();
+}
+function show(msg){ for(const id of ["sentence","overview","frames","waterfall","paths","gauge"]) $(id).replaceChildren(); $("sentence").append(el("div",{class:"empty",text:msg})); }
+async function loadMock(){
+  try{ const res=await fetch("/static/assets/trace-mock.json",{cache:"no-store"}); if(!res.ok) throw new Error(res.status); load(await res.json(),"דוגמה (scripts/mock_trace.py)"); }
+  catch(e){ show(`הדוגמה לא נטענה (${e.message}). הריצו python scripts/mock_trace.py`); }
+}
+$("mock").onclick=loadMock;
+$("file").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ load(JSON.parse(await f.text()),f.name); }catch(err){ show(`לא JSON תקין: ${err.message}`); } };
+addEventListener("keydown",e=>{ if(!T||e.target.tagName==="INPUT") return; if(e.key==="ArrowLeft"){ step(1); e.preventDefault(); } if(e.key==="ArrowRight"){ step(-1); e.preventDefault(); } });
+$("next").onclick=()=>step(1); $("prev").onclick=()=>step(-1);
+function step(d){ if(!T) return; sel=(sel+d+T.tokens.length)%T.tokens.length; pinned=true; drawSelected(); }
+
+/* ---------- selection: one sound everywhere ---------- */
+function hover(i){ if(pinned||i===sel) return; sel=i; drawSelected(); }
+function pick(i){ pinned=!(pinned&&sel===i); sel=i; drawSelected(); }
+function drawAll(){ drawSentence(); drawTree(); drawPaths(); drawGauge(); drawTable(); drawSelected(); }
+function drawSelected(){
+  $("pos").textContent=`${sel+1}/${T.tokens.length}`+(pinned?" 📌":"");
+  for(const b of document.querySelectorAll(".ph")) b.classList.toggle("sel",+b.dataset.i===sel);
+  for(const b of document.querySelectorAll(".path.win .node")) b.classList.toggle("sel",+b.dataset.i===sel);
+  const w=T.tokens[sel].word;
+  for(const b of document.querySelectorAll(".word,.wnode")) b.classList.toggle("hl",+b.dataset.w===w);
+  drawOverview(); drawFrames(); drawWaterfall();
+}
+
+/* ---------- tooltip ---------- */
+const tip=$("tip");
+function tipShow(e,html){ tip.replaceChildren(...html); tip.style.display="block"; tipMove(e); }
+function tipMove(e){ const r=tip.getBoundingClientRect(), x=Math.min(innerWidth-r.width-8,Math.max(8,e.clientX+14)), y=e.clientY+r.height+20>innerHeight?e.clientY-r.height-12:e.clientY+16; tip.style.left=x+"px"; tip.style.top=y+"px"; }
+function tipHide(){ tip.style.display="none"; }
+const trow=(k,v)=>el("div",{class:"row"},el("span",{text:k}),typeof v==="string"?el("span",{text:v}):v);
+function soundTip(i){
+  const t=T.tokens[i], p=PH[i]||{}, w=(R.words||[])[t.word]||{};
+  const heard=t.deleted?"לא נשמע":t.competitor?`${t.competitor} (${pct(t.p_competitor)})`:"—";
+  const out=[el("div",{class:"t"},el("span",{class:"ipa",text:t.sound!==t.ipa?`${t.ipa} · ${t.sound}`:t.ipa})," במילה ",el("span",{class:"ar",text:w.ar||""}))];
+  out.push(trow("צפוי",el("span",{class:"ipa",text:`${t.ipa} (${pct(t.p_target)})`})));
+  out.push(trow("המתחרה החזק",el("span",{class:"ipa",text:heard})));
+  out.push(trow("ציון",`${fmt(t.final)} · ${BAND_NAME[band(t.final)]}`+(t.flagged?" · סומן כטעות":"")));
+  out.push(trow("מרווח (נדרש / בפועל)",el("span",{class:"ltr",text:`${fmt(t.margin.needed,2)} / ${fmt(t.margin.got,2)}`+(t.margin.beyond?" ✓ עבר":" ✗ לא עבר")})));
+  out.push(trow("חלון",el("span",{class:"ltr",text:`${t.window[0]}–${t.window[1]}`})));
+  if(t.rule) out.push(trow("כלל",`${t.rule.title} · חומרה ${t.rule.severity}`));
+  const tp=(R.tips||[]).find(x=>x.word===w.ar&&(x.key.startsWith(t.sound+">")||x.key.startsWith(t.ipa+">")));
+  const letter=(w.letters||[]).find(l=>l.tip||l.why);
+  const text=tp?tp.text:t.flagged&&letter?(letter.tip||letter.why):"";
+  if(text) out.push(el("div",{class:"tiptext",text}));
+  return out;
+}
+
+/* ---------- panel 4: the sentence, and the aggregation tree ---------- */
+function drawSentence(){
+  const box=$("sentence"); box.replaceChildren();
+  (R.words||[]).forEach((w,wi)=>{
+    const b=band(w.score), word=el("div",{class:`word band-${b}`,"data-w":wi});
+    word.append(el("span",{class:"tr",text:w.tr}),el("span",{class:"ar",text:w.ar}),el("span",{class:"ws",text:`${fmt(w.score,0)} · ${BAND_NAME[b]}`}));
+    const phones=el("div",{class:"phones"});
+    T.tokens.forEach(t=>{ if(t.word!==wi) return;
+      const c=el("button",{class:`ph ${band(t.final)}${t.flagged?" flag":""}`,"data-i":t.i,"aria-label":`${t.ipa}, ציון ${fmt(t.final,0)}`,text:t.ipa});
+      c.onmouseenter=e=>{ hover(t.i); tipShow(e,soundTip(t.i)); }; c.onmousemove=tipMove; c.onmouseleave=tipHide;
+      c.onfocus=()=>hover(t.i); c.onclick=()=>pick(t.i);
+      phones.append(c); });
+    word.append(phones); box.append(word);
+  });
+  const s=T.sentence;
+  $("p4h").textContent=`המשפט, מילה אחר מילה · ${R.score}`+(R.unrelated?" · משפט אחר?":"");
+}
+function drawTree(){
+  const box=$("tree"), s=T.sentence, c=T.config; box.replaceChildren();
+  box.append(el("div",{class:"node"},el("b",{text:`משפט ${s.final}`}),el("div",{class:"formula ltr",
+    text:`${s.phone_weight}·phone_mean(${fmt(s.phone_mean)}) + ${s.word_weight}·word_mean(${fmt(s.word_mean)}) = ${fmt(s.before_cap)}`+(s.capped?` → capped at ${c.unrelated_cap}`:"")}),
+    el("div",{class:"formula",text:`ממוצע ההגאים משוקלל: תנועה נספרת ${c.vowel_weight}, עיצור 1`})));
+  const row=el("div",{class:"row"});
+  T.words.forEach((w,wi)=>{
+    const n=el("div",{class:"wnode","data-w":wi});
+    n.append(el("div",{},el("b",{text:w.tr})," ",el("span",{class:"dot "+band(w.score)}),el("span",{text:fmt(w.score)})),
+      el("div",{class:"formula ltr",text:`${c.word_min_weight}·min(${fmt(w.min)}) + ${fmt(1-c.word_min_weight)}·mean(${fmt(w.mean)})`}),
+      el("div",{class:"formula ltr",text:w.scores.map(x=>fmt(x,0)).join(" · ")}));
+    n.onmouseenter=()=>{ const first=T.tokens.find(t=>t.word===wi); if(first) hover(first.i); };
+    row.append(n);
+  });
+  box.append(row);
+}
+
+/* ---------- panel 1: the time strip and the frames around the sound ---------- */
+function width(id){ return Math.max(280,$(id).clientWidth||600); }
+function drawOverview(){
+  const box=$("overview"), W=width("overview"), H=46, n=T.frames.count, x=f=>f/n*W;
+  const svg=sv("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"ציר הזמן: אנרגיה והגאים"});
+  const e=T.frames.energy;
+  if(e){ let d=`M0 ${H-14}`; e.forEach((v,f)=>{ d+=` L${x(f+.5)} ${H-14-v*28}`; }); d+=` L${W} ${H-14} Z`; svg.append(sv("path",{d,fill:"var(--grid)"})); }
+  T.tokens.forEach(t=>{
+    const g=sv("g",{style:"cursor:pointer"}), a=x(t.span[0]), w=Math.max(2,x(t.span[1])-a);
+    const col={good:"var(--good)",warn:"var(--warn)",crit:"var(--crit)"}[band(t.final)];
+    g.append(sv("rect",{x:a,y:H-12,width:w,height:10,rx:2,fill:col,opacity:t.i===sel?1:.55}));
+    if(t.i===sel) g.append(sv("rect",{x:x(t.window[0]),y:2,width:x(t.window[1])-x(t.window[0]),height:H-4,fill:"none",stroke:"var(--s1)","stroke-width":1.5,rx:3}));
+    g.append(sv("rect",{x:a-2,y:0,width:w+4,height:H,fill:"transparent"}));
+    g.onmouseenter=ev=>{ hover(t.i); tipShow(ev,soundTip(t.i)); }; g.onmousemove=tipMove; g.onmouseleave=tipHide; g.onclick=()=>pick(t.i);
+    svg.append(g);
+  });
+  box.replaceChildren(svg);
+}
+function drawFrames(){
+  const t=T.tokens[sel], c=t.curves, L=c.target.length, ms=T.frames.ms;
+  const box=$("frames"), W=width("frames"), padL=34, padR=10, top=10, ph=170, eh=36, gap=14, H=top+ph+gap+eh+26;
+  const x=f=>padL+(f-c.start)/Math.max(1,L-1)*(W-padL-padR), yP=v=>top+ph-v*ph;
+  const svg=sv("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":`פריימים סביב ${t.ipa}`});
+  // the window the sound was read from: the end of the sound before to the start of the one after
+  const win=t.window;
+  svg.append(sv("rect",{x:x(win[0]-.5),y:top,width:x(win[1]-.5)-x(win[0]-.5),height:ph,fill:"var(--wash1)",stroke:"var(--s1)","stroke-width":1.5,rx:4}));
+  // the emission span on the axis
+  svg.append(sv("rect",{x:x(t.span[0]-.5),y:top+ph+1,width:x(t.span[1]-.5)-x(t.span[0]-.5),height:4,rx:2,fill:"var(--ink-2)"}));
+  // grid & axis
+  for(const v of [0,.5,1]){ svg.append(sv("line",{x1:padL,x2:W-padR,y1:yP(v),y2:yP(v),stroke:"var(--grid)"})); svg.append(sv("text",{x:padL-6,y:yP(v)+4,"text-anchor":"end"},v===0?"0":v===1?"1":".5")); }
+  svg.append(sv("line",{x1:padL,x2:W-padR,y1:yP(0),y2:yP(0),stroke:"var(--axis)"}));
+  const tickEvery=Math.max(1,Math.ceil(L/10));
+  for(let f=c.start;f<c.start+L;f+=tickEvery) svg.append(sv("text",{x:x(f),y:H-4,"text-anchor":"middle"},String(f)));
+  // lines: blank and neighbours recessive, the two that decide the score in colour
+  const line=(vals,stroke,w=2,extra={})=>{ if(!vals) return; let d=""; vals.forEach((v,k)=>{ d+=(k?" L":"M")+x(c.start+k)+" "+yP(v); }); svg.append(sv("path",{d,fill:"none",stroke,"stroke-width":w,"stroke-linejoin":"round","stroke-linecap":"round",...extra})); };
+  line(c.blank,"var(--grid)",1.5); line(c.prev,"var(--muted)",1.5,{opacity:.7}); line(c.next,"var(--muted)",1.5,{opacity:.7});
+  line(c.competitor,"var(--s2)"); line(c.target,"var(--s1)");
+  // the energy strip, its own 0..1 scale under the posteriors
+  const e=T.frames.energy, ey=top+ph+gap;
+  svg.append(sv("text",{x:padL-6,y:ey+eh/2+4,"text-anchor":"end"},"E"));
+  if(e){ let d=`M${x(c.start)} ${ey+eh}`; for(let k=0;k<L;k++) d+=` L${x(c.start+k)} ${ey+eh-(e[c.start+k]||0)*eh}`; d+=` L${x(c.start+L-1)} ${ey+eh} Z`;
+    svg.append(sv("path",{d,fill:"var(--grid)",stroke:"var(--muted)","stroke-width":1})); }
+  else svg.append(sv("text",{x:padL+6,y:ey+eh/2+4},"אין אנרגיה (נוקד בלי שמע)"));
+  svg.append(sv("line",{x1:padL,x2:W-padR,y1:ey+eh,y2:ey+eh,stroke:"var(--axis)"}));
+  // hover: a crosshair and every value of the frame
+  const cross=sv("line",{y1:top,y2:ey+eh,stroke:"var(--ink-2)","stroke-width":1,opacity:0});
+  svg.append(cross);
+  const hit=sv("rect",{x:padL,y:top,width:W-padL-padR,height:ey+eh-top,fill:"transparent"});
+  hit.onmousemove=ev=>{
+    const r=svg.getBoundingClientRect(), fx=(ev.clientX-r.left)/r.width*W, k=Math.max(0,Math.min(L-1,Math.round((fx-padL)/(W-padL-padR)*(L-1)))), f=c.start+k;
+    cross.setAttribute("x1",x(f)); cross.setAttribute("x2",x(f)); cross.setAttribute("opacity",.6);
+    const inWin=f>=win[0]&&f<win[1];
+    tipShow(ev,[el("div",{class:"t",text:`פריים ${f} · ${fmt(f*ms/1000,2)} s`+(inWin?" · בחלון":"")}),
+      trow(`p(${t.ipa})`,pct(c.target[k])), c.competitor?trow(`p(${t.competitor||"מתחרה"})`,pct(c.competitor[k])):null,
+      c.prev?trow("p(ההגה הקודם)",pct(c.prev[k])):null, c.next?trow("p(ההגה הבא)",pct(c.next[k])):null,
+      trow("p(blank)",pct(c.blank[k])), e?trow("אנרגיה",fmt(e[f],2)):null].filter(Boolean));
+  };
+  hit.onmouseleave=()=>{ cross.setAttribute("opacity",0); tipHide(); };
+  svg.append(hit);
+  box.replaceChildren(svg);
+  const nb=i=>i>=0&&i<T.tokens.length?T.tokens[i].ipa:"—";
+  $("p1sub").replaceChildren(el("span",{class:"ipa",text:t.ipa}),` · חלון: פריימים ${win[0]}–${win[1]} (פריים = ${fmt(ms,0)} ms)`);
+  $("p1legend").replaceChildren(...[
+    el("span",{},el("i",{style:"background:var(--s1)"}),"p(",el("span",{class:"ipa",text:t.ipa}),")"),
+    el("span",{},el("i",{style:"background:var(--s2)"}),"p(",el("span",{class:"ipa",text:t.competitor||"מתחרה"}),")"),
+    el("span",{},el("i",{style:"background:var(--muted)"}),"שכנים, מוסתרים כמתחרים (",el("span",{class:"ipa",text:`${nb(sel-1)}, ${nb(sel+1)}`}),")"),
+    el("span",{},el("i",{style:"background:var(--grid)"}),"blank"),
+    el("span",{},el("i",{class:"box",style:"background:var(--wash1);outline:1.5px solid var(--s1)"}),"החלון: מסוף ההגה הקודם עד תחילת הבא"),
+    el("span",{},el("i",{style:"background:var(--ink-2)"}),"מתי נפלט ההגה (span)")].filter(Boolean));
+  $("p1facts").replaceChildren(...[
+    fact("p_target",pct(t.p_target)), fact("p_comp",pct(t.p_competitor)),
+    fact("GOP",fmt(t.gop,3)), fact("נמחק?",t.deleted?"כן":"לא"), t.class?fact("מימושים",t.class.join(" / ")+(t.realised?` · נאמר ${t.realised}`:"")):null].filter(Boolean));
+}
+function fact(k,v){ return el("span",{},`${k} `,el("b",{class:"ltr",text:v})); }
+
+/* ---------- panel 2: the waterfall ---------- */
+function drawWaterfall(){
+  const t=T.tokens[sel], c=T.config, steps=[{name:"gop",from:0,to:t.stages[0].score,note:`100 × ${t.gop_factor} × ${t.confidence_factor}`}];
+  let cur=t.stages[0].score;
+  for(const s of t.stages.slice(1)){
+    let note="";
+    if(s.stage==="exemption"&&s.applied) note=EXEMPT_NAME[s.applied]||s.applied;
+    if(s.stage==="insertion"&&s.applied) note=`תנועה ${s.applied} בצרור`;
+    if(s.stage==="baseline") note=s.ref==null?"אין קול ילידי":`הקול הילידי: ${fmt(s.ref,0)}`;
+    if(s.stage==="calibration") note=s.floor==null?"אין רצפה":`רצפה ${fmt(s.floor,0)}`;
+    steps.push({name:s.stage,from:cur,to:s.score,note}); cur=s.score;
+  }
+  steps.push({name:"final",from:0,to:t.final,note:t.flagged?"סומן כטעות":t.final<c.issue_below?"לא מדויק":"תקין"});
+  const box=$("waterfall"), W=width("waterfall"), padL=88, padR=40, rowH=30, top=8, H=top+steps.length*rowH+22;
+  const x=v=>padL+v/100*(W-padL-padR);
+  const svg=sv("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"שלבי הציון"});
+  for(const v of [0,50,100]){ svg.append(sv("line",{x1:x(v),x2:x(v),y1:top,y2:H-18,stroke:"var(--grid)"})); svg.append(sv("text",{x:x(v),y:H-4,"text-anchor":"middle"},String(v))); }
+  for(const [v,label] of [[c.flag_below,"flag"],[c.issue_below,"issue"]]){
+    svg.append(sv("line",{x1:x(v),x2:x(v),y1:top,y2:H-18,stroke:"var(--ink-2)","stroke-width":1,opacity:.5}));
+    svg.append(sv("text",{x:x(v)+3,y:top+8},label)); }
+  steps.forEach((s,k)=>{
+    const y=top+k*rowH, lo=Math.min(s.from,s.to), hi=Math.max(s.from,s.to), total=s.name==="gop"||s.name==="final";
+    const fill=total?"var(--ink-2)":s.to>s.from?"var(--s1)":s.to<s.from?"var(--s2)":"var(--axis)";
+    svg.append(sv("text",{x:padL-8,y:y+rowH/2+4,"text-anchor":"end",class:"lbl"},STAGE_NAME[s.name]));
+    const w=Math.max(hi>lo?2:1.5,x(hi)-x(lo));
+    svg.append(sv("rect",{x:x(lo),y:y+7,width:w,height:rowH-14,rx:4,fill}));
+    if(k&&!total) svg.append(sv("line",{x1:x(s.from),x2:x(s.from),y1:y-rowH+7,y2:y+7,stroke:"var(--axis)"}));
+    const d=s.to-s.from, label=total?fmt(s.to):d?`${d>0?"+":""}${fmt(d)} → ${fmt(s.to)}`:"±0";
+    svg.append(sv("text",{x:Math.min(W-2,x(hi)+5),y:y+rowH/2+4,class:total?"strong":"lbl"},label));
+    const hit=sv("rect",{x:0,y,width:W,height:rowH,fill:"transparent"});
+    hit.onmouseenter=ev=>tipShow(ev,[el("div",{class:"t",text:STAGE_NAME[s.name]}),trow("לפני",fmt(s.from)),trow("אחרי",fmt(s.to)),s.note?el("div",{class:"tiptext ltr",text:s.note}):null].filter(Boolean));
+    hit.onmousemove=tipMove; hit.onmouseleave=tipHide; svg.append(hit);
+  });
+  box.replaceChildren(svg);
+  $("p2sub").replaceChildren(el("span",{class:"ipa",text:t.ipa})," · ",el("span",{class:"dot "+band(t.final)}),`${fmt(t.final,0)} · ${BAND_NAME[band(t.final)]}`);
+  $("p2facts").replaceChildren(...[fact("סומן",t.flagged?"כן":"לא"),fact("מרווח נדרש",fmt(t.margin.needed,2)),fact("בפועל",fmt(t.margin.got,2)),
+    t.rule?fact("כלל",`${t.rule.title} (${t.rule.severity})`):null, fact("טיפ",t.tip?"כן":"לא")].filter(Boolean));
+}
+
+/* ---------- panel 3: the readings and the gauge ---------- */
+function drawPaths(){
+  const box=$("paths"); box.replaceChildren();
+  const seen=new Map();
+  for(const v of T.variants){ const key=(v.tokens||[]).join(" ")||v.ipa, old=seen.get(key);
+    if(!old||(v.logp??-1e9)>(old.logp??-1e9)||v.chosen) seen.set(key,{...v,chosen:v.chosen||(old&&old.chosen)}); }
+  const list=[...seen.values()].sort((a,b)=>(b.chosen-a.chosen)||((b.logp??-1e9)-(a.logp??-1e9)));
+  const win=list.find(v=>v.chosen)||list[0], best=win&&win.logp;
+  list.slice(0,8).forEach(v=>{
+    const row=el("div",{class:"path"+(v===win?" win":"")}), lp=el("div",{class:"lp"});
+    lp.append(el("b",{text:v.logp==null?"—":fmt(v.logp,1)}));
+    if(v!==win&&v.logp!=null&&best!=null) lp.append(el("div",{text:`Δ ${fmt(v.logp-best,1)}`}));
+    const chain=el("div",{class:"chain"});
+    (v.tokens||[]).forEach((tk,k)=>{
+      if(k) chain.append(el("span",{class:"sep"}));
+      const diff=v!==win&&win.tokens&&win.tokens[k]!==tk, n=el("span",{class:"node"+(diff?" diff":""),text:tk});
+      if(v===win){ n.dataset.i=k; n.onmouseenter=e=>{ hover(k); tipShow(e,soundTip(k)); }; n.onmousemove=tipMove; n.onmouseleave=tipHide; n.onclick=()=>pick(k); }
+      chain.append(n);
+    });
+    row.append(lp,el("div",{},chain,v===win||v.ar!==win.ar?el("div",{class:"sub ar",text:v.ar}):null));
+    box.append(row);
+  });
+  if(list.length>8) box.append(el("div",{class:"sub",text:`ועוד ${list.length-8} קריאות`}));
+  $("p3sub").textContent=`${T.variants.length} קריאות נבדקו, ${seen.size} מסלולים שונים · הכתום: הגה שונה מהמסלול שנבחר`;
+}
+function drawGauge(){
+  const u=T.unrelated, box=$("gauge"), W=260, H=150, cx=W/2, cy=128, r=100, max=1;
+  const ang=v=>Math.PI*(1-Math.min(max,Math.max(0,v))/max), pt=(v,rr)=>[cx+rr*Math.cos(ang(v)),cy-rr*Math.sin(ang(v))];
+  const arc=(a,b,rr,stroke)=>{ const [x1,y1]=pt(a,rr),[x2,y2]=pt(b,rr); return sv("path",{d:`M${x1} ${y1} A${rr} ${rr} 0 0 1 ${x2} ${y2}`,fill:"none",stroke,"stroke-width":14}); };
+  const svg=sv("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":`יחס מרחק עריכה ${u.ratio}, סף ${u.threshold}`,style:"max-width:340px;margin:auto"});
+  svg.append(arc(0,u.threshold,r,"var(--good-bg)"),arc(u.threshold,max,r,"var(--crit-bg)"));
+  const [tx1,ty1]=pt(u.threshold,r-12),[tx2,ty2]=pt(u.threshold,r+12);
+  svg.append(sv("line",{x1:tx1,y1:ty1,x2:tx2,y2:ty2,stroke:"var(--ink-2)","stroke-width":2}));
+  const [lx,ly]=pt(u.threshold,r+22); svg.append(sv("text",{x:lx,y:ly,"text-anchor":"middle"},String(u.threshold)));
+  const [nx,ny]=pt(u.ratio,r-4); svg.append(sv("line",{x1:cx,y1:cy,x2:nx,y2:ny,stroke:"var(--ink)","stroke-width":2.5,"stroke-linecap":"round"}));
+  svg.append(sv("circle",{cx,cy,r:5,fill:"var(--ink)",stroke:"var(--surface)","stroke-width":2}));
+  svg.append(sv("text",{x:cx,y:cy-28,"text-anchor":"middle",class:"strong",style:"font-size:22px"},fmt(u.ratio,2)));
+  svg.append(sv("text",{x:cx-r,y:cy+16,"text-anchor":"middle"},"0"),sv("text",{x:cx+r,y:cy+16,"text-anchor":"middle"},"1"));
+  box.replaceChildren(svg);
+  $("p3facts").replaceChildren(el("span",{},el("span",{class:"dot "+(u.unrelated?"crit":"good")}),el("b",{text:u.unrelated?"משפט אחר: הציון מוגבל ל־"+T.config.unrelated_cap:"אותו משפט"})),
+    fact("מרחק עריכה",`${u.distance} / ${u.tokens}`), el("span",{},"נשמע: ",el("b",{class:"ipa",text:u.heard})));
+}
+
+/* ---------- the table: every number ---------- */
+function drawTable(){
+  const tb=$("table"); tb.replaceChildren();
+  const head=["#","הגה","מילה","span","חלון","p_target","מתחרה","p_comp","GOP","gop","פטור","צרור","בסיס","כיול","סופי","סומן"];
+  tb.append(el("tr",{},...head.map(h=>el("th",{text:h}))));
+  for(const t of T.tokens){
+    const st=Object.fromEntries(t.stages.map(s=>[s.stage,s.score]));
+    const cells=[t.i,t.ipa,t.word,t.span.join("–"),t.window.join("–"),pct(t.p_target),t.competitor||"—",pct(t.p_competitor),fmt(t.gop,3),fmt(st.gop),fmt(st.exemption),fmt(st.insertion),fmt(st.baseline),fmt(st.calibration),fmt(t.final),t.flagged?"כן":""];
+    const tr=el("tr",{},...cells.map((v,k)=>el("td",{class:[1,3,4,6].includes(k)?"ipa":"",text:String(v)})));
+    tr.onmouseenter=()=>hover(t.i); tr.onclick=()=>pick(t.i); tb.append(tr);
+  }
+}
+
+addEventListener("resize",()=>{ if(T) drawSelected(); });
+/* the result the opening page left (the lab, the phoneme dialog), else the mock */
+(function(){
+  const src=new URLSearchParams(location.search).get("src");
+  let r=null; try{ r=JSON.parse(localStorage.getItem("ihki.trace")||"null"); }catch{}
+  if(src!=="mock"&&r) load(r,"מהאפליקציה"); else loadMock();
+})();
+</script>
+</body>
+</html>

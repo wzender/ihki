@@ -455,7 +455,7 @@ body.driving .mic::before{display:none} body.driving .mic-zone.two{display:flex}
 #denied{text-align:center;font:600 18px/1.5 var(--f-body);color:#1C241D;padding:0 20px}
 #denied button{display:block;margin:12px auto 0;font:600 16px/1 var(--f-body);padding:10px 22px;border-radius:10px;border:1px solid #4B6A2C;background:#fff;color:#4B6A2C;cursor:pointer}
 /* The teacher's panel (its parts are styled further down: the class tabs, the figures, the lessons, the students). */
-body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage #today,body.manage #toNow,body.manage #practice,body:not(.home) #toManage{display:none}
+body:not(.manage) #manage,body.lab #manage,body:not(.lab) #lab,body.manage #wrap>header,body.manage #path,body.manage #today,body.manage #toNow,body.manage #practice,body:not(.home) #toManage{display:none}
 .mtitle{font:400 24px/1 var(--f-display);margin:0}
 #mState.setup{padding:10px 12px;border:1px solid var(--sumac);border-radius:10px;color:var(--ink)}
 #mState.setup code{display:block;margin-top:6px;font-size:12px;overflow-wrap:anywhere;user-select:all}
@@ -468,6 +468,104 @@ body:not(.manage) #manage,body.manage #wrap>header,body.manage #path,body.manage
 .build-info dd{margin:0;color:var(--ink);font-size:14px;overflow-wrap:anywhere}
 .build-info code{direction:ltr;unicode-bidi:isolate;user-select:all}
 #manage:not(.flags) #mBuild{display:none}
+/* The lab (מעבדה): the diagnostic list by group, each item a button with its count of recordings, and the item on show. */
+#lab{display:flex;flex-direction:column;gap:12px;width:100%;min-width:0;box-sizing:border-box}
+#lab>*,.lab-item>*{min-width:0}
+#labResult .stage-table-wrap{overflow-x:auto}
+.lab-who{flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px 18px}
+.lab-who label{display:flex;align-items:center;gap:8px;min-width:0}
+#labSpeaker{flex:1 1 160px;min-width:0;padding:7px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--surface);color:inherit}
+.lab-group h2{margin:0 0 6px;font:400 19px/1.2 var(--f-display)}
+.lab-items{display:flex;flex-wrap:wrap;gap:6px}
+.lab-items button{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:62px;padding:5px 9px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer}
+.lab-items button .ar{font:600 20px/1.4 var(--f-ar)}
+.lab-items button small{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.lab-items button.done{border-color:var(--ok);background:var(--ok-bg)}
+.lab-items button[aria-current=true]{outline:2px solid var(--olive);outline-offset:1px}
+.lab-items .pair{display:flex;gap:4px;padding:3px;border:1px dashed var(--line);border-radius:12px}
+.lab-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+.lab-head .ar{font:700 34px/1.4 var(--f-ar)}
+.lab-tr{font:700 22px/1.5 var(--f-tr)}
+.lab-plan{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.lab-sounds{display:flex;flex-wrap:wrap;gap:6px}
+.lab-sounds button{padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:600 14px var(--f-body);cursor:pointer}
+.lab-sounds button .ipa{direction:ltr;unicode-bidi:isolate;font-family:ui-monospace,monospace}
+.lab-sounds button.focus{border-width:2px}
+.lab-sounds button[aria-checked=true]{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
+.lab-sounds button.mistake[aria-checked=true]{background:var(--sumac);border-color:var(--sumac);color:#fff}
+.lab-rec{display:flex;align-items:center;gap:14px}
+.lab-verdict{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+.lab-verdict b{font:700 28px/1 var(--f-body);font-variant-numeric:tabular-nums}
+.lab-verdict span{direction:ltr;unicode-bidi:isolate;font-family:ui-monospace,monospace;color:var(--muted)}
+.lab-table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+.lab-table th,.lab-table td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.lab-table th{color:var(--muted);font-weight:600;font-size:12px}
+.lab-table .ipa{direction:ltr;unicode-bidi:isolate;font-family:ui-monospace,monospace}
+.lab-table tr.focus td:first-child{font-weight:700}
+.lab-table td.ok{color:var(--ok)} .lab-table td.mid{color:var(--amber)} .lab-table td.bad{color:var(--sumac);font-weight:700}
+.lab-table td.hit{background:var(--ok-bg)} .lab-table td.miss{background:var(--sumac-bg)}
+.lab-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+#labModes{grid-template-columns:repeat(4,1fr)}
+#lab:not(.test) #labTest,#lab:not(.record) #labRecord,#lab:not(.flags) #labFlags,#lab:not(.results) #labResults{display:none}
+#labTest,#labRecord,#labFlags,#labResults{display:flex;flex-direction:column;gap:12px;min-width:0}
+#labList,#labFlagList,#wzList{display:flex;flex-direction:column;gap:10px}
+#wzSpeaker{min-width:0;width:12em;padding:6px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--surface);color:inherit}
+.wz-bar{flex-basis:100%;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.wz-bar i{display:block;height:100%;width:0;background:var(--ok);transition:width .3s}
+#wzList{gap:6px}
+#wzList h3{margin:10px 2px 0;font:400 18px/1.2 var(--f-display)}
+/* a row of the test: what to say, its state, and record / play / accept / reject */
+.wz-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px 14px;padding:8px 12px;border-radius:14px;border:1px solid var(--line);background:var(--surface);scroll-margin:90px}
+.wz-row.cur{border:2px solid var(--olive);background:var(--olive-soft);padding:7px 11px}
+.wz-row.submitted:not(.cur){opacity:.8}
+.wz-say{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px;min-width:0}
+.wz-say .ar{font:700 30px/1.35 var(--f-ar)}
+.wz-say .tr{font:700 19px/1.4 var(--f-tr)}
+.wz-say small{flex-basis:100%;color:var(--muted);font-size:12px}
+.wz-btns{display:flex;align-items:center;gap:6px}
+.wz-btns button{min-width:44px;height:44px;border-radius:22px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 15px var(--f-body);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:0 12px}
+.wz-btns button:disabled{opacity:.35;cursor:default}
+.wz-btns .wz-rec{background:var(--olive);border-color:var(--olive);color:var(--on-olive);padding:0}
+.wz-btns .wz-rec.live{background:var(--sumac);border-color:var(--sumac)}
+.wz-btns .wz-rec .ic{width:20px;height:20px}
+.wz-btns .wz-ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.wz-btns .wz-no{color:var(--sumac);border-color:var(--sumac)}
+#wzStatus{font-size:14px}
+.wz-keys{margin-inline-start:auto}
+@media (max-width:560px){
+  .wz-row{grid-template-columns:minmax(0,1fr) auto}
+  .wz-btns{grid-column:1/-1;justify-content:flex-start}
+  .wz-keys{display:none}
+}
+#ttsCard summary{cursor:pointer}
+#ttsCard[open] summary{margin-bottom:6px}
+/* an item's state: never colour alone, every chip says it in words or a mark */
+.wz-chip{white-space:nowrap;font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted)}
+.wz-chip.recorded{border-color:var(--amber);background:var(--amber-bg);color:var(--amber)}
+.wz-chip.submitted{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
+.wz-chip.rejected{border-color:var(--sumac);background:var(--sumac-bg);color:var(--sumac)}
+.wz-state{font-size:13px;font-weight:700}
+.wz-h{margin:0;font:400 19px/1.2 var(--f-display)}
+.wz-chip.working{border-color:var(--olive);background:var(--olive-soft);color:var(--ink)}
+.tts-log{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px;max-height:260px;overflow:auto;font-size:13px}
+.tts-log:empty{display:none}
+.tts-log li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:3px 6px;border-radius:6px;background:var(--bg)}
+.tts-log .ar{font:600 17px/1.3 var(--f-ar)}
+.tts-log .ipa{direction:ltr;unicode-bidi:isolate;font-family:ui-monospace,monospace}
+.tts-log .fail{color:var(--sumac)}
+.tts-log button{padding:1px 8px;font-size:12px}
+#labResults code{direction:ltr;unicode-bidi:isolate;user-select:all}
+.lab-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.lab-tiles>div{padding:9px 10px;border-radius:10px;background:var(--bg)}
+.lab-tiles b{display:block;font:700 22px/1.2 var(--f-body);font-variant-numeric:tabular-nums}
+.lab-tiles small{color:var(--muted);font-size:12px}
+.lab-flag{gap:6px}
+.lab-flag h3{margin:0;font:600 16px/1.4 var(--f-body)}
+.lab-flag .lab-actions .ipa{direction:ltr;unicode-bidi:isolate;font-family:ui-monospace,monospace}
+.lab-delta{white-space:nowrap} .lab-delta>span:first-child{color:var(--muted);font-weight:400}
+.lab-delta.up>span:last-child{color:var(--ok);font-weight:700} .lab-delta.down>span:last-child{color:var(--sumac);font-weight:700}
+.lab-mark{padding:2px 8px;border-radius:999px;font-size:13px}
+.lab-mark.fixed{background:var(--ok-bg);color:var(--ok)} .lab-mark.still{background:var(--sumac-bg);color:var(--sumac)}
 @media(max-width:560px){.build-info dl{grid-template-columns:1fr}}
 .hard>.note{margin:0;padding:4px 16px 8px;color:var(--muted);font-size:14px}
 /* inside a student, each part (the best sentences, the weakest, every lesson) opens and closes on its heading */
@@ -998,7 +1096,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 #mailForm button:disabled{opacity:.6;cursor:default}
 #mailMsg{margin:0;text-align:center;font:400 15px/1.5 var(--f-body);color:#1C241D;overflow-wrap:anywhere}
 #roles{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
-#roles #manageBtn{background:#fff;color:#4B6A2C;box-shadow:inset 0 0 0 2px #4B6A2C}
+#roles :is(#manageBtn,#labBtn){background:#fff;color:#4B6A2C;box-shadow:inset 0 0 0 2px #4B6A2C}
 @keyframes start-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#startBtn,#loginBtn,#roles button,#mailForm{animation:none;opacity:1}#logo-splash{transition:none}}
 </style>
@@ -1016,7 +1114,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></symbol>
   <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
 </defs></svg>
-<div id="logo-splash"><img src="static/logo-intro.svg" alt="אהלא וסהלא, בית הספר ללימוד השפה הערבית" width="489" height="225"><button id="startBtn">יאללה נבלש</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="manageBtn">ניהול</button></div><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="denied" hidden>הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
+<div id="logo-splash"><img src="static/logo-intro.svg" alt="אהלא וסהלא, בית הספר ללימוד השפה הערבית" width="489" height="225"><button id="startBtn">יאללה נבלש</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="manageBtn">ניהול</button><button id="labBtn">מעבדה</button></div><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="denied" hidden>הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
 <div class="wrap" id="wrap" inert>
   <header>
     <div class="brand">אהלא וסהלא</div>
@@ -1107,7 +1205,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   </div>
 
   <section class="wrap" id="manage" aria-labelledby="mTitle">
-    <div class="roundbar"><h1 class="mtitle" id="mTitle">ניהול</h1><span class="sep"></span><button class="btn" id="mRefresh">רענון</button><button class="btn primary" id="mPractice">לתרגול</button></div>
+    <div class="roundbar"><h1 class="mtitle" id="mTitle">ניהול</h1><span class="sep"></span><button class="btn" id="mRefresh">רענון</button><button class="btn" id="mLab">מעבדה</button><button class="btn primary" id="mPractice">לתרגול</button></div>
     <div class="sub" id="mState" aria-live="polite"></div>
     <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>רשימה ומסנן כיתות</small></button><button role="tab" data-mode="content">תוכן<small>נושאים, סרטונים וטקסטים</small></button><button role="tab" data-mode="flags">ניטור<small>פעילות ודיווחי ציונים</small></button></div>
     <div id="mClasses"></div>
@@ -1120,6 +1218,62 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
     <div class="card hard roster" id="mRoster" hidden></div>
     <div id="mStudent"></div>
     <section class="build-info card" id="mBuild" aria-labelledby="mBuildTitle" hidden></section>
+  </section>
+  <section class="wrap" id="lab" aria-labelledby="labTitle">
+    <div class="roundbar"><h1 class="mtitle" id="labTitle">מעבדה</h1><span class="sep"></span><button class="btn" id="labManage">ניהול</button><button class="btn primary" id="labPractice">לתרגול</button></div>
+    <p class="sub">רשימה קבועה של הברות ומילים קצרות, שכל אחת בודקת הגה אחד. כל דובר מקריא אותה פעם אחת. אומרים נכון, או בוחרים מראש את ההגה שבו תיעשה טעות מכוונת. כל הקלטה נשמרת עם התווית שלה, ומהן נמדד זיהוי הפונמות: כמה פעמים הגה שנאמר נכון סומן כטעות, וכמה טעויות מכוונות לא נתפסו.</p>
+    <div class="sub" id="labState" aria-live="polite"></div>
+    <div class="modes" id="labModes" role="tablist" aria-label="מעבדה"><button role="tab" data-mode="test">מבחן<small>הקלטת כל הרשימה</small></button><button role="tab" data-mode="record">הקלטה<small>פריט בודד, עם טעויות</small></button><button role="tab" data-mode="flags">דיווחים<small>הרצה מחדש של דיווחי ציון</small></button><button role="tab" data-mode="results">תוצאות<small>זיהוי לפי הגה</small></button></div>
+    <div id="labTest">
+      <div class="card wz-head">
+        <p class="sub">כל שורה היא פריט לומר. השורה המסומנת היא הבאה בתור: לוחצים 🎤, אומרים את הפריט נכון ככל האפשר, וההקלטה מושמעת לבד. אחרי ההשמעה: ✓ שולח אותה ועובר לשורה הבאה, ✗ מוחק אותה ומקליטים שוב. מה שנשלח נשמר כ"נאמר נכון" של הדובר, והוא הבסיס לבדיקת זיהוי הפונמות.</p>
+        <div class="lab-actions"><label>מי מקליט <input id="wzSpeaker" maxlength="40" autocomplete="off" placeholder="למשל: מרב, דובר ילידי"></label><span class="sub" id="wzSummary"></span></div>
+        <div class="wz-bar" aria-hidden="true"><i id="wzBar"></i></div>
+        <div class="lab-actions"><span id="wzStatus" aria-live="polite"></span><span class="sub wz-keys">מקשים: רווח הקלטה · Enter אישור · Backspace דחייה</span></div>
+      </div>
+      <div id="wzList"></div>
+      <details class="card" id="ttsCard">
+        <summary class="wz-h">מבחן אוטומטי בקול TTS</summary>
+        <p class="sub">קול ה-TTS אומר כל פריט ברשימה, וההקלטה נשמרת כאילו הקליט ואישר אותה דובר בשם "TTS" ושם הקול, בלי אישור ידני. הציון נמדד בלי קו הבסיס הילידי, שבנוי מאותו קול ומודד כל הגה מול עצמו. זה נותן דובר "ילידי" נוסף לבדיקה, אבל זה דיבור מסונתז: השוו אותו בתוצאות להקלטות של אנשים, ולא במקומן.</p>
+        <div class="lab-actions"><label>קול <select id="ttsVoice"></select></label><label class="lab-save"><input type="checkbox" id="ttsAll"><span>גם פריטים שכבר נשלחו</span></label><button class="btn primary" id="ttsRun">הרצה</button><button class="btn" id="ttsStop" hidden>עצירה</button><span class="sub" id="ttsState" aria-live="polite"></span></div>
+        <ol class="tts-log" id="ttsLog"></ol>
+      </details>
+    </div>
+    <div id="labRecord">
+    <div class="card lab-who">
+      <label>מי מקליט<input id="labSpeaker" maxlength="40" autocomplete="off" placeholder="למשל: מרב, דובר ילידי"></label>
+      <label class="lab-save"><input type="checkbox" id="labSave" checked><span>לשמור את ההקלטות במאגר</span></label>
+    </div>
+    <div id="labList"></div>
+    <div class="card lab-item" id="labItem" hidden>
+      <div class="lab-head"><span class="ar" id="labAr"></span><span class="lab-tr" id="labTr"></span><span class="sub" id="labHe"></span></div>
+      <div class="lab-plan"><span class="sub">איך תגידו:</span><div class="lab-sounds" id="labSounds" role="radiogroup" aria-label="נכון, או ההגה של הטעות המכוונת"></div></div>
+      <div class="lab-rec"><button class="mic" id="labMic" aria-label="הקלטה"><svg class="ic" aria-hidden="true"><use href="#i-mic"/></svg></button><span class="sub" id="labStatus">לחצו על המיקרופון ואמרו את המילה</span></div>
+      <div id="labResult" hidden>
+        <div class="lab-verdict"><b id="labScore"></b><span id="labHeard"></span></div>
+        <div class="stage-table-wrap"><table class="lab-table" id="labTable"></table></div>
+        <div class="lab-actions"><button class="btn" id="labMine">▶ ההקלטה</button><button class="btn" id="labDetail">ניתוח מלא</button><button class="btn" id="labTrace">לוח אבחון</button><button class="btn primary" id="labNext">הבא ←</button></div>
+      </div>
+    </div>
+    </div>
+    <div id="labFlags">
+      <div class="card">
+        <p class="sub">הדיווחים שאושרו בטאב ניטור, כל אחד עם ההגאים שהמורה סימנה שסומנו בטעות. ההרצה מחדש מנתחת כל הקלטה עם המודל והכללים של עכשיו, ובודקת אם אותם הגאים עדיין מסומנים. דיווח שבו לא סומן הגה מסוים לא נספר.</p>
+        <div class="lab-actions"><button class="btn primary" id="labRerun">הרצה מחדש של כל הדיווחים</button><span class="sub" id="labFlagsState" aria-live="polite"></span></div>
+      </div>
+      <div id="labFlagList"></div>
+    </div>
+    <div id="labResults">
+      <div class="card">
+        <div class="lab-actions"><label>דובר <select id="labWho"><option value="">כולם</option></select></label><button class="btn primary" id="labRerunAll">הרצה מחדש עם הגרסה הנוכחית</button><button class="btn" id="labSaveBase" hidden>שמירה כנקודת השוואה</button></div>
+        <div class="lab-actions"><span class="sub" id="labResState" aria-live="polite"></span></div>
+        <div class="lab-actions"><span class="sub" id="labBase"></span><button class="btn" id="labDropBase" hidden>מחיקה</button></div>
+        <p class="sub" id="labCmp"></p>
+        <div class="lab-tiles" id="labTiles"></div>
+        <p class="sub">איך בודקים שינוי במימוש: הריצו מחדש ושמרו כנקודת השוואה, שנו את המימוש, והריצו מחדש. ירוק: השתפר, אדום: הורע. שיפור אמיתי מוריד את "סומנו בטעות" בלי להוריד את "זיהוי". "סומן בטעות": הגה שנאמר נכון וסומן כטעות. "זיהוי": טעות מכוונת שסומנה. "דיווחים": ההגה סומן בטעות בדיווח מאושר מתרגול אמיתי. אותה בדיקה משורת הפקודה: <code>python scripts/bench.py</code></p>
+      </div>
+      <div class="card"><div class="stage-table-wrap"><table class="lab-table" id="labBench"></table></div></div>
+    </div>
   </section>
 </div>
 <dialog id="listDlg" aria-labelledby="listTitle">
@@ -1264,7 +1418,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   </div>
 </dialog>
 <dialog id="phoneDlg" aria-labelledby="phoneTitle">
-  <div class="dlg-head"><h2 id="phoneTitle">ניתוח פונמות<small>הרצף הצפוי מול הפענוח החופשי של המודל</small></h2><button class="btn" id="phoneClose">סגירה</button></div>
+  <div class="dlg-head"><h2 id="phoneTitle">ניתוח פונמות<small>הרצף הצפוי מול הפענוח החופשי של המודל</small></h2><button class="btn" id="phoneTrace" title="הפריימים, שלבי הציון והקריאות המועמדות, בלשונית חדשה">לוח אבחון</button><button class="btn" id="phoneClose">סגירה</button></div>
   <p class="phone-note">זהו פירוש המודל להקלטה, ולא תעתיק פונטי מוסמך. תנועות קרובות ואורך תנועה מסומנים כהתאמה מקורבת.</p>
   <div class="phone-rows" id="phoneRows"></div>
   <div class="phone-legend"><span><i class="good"></i>התאמה</span><span><i style="background:var(--olive-soft)"></i>התאמה מקורבת</span><span><i class="bad"></i>החלפה או השמטה</span><span><i class="mid"></i>תוספת</span></div>
@@ -2923,6 +3077,7 @@ function alignPhones(expected,heard){
   return out.reverse();
 }
 function drawPhones(r){
+  phoneShown=r; $("phoneTrace").hidden=!r.trace;
   // a letter with several correct realisations (ق: ʔ / k / q) is compared with the one said, so an accepted one is not a mismatch
   const expected=r.words.flatMap(w=>(w.phonemes||[]).map(p=>p.realised&&!p.flagged?p.realised:p.ipa)), heard=(r.heard_ipa||"").trim().split(/\s+/).filter(Boolean);
   const aligned=alignPhones(expected,heard), rows=$("phoneRows"); rows.innerHTML=""; rows.style.setProperty("--phones",aligned.length);
@@ -3167,6 +3322,13 @@ function drawFlag(f,audio){
 $("flagClose").onclick=()=>$("flagDlg").close();
 $("phoneBtn").onclick=()=>{ if(lastPhone){ drawPhones(lastPhone); $("phoneDlg").showModal(); } };
 $("phoneClose").onclick=()=>$("phoneDlg").close();
+// The trace dashboard (static/trace.html) in a new tab: the result it reads is left for it on this device
+let phoneShown=null;
+function openTrace(r){
+  try{ localStorage.setItem("ihki.trace",JSON.stringify(r)); }catch{ alert("לא ניתן להעביר את הניתוח ללוח (אחסון הדפדפן חסום)."); return; }
+  window.open("/static/trace.html?src=app","_blank","noopener");
+}
+$("phoneTrace").onclick=()=>{ if(phoneShown) openTrace(phoneShown); };
 
 function render(r){
   if(r.error){ $("status").textContent=r.message; return; }
@@ -3570,10 +3732,11 @@ $("driveBtn").onclick=async()=>{
    of the best scores), as the server sums them up; the topics are tallied here, from the same lists the path uses. */
 function showManage(){
   if(!home) showPath();
-  document.body.classList.add("manage"); scrollTo(0,0); loadManage();
+  document.body.classList.remove("lab"); document.body.classList.add("manage"); scrollTo(0,0); loadManage();
 }
 $("toManage").onclick=$("mRefresh").onclick=showManage;
-$("mPractice").onclick=()=>{ document.body.classList.remove("manage"); shownStudent=""; drawPath(); };   // the path was not laid out while hidden
+$("mPractice").onclick=$("labPractice").onclick=()=>{ document.body.classList.remove("manage","lab"); shownStudent=""; drawPath(); };   // the path was not laid out while hidden
+$("mLab").onclick=()=>showLab(); $("labManage").onclick=showManage;
 const grade=n=>mark("pill "+(n>=EXCELLENT?"good":n>=60?"mid":"bad"),n);
 const mean=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):null;
 function sentence(p,under){   // a sentence as the student sees it, and a small line under it
@@ -3662,7 +3825,7 @@ async function showMode(mode){
 }
 for(const b of $("mModes").children) b.onclick=()=>showMode(b.dataset.mode);
 setInterval(()=>{
-  if(!document.body.classList.contains("manage")||document.hidden) return;
+  if(!document.body.classList.contains("manage")||document.body.classList.contains("lab")||document.hidden) return;
   if(mMode==="flags") loadActivity().then(()=>drawActivityOnly());
   if(mMode==="students"&&CLASS) drawTabs(CLASS.classes||[]);   // let the "active now" hint expire without a page refresh
 },60000);
@@ -4615,6 +4778,459 @@ async function reportVerbScore(questionId,blob,button,status){
   const detail=r?(await r.json().catch(()=>({}))).detail:"";button.disabled=false;button.textContent="🚩 נסו לשלוח שוב";status.textContent=`הדיווח לא נשמר${detail?`: ${detail}`:"."}`;
 }
 
+/* ---------- the lab (מעבדה, teachers only) ----------
+   The diagnostic list of app/lab.py: each item tests one sound. Before recording, the teacher says how it will be
+   said: right, or with a planted mistake on one sound. The recording is scored as a practice one is, with the trace,
+   and kept with that label (unless "keep" is off). The table under it says, sound by sound, whether the scorer agreed:
+   a sound said right and flagged, or a planted mistake not flagged, is what the benchmark counts. */
+let LAB=null, labAt=null, labMistake=-1, labRec=null, labLast=null, labAudioUrl=null;
+$("labSpeaker").value=store.get("ihki.labSpeaker","");
+$("labSpeaker").onchange=()=>{ store.set("ihki.labSpeaker",$("labSpeaker").value.trim()); $("wzSpeaker").value=$("labSpeaker").value.trim(); };
+$("labSave").checked=store.get("ihki.labSave",true);
+$("labSave").onchange=()=>store.set("ihki.labSave",$("labSave").checked);
+async function showLab(){
+  if(!home) showPath();
+  document.body.classList.add("manage","lab"); scrollTo(0,0);
+  const state=$("labState"); state.className="sub"; state.textContent="טוען…";
+  try{
+    const who=store.get("ihki.labSpeaker","");
+    const res=await api("/api/lab"+(who?`?speaker=${encodeURIComponent(who)}`:"")); if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
+    LAB=await res.json();
+  }catch(e){ state.textContent=`המעבדה לא זמינה: ${e.message}`; return; }
+  if(LAB.setup){ state.className="sub setup"; state.replaceChildren("הטבלה lab_samples עוד לא קיימת, ולכן ההקלטות לא נשמרות. הריצו פעם אחת ב-SQL Editor של Supabase:",mark("",LAB.setup,"code")); }
+  else state.textContent="";
+  drawLabList();
+  if(!labAt) labOpen(LAB.items[0].id);
+  labMode(store.get("ihki.labMode","test"));
+}
+function labMode(mode){
+  if(!["test","record","flags","results"].includes(mode)) mode="test";
+  store.set("ihki.labMode",mode);
+  for(const b of $("labModes").children) b.setAttribute("aria-selected",b.dataset.mode===mode?"true":"false");
+  for(const m of ["test","record","flags","results"]) $("lab").classList.toggle(m,m===mode);
+  if(mode==="test"){ drawWizard(); loadTtsVoices(); }
+  if(mode==="flags"&&!labFlags) loadLabFlags();
+  if(mode==="results") loadLabResults();
+}
+for(const b of $("labModes").children) b.onclick=()=>labMode(b.dataset.mode);
+const labCount=id=>{ const c=LAB.counts[id]||{}; return (c.correct||0)+(c.mistake||0); };
+function drawLabList(){
+  const box=$("labList"); box.replaceChildren();
+  for(const [g,name] of Object.entries(LAB.groups)){
+    const sec=mark("card lab-group","","section"), list=mark("lab-items","","div");
+    sec.append(mark("",name,"h2"),list);
+    let pairBox=null, pairName="";
+    for(const it of LAB.items.filter(x=>x.group===g)){
+      const c=LAB.counts[it.id]||{}, b=mark(labCount(it.id)?"done":"","","button");
+      b.append(mark("ar",it.ar),mark("",`נכון ${c.correct||0} · טעות ${c.mistake||0}`,"small"));
+      b.title=`${it.he} · ${phoneName(it.focus)}`; b.dataset.id=it.id; b.setAttribute("aria-current",it.id===labAt?"true":"false");
+      b.onclick=()=>labOpen(it.id);
+      if(it.pair){ if(it.pair!==pairName){ pairName=it.pair; pairBox=mark("pair","","div"); pairBox.title=it.pair; list.append(pairBox); } pairBox.append(b); }
+      else{ pairName=""; list.append(b); }
+    }
+    box.append(sec);
+  }
+}
+function labOpen(id){
+  const it=LAB.items.find(x=>x.id===id); if(!it) return;
+  labAt=id; labMistake=-1; labLast=null;
+  for(const b of $("labList").querySelectorAll("button[data-id]")) b.setAttribute("aria-current",b.dataset.id===id?"true":"false");
+  $("labItem").hidden=false; $("labResult").hidden=true;
+  $("labAr").textContent=it.ar; setTr($("labTr"),it.tr); $("labHe").textContent=`${it.he} · בודק: ${phoneName(it.focus)}`;
+  drawLabSounds(it);
+  $("labStatus").textContent="לחצו על המיקרופון ואמרו את המילה";
+}
+function drawLabSounds(it){
+  const box=$("labSounds"); box.replaceChildren();
+  const pick=(k,label)=>{ const b=mark(k<0?"":"mistake"+(it.sounds[k]===it.focus?" focus":""),"","button");
+    b.setAttribute("role","radio"); b.setAttribute("aria-checked",k===labMistake?"true":"false");
+    if(k<0) b.textContent=label; else{ b.append("טעות ב־",mark("ipa",it.sounds[k])); b.title=phoneName(it.sounds[k]); }
+    b.onclick=()=>{ labMistake=k; drawLabSounds(it); }; box.append(b); };
+  pick(-1,"נכון");
+  it.sounds.forEach((_,k)=>pick(k));
+}
+$("labMic").onclick=async()=>{
+  if(labRec&&labRec.state==="recording"){ labRec.stop(); return; }
+  if(!navigator.mediaDevices||!window.MediaRecorder){ $("labStatus").textContent="הדפדפן הזה אינו תומך בהקלטה."; return; }
+  let stream;
+  try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }   // as the practice records
+  catch{ $("labStatus").textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."; return; }
+  const type=pickType(), chunks=[], id=labAt, said=labMistake;
+  const rec=labRec=new MediaRecorder(stream,type?{mimeType:type}:{});
+  rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+  rec.onstop=async()=>{
+    stream.getTracks().forEach(t=>t.stop()); $("labMic").classList.remove("live"); $("labMic").disabled=true;
+    const blob=new Blob(chunks,{type:rec.mimeType||"audio/webm"});
+    if(labAudioUrl) URL.revokeObjectURL(labAudioUrl); labAudioUrl=URL.createObjectURL(blob);
+    $("labStatus").textContent="מנתח…";
+    const fd=new FormData(); fd.append("item",id); fd.append("audio",blob,"rec"); fd.append("mistake",said);
+    fd.append("speaker",$("labSpeaker").value.trim()); fd.append("save",$("labSave").checked?"true":"false");
+    try{
+      const res=await api("/api/lab/score",{method:"POST",body:fd});
+      if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
+      const d=await res.json();
+      if(d.saved){ const c=LAB.counts[id]=LAB.counts[id]||{correct:0,mistake:0}; c[said<0?"correct":"mistake"]++; drawLabList(); }
+      if(labAt!==id) return;   // moved to another item while it was analysed
+      if(d.result.error){ $("labStatus").textContent=d.result.message; return; }
+      labLast=d.result; drawLabResult(LAB.items.find(x=>x.id===id),said,d.result);
+      $("labStatus").textContent=d.saved?(d.audio?"נשמר במאגר.":"השורה נשמרה, אבל ההקלטה לא (האם יש באקט lab ב-Supabase?)."):d.error?`לא נשמר: ${d.error}`:"לא נשמר (השמירה כבויה).";
+    }catch(e){ $("labStatus").textContent=`הניתוח נכשל (${e.message}). נסו שוב.`; }
+    finally{ $("labMic").disabled=false; }
+  };
+  rec.start(); $("labMic").classList.add("live"); $("labStatus").textContent="מקליט… לחצו שוב לסיום";
+};
+// Sound by sound: what was expected, what the model heard, the raw posterior and the final score, and whether the
+// scorer agreed with the label (a sound said right must not be flagged; the planted mistake must be)
+function drawLabResult(it,said,r){
+  $("labResult").hidden=false;
+  $("labScore").textContent=r.score; $("labScore").style.color=`var(--${r.score>=85?"ok":r.score>=60?"amber":"sumac"})`;
+  $("labHeard").textContent=`heard: ${r.heard_ipa||"—"}`+(r.unrelated?" · משפט אחר?":"");
+  const toks=(r.trace&&r.trace.tokens)||[], phones=r.words.flatMap(w=>w.phonemes||[]);
+  const want=said>=0?it.sounds[said]:null;
+  const t=$("labTable"); t.replaceChildren();
+  const head=document.createElement("tr");
+  for(const h of ["הגה","p(הגה)","המתחרה החזק","ציון","סומן","התאמה לתווית"]) head.append(mark("",h,"th"));
+  t.append(head);
+  phones.forEach((p,k)=>{
+    const tr=document.createElement("tr"), x=toks[k]||{}, sound=p.sound||p.ipa;
+    if(sound===it.focus||p.ipa===it.focus) tr.className="focus";
+    const cell=(text,cls="")=>{ const td=mark(cls,"","td"); if(text instanceof Node) td.append(text); else td.textContent=text; tr.append(td); return td; };
+    const pct=v=>v==null?"—":`${Math.round(100*v)}%`;
+    cell(mark("ipa",p.realised&&p.realised!==sound?`${sound} (${p.realised})`:sound)).title=phoneName(sound);
+    cell(pct(x.p_target));
+    cell(x.deleted?"לא נשמע דבר":x.competitor?mark("ipa",`${x.competitor} ${pct(x.p_competitor)}`):"—");
+    cell(Math.round(p.score),p.score>=85?"ok":p.score>=60?"mid":"bad");
+    cell(p.flagged?"כן":"");
+    const planted=want!=null&&(p.ipa===want||sound===want), right=planted?p.flagged:!p.flagged;
+    cell(planted?(p.flagged?"✓ הטעות נתפסה":"✗ הטעות לא נתפסה"):(p.flagged?"✗ סומן בטעות":"✓"),right?"hit":"miss");
+    t.append(tr);
+  });
+}
+/* ---------- the lab's test: the whole list, row by row ----------
+   Each row is an item to say, with record, play, and (once the take was heard) accept / reject. The row on turn is
+   highlighted; accepting sends the take (POST /api/lab/score, kept as said right by the speaker) and moves the turn to
+   the next row not yet submitted. A row is new, recorded (a take waiting for approval, in this page only), submitted
+   (the server has an approved take of this speaker: LAB.mine) or rejected (its last take was; remembered on this
+   device for the speaker). */
+let wzAt=null, wzTakes={}, wzHeard={}, wzSent={}, wzRec=null, wzRecAt=null, wzBusy=null, wzAudio=null;
+let ttsAt=null, ttsStopping=false, ttsVoices=null;   // the automatic test: the item being said, a stop asked, the voices
+const wzWho=()=>$("wzSpeaker").value.trim();
+const wzRejKey=()=>"ihki.labRejected:"+wzWho();
+const wzSubmitted=id=>!!(LAB&&LAB.mine&&LAB.mine[id]&&LAB.mine[id].correct);
+function wzState(id){ return id===ttsAt?"working":wzTakes[id]?"recorded":wzSubmitted(id)?"submitted":store.get(wzRejKey(),{})[id]?"rejected":"new"; }
+const WZ_NAME={new:"חדש",recorded:"ממתין לאישור",submitted:"✓ נשלח",rejected:"✗ נדחה",working:"⏳ מעבד"};
+$("wzSpeaker").value=store.get("ihki.labSpeaker","");
+$("wzSpeaker").onchange=async()=>{   // another speaker: their own submitted items
+  store.set("ihki.labSpeaker",wzWho()); $("labSpeaker").value=wzWho(); wzTakes={}; wzHeard={}; wzSent={}; wzAt=null;
+  await showLab(); };
+function wzNext(from){   // the first item after `from` (or from the top) not submitted yet, round the list; null when all are
+  const ids=LAB.items.map(x=>x.id), k=from?ids.indexOf(from):-1;
+  for(let d=1;d<=ids.length;d++){ const id=ids[(k+d+ids.length)%ids.length]; if(!wzSubmitted(id)) return id; }
+  return null;
+}
+const wzStatus=t=>{ $("wzStatus").textContent=t; };
+function drawWizard(){
+  if(!LAB) return;
+  const n=LAB.items.length, done=LAB.items.filter(it=>wzSubmitted(it.id)).length, rej=LAB.items.filter(it=>wzState(it.id)==="rejected").length;
+  if(!wzAt||!LAB.items.some(x=>x.id===wzAt)) wzAt=wzNext(null);
+  $("wzSummary").textContent=wzWho()?`${done} מתוך ${n} נשלחו`+(rej?` · ${rej} נדחו`:""):"כתבו קודם מי מקליט";
+  $("wzBar").style.width=`${Math.round(100*done/n)}%`; $("wzSpeaker").disabled=!!ttsAt;
+  if(!$("wzStatus").textContent) wzStatus(wzWho()?"השורה המסומנת: לחצו 🎤 ואמרו אותה.":"");
+  const box=$("wzList"); box.replaceChildren();
+  let group="";
+  for(const it of LAB.items){
+    if(it.group!==group){ group=it.group; box.append(mark("",LAB.groups[group],"h3")); }
+    box.append(wzRow(it));
+  }
+}
+function wzRow(it){
+  const id=it.id, st=wzState(id), row=mark(`wz-row ${st}${id===wzAt?" cur":""}`,"","div"); row.dataset.id=id;
+  const say=mark("wz-say","","div"), tr=mark("tr",""); setTr(tr,it.tr);
+  say.append(mark("ar",it.ar),tr,mark("",`${it.he} · בודק: ${phoneName(it.focus)}`,"small"));
+  const btns=mark("wz-btns","","div"), live=wzRecAt===id&&wzRec&&wzRec.state==="recording";
+  const rec=mark("wz-rec"+(live?" live":""),"","button");
+  rec.innerHTML=live?"■":'<svg class="ic" aria-hidden="true"><use href="#i-mic"/></svg>';
+  rec.setAttribute("aria-label",live?"עצירת ההקלטה":`הקלטה: ${it.ar}`); rec.title=live?"עצירה":"הקלטה";
+  rec.disabled=!wzWho()||!!ttsAt||wzBusy===id||(!!wzRecAt&&wzRecAt!==id);
+  rec.onclick=()=>wzRecord(id);
+  const take=wzTakes[id]||wzSent[id], play=mark("wz-play","▶","button");
+  play.disabled=!take; play.title="השמעה"; play.setAttribute("aria-label",`השמעת ההקלטה של ${it.ar}`); play.onclick=()=>wzPlay(id);
+  const review=!!wzTakes[id]&&!!wzHeard[id];
+  const ok=mark("wz-ok","✓ אישור","button"), no=mark("wz-no","✗","button");
+  ok.hidden=no.hidden=!review; ok.disabled=no.disabled=wzBusy===id;
+  no.title="דחייה: מחיקת ההקלטה והקלטה מחדש"; no.setAttribute("aria-label","דחייה"); ok.title="אישור ושליחה";
+  ok.onclick=()=>wzAccept(id); no.onclick=()=>wzReject(id);
+  btns.append(rec,play,ok,no);
+  row.append(say,mark("wz-chip "+st,wzBusy===id?"שולח…":WZ_NAME[st]),btns);
+  row.onclick=e=>{ if(e.target.closest("button")) return; wzAt=id; drawWizard(); };
+  return row;
+}
+function wzFocus(){ const r=$("wzList").querySelector(".wz-row.cur"); if(r) r.scrollIntoView({block:"center",behavior:"smooth"}); }
+async function wzRecord(id){
+  if(wzRec&&wzRec.state==="recording"){ if(wzRecAt===id) wzRec.stop(); return; }
+  if(!wzWho()||ttsAt||wzBusy) return;
+  if(!navigator.mediaDevices||!window.MediaRecorder){ wzStatus("הדפדפן הזה אינו תומך בהקלטה."); return; }
+  if(wzAudio) wzAudio.pause();
+  let stream;
+  try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }   // as the practice records
+  catch{ wzStatus("אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."); return; }
+  const type=pickType(), chunks=[]; let spoke=true, vad=null;
+  const rec=wzRec=new MediaRecorder(stream,type?{mimeType:type}:{});
+  wzAt=wzRecAt=id;
+  rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+  rec.onstop=()=>{
+    if(vad) vad.stop(); stream.getTracks().forEach(t=>t.stop()); wzRecAt=null;
+    if(!spoke){ wzStatus("לא נשמע דיבור. לחצו 🎤 ונסו שוב, קרוב יותר למיקרופון."); drawWizard(); return; }
+    wzTakes[id]=new Blob(chunks,{type:rec.mimeType||"audio/webm"}); delete wzHeard[id];
+    wzStatus("מושמע… אחרי ההשמעה: ✓ לאישור, ✗ לדחייה."); drawWizard(); wzPlay(id);
+  };
+  rec.start(); drawWizard();
+  wzStatus("מקליט… אמרו את הפריט. ההקלטה תיעצר לבד כשתשתתקו (או לחצו ■).");
+  vad=startVad(stream,s=>{ spoke=s; if(rec.state==="recording") rec.stop(); },VAD.noSpeech);
+  setTimeout(()=>rec.state==="recording"&&rec.stop(),VAD.noSpeech+VAD.maxSpeech);
+}
+function wzPlay(id){
+  const blob=wzTakes[id]||wzSent[id]; if(!blob) return;
+  if(wzAudio){ wzAudio.pause(); URL.revokeObjectURL(wzAudio.src); }
+  const a=wzAudio=new Audio(URL.createObjectURL(blob));
+  const heard=()=>{ if(wzTakes[id]&&!wzHeard[id]){ wzHeard[id]=true; drawWizard(); if(wzAt===id) wzStatus("✓ לאישור ושליחה, ✗ לדחייה והקלטה מחדש."); } };
+  a.onended=heard;
+  a.play().catch(heard);   // autoplay refused: the review buttons come anyway, ▶ plays it
+}
+function wzReject(id){
+  if(!wzTakes[id]) return;
+  delete wzTakes[id]; delete wzHeard[id];
+  if(!wzSubmitted(id)){ const r=store.get(wzRejKey(),{}); r[id]=true; store.set(wzRejKey(),r); }
+  wzAt=id; wzStatus("ההקלטה נדחתה. לחצו 🎤 והקליטו שוב."); drawWizard();
+}
+async function wzAccept(id){
+  const blob=wzTakes[id]; if(!blob||wzBusy) return;
+  wzBusy=id; drawWizard();
+  const fd=new FormData(); fd.append("item",id); fd.append("audio",blob,"rec"); fd.append("mistake","-1");
+  fd.append("speaker",wzWho()); fd.append("save","true");
+  try{
+    const res=await api("/api/lab/score",{method:"POST",body:fd}), d=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(d.detail||res.status);
+    if(d.result&&d.result.error){ wzStatus(`${d.result.message} ההקלטה לא נשלחה.`); return; }
+    if(!d.saved) throw new Error(d.error||"השמירה כבויה");
+    wzSent[id]=blob; delete wzTakes[id]; delete wzHeard[id];
+    const r=store.get(wzRejKey(),{}); delete r[id]; store.set(wzRejKey(),r);
+    for(const tally of [LAB.mine=LAB.mine||{},LAB.counts]){ const c=tally[id]=tally[id]||{correct:0,mistake:0}; c.correct++; }
+    const it=LAB.items.find(x=>x.id===id), flagged=d.result.words.flatMap(w=>w.phonemes).filter(p=>p.flagged);
+    const next=wzNext(id); wzAt=next||id;
+    wzStatus(`נשלח: ${it.ar} (המודל: ${d.result.score}`+(flagged.length?`, סימן ${flagged.map(p=>`${p.ipa}>${p.heard||"_"}`).join(" ")}`:"")+")"
+      +(d.audio?"":" · השורה נשמרה בלי הקובץ")+(next?"":" · כל הפריטים נשלחו. תודה! 🎉"));
+    drawLabList();
+  }catch(e){ wzStatus(`השליחה נכשלה (${e.message}). ההקלטה עדיין כאן: נסו ✓ שוב.`); }
+  finally{ wzBusy=null; drawWizard(); wzFocus(); }
+}
+addEventListener("keydown",e=>{   // the test's keys, on the highlighted row, while it is on show and nothing is being typed
+  if(!document.body.classList.contains("lab")||!$("lab").classList.contains("test")||!wzAt) return;
+  if(/^(INPUT|TEXTAREA|SELECT|BUTTON|SUMMARY)$/.test(e.target.tagName)||e.target.closest("dialog")) return;
+  if(e.key===" "){ e.preventDefault(); wzRecord(wzRecAt||wzAt); }
+  else if(e.key==="Enter"&&wzTakes[wzAt]&&wzHeard[wzAt]){ e.preventDefault(); wzAccept(wzAt); }
+  else if(e.key==="Backspace"&&wzTakes[wzAt]){ e.preventDefault(); wzReject(wzAt); }
+});
+
+/* The lab's automatic test: a TTS voice says each item (POST /api/lab/tts), kept as said right by the speaker
+   "TTS <voice>", so the list shows that speaker's states while it runs. */
+async function loadTtsVoices(){
+  if(ttsVoices) return;
+  try{ const res=await api("/api/lab/tts"); ttsVoices=res.ok?(await res.json()).voices:[]; }catch{ ttsVoices=[]; }
+  const sel=$("ttsVoice"); sel.replaceChildren(...ttsVoices.map(v=>new Option(v,v)));
+  $("ttsRun").disabled=!ttsVoices.length;
+  if(!ttsVoices.length) $("ttsState").textContent="אין TTS בשרת הזה (SAWTAK_API_KEY לא מוגדר).";
+}
+$("ttsRun").onclick=async()=>{
+  const voice=$("ttsVoice").value; if(!voice||ttsAt) return;
+  if(wzRec&&wzRec.state==="recording") wzRec.stop();
+  const who=`TTS ${voice}`;
+  $("wzSpeaker").value=who; store.set("ihki.labSpeaker",who); $("labSpeaker").value=who; wzTakes={};
+  await showLab();   // the list of this speaker: what the voice already submitted
+  const todo=LAB.items.filter(it=>$("ttsAll").checked||!wzSubmitted(it.id));
+  if(!todo.length){ $("ttsState").textContent=`הקול ${voice} כבר שלח את כל הפריטים. סמנו "גם פריטים שכבר נשלחו" כדי להריץ שוב.`; return; }
+  ttsStopping=false; $("ttsRun").hidden=true; $("ttsStop").hidden=false; $("ttsLog").replaceChildren();
+  let done=0, failed=0, flaggedItems=0;
+  for(const [k,it] of todo.entries()){
+    if(ttsStopping) break;
+    ttsAt=it.id; drawWizard(); $("ttsState").textContent=`${k+1} מתוך ${todo.length}: ${it.ar}…`;
+    const li=mark("","","li"); li.append(mark("ar",it.ar));
+    try{
+      const fd=new FormData(); fd.append("item",it.id); fd.append("voice",voice);
+      const res=await api("/api/lab/tts",{method:"POST",body:fd}), d=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(d.detail||res.status);
+      if(!d.result) throw new Error("תשובה לא צפויה מהשרת");
+      if(d.result.error) throw new Error(d.result.message);
+      if(!d.saved) throw new Error(d.error||"לא נשמר");
+      for(const tally of [LAB.mine=LAB.mine||{},LAB.counts]){ const c=tally[it.id]=tally[it.id]||{correct:0,mistake:0}; c.correct++; }
+      const fl=d.result.words.flatMap(w=>w.phonemes).filter(p=>p.flagged);
+      if(fl.length) flaggedItems++;
+      li.append(mark("",`ציון ${d.result.score}`),fl.length?mark("","סומן:"):mark("","בלי סימונים"));
+      if(fl.length) li.append(mark("ipa",fl.map(p=>`${p.ipa}>${p.heard||"_"}`).join(" ")));
+      done++;
+    }catch(e){ li.append(mark("fail",`נכשל: ${e.message}`)); failed++; }
+    const play=mark("btn","▶","button"); play.title="מה שה-TTS אמר";
+    play.onclick=async()=>{ try{ const r=await api(`/api/lab/tts/${encodeURIComponent(it.id)}?voice=${encodeURIComponent(voice)}`); if(!r.ok) throw 0; const u=URL.createObjectURL(await r.blob()); const a=new Audio(u); a.onended=()=>URL.revokeObjectURL(u); a.play(); }catch{ play.textContent="✗"; } };
+    li.append(play); $("ttsLog").prepend(li);
+  }
+  ttsAt=null; $("ttsRun").hidden=false; $("ttsStop").hidden=true; drawWizard(); drawLabList();
+  $("ttsState").textContent=(ttsStopping?"נעצר. ":"הסתיים. ")+`${done} נשלחו`+(flaggedItems?`, ב־${flaggedItems} מהם המודל סימן טעות (אצל דובר "ילידי")`:"")+(failed?` · ${failed} נכשלו`:"")+". התוצאות בטאב תוצאות, תחת הדובר "+who+".";
+};
+$("ttsStop").onclick=()=>{ ttsStopping=true; $("ttsState").textContent="עוצר אחרי הפריט הנוכחי…"; };
+
+/* The lab's flags: the confirmed score reports, scored again by the current scorer. A teacher marked in ניטור which
+   sounds were flagged wrongly; each shows whether it is still flagged ("עדיין") or not any more ("תוקן"). */
+let labFlags=null, labFlagAudio=[];
+async function loadLabFlags(){
+  $("labFlagsState").textContent="טוען…";
+  try{
+    const res=await api("/api/flags?status=confirmed"), d=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(d.detail||res.status);
+    labFlags=(d.flags||[]).map(f=>({...f,re:null}));
+  }catch(e){ $("labFlagsState").textContent=`הדיווחים לא זמינים: ${e.message}`; return; }
+  const marked=labFlags.filter(f=>f.audio&&(f.false_issues||[]).length).length;
+  $("labFlagsState").textContent=`${labFlags.length} דיווחים מאושרים, ${marked} עם הקלטה והגאים מסומנים`;
+  drawLabFlags();
+}
+function drawLabFlags(){
+  const box=$("labFlagList"); box.replaceChildren();
+  for(const url of labFlagAudio) URL.revokeObjectURL(url); labFlagAudio=[];
+  for(const f of labFlags||[]){
+    const card=mark("card lab-flag",""), re=f.re;
+    card.append(mark("",f.he||f.phrase,"h3"));
+    const ar=mark("",f.ar||"","p"); ar.dir="rtl"; ar.style.margin="0"; card.append(ar);
+    card.append(mark("sub",re&&re.error?`ההרצה נכשלה: ${re.error}`:re?`ציון ${f.score} ← ${re.new.score}`:`ציון ${f.score}`,"p"));
+    const marks=mark("lab-actions","","div");
+    if(!(f.false_issues||[]).length) marks.append(mark("sub","לא סומן הגה מסוים (בטאב ניטור)"));
+    (f.false_issues||[]).forEach((i,k)=>{
+      const st=re&&re.issues?re.issues[k]:null, m=mark("lab-mark"+(st?(st.still?" still":" fixed"):""),"");
+      m.append(mark("ipa",`${i.expected}>${i.heard||"_"}`),st?(st.still?" · עדיין":" · תוקן"):""); m.title=phoneName(i.expected); marks.append(m);
+    });
+    card.append(marks);
+    if(re&&re.new) card.append(mark("sub",`מסומן עכשיו: ${re.new.flagged.join(" ")||"—"}`,"p"));
+    const acts=mark("lab-actions","","div");
+    if(f.audio){
+      const play=mark("btn","▶ ההקלטה","button");
+      play.onclick=async()=>{ play.disabled=true;
+        try{ const res=await api(`/api/flags/${f.id}/audio`); if(!res.ok) throw new Error(res.status);
+          const url=URL.createObjectURL(await res.blob()); labFlagAudio.push(url); new Audio(url).play(); }
+        catch(e){ play.textContent="ההשמעה נכשלה"; } finally{ play.disabled=false; } };
+      const one=mark("btn","הרצה מחדש","button"); one.onclick=async()=>{ one.disabled=true; await rerunFlag(f); drawLabFlags(); };
+      acts.append(play,one);
+    }else acts.append(mark("sub","אין הקלטה שמורה"));
+    if(re&&re.result){ const det=mark("btn","ניתוח מלא","button"); det.onclick=()=>{ drawPhones(re.result); $("phoneDlg").showModal(); }; acts.append(det); }
+    card.append(acts); box.append(card);
+  }
+}
+async function rerunFlag(f){
+  try{
+    const res=await api(`/api/lab/flags/${f.id}/rescore`,{method:"POST"}), d=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(d.detail||res.status);
+    f.re=d;
+  }catch(e){ f.re={error:e.message}; }
+}
+$("labRerun").onclick=async()=>{
+  if(!labFlags) await loadLabFlags(); if(!labFlags) return;
+  const todo=labFlags.filter(f=>f.audio), btn=$("labRerun"); btn.disabled=true;
+  for(const [k,f] of todo.entries()){ $("labFlagsState").textContent=`מריץ מחדש ${k+1} מתוך ${todo.length}…`; await rerunFlag(f); }
+  const marks=todo.flatMap(f=>f.re&&f.re.issues||[]), fixed=marks.filter(i=>!i.still).length, failed=todo.filter(f=>f.re&&f.re.error).length;
+  $("labFlagsState").textContent=`${fixed} מתוך ${marks.length} ההגאים שסומנו בטעות כבר לא מסומנים`+(failed?` · ${failed} נכשלו`:"");
+  btn.disabled=false; drawLabFlags();
+};
+
+/* The lab's results: per sound, of the recordings as they were scored (see lab.benchmark in app/lab.py). */
+/* The lab's results: per sound (see lab.benchmark in app/lab.py). As loaded, the recordings as they were scored at
+   the time; "הרצה מחדש" rescores them all with the version the server runs now, and compares that with a saved run
+   (the comparison point, kept on this device) or, without one, with the stored scores of the same recordings. */
+let labRes=null, labNow=null;   // the stored benchmark (with the recordings' ids), and the latest rescore's
+const labBaseKey=()=>"ihki.labBase:"+$("labWho").value;   // a comparison point for each speaker filter
+async function loadLabResults(){
+  const who=$("labWho").value; $("labResState").textContent="טוען…"; labNow=null;
+  try{ const res=await api("/api/lab/results"+(who?`?speaker=${encodeURIComponent(who)}`:"")); labRes=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(labRes.detail||res.status); }
+  catch(e){ labRes=null; $("labResState").textContent=`התוצאות לא זמינות: ${e.message}`; return; }
+  const sel=$("labWho"); sel.replaceChildren(new Option("כולם",""));
+  for(const s of labRes.speakers) sel.append(new Option(s||"(בלי שם)",s)); sel.value=who;
+  $("labResState").textContent=`הציונים שנשמרו בזמן ההקלטה · ${labRes.samples.length} הקלטות עם קובץ`;
+  $("labRerunAll").disabled=!labRes.samples.length;
+  drawLabBench(labRes,null,"");
+}
+$("labRerunAll").onclick=async()=>{
+  if(!labRes) return;
+  const btn=$("labRerunAll"), ids=labRes.samples, results={}; let failed=0;
+  btn.disabled=true;
+  for(const [k,id] of ids.entries()){
+    $("labResState").textContent=`מנתח מחדש ${k+1} מתוך ${ids.length}…`;
+    try{ const res=await api(`/api/lab/samples/${id}/rescore`,{method:"POST"}), d=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(d.detail||res.status); results[id]=d.result; }
+    catch{ failed++; }
+  }
+  try{
+    const res=await api("/api/lab/results",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({results})});
+    labNow=await res.json().catch(()=>({})); if(!res.ok) throw new Error(labNow.detail||res.status);
+  }catch(e){ labNow=null; $("labResState").textContent=`החישוב נכשל: ${e.message}`; btn.disabled=false; return; }
+  labNow.at=new Date().toISOString(); labNow.speaker=$("labWho").value;
+  const base=store.get(labBaseKey(),null);
+  if(base) drawLabBench(labNow.now,base.bench,`לעומת נקודת ההשוואה: גרסה ${base.version}, ${new Date(base.at).toLocaleString("he-IL")}`);
+  else drawLabBench(labNow.now,labNow.stored,"לעומת הציונים שנשמרו בזמן ההקלטה");
+  $("labResState").textContent=`נותחו מחדש ${Object.keys(results).length} הקלטות בגרסה ${labNow.version}`+(failed?` · ${failed} נכשלו`:"");
+  btn.disabled=false; $("labSaveBase").hidden=false;
+};
+$("labSaveBase").onclick=()=>{
+  if(!labNow) return;
+  store.set(labBaseKey(),{bench:labNow.now,version:labNow.version,model:labNow.model,at:labNow.at});
+  $("labSaveBase").hidden=true; drawLabBase();
+  $("labResState").textContent=`נשמרה נקודת השוואה: גרסה ${labNow.version}. שנו את המימוש, ואז הריצו מחדש כדי להשוות.`;
+};
+$("labDropBase").onclick=()=>{ try{ localStorage.removeItem(labBaseKey()); }catch{} drawLabBase(); };
+function drawLabBase(){
+  const base=store.get(labBaseKey(),null);
+  $("labBase").textContent=base?`נקודת השוואה: גרסה ${base.version}, ${new Date(base.at).toLocaleString("he-IL")}`:"אין נקודת השוואה שמורה";
+  $("labDropBase").hidden=!base;
+}
+// `cmp`: the benchmark to compare with (null: none). A false rejection rate is better lower; detection and the share
+// of good scores, higher. The arrow is coloured by whether the change is for the better.
+function drawLabBench(d,cmp,label){
+  drawLabBase();
+  $("labCmp").textContent=label;
+  const pct=x=>x==null?"—":`${Math.round(100*x)}%`;
+  const delta=(now,was,lowerBetter)=>{
+    const span=mark("",pct(now));
+    if(!cmp||was===undefined||now==null||was==null||Math.round(100*now)===Math.round(100*was)) return span;
+    const better=lowerBetter?now<was:now>was, el=mark("lab-delta "+(better?"up":"down"),"");
+    el.append(mark("",pct(was)+" ← "),span); return el;
+  };
+  const t=d.totals, c=cmp?cmp.totals:{}, tiles=$("labTiles"); tiles.replaceChildren();
+  for(const [v,label] of [[t.recordings,"הקלטות"],[delta(t.frr,c.frr,true),`סומנו בטעות (${t.false_flags} מתוך ${t.right} הגאים)`],
+    [delta(t.detection,c.detection,false),`טעויות מכוונות שזוהו (${t.caught} מתוך ${t.planted})`],
+    [delta(t.good_share,c.good_share,false),"הקלטות נכונות עם ציון 85 ומעלה"],[t.unrelated,"זוהו כ\"משפט אחר\""]]){
+    const tile=document.createElement("div"), b=document.createElement("b"); b.append(v); tile.append(b,mark("",label,"small")); tiles.append(tile); }
+  const was=Object.fromEntries((cmp?cmp.sounds:[]).map(r=>[r.sound,r]));
+  const tb=$("labBench"); tb.replaceChildren();
+  const head=document.createElement("tr");
+  for(const h of ["הגה","נאמר נכון","סומן בטעות","טעות מכוונת","זיהוי","ציון ממוצע","דיווחים","נשמע במקום"]) head.append(mark("",h,"th"));
+  tb.append(head);
+  if(!d.sounds.length){ const tr=document.createElement("tr"), td=mark("","אין עדיין הקלטות. הקליטו בטאב הקלטה.","td"); td.colSpan=8; tr.append(td); tb.append(tr); return; }
+  for(const r of d.sounds){
+    const w=was[r.sound]||{}, tr=document.createElement("tr"), cell=(x,cls="")=>{ const td=mark(cls,"","td"); td.append(x); tr.append(td); return td; };
+    cell(mark("ipa",r.sound)).title=phoneName(r.sound);
+    cell(String(r.right));
+    const frr=mark("",""); if(r.right) frr.append(`${r.false_flags} · `,delta(r.frr,w.frr,true)); else frr.append("—");
+    cell(frr,r.frr==null?"":r.frr>.2?"bad":r.frr>.05?"mid":"ok");
+    cell(String(r.planted));
+    cell(delta(r.detection,w.detection,false),r.detection==null?"":r.detection<.6?"bad":r.detection<.85?"mid":"ok");
+    cell(r.mean==null?"—":String(Math.round(r.mean)));
+    cell(String(r.reports||""));
+    cell(mark("ipa",Object.entries(r.confusions).slice(0,4).map(([h,n])=>`${h}×${n}`).join(" ")));
+    tb.append(tr);
+  }
+}
+$("labWho").onchange=loadLabResults;
+$("labMine").onclick=()=>{ if(labAudioUrl) new Audio(labAudioUrl).play(); };
+$("labDetail").onclick=()=>{ if(labLast){ drawPhones(labLast); $("phoneDlg").showModal(); } };
+$("labTrace").onclick=()=>{ if(labLast) openTrace(labLast); };
+$("labNext").onclick=()=>{ const k=LAB.items.findIndex(x=>x.id===labAt); labOpen(LAB.items[(k+1)%LAB.items.length].id); $("labItem").scrollIntoView({block:"nearest"}); };
+
 function useLessons(ids){   // the path shows these lessons only (null: every one)
   LESSONS=ALL_LESSONS.filter(l=>!ids||ids.includes(l.id)); if(!LESSONS.length) LESSONS=ALL_LESSONS;
   CATS=ALL_CATS.filter(c=>LESSONS.some(l=>l.id===c.lesson));   // none when every lesson of the student's is still to come
@@ -4637,6 +5253,7 @@ function enter(){
 }
 $("startBtn").onclick=$("practiceBtn").onclick=enter;
 $("manageBtn").onclick=()=>{ enter(); showManage(); };
+$("labBtn").onclick=()=>{ enter(); showLab(); };
 $("startBtn").focus({preventScroll:true});
 /* With sign-in configured, the start button waits behind the Google button and, under it, the email one: Supabase
    sends the address a link that opens the page signed in (no password). A teacher gets two buttons in the start

@@ -213,6 +213,42 @@ alter table public.flags
 
 The management panel's **דיווחים** tab lets a teacher privately play the recording, confirm or reject each report, classify it, and select the individual sound judgements that were false. The recording is fetched through a teacher-only endpoint, so neither the private bucket nor its secret key is exposed to the browser. The tab also groups confirmed `expected → heard` pairs by reports, reporters, and phrases. Only confirmed reports should be used for calibration; the review and aggregation themselves use the stored result. As a flag says the sentence was said as written, `audio,ipa` of these rows is also training data in the format `train/finetune.py` reads (see "Fine-tuning").
 
+### The lab (מעבדה)
+
+A teacher gets a third button on the opening screen, **מעבדה**, beside תרגול and ניהול. It is the recording bench for measuring the phoneme recognition. [app/lab.py](app/lab.py) holds a fixed diagnostic list: hard letters as syllables (حا, عا, صا …), minimal pairs (حال / هال / خال, صيف / سيف, طين / تين …) and each hard sound at the start, middle and end of a word. Before recording an item, the teacher marks how it will be said: right, or with a planted mistake on one sound. `POST /api/lab/score` scores the recording as practice does (with the native baseline and the stage-by-stage trace) and keeps it with that label. The page shows, sound by sound, whether the scorer agreed with the label: a sound said right but flagged, or a planted mistake not flagged.
+
+The lab opens on **מבחן**, a test that walks one speaker through the whole list. The speaker types their name; the list shows a row per item (what to say, its state, and record / play / accept / reject), grouped like the list, with the next row not yet submitted highlighted. Recording stops by itself on silence and the take plays back at once; after it was heard, **✓ אישור** keeps it as said right (`POST /api/lab/score`, the speaker's name with it) and moves the highlight to the next row, and **✗** discards it so the row can be recorded again. Every row is new, recorded (waiting for approval), submitted or rejected. Submitted comes from the server (`GET /api/lab?speaker=` returns the speaker's own counts as `mine`), so it holds across devices; rejected is remembered on the device; a take waiting for approval lives in the page only. Any row can be recorded out of turn. Keys, on the highlighted row: space records, Enter accepts, Backspace rejects. **הקלטה** is the single-item bench, where a planted mistake can be marked. Under it, **מבחן אוטומטי בקול TTS** runs the same test without a person: a TTS voice (ראאף or חנאן) says each item not yet submitted (`POST /api/lab/tts`), and it is kept as said right by the speaker "TTS <voice>", with a log line per item (its score, what was flagged, ▶ to hear what was sent). It is scored without the native baseline, which is made of the same voice and would measure every sound against itself. A TTS voice is one more near-native speaker for the benchmark, not a replacement for people: compare them in **תוצאות** by speaker.
+
+The lab has two more tabs. **דיווחים** runs the confirmed score reports through the current scorer, and shows for each sound a teacher marked in ניטור as wrongly flagged whether it is still flagged. **תוצאות** is the benchmark of the lab's recordings as they were scored, per sound: how often a sound said right was flagged (false rejections), how often a planted mistake was caught (detection), the mean score, what was heard instead, and how many confirmed reports name the sound. To rescore everything with the current model and rules and compare against the stored numbers, run `python scripts/bench.py` (`--flags` adds the confirmed reports, `--no-baseline` scores without the TTS baseline, `--speaker` keeps one speaker). Run it before shipping a scoring or model change: false rejections should go down without detection going down with them.
+
+Recordings go to the table `lab_samples` and the private storage bucket `lab`, written with `SUPABASE_SECRET_KEY`. Until the table exists, the lab still scores but keeps nothing, and shows this SQL to run once:
+
+```sql
+create table public.lab_samples (
+  id bigint generated always as identity primary key, email text not null,
+  item text not null, ar text not null, ipa text not null, speaker text not null default '',
+  label text not null,             -- 'correct' or 'mistake'
+  mistake jsonb,                   -- {"index", "expected"}: the sound said wrong on purpose
+  device text not null default '', score int not null, heard_ipa text not null,
+  flagged jsonb not null default '[]'::jsonb,   -- the sounds the scorer marked down, "expected>heard"
+  result jsonb not null, model text not null, version text not null default '',
+  audio text,                      -- the recording's name in the storage bucket lab
+  created_at timestamptz not null default now());
+alter table public.lab_samples enable row level security;
+insert into storage.buckets (id, name) values ('lab', 'lab') on conflict (id) do nothing;
+```
+
+### The trace dashboard (לוח אבחון)
+
+[static/trace.html](static/trace.html) shows one recording through the scorer, for engineers, linguists and teachers. Open it with **לוח אבחון** from a lab recording or from a teacher's phoneme dialog; it reads that result's trace in a new tab. It has four panels that follow one selected sound (hover it anywhere, click to pin, ← → to step):
+
+1. the frames around the sound: target, competitor and neighbour posteriors, frame energy, and the window it was read from (the end of the sound before to the start of the one after)
+2. its score stage by stage: raw GOP → exemptions → cluster cap → native baseline → teacher floor → final
+3. the readings the audio was aligned to, with the winning CTC path, and the edit-distance gauge for a different sentence
+4. the sentence by word and sound, coloured by score, with how sounds add up to words and words to the sentence
+
+The data's schema is [docs/trace-schema.ts](docs/trace-schema.ts). `python scripts/mock_trace.py` regenerates the example (`static/assets/trace-mock.json`, the "דוגמה" button) by running the real scorer on synthetic posteriors, with a substitution, a teacher floor, a native baseline and a noise spike beside a short vowel planted in it (the spike shows how a sound's window takes in its neighbours' blank frames). `?src=mock` opens the example, `?i=6` pins a sound.
+
 ### Calibration proposals
 
 Beside every confirmed `expected → heard` pattern, the teacher can create a calibration proposal. A proposal is only a draft until the teacher chooses its score floor and applies it, globally or to one of the supporting phrases. Applied rules are loaded into the scorer at startup and refreshed immediately after a proposal is applied, updated, or disabled; Supabase is not queried while scoring each recording. Phrase-specific rules take precedence over global ones. Create the private table once:
