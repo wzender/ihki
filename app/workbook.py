@@ -3988,7 +3988,7 @@ CATEGORIES = [{"id": f"l{lesson_id(*key)}-{tid}", "name": name, "lesson": lesson
 
 # Games live outside the lesson path. Their phrases use the same scoring bank, but they are not topics,
 # do not affect lesson completion, and cannot be assigned as homework.
-GAMES = [{"id": "game-yalla-verb", "name": "פועל נגד הזמן", "lesson": "1", "bubble": True, "hidden": False,
+GAMES = [{"id": "game-yalla-verb", "name": "פועל זמני", "lesson": "1", "bubble": True, "hidden": False,
           "unit": "פועל", "task": "אמרו את הפועל בערבית מדוברת: בעבר ואז בעתיד, לפני שהבועה נעלמת"}]
 
 
