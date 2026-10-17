@@ -74,13 +74,12 @@ def main() -> int:
         return scorer.score(decode_audio(audio), phrase, refs.get(key, phrase) if refs else [])
     new: dict[int, dict] = {}
     for k, s in enumerate(samples, 1):
-        item = lab.BY_ID.get(s["item"])
-        if item is None:   # an item since dropped from the list
+        phrase = lab.sample_phrase(s)
+        if phrase is None:   # a legacy row without enough information to reconstruct its phrase
             continue
         try:
             found = auth.lab_audio(s["id"])
             if found:
-                phrase = lab.phrase(item)
                 new[s["id"]] = score(found[0], phrase, phrase["key"])
         except (AuthUnavailable, ValueError) as e:
             print(f"sample {s['id']}: skipped ({e})", file=sys.stderr)

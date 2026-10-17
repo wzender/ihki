@@ -5,11 +5,46 @@ Nothing here depends on torch, so it is unit-testable with synthetic emissions.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
+import os
+from dataclasses import dataclass, field
 
 import numpy as np
 
+log = logging.getLogger("ihki.align")
+
 NEG = -1e30
+POOLS = ("max", "mean", "topk", "lse", "energy", "gated")
+DEFAULT_POOL = "gated"
+
+
+def env_pool() -> str:
+    """The ratio pool GOP_RATIO_POOL names (read when a GopConfig is made, so after main.py loads .env).
+    Empty or unset: DEFAULT_POOL. An unknown name is logged and DEFAULT_POOL is used."""
+    pool = os.environ.get("GOP_RATIO_POOL", "").strip().lower() or DEFAULT_POOL
+    if pool not in POOLS:
+        log.warning("GOP_RATIO_POOL=%r is not one of %s: using %s", pool, ", ".join(POOLS), DEFAULT_POOL)
+        return DEFAULT_POOL
+    return pool
+
+
+NARROW_PAD = 1
+
+
+def env_vowel_window() -> int | None:
+    """GOP_VOWEL_WINDOW: empty, unset or "wide" (None: a vowel reads the consonants' wide window), "narrow" (its
+    aligned span +- NARROW_PAD frames), or that pad as a frame count. Anything else is logged and "wide" used.
+    Wide is the default: with a pooled ratio it absorbs a transition spike without the narrow window's blind spot
+    (docs/gop-pooling.md, scripts/gop_window_bench.py)."""
+    raw = os.environ.get("GOP_VOWEL_WINDOW", "").strip().lower()
+    if raw in ("", "wide"):
+        return None
+    if raw == "narrow":
+        return NARROW_PAD
+    if raw.isdigit():
+        return int(raw)
+    log.warning("GOP_VOWEL_WINDOW=%r is not wide, narrow or a frame count: using wide", raw)
+    return None
 
 
 @dataclass
@@ -87,53 +122,155 @@ class GopConfig:
     # Softens the target/competitor ratio: at 0.5 a competitor twice as likely still scores 71, not 50.
     # The zero-shot model is noisy on accented speech, so a linear ratio punishes its own uncertainty.
     leniency: float = 0.5
+    # How the target/competitor ratio pools the window's frames (docs/gop-pooling.md). The peak behind
+    # `confidence` and `deleted` stays the max, so a peaky CTC emission is never diluted by its blanks.
+    ratio_pool: str = field(default_factory=env_pool)  # max | mean | topk | lse | energy | gated (GOP_RATIO_POOL)
+    pool_k: int = 2              # topk: frames averaged per column
+    pool_tau: float = 0.5        # lse: temperature (0 -> max, 1 -> mean)
+    energy_gamma: float = 1.0    # energy: frame weight = (RMS / loudest in the window) ** gamma
+    energy_gate: float = 0.3     # gated: frames quieter than this fraction of the window's loudest are dropped
+    energy_spread: int = 1       # frames the energy is max-filtered over (CTC peaks lead/lag the acoustics)
+    pool_vowels_only: bool = True  # consonants keep the max (bursts and voiceless sounds are short and quiet)
+    # A vowel's competitors are read from its aligned span +- this many frames (None: the wide window consonants
+    # use). Its presence (`peak`, `deleted`) is still read from the wide window. GOP_VOWEL_WINDOW sets it.
+    vowel_window: int | None = field(default_factory=env_vowel_window)
 
 
-def score_tokens(logp: np.ndarray, align: Alignment, tokens: list[int], blank: int,
-                 cfg: GopConfig = GopConfig(), accept: list[set[int] | None] | None = None,
-                 n_real: int | None = None, named: set[int] | None = None) -> list[TokenScore]:
-    """Per-token GOP.
+def pool_frames(seg: np.ndarray, how: str = "max", k: int = 2, tau: float = 0.5,
+                weight: np.ndarray | None = None) -> np.ndarray:
+    """Pool a window's (n, V) log-posteriors over time into one log-score per column.
 
-    The window of token i runs from the end of token i-1 to the start of token i+1, so it covers
-    the blank frames around the emission where a substituted phoneme typically peaks.
-    The neighbours' own labels are excluded from the competitor set (coarticulation is not an error).
+    max: the single best frame. topk: log of the mean of each column's k best frames. lse: the power mean
+    tau * log(mean(p ** (1/tau))), between the max (tau -> 0) and the mean (tau = 1). mean / energy / gated:
+    log of the weighted mean posterior, `weight` (uniform when None) normalised over the window.
+    """
+    n = len(seg)
+    if how == "max" or n == 1:
+        return seg.max(0)
+    if how == "topk":
+        k = max(1, min(k, n))
+        return np.logaddexp.reduce(np.partition(seg, n - k, axis=0)[n - k:], axis=0) - np.log(k)
+    if how == "lse":
+        return tau * (np.logaddexp.reduce(seg / tau, axis=0) - np.log(n))
+    w = np.ones(n) if weight is None else np.asarray(weight, dtype=np.float64)
+    w = w / w.sum() if w.sum() > 0 else np.full(n, 1.0 / n)
+    return np.logaddexp.reduce(seg + np.log(np.maximum(w, 1e-300))[:, None], axis=0)
 
-    A class token (a virtual column pooling its correct realisations, `accept[i]` their ids) is scored on the
-    pooled column; its members are not competitors. Competitors come from the first `n_real` columns only, and
-    one outside `named` is reported as `other` rather than by name.
+
+def energy_weights(energy: np.ndarray, how: str, gamma: float = 1.0, gate: float = 0.3) -> np.ndarray:
+    """Frame weights of one window from its (already smoothed) RMS: soft (`energy`) or a 0/1 voice gate (`gated`)."""
+    e = energy / max(float(energy.max()), 1e-12)
+    return (e >= gate).astype(np.float64) if how == "gated" else e ** gamma
+
+
+def spread_energy(energy: np.ndarray, spread: int) -> np.ndarray:
+    """Max-filter over +-spread frames: a CTC emission a frame off the loud nucleus still gets its weight."""
+    out = energy.astype(np.float64).copy()
+    for s in range(1, spread + 1):
+        out[s:] = np.maximum(out[s:], energy[:-s])
+        out[:-s] = np.maximum(out[:-s], energy[s:])
+    return out
+
+
+def token_window(spans: list[tuple[int, int]], i: int, T: int, pad: int | None = None) -> tuple[int, int]:
+    """[start, end) frames token i is read from. Wide (pad None): from the end of token i-1 to the start of token i+1,
+    the blanks around the emission where a substituted consonant peaks. Narrow: its own span +- `pad` frames, inside
+    the wide window (a vowel is its syllable's loud nucleus, not a sound hiding in the blanks)."""
+    a = spans[i - 1][1] if i > 0 else 0
+    b = spans[i + 1][0] if i + 1 < len(spans) else T
+    a, b = min(a, spans[i][0]), max(b, spans[i][1])
+    if pad is None:
+        return a, b
+    return max(a, spans[i][0] - pad), min(b, spans[i][1] + pad)
+
+
+def compute_token_gop(logp: np.ndarray, spans: list[tuple[int, int]], i: int, tokens: list[int], blank: int,
+                      cfg: GopConfig, vowel: bool = False, accept: list[set[int] | None] | None = None,
+                      n_real: int | None = None, named: set[int] | None = None, energy: np.ndarray | None = None,
+                      edge: tuple[set[int], set[int]] | None = None, pooled: bool | None = None) -> TokenScore:
+    """GOP of token i (see score_tokens), its window and pooling chosen by its class.
+
+    Presence is read from the wide window for every token: `peak` (behind the confidence) and `deleted` (target under
+    deleted_peak and no competitor over deleted_comp), so a vowel aligned to a single frame is still found deleted.
+    The competitor ratio of a vowel is read from its narrow window (cfg.vowel_window) and pooled with cfg.ratio_pool;
+    a consonant keeps the wide window, and the max unless cfg.pool_vowels_only is off. `pooled` overrides the latter.
+    `edge`: ids that are no competitor on the frames between the token's span and its left / right neighbour (a vowel
+    gliding into j or w passes through i or u: coarticulation, not a substitution). `energy` is already spread.
     """
     T = logp.shape[0]
     accept = accept or [None] * len(tokens)
-    out: list[TokenScore] = []
-    for i, tok in enumerate(tokens):
-        a = align.spans[i - 1][1] if i > 0 else 0
-        b = align.spans[i + 1][0] if i + 1 < len(tokens) else T
-        a, b = min(a, align.spans[i][0]), max(b, align.spans[i][1])
-        seg = logp[a:b]
-        peak = float(seg[:, tok].max())
-        members = accept[i] or set()
-        realised = max(members, key=lambda m: seg[:, m].max()) if members else None
+    a, b = token_window(spans, i, T)
+    ra, rb = token_window(spans, i, T, cfg.vowel_window) if vowel and cfg.vowel_window is not None else (a, b)
+    tok, (s0, s1) = tokens[i], spans[i]
+    seg = logp[a:b]
+    peak = float(seg[:, tok].max())
+    members = accept[i] or set()
+    realised = max(members, key=lambda m: seg[:, m].max()) if members else None
 
-        masked = (seg[:, :n_real] if n_real else seg).max(0).copy()
-        masked[blank] = NEG
-        for j in (i - 1, i, i + 1):
-            if 0 <= j < len(tokens):
-                for x in {tokens[j], *(accept[j] or ())}:
-                    if x < len(masked):
-                        masked[x] = NEG
-        comp = int(masked.argmax())
-        comp_peak = float(masked[comp])
+    cols = (seg[:, :n_real] if n_real else seg).copy()
+    if edge:
+        for ids, lo, hi in ((edge[0], a, s0), (edge[1], s1, b)):
+            ids = [x for x in ids if x < cols.shape[1]]
+            if ids and hi > lo:
+                cols[lo - a:hi - a, ids] = NEG
+    mask = np.zeros(cols.shape[1], dtype=bool)
+    mask[blank] = True
+    for j in (i - 1, i, i + 1):
+        if 0 <= j < len(tokens):
+            for x in {tokens[j], *(accept[j] or ())}:
+                if x < len(mask):
+                    mask[x] = True
+    deleted = bool(peak < cfg.deleted_peak and float(np.where(mask, NEG, cols.max(0)).max()) < cfg.deleted_comp)
 
-        gop = peak - max(peak, comp_peak)
-        deleted = bool(peak < cfg.deleted_peak and comp_peak < cfg.deleted_comp)
-        confidence = min(1.0, float(np.exp(peak)) / cfg.confident_peak)
-        score = 100.0 * float(np.exp(gop * cfg.leniency)) * float(np.sqrt(confidence))
-        present = comp_peak > NEG / 2
-        other = bool(present and named is not None and comp not in named)
-        out.append(TokenScore(round(score, 1), round(gop, 3), round(peak, 3),
-                              comp if present and not other else None, deleted, realised, other,
-                              round(comp_peak, 3), (int(a), int(b))))
-    return out
+    how = cfg.ratio_pool if (pooled if pooled is not None else vowel or not cfg.pool_vowels_only) else "max"
+    weight = None
+    if how in ("energy", "gated"):
+        if energy is not None:
+            weight = energy_weights(energy[ra:rb], how, cfg.energy_gamma, cfg.energy_gate)
+            weight[max(0, s0 - ra):max(0, s1 - ra)] = 1.0   # the frames the token was emitted on count in full
+        how = "mean"
+    rcols = cols[ra - a:rb - a]
+    maxed = rcols.max(0)
+    ratio = maxed.copy() if how == "max" else pool_frames(rcols, how, cfg.pool_k, cfg.pool_tau, weight)
+    ratio[mask] = NEG
+    comp = int(ratio.argmax())
+    comp_peak = float(maxed[comp]) if ratio[comp] > NEG / 2 else NEG
+    tseg = logp[ra:rb, [tok]]
+    target = float(tseg.max()) if how == "max" else float(pool_frames(tseg, how, cfg.pool_k, cfg.pool_tau, weight)[0])
+
+    gop = target - max(target, float(ratio[comp]))
+    confidence = min(1.0, float(np.exp(peak)) / cfg.confident_peak)
+    score = 100.0 * float(np.exp(gop * cfg.leniency)) * float(np.sqrt(confidence))
+    present = comp_peak > NEG / 2
+    other = bool(present and named is not None and comp not in named)
+    return TokenScore(round(score, 1), round(gop, 3), round(peak, 3), comp if present and not other else None,
+                      deleted, realised, other, round(comp_peak, 3), (int(ra), int(rb)))
+
+
+def score_tokens(logp: np.ndarray, align: Alignment, tokens: list[int], blank: int,
+                 cfg: GopConfig | None = None, accept: list[set[int] | None] | None = None,
+                 n_real: int | None = None, named: set[int] | None = None,
+                 energy: np.ndarray | None = None, pooled: list[bool] | None = None,
+                 vowels: list[bool] | None = None,
+                 edges: list[tuple[set[int], set[int]] | None] | None = None) -> list[TokenScore]:
+    """Per-token GOP (compute_token_gop for each token).
+
+    The neighbours' own labels are excluded from the competitor set (coarticulation is not an error).
+    A class token (a virtual column pooling its correct realisations, `accept[i]` their ids) is scored on the
+    pooled column; its members are not competitors. Competitors come from the first `n_real` columns only, and
+    one outside `named` is reported as `other` rather than by name.
+
+    `vowels` marks the tokens that are vowels (narrow window, pooled ratio). Without it every token is read from the
+    wide window and pooled, unless `pooled` marks which are. `energy` is the per-frame RMS the energy pools need;
+    without it they fall back to the plain mean. `edges[i]`: see compute_token_gop.
+    """
+    cfg = cfg or GopConfig()
+    if energy is not None:
+        energy = spread_energy(np.asarray(energy)[:logp.shape[0]], cfg.energy_spread)
+    return [compute_token_gop(logp, align.spans, i, tokens, blank, cfg, bool(vowels and vowels[i]), accept, n_real,
+                              named, energy, edges[i] if edges else None,
+                              (pooled[i] if pooled is not None else None if vowels is not None else True))
+            for i in range(len(tokens))]
 
 
 def greedy_decode(logp: np.ndarray, blank: int) -> list[int]:

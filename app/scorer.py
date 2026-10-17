@@ -1,6 +1,7 @@
 """Pronunciation scorer: phoneme CTC model + forced alignment against the expected phonemes."""
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import os
@@ -19,6 +20,8 @@ from .tips import VOWELS, letter_reason, sound_name, tip_for
 from .translit import CONSONANTS as _HEB_C, HEARD_ONLY as _HEB_HEARD, VOWELS as _HEB_V, to_hebrew, word_letters, word_to_hebrew
 
 HEBREW_SOUNDS = set(_HEB_C) | set(_HEB_V) | set(_HEB_HEARD)
+# a vowel gliding into (or out of) j or w passes through these: on the frames between the two, coarticulation
+GLIDE_KIN = {"j": ("i", "iː", "e", "eː"), "w": ("u", "uː", "o", "oː")}
 
 log = logging.getLogger("ihki.scorer")
 
@@ -250,6 +253,13 @@ class Scorer:
         self.named = {i for i in (vocab.sound_id(n) for n in names) if i is not None}
         self.disabled: frozenset[str] = frozenset()  # rules.TOGGLES the teacher switched off (ניטור)
 
+    def with_gop(self, **changes) -> "Scorer":
+        """This scorer with some GopConfig fields changed (ratio_pool, vowel_window ...), sharing its model, vocab and
+        rules: for the lab's sweep over the settings. Nothing of this scorer changes."""
+        other = copy.copy(self)
+        other.cfg = replace(self.cfg, gop=replace(self.cfg.gop, **changes))
+        return other
+
     def set_disabled(self, ids) -> None:
         """Atomically replaces the switched-off rules; unknown ids are ignored."""
         self.disabled = frozenset(ids) & TOGGLE_IDS
@@ -278,6 +288,13 @@ class Scorer:
                     and toks[i - 1].phoneme not in VOWELS)
 
     _GLIDES = {"w", "j"}  # the way into or out of a glide sounds like a vowel in anyone's speech
+
+    def _glide_edges(self, toks: list[TargetToken]) -> list[tuple[set[int], set[int]] | None]:
+        """For a vowel beside j or w: the vowels that glide is made of (GLIDE_KIN), no competitor on the frames
+        between the vowel and that glide."""
+        kin = lambda k: {x for p in GLIDE_KIN.get(toks[k].phoneme, ()) if (x := self.vocab.sound_id(p)) is not None}
+        return [(kin(i - 1) if i else set(), kin(i + 1) if i + 1 < len(toks) else set())
+                if t.phoneme in VOWELS else None for i, t in enumerate(toks)]
 
     def _insertions(self, logp: np.ndarray, toks: list[TargetToken], al: Alignment) -> dict[int, str]:
         """Rules 3.10: token -> the vowel the model clearly heard between it and the consonant before it, in one word
@@ -321,7 +338,11 @@ class Scorer:
         """The baseline from a native recording of the phrase, or None when the model does not
         recognise the phrase in it (then it says nothing about single sounds)."""
         logp = self.emit(wav)
-        fit = self._fit(self.vocab.merge(logp), phrase, frame_energy(wav, len(logp)))
+        return self.reference_logp(logp, phrase, frame_energy(wav, len(logp)))
+
+    def reference_logp(self, logp: np.ndarray, phrase: dict, energy: np.ndarray | None = None) -> Reference | None:
+        """Scorer.reference from the model's posteriors of the native recording (`emit`), and its frame energy."""
+        fit = self._fit(self.vocab.merge(logp), phrase, energy)
         if fit is None:
             return None
         if fit.unrelated or float(np.mean([sc.score for sc in fit.scores])) < self.cfg.ref_min_mean:
@@ -457,7 +478,8 @@ class Scorer:
         ids = [t.id for t in toks]
         ar_words = ar.split()
         scores = score_tokens(ext, al, ids, blank, self.cfg.gop, [vocab.members.get(i) for i in ids],
-                              vocab.n_real, self.named if self._on("unnamed_sounds") else None)
+                              vocab.n_real, self.named if self._on("unnamed_sounds") else None, energy,
+                              vowels=[t.phoneme in VOWELS for t in toks], edges=self._glide_edges(toks))
         gop_scores, exempted = list(scores), [None] * len(scores)
         for i, (t, sc) in enumerate(zip(toks, scores)):
             heard = vocab.i2t.get(sc.competitor) if sc.competitor is not None else None

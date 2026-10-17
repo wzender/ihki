@@ -455,6 +455,22 @@ class SupabaseAuth:
             log.warning("a recording not stored (is there a storage bucket `%s`? see the README): %s", bucket, e)
             return False
 
+    def _delete_objects(self, bucket: str, names: list[str]) -> bool:
+        """Removes recordings of a private storage bucket; False (logged) when some could not be removed."""
+        ok = True
+        for k in range(0, len(names), 1000):   # the storage API takes up to 1000 names a call
+            req = urllib.request.Request(
+                f"{self.url}/storage/v1/object/{bucket}", method="DELETE",
+                data=json.dumps({"prefixes": names[k:k + 1000]}).encode(),
+                headers={"Authorization": f"Bearer {self.secret}", "apikey": self.secret,
+                         "Content-Type": "application/json", "User-Agent": "ihki/1.0"})
+            try:
+                urllib.request.urlopen(req, timeout=TIMEOUT).close()
+            except (urllib.error.URLError, TimeoutError) as e:
+                log.warning("recordings of the storage bucket `%s` not removed: %s", bucket, e)
+                ok = False
+        return ok
+
     def _get_object(self, bucket: str, name: str) -> tuple[bytes, str]:
         """A recording of a private storage bucket and its media type."""
         req = urllib.request.Request(
@@ -513,7 +529,7 @@ class SupabaseAuth:
 
     def lab_sample(self, sample_id: int) -> dict | None:
         """One lab recording's row, without the scorer's result, or None."""
-        query = urllib.parse.urlencode({"select": "id,item,speaker,label,mistake,audio", "id": f"eq.{int(sample_id)}",
+        query = urllib.parse.urlencode({"select": "id,item,ar,ipa,speaker,label,mistake,audio", "id": f"eq.{int(sample_id)}",
                                         "limit": 1})
         rows = self._admin(f"/rest/v1/lab_samples?{query}")
         return rows[0] if rows else None
@@ -522,6 +538,17 @@ class SupabaseAuth:
         """One lab recording and its media type, or None when it was not stored."""
         row = self.lab_sample(sample_id)
         return self._get_object("lab", row["audio"]) if row and row.get("audio") else None
+
+    def delete_lab_samples(self, speaker: str | None = None) -> int:
+        """Deletes the lab's recordings of one speaker ("": the unnamed), or of every speaker when None: the rows,
+        then their files in the bucket `lab` (a file that cannot be removed is logged and left). Returns how many rows."""
+        where = {"speaker": f"eq.{speaker}"} if speaker is not None else {"id": "gt.0"}  # a DELETE needs a filter
+        rows = self._admin(f"/rest/v1/lab_samples?{urllib.parse.urlencode({**where, 'select': 'id,audio'})}",
+                           "DELETE") or []
+        names = [r["audio"] for r in rows if r.get("audio")]
+        if names:
+            self._delete_objects("lab", names)
+        return len(rows)
 
     def calibrations(self, status: str | None = None) -> list[dict]:
         """Calibration proposals, optionally filtered by their workflow status."""

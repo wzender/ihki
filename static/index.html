@@ -456,6 +456,7 @@ body.driving .mic::before{display:none} body.driving .mic-zone.two{display:flex}
 #denied button{display:block;margin:12px auto 0;font:600 16px/1 var(--f-body);padding:10px 22px;border-radius:10px;border:1px solid #4B6A2C;background:#fff;color:#4B6A2C;cursor:pointer}
 /* The teacher's panel (its parts are styled further down: the class tabs, the figures, the lessons, the students). */
 body:not(.manage) #manage,body.lab #manage,body:not(.lab) #lab,body.manage #wrap>header,body.manage #path,body.manage #today,body.manage #toNow,body.manage #practice,body:not(.home) #toManage{display:none}
+body.lab #wrap{max-width:none}
 .mtitle{font:400 24px/1 var(--f-display);margin:0}
 #mState.setup{padding:10px 12px;border:1px solid var(--sumac);border-radius:10px;color:var(--ink)}
 #mState.setup code{display:block;margin-top:6px;font-size:12px;overflow-wrap:anywhere;user-select:all}
@@ -469,7 +470,7 @@ body:not(.manage) #manage,body.lab #manage,body:not(.lab) #lab,body.manage #wrap
 .build-info code{direction:ltr;unicode-bidi:isolate;user-select:all}
 #manage:not(.flags) #mBuild{display:none}
 /* The lab (מעבדה): the diagnostic list by group, each item a button with its count of recordings, and the item on show. */
-#lab{display:flex;flex-direction:column;gap:12px;width:100%;min-width:0;box-sizing:border-box}
+#lab{display:flex;flex-direction:column;gap:12px;width:100%;max-width:none;min-width:0;box-sizing:border-box}
 #lab>*,.lab-item>*{min-width:0}
 #labResult .stage-table-wrap{overflow-x:auto}
 .lab-who{flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px 18px}
@@ -501,13 +502,43 @@ body:not(.manage) #manage,body.lab #manage,body:not(.lab) #lab,body.manage #wrap
 .lab-table th,.lab-table td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 .lab-table th{color:var(--muted);font-weight:600;font-size:12px}
 .lab-table .ipa{direction:ltr;unicode-bidi:isolate;font-family:ui-monospace,monospace}
+#labTraceRec{max-width:100%;min-width:0;flex:1 1 220px}
+.pc-wrap{position:relative;min-width:680px}
+.pc-wrap svg{display:block;width:100%;height:auto;direction:ltr;font:12px var(--f-body);overflow:visible}
+.pc-wrap .pc-axis{stroke:var(--muted);stroke-width:1}
+.pc-wrap .pc-name{fill:var(--ink);font-weight:600;text-anchor:middle}
+.pc-wrap .pc-hint,.pc-wrap .pc-tick{fill:var(--muted)}
+.pc-wrap .pc-plate{fill:var(--surface);pointer-events:none}
+.pc-wrap .pc-label{paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round;pointer-events:none}
+.pc-wrap .pc-line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round;transition:opacity .12s}
+.pc-wrap .pc-hit{fill:none;stroke:transparent;stroke-width:12;cursor:pointer}
+.pc-wrap.hl .pc-line{opacity:.12}.pc-wrap.hl .pc-line.on{opacity:1;stroke-width:3.5}
+.pc-tip{position:absolute;pointer-events:none;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;
+  padding:6px 9px;font-size:13px;line-height:1.45;box-shadow:0 2px 8px rgba(0,0,0,.15);white-space:nowrap;z-index:2}
+.pc-tip b{font-weight:700}
+.pc-legend{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;font-size:13px;color:var(--muted);margin:6px 0 10px}
+.pc-legend .ramp{display:inline-flex;gap:2px;vertical-align:middle}.pc-legend .ramp i{width:18px;height:10px;border-radius:2px;display:inline-block}
+.pc-legend .dash{display:inline-block;width:26px;border-top:2px dashed var(--muted);vertical-align:middle}
+#labSweepTable tr.on td{background:var(--olive-soft)}
+#labSweepTable tr{cursor:default}
 .lab-table tr.focus td:first-child{font-weight:700}
 .lab-table td.ok{color:var(--ok)} .lab-table td.mid{color:var(--amber)} .lab-table td.bad{color:var(--sumac);font-weight:700}
 .lab-table td.hit{background:var(--ok-bg)} .lab-table td.miss{background:var(--sumac-bg)}
+#minervaTable{table-layout:fixed}
+#minervaTable th:nth-child(1){width:120px}
+#minervaTable th:nth-child(2){width:18%}
+#minervaTable th:nth-child(3){width:auto}
+#minervaTable th:nth-child(4){width:90px}
+#minervaTable th:nth-child(5){width:18%}
+#minervaTable th:nth-child(6){width:112px}
+#minervaTable td{white-space:normal;vertical-align:top;overflow-wrap:anywhere}
+#minervaTable .minerva-phones{direction:ltr;unicode-bidi:isolate;font:13px/1.55 var(--f-ipa)}
+#minervaTable .minerva-phones div+div{margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)}
+#minervaTable .minerva-phones small{display:inline-block;min-width:48px;color:var(--muted);font:11px/1.4 var(--f-body);direction:rtl}
 .lab-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-#labModes{grid-template-columns:repeat(4,1fr)}
-#lab:not(.test) #labTest,#lab:not(.record) #labRecord,#lab:not(.flags) #labFlags,#lab:not(.results) #labResults{display:none}
-#labTest,#labRecord,#labFlags,#labResults{display:flex;flex-direction:column;gap:12px;min-width:0}
+#labModes{grid-template-columns:repeat(5,1fr)}
+#lab:not(.test) #labTest,#lab:not(.record) #labRecord,#lab:not(.flags) #labFlags,#lab:not(.minerva) #labMinerva,#lab:not(.results) #labResults{display:none}
+#labTest,#labRecord,#labFlags,#labMinerva,#labResults{display:flex;flex-direction:column;gap:12px;min-width:0}
 #labList,#labFlagList,#wzList{display:flex;flex-direction:column;gap:10px}
 #wzSpeaker{min-width:0;width:12em;padding:6px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--surface);color:inherit}
 .wz-bar{flex-basis:100%;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
@@ -1223,7 +1254,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
     <div class="roundbar"><h1 class="mtitle" id="labTitle">מעבדה</h1><span class="sep"></span><button class="btn" id="labManage">ניהול</button><button class="btn primary" id="labPractice">לתרגול</button></div>
     <p class="sub">רשימה קבועה של הברות ומילים קצרות, שכל אחת בודקת הגה אחד. כל דובר מקריא אותה פעם אחת. אומרים נכון, או בוחרים מראש את ההגה שבו תיעשה טעות מכוונת. כל הקלטה נשמרת עם התווית שלה, ומהן נמדד זיהוי הפונמות: כמה פעמים הגה שנאמר נכון סומן כטעות, וכמה טעויות מכוונות לא נתפסו.</p>
     <div class="sub" id="labState" aria-live="polite"></div>
-    <div class="modes" id="labModes" role="tablist" aria-label="מעבדה"><button role="tab" data-mode="test">מבחן<small>הקלטת כל הרשימה</small></button><button role="tab" data-mode="record">הקלטה<small>פריט בודד, עם טעויות</small></button><button role="tab" data-mode="flags">דיווחים<small>הרצה מחדש של דיווחי ציון</small></button><button role="tab" data-mode="results">תוצאות<small>זיהוי לפי הגה</small></button></div>
+    <div class="modes" id="labModes" role="tablist" aria-label="מעבדה"><button role="tab" data-mode="test">מבחן<small>הקלטת כל הרשימה</small></button><button role="tab" data-mode="record">הקלטה<small>פריט בודד, עם טעויות</small></button><button role="tab" data-mode="flags">דיווחים<small>הרצה מחדש של דיווחי ציון</small></button><button role="tab" data-mode="minerva">מינרווה<small>סרטונים ודיבור ילידי</small></button><button role="tab" data-mode="results">תוצאות<small>זיהוי לפי הגה</small></button></div>
     <div id="labTest">
       <div class="card wz-head">
         <p class="sub">כל שורה היא פריט לומר. השורה המסומנת היא הבאה בתור: לוחצים 🎤, אומרים את הפריט נכון ככל האפשר, וההקלטה מושמעת לבד. אחרי ההשמעה: ✓ שולח אותה ועובר לשורה הבאה, ✗ מוחק אותה ומקליטים שוב. מה שנשלח נשמר כ"נאמר נכון" של הדובר, והוא הבסיס לבדיקת זיהוי הפונמות.</p>
@@ -1263,16 +1294,35 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
       </div>
       <div id="labFlagList"></div>
     </div>
+    <div id="labMinerva">
+      <div class="card">
+        <p class="sub">בחרו סרטון כדי לנתח מחדש את כל קטעי הדיבור שלו. הטבלה משווה בין התוצאה שנשמרה בייבוא לבין ה־pipeline והגדרת ה־GOP הנוכחיים.</p>
+        <div class="lab-actions"><label>סרטון <select id="minervaVideo"></select></label><label>הגדרת GOP <select id="minervaSetting"></select></label><button class="btn primary" id="minervaRun">הרצת הסרטון</button><span class="sub" id="minervaState" aria-live="polite"></span></div>
+        <div class="lab-tiles" id="minervaTiles"></div>
+      </div>
+      <div class="card"><div class="stage-table-wrap"><table class="lab-table" id="minervaTable"></table></div></div>
+    </div>
     <div id="labResults">
       <div class="card">
-        <div class="lab-actions"><label>דובר <select id="labWho"><option value="">כולם</option></select></label><button class="btn primary" id="labRerunAll">הרצה מחדש עם הגרסה הנוכחית</button><button class="btn" id="labSaveBase" hidden>שמירה כנקודת השוואה</button></div>
+        <div class="lab-actions"><label>דובר <select id="labWho"><option value="">כולם</option></select></label><button class="btn primary" id="labRerunAll">הרצה מחדש עם הגרסה הנוכחית</button><button class="btn" id="labSweep" disabled title="כל הקלטה מנותחת בכל 24 השילובים של GOP_RATIO_POOL ו-GOP_VOWEL_WINDOW, בלי לשנות את השרת">השוואת 24 הגדרות</button><button class="btn" id="labSaveBase" hidden>שמירה כנקודת השוואה</button><button class="btn danger" id="labDelete" disabled title="מוחק את ההקלטות ואת קובצי השמע שלהן, כדי להקליט את הרשימה מחדש">מחיקת ההקלטות</button></div>
         <div class="lab-actions"><span class="sub" id="labResState" aria-live="polite"></span></div>
+        <div class="lab-actions" id="labTraceRow" hidden><label>לוח אבחון להקלטה <select id="labTraceShow"><option value="">כל ההקלטות</option><option value="flagged">עם הגה שסומן</option><option value="unrelated">"משפט אחר"</option><option value="mistake">טעות מכוונת</option></select></label><select id="labTraceRec" aria-label="הקלטה"></select><label>בהגדרה <select id="labTraceSet"></select></label><button class="btn" id="labTraceOpen" title="ההקלטה מנותחת מחדש בגרסה הנוכחית, והשלבים נפתחים בלשונית חדשה">לוח אבחון</button></div>
         <div class="lab-actions"><span class="sub" id="labBase"></span><button class="btn" id="labDropBase" hidden>מחיקה</button></div>
         <p class="sub" id="labCmp"></p>
         <div class="lab-tiles" id="labTiles"></div>
         <p class="sub">איך בודקים שינוי במימוש: הריצו מחדש ושמרו כנקודת השוואה, שנו את המימוש, והריצו מחדש. ירוק: השתפר, אדום: הורע. שיפור אמיתי מוריד את "סומנו בטעות" בלי להוריד את "זיהוי". "סומן בטעות": הגה שנאמר נכון וסומן כטעות. "זיהוי": טעות מכוונת שסומנה. "דיווחים": ההגה סומן בטעות בדיווח מאושר מתרגול אמיתי. אותה בדיקה משורת הפקודה: <code>python scripts/bench.py</code></p>
       </div>
       <div class="card"><div class="stage-table-wrap"><table class="lab-table" id="labBench"></table></div></div>
+      <div class="card" id="labSweepBox" hidden>
+        <h3>השוואת הגדרות GOP</h3>
+        <p class="sub" id="labSweepSum"></p>
+        <p class="sub">המדד: <b>איכות</b> = ממוצע של (100% פחות "סומנו בטעות") ושל "זיהוי" (דיוק מאוזן). כל חצי הוא שיעור, ולכן ההגאים הרבים שנאמרו נכון לא מבטלים את הטעויות המכוונות המעטות, והגדרה לא יכולה לנצח בכך שאינה מסמנת דבר או מסמנת הכל. בכל ציר מדד, למעלה = טוב יותר.</p>
+        <p class="sub">תנועות: המערכת לא מסמנת תנועה כטעות (מלבד u אחרי עיצור, כלל 3.11), ולכן הגדרות האיגום והחלון, שמשנות רק תנועות, כמעט לא מזיזות את "סומנו בטעות" ואת "זיהוי". שלושת צירי התנועות מודדים את הציון עצמו: <b>תנועות חלשות</b> = תנועות שנאמרו נכון וקיבלו פחות מ-75 (נצבעות לתלמיד כחלשות), <b>ציון תנועות</b> = הממוצע שלהן, <b>הפרדת תנועות</b> = הסיכוי שתנועה נכונה תקבל ציון גבוה יותר מתנועה שנאמרה בטעות מכוונת (1 = הפרדה מלאה, 0.5 = ניחוש). כשהאיכות שווה, הדירוג נקבע לפי הצירים האלה. <b>ציונים ששונו</b>: כמה ציוני הגאים ההגדרה נתנה אחרת מ-max · חלון רחב (החישוב שלפני השינויים), בדיקה ישירה שההגדרה אכן הופעלה.</p>
+        <p class="sub setup" id="labSweepNote" hidden>אין עדיין טעויות מכוונות בהקלטות האלה, ולכן האיכות כאן היא רק 100% פחות "סומנו בטעות": היא לא יודעת אם הגדרה מפספסת טעויות אמיתיות. הקליטו טעויות מכוונות בטאב הקלטה.</p>
+        <div class="stage-table-wrap"><div class="pc-wrap" id="labSweepPlot"></div></div>
+        <div class="pc-legend" id="labSweepLegend"></div>
+        <div class="stage-table-wrap"><table class="lab-table" id="labSweepTable"></table></div>
+      </div>
     </div>
   </section>
 </div>
@@ -4804,12 +4854,13 @@ async function showLab(){
   labMode(store.get("ihki.labMode","test"));
 }
 function labMode(mode){
-  if(!["test","record","flags","results"].includes(mode)) mode="test";
+  if(!["test","record","flags","minerva","results"].includes(mode)) mode="test";
   store.set("ihki.labMode",mode);
   for(const b of $("labModes").children) b.setAttribute("aria-selected",b.dataset.mode===mode?"true":"false");
-  for(const m of ["test","record","flags","results"]) $("lab").classList.toggle(m,m===mode);
+  for(const m of ["test","record","flags","minerva","results"]) $("lab").classList.toggle(m,m===mode);
   if(mode==="test"){ drawWizard(); loadTtsVoices(); }
   if(mode==="flags"&&!labFlags) loadLabFlags();
+  if(mode==="minerva") loadMinerva();
   if(mode==="results") loadLabResults();
 }
 for(const b of $("labModes").children) b.onclick=()=>labMode(b.dataset.mode);
@@ -5138,12 +5189,80 @@ $("labRerun").onclick=async()=>{
   btn.disabled=false; drawLabFlags();
 };
 
+/* Native Minerva pilot: its imported rows already contain the cut timestamps, expected text and stored result. */
+let minervaData=null, minervaNow={};
+const minervaTime=n=>n==null?"—":`${Math.floor(n/60)}:${String((n%60).toFixed(1)).padStart(4,"0")}`;
+const minervaFlagged=r=>(r.words||[]).flatMap(w=>(w.phonemes||[]).filter(p=>p.flagged).map(p=>`${p.ipa}>${p.heard||"_"}`));
+function fillGopSettings(sel){
+  if(sel.options.length) return;
+  sel.append(new Option("של השרת",""));
+  for(const k of LAB_SETTINGS){ const [p,w]=k.split("|"); sel.append(new Option(`${p} · ${sweepWin(w)}`,k)); }
+}
+async function loadMinerva(){
+  const state=$("minervaState");
+  if(!minervaData){
+    state.textContent="טוען סרטונים…";
+    try{ const res=await api("/api/lab/minerva"), d=await res.json().catch(()=>({})); if(!res.ok) throw new Error(d.detail||res.status); minervaData=d; }
+    catch(e){ state.textContent=`הסרטונים לא זמינים: ${e.message}`; return; }
+    const sel=$("minervaVideo"), was=sel.value; sel.replaceChildren();
+    for(const v of minervaData.videos) sel.append(new Option(`${v.title} · ${v.samples.length} קטעים`,v.id));
+    if([...sel.options].some(o=>o.value===was)) sel.value=was;
+    fillGopSettings($("minervaSetting"));
+  }
+  state.textContent=minervaData.videos.length?`גרסה ${minervaData.version}`:"לא נמצאו הקלטות מיובאות של מינרווה";
+  drawMinerva();
+}
+function drawMinerva(){
+  const video=minervaData&&minervaData.videos.find(v=>v.id===$("minervaVideo").value), table=$("minervaTable"), tiles=$("minervaTiles");
+  table.replaceChildren(); tiles.replaceChildren(); $("minervaRun").disabled=!video;
+  if(!video) return;
+  const results=minervaNow[video.id]||{}, done=Object.keys(results).length;
+  const current=Object.values(results), bad=current.filter(r=>r.unrelated).length;
+  const flags=current.reduce((n,r)=>n+minervaFlagged(r).length,0);
+  for(const [value,label] of [[video.samples.length,"קטעי דיבור"],[done,"נותחו עכשיו"],[flags,"סימוני הגאים"],[bad,'“משפט אחר”']]){
+    const box=mark("lab-tile","","div"); box.append(mark("",String(value),"b"),mark("",label,"small")); tiles.append(box);
+  }
+  const head=document.createElement("thead"); head.innerHTML="<tr><th>קטע וזמן</th><th>ערבית</th><th>פונמות</th><th>ציון</th><th>סימונים</th><th></th></tr>"; table.append(head);
+  const body=document.createElement("tbody");
+  for(const s of video.samples){
+    const now=results[s.id], tr=document.createElement("tr"), flagsNow=now?minervaFlagged(now):null;
+    const storedFlags=s.flagged.join(", ")||"—";
+    const values=[`${s.line} · ${minervaTime(s.start)}–${minervaTime(s.end)}`,s.ar,
+      now?`${s.score??"—"} → ${now.score??"—"}`:s.score??"—",
+      now?`${storedFlags} → ${flagsNow.join(", ")||"—"}`:storedFlags];
+    for(const value of values.slice(0,2)){ const td=document.createElement("td"); td.textContent=value; tr.append(td); }
+    const phones=mark("minerva-phones","","td"), expected=document.createElement("div"), heard=document.createElement("div");
+    expected.append(mark("","צפוי","small"),document.createTextNode(s.ipa));
+    heard.append(mark("","נשמע","small"),document.createTextNode(now?`${s.heard_ipa||"—"} → ${now.heard_ipa||"—"}`:s.heard_ipa||"—"));
+    phones.append(expected,heard); tr.append(phones);
+    for(const value of values.slice(2)){ const td=document.createElement("td"); td.textContent=value; tr.append(td); }
+    if(now){ tr.children[3].className=(now.score??0)>=(s.score??0)?"ok":"bad"; tr.children[4].className=flagsNow.length?"bad":"ok"; }
+    const td=document.createElement("td"), button=mark("btn","לוח אבחון","button"); button.disabled=!s.audio;
+    button.onclick=()=>openLabTrace(s.id,$("minervaSetting").value,$("minervaState"),button); td.append(button); tr.append(td); body.append(tr);
+  }
+  table.append(body);
+}
+$("minervaVideo").onchange=drawMinerva;
+$("minervaRun").onclick=async()=>{
+  const video=minervaData&&minervaData.videos.find(v=>v.id===$("minervaVideo").value); if(!video) return;
+  const setting=$("minervaSetting").value, results={}, btn=$("minervaRun"); let failed=0; btn.disabled=true;
+  for(const [i,s] of video.samples.entries()){
+    $("minervaState").textContent=`מנתח קטע ${i+1} מתוך ${video.samples.length}…`;
+    try{ const res=await api(`/api/lab/samples/${s.id}/rescore`+(setting?`?setting=${encodeURIComponent(setting)}`:""),{method:"POST"}), d=await res.json().catch(()=>({})); if(!res.ok) throw new Error(d.detail||res.status); results[s.id]=d.result; }
+    catch{ failed++; }
+    minervaNow[video.id]=results; drawMinerva();
+  }
+  $("minervaState").textContent=`נותחו ${Object.keys(results).length} מתוך ${video.samples.length} קטעים`+(failed?` · ${failed} נכשלו`:""); btn.disabled=false;
+};
+
 /* The lab's results: per sound, of the recordings as they were scored (see lab.benchmark in app/lab.py). */
 /* The lab's results: per sound (see lab.benchmark in app/lab.py). As loaded, the recordings as they were scored at
    the time; "הרצה מחדש" rescores them all with the version the server runs now, and compares that with a saved run
    (the comparison point, kept on this device) or, without one, with the stored scores of the same recordings. */
 let labRes=null, labNow=null;   // the stored benchmark (with the recordings' ids), and the latest rescore's
 const labBaseKey=()=>"ihki.labBase:"+$("labWho").value;   // a comparison point for each speaker filter
+// a run's version with its GOP pool (GOP_RATIO_POOL): the env picks the pool, so the code's version cannot tell them apart
+const labTag=d=>d.version+(d.pool?` · ${d.pool}`:"")+(d.vowel_window&&d.vowel_window!=="wide"?` · חלון תנועה ${d.vowel_window}`:"");
 async function loadLabResults(){
   const who=$("labWho").value; $("labResState").textContent="טוען…"; labNow=null;
   try{ const res=await api("/api/lab/results"+(who?`?speaker=${encodeURIComponent(who)}`:"")); labRes=await res.json().catch(()=>({}));
@@ -5152,9 +5271,32 @@ async function loadLabResults(){
   const sel=$("labWho"); sel.replaceChildren(new Option("כולם",""));
   for(const s of labRes.speakers) sel.append(new Option(s||"(בלי שם)",s)); sel.value=who;
   $("labResState").textContent=`הציונים שנשמרו בזמן ההקלטה · ${labRes.samples.length} הקלטות עם קובץ`;
-  $("labRerunAll").disabled=!labRes.samples.length;
+  $("labRerunAll").disabled=$("labSweep").disabled=!labRes.samples.length;
+  $("labSweepBox").hidden=true;   // a sweep belongs to the filter it ran on
+  drawLabTracePicker();
+  const del=$("labDelete"); del.disabled=!labRes.totals.recordings;
+  del.textContent=who?`מחיקת ההקלטות של ${who}`:"מחיקת כל ההקלטות";
   drawLabBench(labRes,null,"");
 }
+// Deletes the recordings of the speaker the filter shows, or of every speaker under "כולם", to record afresh. The
+// comparison points saved of them go too: they measured recordings that are gone.
+$("labDelete").onclick=async()=>{
+  if(!labRes) return;
+  const who=$("labWho").value, n=labRes.totals.recordings, word="מחיקה";
+  if(who){ if(!confirm(`למחוק את ${n} ההקלטות של ${who}, עם קובצי השמע שלהן? לא ניתן לבטל את המחיקה.`)) return; }
+  else if((prompt(`פעולה זו מוחקת את כל ${n} ההקלטות של כל הדוברים, עם קובצי השמע שלהן, ולא ניתן לבטל אותה. כדי לאשר, הקלידו: ${word}`)||"").trim()!==word) return;
+  const btn=$("labDelete"); btn.disabled=true; $("labResState").textContent="מוחק…";
+  try{
+    const res=await api("/api/lab/samples?"+(who?`speaker=${encodeURIComponent(who)}`:"everyone=true"),{method:"DELETE"}), d=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(d.detail||res.status);
+    try{ localStorage.removeItem(labBaseKey()); localStorage.removeItem("ihki.labBase:"); }catch{}
+    $("labWho").value=""; labNow=null; $("labSaveBase").hidden=true; drawLabBase();
+    await loadLabResults();
+    $("labResState").textContent=`נמחקו ${d.deleted} הקלטות.`;
+    const me=store.get("ihki.labSpeaker",""), items=await api("/api/lab"+(me?`?speaker=${encodeURIComponent(me)}`:""));
+    if(items.ok&&LAB){ const l=await items.json(); LAB.counts=l.counts; LAB.mine=l.mine; drawLabList(); }
+  }catch(e){ $("labResState").textContent=`המחיקה נכשלה: ${e.message}`; btn.disabled=false; }
+};
 $("labRerunAll").onclick=async()=>{
   if(!labRes) return;
   const btn=$("labRerunAll"), ids=labRes.samples, results={}; let failed=0;
@@ -5171,21 +5313,181 @@ $("labRerunAll").onclick=async()=>{
   }catch(e){ labNow=null; $("labResState").textContent=`החישוב נכשל: ${e.message}`; btn.disabled=false; return; }
   labNow.at=new Date().toISOString(); labNow.speaker=$("labWho").value;
   const base=store.get(labBaseKey(),null);
-  if(base) drawLabBench(labNow.now,base.bench,`לעומת נקודת ההשוואה: גרסה ${base.version}, ${new Date(base.at).toLocaleString("he-IL")}`);
+  if(base) drawLabBench(labNow.now,base.bench,`לעומת נקודת ההשוואה: גרסה ${labTag(base)}, ${new Date(base.at).toLocaleString("he-IL")}`);
   else drawLabBench(labNow.now,labNow.stored,"לעומת הציונים שנשמרו בזמן ההקלטה");
-  $("labResState").textContent=`נותחו מחדש ${Object.keys(results).length} הקלטות בגרסה ${labNow.version}`+(failed?` · ${failed} נכשלו`:"");
+  $("labResState").textContent=`נותחו מחדש ${Object.keys(results).length} הקלטות בגרסה ${labTag(labNow)}`+(failed?` · ${failed} נכשלו`:"");
   btn.disabled=false; $("labSaveBase").hidden=false;
 };
 $("labSaveBase").onclick=()=>{
   if(!labNow) return;
-  store.set(labBaseKey(),{bench:labNow.now,version:labNow.version,model:labNow.model,at:labNow.at});
+  store.set(labBaseKey(),{bench:labNow.now,version:labNow.version,pool:labNow.pool,vowel_window:labNow.vowel_window,model:labNow.model,at:labNow.at});
   $("labSaveBase").hidden=true; drawLabBase();
-  $("labResState").textContent=`נשמרה נקודת השוואה: גרסה ${labNow.version}. שנו את המימוש, ואז הריצו מחדש כדי להשוות.`;
+  $("labResState").textContent=`נשמרה נקודת השוואה: גרסה ${labTag(labNow)}. שנו את המימוש, ואז הריצו מחדש כדי להשוות.`;
 };
 $("labDropBase").onclick=()=>{ try{ localStorage.removeItem(labBaseKey()); }catch{} drawLabBase(); };
+/* The trace dashboard for any saved recording: rescored now (the current version, and the server's GOP setting or one
+   of the sweep's), with the teacher's trace, then opened as the phoneme dialog opens it. */
+const LAB_SETTINGS=["max","mean","topk","lse","energy","gated"].flatMap(p=>["wide","0","1","2"].map(w=>`${p}|${w}`));
+function drawLabTracePicker(){
+  const recs=(labRes&&labRes.recordings)||[], show=$("labTraceShow").value, sel=$("labTraceRec"), was=sel.value;
+  $("labTraceRow").hidden=!recs.length;
+  const item=id=>(LAB&&LAB.items.find(x=>x.id===id))||{};
+  const keep=r=>!show||(show==="flagged"?r.flagged.length&&!r.unrelated:show==="unrelated"?r.unrelated:r.label==="mistake");
+  sel.replaceChildren();
+  for(const r of recs.filter(keep)){
+    const it=item(r.item), when=r.created_at?new Date(r.created_at).toLocaleDateString("he-IL"):"";
+    const what=r.unrelated?"משפט אחר":r.flagged.length?`סומן: ${r.flagged.join(", ")}`:"בלי סימון";
+    sel.append(new Option(`${it.ar||r.item} (${it.focus||"?"}) · ${r.speaker||"בלי שם"} · ${r.score??"—"} · ${what}`+
+                          (r.label==="mistake"?" · טעות מכוונת":"")+(when?` · ${when}`:""),String(r.id)));
+  }
+  if([...sel.options].some(o=>o.value===was)) sel.value=was;
+  $("labTraceOpen").disabled=!sel.options.length;
+  const set=$("labTraceSet");
+  if(!set.options.length){ set.append(new Option("של השרת","")); for(const k of LAB_SETTINGS){ const [p,w]=k.split("|"); set.append(new Option(`${p} · ${sweepWin(w)}`,k)); } }
+}
+$("labTraceShow").onchange=drawLabTracePicker;
+async function openLabTrace(id,setting,state,btn){
+  if(!id) return;
+  const tab=window.open("about:blank","_blank");   // opened on the click, so no popup blocker stops it after the wait
+  btn.disabled=true; state.textContent="מנתח את ההקלטה מחדש…";
+  try{
+    const res=await api(`/api/lab/samples/${id}/rescore?trace=true`+(setting?`&setting=${encodeURIComponent(setting)}`:""),{method:"POST"});
+    const d=await res.json().catch(()=>({})); if(!res.ok) throw new Error(d.detail||res.status);
+    localStorage.setItem("ihki.trace",JSON.stringify(d.result));
+    if(tab){ tab.opener=null; tab.location.href="/static/trace.html?src=app"; } else window.open("/static/trace.html?src=app","_blank","noopener");
+    state.textContent=`נפתח לוח האבחון של ההקלטה, בהגדרה ${d.setting}`;
+  }catch(e){ if(tab) tab.close(); state.textContent=`לוח האבחון לא נפתח: ${e.message}`; }
+  btn.disabled=false;
+}
+$("labTraceOpen").onclick=()=>{
+  openLabTrace($("labTraceRec").value,$("labTraceSet").value,$("labResState"),$("labTraceOpen"));
+};
+/* The sweep: every recording the filter shows, scored under each GOP setting (lab.SWEEP: GOP_RATIO_POOL x
+   GOP_VOWEL_WINDOW) without changing the server; then the benchmark of each setting, ranked by its quality
+   (lab.quality, balanced accuracy), and drawn as parallel coordinates: one line per setting through its two settings
+   and its metrics, coloured by the quality on a one-hue ramp (validated: dataviz ordinal check, light and dark). */
+let labSweepRes=null;
+const SWEEP_RAMP={light:["#86b6ef","#5598e7","#2a78d6","#1c5cab","#104281"],dark:["#1c5cab","#2a78d6","#5598e7","#86b6ef","#b7d3f6"]};
+const sweepWin=w=>w==="wide"?"רחב":`±${w}`, sweepPct=x=>x==null?"—":`${(100*x).toFixed(1)}%`, sweepQ=x=>x==null?"—":x.toFixed(1);
+$("labSweep").onclick=async()=>{
+  if(!labRes) return;
+  const btn=$("labSweep"), ids=labRes.samples, results={}; let failed=0;
+  btn.disabled=$("labRerunAll").disabled=true;
+  for(const [k,id] of ids.entries()){
+    $("labResState").textContent=`משווה 24 הגדרות: הקלטה ${k+1} מתוך ${ids.length}…`;
+    try{ const res=await api(`/api/lab/samples/${id}/sweep`,{method:"POST"}), d=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(d.detail||res.status); results[id]=d.results; }
+    catch{ failed++; }
+  }
+  try{
+    const res=await api("/api/lab/sweep",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({results})});
+    labSweepRes=await res.json().catch(()=>({})); if(!res.ok) throw new Error(labSweepRes.detail||res.status);
+  }catch(e){ labSweepRes=null; $("labResState").textContent=`ההשוואה נכשלה: ${e.message}`; btn.disabled=$("labRerunAll").disabled=false; return; }
+  $("labResState").textContent=`הושוו ${labSweepRes.settings.length} הגדרות על ${labSweepRes.recordings} הקלטות בגרסה ${labSweepRes.version}`+(failed?` · ${failed} נכשלו`:"");
+  btn.disabled=$("labRerunAll").disabled=false; drawSweep(labSweepRes);
+};
+try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{ if(labSweepRes&&!$("labSweepBox").hidden) drawSweep(labSweepRes); }); }catch{}
+function drawSweep(d){
+  $("labSweepBox").hidden=false;
+  const ramp=SWEEP_RAMP[matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"];
+  const all=d.settings, rows=all.filter(r=>r.quality!=null), best=rows[0], cur=all.find(r=>r.key===d.current);
+  const name=r=>`${r.pool} · חלון ${sweepWin(r.window)}`;
+  const qs=rows.map(r=>r.quality), qlo=Math.min(...qs), qhi=Math.max(...qs);
+  const tie=rows.length>1&&rows.every(r=>r.quality===best.quality&&JSON.stringify([r.totals,r.vowels])===JSON.stringify([best.totals,best.vowels]));
+  // near-tie: the flag metrics and the weak-vowel share equal, the vowel average within half a point
+  const vm=rows.map(r=>r.vowels&&r.vowels.mean).filter(x=>x!=null), vspread=vm.length?Math.max(...vm)-Math.min(...vm):0;
+  const near=!tie&&rows.length>1&&qhi-qlo<1e-9&&rows.every(r=>JSON.stringify(r.totals)===JSON.stringify(best.totals)
+    &&r.vowels&&best.vowels&&r.vowels.weak===best.vowels.weak&&r.vowels.auc===best.vowels.auc)&&vspread<.5;
+  $("labSweepSum").textContent=!best?"אין הקלטות שנותחו בהשוואה.":near?
+    `כל ${rows.length} ההגדרות כמעט זהות: כל המדדים שווים, וההבדל היחיד הוא ${vspread.toFixed(1)} נקודות בממוצע ציון התנועות. על ההקלטות האלה הבחירה לא משנה.`:tie?
+    `כל ${rows.length} ההגדרות יצאו זהות (איכות ${sweepQ(best.quality)}): על ההקלטות האלה הבחירה לא משנה אף מדד.`:
+    `הטובה ביותר: ${name(best)}, איכות ${sweepQ(best.quality)}`+(qhi-qlo<1e-9?" (האיכות שווה בכל ההגדרות, והדירוג נקבע לפי צירי התנועות)":"")+(cur===best?" (זו ההגדרה הנוכחית).":cur?` · ההגדרה הנוכחית (${name(cur)}): ${sweepQ(cur.quality)}.`:".");
+  $("labSweepNote").hidden=!rows.length||!rows.every(r=>r.partial);
+  // the axes: the two settings (categories), then the metrics, each with better up
+  const order=(fixed,f)=>{ const seen=new Set(all.map(f)); return fixed.filter(x=>seen.has(x)).concat([...seen].filter(x=>!fixed.includes(x))); };
+  const axes=[
+    {name:"איגום",hint:"GOP_RATIO_POOL",cat:order(["max","mean","topk","lse","energy","gated"],r=>r.pool),get:r=>r.pool,fmt:x=>x},
+    {name:"חלון תנועה",hint:"GOP_VOWEL_WINDOW",cat:order(["wide","0","1","2"],r=>String(r.window)),get:r=>String(r.window),fmt:sweepWin},
+    {name:"סומנו בטעות",hint:"↑ פחות",get:r=>r.totals.frr,fmt:sweepPct,lower:true},
+    {name:"זיהוי",hint:"↑ יותר",get:r=>r.totals.detection,fmt:sweepPct},
+    {name:"ציון 85+",hint:"↑ יותר",get:r=>r.totals.good_share,fmt:sweepPct},
+    {name:"תנועות חלשות",hint:"נכונות מתחת ל-75 ↑ פחות",get:r=>r.vowels&&r.vowels.weak,fmt:sweepPct,lower:true},
+    {name:"ציון תנועות",hint:"נכונות, ממוצע ↑",get:r=>r.vowels&&r.vowels.mean,fmt:sweepQ},
+    {name:"הפרדת תנועות",hint:"AUC ↑ יותר",get:r=>r.vowels&&r.vowels.auc,fmt:x=>x==null?"—":x.toFixed(2)},
+    {name:"איכות",hint:"↑ טוב יותר",get:r=>r.quality,fmt:sweepQ},
+  ].filter(a=>a.cat||rows.some(r=>a.get(r)!=null));
+  const W=880,H=330,M={t:52,b:26,l:70,r:58},top=M.t,bot=H-M.b,step=(W-M.l-M.r)/(axes.length-1);
+  for(const [i,a] of axes.entries()){
+    a.x=M.l+i*step;
+    if(a.cat){ a.y=v=>{ const k=a.cat.indexOf(v); return a.cat.length<2?(top+bot)/2:top+k*(bot-top)/(a.cat.length-1); }; continue; }
+    const vals=rows.map(a.get).filter(v=>v!=null), lo=Math.min(...vals), hi=Math.max(...vals);
+    a.lo=lo; a.hi=hi; a.flat=hi-lo<1e-9;   // every setting the same: one value mid-axis, no invented range
+    a.y=v=>v==null?bot:a.flat?(top+bot)/2:(a.lower?top+(v-lo)/(hi-lo)*(bot-top):bot-(v-lo)/(hi-lo)*(bot-top));
+  }
+  // colour by rank (the server's order: quality, then the vowel axes), best darkest on light / lightest on dark
+  const rank=new Map(all.map((r,k)=>[r.key,k]));
+  const colour=r=>ramp[r.quality==null?0:4-Math.min(4,Math.floor(rank.get(r.key)/all.length*5))];
+  const NS="http://www.w3.org/2000/svg", el=(tag,attrs,text)=>{ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(text!=null) e.textContent=text; return e; };
+  const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":`עקומות מקבילות של ${all.length} הגדרות; הנתונים בטבלה שמתחת`});
+  const labels=[];   // drawn over the lines, with a halo of the surface
+  for(const a of axes){
+    svg.append(el("line",{class:"pc-axis",x1:a.x,x2:a.x,y1:top,y2:bot}));
+    labels.push(el("text",{class:"pc-name",x:a.x,y:16},a.name), el("text",{class:"pc-hint",x:a.x,y:32,"text-anchor":"middle","font-size":11},a.hint));
+    if(a.cat) for(const c of a.cat) labels.push(el("text",{class:"pc-tick",x:a.x-6,y:a.y(c)+4,"text-anchor":"end"},a.fmt(c)));
+    else if(a.flat){ const last=a===axes[axes.length-1];
+      labels.push(el("text",{class:"pc-tick",x:last?a.x-6:a.x+6,y:(top+bot)/2+4,"text-anchor":last?"end":"start"},`${a.fmt(a.lo)} (כולן)`)); }
+    else{
+      const [up,down]=a.lower?[a.lo,a.hi]:[a.hi,a.lo];
+      labels.push(el("text",{class:"pc-tick",x:a.x+6,y:top+4},a.fmt(up)), el("text",{class:"pc-tick",x:a.x+6,y:bot+4},a.fmt(down)));
+    }
+  }
+  const wrap=$("labSweepPlot"), tip=mark("pc-tip",""); tip.hidden=true;
+  const lines={}, trs={};
+  const hl=key=>{ wrap.classList.toggle("hl",!!key); for(const k in lines) lines[k].classList.toggle("on",k===key);
+    for(const k in trs) trs[k].classList.toggle("on",k===key); };
+  // the worst first, so the best are drawn on top
+  for(const r of [...all].sort((x,y)=>(x.quality??-1)-(y.quality??-1))){
+    const pts=axes.map(a=>`${a.x},${a.y(a.get(r)).toFixed(1)}`).join(" ");
+    const line=el("polyline",{class:"pc-line",points:pts,stroke:colour(r)});
+    if(r.key===d.current) line.setAttribute("stroke-dasharray","7 4");
+    const hit=el("polyline",{class:"pc-hit",points:pts});
+    hit.addEventListener("mouseenter",()=>hl(r.key));
+    hit.addEventListener("mousemove",ev=>{
+      tip.replaceChildren(mark("",name(r)+(r.key===d.current?" (נוכחית)":""),"b"));
+      for(const a of axes.slice(2)) tip.append(document.createElement("br"),`${a.name}: ${a.fmt(a.get(r))}`);
+      tip.hidden=false; const box=wrap.getBoundingClientRect(), x=ev.clientX-box.left, y=ev.clientY-box.top;
+      tip.style.left=`${Math.min(x+14,box.width-tip.offsetWidth-4)}px`; tip.style.top=`${Math.max(0,y-tip.offsetHeight-10)}px`; });
+    hit.addEventListener("mouseleave",()=>{ hl(null); tip.hidden=true; });
+    lines[r.key]=line; svg.append(line,hit);
+  }
+  for(const t of labels) t.classList.add("pc-label");
+  svg.append(...labels);
+  wrap.replaceChildren(svg,tip);
+  for(const t of labels) if(t.classList.contains("pc-tick")){   // a plate under each tick, so a line along it does not cross it
+    const b=t.getBBox(); if(b.width) svg.insertBefore(el("rect",{class:"pc-plate",x:b.x-3,y:b.y-1,width:b.width+6,height:b.height+2,rx:3}),t); }
+  // the legend: the ramp, and the current setting's dash
+  const lg=$("labSweepLegend"), sw=mark("ramp","");
+  for(const c of ramp){ const i=document.createElement("i"); i.style.background=c; sw.append(i); }
+  lg.replaceChildren(mark("",`דירוג ${all.length}`),sw,mark("","1"),mark("dash",""),mark("","ההגדרה הנוכחית"));
+  // the table: the same numbers, best first
+  const tb=$("labSweepTable"); tb.replaceChildren();
+  const head=document.createElement("tr");
+  for(const h of ["#","איגום","חלון תנועה","איכות","סומנו בטעות","זיהוי","ציון 85+","תנועות חלשות","ציון תנועות","הפרדת תנועות","ציונים ששונו","משפט אחר"]) head.append(mark("",h,"th"));
+  tb.append(head);
+  for(const [k,r] of all.entries()){
+    const tr=document.createElement("tr"), t=r.totals, v=r.vowels||{};
+    for(const cell of [String(k+1),r.pool+(r.key===d.current?" (נוכחית)":""),sweepWin(r.window),sweepQ(r.quality)+(r.partial&&r.quality!=null?"*":""),
+                    `${sweepPct(t.frr)} (${t.false_flags}/${t.right})`,t.planted?`${sweepPct(t.detection)} (${t.caught}/${t.planted})`:"—",sweepPct(t.good_share),
+                    v.right?`${sweepPct(v.weak)} (${v.right})`:"—",sweepQ(v.mean),v.auc==null?"—":`${v.auc.toFixed(2)} (${v.planted})`,
+                    r.key==="max|wide"?"בסיס":`${r.changed??"—"} מתוך ${r.sounds??"—"}`,String(t.unrelated)])
+      tr.append(mark("",cell,"td"));
+    tr.onmouseenter=()=>hl(r.key); tr.onmouseleave=()=>hl(null);
+    trs[r.key]=tr; tb.append(tr);
+  }
+}
 function drawLabBase(){
   const base=store.get(labBaseKey(),null);
-  $("labBase").textContent=base?`נקודת השוואה: גרסה ${base.version}, ${new Date(base.at).toLocaleString("he-IL")}`:"אין נקודת השוואה שמורה";
+  $("labBase").textContent=base?`נקודת השוואה: גרסה ${labTag(base)}, ${new Date(base.at).toLocaleString("he-IL")}`:"אין נקודת השוואה שמורה";
   $("labDropBase").hidden=!base;
 }
 // `cmp`: the benchmark to compare with (null: none). A false rejection rate is better lower; detection and the share

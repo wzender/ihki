@@ -72,6 +72,30 @@ class FakeAuth:
     def lab_audio(self, sample_id):
         return (tone_wav(), "audio/wav") if self.lab_sample(sample_id) else None
 
+    def delete_lab_samples(self, speaker=None):
+        gone = [s for s in self.samples if speaker is None or (s.get("speaker") or "") == speaker]
+        self.samples = [s for s in self.samples if s not in gone]
+        return len(gone)
+
+
+def test_lab_deletes_one_speaker_or_everyone():
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    auth, teacher = FakeAuth(), {"Authorization": "Bearer teacher"}
+    audio = {"audio": ("a.wav", tone_wav(), "audio/wav")}
+    with TestClient(create_app(scorer_for(emissions(["ħ", "aː", "l"])), NoTTS(), auth=auth)) as c:
+        for speaker in ("א", "א", "ב"):
+            c.post("/api/lab/score", data={"item": "pair-ħaal", "speaker": speaker}, files=audio, headers=teacher)
+        assert c.delete("/api/lab/samples", headers=teacher).status_code == 400          # never all by omission
+        assert c.delete("/api/lab/samples?speaker=א&everyone=true", headers=teacher).status_code == 400
+        assert c.delete("/api/lab/samples?everyone=true", headers={"Authorization": "Bearer student"}).status_code == 403
+        assert c.delete("/api/lab/samples?speaker=%20א%20", headers=teacher).json() == {"deleted": 2}
+        assert c.get("/api/lab/results", headers=teacher).json()["speakers"] == ["ב"]
+        assert c.delete("/api/lab/samples?everyone=true", headers=teacher).json() == {"deleted": 1}
+        assert c.get("/api/lab/results", headers=teacher).json()["totals"]["recordings"] == 0
+
 
 def test_items_are_well_formed():
     assert len({i["id"] for i in ITEMS}) == len(ITEMS)
@@ -189,6 +213,29 @@ def test_lab_results_and_flag_rescore():
         assert c.post("/api/lab/flags/8/rescore", headers=teacher).status_code == 404
 
 
+def test_minerva_lab_groups_imported_segments_by_video():
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    auth, teacher = FakeAuth(), {"Authorization": "Bearer teacher"}
+    auth.samples = [
+        {"id": 2, "item": "minerva:U8aBRd3-wlM:02", "speaker": "מינרווה", "device": "minerva:U8aBRd3-wlM:4.2-7.8",
+         "ar": "مرحبا", "ipa": "m a r ħ a b a", "score": 81, "heard_ipa": "m a r ħ a b a", "flagged": [],
+         "result": {}, "audio": "two.webm"},
+        {"id": 1, "item": "minerva:U8aBRd3-wlM:01", "speaker": "מינרווה", "device": "minerva:U8aBRd3-wlM:1.0-4.0",
+         "ar": "أهلا", "ipa": "ʔ a h l a", "score": 70, "heard_ipa": "ʔ a h l a", "flagged": ["h>x"],
+         "result": {"unrelated": False}, "audio": "one.webm"},
+        {"id": 3, "item": "pair-ħaal", "speaker": "אחר", "device": "", "audio": "other.wav"},
+    ]
+    with TestClient(create_app(scorer_for(emissions(["ħ", "aː", "l"])), NoTTS(), auth=auth)) as c:
+        d = c.get("/api/lab/minerva", headers=teacher).json()
+        assert len(d["videos"]) == 1 and d["videos"][0]["id"] == "U8aBRd3-wlM"
+        assert [s["line"] for s in d["videos"][0]["samples"]] == [1, 2]
+        assert d["videos"][0]["samples"][0]["start"] == 1.0
+        assert c.get("/api/lab/minerva", headers={"Authorization": "Bearer student"}).status_code == 403
+
+
 def test_lab_rescores_its_recordings_and_compares_with_the_stored_scores():
     from fastapi.testclient import TestClient
 
@@ -206,6 +253,7 @@ def test_lab_rescores_its_recordings_and_compares_with_the_stored_scores():
         assert r["id"] == 1 and not any(p["flagged"] for w in r["result"]["words"] for p in w["phonemes"])
         assert "trace" not in r["result"]
         d = c.post("/api/lab/results", json={"results": {"1": r["result"]}}, headers=teacher).json()
+        assert d["pool"] == c.app.state.scorer.cfg.gop.ratio_pool
         before, after = ({x["sound"]: x for x in d[k]["sounds"]}["ħ"] for k in ("stored", "now"))
         assert before["frr"] == 1.0 and after["frr"] == 0.0
         assert c.post("/api/lab/samples/9/rescore", headers=teacher).status_code == 404
@@ -253,3 +301,137 @@ def test_lab_automatic_test_with_tts():
         c.app.state.tts = None
         assert c.get("/api/lab/tts", headers=teacher).json()["voices"] == []
         assert c.post("/api/lab/tts", data={"item": "pair-ħaal", "voice": "ראאף"}, headers=teacher).status_code == 503
+
+
+def test_lab_sweeps_every_gop_setting():
+    from fastapi.testclient import TestClient
+
+    from app import lab
+    from app.main import create_app
+
+    assert len(lab.SWEEP) == 24 and len(lab.SWEEP_KEYS) == 24
+    assert lab.quality({"frr": .1, "detection": .5}) == 70.0 and lab.quality({"frr": .1, "detection": None}) == 90.0
+    assert lab.quality({"frr": None}) is None and lab.quality_partial({"frr": .1, "detection": None})
+
+    auth, teacher = FakeAuth(), {"Authorization": "Bearer teacher"}
+    audio = {"audio": ("a.wav", tone_wav(), "audio/wav")}
+    with TestClient(create_app(scorer_for(emissions(["χ", "aː", "l"])), NoTTS(), auth=auth)) as c:
+        c.post("/api/lab/score", data={"item": "pair-ħaal"}, files=audio, headers=teacher)          # ħ heard as χ
+        c.post("/api/lab/score", data={"item": "pair-ħaal", "mistake": "0"}, files=audio,
+               headers=teacher)
+        before = c.app.state.scorer.cfg.gop
+        r = c.post("/api/lab/samples/1/sweep", headers=teacher).json()
+        assert r["id"] == 1 and set(r["results"]) == set(lab.SWEEP_KEYS)
+        assert c.app.state.scorer.cfg.gop == before                     # the server's own setting is untouched
+        r2 = c.post("/api/lab/samples/2/sweep", headers=teacher).json()
+        d = c.post("/api/lab/sweep", json={"results": {"1": r["results"], "2": r2["results"]}}, headers=teacher).json()
+        assert len(d["settings"]) == 24 and d["recordings"] == 2
+        assert d["current"] == lab.sweep_key(before.ratio_pool, before.vowel_window)
+        s = d["settings"][0]
+        assert {"key", "pool", "window", "quality", "partial", "totals"} <= set(s)
+        qs = [x["quality"] for x in d["settings"]]
+        assert qs == sorted(qs, reverse=True)
+        assert c.post("/api/lab/samples/9/sweep", headers=teacher).status_code == 404
+        assert c.post("/api/lab/sweep", json={"results": []}, headers=teacher).status_code == 400
+        assert c.post("/api/lab/samples/1/sweep", headers={"Authorization": "Bearer student"}).status_code == 403
+
+
+def test_vowel_stats_score_vowels_not_flags():
+    from app.lab import vowel_stats
+
+    def sample(i, phones, mistake=None):
+        return {"id": i, "label": "mistake" if mistake else "correct",
+                "mistake": {"index": 0, "expected": mistake} if mistake else None,
+                "result": {"words": [{"phonemes": [{"ipa": p, "score": sc} for p, sc in phones]}]}}
+
+    rows = [sample(1, [("k", 40), ("a", 95), ("i", 70)]), sample(2, [("a", 30), ("l", 100)], mistake="a"),
+            {**sample(3, [("a", 10)]), "result": {"unrelated": True, "words": [{"phonemes": [{"ipa": "a", "score": 10}]}]}}]
+    v = vowel_stats(rows)
+    assert v == {"right": 2, "mean": 82.5, "weak": 0.5, "planted": 1, "auc": 1.0}   # k is no vowel, #3 is unrelated
+    assert vowel_stats(rows[:1])["auc"] is None
+    assert vowel_stats(rows, {2: {"words": [{"phonemes": [{"ipa": "a", "score": 70}]}]}})["auc"] == 0.75
+
+
+def test_the_sweep_scores_every_setting_whatever_the_env(monkeypatch):
+    """The sweep passes each setting to the scorer itself: the env only picks the server's own one."""
+    from fastapi.testclient import TestClient
+
+    import app.scorer as scorer_module
+    from app import lab
+    from app.main import create_app
+
+    monkeypatch.setenv("GOP_RATIO_POOL", "max")
+    monkeypatch.setenv("GOP_VOWEL_WINDOW", "wide")
+    seen, real = [], scorer_module.score_tokens
+    monkeypatch.setattr(scorer_module, "score_tokens",
+                        lambda logp, al, ids, blank, cfg, *a, **k: seen.append((cfg.ratio_pool, cfg.vowel_window))
+                        or real(logp, al, ids, blank, cfg, *a, **k))
+    auth, teacher = FakeAuth(), {"Authorization": "Bearer teacher"}
+    with TestClient(create_app(scorer_for(emissions(["ħ", "aː", "l"])), NoTTS(), auth=auth)) as c:
+        c.post("/api/lab/score", data={"item": "pair-ħaal"}, files={"audio": ("a.wav", tone_wav(), "audio/wav")},
+               headers=teacher)
+        assert c.app.state.scorer.cfg.gop.ratio_pool == "max"
+        seen.clear()
+        r = c.post("/api/lab/samples/1/sweep", headers=teacher).json()
+        assert sorted(seen, key=str) == sorted(lab.SWEEP, key=str)
+        d = c.post("/api/lab/sweep", json={"results": {"1": r["results"]}}, headers=teacher).json()
+        assert all({"right", "mean", "weak", "planted", "auc"} <= set(s["vowels"]) for s in d["settings"])
+        base = next(s for s in d["settings"] if s["key"] == "max|wide")
+        assert base["changed"] == 0 and base["sounds"] == 3
+        assert d["current"] == "max|wide"
+
+
+def test_the_sweep_shows_which_settings_changed_a_score():
+    """A long vowel with an /i/ spike inside its window: max|wide marks it down, the pooled settings do not."""
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+    from test_scoring import SYMS, VOCAB
+
+    lp = emissions(["ħ", "aː", "l"], gap=5)
+    p = np.exp(lp)
+    vowel = [t for t in range(len(p)) if lp[t].argmax() == VOCAB["aː"]]
+    for t in vowel:
+        p[t] = (1 - .45) / (len(SYMS) - 1); p[t, VOCAB["aː"]] = .45
+    p[vowel[-1] + 3] = .1 / (len(SYMS) - 1); p[vowel[-1] + 3, VOCAB["i"]] = .9
+    auth, teacher = FakeAuth(), {"Authorization": "Bearer teacher"}
+    with TestClient(create_app(scorer_for(np.log(p / p.sum(1, keepdims=True))), NoTTS(), auth=auth)) as c:
+        c.post("/api/lab/score", data={"item": "pair-ħaal"}, files={"audio": ("a.wav", tone_wav(), "audio/wav")},
+               headers=teacher)
+        r = c.post("/api/lab/samples/1/sweep", headers=teacher).json()
+        d = {s["key"]: s for s in c.post("/api/lab/sweep", json={"results": {"1": r["results"]}}, headers=teacher).json()["settings"]}
+        assert d["max|wide"]["changed"] == 0 and d["max|wide"]["vowels"]["mean"] < 80
+        for key in ("mean|wide", "gated|wide", "topk|wide", "max|1"):
+            assert d[key]["changed"] == 1 and d[key]["vowels"]["mean"] > 95, key
+
+
+def test_lab_opens_the_trace_of_any_saved_recording():
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    auth, teacher = FakeAuth(), {"Authorization": "Bearer teacher"}
+    audio = {"audio": ("a.wav", tone_wav(), "audio/wav")}
+    with TestClient(create_app(scorer_for(emissions(["χ", "aː", "l"])), NoTTS(), auth=auth)) as c:
+        c.post("/api/lab/score", data={"item": "pair-ħaal", "speaker": "א"}, files=audio, headers=teacher)
+        recs = c.get("/api/lab/results", headers=teacher).json()["recordings"]
+        assert [(r["id"], r["item"], r["speaker"], r["flagged"]) for r in recs] == [(1, "pair-ħaal", "א", ["ħ>χ"])]
+        assert recs[0]["unrelated"] is False
+        d = c.post("/api/lab/samples/1/rescore?trace=true", headers=teacher).json()
+        assert "trace" in d["result"] and d["result"]["trace"]["tokens"] and d["sample"]["item"] == "pair-ħaal"
+        g = c.app.state.scorer.cfg.gop
+        assert d["setting"] == f"{g.ratio_pool}|{'wide' if g.vowel_window is None else g.vowel_window}"
+        d = c.post("/api/lab/samples/1/rescore?trace=true&setting=max|1", headers=teacher).json()
+        assert d["setting"] == "max|1" and "trace" in d["result"]
+        assert "trace" not in c.post("/api/lab/samples/1/rescore", headers=teacher).json()["result"]
+        assert c.post("/api/lab/samples/1/rescore?trace=true&setting=nope", headers=teacher).status_code == 400
+
+
+def test_imported_lab_line_reconstructs_its_phrase_outside_the_fixed_list():
+    from app.lab import sample_phrase
+
+    phrase = sample_phrase({"id": 7, "item": "minerva:video:01", "ar": "حال", "ipa": "ħ aː l",
+                            "speaker": "מינרווה"})
+    assert phrase == {"cat": "lab", "key": "minerva:video:01", "he": "מינרווה",
+                      "variants": [("حال", "ħ aː l")]}
+    assert sample_phrase({"id": 8, "item": "removed-item"}) is None

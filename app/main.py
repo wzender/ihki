@@ -35,7 +35,7 @@ from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .reference import References
 from .rules import TOGGLES, check_detectable
-from .scorer import Scorer, decode_audio, load_scorer
+from .scorer import SAMPLE_RATE, Scorer, decode_audio, frame_energy, load_scorer
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
 from .tts import LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts
@@ -778,20 +778,82 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         speakers = sorted({s.get("speaker") or "" for s in samples})
         if speaker:
             samples = [s for s in samples if (s.get("speaker") or "") == speaker]
+        # the recordings themselves, newest first, for the trace dashboard's picker
+        recordings = [{"id": s["id"], "item": s["item"], "speaker": s.get("speaker") or "", "label": s.get("label"),
+                       "mistake": s.get("mistake"), "score": s.get("score"), "flagged": s.get("flagged") or [],
+                       "unrelated": bool((s.get("result") or {}).get("unrelated")), "created_at": s.get("created_at")}
+                      for s in reversed(samples) if s.get("audio")]
         return {**lab.benchmark(samples, reports=reports), "speakers": speakers, "model": MODEL_ID,
-                "version": build_version(), "samples": [s["id"] for s in samples if s.get("audio")]}
+                "version": build_version(), "samples": [s["id"] for s in samples if s.get("audio")],
+                "recordings": recordings}
+
+    @app.get("/api/lab/minerva")
+    def lab_minerva(a: SupabaseAuth = Depends(teacher_only)):
+        """The imported Minerva pilot, grouped into videos for the lab's native-speech runner."""
+        titles = {"U8aBRd3-wlM": "במכולת", "OuAwxXUZBU4": "אסיפת הורים", "V2y6LqnoXTo": "הקדרה"}
+        files = {"U8aBRd3-wlM": "במכולת ＊ פִי א-דֻכַּאן ＊  في الدّكّان ＊ קטע שיחה בערבית מדוברת [U8aBRd3-wlM].webm",
+                 "OuAwxXUZBU4": "אסיפת הורים ＊ אִגתִמַאע אַהַאלִי ＊ إجتماع أهالي ＊ קטע שיחה בערבית מדוברת [OuAwxXUZBU4].webm",
+                 "V2y6LqnoXTo": "הקְדֵרָה הולידה קְדֵרָה ＊ אִ-טֻנגָ'רָה וִלדַת טֻנגָ'רָה ＊ الطّنجرة ولدت طنجرة ＊ סיפור בערבית מדוברת [V2y6LqnoXTo].mkv"}
+        try:
+            samples = a.lab_samples(full=True)
+        except AuthUnavailable as e:
+            raise lab_error(e)
+        videos: dict[str, dict] = {}
+        for s in samples:
+            match = re.fullmatch(r"minerva:([\w-]{11}):(\d+)", s.get("item") or "")
+            if (s.get("speaker") or "") != "מינרווה" or not match:
+                continue
+            video_id, line = match.group(1), int(match.group(2))
+            timing = re.fullmatch(rf"minerva:{re.escape(video_id)}:([0-9.]+)-([0-9.]+)", s.get("device") or "")
+            stored = s.get("result") or {}
+            video = videos.setdefault(video_id, {"id": video_id, "title": titles.get(video_id, video_id),
+                                                  "filename": files.get(video_id, ""), "samples": []})
+            video["samples"].append({"id": s["id"], "item": s["item"], "line": line,
+                                     "start": float(timing.group(1)) if timing else None,
+                                     "end": float(timing.group(2)) if timing else None,
+                                     "ar": s.get("ar") or "", "ipa": s.get("ipa") or "",
+                                     "score": s.get("score"), "heard_ipa": s.get("heard_ipa") or "",
+                                     "flagged": s.get("flagged") or [],
+                                     "unrelated": bool(stored.get("unrelated")), "audio": bool(s.get("audio"))})
+        order = list(titles)
+        out = list(videos.values())
+        out.sort(key=lambda v: order.index(v["id"]) if v["id"] in order else len(order))
+        for video in out:
+            video["samples"].sort(key=lambda s: s["line"])
+        return {"videos": out, "model": MODEL_ID, "version": build_version()}
+
+    @app.delete("/api/lab/samples")
+    def lab_delete_samples(speaker: str | None = Query(None), everyone: bool = Query(False),
+                           a: SupabaseAuth = Depends(teacher_only)):
+        """Deletes the lab's recordings, rows and files, to record the list afresh: one `speaker`'s ("" the unnamed),
+        or with `everyone` every speaker's. One of the two is required, so a missing parameter never deletes all.
+        {"deleted": how many recordings}."""
+        if (speaker is None) == (not everyone):
+            raise HTTPException(400, "give a speaker, or everyone=true")
+        try:
+            n = a.delete_lab_samples(None if everyone else " ".join(speaker.split())[:MAX_SPEAKER])
+        except AuthUnavailable as e:
+            raise lab_error(e)
+        log.info("lab: %d recordings deleted (%s)", n, "every speaker" if everyone else f"speaker {speaker!r}")
+        return {"deleted": n}
 
     @app.post("/api/lab/samples/{sample_id}/rescore")
-    def lab_rescore_sample(sample_id: int, a: SupabaseAuth = Depends(teacher_only)):
+    def lab_rescore_sample(sample_id: int, trace: bool = Query(False), setting: str = Query(""),
+                           a: SupabaseAuth = Depends(teacher_only)):
         """A lab recording scored again by the current scorer (as practice scores, with the native baseline), nothing
         kept: {"id", "result": what the benchmark reads of it (lab.compact)}. The page rescores the recordings one by
-        one and sends the results to POST /api/lab/results."""
+        one and sends the results to POST /api/lab/results.
+        `trace`: the whole result with the teacher's stage-by-stage trace instead, for the trace dashboard. `setting`
+        (a lab.SWEEP key, "gated|wide"): scored under that GOP setting, its native baseline rebuilt under it too."""
+        if setting and setting not in lab.SWEEP_KEYS:
+            raise HTTPException(400, "unknown setting")
         try:
             row = a.lab_sample(sample_id)
             found = a.lab_audio(sample_id) if row else None
         except AuthUnavailable as e:
             raise lab_error(e)
-        if row is None or row["item"] not in lab.BY_ID:
+        phrase = lab.sample_phrase(row) if row else None
+        if phrase is None:
             raise HTTPException(404, "no such lab recording")
         if found is None:
             raise HTTPException(404, "להקלטה הזו אין קובץ שמור")
@@ -799,9 +861,124 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             wav = decode_audio(found[0])
         except ValueError:
             raise HTTPException(400, "could not decode audio")
-        phrase = lab.phrase(lab.BY_ID[row["item"]])
-        refs = app.state.refs.get(phrase["key"], phrase) if app.state.refs else []
-        return {"id": sample_id, "result": lab.compact(app.state.scorer.score(wav, phrase, refs))}
+        scorer = app.state.scorer
+        if setting:
+            pool, window = lab.SWEEP_KEYS[setting]
+            scorer = scorer.with_gop(ratio_pool=pool, vowel_window=window)
+            refs = sweep_references(scorer, phrase, setting)
+        else:
+            refs = app.state.refs.get(phrase["key"], phrase) if app.state.refs else []
+        result = scorer.score(wav, phrase, refs, diagnostics=trace)
+        if not trace:
+            return {"id": sample_id, "result": lab.compact(result)}
+        g = scorer.cfg.gop
+        return {"id": sample_id, "result": result, "setting": lab.sweep_key(g.ratio_pool, g.vowel_window),
+                "sample": {k: row.get(k) for k in ("id", "item", "speaker", "label", "mistake")}}
+
+    # The sweep (POST /api/lab/samples/{id}/sweep) rebuilds each native baseline under every setting: the voices'
+    # posteriors are kept by (voice, wav hash), their References by setting too, for the life of the server.
+    sweep_emits: dict[tuple[str, str], tuple] = {}
+    sweep_refs: dict[tuple, object] = {}
+
+    def sweep_references(scorer: Scorer, phrase: dict, setting: str) -> list:
+        """The native baseline of `phrase` under `scorer`'s setting, from the TTS voices whose WAV is cached (the first
+        voice's is made on the way, as a rescore makes it). Empty without TTS."""
+        refs = app.state.refs
+        if refs is None:
+            return []
+        refs.get(phrase["key"], phrase)
+        text, out = point_arabic(*phrase["variants"][0]), []
+        for voice in refs.voices:
+            try:
+                if not refs.tts.cached(text, voice):
+                    continue
+                data, _ = refs.tts.wav(text, voice)
+            except Exception as e:   # provider down: score without this voice, as References does
+                log.warning("sweep: no %s voice for %r: %s", voice, text, e)
+                continue
+            emitted = (voice, hashlib.sha1(data).hexdigest())
+            if emitted not in sweep_emits:
+                if len(sweep_emits) > 400:
+                    sweep_emits.clear(); sweep_refs.clear()
+                wav = decode_audio(data)
+                logp = app.state.scorer.emit(wav)
+                sweep_emits[emitted] = (logp, frame_energy(wav, len(logp)))
+            key = (*emitted, phrase["key"], setting, scorer.disabled)
+            if key not in sweep_refs:
+                logp, energy = sweep_emits[emitted]
+                sweep_refs[key] = scorer.reference_logp(logp, phrase, energy)
+            if sweep_refs[key] is not None:
+                out.append(sweep_refs[key])
+        return out
+
+    @app.post("/api/lab/samples/{sample_id}/sweep")
+    def lab_sweep_sample(sample_id: int, a: SupabaseAuth = Depends(teacher_only)):
+        """A lab recording scored under each GOP setting of lab.SWEEP (GOP_RATIO_POOL x GOP_VOWEL_WINDOW), nothing kept.
+        The model runs once; each setting scores its posteriors against the native baseline rebuilt under it.
+        {"id", "results": {setting: what the benchmark reads (lab.compact)}}; the page sends them to POST /api/lab/sweep."""
+        try:
+            row = a.lab_sample(sample_id)
+            found = a.lab_audio(sample_id) if row else None
+        except AuthUnavailable as e:
+            raise lab_error(e)
+        phrase = lab.sample_phrase(row) if row else None
+        if phrase is None:
+            raise HTTPException(404, "no such lab recording")
+        if found is None:
+            raise HTTPException(404, "להקלטה הזו אין קובץ שמור")
+        try:
+            wav = decode_audio(found[0])
+        except ValueError:
+            raise HTTPException(400, "could not decode audio")
+        base = app.state.scorer
+        logp = base.emit(wav)
+        energy, duration = frame_energy(wav, len(logp)), len(wav) / SAMPLE_RATE
+        results = {}
+        for setting, (pool, window) in lab.SWEEP_KEYS.items():
+            scorer = base.with_gop(ratio_pool=pool, vowel_window=window)
+            refs = sweep_references(scorer, phrase, setting)
+            results[setting] = lab.compact(scorer.score_logp(logp, phrase, refs, False, duration, energy))
+        return {"id": sample_id, "results": results}
+
+    @app.post("/api/lab/sweep")
+    def lab_sweep_results(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+        """The benchmark of every setting from the sweeps of the recordings ({"results": {sample id: {setting: result}}}):
+        {"settings": [{"key", "pool", "window", "quality", "partial", "totals", "vowels" (lab.vowel_stats),
+        "changed": how many sound scores differ from max|wide's, "sounds"}] best first, "current": the server's own
+        setting, "recordings", "model", "version"}. `quality` is lab.quality (balanced accuracy)."""
+        given = body.get("results")
+        if not isinstance(given, dict) or len(given) > 5000:
+            raise HTTPException(400, "invalid results")
+        try:
+            results = {int(k): v for k, v in given.items() if isinstance(v, dict)}
+        except ValueError:
+            raise HTTPException(400, "invalid results")
+        try:
+            samples = [s for s in a.lab_samples(full=True) if s["id"] in results]
+        except AuthUnavailable as e:
+            raise lab_error(e)
+        keep = ("recordings", "unrelated", "right", "false_flags", "planted", "caught", "frr", "detection", "good_share")
+        ref = lab.sweep_key("max", None)   # the scoring before pooling and windows: what each setting changed of it
+        scores = lambda r: [p.get("score") for w in r.get("words", []) for p in w.get("phonemes", [])]
+        settings = []
+        for setting, (pool, window) in lab.SWEEP_KEYS.items():
+            per = {i: r[setting] for i, r in results.items() if isinstance(r.get(setting), dict)}
+            mine = [s for s in samples if s["id"] in per]
+            totals = lab.benchmark(mine, per)["totals"]
+            settings.append({"key": setting, "pool": pool, "window": "wide" if window is None else window,
+                             "quality": lab.quality(totals), "partial": lab.quality_partial(totals),
+                             "totals": {k: totals[k] for k in keep}, "vowels": lab.vowel_stats(mine, per),
+                             # the sounds this setting scored otherwise than `ref`, of the sounds both scored
+                             "changed": sum(a != b for i, r in results.items() if isinstance(r.get(ref), dict)
+                                            and i in per for a, b in zip(scores(per[i]), scores(r[ref]))),
+                             "sounds": sum(len(scores(per[i])) for i in per)})
+        # by quality; its ties (the flags rarely see a vowel) by how well the vowels separate, then how few are weak
+        settings.sort(key=lambda r: (r["quality"] is None, -(r["quality"] or 0), -(r["vowels"]["auc"] or 0),
+                                     r["vowels"]["weak"] if r["vowels"]["weak"] is not None else 1,
+                                     -(r["vowels"]["mean"] or 0)))
+        g = app.state.scorer.cfg.gop
+        return {"settings": settings, "current": lab.sweep_key(g.ratio_pool, g.vowel_window), "recordings": len(samples),
+                "model": MODEL_ID, "version": build_version()}
 
     @app.post("/api/lab/results")
     def lab_rescored_results(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
@@ -823,8 +1000,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except AuthUnavailable as e:
             log.warning("confirmed flags not read for the lab: %s", e)
             reports = []
+        cfg = getattr(app.state.scorer, "cfg", None)   # the env, not the code, picks the pool: the version cannot tell
         return {"now": lab.benchmark(samples, results, reports), "stored": lab.benchmark(samples, reports=reports),
-                "model": MODEL_ID, "version": build_version()}
+                "model": MODEL_ID, "version": build_version(),
+                "pool": cfg.gop.ratio_pool if cfg else None,
+                "vowel_window": ("wide" if cfg.gop.vowel_window is None else f"±{cfg.gop.vowel_window}") if cfg else None}
 
     @app.post("/api/lab/flags/{flag_id}/rescore")
     def lab_rescore_flag(flag_id: int, a: SupabaseAuth = Depends(teacher_only)):

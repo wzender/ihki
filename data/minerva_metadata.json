@@ -1,0 +1,114 @@
+[
+  {
+    "file_name": "במכולת ＊ פִי א-דֻכַּאן ＊  في الدّكّان ＊ קטע שיחה בערבית מדוברת [U8aBRd3-wlM].webm",
+    "youtube_id": "U8aBRd3-wlM",
+    "title_hebrew": "במכולת",
+    "segments": [
+      {
+        "voice_time_seconds": {"start": 9.0, "end": 10.8},
+        "arabic": "فيه عندك حليب طازة؟",
+        "hebrew_transliteration": "פִיה עִנְדַכּ חַלִיב טַאזֶה?",
+        "hebrew": "יש לך חלב טרי?",
+        "expected_phonemes": "f iː h | ʕ i n d a k | ħ a l iː b | tˤ aː z e"
+      },
+      {
+        "voice_time_seconds": {"start": 10.8, "end": 12.8},
+        "arabic": "آه، جوّا في التلّاجة، على إيدك اليمين.",
+        "hebrew_transliteration": "אַה, גֻ'וַּא פִי ת-תַּלַּאגֶ'ה, עַלַא אִידֶכּ לְ-יַמִין.",
+        "hebrew": "כן, בפנים במקרר, מימינך.",
+        "expected_phonemes": "ʔ aː | dʒ u w a | f i | t t a l aː dʒ e | ʕ a l a | ʔ iː d e k | l j a m iː n"
+      },
+      {
+        "voice_time_seconds": {"start": 12.8, "end": 14.2},
+        "arabic": "ممتاز.",
+        "hebrew_transliteration": "מֻמְתַאז.",
+        "hebrew": "מצוין.",
+        "expected_phonemes": "m u m t aː z"
+      },
+      {
+        "voice_time_seconds": {"start": 14.2, "end": 17.6},
+        "arabic": "ممكن تحطّلي كمان وقيّة جبنة صفرا؟",
+        "hebrew_transliteration": "מֻמְכּן תְחֻטְלִי כַּמַאן וַקִיַּת גֻ'בְּנֶה צַפְרַא?",
+        "hebrew": "אפשר לשים לי גם חבילת גבינה צהובה?",
+        "expected_phonemes": "m u m k n | t ħ u tˤ l i | k a m aː n | w a ʔ i j a t | dʒ u b n e | sˤ a f r a"
+      },
+      {
+        "voice_time_seconds": {"start": 17.6, "end": 21.8},
+        "arabic": "آه طبعًا، بس ثواني أخلّص معاه الحساب...",
+        "hebrew_transliteration": "אַה טַבְּעַן, בַּס תְוַאנִי אַחְ'לַצ מַעַאה לְ-חִסַאב.",
+        "hebrew": "כן, כמובן, רק רגע שאסיים איתו את החשבון.",
+        "expected_phonemes": "ʔ aː | tˤ a b ʕ a n | b a s | t w aː n i | ʔ a x l a sˤ | m a ʕ aː h | l ħ i s aː b"
+      },
+      {
+        "voice_time_seconds": {"start": 21.8, "end": 24.6},
+        "arabic": "تفضّلي. شكرًا!",
+        "hebrew_transliteration": "תְפַדַّל. שֻכְּרַן!",
+        "hebrew": "בבקשה. תודה!",
+        "expected_phonemes": "t f a dˤ dˤ a l | ʃ u k r a n"
+      },
+      {
+        "voice_time_seconds": {"start": 24.6, "end": 27.6},
+        "arabic": "هذا هو؟ أيوة، قديش الحساب؟",
+        "hebrew_transliteration": "הַאדַא הֻוֶּ? אַיוַה, קַדֵּיש לְ-חִסַאב?",
+        "hebrew": "זהו? כן, כמה החשבון?",
+        "expected_phonemes": "h aː d a | h u w e | ʔ a j w a | ʔ a d eː ʃ | l ħ i s aː b"
+      },
+      {
+        "voice_time_seconds": {"start": 27.6, "end": 30.4},
+        "arabic": "٢٥ شيكل. تفضّل.",
+        "hebrew_transliteration": "חַ'מְסֶה וְעִשְרִין שֵיקֶל. תְפַדַّל.",
+        "hebrew": "עשרים וחמישה שקל. בבקשה.",
+        "expected_phonemes": "x a m s e | u ʕ i ʃ r iː n | ʃ eː ʔ e l | t f a dˤ dˤ a l"
+      },
+      {
+        "voice_time_seconds": {"start": 30.4, "end": 33.0},
+        "arabic": "معكيش أصغر؟ معيش صرافة ميّة...",
+        "hebrew_transliteration": "מַעְכִּיש אַצְעַ'ר? מַעִיש צַרַאפֶת מִיֶּה.",
+        "hebrew": "אין לך קטן יותר? אין לי עודף ממאה.",
+        "expected_phonemes": "m a ʕ k iː ʃ | ʔ a z ɣ a r | m a ʕ iː ʃ | sˤ a r aː f e t | m i j e"
+      },
+      {
+        "voice_time_seconds": {"start": 33.0, "end": 35.4},
+        "arabic": "لحظة أفحص...",
+        "hebrew_transliteration": "לַחְטַ'ה אַפְחַצ.",
+        "hebrew": "רגע, אבדוק.",
+        "expected_phonemes": "l a ħ ðˤ a | ʔ a f ħ a sˤ"
+      },
+      {
+        "voice_time_seconds": {"start": 35.4, "end": 39.2},
+        "arabic": "لا والله معيش، فيه بس ٢٠ إذا بفيدوك.",
+        "hebrew_transliteration": "לַא וַאללַה מַעִיש, פִיה בַּס עִשְרִין אִדַ'א בִּפִידַכּ.",
+        "hebrew": "לא, בחיי, אין לי; יש רק עשרים, אם זה עוזר לך.",
+        "expected_phonemes": "l aː | w aː l l a | m a ʕ iː ʃ | f iː h | b a s | ʕ i ʃ r iː n | ʔ i dˤ a | b i f iː d a k"
+      },
+      {
+        "voice_time_seconds": {"start": 39.2, "end": 42.8},
+        "arabic": "لا معلش، مش مهم، بدبّرها.",
+        "hebrew_transliteration": "לַא מַעְלֵיש, מֻש מֻהִם, בַּדַבֶּרְהַא.",
+        "hebrew": "לא נורא, לא חשוב, אסתדר.",
+        "expected_phonemes": "l aː | m a ʕ l eː ʃ | m u ʃ | m u h i m | b a d a b e r h a"
+      },
+      {
+        "voice_time_seconds": {"start": 42.8, "end": 44.6},
+        "arabic": "تفضّلي الباقي، معوّضين.",
+        "hebrew_transliteration": "תְפַדַّלִי אִלְ-בַּאקִי, מְעַוַّדִין.",
+        "hebrew": "הנה העודף, תבואי שוב.",
+        "expected_phonemes": "t f a d d a l i | i l b aː ʔ i | m ʕ a w w a d iː n"
+      },
+      {
+        "voice_time_seconds": {"start": 44.6, "end": 46.4},
+        "arabic": "تسلم، يعطيك العافية!",
+        "hebrew_transliteration": "תִסְלַם, יַעְטִיכּ אִלְ-עַאפְיֶה!",
+        "hebrew": "תודה, שיהיה לך כוח ובריאות!",
+        "expected_phonemes": "t i s l a m | j a ʕ tˤ iː k | i l ʕ aː f j e"
+      },
+      {
+        "voice_time_seconds": {"start": 46.4, "end": 48.4},
+        "arabic": "الله يعافيك، مع السلامة!",
+        "hebrew_transliteration": "אַללַה יְעַאפִיכּ, מַע אִלְ-סַלַאמֶה!",
+        "hebrew": "שאלוהים ייתן לך בריאות, להתראות!",
+        "expected_phonemes": "i l l a | j ʕ aː f iː k | m a ʕ | i l s a l aː m e"
+      }
+    ]
+  }
+]
