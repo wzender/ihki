@@ -173,6 +173,52 @@ body[data-view=verbs] #vids{max-width:none;gap:6px;margin-top:0}
 /* "הפועל זכרון": the verbs of the verb table's lesson as a memory game on a misbaha that snakes over the whole screen.
    A bead shows gold, turning on its cord; open, a verb: the Hebrew, or the Arabic (said aloud) in transliteration. A found
    pair turns green and stays open. The cord, the imam and the tassel are those of "פועל זמני", grown to the screen. */
+/* בחכי ערבי: the tutor chat, laid out like WhatsApp: the tutor's messages at the right, the student's (green) at the left */
+:root{--tc-wall:#EFE7DD; --tc-in:#FFFFFF; --tc-out:#D9FDD3; --tc-head:#36501D; --tc-fix:#FFF6D6}
+@media (prefers-color-scheme: dark){:root{--tc-wall:#0B141A; --tc-in:#202C33; --tc-out:#005C4B; --tc-head:#202C33; --tc-fix:#3A2F17}}
+body.tutor-chat{overflow:hidden}
+.tc{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;background:var(--tc-wall);color:var(--ink)}
+.tc-head{display:flex;align-items:center;gap:10px;padding:max(8px,env(safe-area-inset-top)) 12px 8px;background:var(--tc-head);color:#fff}
+.tc-close{border:0;background:none;color:inherit;font:700 22px/1 var(--f-body);padding:4px 6px;cursor:pointer}
+.tc-avatar{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#E3EAD6;color:#36501D;font:700 20px/1 var(--f-ar)}
+.tc-who{flex:1;display:flex;flex-direction:column;line-height:1.2}.tc-who small{opacity:.8}
+.tc-count{font-weight:700;opacity:.9}
+.tc-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:12px 12px 16px}
+.tc-msg{max-width:min(82%,520px);padding:6px 10px 4px;border-radius:10px;box-shadow:0 1px 1px rgba(0,0,0,.13);display:flex;flex-direction:column}
+.tc-msg.in{align-self:flex-start;background:var(--tc-in);border-start-start-radius:2px}
+.tc-msg.out{align-self:flex-end;background:var(--tc-out);border-start-end-radius:2px}
+.tc-msg p{margin:0}
+.tc-tr{font:400 20px/1.6 var(--f-tr)}
+.tc-w{cursor:pointer;border-bottom:2px dotted color-mix(in srgb,var(--muted) 70%,transparent);border-radius:2px}
+.tc-w:hover,.tc-w:focus-visible{background:var(--olive-soft);outline:none}
+.tc-w.new{border-bottom-color:var(--orange);color:var(--orange)}
+.tc-w.new::after{content:"✦";font-size:.55em;vertical-align:super;margin-inline-start:1px}
+.tc-pop{position:absolute;z-index:5;max-width:220px;padding:6px 12px;border-radius:10px;background:var(--ink);color:var(--bg);font-size:16px;box-shadow:0 4px 12px rgba(0,0,0,.25);display:flex;flex-direction:column;align-items:center;text-align:center;pointer-events:none}
+.tc-pop-new{color:var(--orange);font-weight:700}
+#vids .tc-intro{border:0;padding:0 2px}
+#vids .tc-card{grid-template-columns:auto 1fr}
+#vids .tc-card small{grid-column:2}
+.tc-card .tc-avatar{grid-row:span 2;width:38px;height:38px;font-size:20px}
+.tc-he{font-size:15px;border-top:1px solid var(--line);margin-top:4px!important;padding-top:4px}
+.tc-show{align-self:flex-start;border:0;background:none;color:var(--olive);font:600 14px/1 var(--f-body);padding:4px 0;cursor:pointer}
+.tc-time{align-self:flex-end;font-size:11px;color:var(--muted)}
+.tc-fix{align-self:flex-end;max-width:min(82%,520px);background:var(--tc-fix);border-radius:8px;padding:6px 10px;margin-top:-2px}
+.tc-fix small{color:var(--amber);font-weight:700}.tc-fix .tc-tr{font-size:18px}.tc-why{font-size:14px}
+.tc-note{align-self:center;margin:2px 0;padding:4px 10px;border-radius:8px;background:var(--surface);color:var(--muted);font-size:14px;text-align:center}
+.tc-note.bad{color:var(--sumac);background:var(--sumac-bg)}
+.tc-note.typing{font-style:italic}
+.tc-sys{align-self:center;max-width:min(92%,520px);background:var(--surface);border-radius:12px;padding:10px 14px;text-align:center;display:flex;flex-direction:column;gap:8px}
+.tc-sys p,.tc-sys h3{margin:0}.tc-sys.end{text-align:start}
+.tc-foot{display:flex;flex-direction:column;gap:6px;padding:8px 12px max(10px,env(safe-area-inset-bottom));background:var(--tc-wall)}
+.tc-live{margin:0;align-self:center;font-size:15px;color:var(--muted)}
+.tc-type{display:flex;gap:6px}.tc-type input{flex:1;min-width:0;font:400 18px/1.4 var(--f-body);padding:8px 14px;border:1px solid var(--line);border-radius:22px;background:var(--surface);color:var(--ink)}
+.tc-type button,.tc-kb{border:0;border-radius:50%;width:44px;height:44px;background:var(--surface);color:var(--ink);font-size:18px;cursor:pointer}
+.tc-row{display:flex;align-items:center;justify-content:center;gap:16px}
+.tc-mic{width:64px;height:64px;border:0;border-radius:50%;background:#25A35A;color:#fff;font-size:28px;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.25)}
+.tc-mic.live{background:var(--sumac);animation:tcPulse 1.2s ease-in-out infinite}
+.tc-mic:disabled,.tc-type button:disabled{opacity:.45;cursor:default}
+@keyframes tcPulse{50%{transform:scale(1.08)}}
+@media (prefers-reduced-motion: reduce){.tc-mic.live{animation:none}}
 body.memory-game{overflow:hidden}
 .mg{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;background:#101510 url("/static/assets/arabic-calligraphy-path.webp?v=7") top center/100% auto repeat-y;color:#f7faef;user-select:none;-webkit-user-select:none;touch-action:manipulation;overflow:hidden}
 .mg-hud{position:relative;z-index:3;display:flex;align-items:center;gap:8px;padding:max(10px,env(safe-area-inset-top)) 12px 4px}
@@ -475,7 +521,7 @@ body.lab #wrap{max-width:none}
 #labResult .stage-table-wrap{overflow-x:auto}
 .lab-who{flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px 18px}
 .lab-who label{display:flex;align-items:center;gap:8px;min-width:0}
-#labSpeaker{flex:1 1 160px;min-width:0;padding:7px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--surface);color:inherit}
+#labSpeaker,#wzSpeaker{min-width:0;overflow-wrap:anywhere;font-weight:600}
 .lab-group h2{margin:0 0 6px;font:400 19px/1.2 var(--f-display)}
 .lab-items{display:flex;flex-wrap:wrap;gap:6px}
 .lab-items button{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:62px;padding:5px 9px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer}
@@ -535,12 +581,19 @@ body.lab #wrap{max-width:none}
 #minervaTable .minerva-phones{direction:ltr;unicode-bidi:isolate;font:13px/1.55 var(--f-ipa)}
 #minervaTable .minerva-phones div+div{margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)}
 #minervaTable .minerva-phones small{display:inline-block;min-width:48px;color:var(--muted);font:11px/1.4 var(--f-body);direction:rtl}
+#minervaTable .minerva-row-actions{display:flex;flex-direction:column;gap:6px;white-space:nowrap}
+#minervaTable tr.focus td{background:var(--olive-soft)}
+#minervaTable tr.focus td:first-child{box-shadow:inset -4px 0 0 var(--olive)}
+#minervaTiles .primary-kpi{background:var(--olive-soft);border:2px solid var(--olive)}
+#minervaTiles .primary-kpi b{font-size:30px;color:var(--olive-deep)}
+#minervaWords td{white-space:normal;vertical-align:top}
+#minervaWords .ipa{white-space:normal;overflow-wrap:anywhere}
+.minerva-excluded{opacity:.65;text-decoration:line-through}
 .lab-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 #labModes{grid-template-columns:repeat(5,1fr)}
 #lab:not(.test) #labTest,#lab:not(.record) #labRecord,#lab:not(.flags) #labFlags,#lab:not(.minerva) #labMinerva,#lab:not(.results) #labResults{display:none}
 #labTest,#labRecord,#labFlags,#labMinerva,#labResults{display:flex;flex-direction:column;gap:12px;min-width:0}
 #labList,#labFlagList,#wzList{display:flex;flex-direction:column;gap:10px}
-#wzSpeaker{min-width:0;width:12em;padding:6px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--surface);color:inherit}
 .wz-bar{flex-basis:100%;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
 .wz-bar i{display:block;height:100%;width:0;background:var(--ok);transition:width .3s}
 #wzList{gap:6px}
@@ -888,6 +941,8 @@ body.driving .mic{width:84px;height:84px}
 .donehint b{font:400 18px/1 var(--f-display);font-variant-numeric:tabular-nums;margin-inline-start:4px}
 dialog{border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);padding:16px;width:min(92vw,560px);max-height:86vh}
 dialog::backdrop{background:rgba(0,0,0,.45)}
+.exclude-form{display:flex;flex-direction:column;gap:12px}
+.exclude-form select,.exclude-form input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);font:inherit}
 .dlg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:-16px;z-index:1;background:var(--surface);margin:-16px 0 4px;padding:12px 0 8px}
 .dlg-head h2{font:400 22px/1 var(--f-display);margin:0}
 .dlg-head h2 small{display:block;margin-top:4px;font:600 13px/1.3 var(--f-body);color:var(--muted)}
@@ -1258,7 +1313,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
     <div id="labTest">
       <div class="card wz-head">
         <p class="sub">כל שורה היא פריט לומר. השורה המסומנת היא הבאה בתור: לוחצים 🎤, אומרים את הפריט נכון ככל האפשר, וההקלטה מושמעת לבד. אחרי ההשמעה: ✓ שולח אותה ועובר לשורה הבאה, ✗ מוחק אותה ומקליטים שוב. מה שנשלח נשמר כ"נאמר נכון" של הדובר, והוא הבסיס לבדיקת זיהוי הפונמות.</p>
-        <div class="lab-actions"><label>מי מקליט <input id="wzSpeaker" maxlength="40" autocomplete="off" placeholder="למשל: מרב, דובר ילידי"></label><span class="sub" id="wzSummary"></span></div>
+        <div class="lab-actions"><span>מי מקליט: <bdi id="wzSpeaker" dir="ltr"></bdi></span><span class="sub" id="wzSummary"></span></div>
         <div class="wz-bar" aria-hidden="true"><i id="wzBar"></i></div>
         <div class="lab-actions"><span id="wzStatus" aria-live="polite"></span><span class="sub wz-keys">מקשים: רווח הקלטה · Enter אישור · Backspace דחייה</span></div>
       </div>
@@ -1272,7 +1327,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
     </div>
     <div id="labRecord">
     <div class="card lab-who">
-      <label>מי מקליט<input id="labSpeaker" maxlength="40" autocomplete="off" placeholder="למשל: מרב, דובר ילידי"></label>
+      <span>מי מקליט: <bdi id="labSpeaker" dir="ltr"></bdi></span>
       <label class="lab-save"><input type="checkbox" id="labSave" checked><span>לשמור את ההקלטות במאגר</span></label>
     </div>
     <div id="labList"></div>
@@ -1297,10 +1352,12 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
     <div id="labMinerva">
       <div class="card">
         <p class="sub">בחרו סרטון כדי לנתח מחדש את כל קטעי הדיבור שלו. הטבלה משווה בין התוצאה שנשמרה בייבוא לבין ה־pipeline והגדרת ה־GOP הנוכחיים.</p>
-        <div class="lab-actions"><label>סרטון <select id="minervaVideo"></select></label><label>הגדרת GOP <select id="minervaSetting"></select></label><button class="btn primary" id="minervaRun">הרצת הסרטון</button><span class="sub" id="minervaState" aria-live="polite"></span></div>
+        <div class="lab-actions"><label>סרטון <select id="minervaVideo"></select></label><label>הגדרת GOP <select id="minervaSetting"></select></label><label>מיון <select id="minervaSort"><option value="line">סדר בסרטון</option><option value="score">ציון — מהנמוך לגבוה</option></select></label><button class="btn primary" id="minervaRun">הרצת הסרטון</button><span class="sub" id="minervaState" aria-live="polite"></span></div>
         <div class="lab-tiles" id="minervaTiles"></div>
       </div>
       <div class="card"><div class="stage-table-wrap"><table class="lab-table" id="minervaTable"></table></div></div>
+      <div class="card" id="minervaWordsBox" hidden><h3>20 המילים שקיבלו את הציון הנמוך ביותר</h3><p class="sub">לפי ההרצה הנוכחית של הסרטון הנבחר.</p><div class="stage-table-wrap"><table class="lab-table" id="minervaWords"></table></div></div>
+      <div class="card" id="minervaExcludedBox" hidden><h3>מילים שהוחרגו מהבדיקה</h3><p class="sub">הציון המקורי של ה־pipeline נשמר. מילים אלו אינן משתתפות בציון הבדיקה, בסימוני ההגאים או ברשימת המילים החלשות.</p><div class="stage-table-wrap"><table class="lab-table" id="minervaExcluded"></table></div></div>
     </div>
     <div id="labResults">
       <div class="card">
@@ -1572,6 +1629,16 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
       <li><b>מטלה בלי תאריך:</b> משאירים את שדה התאריך ריק; המטלה עדיין תסומן במסלול, ללא מועד אחרון.</li></ul>
   </article>
 </dialog>
+<dialog id="excludeDlg" aria-labelledby="excludeTitle">
+  <form method="dialog" class="exclude-form">
+    <div class="dlg-head"><h2 id="excludeTitle">סיבת ההחרגה</h2></div>
+    <label>מדוע המילה אינה תקינה?
+      <select id="excludeReason"><option>חיתוך האודיו פגום</option><option>הטקסט אינו תואם להקלטה</option><option>פונמות צפויות לא נכונות</option><option>חפיפת קולות</option><option>וריאנט תקין שלא תועד</option><option>רועש</option><option value="other">אחר</option></select>
+    </label>
+    <input id="excludeOther" maxlength="200" placeholder="פירוט הסיבה" hidden>
+    <div class="lab-actions"><button class="btn" value="cancel" formnovalidate>ביטול</button><button class="btn primary" value="ok">החרגה</button></div>
+  </form>
+</dialog>
 <div id="whyTip" role="tooltip" hidden></div>
 <button id="logoutBtn" hidden>יציאה</button>
 
@@ -1592,6 +1659,7 @@ const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v)
 let driving=false;
 /* LESSONS and CATS are the student's: the lessons of their classes (all of them for a teacher, or before the first class) */
 let TEACHER_DAILIES=[];   // for a teacher: the daily videos of every class, {id, title, embed, date}
+let ME_EMAIL="";   // the signed-in account: in the lab, who records
 let MY_CLASSES=[], MY_CLASS=null;   // a student's classes ({name, lessons, homeworks, dailies}), and the one they practise in now
 let daily=null, dailySaid=new Set(), dailyWas={};   // the daily session on the card: its sentence ids, those said in it, and their best scores before it
 let ALL_LEVELS=[], ALL_LESSONS=[], ALL_CATS=[], GAMES=[], MY_LESSONS=null, LESSONS=[], CATS=[], PHRASES=[], cat=store.get("ihki.cat",""), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
@@ -1618,6 +1686,7 @@ function setTr(el,text){
    As in Duolingo, a topic is locked until every topic before it on the path is finished. A topic the student already
    started stays open, and so does a homework topic: the teacher decides what the class practises. Nothing is locked for a teacher. */
 let FREE=false;   // a teacher: the whole path is open
+let TUTOR_INFO=null, tc=null, tutorList=false;   // what /api/tutor allows this account; the open conversation; the games tab shows the scenarios
 let lastPhone=null;   // the latest ordinary recording's score response, for the teacher's phoneme observer
 let home=true;   // the path is on screen, not the practice card: nothing is read aloud or recorded
 function tally(list){   // how far a set of sentences got
@@ -1694,6 +1763,7 @@ const libVideos=()=>LIBRARY;
 const VERB_GAME_VISIBLE=false;   // "פועל יוצא" is still under development; flip to true to publish it again.
 function drawNav(){   // the tabs, and the screen of videos when one is on show
   const view=document.body.dataset.view||"", box=$("vids"), d=today();
+  if(view!=="games") tutorList=false;   // another tab: the games tab opens on its games again
   for(const b of $("nav").children){
     if(b.dataset.view===view) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
   }
@@ -1705,6 +1775,7 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     box.append(b);
   };
   if(view==="games"){
+    if(tutorList&&TUTOR_INFO&&TUTOR_INFO.available){ drawTutorList(box); return; }   // בחכי ערבי's scenarios, in the tab's place
     const games=GAMES.filter(game=>!game.hidden);
     box.append(mark("","משחקים","h2"));
     if(VERB_GAME_VISIBLE){
@@ -1715,7 +1786,13 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     const memo=mark("now","","button"), upto=vtLessonNow();   // the memory game, on the verb table's lesson
     memo.append(mark("","📿","i"),mark("","הפועל זכרון","b"),mark("",`הפכו חרוזים ומצאו זוגות של פעלים · עד ${(ALL_LESSONS.find(l=>l.id===upto)||{}).name||""}`,"small"));
     memo.onclick=openMemoryGame; if(upto) box.append(memo);
-    if(!games.length&&!upto) box.append(mark("","המשחקים הראשונים יגיעו בקרוב.","p"));
+    const talk=TUTOR_INFO&&TUTOR_INFO.available;   // בחכי ערבי: it opens the list of its scenarios
+    if(talk){
+      const b=mark("now","","button"), n=tutorScenarios().length;
+      b.append(mark("","💬","i"),mark("","בחכי ערבי","b"),mark("",n?`שיחה עם דמויות מהשיעורים · ${n} תרחישים פתוחים`:"שיחה עם דמויות מהשיעורים · נפתח עם השיעור הראשון","small"));
+      b.onclick=()=>{ tutorList=true; drawNav(); window.scrollTo(0,0); }; box.append(b);
+    }
+    if(!games.length&&!upto&&!talk) box.append(mark("","המשחקים הראשונים יגיעו בקרוב.","p"));
     for(const game of games){
       const b=mark("now","","button"), done=PHRASES.filter(p=>p.cat===game.id&&best[p.id]!=null).length;
       b.append(mark("","●","i"),mark("",game.name,"b"),mark("",done?`תורגלו ${done} פעלים`:"אמרו עבר ועתיד לפני שהבועה נעלמת","small"));
@@ -1946,6 +2023,176 @@ function mgSamples(t){   // points along the cord every 3px, from the top row's 
     Object.assign(pts[j],{nx:-dy/l,ny:dx/l,s:j*step});
   }
   return pts;
+}
+/* בחכי ערבי: a WhatsApp-like chat with an AI tutor (app/tutor.py). The tutor writes; the student talks, and the
+   device's speech recognition turns what they said into their own message, sent at once: the student sees what the
+   tutor understood. A browser without recognition, or the keyboard button, lets them type instead.
+   The students read Arabic only in Hebrew letters, so every Arabic line here is shown in them: the tutor's message,
+   the correction, and the student's own sentence as the tutor read it (it replaces the recognition's Arabic script). */
+async function loadTutor(){
+  try{ await ready; }catch{}
+  try{ const r=await api("/api/tutor"); TUTOR_INFO=r.ok?await r.json():null; }catch{ TUTOR_INFO=null; }
+  if(TUTOR_INFO&&TUTOR_INFO.available) $("nav").querySelector('[data-view="games"]').hidden=false;
+  if(document.body.dataset.view==="games") drawNav();
+}
+function lessonStarted(id){   // a sentence of the lesson has been said (a teacher has every lesson open)
+  if(FREE) return true;
+  const cats=new Set(ALL_CATS.filter(c=>c.lesson===id).map(c=>c.id));
+  return PHRASES.some(p=>cats.has(p.cat)&&best[p.id]!=null);
+}
+function tutorScenarios(){   // the scenarios of the student's lessons that they have started or finished, in the course's order
+  const mine=new Set(LESSONS.map(l=>l.id));
+  return ((TUTOR_INFO&&TUTOR_INFO.scenarios)||[]).filter(s=>mine.has(s.lesson)&&lessonStarted(s.lesson));
+}
+function drawTutorList(box){   // בחכי ערבי: a card for each open scenario, the latest lesson's first
+  const back=mark("back","","button");
+  back.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> חזרה למשחקים'; back.onclick=()=>{ tutorList=false; drawNav(); };
+  box.append(back,mark("","בחכי ערבי","h2"));
+  const open=tutorScenarios(), all=((TUTOR_INFO&&TUTOR_INFO.scenarios)||[]).filter(s=>LESSONS.some(l=>l.id===s.lesson)), left=TUTOR_INFO.left;
+  box.append(mark("tc-intro",`בחרו שיחה. ח'ליל וחבריו מדברים רק במילים שכבר למדתם${left==null?"":` · נשארו ${left} שיחות היום`}`,"p"));
+  if(!open.length) box.append(mark("","התרחיש הראשון ייפתח כשתתחילו את השיעור הראשון 💛","p"));
+  for(const s of [...open].reverse()){
+    const b=mark("now tc-card","",  "button"), face=mark("tc-avatar","","span"), lesson=(ALL_LESSONS.find(l=>l.id===s.lesson)||{}).name||"";
+    face.lang="ar"; face.textContent=s.ar.replace(/^(ابو|امّ|ام|ال)\s*/,"").charAt(0)||s.ar.charAt(0);
+    b.append(face,mark("",s.title,"b"),mark("",`${lesson} · ${s.desc}`,"small"));
+    b.onclick=()=>openTutorChat(s); box.append(b);
+  }
+  const shut=all.length-open.length;
+  if(shut>0) box.append(mark("tc-intro",`עוד ${shut} תרחישים ייפתחו כשתתחילו את השיעורים הבאים`,"p"));
+}
+function openTutorChat(s){
+  closeTutorChat();
+  const root=mark("tc","","section"); root.setAttribute("role","dialog"); root.setAttribute("aria-label",`בחכי ערבי · ${s.title}`);
+  root.innerHTML=`<header class="tc-head"><button class="tc-close" type="button" aria-label="יציאה מהשיחה">→</button>
+    <span class="tc-avatar" lang="ar" aria-hidden="true"></span>
+    <div class="tc-who"><b></b><small></small></div><span class="tc-count"></span></header>
+    <div class="tc-log" aria-live="polite"></div>
+    <footer class="tc-foot"><p class="tc-live" hidden></p>
+      <form class="tc-type" hidden><input type="text" dir="auto" maxlength="300" placeholder="כתבו בערבית, באותיות עבריות…" aria-label="ההודעה שלכם"><button type="submit" aria-label="שליחה">➤</button></form>
+      <div class="tc-row"><button class="tc-kb" type="button" aria-label="הקלדה במקום דיבור" title="הקלדה">⌨</button>
+        <button class="tc-mic" type="button" aria-label="לחצו ודברו בערבית">🎤</button></div></footer>`;
+  document.body.append(root); document.body.classList.add("tutor-chat");
+  root.querySelector(".tc-head .tc-avatar").textContent=s.ar.replace(/^(ابو|امّ|ام|ال)\s*/,"").charAt(0)||s.ar.charAt(0);
+  root.querySelector(".tc-who b").textContent=s.who;
+  root.querySelector(".tc-who small").textContent=`${(ALL_LESSONS.find(l=>l.id===s.lesson)||{}).name||""} · ${s.title}`;
+  const pop=mark("tc-pop","","div"); pop.hidden=true; root.append(pop);
+  tc={root,s,id:null,rec:null,busy:false,done:false,log:root.querySelector(".tc-log"),live:root.querySelector(".tc-live"),
+      type:root.querySelector(".tc-type"),mic:root.querySelector(".tc-mic"),lang:"ar-PS",pop};
+  root.addEventListener("click",e=>{ if(!e.target.closest(".tc-w")) pop.hidden=true; });
+  tc.log.addEventListener("scroll",()=>{ pop.hidden=true; });
+  root.querySelector(".tc-close").onclick=closeTutorChat;
+  tc.onkey=e=>{ if(e.key==="Escape") closeTutorChat(); }; addEventListener("keydown",tc.onkey);
+  root.querySelector(".tc-kb").onclick=()=>{ tc.type.hidden=!tc.type.hidden; if(!tc.type.hidden) tc.type.querySelector("input").focus(); };
+  tc.type.onsubmit=e=>{ e.preventDefault(); const i=tc.type.querySelector("input"), t=i.value.trim(); if(t&&tcSend(t)) i.value=""; };
+  tc.mic.onclick=tcListen;
+  if(!SR){ tc.mic.hidden=true; tc.type.hidden=false; tcNote("הדפדפן הזה לא מזהה דיבור. אפשר להקליד בערבית באותיות עבריות, או לפתוח את האפליקציה ב-Chrome."); }
+  const g=store.get("ihki.tutorGender","");
+  if(g) tcStart(g);
+  else{   // Arabic speaks to a man or to a woman: asked once, kept on the device
+    const ask=mark("tc-sys","","div"); ask.append(mark("",`איך ${s.who} ${s.she?"תפנה":"יפנה"} אליכם?`,"p"));
+    for(const [v,t] of [["m","בלשון זכר"],["f","בלשון נקבה"]]){
+      const b=mark("btn",t,"button"); b.onclick=()=>{ store.set("ihki.tutorGender",v); ask.remove(); tcStart(v); }; ask.append(b);
+    }
+    tc.log.append(ask); tcLock(true);
+  }
+}
+function closeTutorChat(){
+  if(!tc) return;
+  if(tc.rec){ const r=tc.rec; tc.rec=null; try{ r.abort(); }catch{} }
+  removeEventListener("keydown",tc.onkey); tc.root.remove(); document.body.classList.remove("tutor-chat"); tc=null;
+  if(document.body.dataset.view==="games") drawNav();   // the conversations left today
+}
+const tcTime=()=>new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
+function tcScroll(){ tc.log.scrollTop=tc.log.scrollHeight; }
+function tcNote(text,cls=""){ const n=mark("tc-note "+cls,text,"p"); tc.log.append(n); tcScroll(); return n; }
+function tcLock(on){ tc.busy=on; tc.mic.disabled=on||tc.done; tc.type.querySelector("button").disabled=on||tc.done; }
+function tcCount(turn,turns){ tc.root.querySelector(".tc-count").textContent=`${turn}/${turns}`; }
+function tcTutor(m){   // the tutor's message: the Arabic in Hebrew letters, word by word, and the translation behind a tap
+  const b=mark("tc-msg in","","div"), he=mark("tc-he",m.he,"p"), show=mark("tc-show","תרגום","button");
+  const tr=mark("tc-tr","","p");
+  if(m.words&&m.words.length) m.words.forEach((w,i)=>{   // as Duolingo does: each word underlined, a tap shows its meaning
+    const el=mark("tc-w"+(w.new?" new":""),"","span"); setTr(el,w.tr); el.tabIndex=0; el.setAttribute("role","button");
+    el.setAttribute("aria-label",`${w.tr}: ${w.he}${w.new?" (מילה חדשה)":""}`);
+    el.onclick=()=>tcWord(el,w); el.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); tcWord(el,w); } };
+    if(i) tr.append(" "); tr.append(el);
+  });
+  else setTr(tr,m.tr||"");
+  he.hidden=true; show.type="button"; show.onclick=()=>{ he.hidden=!he.hidden; show.textContent=he.hidden?"תרגום":"הסתרה"; };
+  b.append(tr,he,show,mark("tc-time",tcTime(),"small")); tc.log.append(b); tcScroll();
+}
+function tcWord(el,w){   // a word's meaning in a bubble over it; a new word says so
+  const pop=tc.pop;
+  if(!pop.hidden&&pop.dataset.for===w.tr+w.he){ pop.hidden=true; return; }
+  pop.replaceChildren(); pop.dataset.for=w.tr+w.he;
+  if(w.new) pop.append(mark("tc-pop-new","✦ מילה חדשה","small"));
+  pop.append(mark("",w.he||"—","b")); pop.hidden=false;
+  const r=el.getBoundingClientRect(), box=tc.root.getBoundingClientRect(), p=pop.getBoundingClientRect();
+  const x=Math.min(Math.max(8,r.left+r.width/2-p.width/2-box.left),box.width-p.width-8);
+  const above=r.top-box.top-p.height-8;
+  pop.style.left=x+"px"; pop.style.top=(above>60?above:r.bottom-box.top+8)+"px";
+}
+function tcStudent(){   // the student's message, waiting for the tutor to say what he heard
+  const b=mark("tc-msg out","","div"), p=mark("tc-tr heard","…","p");
+  b.append(p,mark("tc-time",tcTime()+" ✓","small")); tc.log.append(b); tcScroll(); return b;
+}
+function tcFix(after,fix){   // under the student's message: how to say it, explained in Hebrew
+  const n=mark("tc-fix","","div"), tr=mark("tc-tr","","p"); setTr(tr,fix.tr||"");
+  n.append(mark("","✎ אפשר לומר כך:","small"),tr); if(fix.note) n.append(mark("tc-why",fix.note,"p"));
+  after.after(n);
+}
+async function tcStart(gender){
+  tcLock(true); const wait=tcNote("פותחים את השיחה…","typing");
+  try{
+    const r=await api("/api/tutor/start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({scenario:tc.s.id,gender})});
+    const d=await r.json().catch(()=>({})); if(!tc) return; wait.remove();
+    if(!r.ok){ tcNote(d.detail||"השיחה לא נפתחה. נסו שוב.","bad"); return; }
+    tc.id=d.id; if(TUTOR_INFO&&d.left!=null) TUTOR_INFO.left=d.left;
+    tcCount(0,d.turns); tcTutor(d.message); tcLock(false);
+    tcNote("לחצו על מילה כדי לראות מה היא אומרת · ✦ מסמן מילה שעוד לא למדתם");
+  }catch{ if(tc){ wait.remove(); tcNote("השרת לא זמין. נסו שוב.","bad"); } }
+}
+function tcSend(text){   // the student's sentence goes at once; false when it cannot go now
+  if(!tc||tc.busy||tc.done||!tc.id) return false;
+  const mine=tcStudent(), typing=tcNote(`${tc.s.who} ${tc.s.she?"מקלידה":"מקליד"}…`,"typing"); tcLock(true);
+  api("/api/tutor/turn",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:tc.id,text})})
+    .then(async r=>{
+      const d=await r.json().catch(()=>({})); if(!tc) return; typing.remove();
+      if(!r.ok){   // not counted: the sentence can be said again
+        mine.remove(); tcNote(d.detail||"לא התקבלה תשובה. נסו שוב.","bad");
+        if(r.status===410||r.status===409){ tc.done=true; } tcLock(false); return;
+      }
+      setTr(mine.querySelector(".heard"),d.heard||text);
+      if(d.fix) tcFix(mine,d.fix);
+      tcTutor(d.reply); tcCount(d.turn,d.turns);
+      if(d.done){
+        tc.done=true;
+        const end=mark("tc-sys end","","div"); end.append(mark("","סיכום השיחה","h3"));
+        if(d.summary) end.append(mark("",d.summary,"p"));
+        const again=mark("btn primary","שיחה חדשה","button"); again.onclick=()=>openTutorChat(tc.s);
+        end.append(again); tc.log.append(end); tcScroll();
+      }
+      tcLock(false);
+    })
+    .catch(()=>{ if(!tc) return; typing.remove(); mine.remove(); tcNote("השרת לא זמין. נסו שוב.","bad"); tcLock(false); });
+  return true;
+}
+function tcListen(){   // a tap starts listening; the recognition ends by itself when the student stops (or on a second tap)
+  if(!tc||tc.busy||tc.done) return;
+  if(tc.rec){ try{ tc.rec.stop(); }catch{} return; }
+  const r=tc.rec=new SR(); let said="", err="";
+  r.lang=tc.lang; r.continuous=false; r.interimResults=true;
+  r.onresult=e=>{ said=[...e.results].map(x=>x[0].transcript).join(" ").trim(); if(said) tc.live.textContent="שומע… לחצו שוב לסיום"; };   // its Arabic script is not shown: the tutor answers with it in Hebrew letters
+  r.onerror=e=>{ err=e.error; };
+  r.onend=()=>{
+    if(!tc||tc.rec!==r) return;
+    tc.rec=null; tc.mic.classList.remove("live"); tc.live.hidden=true; tc.live.textContent="";
+    if(err==="language-not-supported"&&tc.lang!=="ar-JO"){ tc.lang="ar-JO"; tcListen(); return; }   // the nearest Arabic the device has
+    if(err==="not-allowed"||err==="service-not-allowed"){ tcNote("אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן, או הקלידו.","bad"); tc.type.hidden=false; return; }
+    if(!said){ tcNote(err&&err!=="no-speech"?"זיהוי הדיבור לא זמין כרגע. נסו שוב, או הקלידו.":"לא נשמע דיבור. לחצו ודברו, קרוב יותר למיקרופון."); return; }
+    tcSend(said);
+  };
+  try{ r.start(); }catch{ tc.rec=null; tcNote("זיהוי הדיבור לא זמין כרגע. אפשר להקליד.","bad"); tc.type.hidden=false; return; }
+  tc.mic.classList.add("live"); tc.live.textContent="מקשיב… דברו בערבית"; tc.live.hidden=false;
 }
 function openMemoryGame(){
   const upto=vtLessonNow(); if(!upto) return;
@@ -3375,8 +3622,8 @@ $("phoneClose").onclick=()=>$("phoneDlg").close();
 // The trace dashboard (static/trace.html) in a new tab: the result it reads is left for it on this device
 let phoneShown=null;
 function openTrace(r){
-  try{ localStorage.setItem("ihki.trace",JSON.stringify(r)); }catch{ alert("לא ניתן להעביר את הניתוח ללוח (אחסון הדפדפן חסום)."); return; }
-  window.open("/static/trace.html?src=app","_blank","noopener");
+  try{ localStorage.setItem("ihki.trace",JSON.stringify(r)); localStorage.removeItem("ihki.traceAudio"); localStorage.removeItem("ihki.traceContext"); }catch{ alert("לא ניתן להעביר את הניתוח ללוח (אחסון הדפדפן חסום)."); return; }
+  window.open(`/static/trace.html?src=app&v=${Date.now()}`,"_blank","noopener");
 }
 $("phoneTrace").onclick=()=>{ if(phoneShown) openTrace(phoneShown); };
 
@@ -4834,8 +5081,6 @@ async function reportVerbScore(questionId,blob,button,status){
    and kept with that label (unless "keep" is off). The table under it says, sound by sound, whether the scorer agreed:
    a sound said right and flagged, or a planted mistake not flagged, is what the benchmark counts. */
 let LAB=null, labAt=null, labMistake=-1, labRec=null, labLast=null, labAudioUrl=null;
-$("labSpeaker").value=store.get("ihki.labSpeaker","");
-$("labSpeaker").onchange=()=>{ store.set("ihki.labSpeaker",$("labSpeaker").value.trim()); $("wzSpeaker").value=$("labSpeaker").value.trim(); };
 $("labSave").checked=store.get("ihki.labSave",true);
 $("labSave").onchange=()=>store.set("ihki.labSave",$("labSave").checked);
 async function showLab(){
@@ -4843,8 +5088,8 @@ async function showLab(){
   document.body.classList.add("manage","lab"); scrollTo(0,0);
   const state=$("labState"); state.className="sub"; state.textContent="טוען…";
   try{
-    const who=store.get("ihki.labSpeaker","");
-    const res=await api("/api/lab"+(who?`?speaker=${encodeURIComponent(who)}`:"")); if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
+    $("labSpeaker").textContent=ME_EMAIL; $("wzSpeaker").textContent=wzWho();
+    const res=await api("/api/lab"+(labAs?`?speaker=${encodeURIComponent(labAs)}`:"")); if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
     LAB=await res.json();
   }catch(e){ state.textContent=`המעבדה לא זמינה: ${e.message}`; return; }
   if(LAB.setup){ state.className="sub setup"; state.replaceChildren("הטבלה lab_samples עוד לא קיימת, ולכן ההקלטות לא נשמרות. הריצו פעם אחת ב-SQL Editor של Supabase:",mark("",LAB.setup,"code")); }
@@ -4915,7 +5160,7 @@ $("labMic").onclick=async()=>{
     if(labAudioUrl) URL.revokeObjectURL(labAudioUrl); labAudioUrl=URL.createObjectURL(blob);
     $("labStatus").textContent="מנתח…";
     const fd=new FormData(); fd.append("item",id); fd.append("audio",blob,"rec"); fd.append("mistake",said);
-    fd.append("speaker",$("labSpeaker").value.trim()); fd.append("save",$("labSave").checked?"true":"false");
+    fd.append("save",$("labSave").checked?"true":"false");
     try{
       const res=await api("/api/lab/score",{method:"POST",body:fd});
       if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
@@ -4965,15 +5210,12 @@ function drawLabResult(it,said,r){
    device for the speaker). */
 let wzAt=null, wzTakes={}, wzHeard={}, wzSent={}, wzRec=null, wzRecAt=null, wzBusy=null, wzAudio=null;
 let ttsAt=null, ttsStopping=false, ttsVoices=null;   // the automatic test: the item being said, a stop asked, the voices
-const wzWho=()=>$("wzSpeaker").value.trim();
+let labAs="";   // while the automatic test runs, its speaker "TTS <voice>", whose list is shown; else the signed-in teacher
+const wzWho=()=>labAs||ME_EMAIL;
 const wzRejKey=()=>"ihki.labRejected:"+wzWho();
 const wzSubmitted=id=>!!(LAB&&LAB.mine&&LAB.mine[id]&&LAB.mine[id].correct);
 function wzState(id){ return id===ttsAt?"working":wzTakes[id]?"recorded":wzSubmitted(id)?"submitted":store.get(wzRejKey(),{})[id]?"rejected":"new"; }
 const WZ_NAME={new:"חדש",recorded:"ממתין לאישור",submitted:"✓ נשלח",rejected:"✗ נדחה",working:"⏳ מעבד"};
-$("wzSpeaker").value=store.get("ihki.labSpeaker","");
-$("wzSpeaker").onchange=async()=>{   // another speaker: their own submitted items
-  store.set("ihki.labSpeaker",wzWho()); $("labSpeaker").value=wzWho(); wzTakes={}; wzHeard={}; wzSent={}; wzAt=null;
-  await showLab(); };
 function wzNext(from){   // the first item after `from` (or from the top) not submitted yet, round the list; null when all are
   const ids=LAB.items.map(x=>x.id), k=from?ids.indexOf(from):-1;
   for(let d=1;d<=ids.length;d++){ const id=ids[(k+d+ids.length)%ids.length]; if(!wzSubmitted(id)) return id; }
@@ -4984,8 +5226,8 @@ function drawWizard(){
   if(!LAB) return;
   const n=LAB.items.length, done=LAB.items.filter(it=>wzSubmitted(it.id)).length, rej=LAB.items.filter(it=>wzState(it.id)==="rejected").length;
   if(!wzAt||!LAB.items.some(x=>x.id===wzAt)) wzAt=wzNext(null);
-  $("wzSummary").textContent=wzWho()?`${done} מתוך ${n} נשלחו`+(rej?` · ${rej} נדחו`:""):"כתבו קודם מי מקליט";
-  $("wzBar").style.width=`${Math.round(100*done/n)}%`; $("wzSpeaker").disabled=!!ttsAt;
+  $("wzSummary").textContent=wzWho()?`${done} מתוך ${n} נשלחו`+(rej?` · ${rej} נדחו`:""):"התחברו כדי להקליט";
+  $("wzBar").style.width=`${Math.round(100*done/n)}%`;
   if(!$("wzStatus").textContent) wzStatus(wzWho()?"השורה המסומנת: לחצו 🎤 ואמרו אותה.":"");
   const box=$("wzList"); box.replaceChildren();
   let group="";
@@ -5058,7 +5300,7 @@ async function wzAccept(id){
   const blob=wzTakes[id]; if(!blob||wzBusy) return;
   wzBusy=id; drawWizard();
   const fd=new FormData(); fd.append("item",id); fd.append("audio",blob,"rec"); fd.append("mistake","-1");
-  fd.append("speaker",wzWho()); fd.append("save","true");
+  fd.append("save","true");
   try{
     const res=await api("/api/lab/score",{method:"POST",body:fd}), d=await res.json().catch(()=>({}));
     if(!res.ok) throw new Error(d.detail||res.status);
@@ -5096,7 +5338,7 @@ $("ttsRun").onclick=async()=>{
   const voice=$("ttsVoice").value; if(!voice||ttsAt) return;
   if(wzRec&&wzRec.state==="recording") wzRec.stop();
   const who=`TTS ${voice}`;
-  $("wzSpeaker").value=who; store.set("ihki.labSpeaker",who); $("labSpeaker").value=who; wzTakes={};
+  labAs=who; wzTakes={}; wzHeard={}; wzSent={}; wzAt=null;
   await showLab();   // the list of this speaker: what the voice already submitted
   const todo=LAB.items.filter(it=>$("ttsAll").checked||!wzSubmitted(it.id));
   if(!todo.length){ $("ttsState").textContent=`הקול ${voice} כבר שלח את כל הפריטים. סמנו "גם פריטים שכבר נשלחו" כדי להריץ שוב.`; return; }
@@ -5124,7 +5366,8 @@ $("ttsRun").onclick=async()=>{
     play.onclick=async()=>{ try{ const r=await api(`/api/lab/tts/${encodeURIComponent(it.id)}?voice=${encodeURIComponent(voice)}`); if(!r.ok) throw 0; const u=URL.createObjectURL(await r.blob()); const a=new Audio(u); a.onended=()=>URL.revokeObjectURL(u); a.play(); }catch{ play.textContent="✗"; } };
     li.append(play); $("ttsLog").prepend(li);
   }
-  ttsAt=null; $("ttsRun").hidden=false; $("ttsStop").hidden=true; drawWizard(); drawLabList();
+  ttsAt=null; $("ttsRun").hidden=false; $("ttsStop").hidden=true;
+  labAs=""; wzTakes={}; wzHeard={}; wzSent={}; wzAt=null; await showLab();   // back to the teacher's own list
   $("ttsState").textContent=(ttsStopping?"נעצר. ":"הסתיים. ")+`${done} נשלחו`+(flaggedItems?`, ב־${flaggedItems} מהם המודל סימן טעות (אצל דובר "ילידי")`:"")+(failed?` · ${failed} נכשלו`:"")+". התוצאות בטאב תוצאות, תחת הדובר "+who+".";
 };
 $("ttsStop").onclick=()=>{ ttsStopping=true; $("ttsState").textContent="עוצר אחרי הפריט הנוכחי…"; };
@@ -5190,9 +5433,22 @@ $("labRerun").onclick=async()=>{
 };
 
 /* Native Minerva pilot: its imported rows already contain the cut timestamps, expected text and stored result. */
-let minervaData=null, minervaNow={};
+let minervaData=null, minervaNow={}, minervaRunMeta={};
+const MINERVA_RUNS_KEY="ihki.minervaRuns";
+let minervaAudio=null, minervaAudioButton=null;
+const minervaAudioUrls={};
+const minervaWordTraces={};
 const minervaTime=n=>n==null?"—":`${Math.floor(n/60)}:${String((n%60).toFixed(1)).padStart(4,"0")}`;
-const minervaFlagged=r=>(r.words||[]).flatMap(w=>(w.phonemes||[]).filter(p=>p.flagged).map(p=>`${p.ipa}>${p.heard||"_"}`));
+const minervaFlagged=(r,excluded={})=>(r.words||[]).flatMap((w,i)=>excluded[i]?[]:(w.phonemes||[]).filter(p=>p.flagged).map(p=>`${p.ipa}>${p.heard||"_"}`));
+const MINERVA_VOWELS=new Set(["a","i","u","e","o","aː","iː","uː","eː","oː"]);
+function minervaValidScore(result,excluded={}){
+  const words=(result&&result.words||[]).filter((_,i)=>!excluded[i]); if(!words.length) return null;
+  const phones=words.flatMap(w=>w.phonemes||[]); if(!phones.length) return null;
+  const weights=phones.map(p=>MINERVA_VOWELS.has(p.ipa)?.5:1), total=weights.reduce((a,b)=>a+b,0);
+  const phoneMean=phones.reduce((n,p,i)=>n+(p.score??0)*weights[i],0)/total;
+  const wordMean=words.reduce((n,w)=>n+(w.score??0),0)/words.length;
+  return Math.round(.5*phoneMean+.5*wordMean);
+}
 function fillGopSettings(sel){
   if(sel.options.length) return;
   sel.append(new Option("של השרת",""));
@@ -5208,8 +5464,16 @@ async function loadMinerva(){
     for(const v of minervaData.videos) sel.append(new Option(`${v.title} · ${v.samples.length} קטעים`,v.id));
     if([...sel.options].some(o=>o.value===was)) sel.value=was;
     fillGopSettings($("minervaSetting"));
-  }
-  state.textContent=minervaData.videos.length?`גרסה ${minervaData.version}`:"לא נמצאו הקלטות מיובאות של מינרווה";
+    const saved=store.get(MINERVA_RUNS_KEY,{});
+    if(saved&&typeof saved==="object") for(const [videoId,run] of Object.entries(saved)){
+      if(run&&run.results&&typeof run.results==="object"){ minervaNow[videoId]=run.results; minervaRunMeta[videoId]=run; }
+    }
+    const restored=minervaRunMeta[sel.value];
+    if(restored&&[...$("minervaSetting").options].some(o=>o.value===(restored.setting||""))) $("minervaSetting").value=restored.setting||"";
+  }else await refreshMinervaExclusions();
+  const restored=minervaRunMeta[$("minervaVideo").value];
+  state.textContent=!minervaData.videos.length?"לא נמצאו הקלטות מיובאות של מינרווה":restored?
+    `תוצאות שמורות מ־${new Date(restored.at).toLocaleString("he-IL")} · גרסה ${restored.version}`:`גרסה ${minervaData.version}`;
   drawMinerva();
 }
 function drawMinerva(){
@@ -5218,17 +5482,26 @@ function drawMinerva(){
   if(!video) return;
   const results=minervaNow[video.id]||{}, done=Object.keys(results).length;
   const current=Object.values(results), bad=current.filter(r=>r.unrelated).length;
-  const flags=current.reduce((n,r)=>n+minervaFlagged(r).length,0);
-  for(const [value,label] of [[video.samples.length,"קטעי דיבור"],[done,"נותחו עכשיו"],[flags,"סימוני הגאים"],[bad,'“משפט אחר”']]){
+  const flags=video.samples.reduce((n,s)=>n+(results[s.id]?minervaFlagged(results[s.id],s.excluded_words).length:0),0);
+  const excluded=video.samples.reduce((n,s)=>n+Object.keys(s.excluded_words||{}).length,0);
+  const validScores=video.samples.map(s=>results[s.id]?minervaValidScore(results[s.id],s.excluded_words):null).filter(x=>x!=null),
+    overall=validScores.length?Math.round(validScores.reduce((a,b)=>a+b,0)/validScores.length):"—";
+  for(const [i,[value,label]] of [[overall,"הערכת pipeline לסיפור"],[video.samples.length,"קטעי דיבור"],[done,"נותחו עכשיו"],[flags,"סימוני הגאים תקפים"],[excluded,"מילים שהוחרגו"],[bad,'“משפט אחר”']].entries()){
     const box=mark("lab-tile","","div"); box.append(mark("",String(value),"b"),mark("",label,"small")); tiles.append(box);
+    if(i===0){ box.classList.add("primary-kpi"); box.title=`ממוצע ציוני ${validScores.length} המשפטים שנותחו, לאחר החרגות`; }
   }
-  const head=document.createElement("thead"); head.innerHTML="<tr><th>קטע וזמן</th><th>ערבית</th><th>פונמות</th><th>ציון</th><th>סימונים</th><th></th></tr>"; table.append(head);
+  const head=document.createElement("thead"); head.innerHTML="<tr><th>קטע וזמן</th><th>ערבית</th><th>פונמות</th><th>ציון נוכחי</th><th>סימונים</th><th></th></tr>"; table.append(head);
   const body=document.createElement("tbody");
-  for(const s of video.samples){
-    const now=results[s.id], tr=document.createElement("tr"), flagsNow=now?minervaFlagged(now):null;
+  const samples=[...video.samples];
+  const effectiveScore=s=>{ const r=results[s.id]; return r?(minervaValidScore(r,s.excluded_words)??r.score):(s.score??101); };
+  if($("minervaSort").value==="score") samples.sort((a,b)=>effectiveScore(a)-effectiveScore(b)||a.line-b.line);
+  for(const s of samples){
+    const now=results[s.id], tr=document.createElement("tr"), flagsNow=now?minervaFlagged(now,s.excluded_words):null,
+      valid=now?minervaValidScore(now,s.excluded_words):null, hasExcluded=Object.keys(s.excluded_words||{}).length>0;
+    tr.id=`minerva-sample-${s.id}`; tr.dataset.sample=String(s.id);
     const storedFlags=s.flagged.join(", ")||"—";
     const values=[`${s.line} · ${minervaTime(s.start)}–${minervaTime(s.end)}`,s.ar,
-      now?`${s.score??"—"} → ${now.score??"—"}`:s.score??"—",
+      now?(hasExcluded?`${valid??"—"} לאחר החרגות · pipeline ${now.score??"—"}`:now.score??"—"):s.score??"—",
       now?`${storedFlags} → ${flagsNow.join(", ")||"—"}`:storedFlags];
     for(const value of values.slice(0,2)){ const td=document.createElement("td"); td.textContent=value; tr.append(td); }
     const phones=mark("minerva-phones","","td"), expected=document.createElement("div"), heard=document.createElement("div");
@@ -5236,13 +5509,155 @@ function drawMinerva(){
     heard.append(mark("","נשמע","small"),document.createTextNode(now?`${s.heard_ipa||"—"} → ${now.heard_ipa||"—"}`:s.heard_ipa||"—"));
     phones.append(expected,heard); tr.append(phones);
     for(const value of values.slice(2)){ const td=document.createElement("td"); td.textContent=value; tr.append(td); }
-    if(now){ tr.children[3].className=(now.score??0)>=(s.score??0)?"ok":"bad"; tr.children[4].className=flagsNow.length?"bad":"ok"; }
-    const td=document.createElement("td"), button=mark("btn","לוח אבחון","button"); button.disabled=!s.audio;
-    button.onclick=()=>openLabTrace(s.id,$("minervaSetting").value,$("minervaState"),button); td.append(button); tr.append(td); body.append(tr);
+    if(now){ tr.children[3].className=((hasExcluded?valid:now.score)??0)>=(s.score??0)?"ok":"bad"; tr.children[4].className=flagsNow.length?"bad":"ok"; }
+    const td=mark("minerva-row-actions","","td"), play=mark("btn","▶ השמעה","button"), trace=mark("btn","לוח אבחון","button");
+    play.disabled=trace.disabled=!s.audio;
+    play.onclick=()=>playMinerva(s.id,play);
+    trace.onclick=()=>openLabTrace(s.id,$("minervaSetting").value,$("minervaState"),trace);
+    td.append(play,trace); tr.append(td); body.append(tr);
+  }
+  table.append(body);
+  drawMinervaWords(video,results);
+}
+function drawMinervaWords(video,results){
+  const box=$("minervaWordsBox"), table=$("minervaWords"), words=[], excluded=[];
+  for(const s of video.samples){
+    const result=results[s.id];
+    for(const [index,w] of (result&&result.words||[]).entries()) (s.excluded_words&&s.excluded_words[index]?excluded:words).push({sample:s,index,...w});
+  }
+  words.sort((a,b)=>(a.score??101)-(b.score??101)||a.sample.line-b.sample.line||a.index-b.index);
+  const lowest=words.slice(0,20); box.hidden=!lowest.length; table.replaceChildren();
+  drawMinervaExcluded(excluded);
+  if(!lowest.length) return;
+  const head=document.createElement("thead"); head.innerHTML="<tr><th>#</th><th>מילה</th><th>ציון</th><th>פונמות צפויות / נשמעו</th><th>משפט ומקטע</th><th></th></tr>"; table.append(head);
+  const body=document.createElement("tbody");
+  for(const [rank,w] of lowest.entries()){
+    const tr=document.createElement("tr"), phones=w.phonemes||[], expected=phones.map(p=>p.ipa).join(" "),
+      heard=phones.map(p=>p.heard||p.ipa).join(" ");
+    for(const [value,cls] of [[rank+1,""],[w.ar||w.tr||"—","ar"],[w.score??"—",(w.score??0)>=85?"ok":(w.score??0)>=70?"mid":"bad"],
+      [`${expected} / ${heard}`,"ipa"]]){
+      const td=mark(cls,String(value),"td"); tr.append(td);
+    }
+    const sentence=document.createElement("td"), jump=mark("btn",`↥ קטע ${w.sample.line} בטבלה`,"button");
+    jump.title=w.sample.ar; jump.onclick=()=>focusMinervaSample(w.sample.id); sentence.append(jump); tr.append(sentence);
+    const td=document.createElement("td"), wordPlay=mark("btn","▶ מילה","button"), sentencePlay=mark("btn","▶ משפט","button"), exclude=mark("btn","החרגה מהבדיקה","button");
+    wordPlay.onclick=()=>playMinervaWord(w,wordPlay); sentencePlay.onclick=()=>playMinerva(w.sample.id,sentencePlay);
+    exclude.onclick=()=>toggleMinervaWord(w,true,exclude); td.append(wordPlay,sentencePlay,exclude); tr.append(td); body.append(tr);
   }
   table.append(body);
 }
-$("minervaVideo").onchange=drawMinerva;
+function focusMinervaSample(sampleId){
+  for(const row of $("minervaTable").querySelectorAll("tr.focus")) row.classList.remove("focus");
+  const row=$(`minerva-sample-${sampleId}`); if(!row) return;
+  row.classList.add("focus"); row.scrollIntoView({behavior:"smooth",block:"center"});
+}
+function drawMinervaExcluded(words){
+  const box=$("minervaExcludedBox"), table=$("minervaExcluded"); box.hidden=!words.length; table.replaceChildren(); if(!words.length) return;
+  const head=document.createElement("thead"); head.innerHTML="<tr><th>מילה</th><th>סיבה</th><th>משפט ומקטע</th><th></th></tr>"; table.append(head);
+  const body=document.createElement("tbody");
+  for(const w of words){
+    const tr=mark("minerva-excluded","","tr");
+    for(const [value,cls] of [[w.ar||w.tr||"—","ar"],[w.sample.excluded_words[w.index],""],[`${w.sample.ar} · קטע ${w.sample.line}`,""]]) tr.append(mark(cls,value,"td"));
+    const td=document.createElement("td"), restore=mark("btn","החזרה לבדיקה","button"); restore.onclick=()=>toggleMinervaWord(w,false,restore); td.append(restore); tr.append(td); body.append(tr);
+  }
+  table.append(body);
+}
+async function toggleMinervaWord(word,excluded,button){
+  let reason="";
+  if(excluded){ reason=await chooseExclusionReason(); if(reason===null) return; }
+  button.disabled=true;
+  try{
+    const res=await api(`/api/lab/samples/${word.sample.id}/exclude-word`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({word:word.index,excluded,reason})}), d=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(d.detail||res.status); word.sample.excluded_words=d.excluded_words; drawMinerva();
+    $("minervaState").textContent=excluded?`המילה ${word.ar||word.tr} הוחרגה מהבדיקה`:`המילה ${word.ar||word.tr} הוחזרה לבדיקה`;
+  }catch(e){ button.disabled=false; $("minervaState").textContent=`שמירת ההחרגה נכשלה: ${e.message}`; }
+}
+function chooseExclusionReason(){
+  const dlg=$("excludeDlg"), select=$("excludeReason"), other=$("excludeOther");
+  dlg.returnValue=""; select.value=select.options[0].value; other.value=""; other.hidden=true; other.required=false;
+  select.onchange=()=>{ other.hidden=select.value!=="other"; other.required=!other.hidden; if(!other.hidden) other.focus(); };
+  dlg.showModal();
+  return new Promise(resolve=>{ dlg.onclose=()=>{ if(dlg.returnValue!=="ok") return resolve(null); resolve(select.value==="other"?(other.value.trim()||"אחר"):select.value); }; });
+}
+async function playMinerva(id,button){
+  button.dataset.label||=button.textContent;
+  if(minervaAudio&&!minervaAudio.paused){
+    minervaAudio.pause(); minervaAudio.currentTime=0;
+    if(minervaAudioButton) minervaAudioButton.textContent=minervaAudioButton.dataset.label||"▶ השמעה";
+    if(minervaAudioButton===button){ minervaAudio=null; minervaAudioButton=null; return; }
+  }
+  try{
+    button.disabled=true; button.textContent="טוען…";
+    if(!minervaAudioUrls[id]){
+      const res=await api(`/api/lab/samples/${id}/audio`); if(!res.ok){ const d=await res.json().catch(()=>({})); throw new Error(d.detail||res.status); }
+      minervaAudioUrls[id]=URL.createObjectURL(await res.blob());
+    }
+    const audio=minervaAudio=new Audio(minervaAudioUrls[id]); minervaAudioButton=button;
+    button.disabled=false; button.textContent="■ עצירה";
+    audio.onended=()=>{ button.textContent=button.dataset.label; if(minervaAudio===audio){ minervaAudio=null; minervaAudioButton=null; } };
+    audio.onerror=()=>{ button.textContent=button.dataset.label; button.disabled=false; $("minervaState").textContent="לא ניתן לנגן את ההקלטה"; };
+    await audio.play();
+  }catch(e){ button.disabled=false; button.textContent=button.dataset.label; $("minervaState").textContent=`ההשמעה נכשלה: ${e.message}`; }
+}
+async function playMinervaWord(word,button){
+  const setting=$("minervaSetting").value, key=`${word.sample.id}|${setting}`;
+  if(minervaAudio&&!minervaAudio.paused){
+    const same=minervaAudioButton===button;
+    minervaAudio.pause(); minervaAudio.currentTime=0;
+    if(minervaAudioButton) minervaAudioButton.textContent=minervaAudioButton.dataset.label||"▶ השמעה";
+    if(same){ minervaAudio=null; minervaAudioButton=null; return; }
+  }
+  button.dataset.label="▶ מילה"; button.disabled=true; button.textContent="טוען…";
+  try{
+    if(!minervaWordTraces[key]){
+      const res=await api(`/api/lab/samples/${word.sample.id}/rescore?trace=true`+(setting?`&setting=${encodeURIComponent(setting)}`:""),{method:"POST"}), d=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(d.detail||res.status); minervaWordTraces[key]=d.result.trace;
+    }
+    if(!minervaAudioUrls[word.sample.id]){
+      const res=await api(`/api/lab/samples/${word.sample.id}/audio`); if(!res.ok) throw new Error(res.status);
+      minervaAudioUrls[word.sample.id]=URL.createObjectURL(await res.blob());
+    }
+    const trace=minervaWordTraces[key], tokens=(trace.tokens||[]).filter(t=>t.word===word.index);
+    if(!tokens.length) throw new Error("לא נמצאו גבולות למילה");
+    const ms=trace.frames.ms||20, offset=(trace.audio&&trace.audio.trim_start_ms||0)/1000,
+      start=Math.max(0,offset+Math.min(...tokens.map(t=>t.span[0]))*ms/1000-.15),
+      end=Math.max(start+.08,offset+Math.max(...tokens.map(t=>t.span[1]))*ms/1000+.15);
+    const audio=minervaAudio=new Audio(minervaAudioUrls[word.sample.id]); minervaAudioButton=button;
+    button.disabled=false; button.textContent="■ עצירה";
+    const finish=()=>{ audio.pause(); button.textContent="▶ מילה"; if(minervaAudio===audio){ minervaAudio=null; minervaAudioButton=null; } };
+    audio.ontimeupdate=()=>{ if(audio.currentTime>=end) finish(); }; audio.onended=finish;
+    audio.onerror=()=>{ finish(); $("minervaState").textContent="לא ניתן לנגן את המילה"; };
+    const startPlaying=()=>{ audio.currentTime=start; audio.play().catch(e=>{ finish(); $("minervaState").textContent=`ההשמעה נכשלה: ${e.message}`; }); };
+    if(audio.readyState>=1) startPlaying(); else audio.onloadedmetadata=startPlaying;
+  }catch(e){ button.disabled=false; button.textContent="▶ מילה"; $("minervaState").textContent=`השמעת המילה נכשלה: ${e.message}`; }
+}
+$("minervaVideo").onchange=()=>{
+  const saved=minervaRunMeta[$("minervaVideo").value];
+  if(saved&&[...$("minervaSetting").options].some(o=>o.value===(saved.setting||""))) $("minervaSetting").value=saved.setting||"";
+  drawMinerva();
+  $("minervaState").textContent=saved?`תוצאות שמורות מ־${new Date(saved.at).toLocaleString("he-IL")} · גרסה ${saved.version}`:`גרסה ${minervaData.version}`;
+};
+$("minervaSort").onchange=drawMinerva;
+function syncMinervaTraceContext(raw=localStorage.getItem("ihki.traceContext")){
+  if(!raw||!minervaData) return;
+  try{
+    const ctx=JSON.parse(raw);
+    for(const video of minervaData.videos){ const sample=video.samples.find(s=>s.id===ctx.sample); if(sample){ sample.excluded_words=ctx.excluded_words||{}; drawMinerva(); break; } }
+  }catch{}
+}
+async function refreshMinervaExclusions(){
+  if(!minervaData) return;
+  try{
+    const res=await api("/api/lab/minerva"), fresh=await res.json().catch(()=>({})); if(!res.ok) return;
+    for(const video of fresh.videos||[]) for(const sample of video.samples||[]){
+      const current=minervaData.videos.find(v=>v.id===video.id)?.samples.find(s=>s.id===sample.id);
+      if(current) current.excluded_words=sample.excluded_words||{};
+    }
+    drawMinerva();
+  }catch{}
+}
+addEventListener("storage",e=>{ if(e.key==="ihki.traceContext") syncMinervaTraceContext(e.newValue); });
+addEventListener("focus",()=>{ if(document.body.classList.contains("lab")&&$("lab").classList.contains("minerva")){ syncMinervaTraceContext(); refreshMinervaExclusions(); } });
 $("minervaRun").onclick=async()=>{
   const video=minervaData&&minervaData.videos.find(v=>v.id===$("minervaVideo").value); if(!video) return;
   const setting=$("minervaSetting").value, results={}, btn=$("minervaRun"); let failed=0; btn.disabled=true;
@@ -5252,7 +5667,10 @@ $("minervaRun").onclick=async()=>{
     catch{ failed++; }
     minervaNow[video.id]=results; drawMinerva();
   }
-  $("minervaState").textContent=`נותחו ${Object.keys(results).length} מתוך ${video.samples.length} קטעים`+(failed?` · ${failed} נכשלו`:""); btn.disabled=false;
+  const run={results,setting,version:minervaData.version,at:new Date().toISOString()};
+  minervaRunMeta[video.id]=run;
+  try{ const saved=store.get(MINERVA_RUNS_KEY,{}); saved[video.id]=run; store.set(MINERVA_RUNS_KEY,saved); }catch{}
+  $("minervaState").textContent=`נותחו ונשמרו ${Object.keys(results).length} מתוך ${video.samples.length} קטעים`+(failed?` · ${failed} נכשלו`:""); btn.disabled=false;
 };
 
 /* The lab's results: per sound, of the recordings as they were scored (see lab.benchmark in app/lab.py). */
@@ -5293,7 +5711,7 @@ $("labDelete").onclick=async()=>{
     $("labWho").value=""; labNow=null; $("labSaveBase").hidden=true; drawLabBase();
     await loadLabResults();
     $("labResState").textContent=`נמחקו ${d.deleted} הקלטות.`;
-    const me=store.get("ihki.labSpeaker",""), items=await api("/api/lab"+(me?`?speaker=${encodeURIComponent(me)}`:""));
+    const items=await api("/api/lab"+(labAs?`?speaker=${encodeURIComponent(labAs)}`:""));
     if(items.ok&&LAB){ const l=await items.json(); LAB.counts=l.counts; LAB.mine=l.mine; drawLabList(); }
   }catch(e){ $("labResState").textContent=`המחיקה נכשלה: ${e.message}`; btn.disabled=false; }
 };
@@ -5354,7 +5772,17 @@ async function openLabTrace(id,setting,state,btn){
     const res=await api(`/api/lab/samples/${id}/rescore?trace=true`+(setting?`&setting=${encodeURIComponent(setting)}`:""),{method:"POST"});
     const d=await res.json().catch(()=>({})); if(!res.ok) throw new Error(d.detail||res.status);
     localStorage.setItem("ihki.trace",JSON.stringify(d.result));
-    if(tab){ tab.opener=null; tab.location.href="/static/trace.html?src=app"; } else window.open("/static/trace.html?src=app","_blank","noopener");
+    const {data:sessionData} = sb ? await sb.auth.getSession() : {data:{session:null}};
+    localStorage.setItem("ihki.traceContext",JSON.stringify({sample:d.sample.id,excluded_words:d.sample.excluded_words||{},token:sessionData.session?.access_token||""}));
+    try{
+      const audio=await api(`/api/lab/samples/${id}/audio`);
+      if(audio.ok){
+        const old=localStorage.getItem("ihki.traceAudio"); if(old) URL.revokeObjectURL(old);
+        localStorage.setItem("ihki.traceAudio",URL.createObjectURL(await audio.blob()));
+      }else localStorage.removeItem("ihki.traceAudio");
+    }catch{ localStorage.removeItem("ihki.traceAudio"); }
+    const traceUrl=`/static/trace.html?src=app&v=${Date.now()}`;
+    if(tab){ tab.opener=null; tab.location.href=traceUrl; } else window.open(traceUrl,"_blank","noopener");
     state.textContent=`נפתח לוח האבחון של ההקלטה, בהגדרה ${d.setting}`;
   }catch(e){ if(tab) tab.close(); state.textContent=`לוח האבחון לא נפתח: ${e.message}`; }
   btn.disabled=false;
@@ -5540,7 +5968,7 @@ function useLessons(ids){   // the path shows these lessons only (null: every on
 }
 const ready=fetch("/api/phrases").then(r=>r.json()).then(d=>{
   ALL_LEVELS=d.levels||[]; ALL_LESSONS=d.lessons; ALL_CATS=d.categories; GAMES=d.games||[]; PHRASES=d.phrases;
-  $("nav").querySelector('[data-view="games"]').hidden=!GAMES.some(game=>!game.hidden);
+  $("nav").querySelector('[data-view="games"]').hidden=!GAMES.some(game=>!game.hidden)&&!(TUTOR_INFO&&TUTOR_INFO.available);
   for(const c of ALL_CATS) c.name=c.name.replace(/ ← /g,"\u00a0←\u00a0");   // the arrow never ends a line
   useLessons(MY_LESSONS);
   startCat(); opened=true;
@@ -5560,6 +5988,7 @@ $("startBtn").focus({preventScroll:true});
 /* With sign-in configured, the start button waits behind the Google button and, under it, the email one: Supabase
    sends the address a link that opens the page signed in (no password). A teacher gets two buttons in the start
    button's place: practice, as a student does, or the management panel. */
+if(!AUTH_URL) loadTutor();   // an open service: the tutor game, when the server has its key
 if(AUTH_URL){
   const start=$("startBtn"), login=$("loginBtn"), logout=$("logoutBtn"), roles=$("roles"), mail=$("mailForm");
   start.hidden=true; login.hidden=false;
@@ -5588,7 +6017,7 @@ if(AUTH_URL){
       logout.title=session?session.user.email||"":"";
       if(!session){ asked=""; start.hidden=roles.hidden=true; denied.hidden=true; login.focus({preventScroll:true}); return; }
       if(asked===session.user.id) return;
-      asked=session.user.id;
+      asked=session.user.id; ME_EMAIL=(session.user.email||"").toLowerCase();
       setTimeout(async()=>{   // outside this callback: api() asks supabase for the session
         const res=await api("/api/me").catch(()=>null);
         const ok=!res||res.status!==403;   // a server that cannot be reached is not a refusal
@@ -5601,7 +6030,7 @@ if(AUTH_URL){
         if(MY_CLASSES.length===1) MY_CLASS=mine[0];
         else{ const last=MY_CLASSES.find(c=>c.name===store.get("ihki.class","")); if(last) useClass(last); }   // the class practised in last
         start.hidden=!ok||teacher; roles.hidden=$("toManage").hidden=!teacher; denied.hidden=ok;
-        if(ok){ (teacher?$("practiceBtn"):start).focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); loadContent(); loadWriting(); }
+        if(ok){ (teacher?$("practiceBtn"):start).focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); loadContent(); loadWriting(); loadTutor(); }
       },0);
     });
   }

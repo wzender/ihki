@@ -6,6 +6,7 @@ Env:  MODEL_ID  (default facebook/wav2vec2-xlsr-53-espeak-cv-ft, or a path to a 
       SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY  (Google sign-in, see app/auth.py)
       TEACHER_EMAILS, SUPABASE_SECRET_KEY  (the teacher's management panel, its classes and the lesson videos, see app/auth.py)
       TUTORS_EMAIL  (more accounts that, like the teachers, flag a recording scored wrong, see app/auth.py)
+      ANTHROPIC_API_KEY, TUTOR_OPEN  (the AI tutor game בחכי ערבי, see app/tutor.py)
 A local .env file is loaded if present; real environment variables win over it.
 """
 from __future__ import annotations
@@ -35,10 +36,12 @@ from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .reference import References
 from .rules import TOGGLES, check_detectable
-from .scorer import SAMPLE_RATE, Scorer, decode_audio, frame_energy, load_scorer
+from .scorer import SAMPLE_RATE, Scorer, decode_audio, decode_audio_with_timing, frame_energy, load_scorer
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
 from .tts import LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts
+from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
+                    TutorUnavailable, load_tutor, tutor_open)
 from .verb_game import VerbExerciseGenerator
 
 logging.basicConfig(level=logging.INFO)
@@ -167,7 +170,7 @@ CREATE_LAB = ("create table public.lab_samples (id bigint generated always as id
               "version text not null default '', audio text, created_at timestamptz not null default now()); "
               "alter table public.lab_samples enable row level security; "
               "insert into storage.buckets (id, name) values ('lab', 'lab') on conflict (id) do nothing;")
-MAX_SPEAKER = 40
+MAX_SPEAKER = 254   # an email address, the longest a speaker is
 # The lab's automatic test: the list said by the TTS voices, each kept as a speaker of its own ("TTS ראאף")
 LAB_TTS_VOICES = {**{name.translate({c: None for c in range(0x591, 0x5c8)}): v for name, v in VOICES.items()}, **LINE_VOICES}
 AUDIO_EXT = {"webm": "webm", "ogg": "ogg", "mp4": "m4a", "mpeg": "mp3", "wav": "wav", "x-wav": "wav"}   # by the upload's type
@@ -339,11 +342,12 @@ def summary(rows: list[dict], texts: dict[int, dict] | None = None) -> dict:
 
 
 def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
-               auth: SupabaseAuth | None = None) -> FastAPI:
+               auth: SupabaseAuth | None = None, tutor: Tutor | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.scorer = scorer or load_scorer(MODEL_ID)
         app.state.tts = tts or load_tts()
+        app.state.tutor = tutor or load_tutor()
         # the playback voices double as the native baseline of the scores (see reference.py)
         app.state.refs = References(app.state.scorer, app.state.tts, list(VOICES.values())) if app.state.tts else None
         app.state.auth = auth or load_auth()
@@ -648,10 +652,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return HTTPException(503, f"Supabase לא זמין: {e}")
 
     @app.get("/api/lab")
-    def lab_items(speaker: str = Query(""), a: SupabaseAuth = Depends(teacher_only)):
-        """The lab's diagnostic list, with how many recordings each item has (`counts`) and, with `speaker`, how many
-        of them are that speaker's (`mine`: the lab's test marks an item submitted by it). `setup` is the SQL to run
-        while the table is missing: the list still shows and scores, but nothing is kept."""
+    def lab_items(speaker: str = Query(""), a: SupabaseAuth = Depends(teacher_only),
+                  user: dict | None = Depends(signed_in)):
+        """The lab's diagnostic list, with how many recordings each item has (`counts`) and how many of them are
+        `speaker`'s, by default the signed-in teacher's (`mine`: the lab's test marks an item submitted by it; the
+        automatic test asks for its "TTS <voice>"). `setup` is the SQL to run while the table is missing: the list
+        still shows and scores, but nothing is kept."""
         try:
             rows, setup = a.lab_samples(), ""
         except AuthUnavailable as e:
@@ -660,7 +666,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             rows, setup = [], CREATE_LAB
         counts: dict[str, dict[str, int]] = {}
         mine: dict[str, dict[str, int]] = {}
-        who = " ".join(speaker.split())[:MAX_SPEAKER]
+        who = " ".join(speaker.split())[:MAX_SPEAKER] or user["email"].lower()
         for r in rows:
             label = r["label"] if r["label"] in ("correct", "mistake") else "correct"
             for tally in (counts, mine) if who and (r.get("speaker") or "") == who else (counts,):
@@ -668,11 +674,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"items": lab.public_items(), "groups": lab.GROUPS, "counts": counts, "mine": mine, "setup": setup}
 
     @app.post("/api/lab/score")
-    def lab_score(request: Request, item: str = Form(...), audio: UploadFile = File(...), speaker: str = Form(""),
+    def lab_score(request: Request, item: str = Form(...), audio: UploadFile = File(...),
                   mistake: int = Form(-1), save: bool = Form(True), a: SupabaseAuth = Depends(teacher_only),
                   user: dict | None = Depends(signed_in)):
         """Scores a recording of a lab item as a practice recording is scored (with the native baseline), with the
-        teacher's stage-by-stage trace, and keeps it with its label unless `save` is off. `mistake` is the index of the
+        teacher's stage-by-stage trace, and keeps it with its label unless `save` is off, as said by the signed-in
+        teacher (the speaker is their email, never a name typed in the page). `mistake` is the index of the
         planted mistake among the item's sounds (-1: said right). {"result", "saved": whether the row was kept,
         "audio": whether the recording was kept too, "error": why the row was not kept}."""
         found = lab.BY_ID.get(item)
@@ -700,7 +707,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         flagged = [f"{p.get('sound', p['ipa'])}>{p.get('heard') or '_'}" for w in result.get("words", [])
                    for p in w.get("phonemes", []) if p.get("flagged")]
         row = {"email": user["email"].lower(), "item": item, "ar": result["variant"]["ar"], "ipa": result["variant"]["ipa"],
-               "speaker": " ".join(speaker.split())[:MAX_SPEAKER], "label": "correct" if mistake < 0 else "mistake",
+               "speaker": user["email"].lower(), "label": "correct" if mistake < 0 else "mistake",
                "mistake": None if mistake < 0 else {"index": mistake, "expected": sounds[mistake]},
                "device": request.headers.get("user-agent", "")[:200], "score": result["score"],
                "heard_ipa": result["heard_ipa"], "flagged": flagged, "result": result, "model": MODEL_ID,
@@ -806,6 +813,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             video_id, line = match.group(1), int(match.group(2))
             timing = re.fullmatch(rf"minerva:{re.escape(video_id)}:([0-9.]+)-([0-9.]+)", s.get("device") or "")
             stored = s.get("result") or {}
+            excluded = stored.get("_lab_excluded_words") or {}
+            if not isinstance(excluded, dict):
+                excluded = {}
             video = videos.setdefault(video_id, {"id": video_id, "title": titles.get(video_id, video_id),
                                                   "filename": files.get(video_id, ""), "samples": []})
             video["samples"].append({"id": s["id"], "item": s["item"], "line": line,
@@ -814,7 +824,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                                      "ar": s.get("ar") or "", "ipa": s.get("ipa") or "",
                                      "score": s.get("score"), "heard_ipa": s.get("heard_ipa") or "",
                                      "flagged": s.get("flagged") or [],
-                                     "unrelated": bool(stored.get("unrelated")), "audio": bool(s.get("audio"))})
+                                     "unrelated": bool(stored.get("unrelated")), "audio": bool(s.get("audio")),
+                                     "excluded_words": {str(k): str(v) for k, v in excluded.items()}})
         order = list(titles)
         out = list(videos.values())
         out.sort(key=lambda v: order.index(v["id"]) if v["id"] in order else len(order))
@@ -837,6 +848,47 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         log.info("lab: %d recordings deleted (%s)", n, "every speaker" if everyone else f"speaker {speaker!r}")
         return {"deleted": n}
 
+    @app.get("/api/lab/samples/{sample_id}/audio")
+    def lab_sample_audio(sample_id: int, a: SupabaseAuth = Depends(teacher_only)):
+        """Streams a private saved lab recording to a teacher, including imported Minerva segments."""
+        try:
+            found = a.lab_audio(sample_id)
+        except AuthUnavailable as e:
+            raise lab_error(e)
+        if found is None:
+            raise HTTPException(404, "להקלטה הזו אין קובץ שמור")
+        data, media_type = found
+        return Response(data, media_type=media_type, headers={"Cache-Control": "private, no-store"})
+
+    @app.post("/api/lab/samples/{sample_id}/exclude-word")
+    def lab_exclude_word(sample_id: int, body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+        """Includes or excludes one word from Minerva evaluation metrics, without changing the pipeline's score."""
+        word, excluded = body.get("word"), body.get("excluded")
+        if not isinstance(word, int) or word < 0 or not isinstance(excluded, bool):
+            raise HTTPException(400, "invalid word exclusion")
+        try:
+            row = next((s for s in a.lab_samples(full=True) if s.get("id") == sample_id), None)
+        except AuthUnavailable as e:
+            raise lab_error(e)
+        if row is None:
+            raise HTTPException(404, "no such lab recording")
+        result = row.get("result") or {}
+        if word >= len(result.get("words") or []):
+            raise HTTPException(400, "invalid word index")
+        saved_marks = result.get("_lab_excluded_words") or {}
+        marks = {str(k): str(v) for k, v in saved_marks.items()} if isinstance(saved_marks, dict) else {}
+        if excluded:
+            reason = " ".join(str(body.get("reason") or "").split())[:200]
+            marks[str(word)] = reason or "לא עבר אימות"
+        else:
+            marks.pop(str(word), None)
+        result["_lab_excluded_words"] = marks
+        try:
+            a.update_lab_result(sample_id, result)
+        except AuthUnavailable as e:
+            raise lab_error(e)
+        return {"id": sample_id, "excluded_words": marks}
+
     @app.post("/api/lab/samples/{sample_id}/rescore")
     def lab_rescore_sample(sample_id: int, trace: bool = Query(False), setting: str = Query(""),
                            a: SupabaseAuth = Depends(teacher_only)):
@@ -858,7 +910,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if found is None:
             raise HTTPException(404, "להקלטה הזו אין קובץ שמור")
         try:
-            wav = decode_audio(found[0])
+            wav, trim_start = decode_audio_with_timing(found[0])
         except ValueError:
             raise HTTPException(400, "could not decode audio")
         scorer = app.state.scorer
@@ -869,11 +921,15 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         else:
             refs = app.state.refs.get(phrase["key"], phrase) if app.state.refs else []
         result = scorer.score(wav, phrase, refs, diagnostics=trace)
+        if trace and result.get("trace"):
+            result["trace"]["audio"] = {"trim_start_ms": round(1000 * trim_start / SAMPLE_RATE, 1)}
         if not trace:
             return {"id": sample_id, "result": lab.compact(result)}
         g = scorer.cfg.gop
+        excluded = (row.get("result") or {}).get("_lab_excluded_words") or {}
         return {"id": sample_id, "result": result, "setting": lab.sweep_key(g.ratio_pool, g.vowel_window),
-                "sample": {k: row.get(k) for k in ("id", "item", "speaker", "label", "mistake")}}
+                "sample": {**{k: row.get(k) for k in ("id", "item", "speaker", "label", "mistake")},
+                           "excluded_words": excluded if isinstance(excluded, dict) else {}}}
 
     # The sweep (POST /api/lab/samples/{id}/sweep) rebuilds each native baseline under every setting: the voices'
     # posteriors are kept by (voice, wav hash), their References by setting too, for the life of the server.
@@ -1626,6 +1682,81 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if result.get("error"):
             raise HTTPException(400, result["message"])
         return save_flag(phrase, result, data, audio.content_type, note, user)
+
+    def tutor_for(user: dict | None) -> Tutor:
+        """The tutor game, for whoever may play it now: a teacher, every student once TUTOR_OPEN is set, and anyone
+        on a service with no sign-in. 404 for anyone else, 503 without a key."""
+        if app.state.tutor is None:
+            raise HTTPException(503, "המורה לא מוגדר בשרת (חסר ANTHROPIC_API_KEY)")
+        if user and not user["teacher"] and not tutor_open():
+            raise HTTPException(404, "not available")
+        return app.state.tutor
+
+    def tutor_day(user: dict | None) -> tuple[str, str, int | None, object]:
+        """The student's key for the day's count, the day, their limit (None: a teacher, or no sign-in) and how to read
+        the count Supabase keeps."""
+        now = datetime.now(LOCAL_TZ)
+        day = now.date().isoformat()
+        if not user or user["teacher"]:
+            return "open", day, None, None
+        since = now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
+        return user["id"], day, DAILY_LIMIT, lambda: app.state.auth.tutor_chats_since(user["id"], since)
+
+    @app.get("/api/tutor")
+    def tutor_info(user: dict | None = Depends(signed_in)):
+        """בחכי ערבי: whether this account may play, its scenario cards (one for each lesson, in the course's order; the
+        page shows those of the lessons the student has started), and how many conversations are left today (None: no
+        limit)."""
+        try:
+            t = tutor_for(user)
+        except HTTPException:
+            return {"available": False}
+        student, day, limit, seed = tutor_day(user)
+        return {"available": True, "turns": MAX_TURNS,
+                "left": None if limit is None else max(0, limit - t.started(student, day, seed)),
+                "scenarios": [{k: s[k] for k in ("id", "lesson", "title", "desc", "who", "ar", "she")} for s in SCENARIOS]}
+
+    @app.post("/api/tutor/start")
+    def tutor_start(tasks: BackgroundTasks, body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        """A new conversation on a scenario card: {"scenario", "gender": "m" or "f"}. Gives its id, the tutor's opening
+        message (see Tutor.message) and how many conversations are left today; 429 when none are, 502 when the model
+        did not answer."""
+        t = tutor_for(user)
+        scenario, gender = body.get("scenario"), body.get("gender")
+        if scenario not in BY_ID or gender not in ("m", "f"):
+            raise HTTPException(400, "unknown scenario or gender")
+        student, day, limit, seed = tutor_day(user)
+        try:
+            chat, opening = t.start(scenario, gender, user["id"] if user else None,
+                                    user["email"].lower() if user else "", student, day, limit, seed)
+        except TutorLimit:
+            raise HTTPException(429, f"סיימתם את {DAILY_LIMIT} השיחות של היום. נתראה מחר!")
+        except TutorUnavailable as e:
+            raise HTTPException(502, str(e))
+        if user and app.state.auth:
+            tasks.add_task(app.state.auth.save_tutor_chat, chat.row())
+        return {"id": chat.id, "message": opening, "turns": MAX_TURNS,
+                "left": None if limit is None else max(0, limit - t.started(student, day))}
+
+    @app.post("/api/tutor/turn")
+    def tutor_turn(tasks: BackgroundTasks, body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        """The student's sentence, as the page heard it: {"id", "text"}. Gives the tutor's answer (see Tutor.turn)."""
+        t = tutor_for(user)
+        text = " ".join(str(body.get("text", "")).split())
+        if not text or len(text) > MAX_TEXT:
+            raise HTTPException(400, f"a sentence of 1 to {MAX_TEXT} characters")
+        chat = t.get(str(body.get("id", "")), user["id"] if user else None)
+        if chat is None:
+            raise HTTPException(410, "השיחה הזו כבר לא פעילה. התחילו שיחה חדשה.")
+        if chat.done:
+            raise HTTPException(409, "השיחה הסתיימה")
+        try:
+            result = t.turn(chat, text)
+        except TutorUnavailable as e:
+            raise HTTPException(502, str(e))
+        if user and app.state.auth:
+            tasks.add_task(app.state.auth.save_tutor_chat, chat.row())
+        return result
 
     @app.get("/api/health")
     def health():

@@ -843,8 +843,8 @@ class HFEmitter:
             return self.torch.log_softmax(logits.float(), -1).cpu().numpy()
 
 
-def decode_audio(data: bytes) -> np.ndarray:
-    """Any browser recording (webm/opus, ogg, mp4/aac, wav) -> 16 kHz mono float32, via ffmpeg."""
+def decode_audio_with_timing(data: bytes) -> tuple[np.ndarray, int]:
+    """Decodes audio and returns (trimmed 16 kHz samples, samples removed from its start)."""
     proc = subprocess.run(
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", "pipe:0",
          "-t", str(MAX_SECONDS), "-ac", "1", "-ar", str(SAMPLE_RATE), "-f", "f32le", "pipe:1"],
@@ -852,6 +852,7 @@ def decode_audio(data: bytes) -> np.ndarray:
     if proc.returncode != 0:
         raise ValueError(proc.stderr.decode(errors="replace")[:300])
     wav = np.frombuffer(proc.stdout, dtype=np.float32)
+    trim_start = 0
     # trim leading/trailing silence so CTC isn't fed seconds of blank
     if wav.size:
         frame = 320
@@ -859,8 +860,14 @@ def decode_audio(data: bytes) -> np.ndarray:
         voiced = np.where(energy > max(0.01, energy.max() * 0.05))[0]
         if voiced.size:
             pad = SAMPLE_RATE // 5
-            wav = wav[max(0, voiced[0] - pad): voiced[-1] + pad]
-    return wav
+            trim_start = max(0, int(voiced[0]) - pad)
+            wav = wav[trim_start:voiced[-1] + pad]
+    return wav, trim_start
+
+
+def decode_audio(data: bytes) -> np.ndarray:
+    """Any browser recording (webm/opus, ogg, mp4/aac, wav) -> trimmed 16 kHz mono float32."""
+    return decode_audio_with_timing(data)[0]
 
 
 def load_scorer(model_id: str) -> Scorer:

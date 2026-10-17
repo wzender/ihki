@@ -45,7 +45,10 @@ Writing: a lesson's written homework (see workbook.py) is kept in the Supabase t
 and topic, written with the student's own token like the attempts, so it follows them to any device. The panel
 reads every student's with the secret key.
 
-Env:  SUPABASE_URL              (https://<project-ref>.supabase.co)
+Tutor: each conversation of the game בחכי ערבי (see tutor.py), what the student said and how the tutor answered, in the
+Supabase table `tutor_chats`, written with the secret key, for the teacher to read.
+
+Env:  SUPABASE_URL             (https://<project-ref>.supabase.co)
       SUPABASE_PUBLISHABLE_KEY  (the publishable/anon key; it is public and also goes to the page)
       TEACHER_EMAILS            (optional: the accounts with the management panel, separated by commas or spaces)
       TUTORS_EMAIL              (optional: more accounts that flag a wrong score, as the teachers do; separated by commas or spaces)
@@ -529,7 +532,7 @@ class SupabaseAuth:
 
     def lab_sample(self, sample_id: int) -> dict | None:
         """One lab recording's row, without the scorer's result, or None."""
-        query = urllib.parse.urlencode({"select": "id,item,ar,ipa,speaker,label,mistake,audio", "id": f"eq.{int(sample_id)}",
+        query = urllib.parse.urlencode({"select": "id,item,ar,ipa,speaker,label,mistake,audio,result", "id": f"eq.{int(sample_id)}",
                                         "limit": 1})
         rows = self._admin(f"/rest/v1/lab_samples?{query}")
         return rows[0] if rows else None
@@ -538,6 +541,10 @@ class SupabaseAuth:
         """One lab recording and its media type, or None when it was not stored."""
         row = self.lab_sample(sample_id)
         return self._get_object("lab", row["audio"]) if row and row.get("audio") else None
+
+    def update_lab_result(self, sample_id: int, result: dict) -> None:
+        """Updates a lab result's review metadata (the original scoring fields remain in the same JSON document)."""
+        self._admin(f"/rest/v1/lab_samples?id=eq.{int(sample_id)}", "PATCH", {"result": result})
 
     def delete_lab_samples(self, speaker: str | None = None) -> int:
         """Deletes the lab's recordings of one speaker ("": the unnamed), or of every speaker when None: the rows,
@@ -609,6 +616,25 @@ class SupabaseAuth:
         """Aggregated attempt counts for the teacher's monitoring graph; the RPC returns no student identities."""
         return self._admin("/rest/v1/rpc/activity_buckets", "POST",
                            {"p_hours": hours, "p_bucket_minutes": bucket_minutes})
+
+    def save_tutor_chat(self, row: dict) -> None:
+        """Keeps a conversation with the tutor (see tutor.py), in place of what was kept of it before. A failure is
+        logged, never raised: the conversation goes on without it."""
+        try:
+            self._admin("/rest/v1/tutor_chats?on_conflict=id", "POST", row,
+                        prefer="resolution=merge-duplicates,return=minimal")
+        except AuthUnavailable as e:
+            log.warning("a tutor conversation not kept%s: %s",
+                        " (the table `tutor_chats` is missing, see tutor.CREATE_TUTOR_CHATS)" if "answered 404" in str(e) else "", e)
+
+    def tutor_chats_since(self, user_id: str, since: str) -> int:
+        """How many conversations with the tutor the student started since this ISO time. 0 when they cannot be read."""
+        query = urllib.parse.urlencode({"select": "id", "user_id": f"eq.{user_id}", "created_at": f"gte.{since}"})
+        try:
+            return len(self._admin(f"/rest/v1/tutor_chats?{query}") or [])
+        except AuthUnavailable as e:
+            log.warning("tutor conversations not counted: %s", e)
+            return 0
 
     def all_attempt_issues(self) -> list[dict] | None:
         """Compact phoneme issues from all attempts. None means the diagnostic columns have not been migrated yet."""

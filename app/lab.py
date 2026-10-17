@@ -233,7 +233,8 @@ def compact(result: dict) -> dict:
     keep = ("ipa", "sound", "score", "flagged", "heard")
     return {"score": result.get("score"), "heard_ipa": result.get("heard_ipa", ""),
             "unrelated": bool(result.get("unrelated")),
-            "words": [{"phonemes": [{k: p[k] for k in keep if k in p} for p in w.get("phonemes", [])]}
+            "words": [{**{k: w[k] for k in ("ar", "tr", "heard_tr", "score") if k in w},
+                       "phonemes": [{k: p[k] for k in keep if k in p} for p in w.get("phonemes", [])]}
                       for w in result.get("words", [])]}
 
 

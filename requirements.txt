@@ -7,6 +7,7 @@ transformers>=4.41
 huggingface_hub>=0.23
 # torch: CPU build installed separately in the Dockerfile (see README for local installs)
 python-dotenv>=1.0
+anthropic>=1.0  # the AI tutor game בחכי ערבי (app/tutor.py)
 edge-tts>=7.0
 gTTS>=2.5
 tzdata>=2024.1  # time zones for zoneinfo: the slim image may not carry the system ones

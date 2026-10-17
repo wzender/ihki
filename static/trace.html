@@ -58,6 +58,12 @@ h2{margin:0;font-size:16px;font-weight:700}
 button,select,label.file{font:600 13px var(--font);border:1px solid var(--axis);background:var(--surface);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer}
 button:hover,label.file:hover{background:var(--raise)}
 label.file input{display:none}
+dialog{border:1px solid var(--axis);border-radius:14px;background:var(--surface);color:var(--ink);padding:18px;width:min(92vw,460px)}
+dialog::backdrop{background:rgba(0,0,0,.48)}
+.exclude-form{display:flex;flex-direction:column;gap:12px}
+.exclude-form h2{font-size:18px}.exclude-form label{display:flex;flex-direction:column;gap:5px}
+.exclude-form select,.exclude-form input{width:100%;padding:8px 10px;border:1px solid var(--axis);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit}
+.dialog-actions{display:flex;gap:8px;justify-content:flex-end}
 .panel{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:14px 16px;min-width:0;display:flex;flex-direction:column;gap:10px}
 .panel>.head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
 .grid2{display:grid;gap:14px;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)}
@@ -78,7 +84,14 @@ svg .strong{fill:var(--ink);font-weight:700}
 .dot.good{background:var(--good)} .dot.warn{background:var(--warn)} .dot.crit{background:var(--crit)}
 /* panel 4: the sentence */
 .sentence{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
-.word{border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;border:2px solid transparent}
+.word{position:relative;border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;border:2px solid transparent}
+.word.playable{cursor:pointer;padding-inline-start:28px;transition:transform .12s,box-shadow .12s}
+.word.playable::before{content:"▶";position:absolute;inset-inline-start:9px;top:10px;font-size:11px;color:var(--ink-2)}
+.word.playable:hover,.word.playable:focus-visible{outline:2px solid var(--s1);outline-offset:2px;transform:translateY(-1px)}
+.word.playing{box-shadow:0 0 0 3px var(--wash1);border-color:var(--s1)}
+.word.excluded{opacity:.58;background:var(--raise);text-decoration:line-through}
+.word-exclude{font-size:11px;padding:3px 7px;border-style:dashed}
+.word.excluded .word-exclude{text-decoration:none;opacity:1}
 .word.hl{border-color:var(--ink-2)}
 .word .tr{font-size:20px;font-weight:700;line-height:1.3}
 .word .ar{font-size:17px;color:var(--ink-2);line-height:1.2}
@@ -94,6 +107,7 @@ svg .strong{fill:var(--ink);font-weight:700}
 .tree .row{display:flex;flex-wrap:wrap;gap:8px}
 .tree .wnode{background:var(--raise);border-radius:10px;padding:6px 10px;font-size:12px;cursor:default;border:2px solid transparent}
 .tree .wnode.hl{border-color:var(--s1)}
+.tree .wnode.excluded{opacity:.5;text-decoration:line-through}
 .tree .formula{font-size:12px;color:var(--ink-2)}
 /* panel 3 */
 .paths{display:flex;flex-direction:column;gap:6px}
@@ -132,7 +146,7 @@ details summary{cursor:pointer;color:var(--ink-2);font-size:12px}
   </header>
 
   <section class="panel" id="p4" aria-labelledby="p4h">
-    <div class="head"><h2 id="p4h">המשפט, מילה אחר מילה</h2><span class="sub">מעבר עם העכבר על הגה מציג אותו בכל הלוחות; לחיצה מקבעת</span></div>
+    <div class="head"><h2 id="p4h">המשפט, מילה אחר מילה</h2><span class="sub" id="wordHint">▶ לחצו על מילה כדי לשמוע אותה · מעבר עם העכבר על הגה מציג אותו בכל הלוחות; לחיצה מקבעת</span></div>
     <div class="sentence" id="sentence"></div>
     <div class="legend"><span><span class="dot good"></span>75 ומעלה</span><span><span class="dot warn"></span>50–74</span><span><span class="dot crit"></span>מתחת ל־50</span><span>! סומן כטעות</span></div>
     <details><summary>עץ הצבירה: הגאים ← מילים ← משפט</summary><div class="tree" id="tree"></div></details>
@@ -165,6 +179,16 @@ details summary{cursor:pointer;color:var(--ink-2);font-size:12px}
     <details><summary>טבלת הגאים (כל המספרים)</summary><div class="scroll"><table class="data" id="table"></table></div></details>
   </section>
 </main>
+<dialog id="excludeDlg" aria-labelledby="excludeTitle">
+  <form method="dialog" class="exclude-form">
+    <h2 id="excludeTitle">סיבת ההחרגה</h2>
+    <label>מדוע המילה אינה תקינה?
+      <select id="excludeReason"><option>חיתוך האודיו פגום</option><option>הטקסט אינו תואם להקלטה</option><option>פונמות צפויות לא נכונות</option><option>חפיפת קולות</option><option>וריאנט תקין שלא תועד</option><option>רועש</option><option value="other">אחר</option></select>
+    </label>
+    <input id="excludeOther" maxlength="200" placeholder="פירוט הסיבה" hidden>
+    <div class="dialog-actions"><button value="cancel" formnovalidate>ביטול</button><button value="ok">החרגה</button></div>
+  </form>
+</dialog>
 <div id="tip" role="tooltip"></div>
 <script>
 "use strict";
@@ -179,12 +203,17 @@ const BAND_NAME={good:"טוב",warn:"כמעט",crit:"חלש"};
 const STAGE_NAME={gop:"GOP גולמי",exemption:"פטורים",insertion:"תקרת צרור",baseline:"קו בסיס ילידי",calibration:"רצפת כיול",final:"סופי"};
 const EXEMPT_NAME={glottal_dropped:"עצירה סותמית שהושמטה",article_vowel_elided:"תנועת ال אחרי תנועה",near_vowel:"תנועה קרובה"};
 
-let R=null, T=null, PH=[], sel=0, pinned=false;
+let R=null, T=null, PH=[], sel=0, pinned=false, traceSource="";
+let wordAudio=null, wordAudioEnd=0, wordAudioNode=null;
+let wordAudioUrl=new URLSearchParams(location.search).get("src")==="app"?(localStorage.getItem("ihki.traceAudio")||""):"";
+let traceContext={}; try{ traceContext=JSON.parse(localStorage.getItem("ihki.traceContext")||"{}"); }catch{}
+let excludedWords={...(traceContext.excluded_words||{})};
 
 /* ---------- loading ---------- */
 function load(result,source){
   if(!result||!result.trace||!result.trace.tokens){ show("בקובץ אין trace. פתחו את הלוח מהמעבדה או מניתוח הפונמות של מורה, או טענו את הדוגמה."); return; }
-  R=result; T=result.trace; PH=(R.words||[]).flatMap(w=>w.phonemes||[]);
+  if(source!=="מהאפליקציה"){ traceContext={}; excludedWords={}; wordAudioUrl=""; }
+  R=result; T=result.trace; PH=(R.words||[]).flatMap(w=>w.phonemes||[]); traceSource=source;
   const worst=T.tokens.reduce((b,t)=>t.final<b.final?t:b,T.tokens[0]), asked=+new URLSearchParams(location.search).get("i");
   sel=asked>=0&&asked<T.tokens.length&&new URLSearchParams(location.search).has("i")?asked:worst?worst.i:0; pinned=new URLSearchParams(location.search).has("i");
   $("what").textContent=`${source} · ציון ${R.score}`+(R.phrase?` · ${R.phrase.he}`:"");
@@ -241,27 +270,78 @@ function soundTip(i){
 function drawSentence(){
   const box=$("sentence"); box.replaceChildren();
   (R.words||[]).forEach((w,wi)=>{
-    const b=band(w.score), word=el("div",{class:`word band-${b}`,"data-w":wi});
+    const excluded=!!excludedWords[wi], b=band(w.score), word=el("div",{class:`word band-${b}${wordAudioUrl?" playable":""}${excluded?" excluded":""}`,"data-w":wi});
+    if(wordAudioUrl){
+      word.setAttribute("role","button"); word.tabIndex=0; word.title="השמעת המילה";
+      word.onclick=()=>playWord(wi,word);
+      word.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); playWord(wi,word); } };
+    }
     word.append(el("span",{class:"tr",text:w.tr}),el("span",{class:"ar",text:w.ar}),el("span",{class:"ws",text:`${fmt(w.score,0)} · ${BAND_NAME[b]}`}));
     const phones=el("div",{class:"phones"});
     T.tokens.forEach(t=>{ if(t.word!==wi) return;
       const c=el("button",{class:`ph ${band(t.final)}${t.flagged?" flag":""}`,"data-i":t.i,"aria-label":`${t.ipa}, ציון ${fmt(t.final,0)}`,text:t.ipa});
       c.onmouseenter=e=>{ hover(t.i); tipShow(e,soundTip(t.i)); }; c.onmousemove=tipMove; c.onmouseleave=tipHide;
-      c.onfocus=()=>hover(t.i); c.onclick=()=>pick(t.i);
+      c.onfocus=()=>hover(t.i); c.onclick=e=>{ e.stopPropagation(); pick(t.i); };
       phones.append(c); });
-    word.append(phones); box.append(word);
+    word.append(phones);
+    if(traceContext.sample!=null){
+      const toggle=el("button",{class:"word-exclude",text:excluded?"החזרה לציון":"לא תקינה · החרגה"});
+      toggle.onclick=e=>{ e.stopPropagation(); toggleWord(wi,w,toggle); }; word.append(toggle);
+    }
+    box.append(word);
   });
-  const s=T.sentence;
-  $("p4h").textContent=`המשפט, מילה אחר מילה · ${R.score}`+(R.unrelated?" · משפט אחר?":"");
+  const valid=validSentence();
+  $("what").textContent=`${traceSource} · ציון ${valid.final??"—"}`+(valid.excluded?` (מקורי ${R.score})`:"")+(R.phrase?` · ${R.phrase.he}`:"");
+  $("p4h").textContent=`המשפט, מילה אחר מילה · ציון ${valid.final??"—"}`+(valid.excluded?` · מקורי ${R.score} · ${valid.excluded} הוחרגו`:"")+(R.unrelated?" · משפט אחר?":"");
+  $("wordHint").textContent=(wordAudioUrl?"▶ לחצו על מילה כדי לשמוע אותה · ":"")+(traceContext.sample!=null?"„לא תקינה” מחריג את המילה מהציון הכולל · ":"")+"מעבר עם העכבר על הגה מציג אותו בכל הלוחות; לחיצה מקבעת";
+}
+function validSentence(){
+  const keep=(R.words||[]).map((_,i)=>i).filter(i=>!excludedWords[i]), tokens=T.tokens.filter(t=>keep.includes(t.word));
+  if(!keep.length||!tokens.length) return {final:null,excluded:(R.words||[]).length};
+  const weight=t=>t.vowel?T.config.vowel_weight:1, total=tokens.reduce((n,t)=>n+weight(t),0);
+  const phoneMean=tokens.reduce((n,t)=>n+t.final*weight(t),0)/total;
+  const wordMean=keep.reduce((n,i)=>n+T.words[i].score,0)/keep.length, before=T.sentence.phone_weight*phoneMean+T.sentence.word_weight*wordMean;
+  return {phoneMean,wordMean,before,final:Math.round(R.unrelated?Math.min(before,T.config.unrelated_cap):before),excluded:(R.words||[]).length-keep.length};
+}
+async function toggleWord(wi,w,button){
+  const excluding=!excludedWords[wi]; let reason="";
+  if(excluding){ reason=await chooseExclusionReason(); if(reason===null) return; }
+  button.disabled=true;
+  try{
+    const res=await fetch(`/api/lab/samples/${traceContext.sample}/exclude-word`,{method:"POST",headers:{"Content-Type":"application/json",...(traceContext.token?{Authorization:`Bearer ${traceContext.token}`}:{})},body:JSON.stringify({word:wi,excluded:excluding,reason})});
+    const d=await res.json().catch(()=>({})); if(!res.ok) throw new Error(d.detail||res.status);
+    excludedWords=d.excluded_words||{}; traceContext.excluded_words=excludedWords; localStorage.setItem("ihki.traceContext",JSON.stringify(traceContext));
+    drawSentence(); drawTree();
+  }catch(e){ button.disabled=false; $("wordHint").textContent=`שמירת ההחרגה נכשלה: ${e.message}`; }
+}
+function chooseExclusionReason(){
+  const dlg=$("excludeDlg"), select=$("excludeReason"), other=$("excludeOther");
+  dlg.returnValue=""; select.value=select.options[0].value; other.value=""; other.hidden=true; other.required=false;
+  select.onchange=()=>{ other.hidden=select.value!=="other"; other.required=!other.hidden; if(!other.hidden) other.focus(); };
+  dlg.showModal();
+  return new Promise(resolve=>{ dlg.onclose=()=>{ if(dlg.returnValue!=="ok") return resolve(null); resolve(select.value==="other"?(other.value.trim()||"אחר"):select.value); }; });
+}
+function playWord(wi,node){
+  const tokens=T.tokens.filter(t=>t.word===wi); if(!wordAudioUrl||!tokens.length) return;
+  if(wordAudio){ wordAudio.pause(); if(wordAudioNode) wordAudioNode.classList.remove("playing"); }
+  const ms=T.frames.ms||20, offset=(T.audio&&T.audio.trim_start_ms||0)/1000,
+    start=Math.max(0,offset+Math.min(...tokens.map(t=>t.span[0]))*ms/1000-.15),
+    end=Math.max(start+.08,offset+Math.max(...tokens.map(t=>t.span[1]))*ms/1000+.15);
+  const audio=wordAudio=new Audio(wordAudioUrl); wordAudioEnd=end; wordAudioNode=node; node.classList.add("playing");
+  audio.ontimeupdate=()=>{ if(audio.currentTime>=wordAudioEnd){ audio.pause(); audio.currentTime=start; node.classList.remove("playing"); } };
+  audio.onended=()=>node.classList.remove("playing");
+  audio.onerror=()=>{ node.classList.remove("playing"); $("wordHint").textContent="לא ניתן להשמיע את ההקלטה"; };
+  const startPlaying=()=>{ audio.currentTime=start; audio.play().catch(()=>{ node.classList.remove("playing"); $("wordHint").textContent="הדפדפן חסם את ההשמעה"; }); };
+  if(audio.readyState>=1) startPlaying(); else audio.onloadedmetadata=startPlaying;
 }
 function drawTree(){
-  const box=$("tree"), s=T.sentence, c=T.config; box.replaceChildren();
-  box.append(el("div",{class:"node"},el("b",{text:`משפט ${s.final}`}),el("div",{class:"formula ltr",
-    text:`${s.phone_weight}·phone_mean(${fmt(s.phone_mean)}) + ${s.word_weight}·word_mean(${fmt(s.word_mean)}) = ${fmt(s.before_cap)}`+(s.capped?` → capped at ${c.unrelated_cap}`:"")}),
+  const box=$("tree"), s=T.sentence, c=T.config, valid=validSentence(); box.replaceChildren();
+  box.append(el("div",{class:"node"},el("b",{text:`משפט ${valid.final??"—"}`+(valid.excluded?` (${valid.excluded} מילים הוחרגו; מקורי ${s.final})`:"")}),el("div",{class:"formula ltr",
+    text:valid.final==null?"אין מילים תקינות לחישוב":`${s.phone_weight}·phone_mean(${fmt(valid.phoneMean)}) + ${s.word_weight}·word_mean(${fmt(valid.wordMean)}) = ${fmt(valid.before)}`+(s.capped?` → capped at ${c.unrelated_cap}`:"")}),
     el("div",{class:"formula",text:`ממוצע ההגאים משוקלל: תנועה נספרת ${c.vowel_weight}, עיצור 1`})));
   const row=el("div",{class:"row"});
   T.words.forEach((w,wi)=>{
-    const n=el("div",{class:"wnode","data-w":wi});
+    const n=el("div",{class:`wnode${excludedWords[wi]?" excluded":""}`,"data-w":wi});
     n.append(el("div",{},el("b",{text:w.tr})," ",el("span",{class:"dot "+band(w.score)}),el("span",{text:fmt(w.score)})),
       el("div",{class:"formula ltr",text:`${c.word_min_weight}·min(${fmt(w.min)}) + ${fmt(1-c.word_min_weight)}·mean(${fmt(w.mean)})`}),
       el("div",{class:"formula ltr",text:w.scores.map(x=>fmt(x,0)).join(" · ")}));

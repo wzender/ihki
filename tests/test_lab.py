@@ -29,7 +29,7 @@ class NoTTS:
 
 
 class FakeAuth:
-    url, key, teachers, tutors = "https://proj.supabase.co", "sb_publishable_x", frozenset({"t@b.c"}), frozenset()
+    url, key, teachers, tutors = "https://proj.supabase.co", "sb_publishable_x", frozenset({"t@b.c", "u@b.c"}), frozenset()
 
     def __init__(self):
         self.samples, self.missing = [], False
@@ -47,7 +47,7 @@ class FakeAuth:
         return (tone_wav(), "audio/wav") if self.flag(flag_id) else None
 
     def user(self, token):
-        return {"id": "u1", "email": "T@b.c" if token == "teacher" else "s@b.c"}
+        return {"id": "u1", "email": {"teacher": "T@b.c", "teacher2": "u@b.c"}.get(token, "s@b.c")}
 
     def classes(self, fresh=False):
         return []
@@ -72,6 +72,9 @@ class FakeAuth:
     def lab_audio(self, sample_id):
         return (tone_wav(), "audio/wav") if self.lab_sample(sample_id) else None
 
+    def update_lab_result(self, sample_id, result):
+        self.lab_sample(sample_id)["result"] = result
+
     def delete_lab_samples(self, speaker=None):
         gone = [s for s in self.samples if speaker is None or (s.get("speaker") or "") == speaker]
         self.samples = [s for s in self.samples if s not in gone]
@@ -86,13 +89,13 @@ def test_lab_deletes_one_speaker_or_everyone():
     auth, teacher = FakeAuth(), {"Authorization": "Bearer teacher"}
     audio = {"audio": ("a.wav", tone_wav(), "audio/wav")}
     with TestClient(create_app(scorer_for(emissions(["ħ", "aː", "l"])), NoTTS(), auth=auth)) as c:
-        for speaker in ("א", "א", "ב"):
-            c.post("/api/lab/score", data={"item": "pair-ħaal", "speaker": speaker}, files=audio, headers=teacher)
+        for token in ("teacher", "teacher", "teacher2"):   # the speaker is who is signed in
+            c.post("/api/lab/score", data={"item": "pair-ħaal"}, files=audio, headers={"Authorization": f"Bearer {token}"})
         assert c.delete("/api/lab/samples", headers=teacher).status_code == 400          # never all by omission
-        assert c.delete("/api/lab/samples?speaker=א&everyone=true", headers=teacher).status_code == 400
+        assert c.delete("/api/lab/samples?speaker=t@b.c&everyone=true", headers=teacher).status_code == 400
         assert c.delete("/api/lab/samples?everyone=true", headers={"Authorization": "Bearer student"}).status_code == 403
-        assert c.delete("/api/lab/samples?speaker=%20א%20", headers=teacher).json() == {"deleted": 2}
-        assert c.get("/api/lab/results", headers=teacher).json()["speakers"] == ["ב"]
+        assert c.delete("/api/lab/samples?speaker=%20t@b.c%20", headers=teacher).json() == {"deleted": 2}
+        assert c.get("/api/lab/results", headers=teacher).json()["speakers"] == ["u@b.c"]
         assert c.delete("/api/lab/samples?everyone=true", headers=teacher).json() == {"deleted": 1}
         assert c.get("/api/lab/results", headers=teacher).json()["totals"]["recordings"] == 0
 
@@ -127,13 +130,13 @@ def test_lab_scores_and_keeps_labelled_recordings():
         d = c.get("/api/lab", headers=teacher).json()
         assert d["setup"] == "" and d["counts"] == {} and d["items"][0]["id"] == ITEMS[0]["id"]
 
-        r = c.post("/api/lab/score", data={"item": "pair-ħaal", "mistake": 0, "speaker": " מרב "}, files=audio,
-                   headers=teacher)
+        r = c.post("/api/lab/score", data={"item": "pair-ħaal", "mistake": 0, "speaker": "מרב"}, files=audio,
+                   headers=teacher)   # a speaker sent by the page is ignored: it is the signed-in teacher
         assert r.status_code == 200, r.text
         d = r.json()
         assert d["saved"] and "trace" in d["result"]                              # the teacher's stage-by-stage view
         row = auth.samples[-1]
-        assert row["label"] == "mistake" and row["mistake"] == {"index": 0, "expected": "ħ"} and row["speaker"] == "מרב"
+        assert row["label"] == "mistake" and row["mistake"] == {"index": 0, "expected": "ħ"} and row["speaker"] == "t@b.c"
         assert row["flagged"] == ["ħ>χ"] and row["email"] == "t@b.c"
 
         # said right (the default), and not kept when saving is off
@@ -142,7 +145,10 @@ def test_lab_scores_and_keeps_labelled_recordings():
         d = c.post("/api/lab/score", data={"item": "pair-ħaal", "save": "false"}, files=audio, headers=teacher).json()
         assert not d["saved"] and len(auth.samples) == 2
         assert c.get("/api/lab", headers=teacher).json()["counts"] == {"pair-ħaal": {"correct": 1, "mistake": 1}}
-        assert c.get("/api/lab?speaker=מרב", headers=teacher).json()["mine"] == {"pair-ħaal": {"correct": 0, "mistake": 1}}
+        assert c.get("/api/lab", headers=teacher).json()["mine"] == {"pair-ħaal": {"correct": 1, "mistake": 1}}
+        assert c.get("/api/lab", headers={"Authorization": "Bearer teacher2"}).json()["mine"] == {}
+        assert c.get("/api/lab?speaker=t@b.c", headers={"Authorization": "Bearer teacher2"}).json()["mine"] \
+            == {"pair-ħaal": {"correct": 1, "mistake": 1}}
         assert c.get("/api/lab?speaker=אחר", headers=teacher).json()["mine"] == {}
 
         assert c.post("/api/lab/score", data={"item": "nope"}, files=audio, headers=teacher).status_code == 404
@@ -200,12 +206,12 @@ def test_lab_results_and_flag_rescore():
     auth, teacher = FakeAuth(), {"Authorization": "Bearer teacher"}
     audio = {"audio": ("a.wav", tone_wav(), "audio/wav")}
     with TestClient(create_app(scorer_for(emissions(["χ", "aː", "l"])), NoTTS(), auth=auth)) as c:
-        for speaker in ("א", "ב"):
-            c.post("/api/lab/score", data={"item": "pair-ħaal", "speaker": speaker}, files=audio, headers=teacher)
+        for token in ("teacher", "teacher2"):
+            c.post("/api/lab/score", data={"item": "pair-ħaal"}, files=audio, headers={"Authorization": f"Bearer {token}"})
         d = c.get("/api/lab/results", headers=teacher).json()
-        assert d["speakers"] == ["א", "ב"] and d["totals"]["recordings"] == 2
+        assert d["speakers"] == ["t@b.c", "u@b.c"] and d["totals"]["recordings"] == 2
         assert {r["sound"]: r for r in d["sounds"]}["ħ"]["false_flags"] == 2 and d["sounds"][0]["reports"] == 1
-        assert c.get("/api/lab/results?speaker=א", headers=teacher).json()["totals"]["recordings"] == 1
+        assert c.get("/api/lab/results?speaker=t@b.c", headers=teacher).json()["totals"]["recordings"] == 1
         assert c.get("/api/lab/results", headers={"Authorization": "Bearer student"}).status_code == 403
 
         d = c.post("/api/lab/flags/7/rescore", headers=teacher).json()
@@ -225,7 +231,7 @@ def test_minerva_lab_groups_imported_segments_by_video():
          "result": {}, "audio": "two.webm"},
         {"id": 1, "item": "minerva:U8aBRd3-wlM:01", "speaker": "מינרווה", "device": "minerva:U8aBRd3-wlM:1.0-4.0",
          "ar": "أهلا", "ipa": "ʔ a h l a", "score": 70, "heard_ipa": "ʔ a h l a", "flagged": ["h>x"],
-         "result": {"unrelated": False}, "audio": "one.webm"},
+         "result": {"unrelated": False, "words": [{"ar": "أهلا", "score": 70, "phonemes": []}]}, "audio": "one.webm"},
         {"id": 3, "item": "pair-ħaal", "speaker": "אחר", "device": "", "audio": "other.wav"},
     ]
     with TestClient(create_app(scorer_for(emissions(["ħ", "aː", "l"])), NoTTS(), auth=auth)) as c:
@@ -233,6 +239,14 @@ def test_minerva_lab_groups_imported_segments_by_video():
         assert len(d["videos"]) == 1 and d["videos"][0]["id"] == "U8aBRd3-wlM"
         assert [s["line"] for s in d["videos"][0]["samples"]] == [1, 2]
         assert d["videos"][0]["samples"][0]["start"] == 1.0
+        audio = c.get("/api/lab/samples/1/audio", headers=teacher)
+        assert audio.status_code == 200 and audio.headers["content-type"] == "audio/wav"
+        assert c.get("/api/lab/samples/99/audio", headers=teacher).status_code == 404
+        excluded = c.post("/api/lab/samples/1/exclude-word",
+                          json={"word": 0, "excluded": True, "reason": "חיתוך פגום"}, headers=teacher).json()
+        assert excluded["excluded_words"] == {"0": "חיתוך פגום"}
+        assert c.get("/api/lab/minerva", headers=teacher).json()["videos"][0]["samples"][0]["excluded_words"] == excluded["excluded_words"]
+        assert c.post("/api/lab/samples/1/exclude-word", json={"word": 2, "excluded": True}, headers=teacher).status_code == 400
         assert c.get("/api/lab/minerva", headers={"Authorization": "Bearer student"}).status_code == 403
 
 
@@ -413,9 +427,9 @@ def test_lab_opens_the_trace_of_any_saved_recording():
     auth, teacher = FakeAuth(), {"Authorization": "Bearer teacher"}
     audio = {"audio": ("a.wav", tone_wav(), "audio/wav")}
     with TestClient(create_app(scorer_for(emissions(["χ", "aː", "l"])), NoTTS(), auth=auth)) as c:
-        c.post("/api/lab/score", data={"item": "pair-ħaal", "speaker": "א"}, files=audio, headers=teacher)
+        c.post("/api/lab/score", data={"item": "pair-ħaal"}, files=audio, headers=teacher)
         recs = c.get("/api/lab/results", headers=teacher).json()["recordings"]
-        assert [(r["id"], r["item"], r["speaker"], r["flagged"]) for r in recs] == [(1, "pair-ħaal", "א", ["ħ>χ"])]
+        assert [(r["id"], r["item"], r["speaker"], r["flagged"]) for r in recs] == [(1, "pair-ħaal", "t@b.c", ["ħ>χ"])]
         assert recs[0]["unrelated"] is False
         d = c.post("/api/lab/samples/1/rescore?trace=true", headers=teacher).json()
         assert "trace" in d["result"] and d["result"]["trace"]["tokens"] and d["sample"]["item"] == "pair-ħaal"
