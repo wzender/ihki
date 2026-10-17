@@ -1183,6 +1183,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 #mailMsg{margin:0;text-align:center;font:400 15px/1.5 var(--f-body);color:#1C241D;overflow-wrap:anywhere}
 #roles{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
 #roles :is(#manageBtn,#labBtn){background:#fff;color:#4B6A2C;box-shadow:inset 0 0 0 2px #4B6A2C}
+#bootErr{margin:0;max-width:90vw;font:12px/1.4 ui-monospace,monospace;color:#9B2C2C;white-space:pre-wrap;overflow-wrap:anywhere;text-align:left}
 @keyframes start-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#startBtn,#loginBtn,#roles button,#mailForm{animation:none;opacity:1}#logo-splash{transition:none}}
 </style>
@@ -1201,6 +1202,16 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
 </defs></svg>
 <div id="logo-splash"><img src="static/logo-intro.svg" alt="אהלא וסהלא, בית הספר ללימוד השפה הערבית" width="489" height="225"><button id="startBtn">יאללה נבלש</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="manageBtn">ניהול</button><button id="labBtn">מעבדה</button></div><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="denied" hidden>הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
+<script>
+/* While the opening screen is up, an error that stops the page's start shows under the logo: a phone has no console to read it in. */
+(()=>{
+  const say=m=>{ const s=document.getElementById("logo-splash"); if(!s||s.classList.contains("done")) return;
+    let p=document.getElementById("bootErr"); if(!p){ p=document.createElement("p"); p.id="bootErr"; p.dir="ltr"; s.append(p); }
+    p.textContent+=(p.textContent?"\n":"")+m; };
+  addEventListener("error",e=>{ if(e.message) say(`${e.message} (line ${e.lineno}:${e.colno})`); });
+  addEventListener("unhandledrejection",e=>say(String(e.reason&&e.reason.stack||e.reason)));
+})();
+</script>
 <div class="wrap" id="wrap" inert>
   <header>
     <div class="brand">אהלא וסהלא</div>
@@ -6018,7 +6029,7 @@ if(AUTH_URL){
       if(!session){ asked=""; start.hidden=roles.hidden=true; denied.hidden=true; login.focus({preventScroll:true}); return; }
       if(asked===session.user.id) return;
       asked=session.user.id; ME_EMAIL=(session.user.email||"").toLowerCase();
-      setTimeout(async()=>{   // outside this callback: api() asks supabase for the session
+      setTimeout(async()=>{ try{   // outside this callback: api() asks supabase for the session
         const res=await Promise.race([api("/api/me").catch(()=>null),new Promise(r=>setTimeout(()=>r(null),10000))]);   // a session or server that hangs leaves the logo alone on the screen
         const ok=!res||res.status!==403;   // a server that cannot be reached is not a refusal
         const me=res&&res.ok?await res.json().catch(()=>({})):{}, teacher=!!me.teacher;
@@ -6031,7 +6042,7 @@ if(AUTH_URL){
         else{ const last=MY_CLASSES.find(c=>c.name===store.get("ihki.class","")); if(last) useClass(last); }   // the class practised in last
         start.hidden=!ok||teacher; roles.hidden=$("toManage").hidden=!teacher; denied.hidden=ok;
         if(ok){ (teacher?$("practiceBtn"):start).focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); loadContent(); loadWriting(); loadTutor(); }
-      },0);
+      }catch(e){ start.hidden=false; throw e; } },0);   // a failure here still lets the student in, and shows under the logo
     });
   }
 }
