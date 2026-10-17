@@ -646,6 +646,7 @@ class SupabaseAuth:
                          "old_access": old or {}, "new_access": row}, prefer="return=minimal")
         except AuthUnavailable as e:
             log.warning("access changed but audit row was not stored: %s", e)
+        self.log_event("permission", actor, target["email"], {"roles": roles, "entitlements": entitlements})
 
     def all_attempts(self) -> list[dict]:
         """Every student's attempts, as `attempts` gives one student's, each with its user_id. "Different sentence"
@@ -660,10 +661,43 @@ class SupabaseAuth:
                 break
         return rows
 
-    def activity(self, hours: int = 24, bucket_minutes: int = 15) -> list[dict]:
-        """Aggregated attempt counts for the teacher's monitoring graph; the RPC returns no student identities."""
-        return self._admin("/rest/v1/rpc/activity_buckets", "POST",
-                           {"p_hours": hours, "p_bucket_minutes": bucket_minutes})
+    def activity(self, hours: int = 24, bucket_minutes: int = 15) -> dict:
+        """Aggregated attempt counts for monitoring, without returning student identities.
+
+        ``activity_summary`` supplies a distinct-student count for the whole window.  Keep the buckets usable with
+        older Supabase installations until that small migration is applied.
+        """
+        buckets = self._admin("/rest/v1/rpc/activity_buckets", "POST",
+                              {"p_hours": hours, "p_bucket_minutes": bucket_minutes})
+        summary = None
+        try:
+            rows = self._admin("/rest/v1/rpc/activity_summary", "POST", {"p_hours": hours}) or []
+            summary = rows[0] if rows else None
+        except AuthUnavailable as e:
+            if "answered 404" not in str(e):
+                raise
+        return {"buckets": buckets, "summary": summary}
+
+    def log_event(self, kind: str, user: dict | None, label: str = "", details: dict | None = None) -> None:
+        """Best-effort append to the management activity feed; a missing audit table never blocks the action."""
+        try:
+            self._admin("/rest/v1/system_events", "POST", {
+                "kind": kind, "actor_id": user.get("id") if user else None,
+                "actor_email": (user or {}).get("email", ""), "label": label[:200], "details": details or {},
+            }, prefer="return=minimal")
+        except AuthUnavailable as e:
+            log.warning("system activity event not stored: %s", e)
+
+    def recent_events(self, limit: int = 60) -> list[dict] | None:
+        """Newest audit events, or None when the optional table has not been installed yet."""
+        query = urllib.parse.urlencode({"select": "kind,actor_email,label,details,created_at",
+                                        "order": "created_at.desc", "limit": max(1, min(limit, 200))})
+        try:
+            return self._admin(f"/rest/v1/system_events?{query}") or []
+        except AuthUnavailable as e:
+            if "answered 404" in str(e):
+                return None
+            raise
 
     def save_tutor_chat(self, row: dict) -> None:
         """Keeps a conversation with the tutor (see tutor.py), in place of what was kept of it before. A failure is

@@ -754,6 +754,7 @@ body.lab #wrap{max-width:none}
 .activity-head select{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}
 .activity-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.activity-stat{padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}.activity-stat b{display:block;font:400 28px/1 var(--f-display);font-variant-numeric:tabular-nums}.activity-stat small{color:var(--muted);font-size:12px}
 .activity-chart{width:100%;height:190px;overflow:visible}.activity-chart .grid{stroke:var(--line);stroke-width:1}.activity-chart .bar{fill:var(--olive);opacity:.82}.activity-chart .bar:hover{opacity:1}.activity-chart text{fill:var(--muted);font:11px var(--f-body)}
+.system-feed{display:flex;flex-direction:column;gap:0}.system-event{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}.system-event:last-child{border-bottom:0}.system-event i{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--olive-soft);font-style:normal}.system-event b,.system-event small{display:block}.system-event small,.system-event time{color:var(--muted);font-size:12px}.system-event time{direction:ltr;white-space:nowrap}
 @media(max-width:560px){.activity-stats{grid-template-columns:1fr}.activity-chart{height:160px}}
 /* the content part: a level's name, then a card per lesson with its topics and videos, a row each, and the form that adds a video */
 #mContent{display:flex;flex-direction:column;gap:12px}
@@ -4080,6 +4081,7 @@ let mMode=store.get("ihki.mmode","");   // the panel's part on show: "classes" o
 let FLAG_REVIEWS={pending:[],confirmed:[]}, CALIBRATIONS=[], ATTEMPT_PATTERNS=[], flagsError="", flagsLoaded=false, flagAudioUrls=[];
 let SCORING_RULES=null, scoringRulesError="";   // the rules of pronunciation-rules.md and whether each is on (see drawScoringRules)
 let ACTIVITY=null, activityError="";
+let SYSTEM_ACTIVITY=null, systemActivityError="";
 let activityHours=+store.get("ihki.activityHours","24"); if(![24,168].includes(activityHours)) activityHours=24;
 let shownStudent="", classScroll=0;   // the student whose screen is on show (an email; "" for the class's), and where the class's was left
 let CLASS_LESSONS=[], CLASS_SOON=[];   // the ready lessons of the class on show, and those still to come (every lesson before the first class)
@@ -4225,9 +4227,14 @@ async function loadActivity(){
   try{ const res=await api(`/api/activity?hours=${activityHours}&bucket_minutes=${mins}`), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); ACTIVITY=data; }
   catch(err){ ACTIVITY=null; activityError=err.message; }
 }
+async function loadSystemActivity(){
+  systemActivityError="";
+  try{ const res=await api("/api/system-activity?limit=60"), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); SYSTEM_ACTIVITY=data; }
+  catch(err){ SYSTEM_ACTIVITY=null; systemActivityError=err.message; }
+}
 async function loadFlags(){
   flagsError=""; activityError="";
-  const activity=loadActivity();
+  const activity=Promise.all([loadActivity(),loadSystemActivity()]);
   try{
     const get=async(url,field)=>{ const res=await api(url), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); return data[field]||[]; };
     const [pending,confirmed,calibrations,attemptPatterns]=await Promise.all([
@@ -4298,6 +4305,7 @@ function drawScoringRules(box){
 function drawFlags(){
   const box=$("mFlags"); box.innerHTML=""; for(const url of flagAudioUrls) URL.revokeObjectURL(url); flagAudioUrls=[];
   drawActivity(box);
+  drawSystemActivity(box);
   drawTtsCacheControls(box);
   if(!flagsLoaded){ box.append(mark("card","בחרו בניטור כדי לטעון את הנתונים.")); return; }
   drawScoringRules(box);
@@ -4383,6 +4391,16 @@ function drawFlags(){
     confirm.onclick=()=>save("confirmed"); reject.onclick=()=>save("rejected"); actions.append(category,confirm,reject,msg); card.append(note,actions); box.append(card);
   }
 }
+function drawSystemActivity(box){
+  const card=mark("card",""), title=mark("","פעילות אחרונה במערכת","h2"); card.append(title); box.append(card);
+  if(systemActivityError){ card.append(mark("note","לא ניתן לטעון פעילות אחרונה: "+systemActivityError,"p")); return; }
+  if(!SYSTEM_ACTIVITY){ card.append(mark("note","טוען פעילות…","p")); return; }
+  if(SYSTEM_ACTIVITY.setup){ const code=mark("",SYSTEM_ACTIVITY.setup,"code"); code.dir="ltr"; card.append(mark("setup","כדי להתחיל לשמור פעילות, יש ליצור את הטבלה system_events ב־Supabase:","p"),code); return; }
+  const events=SYSTEM_ACTIVITY.events||[], labels={exercise:["🎙️","הכנת תרגילים"],game:["🎮","משחקים"],permission:["🔐","שינוי הרשאות"],content:["➕","הוספת תכנים"]}, feed=mark("system-feed","");
+  if(!events.length){ card.append(mark("note","עדיין לא נרשמה פעילות.","p")); return; }
+  for(const event of events){ const [icon,kind]=labels[event.kind]||["•","פעילות"], row=mark("system-event",""), text=document.createElement("div"), time=document.createElement("time"), when=new Date(event.created_at); text.append(mark("",kind,"b"),mark("",[event.actor_email,event.label].filter(Boolean).join(" · ")||"פעילות במערכת","small")); time.dateTime=event.created_at; time.textContent=when.toLocaleString("he-IL",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}); row.append(mark("",icon,"i"),text,time); feed.append(row); }
+  card.append(feed);
+}
 function drawTtsCacheControls(box){
   const card=mark("card",""), title=mark("","מטמון הקלטות Sawtak","h2"), text=mark("","מחיקה גורמת ליצירה מחדש של הקלטות התשובה בהשמעה הבאה. גם הקלטות שנבחרו ידנית יימחקו.","p");
   const row=mark("row",""), button=mark("btn","מחיקת מטמון ההקלטות","button"), msg=mark("msg","");
@@ -4401,8 +4419,8 @@ function drawTtsCacheControls(box){
   row.append(button,msg); card.append(title,text,row); box.append(card);
 }
 function drawActivity(box){
-  const days=activityHours===168, range=days?"7 הימים":"24 השעות", bucket=days?"שעה":"15 דקות";
-  const card=mark("card activity",""), head=mark("activity-head",""), title=mark("",`פעילות ב־${range} האחרונים`,"h2"), sub=mark("",`כל עמודה מייצגת ${bucket} · מתעדכן פעם בדקה`,"p");
+  const days=activityHours===168, range=days?"7 הימים האחרונים":"24 השעות האחרונות", bucket=days?"שעה":"15 דקות";
+  const card=mark("card activity",""), head=mark("activity-head",""), title=mark("",`פעילות ב־${range}`,"h2"), sub=mark("",`כל עמודה מייצגת ${bucket} · מתעדכן פעם בדקה`,"p");
   const heading=document.createElement("div"), select=document.createElement("select"); heading.append(title,sub);
   for(const [value,label] of [[24,"24 שעות"],[168,"7 ימים"]]){ const option=document.createElement("option"); option.value=value; option.textContent=label; option.selected=activityHours===value; select.append(option); }
   select.setAttribute("aria-label","טווח גרף הפעילות"); select.onchange=async()=>{ activityHours=+select.value; store.set("ihki.activityHours",activityHours); ACTIVITY=null; drawActivityOnly(); await loadActivity(); drawActivityOnly(); };
@@ -4411,9 +4429,11 @@ function drawActivity(box){
   if(!ACTIVITY){ card.append(mark("note","טוען את נתוני הפעילות…","p")); box.append(card); return; }
   const mins=ACTIVITY.bucket_minutes||15, count=Math.ceil((ACTIVITY.hours||24)*60/mins), now=Date.now(), end=Math.floor(now/(mins*60000))*mins*60000, by=new Map((ACTIVITY.buckets||[]).map(x=>[new Date(x.bucket).getTime(),x]));
   const rows=Array.from({length:count},(_,i)=>{ const time=end-(count-1-i)*mins*60000, r=by.get(time)||{}; return {time,attempts:+r.attempts||0,active:+r.active_students||0}; });
-  const recent=rows.slice(-Math.ceil(60/mins)), attempts=recent.reduce((n,r)=>n+r.attempts,0), latest=rows[rows.length-1]||{attempts:0,active:0};
-  const stats=mark("activity-stats",""); for(const [n,label] of [[attempts,"תרגולים בשעה האחרונה"],[latest.active,`תלמידים פעילים ב־${mins} הדקות האחרונות`],[latest.attempts,`תרגולים ב־${mins} הדקות האחרונות`]]){ const s=mark("activity-stat",""); s.append(mark("",n,"b"),mark("",label,"small")); stats.append(s); } card.append(stats);
-  const ns="http://www.w3.org/2000/svg", svg=document.createElementNS(ns,"svg"); svg.classList.add("activity-chart"); svg.setAttribute("viewBox","0 0 720 190"); svg.setAttribute("role","img"); svg.setAttribute("aria-label",`גרף פעילות: ${attempts} תרגולים בשעה האחרונה`);
+  const totalAttempts=ACTIVITY.summary?.attempts??rows.reduce((n,r)=>n+r.attempts,0), activeStudents=ACTIVITY.summary?.active_students;
+  const stats=mark("activity-stats",""), figures=[[totalAttempts,`תרגולים ב־${range}`],[activeStudents??"–",`תלמידים פעילים ב־${range}`]];
+  for(const [n,label] of figures){ const s=mark("activity-stat",""); s.append(mark("",n,"b"),mark("",label,"small")); stats.append(s); } card.append(stats);
+  if(activeStudents==null) card.append(mark("note","כדי להציג מספר תלמידים ייחודיים בכל הטווח, יש להתקין את פונקציית activity_summary שמופיעה ב־README.","p"));
+  const ns="http://www.w3.org/2000/svg", svg=document.createElementNS(ns,"svg"); svg.classList.add("activity-chart"); svg.setAttribute("viewBox","0 0 720 190"); svg.setAttribute("role","img"); svg.setAttribute("aria-label",`גרף פעילות: ${totalAttempts} תרגולים ב־${range}`);
   const max=Math.max(1,...rows.map(r=>r.attempts)), left=32, top=10, width=678, height=145, gap=.7, bw=width/rows.length;
   for(const frac of [0,.5,1]){ const y=top+height*(1-frac), line=document.createElementNS(ns,"line"); line.setAttribute("class","grid"); line.setAttribute("x1",left); line.setAttribute("x2",left+width); line.setAttribute("y1",y); line.setAttribute("y2",y); svg.append(line); const t=document.createElementNS(ns,"text"); t.setAttribute("x",0); t.setAttribute("y",y+4); t.textContent=Math.round(max*frac); svg.append(t); }
   rows.forEach((r,i)=>{ const h=r.attempts/max*height, rect=document.createElementNS(ns,"rect"); rect.setAttribute("class","bar"); rect.setAttribute("x",left+i*bw); rect.setAttribute("y",top+height-h); rect.setAttribute("width",Math.max(.5,bw-gap)); rect.setAttribute("height",h); const tip=document.createElementNS(ns,"title"), time=new Date(r.time).toLocaleString("he-IL",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}); tip.textContent=`${time}: ${r.attempts} תרגולים, ${r.active} תלמידים`; rect.append(tip); svg.append(rect); });

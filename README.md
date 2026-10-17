@@ -130,6 +130,32 @@ language sql stable security invoker set search_path = '' as $$
 $$;
 revoke execute on function public.activity_buckets(integer, integer) from public, anon, authenticated;
 grant execute on function public.activity_buckets(integer, integer) to service_role;
+
+-- Totals for the full selected window. This is separate from the buckets so a student who practised in several
+-- buckets is counted only once.
+create or replace function public.activity_summary(p_hours integer default 24)
+returns table (attempts bigint, active_students bigint)
+language sql stable security invoker set search_path = '' as $$
+  select count(*)::bigint, count(distinct a.user_id)::bigint
+  from public.attempts a
+  where a.created_at >= now() - make_interval(hours => greatest(1, least(p_hours, 168)))
+$$;
+revoke execute on function public.activity_summary(integer) from public, anon, authenticated;
+grant execute on function public.activity_summary(integer) to service_role;
+
+-- Recent system activity shown only in the management panel. The backend writes with the service-role key;
+-- no browser role gets direct table access.
+create table public.system_events (
+  id          bigint generated always as identity primary key,
+  kind        text not null check (kind in ('exercise','game','permission','content')),
+  actor_id    uuid references auth.users(id) on delete set null,
+  actor_email text not null default '',
+  label       text not null default '',
+  details     jsonb not null default '{}'::jsonb,
+  created_at  timestamptz not null default now()
+);
+create index system_events_created_at_idx on public.system_events (created_at desc);
+alter table public.system_events enable row level security;
 ```
 
 For an existing `attempts` table, add the compact diagnostics once. Until this migration is run, attempts continue to be saved without diagnostics:

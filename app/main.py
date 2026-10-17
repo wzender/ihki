@@ -169,6 +169,13 @@ CREATE_USER_ACCESS = ("create table public.user_access (user_id uuid primary key
                       "new_access jsonb not null, created_at timestamptz not null default now()); "
                       "alter table public.access_audit enable row level security;")
 ROLES = frozenset({"student", "teacher", "flagger", "admin", "developer"})
+CREATE_SYSTEM_EVENTS = ("create table public.system_events (id bigint generated always as identity primary key, "
+                        "kind text not null check (kind in ('exercise','game','permission','content')), "
+                        "actor_id uuid references auth.users(id) on delete set null, actor_email text not null default '', "
+                        "label text not null default '', details jsonb not null default '{}'::jsonb, "
+                        "created_at timestamptz not null default now()); "
+                        "create index system_events_created_at_idx on public.system_events (created_at desc); "
+                        "alter table public.system_events enable row level security;")
 MIGRATE_USER_ACCESS = ("alter table public.user_access drop constraint if exists valid_entitlements; "
                        "update public.user_access set entitlements = array_append(entitlements, 'practice') "
                        "where 'path' = any(entitlements) and not ('practice' = any(entitlements)); "
@@ -633,8 +640,22 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                  a: SupabaseAuth = Depends(teacher_only)):
         """Anonymous, aggregated practice activity for the teacher's monitoring graph."""
         try:
-            return {"hours": hours, "bucket_minutes": bucket_minutes,
-                    "buckets": a.activity(hours, bucket_minutes)}
+            data = a.activity(hours, bucket_minutes)
+            # Accept the former list return shape from lightweight test doubles and older integrations.
+            if isinstance(data, list):
+                data = {"buckets": data}
+            elif data.get("summary") is None:
+                data = {"buckets": data["buckets"]}
+            return {"hours": hours, "bucket_minutes": bucket_minutes, **data}
+        except AuthUnavailable as e:
+            raise HTTPException(503, str(e))
+
+    @app.get("/api/system-activity")
+    def system_activity(limit: int = Query(60, ge=1, le=200), a: SupabaseAuth = Depends(teacher_only)):
+        """Recent product activity for managers; no recording or exercise answer is returned."""
+        try:
+            events = a.recent_events(limit)
+            return {"events": events or [], **({"setup": CREATE_SYSTEM_EVENTS} if events is None else {})}
         except AuthUnavailable as e:
             raise HTTPException(503, str(e))
 
@@ -1498,7 +1519,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return f"Supabase לא זמין: {e}"
 
     @app.post("/api/videos")
-    def add_video(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+    def add_video(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+                  user: dict | None = Depends(signed_in)):
         """Adds a video to a lesson, after its topics and the videos it has: {"lesson": the id of a ready lesson,
         "title", "url": a Vimeo or YouTube link}. The teacher then moves it to its place (see `order_videos`)."""
         lesson, title = str(body.get("lesson", "")), " ".join(str(body.get("title", "")).split())
@@ -1513,6 +1535,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             a.add_video(lesson, title, url, LESSON_TOPICS[lesson], next_ord(a, lesson))
         except AuthUnavailable as e:
             raise HTTPException(503, video_store_error(e))
+        a.log_event("content", user, title, {"type": "video", "lesson": lesson})
         return {"ok": True}
 
     def next_ord(a: SupabaseAuth, lesson: str) -> int:
@@ -1570,7 +1593,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return f"Supabase לא זמין: {e}"
 
     @app.post("/api/texts")
-    def add_text(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+    def add_text(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+                 user: dict | None = Depends(signed_in)):
         """Adds a text to a lesson, after its topics and what was added before: {"lesson": the id of a ready lesson,
         "title", "he": its lines in Hebrew, "tr": the same lines in Arabic written in Hebrew letters, "voices": a
         dialogue's two voices by name (the odd lines', the even lines'); none for a story, which the student's own
@@ -1597,6 +1621,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             a.add_text(lesson, title, list(map(str, voices)), [[h, t] for h, t in zip(he, tr)], LESSON_TOPICS[lesson], next_ord(a, lesson))
         except AuthUnavailable as e:
             raise HTTPException(503, text_store_error(e))
+        a.log_event("content", user, title, {"type": "text", "lesson": lesson})
         return {"ok": True, "guessed": text_phrases("", [[h, t] for h, t in zip(he, tr)])[1]}
 
     @app.delete("/api/texts/{text_id}")
@@ -1647,7 +1672,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"library": [{"id": v["id"], "title": v["title"], **({"url": v["url"]} if user["teacher"] else {}),
                              "embed": video_embed(v["url"])} for v in rows]}
 
-    def add_level_video(table: str, body: dict, a: SupabaseAuth) -> dict:
+    def add_level_video(table: str, body: dict, a: SupabaseAuth, user: dict | None) -> dict:
         # a daily video is a level's; the library is one for every level (its `level` is empty)
         level, title = str(body.get("level", "")) if table == "dailies" else "", " ".join(str(body.get("title", "")).split())
         if table == "dailies" and level not in LEVEL_IDS:
@@ -1661,6 +1686,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             a.add_level_video(table, level, title, url)
         except AuthUnavailable as e:
             raise HTTPException(503, level_store_error(table, e))
+        a.log_event("content", user, title, {"type": table, "level": level})
         return {"ok": True}
 
     def delete_level_video(table: str, id: int, a: SupabaseAuth) -> dict:
@@ -1671,19 +1697,21 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"ok": True}
 
     @app.post("/api/dailies")
-    def add_daily(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+    def add_daily(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+                  user: dict | None = Depends(signed_in)):
         """Adds a video to a level's daily videos: {"level": a level id, "title", "url": a Vimeo or YouTube link}.
         A class then gives it its day (see `save_class`)."""
-        return add_level_video("dailies", body, a)
+        return add_level_video("dailies", body, a, user)
 
     @app.delete("/api/dailies/{daily_id}")
     def delete_daily(daily_id: int, a: SupabaseAuth = Depends(teacher_only)):
         return delete_level_video("dailies", daily_id, a)
 
     @app.post("/api/library")
-    def add_library(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+    def add_library(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+                    user: dict | None = Depends(signed_in)):
         """Adds a video to the library: {"title", "url": a Vimeo or YouTube link}."""
-        return add_level_video("library", body, a)
+        return add_level_video("library", body, a, user)
 
     @app.delete("/api/library/{video_id}")
     def delete_library(video_id: int, a: SupabaseAuth = Depends(teacher_only)):
@@ -1767,11 +1795,14 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(404, str(e))
 
     @app.post("/api/verb-game/answer", dependencies=[Depends(require("games.use"))])
-    def verb_answer(body: dict = Body(...), _user: dict | None = Depends(signed_in)):
+    def verb_answer(tasks: BackgroundTasks, body: dict = Body(...), user: dict | None = Depends(signed_in)):
         """Grade one opaque question once and return feedback plus measured client response time."""
         try:
-            return app.state.verb_game.answer(str(body.get("question_id", "")), body.get("answer"),
-                                              int(body.get("response_ms", 0)))
+            result = app.state.verb_game.answer(str(body.get("question_id", "")), body.get("answer"),
+                                                int(body.get("response_ms", 0)))
+            if user:
+                tasks.add_task(app.state.auth.log_event, "game", user, "פועל יוצא", {"level": result.get("level")})
+            return result
         except (TypeError, ValueError) as e:
             raise HTTPException(400, str(e))
         except LookupError as e:
@@ -1984,6 +2015,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 "cat": phrase["cat"], "phrase": phrase.get("key", phrase["he"]), "score": round(result["score"]),
                 "unrelated": bool(result.get("unrelated")), "issues": issues[:12], "model": MODEL_ID,
                 "version": build_version()})
+            game_ids = {g["id"] for g in GAMES}
+            tasks.add_task(app.state.auth.log_event, "game" if phrase["cat"] in game_ids else "exercise", user,
+                           phrase.get("he", ""), {"cat": phrase["cat"]})
         return result
 
     @app.post("/api/flags")
