@@ -2867,7 +2867,7 @@ function setRound(){
   box.checked=all; box.disabled=!todo.length;
   order=all?topic:todo; pos=0; marks();
 }
-function startCat(wait=true){ if(!CATS.length) return marks(); setRound(); show(null,bubbleCat()?false:wait); }
+function startCat(wait=true){ if(!CATS.length) return marks(); setRound(); if(order.length) show(null,bubbleCat()?false:wait); }
 // What tells how much was practised, redrawn when a score comes in: the path and the box's text. The count itself is in the list's title.
 function marks(){
   drawPath();   // with no topic yet, the path still shows what is to come
@@ -5975,7 +5975,8 @@ $("labNext").onclick=()=>{ const k=LAB.items.findIndex(x=>x.id===labAt); labOpen
 function useLessons(ids){   // the path shows these lessons only (null: every one)
   LESSONS=ALL_LESSONS.filter(l=>!ids||ids.includes(l.id)); if(!LESSONS.length) LESSONS=ALL_LESSONS;
   CATS=ALL_CATS.filter(c=>LESSONS.some(l=>l.id===c.lesson));   // none when every lesson of the student's is still to come
-  if(CATS.length&&!CATS.some(c=>c.id===cat)) cat=CATS[0].id;
+  const said=c=>PHRASES.some(p=>p.cat===c.id&&p.listed!==false);   // a topic with sentences to say: not new words, pairs or writing
+  if(CATS.length&&!CATS.some(c=>c.id===cat&&said(c))) cat=(CATS.find(said)||CATS[0]).id;   // e.g. the last topic was a game
 }
 const ready=fetch("/api/phrases").then(r=>r.json()).then(d=>{
   ALL_LEVELS=d.levels||[]; ALL_LESSONS=d.lessons; ALL_CATS=d.categories; GAMES=d.games||[]; PHRASES=d.phrases;
