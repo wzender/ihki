@@ -45,13 +45,14 @@ Writing: a lesson's written homework (see workbook.py) is kept in the Supabase t
 and topic, written with the student's own token like the attempts, so it follows them to any device. The panel
 reads every student's with the secret key.
 
-Tutor: each conversation of the game בחכי ערבי (see tutor.py), what the student said and how the tutor answered, in the
+Tutor: each conversation of the game ערבוט (see tutor.py), what the student said and how the tutor answered, in the
 Supabase table `tutor_chats`, written with the secret key, for the teacher to read.
 
 Env:  SUPABASE_URL             (https://<project-ref>.supabase.co)
       SUPABASE_PUBLISHABLE_KEY  (the publishable/anon key; it is public and also goes to the page)
       TEACHER_EMAILS            (optional: the accounts with the management panel, separated by commas or spaces)
       TUTORS_EMAIL              (optional: more accounts that flag a wrong score, as the teachers do; separated by commas or spaces)
+      DEVELOPER_EMAILS           (optional bootstrap accounts with full access, including the Lab)
       SUPABASE_SECRET_KEY       (the secret/service-role key, needed by the panel, the classes and the flags; never public)
 Without them the service is open, as before.
 """
@@ -89,16 +90,18 @@ class ClassConflict(ValueError):
 
 class SupabaseAuth:
     def __init__(self, url: str, key: str, teachers: frozenset[str] = frozenset(), secret: str = "",
-                 tutors: frozenset[str] = frozenset()):
+                 tutors: frozenset[str] = frozenset(), developers: frozenset[str] = frozenset()):
         self.url, self.key = url.rstrip("/"), key
         self.teachers = teachers  # lower-case emails of the accounts with the management panel
         self.tutors = tutors  # lower-case emails of the accounts that flag a wrong score, besides the teachers
+        self.developers = developers  # bootstrap accounts; only developers may use the lab
         self.secret = secret  # reads every student's rows and the classes; empty = the panel has no data
         self._cache: dict[str, tuple[float, dict]] = {}
         self._classes: tuple[float, list[dict]] | None = None
         self._videos: tuple[float, list[dict]] | None = None
         self._texts: tuple[float, list[dict]] | None = None
         self._ranked: tuple[float, frozenset[str] | None] | None = None
+        self._access: dict[str, tuple[float, dict | None]] = {}
         self._level_videos: dict[str, tuple[float, list[dict]]] = {}   # by table: the daily videos, the library
         self._lock = threading.Lock()
 
@@ -599,6 +602,51 @@ class SupabaseAuth:
                 break
         return users
 
+    def access_for(self, user_id: str) -> dict | None:
+        """The roles and student entitlements assigned to an account. None also means the migration table is absent."""
+        now = time.monotonic()
+        with self._lock:
+            hit = self._access.get(user_id)
+        if hit and hit[0] > now:
+            return hit[1]
+        try:
+            rows = self._admin("/rest/v1/user_access?" + urllib.parse.urlencode({
+                "user_id": f"eq.{user_id}", "select": "user_id,email,roles,entitlements,updated_at"}))
+            value = rows[0] if rows else None
+        except AuthUnavailable as e:
+            if "answered 404" not in str(e):
+                raise
+            value = None
+        with self._lock:
+            self._access[user_id] = (now + CLASSES_TTL, value)
+        return value
+
+    def access_rows(self) -> list[dict] | None:
+        """All explicit access assignments, or None until the user_access table is installed."""
+        try:
+            return self._admin("/rest/v1/user_access?select=user_id,email,roles,entitlements,updated_at") or []
+        except AuthUnavailable as e:
+            if "answered 404" in str(e):
+                return None
+            raise
+
+    def set_access(self, target: dict, roles: list[str], entitlements: list[str], actor: dict) -> None:
+        """Upsert an assignment and append a best-effort audit record."""
+        old = self.access_for(target["id"])
+        row = {"user_id": target["id"], "email": target["email"].lower(), "roles": roles,
+               "entitlements": entitlements, "updated_at": datetime.now(timezone.utc).isoformat(),
+               "updated_by": actor["id"]}
+        self._admin("/rest/v1/user_access?on_conflict=user_id", "POST", row,
+                    prefer="resolution=merge-duplicates,return=minimal")
+        with self._lock:
+            self._access.pop(target["id"], None)
+        try:
+            self._admin("/rest/v1/access_audit", "POST",
+                        {"target_user_id": target["id"], "changed_by": actor["id"],
+                         "old_access": old or {}, "new_access": row}, prefer="return=minimal")
+        except AuthUnavailable as e:
+            log.warning("access changed but audit row was not stored: %s", e)
+
     def all_attempts(self) -> list[dict]:
         """Every student's attempts, as `attempts` gives one student's, each with its user_id. "Different sentence"
         rows remain marked as unrelated for diagnostics, but count toward progress like every non-empty recording."""
@@ -665,7 +713,7 @@ def load_auth() -> SupabaseAuth | None:
                  " and ".join(missing), seen or "none")
         return None
     emails = lambda name: frozenset(re.split(r"[\s,;]+", os.environ.get(name, "").strip().lower())) - {""}
-    teachers, tutors = emails("TEACHER_EMAILS"), emails("TUTORS_EMAIL")
+    teachers, tutors, developers = emails("TEACHER_EMAILS"), emails("TUTORS_EMAIL"), emails("DEVELOPER_EMAILS")
     secret = os.environ.get("SUPABASE_SECRET_KEY", "").strip()
     log.info("sign-in on: %s", "the students of the classes" if secret else "any account (no SUPABASE_SECRET_KEY)")
     if os.environ.get("ALLOWED_EMAILS", "").strip():
@@ -674,4 +722,4 @@ def load_auth() -> SupabaseAuth | None:
         log.warning("TEACHER_EMAILS is set without SUPABASE_SECRET_KEY: the management panel has no data to show")
     if tutors and not secret:
         log.warning("TUTORS_EMAIL is set without SUPABASE_SECRET_KEY: a flag cannot be saved")
-    return SupabaseAuth(url, key, teachers, secret, tutors)
+    return SupabaseAuth(url, key, teachers, secret, tutors, developers)

@@ -6,7 +6,7 @@ Env:  MODEL_ID  (default facebook/wav2vec2-xlsr-53-espeak-cv-ft, or a path to a 
       SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY  (Google sign-in, see app/auth.py)
       TEACHER_EMAILS, SUPABASE_SECRET_KEY  (the teacher's management panel, its classes and the lesson videos, see app/auth.py)
       TUTORS_EMAIL  (more accounts that, like the teachers, flag a recording scored wrong, see app/auth.py)
-      ANTHROPIC_API_KEY, TUTOR_OPEN, TUTOR_MODEL  (the AI tutor game בחכי ערבי, see app/tutor.py)
+      ANTHROPIC_API_KEY, TUTOR_MODEL  (the permission-controlled AI tutor game ערבוט, see app/tutor.py)
 A local .env file is loaded if present; real environment variables win over it.
 """
 from __future__ import annotations
@@ -41,7 +41,7 @@ from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
 from .tts import LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
-                    TutorUnavailable, load_tutor, tutor_open)
+                    TutorUnavailable, load_tutor)
 from .verb_game import VerbExerciseGenerator
 
 logging.basicConfig(level=logging.INFO)
@@ -156,6 +156,37 @@ CREATE_SCORING_RULES = ("create table public.scoring_rules (id text primary key,
 # The students the teacher gave the tutor's rank (see auth.py): theirs in every class, so it is kept by email.
 CREATE_TUTORS = ("create table public.tutors (email text primary key, granted_by text not null default '', "
                  "created_at timestamptz not null default now()); alter table public.tutors enable row level security;")
+CREATE_USER_ACCESS = ("create table public.user_access (user_id uuid primary key references auth.users(id) on delete cascade, "
+                      "email text not null, roles text[] not null default array['student']::text[], "
+                      "entitlements text[] not null default '{}'::text[], updated_at timestamptz not null default now(), "
+                      "updated_by uuid references auth.users(id), "
+                      "constraint valid_roles check (roles <@ array['student','teacher','flagger','admin','developer']::text[]), "
+                      "constraint valid_entitlements check (entitlements <@ array['practice','games','tutor','path','library']::text[])); "
+                      "create unique index user_access_email_idx on public.user_access (lower(email)); "
+                      "alter table public.user_access enable row level security; "
+                      "create table public.access_audit (id bigint generated always as identity primary key, "
+                      "target_user_id uuid not null, changed_by uuid not null, old_access jsonb not null, "
+                      "new_access jsonb not null, created_at timestamptz not null default now()); "
+                      "alter table public.access_audit enable row level security;")
+ROLES = frozenset({"student", "teacher", "flagger", "admin", "developer"})
+MIGRATE_USER_ACCESS = ("alter table public.user_access drop constraint if exists valid_entitlements; "
+                       "update public.user_access set entitlements = array_append(entitlements, 'practice') "
+                       "where 'path' = any(entitlements) and not ('practice' = any(entitlements)); "
+                       "alter table public.user_access add constraint valid_entitlements check "
+                       "(entitlements <@ array['practice','games','tutor','path','library']::text[]);")
+ENTITLEMENTS = frozenset({"practice", "games", "tutor", "path", "library"})
+DEFAULT_ENTITLEMENTS = ENTITLEMENTS - {"tutor"}  # the paid AI tutor is always an explicit grant
+ROLE_PERMISSIONS = {
+    "student": frozenset(),
+    "teacher": frozenset({"exercises.use_all", "students.view", "games.use", "path.use", "exercises.use", "library.view"}),
+    "flagger": frozenset({"flags.create"}),
+    "admin": frozenset({"exercises.use_all", "students.view", "management.access", "users.manage",
+                        "classes.manage", "content.manage", "flags.review", "games.use", "path.use",
+                        "exercises.use", "library.view"}),
+    "developer": frozenset({"*"}),
+}
+ENTITLEMENT_PERMISSIONS = {"practice": {"practice.use", "exercises.use"}, "games": {"games.use"},
+                           "tutor": {"tutor.use"}, "path": {"path.use"}, "library": {"library.view"}}
 MAX_NOTE = 500
 MIGRATE_ATTEMPT_ISSUES = ("alter table public.attempts add column if not exists issues jsonb not null default '[]'::jsonb, "
                           "add column if not exists model text not null default '', "
@@ -386,21 +417,50 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except AuthUnavailable as e:
             raise HTTPException(503, f"class list not available: {e}")
         mine = [c for c in classes if email in c["emails"]]   # a student may be in several classes
-        teacher = email in a.teachers
-        tutor = teacher or email in a.tutors   # a teacher flags a wrong score too
-        if classes and not mine and not tutor:   # before the first class, any account is let in
-            raise HTTPException(403, "this account is not on the list")
-        if not tutor:   # the rank the teacher gave in the panel; it lets nobody in by itself
+        roles, entitlements = {"student"}, set(DEFAULT_ENTITLEMENTS)
+        if hasattr(a, "access_for"):
             try:
-                tutor = email in (a.ranked() or ())
+                assigned = a.access_for(user["id"])
+            except AuthUnavailable as e:
+                raise HTTPException(503, f"permissions not available: {e}")
+            if assigned:
+                roles = set(assigned.get("roles") or ["student"]) & ROLES
+                entitlements = set(assigned.get("entitlements") or []) & ENTITLEMENTS
+        # Legacy environment assignments retain their old abilities while deployments move to user_access.
+        if email in getattr(a, "teachers", ()):
+            roles.update({"teacher", "admin", "flagger"})
+        if email in getattr(a, "tutors", ()):
+            roles.add("flagger")
+        if email in getattr(a, "developers", ()):
+            roles.add("developer")
+        if "flagger" not in roles:
+            try:
+                if email in (a.ranked() or ()):
+                    roles.add("flagger")
             except AuthUnavailable as e:
                 log.warning("tutors not read: %s", e)
-        return {**user, "token": token.strip(), "teacher": teacher, "tutor": tutor, "classes": mine}
+        privileged = roles - {"student"}
+        if classes and not mine and not privileged and not entitlements:
+            raise HTTPException(403, "this account is not on the list")
+        permissions = set().union(*(ROLE_PERMISSIONS[r] for r in roles))
+        permissions.update(*[ENTITLEMENT_PERMISSIONS[e] for e in entitlements])
+        return {**user, "token": token.strip(), "roles": sorted(roles), "entitlements": sorted(entitlements),
+                "permissions": sorted(permissions), "teacher": bool(roles & {"teacher", "admin", "developer"}),
+                "tutor": "flags.create" in permissions or "*" in permissions, "classes": mine}
 
-    def teacher_only(user: dict | None = Depends(signed_in)) -> SupabaseAuth:
-        if not user or not user["teacher"]:
-            raise HTTPException(403, "teachers only")
-        return app.state.auth
+    def require(permission: str):
+        def allowed(user: dict | None = Depends(signed_in)) -> SupabaseAuth:
+            if app.state.auth is None:  # authentication is optional in local/open deployments
+                return app.state.auth
+            permissions = set(user.get("permissions", ())) if user else set()
+            if "*" not in permissions and permission not in permissions:
+                raise HTTPException(403, f"missing permission: {permission}")
+            return app.state.auth
+        return allowed
+
+    admin_only = require("management.access")
+    lab_only = require("lab.access")
+    teacher_only = admin_only  # compatibility name for the management endpoints below
 
     members = [Depends(signed_in)]
 
@@ -463,16 +523,20 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         several chooses one to practise in), for a teacher "dailies" (the daily videos of every class), and the lessons of all of them together (every lesson for a teacher, and for an account in no class). The page
         asks this right after sign-in to learn whether the account is let in."""
         mine = user["classes"] if user else []
-        lessons = ALL_LESSONS if not mine or user["teacher"] else \
+        can_all = bool(user and ({"*", "exercises.use_all"} & set(user.get("permissions", ()))))
+        lessons = ALL_LESSONS if not mine or can_all else \
             [l for l in ALL_LESSONS if any(l in lessons_of(c) for c in mine)]
         # a teacher is in no class, and sees the daily videos of every class, each once by its earliest day
         every: dict[int, dict] = {}
-        for d in [d for c in app.state.auth.classes() for d in dailies_of(c, daily_rows())] if user and user["teacher"] else []:
+        can_manage = bool(user and ({"*", "management.access"} & set(user.get("permissions", ()))))
+        for d in [d for c in app.state.auth.classes() for d in dailies_of(c, daily_rows())] if can_manage else []:
             if d["id"] not in every or d["date"] < every[d["id"]]["date"]:
                 every[d["id"]] = d
         return {"email": user["email"] if user else "", "teacher": bool(user and user["teacher"]),
                 **({"tutor": True} if user and user["tutor"] else {}),   # the page shows them the flag under a score
-                **({"dailies": sorted(every.values(), key=lambda d: (d["date"], d["id"]))} if user and user["teacher"] else {}),
+                "roles": user.get("roles", []) if user else [], "entitlements": user.get("entitlements", []) if user else [],
+                "permissions": user.get("permissions", []) if user else ["*"],
+                **({"dailies": sorted(every.values(), key=lambda d: (d["date"], d["id"]))} if can_all else {}),
                 "classes": [{"name": c["name"], "lessons": lessons_of(c), **homework_of(c, topics()),
                              "dailies": dailies_of(c, daily_rows())} for c in mine],
                 "lessons": lessons}
@@ -483,7 +547,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         s = summary(app.state.auth.attempts(user["token"]) if user else [], text_bank(text_rows()))
         return {k: s[k] for k in ("best", "tries", "recordings", "days")}
 
-    @app.get("/api/writing")
+    @app.get("/api/writing", dependencies=[Depends(require("practice.use"))])
     def writing(user: dict | None = Depends(signed_in)):
         """The signed-in student's written homework, {topic id: its lines}. 503 when it cannot be read (or without
         sign-in): the page then shows the copy it keeps on the device."""
@@ -495,7 +559,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, f"written homework not available: {e}")
         return {"writing": {t: lines[:WRITE_TOPICS[t]] for t, lines in mine.items() if t in WRITE_TOPICS}}
 
-    @app.put("/api/writing/{topic}")
+    @app.put("/api/writing/{topic}", dependencies=[Depends(require("practice.use"))])
     def write(topic: str, body: dict = Body(...), user: dict | None = Depends(signed_in)):
         """Keeps what the student wrote in a writing topic: {"lines": a string per sentence, an empty one for a
         sentence not written yet}, in place of what was kept before."""
@@ -590,6 +654,83 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, f"Supabase לא זמין: {e}")
         return {"ok": True}
 
+    @app.get("/api/access/users")
+    def access_users(a: SupabaseAuth = Depends(require("users.manage")),
+                     actor: dict | None = Depends(signed_in)):
+        """All accounts and their explicit roles/entitlements for the permission editor."""
+        if not hasattr(a, "access_rows"):
+            return {"users": [], "setup": CREATE_USER_ACCESS, "migration": MIGRATE_USER_ACCESS,
+                    "me": actor["id"] if actor else ""}
+        try:
+            users, rows = a.users(), a.access_rows()
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        if rows is None:
+            return {"users": [], "setup": CREATE_USER_ACCESS, "migration": MIGRATE_USER_ACCESS,
+                    "me": actor["id"] if actor else ""}
+        assigned = {r["user_id"]: r for r in rows}
+        result = []
+        for account in users:
+            row = assigned.get(account["id"], {})
+            email = account["email"].lower()
+            roles = set(row.get("roles") or ["student"])
+            fixed = []
+            if email in getattr(a, "teachers", ()):
+                roles.update({"teacher", "admin", "flagger"}); fixed += ["teacher", "admin", "flagger"]
+            if email in getattr(a, "tutors", ()):
+                roles.add("flagger"); fixed.append("flagger")
+            if email in getattr(a, "developers", ()):
+                roles.add("developer"); fixed.append("developer")
+            entitlements = (set(row.get("entitlements") or []) if row else set(DEFAULT_ENTITLEMENTS)) & ENTITLEMENTS
+            effective = set().union(*(ROLE_PERMISSIONS[r] for r in roles & ROLES))
+            effective.update(*[ENTITLEMENT_PERMISSIONS[e] for e in entitlements])
+            result.append({**account, "roles": sorted(roles & ROLES),
+                           "entitlements": sorted(entitlements), "permissions": sorted(effective),
+                           "fixed_roles": sorted(set(fixed))})
+        return {"users": result, "setup": "", "migration": MIGRATE_USER_ACCESS,
+                "me": actor["id"] if actor else ""}
+
+    @app.put("/api/access/users/{target_id}")
+    def update_access(target_id: str, body: dict = Body(...),
+                      a: SupabaseAuth = Depends(require("users.manage")),
+                      actor: dict | None = Depends(signed_in)):
+        roles, entitlements = body.get("roles"), body.get("entitlements")
+        if not isinstance(roles, list) or not roles or not all(isinstance(x, str) for x in roles):
+            raise HTTPException(400, "roles must be a non-empty list")
+        if not isinstance(entitlements, list) or not all(isinstance(x, str) for x in entitlements):
+            raise HTTPException(400, "entitlements must be a list")
+        roles, entitlements = set(roles), set(entitlements)
+        if not roles <= ROLES or not entitlements <= ENTITLEMENTS:
+            raise HTTPException(400, "unknown role or entitlement")
+        if not actor or target_id == actor["id"]:
+            raise HTTPException(403, "you cannot change your own access")
+        is_developer = "*" in actor.get("permissions", ())
+        try:
+            users = a.users()
+            target = next((u for u in users if u["id"] == target_id), None)
+            if not target:
+                raise HTTPException(404, "account not found")
+            old = a.access_for(target_id) if hasattr(a, "access_for") else None
+            old_roles = set((old or {}).get("roles") or ["student"])
+            if (("developer" in roles) != ("developer" in old_roles)) and not is_developer:
+                raise HTTPException(403, "only developers can change developer access")
+            if target["email"].lower() in getattr(a, "developers", ()) and "developer" not in roles:
+                raise HTTPException(403, "this developer is configured by the server")
+            if "developer" in old_roles and "developer" not in roles:
+                rows = a.access_rows() or []
+                remaining = sum("developer" in (r.get("roles") or []) and r.get("user_id") != target_id for r in rows)
+                remaining += sum(e != target["email"].lower() for e in getattr(a, "developers", ()))
+                if not remaining:
+                    raise HTTPException(409, "the last developer cannot be removed")
+            a.set_access(target, sorted(roles), sorted(entitlements), actor)
+        except HTTPException:
+            raise
+        except AuthUnavailable as e:
+            if "answered 404" in str(e):
+                raise HTTPException(503, f"permissions table is missing; run: {CREATE_USER_ACCESS}")
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        return {"ok": True}
+
     @app.get("/api/flags")
     def flags(status: str = Query("pending"), a: SupabaseAuth = Depends(teacher_only)):
         """The score reports awaiting a teacher's decision (or one reviewed state)."""
@@ -652,7 +793,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return HTTPException(503, f"Supabase לא זמין: {e}")
 
     @app.get("/api/lab")
-    def lab_items(speaker: str = Query(""), a: SupabaseAuth = Depends(teacher_only),
+    def lab_items(speaker: str = Query(""), a: SupabaseAuth = Depends(lab_only),
                   user: dict | None = Depends(signed_in)):
         """The lab's diagnostic list, with how many recordings each item has (`counts`) and how many of them are
         `speaker`'s, by default the signed-in teacher's (`mine`: the lab's test marks an item submitted by it; the
@@ -675,7 +816,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.post("/api/lab/score")
     def lab_score(request: Request, item: str = Form(...), audio: UploadFile = File(...),
-                  mistake: int = Form(-1), save: bool = Form(True), a: SupabaseAuth = Depends(teacher_only),
+                  mistake: int = Form(-1), save: bool = Form(True), a: SupabaseAuth = Depends(lab_only),
                   user: dict | None = Depends(signed_in)):
         """Scores a recording of a lab item as a practice recording is scored (with the native baseline), with the
         teacher's stage-by-stage trace, and keeps it with its label unless `save` is off, as said by the signed-in
@@ -734,18 +875,18 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return found, data
 
     @app.get("/api/lab/tts")
-    def lab_tts_voices(a: SupabaseAuth = Depends(teacher_only)):
+    def lab_tts_voices(a: SupabaseAuth = Depends(lab_only)):
         """The voices the automatic test can use (none without TTS on this server)."""
         return {"voices": list(LAB_TTS_VOICES) if app.state.tts else []}
 
     @app.get("/api/lab/tts/{item}")
-    def lab_tts_listen(item: str, voice: str = Query(...), a: SupabaseAuth = Depends(teacher_only)):
+    def lab_tts_listen(item: str, voice: str = Query(...), a: SupabaseAuth = Depends(lab_only)):
         """What the automatic test sent for an item: the voice's WAV (cached, so no new synthesis)."""
         return Response(lab_tts_audio(item, voice)[1], media_type="audio/wav", headers={"Cache-Control": "private, no-store"})
 
     @app.post("/api/lab/tts")
     def lab_tts_score(item: str = Form(...), voice: str = Form(...), save: bool = Form(True),
-                      a: SupabaseAuth = Depends(teacher_only), user: dict | None = Depends(signed_in)):
+                      a: SupabaseAuth = Depends(lab_only), user: dict | None = Depends(signed_in)):
         """The automatic test, one item: a TTS voice says it, and it is scored and kept as said right by the speaker
         "TTS <voice>", like an approved take of the test. Scored without the native baseline, which is made of the same
         voice and would measure every sound against itself. {"result", "saved", "audio", "speaker", "error"?}."""
@@ -770,7 +911,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"result": result, "saved": True, "audio": kept, "speaker": speaker}
 
     @app.get("/api/lab/results")
-    def lab_results(speaker: str = Query(""), a: SupabaseAuth = Depends(teacher_only)):
+    def lab_results(speaker: str = Query(""), a: SupabaseAuth = Depends(lab_only)):
         """The benchmark of the lab's recordings as they were scored (see lab.benchmark), of one speaker or of all;
         with the confirmed flags' false issues beside each sound. scripts/bench.py rescores them with the current scorer."""
         try:
@@ -795,7 +936,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 "recordings": recordings}
 
     @app.get("/api/lab/minerva")
-    def lab_minerva(a: SupabaseAuth = Depends(teacher_only)):
+    def lab_minerva(a: SupabaseAuth = Depends(lab_only)):
         """The imported Minerva audio joined with its reviewed JSON sentence metadata."""
         try:
             samples = a.lab_samples(full=True)
@@ -833,7 +974,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.delete("/api/lab/samples")
     def lab_delete_samples(speaker: str | None = Query(None), everyone: bool = Query(False),
-                           a: SupabaseAuth = Depends(teacher_only)):
+                           a: SupabaseAuth = Depends(lab_only)):
         """Deletes the lab's recordings, rows and files, to record the list afresh: one `speaker`'s ("" the unnamed),
         or with `everyone` every speaker's. One of the two is required, so a missing parameter never deletes all.
         {"deleted": how many recordings}."""
@@ -847,7 +988,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"deleted": n}
 
     @app.get("/api/lab/samples/{sample_id}/audio")
-    def lab_sample_audio(sample_id: int, a: SupabaseAuth = Depends(teacher_only)):
+    def lab_sample_audio(sample_id: int, a: SupabaseAuth = Depends(lab_only)):
         """Streams a private saved lab recording to a teacher, including imported Minerva segments."""
         try:
             found = a.lab_audio(sample_id)
@@ -859,7 +1000,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return Response(data, media_type=media_type, headers={"Cache-Control": "private, no-store"})
 
     @app.post("/api/lab/samples/{sample_id}/exclude-word")
-    def lab_exclude_word(sample_id: int, body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+    def lab_exclude_word(sample_id: int, body: dict = Body(...), a: SupabaseAuth = Depends(lab_only)):
         """Includes or excludes one word from Minerva evaluation metrics, without changing the pipeline's score."""
         word, excluded = body.get("word"), body.get("excluded")
         if not isinstance(word, int) or word < 0 or not isinstance(excluded, bool):
@@ -889,7 +1030,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.post("/api/lab/samples/{sample_id}/rescore")
     def lab_rescore_sample(sample_id: int, trace: bool = Query(False), setting: str = Query(""),
-                           a: SupabaseAuth = Depends(teacher_only)):
+                           a: SupabaseAuth = Depends(lab_only)):
         """A lab recording scored again by the current scorer (as practice scores, with the native baseline), nothing
         kept: {"id", "result": what the benchmark reads of it (lab.compact)}. The page rescores the recordings one by
         one and sends the results to POST /api/lab/results.
@@ -966,7 +1107,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return out
 
     @app.post("/api/lab/samples/{sample_id}/sweep")
-    def lab_sweep_sample(sample_id: int, a: SupabaseAuth = Depends(teacher_only)):
+    def lab_sweep_sample(sample_id: int, a: SupabaseAuth = Depends(lab_only)):
         """A lab recording scored under each GOP setting of lab.SWEEP (GOP_RATIO_POOL x GOP_VOWEL_WINDOW), nothing kept.
         The model runs once; each setting scores its posteriors against the native baseline rebuilt under it.
         {"id", "results": {setting: what the benchmark reads (lab.compact)}}; the page sends them to POST /api/lab/sweep."""
@@ -995,7 +1136,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"id": sample_id, "results": results}
 
     @app.post("/api/lab/sweep")
-    def lab_sweep_results(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+    def lab_sweep_results(body: dict = Body(...), a: SupabaseAuth = Depends(lab_only)):
         """The benchmark of every setting from the sweeps of the recordings ({"results": {sample id: {setting: result}}}):
         {"settings": [{"key", "pool", "window", "quality", "partial", "totals", "vowels" (lab.vowel_stats),
         "changed": how many sound scores differ from max|wide's, "sounds"}] best first, "current": the server's own
@@ -1035,7 +1176,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 "model": MODEL_ID, "version": build_version()}
 
     @app.post("/api/lab/results")
-    def lab_rescored_results(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+    def lab_rescored_results(body: dict = Body(...), a: SupabaseAuth = Depends(lab_only)):
         """The benchmark of rescored recordings ({"results": {sample id: result}}, from the rescore above), beside the
         benchmark of the same recordings as they were stored: {"now", "stored", "model", "version"}."""
         given = body.get("results")
@@ -1061,7 +1202,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 "vowel_window": ("wide" if cfg.gop.vowel_window is None else f"±{cfg.gop.vowel_window}") if cfg else None}
 
     @app.post("/api/lab/flags/{flag_id}/rescore")
-    def lab_rescore_flag(flag_id: int, a: SupabaseAuth = Depends(teacher_only)):
+    def lab_rescore_flag(flag_id: int, a: SupabaseAuth = Depends(lab_only)):
         """A flagged recording scored again by the current scorer, against what was kept with the flag: {"old",
         "new": score and flagged sounds, "issues": the sounds a teacher marked as wrongly flagged, each with
         `still` (flagged again), "result": the new result with its trace}."""
@@ -1326,7 +1467,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, class_store_error(e))
         return {"ok": True}
 
-    @app.get("/api/videos")
+    @app.get("/api/videos", dependencies=[Depends(require("path.use"))])
     def videos(user: dict | None = Depends(signed_in)):
         """The lesson videos, each lesson's in its order on the path: id, lesson, title, url (the Vimeo or YouTube link, for a teacher only), embed
         (its player, for the page's frame) and pos (how many of the lesson's own topics stand before it, see
@@ -1402,7 +1543,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, text_store_error(e) if "texts" in str(e) else video_store_error(e))
         return {"ok": True}
 
-    @app.get("/api/texts")
+    @app.get("/api/texts", dependencies=[Depends(require("path.use"))])
     def texts(user: dict | None = Depends(signed_in)):
         """The teacher's texts as the page takes topics and phrases (see `/api/phrases`), for the lessons a video is
         given for (see `videos`). "categories": a topic per text, laid out as a story: id ("t<n>"), name, lesson, story,
@@ -1493,7 +1634,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"dailies": [{"id": v["id"], "level": v["level"], "title": v["title"], "url": v["url"],
                              "embed": video_embed(v["url"])} for v in rows if v["level"] in LEVEL_IDS]}
 
-    @app.get("/api/library")
+    @app.get("/api/library", dependencies=[Depends(require("library.view"))])
     def library(user: dict | None = Depends(signed_in)):
         """The video library, which stands outside the path and is one for every level and class: id, title, url
         (for a teacher only) and embed (its player) of each, in the teacher's order (see `order_library`)."""
@@ -1607,12 +1748,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return [lesson for lesson in READY_LESSONS
                 if any(lesson in lessons_of(course) for course in user["classes"])]
 
-    @app.get("/api/verb-game")
+    @app.get("/api/verb-game", dependencies=[Depends(require("games.use"))])
     def verb_game(user: dict | None = Depends(signed_in)):
         """Configuration for "פועל יוצא" and the complete paradigms currently unlocked."""
         return app.state.verb_game.metadata(verb_lessons(user))
 
-    @app.post("/api/verb-game/question")
+    @app.post("/api/verb-game/question", dependencies=[Depends(require("games.use"))])
     def verb_question(body: dict = Body(...), user: dict | None = Depends(signed_in)):
         """Create a Level 1--5 exercise; answers remain server-side."""
         try:
@@ -1625,7 +1766,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except LookupError as e:
             raise HTTPException(404, str(e))
 
-    @app.post("/api/verb-game/answer")
+    @app.post("/api/verb-game/answer", dependencies=[Depends(require("games.use"))])
     def verb_answer(body: dict = Body(...), _user: dict | None = Depends(signed_in)):
         """Grade one opaque question once and return feedback plus measured client response time."""
         try:
@@ -1636,7 +1777,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except LookupError as e:
             raise HTTPException(410, str(e))
 
-    @app.post("/api/verb-game/speech")
+    @app.post("/api/verb-game/speech", dependencies=[Depends(require("games.use"))])
     def verb_speech(audio: UploadFile = File(...), question_id: str = Form(...),
                     user: dict | None = Depends(signed_in)):
         """Evaluate Levels 4–5 audio without turning uncertain recognition into an error."""
@@ -1682,12 +1823,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return save_flag(phrase, result, data, audio.content_type, note, user)
 
     def tutor_for(user: dict | None) -> Tutor:
-        """The tutor game, for whoever may play it now: a teacher, every student once TUTOR_OPEN is set, and anyone
-        on a service with no sign-in. 404 for anyone else, 503 without a key."""
+        """The paid tutor game, after the tutor.use dependency authorized the account (or on an open service)."""
         if app.state.tutor is None:
             raise HTTPException(503, "המורה לא מוגדר בשרת (חסר ANTHROPIC_API_KEY)")
-        if user and not user["teacher"] and not tutor_open():
-            raise HTTPException(404, "not available")
         return app.state.tutor
 
     def tutor_day(user: dict | None) -> tuple[str, str, int | None, object]:
@@ -1700,9 +1838,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         since = now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
         return user["id"], day, DAILY_LIMIT, lambda: app.state.auth.tutor_chats_since(user["id"], since)
 
-    @app.get("/api/tutor")
+    @app.get("/api/tutor", dependencies=[Depends(require("tutor.use"))])
     def tutor_info(user: dict | None = Depends(signed_in)):
-        """בחכי ערבי: whether this account may play, its scenario cards (one for each lesson, in the course's order; the
+        """ערבוט: whether this account may play, its scenario cards (one for each lesson, in the course's order; the
         page shows those of the lessons the student has started), and how many conversations are left today (None: no
         limit)."""
         try:
@@ -1714,7 +1852,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 "left": None if limit is None else max(0, limit - t.started(student, day, seed)),
                 "scenarios": [{k: s[k] for k in ("id", "lesson", "title", "desc", "who", "ar", "she")} for s in SCENARIOS]}
 
-    @app.post("/api/tutor/start")
+    @app.post("/api/tutor/start", dependencies=[Depends(require("tutor.use"))])
     def tutor_start(tasks: BackgroundTasks, body: dict = Body(...), user: dict | None = Depends(signed_in)):
         """A new conversation on a scenario card: {"scenario", "gender": "m" or "f"}. Gives its id, the tutor's opening
         message (see Tutor.message) and how many conversations are left today; 429 when none are, 502 when the model
@@ -1736,7 +1874,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"id": chat.id, "message": opening, "turns": MAX_TURNS,
                 "left": None if limit is None else max(0, limit - t.started(student, day))}
 
-    @app.post("/api/tutor/turn")
+    @app.post("/api/tutor/turn", dependencies=[Depends(require("tutor.use"))])
     def tutor_turn(tasks: BackgroundTasks, body: dict = Body(...), user: dict | None = Depends(signed_in)):
         """The student's sentence, as the page heard it: {"id", "text"}. Gives the tutor's answer (see Tutor.turn)."""
         t = tutor_for(user)
@@ -1766,7 +1904,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 "rules": check_detectable(s.rules, lambda ph: s.vocab.sound_id(ph) is not None, s.vocab.model_id),
                 "dialect_realisations_missing": {k: sorted(v) for k, v in s.vocab.class_missing.items()}}
 
-    @app.get("/api/tts/{phrase_id}", dependencies=members)
+    @app.get("/api/tts/{phrase_id}", dependencies=[Depends(require("practice.use"))])
     def tts_phrase(phrase_id: int):
         """The model answer spoken by Raef, or by a dialogue line's own voice. 503 tells the page to use the device voice."""
         names = {i: n for n, i in {**VOICES, **LINE_VOICES}.items()}
@@ -1797,7 +1935,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             app.state.refs.invalidate()
         return {"ok": True, "removed": removed}
 
-    @app.get("/api/prompt-audio/{phrase_id}", dependencies=members)
+    @app.get("/api/prompt-audio/{phrase_id}", dependencies=[Depends(require("practice.use"))])
     def prompt_audio(phrase_id: int, engine: str = "gtts"):
         """The Hebrew prompt read aloud (edge-tts or gTTS). 503 tells the page to stay silent."""
         phrase = phrase_of(phrase_id)
@@ -1810,7 +1948,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return Response(data, media_type="audio/mpeg", headers={
             "Cache-Control": "private, max-age=86400", "X-TTS-Engine": used})
 
-    @app.get("/api/say", dependencies=members)
+    @app.get("/api/say", dependencies=[Depends(require("practice.use"))])
     def say(text: str = Query(..., min_length=1, max_length=400), engine: str = "gtts"):
         """A short Hebrew text read aloud: driving mode's spoken messages."""
         if engine not in ENGINES:
@@ -1823,7 +1961,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, str(e))
         return Response(data, media_type="audio/mpeg", headers={"Cache-Control": "no-store", "X-TTS-Engine": used})
 
-    @app.post("/api/score")
+    @app.post("/api/score", dependencies=[Depends(require("practice.use"))])
     def score(tasks: BackgroundTasks, phrase_id: int = Form(...), audio: UploadFile = File(...),
               user: dict | None = Depends(signed_in)):
         phrase = phrase_of(phrase_id)

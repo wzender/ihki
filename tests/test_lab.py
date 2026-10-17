@@ -30,6 +30,7 @@ class NoTTS:
 
 class FakeAuth:
     url, key, teachers, tutors = "https://proj.supabase.co", "sb_publishable_x", frozenset({"t@b.c", "u@b.c"}), frozenset()
+    developers = frozenset({"t@b.c", "u@b.c"})
 
     def __init__(self):
         self.samples, self.missing = [], False

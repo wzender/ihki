@@ -173,7 +173,7 @@ body[data-view=verbs] #vids{max-width:none;gap:6px;margin-top:0}
 /* "הפועל זכרון": the verbs of the verb table's lesson as a memory game on a misbaha that snakes over the whole screen.
    A bead shows gold, turning on its cord; open, a verb: the Hebrew, or the Arabic (said aloud) in transliteration. A found
    pair turns green and stays open. The cord, the imam and the tassel are those of "פועל זמני", grown to the screen. */
-/* בחכי ערבי: the tutor chat, laid out like WhatsApp: the tutor's messages at the right, the student's (green) at the left */
+/* ערבוט: the tutor chat, laid out like WhatsApp: the tutor's messages at the right, the student's (green) at the left */
 :root{--tc-wall:#EFE7DD; --tc-in:#FFFFFF; --tc-out:#D9FDD3; --tc-head:#36501D; --tc-fix:#FFF6D6}
 @media (prefers-color-scheme: dark){:root{--tc-wall:#0B141A; --tc-in:#202C33; --tc-out:#005C4B; --tc-head:#202C33; --tc-fix:#3A2F17}}
 body.tutor-chat{overflow:hidden}
@@ -720,13 +720,16 @@ body.lab #wrap{max-width:none}
 .rrow .pill,.rrow .none{justify-self:end}
 .rrow .none{color:var(--muted);font-size:12px;text-align:end}
 /* the panel's two parts: the classes (opened, edited, deleted) and the students (their progress, a class at a time) */
-.modes{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px;border-radius:14px;background:var(--line)}
+.modes{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:4px;border-radius:14px;background:var(--line)}
 .modes button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 6px;border:0;border-radius:10px;background:transparent;color:var(--ink);font:700 16px/1.2 var(--f-body);cursor:pointer}
 .modes button small{font:600 12px/1.2 var(--f-body);color:var(--muted)}
 .modes button[aria-selected=true]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.15)}
 #manage.classes :is(#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.classes) #mClasses{display:none}
 #manage.content :is(#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.content) #mContent{display:none}
 #manage.flags :is(#mClasses,#mContent,#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.flags) #mFlags{display:none}
+#manage.access :is(#mClasses,#mContent,#mFlags,#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.access) #mAccess{display:none}
+.access-scroll{overflow:auto}.access-table{width:100%;border-collapse:collapse;min-width:980px}.access-table :is(th,td){padding:9px 7px;border-bottom:1px solid var(--line);text-align:center}.access-table th{position:sticky;top:0;background:var(--surface);font-size:13px;white-space:nowrap;z-index:1}.access-table :is(th,td):first-child{text-align:start;position:sticky;right:0;background:var(--surface);z-index:2;min-width:190px}.access-table td:first-child{font-weight:700}.access-table td:first-child small{display:block;color:var(--muted);font-weight:400;direction:ltr;overflow:hidden;text-overflow:ellipsis}.access-table input{width:18px;height:18px}.access-table .save-cell{min-width:80px}
+@media(max-width:700px){.modes{grid-template-columns:repeat(2,1fr)}}
 .flag-review{gap:10px}.flag-review h2{margin:0}.flag-review .meta{color:var(--muted);font-size:13px}.flag-review fieldset{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:7px}
 .flag-review fieldset label{display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid var(--line);border-radius:9px}.flag-review select,.flag-review textarea{font:inherit;border:1px solid var(--line);border-radius:9px;padding:7px;background:var(--surface);color:var(--ink)}
 .flag-review textarea{width:100%;resize:vertical}
@@ -1182,7 +1185,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 #mailForm button:disabled{opacity:.6;cursor:default}
 #mailMsg{margin:0;text-align:center;font:400 15px/1.5 var(--f-body);color:#1C241D;overflow-wrap:anywhere}
 #roles{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
-#roles :is(#manageBtn,#labBtn){background:#fff;color:#4B6A2C;box-shadow:inset 0 0 0 2px #4B6A2C}
+#roles :is(#libraryBtn,#manageBtn,#labBtn){background:#fff;color:#4B6A2C;box-shadow:inset 0 0 0 2px #4B6A2C}
 #bootErr{margin:0;max-width:90vw;font:12px/1.4 ui-monospace,monospace;color:#9B2C2C;white-space:pre-wrap;overflow-wrap:anywhere;text-align:left}
 @keyframes start-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#startBtn,#loginBtn,#roles button,#mailForm{animation:none;opacity:1}#logo-splash{transition:none}}
@@ -1201,7 +1204,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></symbol>
   <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
 </defs></svg>
-<div id="logo-splash"><img src="static/logo-intro.svg" alt="אהלא וסהלא, בית הספר ללימוד השפה הערבית" width="489" height="225"><button id="startBtn">יאללה נבלש</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="manageBtn">ניהול</button><button id="labBtn">מעבדה</button></div><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="denied" hidden>הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
+<div id="logo-splash"><img src="static/logo-intro.svg" alt="אהלא וסהלא, בית הספר ללימוד השפה הערבית" width="489" height="225"><button id="startBtn">יאללה נבלש</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="libraryBtn">ספרייה דיגיטלית</button><button id="manageBtn">ניהול</button><button id="labBtn">מעבדה</button></div><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="denied" hidden>הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
 <script>
 /* While the opening screen is up, an error that stops the page's start shows under the logo: a phone has no console to read it in. */
 (()=>{
@@ -1226,7 +1229,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 
   <div id="today" hidden></div>
   <section id="vids" aria-live="polite"></section>
-  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="library">ספריה דיגיטלית</button><button data-view="refer">חבר מביא חבר</button></nav>
+  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="refer">חבר מביא חבר</button></nav>
   <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
   <button id="toNow" hidden></button>
 
@@ -1304,10 +1307,11 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   <section class="wrap" id="manage" aria-labelledby="mTitle">
     <div class="roundbar"><h1 class="mtitle" id="mTitle">ניהול</h1><span class="sep"></span><button class="btn" id="mRefresh">רענון</button><button class="btn" id="mLab">מעבדה</button><button class="btn primary" id="mPractice">לתרגול</button></div>
     <div class="sub" id="mState" aria-live="polite"></div>
-    <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>רשימה ומסנן כיתות</small></button><button role="tab" data-mode="content">תוכן<small>נושאים, סרטונים וטקסטים</small></button><button role="tab" data-mode="flags">ניטור<small>פעילות ודיווחי ציונים</small></button></div>
+    <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>רשימה ומסנן כיתות</small></button><button role="tab" data-mode="content">תוכן<small>נושאים, סרטונים וטקסטים</small></button><button role="tab" data-mode="flags">ניטור<small>פעילות ודיווחי ציונים</small></button><button role="tab" data-mode="access">הרשאות<small>תפקידים וגישה</small></button></div>
     <div id="mClasses"></div>
     <div id="mContent"></div>
     <div id="mFlags"></div>
+    <div class="card" id="mAccess"></div>
     <div class="card hard" id="mTutors" hidden></div>
     <div class="tabs" id="mTabs" role="tablist" aria-label="סינון תלמידים לפי כיתה" hidden></div>
     <div class="card" id="mHead" hidden></div>
@@ -1605,7 +1609,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
     <ul><li><b>שינוי שם:</b> לוחצים <b>שינוי שם</b> ליד הסרטון, מקלידים את השם החדש ומאשרים.</li>
       <li><b>שינוי סדר:</b> בחיצים <b>↑</b> ו-<b>↓</b> שבשורה של הסרטון מזיזים אותו מקום אחד למעלה או למטה. התלמידים רואים את הסרטונים באותו סדר.</li></ul>
     <h3>מה התלמידים רואים</h3>
-    <ul><li>התלמידים מגיעים לסרטונים דרך הלשונית <b>ספריה דיגיטלית</b> שבתחתית המסך.</li>
+    <ul><li>התלמידים מגיעים לסרטונים דרך הכפתור <b>ספרייה דיגיטלית</b> במסך הפתיחה.</li>
       <li>כל תלמיד רואה את כל הסרטונים, בלי קשר לשלב או לכיתה שלו.</li>
       <li>סרטון בספריה אינו תרגול, ולכן הוא לא נספר בהתקדמות או בציונים.</li></ul>
     <h3>אם משהו לא עובד</h3>
@@ -1676,6 +1680,8 @@ let daily=null, dailySaid=new Set(), dailyWas={};   // the daily session on the 
 let ALL_LEVELS=[], ALL_LESSONS=[], ALL_CATS=[], GAMES=[], MY_LESSONS=null, LESSONS=[], CATS=[], PHRASES=[], cat=store.get("ihki.cat",""), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
 let myAudioUrl=null;
 let TUTOR=false, lastRec=null;   // a teacher, or an account of TUTORS_EMAIL, flags a score that is wrong; the latest recording sent to be scored, {id, blob}
+let ME_PERMISSIONS=new Set(), ME_ROLES=[], ME_ENTITLEMENTS=[];
+const can=permission=>ME_PERMISSIONS.has("*")||ME_PERMISSIONS.has(permission);
 const phraseOf=id=>PHRASES.find(p=>p.id===id);   // by id: the list skips the phrases that have no tab
 const categoryOf=id=>CATS.find(c=>c.id===id)||GAMES.find(g=>g.id===id);
 
@@ -1786,21 +1792,21 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     box.append(b);
   };
   if(view==="games"){
-    if(tutorList&&TUTOR_INFO&&TUTOR_INFO.available){ drawTutorList(box); return; }   // בחכי ערבי's scenarios, in the tab's place
-    const games=GAMES.filter(game=>!game.hidden);
+    if(tutorList&&TUTOR_INFO&&TUTOR_INFO.available){ drawTutorList(box); return; }   // ערבוט's scenarios, in the tab's place
+    const games=can("games.use")?GAMES.filter(game=>!game.hidden):[];
     box.append(mark("","משחקים","h2"));
-    if(VERB_GAME_VISIBLE){
+    if(can("games.use")&&VERB_GAME_VISIBLE){
       const switcher=mark("now","","button");
       switcher.append(mark("","↻","i"),mark("","פועל יוצא","b"),mark("","מהבנה לשליפה מהירה של הטיית הפועל","small"));
       switcher.onclick=openVerbGame; box.append(switcher);
     }
     const memo=mark("now","","button"), upto=vtLessonNow();   // the memory game, on the verb table's lesson
     memo.append(mark("","📿","i"),mark("","הפועל זכרון","b"),mark("",`הפכו חרוזים ומצאו זוגות של פעלים · עד ${(ALL_LESSONS.find(l=>l.id===upto)||{}).name||""}`,"small"));
-    memo.onclick=openMemoryGame; if(upto) box.append(memo);
-    const talk=TUTOR_INFO&&TUTOR_INFO.available;   // בחכי ערבי: it opens the list of its scenarios
+    memo.onclick=openMemoryGame; if(can("games.use")&&upto) box.append(memo);
+    const talk=can("tutor.use")&&TUTOR_INFO&&TUTOR_INFO.available;   // ערבוט: it opens the list of its scenarios
     if(talk){
       const b=mark("now","","button"), n=tutorScenarios().length;
-      b.append(mark("","💬","i"),mark("","בחכי ערבי","b"),mark("",n?`שיחה עם דמויות מהשיעורים · ${n} תרחישים פתוחים`:"שיחה עם דמויות מהשיעורים · נפתח עם השיעור הראשון","small"));
+      b.append(mark("","💬","i"),mark("","ערבוט","b"),mark("",n?`שיחה עם דמויות מהשיעורים · ${n} תרחישים פתוחים`:"שיחה עם דמויות מהשיעורים · נפתח עם השיעור הראשון","small"));
       b.onclick=()=>{ tutorList=true; drawNav(); window.scrollTo(0,0); }; box.append(b);
     }
     if(!games.length&&!upto&&!talk) box.append(mark("","המשחקים הראשונים יגיעו בקרוב.","p"));
@@ -2035,15 +2041,16 @@ function mgSamples(t){   // points along the cord every 3px, from the top row's 
   }
   return pts;
 }
-/* בחכי ערבי: a WhatsApp-like chat with an AI tutor (app/tutor.py). The tutor writes; the student talks, and the
+/* ערבוט: a WhatsApp-like chat with an AI tutor (app/tutor.py). The tutor writes; the student talks, and the
    device's speech recognition turns what they said into their own message, sent at once: the student sees what the
    tutor understood. A browser without recognition, or the keyboard button, lets them type instead.
    The students read Arabic only in Hebrew letters, so every Arabic line here is shown in them: the tutor's message,
    the correction, and the student's own sentence as the tutor read it (it replaces the recognition's Arabic script). */
 async function loadTutor(){
+  if(AUTH_URL&&!can("tutor.use")){ TUTOR_INFO=null; return; }
   try{ await ready; }catch{}
   try{ const r=await api("/api/tutor"); TUTOR_INFO=r.ok?await r.json():null; }catch{ TUTOR_INFO=null; }
-  if(TUTOR_INFO&&TUTOR_INFO.available) $("nav").querySelector('[data-view="games"]').hidden=false;
+  if((!AUTH_URL||can("tutor.use"))&&TUTOR_INFO&&TUTOR_INFO.available) $("nav").querySelector('[data-view="games"]').hidden=false;
   if(document.body.dataset.view==="games") drawNav();
 }
 function lessonStarted(id){   // a sentence of the lesson has been said (a teacher has every lesson open)
@@ -2055,10 +2062,10 @@ function tutorScenarios(){   // the scenarios of the student's lessons that they
   const mine=new Set(LESSONS.map(l=>l.id));
   return ((TUTOR_INFO&&TUTOR_INFO.scenarios)||[]).filter(s=>mine.has(s.lesson)&&lessonStarted(s.lesson));
 }
-function drawTutorList(box){   // בחכי ערבי: a card for each open scenario, the latest lesson's first
+function drawTutorList(box){   // ערבוט: a card for each open scenario, the latest lesson's first
   const back=mark("back","","button");
   back.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> חזרה למשחקים'; back.onclick=()=>{ tutorList=false; drawNav(); };
-  box.append(back,mark("","בחכי ערבי","h2"));
+  box.append(back,mark("","ערבוט","h2"));
   const open=tutorScenarios(), all=((TUTOR_INFO&&TUTOR_INFO.scenarios)||[]).filter(s=>LESSONS.some(l=>l.id===s.lesson)), left=TUTOR_INFO.left;
   box.append(mark("tc-intro",`בחרו שיחה. ח'ליל וחבריו מדברים רק במילים שכבר למדתם${left==null?"":` · נשארו ${left} שיחות היום`}`,"p"));
   if(!open.length) box.append(mark("","התרחיש הראשון ייפתח כשתתחילו את השיעור הראשון 💛","p"));
@@ -2073,7 +2080,7 @@ function drawTutorList(box){   // בחכי ערבי: a card for each open scenar
 }
 function openTutorChat(s){
   closeTutorChat();
-  const root=mark("tc","","section"); root.setAttribute("role","dialog"); root.setAttribute("aria-label",`בחכי ערבי · ${s.title}`);
+  const root=mark("tc","","section"); root.setAttribute("role","dialog"); root.setAttribute("aria-label",`ערבוט · ${s.title}`);
   root.innerHTML=`<header class="tc-head"><button class="tc-close" type="button" aria-label="יציאה מהשיחה">→</button>
     <span class="tc-avatar" lang="ar" aria-hidden="true"></span>
     <div class="tc-who"><b></b><small></small></div><span class="tc-count"></span></header>
@@ -4052,7 +4059,7 @@ function sentence(p,under){   // a sentence as the student sees it, and a small 
   setTr(name,p.read?p.tr:p.he); text.append(name,mark("",under,"small")); return text;
 }
 /* The students part starts with one unique list; its class tabs are filters and keep class-specific calculations. */
-let CLASS=null, shownClass=store.get("ihki.mstudentClass","*");   // "*" is every student; otherwise the class on show
+let CLASS=null, ACCESS=null, accessError="", shownClass=store.get("ihki.mstudentClass","*");   // "*" is every student; otherwise the class on show
 let mMode=store.get("ihki.mmode","");   // the panel's part on show: "classes" or "students" (the classes, before the first one)
 let FLAG_REVIEWS={pending:[],confirmed:[]}, CALIBRATIONS=[], ATTEMPT_PATTERNS=[], flagsError="", flagsLoaded=false, flagAudioUrls=[];
 let SCORING_RULES=null, scoringRulesError="";   // the rules of pronunciation-rules.md and whether each is on (see drawScoringRules)
@@ -4086,6 +4093,7 @@ async function loadManage(){
     }
     CLASS=await res.json(); await loadContent();
     if(mMode==="flags") await loadFlags();
+    if(mMode==="access") await loadAccess();
     TEACHER_DAILIES=CLASS.classes.flatMap(classDailies).map(d=>({...d.v,date:d.date})).sort((a,b)=>a.date.localeCompare(b.date));   // as just saved; the earliest day of each comes first
   }catch{ state.textContent="השרת לא זמין."; return; }
   state.textContent=""; state.classList.toggle("setup",!!(CLASS.setup||[]).length);
@@ -4105,6 +4113,59 @@ function drawBuild(info){
   box.replaceChildren(title,mark("","מידע טכני לזיהוי הגרסה שפועלת כעת.","p"),list);
   box.hidden=false;
 }
+const ACCESS_COLUMNS=[
+  {label:"תרגול",kind:"entitlements",value:"practice",permission:"practice.use"},
+  {label:"ניהול",kind:"roles",value:"admin",permission:"management.access"},
+  {label:"מעבדה",kind:"roles",value:"developer",permission:"lab.access"},
+  {label:"משחקים",kind:"entitlements",value:"games",permission:"games.use"},
+  {label:"ספרייה דיגיטלית",kind:"entitlements",value:"library",permission:"library.view"},
+  {label:"דיווח תקלות",kind:"roles",value:"flagger",permission:"flags.create"},
+  {label:"ערבוט",kind:"entitlements",value:"tutor",permission:"tutor.use"},
+  {label:"מסלול",kind:"entitlements",value:"path",permission:"path.use"},
+];
+async function loadAccess(){
+  accessError="";
+  try{
+    const res=await api("/api/access/users"), data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.detail||res.status);
+    ACCESS=data;
+  }catch(e){ ACCESS=null; accessError=e.message; }
+}
+function drawAccess(){
+  const box=$("mAccess"); box.replaceChildren();
+  const title=mark("","משתמשים והרשאות","h2"); box.append(title);
+  if(accessError){ box.append(mark("setup",`ההרשאות לא זמינות: ${accessError}`,"p")); return; }
+  if(!ACCESS){ box.append(mark("sub","טוען…","p")); return; }
+  if(ACCESS.setup){ const code=mark("",ACCESS.setup,"code"); code.dir="ltr"; box.append(mark("setup","יש ליצור את טבלאות ההרשאות ב-Supabase:","p"),code); return; }
+  const note=mark("sub","כל עמודה היא הרשאה נפרדת. ערבוט מופרד ממשחקים כי הוא משתמש בשירות API בתשלום. רק מפתחים יכולים לתת גישה למעבדה.","p"); box.append(note);
+  if(ACCESS.migration){ const details=document.createElement("details"), summary=document.createElement("summary"), code=mark("",ACCESS.migration,"code"); summary.textContent="שדרוג טבלת הרשאות קיימת"; code.dir="ltr"; details.className="setup"; details.append(summary,code); box.append(details); }
+  const scroll=mark("access-scroll",""), table=mark("access-table","","table"), head=document.createElement("thead"), hr=document.createElement("tr");
+  hr.append(mark("","משתמש","th")); for(const col of ACCESS_COLUMNS) hr.append(mark("",col.label,"th")); hr.append(mark("","","th")); head.append(hr); table.append(head);
+  const body=document.createElement("tbody");
+  for(const user of ACCESS.users||[]){
+    const row=document.createElement("tr"), who=document.createElement("td"), email=mark("",user.email,"small"); email.dir="ltr"; who.append(user.name||user.email,email); row.append(who);
+    for(const col of ACCESS_COLUMNS){
+      const td=document.createElement("td"), input=document.createElement("input"); input.type="checkbox"; input.dataset.kind=col.kind; input.value=col.value; input.checked=(user[col.kind]||[]).includes(col.value)||(user.permissions||[]).includes("*")||(user.permissions||[]).includes(col.permission);
+      input.setAttribute("aria-label",`${col.label}: ${user.name||user.email}`);
+      input.disabled=user.id===ACCESS.me||(col.value==="developer"&&!can("lab.access"))||(user.fixed_roles||[]).includes(col.value);
+      if((user.fixed_roles||[]).includes(col.value)) input.title="נקבע בהגדרות השרת"; td.append(input); row.append(td);
+    }
+    const save=mark("btn primary","שמירה","button"), saveCell=mark("save-cell","","td"); saveCell.append(save); row.append(saveCell); save.disabled=user.id===ACCESS.me||((user.fixed_roles||[]).includes("developer")&&!can("lab.access"));
+    save.onclick=async()=>{
+      const selected=kind=>[...row.querySelectorAll(`input[data-kind="${kind}"]:checked`)].map(x=>x.value);
+      const roles=[...(user.roles||[]).filter(x=>!["admin","developer","flagger"].includes(x)),...selected("roles")];
+      if(!roles.length) roles.push("student");
+      save.disabled=true;
+      try{
+        const res=await api(`/api/access/users/${user.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({roles,entitlements:selected("entitlements")})});
+        const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status);
+        note.textContent=`ההרשאות של ${user.name||user.email} נשמרו.`; await loadAccess(); drawAccess();
+      }catch(e){ note.textContent="השמירה נכשלה: "+e.message; save.disabled=false; }
+    };
+    body.append(row);
+  }
+  table.append(body); scroll.append(table); box.append(scroll);
+}
 function drawManage(){
   const classes=CLASS.classes||[];
   if(shownClass!=="*"&&!classes.some(c=>c.name===shownClass)) shownClass="*";
@@ -4116,10 +4177,10 @@ function drawManage(){
   // clean); the totals beside their own fields (`tries` stays the per-sentence one)
   const students=CLASS.students.filter(s=>!klass||klass.name in s.classes).map(s=>{ if(klass&&s.since) s={...s,...s.since[klass.name]}; const t=stuTally(s,listed);
     return {...s,nick:klass?s.classes[klass.name]:s.name?"":Object.values(s.classes).find(Boolean)||"",classNames:Object.keys(s.classes),done:t.done,n:t.n,avg:t.avg}; });
-  if(!["classes","students","content","flags"].includes(mMode)) mMode=classes.length?"students":"classes";
-  $("mModes").hidden=false; for(const mode of ["classes","content","flags"]) $("manage").classList.toggle(mode,mMode===mode);
+  if(!["classes","students","content","flags","access"].includes(mMode)) mMode=classes.length?"students":"classes";
+  $("mModes").hidden=false; for(const mode of ["classes","content","flags","access"]) $("manage").classList.toggle(mode,mMode===mode);
   for(const b of $("mModes").children) b.setAttribute("aria-selected",b.dataset.mode===mMode);
-  drawClasses(classes); drawContent(); drawFlags(); drawTutors(); drawTabs(classes); drawHead(klass,students);
+  drawClasses(classes); drawContent(); drawFlags(); drawAccess(); drawTutors(); drawTabs(classes); drawHead(klass,students);
   if(klass||!classes.length) drawLessons(students,listed); else{ $("mLessons").innerHTML=""; $("mLessons").hidden=true; }
   drawRoster(klass,students,listed);
   const one=students.find(s=>s.email===shownStudent);   // a student who left the class has no screen in it
@@ -4130,6 +4191,7 @@ function drawManage(){
 async function showMode(mode){
   mMode=mode; store.set("ihki.mmode",mode); drawManage();
   if(mode==="flags"&&!flagsLoaded){ await loadFlags(); drawManage(); }
+  if(mode==="access"){ await loadAccess(); drawManage(); }
 }
 for(const b of $("mModes").children) b.onclick=()=>showMode(b.dataset.mode);
 setInterval(()=>{
@@ -4433,7 +4495,7 @@ function drawContent(){
     sec.ontoggle=()=>{ wide[key]=sec.open?1:0; store.set("ihki.copen",wide); };
     return sec;
   };
-  vcard(fold("library","ספריה דיגיטלית",`${LIBRARY.length?LIBRARY.length+" סרטונים":"עוד אין סרטונים"} · משותפת לכל הרמות`),null,"library",LIBRARY,"הסרטונים שבספריה","סרטון לספריה","משותפת לכל הרמות: פתוחה לכל התלמידים, בכל כיתה, בלשונית „ספריה דיגיטלית”","הסרטון נוסף לספריה הדיגיטלית, המשותפת לכל הרמות. כל תלמיד, בכל כיתה, רואה אותו בלשונית „ספריה דיגיטלית”.","","למשל: שיר לסיום");
+  vcard(fold("library","ספריה דיגיטלית",`${LIBRARY.length?LIBRARY.length+" סרטונים":"עוד אין סרטונים"} · משותפת לכל הרמות`),null,"library",LIBRARY,"הסרטונים שבספריה","סרטון לספריה","משותפת לכל הרמות: נפתחת לתלמידים המורשים מהכפתור „ספרייה דיגיטלית” במסך הפתיחה","הסרטון נוסף לספריה הדיגיטלית. תלמידים שקיבלו הרשאה רואים אותו דרך הכפתור „ספרייה דיגיטלית” במסך הפתיחה.","","למשל: שיר לסיום");
   for(const g of byLevel(ALL_LESSONS)){
     const sec=fold(g.level.id,g.level.name,`${lessonsWord(g.lessons)} · ${g.lessons.filter(l=>!l.soon).length} מוכנים`);
     vcard(sec,g.level.id,"dailies",DAILIES,"סרטונים יומיים","סרטון יומי","את התאריך של כל סרטון קובעים בעריכת הכיתה","הסרטון נוסף לסרטונים היומיים של הרמה. כדי שתלמידים יראו אותו, קובעים לו תאריך בעריכת הכיתה: מאותו יום הוא מופיע להם בכפתור „סרטון יומי” שמעל המסלול."," גם הכיתות שקבעו לו תאריך לא יראו אותו עוד.","למשל: יום 1 · ברכות");
@@ -5978,9 +6040,11 @@ function useLessons(ids){   // the path shows these lessons only (null: every on
   const said=c=>PHRASES.some(p=>p.cat===c.id&&p.listed!==false);   // a topic with sentences to say: not new words, pairs or writing
   if(CATS.length&&!CATS.some(c=>c.id===cat&&said(c))) cat=(CATS.find(said)||CATS[0]).id;   // e.g. the last topic was a game
 }
-const ready=fetch("/api/phrases").then(r=>r.json()).then(d=>{
-  ALL_LEVELS=d.levels||[]; ALL_LESSONS=d.lessons; ALL_CATS=d.categories; GAMES=d.games||[]; PHRASES=d.phrases;
-  $("nav").querySelector('[data-view="games"]').hidden=!GAMES.some(game=>!game.hidden)&&!(TUTOR_INFO&&TUTOR_INFO.available);
+const ready=fetch("/api/phrases").then(r=>{ if(!r.ok) throw new Error(`phrases: ${r.status}`); return r.json(); }).then(d=>{
+  ALL_LEVELS=d.levels||[]; ALL_LESSONS=d.lessons||[]; ALL_CATS=d.categories||[]; GAMES=d.games||[]; PHRASES=d.phrases||[];
+  $("nav").querySelector('[data-view="games"]').hidden=AUTH_URL
+    ? !can("games.use")&&!can("tutor.use")
+    : !GAMES.some(game=>!game.hidden)&&!(TUTOR_INFO&&TUTOR_INFO.available);
   for(const c of ALL_CATS) c.name=c.name.replace(/ ← /g,"\u00a0←\u00a0");   // the arrow never ends a line
   useLessons(MY_LESSONS);
   startCat(); opened=true;
@@ -5992,15 +6056,20 @@ function enter(){
   const splash=$("logo-splash");
   $("wrap").inert=false; splash.classList.add("done"); setTimeout(()=>splash.remove(),400);
   if(MY_CLASSES.length>1&&!MY_CLASS) askClass();   // in several classes and none practised in before: which one?
+  if(AUTH_URL&&!can("path.use")){ if(can("games.use")||can("tutor.use")) showView("games"); else if(can("library.view")) showView("library"); }
 }
 $("startBtn").onclick=$("practiceBtn").onclick=enter;
+$("libraryBtn").onclick=()=>{ enter(); showView("library"); };
 $("manageBtn").onclick=()=>{ enter(); showManage(); };
 $("labBtn").onclick=()=>{ enter(); showLab(); };
 $("startBtn").focus({preventScroll:true});
 /* With sign-in configured, the start button waits behind the Google button and, under it, the email one: Supabase
    sends the address a link that opens the page signed in (no password). A teacher gets two buttons in the start
    button's place: practice, as a student does, or the management panel. */
-if(!AUTH_URL) loadTutor();   // an open service: the tutor game, when the server has its key
+if(!AUTH_URL){
+  $("startBtn").hidden=true; $("roles").hidden=false; $("manageBtn").hidden=$("labBtn").hidden=true;
+  loadTutor();   // an open service: the tutor game, when the server has its key
+}
 if(AUTH_URL){
   const start=$("startBtn"), login=$("loginBtn"), logout=$("logoutBtn"), roles=$("roles"), mail=$("mailForm");
   start.hidden=true; login.hidden=false;
@@ -6034,6 +6103,10 @@ if(AUTH_URL){
         const res=await Promise.race([api("/api/me").catch(()=>null),new Promise(r=>setTimeout(()=>r(null),10000))]);   // a session or server that hangs leaves the logo alone on the screen
         const ok=!res||res.status!==403;   // a server that cannot be reached is not a refusal
         const me=res&&res.ok?await res.json().catch(()=>({})):{}, teacher=!!me.teacher;
+        ME_PERMISSIONS=new Set(me.permissions||[]); ME_ROLES=me.roles||[]; ME_ENTITLEMENTS=me.entitlements||[];
+        $("nav").querySelector('[data-view=""]').hidden=!can("path.use");
+        $("nav").querySelector('[data-view="verbs"]').hidden=!can("games.use");
+        $("nav").querySelector('[data-view="games"]').hidden=!can("games.use")&&!can("tutor.use");
         const mine=me.classes||[];   // a teacher practises every lesson and is not asked for a class
         MY_CLASSES=teacher?[]:mine; MY_CLASS=null; FREE=teacher; TUTOR=!!me.tutor; TEACHER_DAILIES=me.dailies||[];
         $("myClass").textContent=mine.length>1?(teacher?`כיתות: ${mine.map(c=>c.name).join(" · ")}`:"בחירת כיתה"):mine.length?`כיתת ${mine[0].name}`:"";
@@ -6041,8 +6114,9 @@ if(AUTH_URL){
         MY_LESSONS=me.lessons||null; if(ALL_LESSONS.length) useLessons(MY_LESSONS);
         if(MY_CLASSES.length===1) MY_CLASS=mine[0];
         else{ const last=MY_CLASSES.find(c=>c.name===store.get("ihki.class","")); if(last) useClass(last); }   // the class practised in last
-        start.hidden=!ok||teacher; roles.hidden=$("toManage").hidden=!teacher; denied.hidden=ok;
-        if(ok){ (teacher?$("practiceBtn"):start).focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); loadContent(); loadWriting(); loadTutor(); }
+        const management=can("management.access"), laboratory=can("lab.access"), library=can("library.view"), practice=can("practice.use")||can("path.use")||can("games.use")||can("tutor.use");
+        start.hidden=!ok||management||laboratory||library; roles.hidden=!management&&!laboratory&&!library; $("practiceBtn").hidden=!practice; $("libraryBtn").hidden=!library; $("manageBtn").hidden=$("toManage").hidden=!management; $("labBtn").hidden=!laboratory; $("mLab").hidden=!laboratory; denied.hidden=ok;
+        if(ok){ [...roles.querySelectorAll("button:not([hidden])"),start].find(x=>!x.hidden)?.focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); loadContent(); loadWriting(); loadTutor(); }
       }catch(e){ start.hidden=false; throw e; } },0);   // a failure here still lets the student in, and shows under the logo
     });
   }

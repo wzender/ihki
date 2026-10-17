@@ -145,6 +145,51 @@ The page's "ההתקדמות שלי" button reads these rows back through `GET /
 
 ### The teacher
 
+Access is managed from **ניהול → הרשאות**. Its matrix grants practice, management, Lab, games, the digital library,
+problem reporting, ערבוט, and the learning path independently. ערבוט has its own permission because each
+conversation uses the paid model API; unlike the other student features it is off until explicitly granted.
+Developers have full access including the Lab; admins do not receive Lab access. `DEVELOPER_EMAILS` bootstraps one or more developer
+accounts; keep at least one there to prevent a database mistake from locking every developer out. Existing
+`TEACHER_EMAILS` accounts retain the old management abilities during migration, but no longer receive Lab access.
+
+On first use, the permissions tab displays this migration to run in the Supabase SQL editor:
+
+```sql
+create table public.user_access (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  roles text[] not null default array['student']::text[],
+  entitlements text[] not null default '{}'::text[],
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id),
+  constraint valid_roles check (roles <@ array['student','teacher','flagger','admin','developer']::text[]),
+  constraint valid_entitlements check (entitlements <@ array['practice','games','tutor','path','library']::text[])
+);
+create unique index user_access_email_idx on public.user_access (lower(email));
+alter table public.user_access enable row level security;
+create table public.access_audit (
+  id bigint generated always as identity primary key,
+  target_user_id uuid not null,
+  changed_by uuid not null,
+  old_access jsonb not null,
+  new_access jsonb not null,
+  created_at timestamptz not null default now()
+);
+alter table public.access_audit enable row level security;
+```
+
+If `user_access` was created with the earlier three student features, run this once:
+
+```sql
+alter table public.user_access drop constraint if exists valid_entitlements;
+update public.user_access
+set entitlements = array_append(entitlements, 'practice')
+where 'path' = any(entitlements) and not ('practice' = any(entitlements));
+alter table public.user_access add constraint valid_entitlements check (
+  entitlements <@ array['practice','games','tutor','path','library']::text[]
+);
+```
+
 `TEACHER_EMAILS` names the teacher's Google account (several are separated by commas or spaces). After sign-in a teacher chooses between **תרגול**, the same practice a student gets, and **ניהול**, the management panel. The panel lists every student with their usage (recordings, those of the last 7 days, days practised, last practice), progress (sentences practised) and grade (the average of the best scores), and pressing a student opens their own screen in place of the class's: their figures, their homework, every lesson of the class with its topics, and their best and weakest sentences, all counted as the class counts. "חזרה לכיתה", or the browser's back button, returns to the class.
 
 ### Flags: a score that is wrong
@@ -369,7 +414,7 @@ alter table public.dailies enable row level security;
 
 ### Video library
 
-Apart from those there is one library of videos for the whole course: they are not part of the path, need no date, and are the same for every level and class. In **תוכן** the card "ספריה דיגיטלית" comes first, above the levels; the teacher adds a video (a name and a link), renames one, moves one up or down the list with its arrows, and deletes one there. Every student finds them in the "ספריה דיגיטלית" tab of the bar at the screen's foot: a list, and a video plays in the same box as the path's videos. The ones opened are marked (on that device). Create the table once (its `level` column stays empty):
+Apart from those there is one library of videos for the whole course: they are not part of the path, need no date, and are the same for every level and class. In **תוכן** the card "ספריה דיגיטלית" comes first, above the levels; the teacher adds a video (a name and a link), renames one, moves one up or down the list with its arrows, and deletes one there. A permitted student enters it from the "ספרייה דיגיטלית" button on the opening screen: a list appears, and a video plays in the same box as the path's videos. The ones opened are marked (on that device). Create the table once (its `level` column stays empty):
 
 ```sql
 create table public.library (
