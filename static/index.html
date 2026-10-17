@@ -1642,7 +1642,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 <div id="whyTip" role="tooltip" hidden></div>
 <button id="logoutBtn" hidden>יציאה</button>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3"></script>
 <script>
 const $=id=>document.getElementById(id);
 /* Sign-in: Google through Supabase. The server fills the two values in; when they are empty (no project configured) the app is open. */
@@ -6019,7 +6019,7 @@ if(AUTH_URL){
       if(asked===session.user.id) return;
       asked=session.user.id; ME_EMAIL=(session.user.email||"").toLowerCase();
       setTimeout(async()=>{   // outside this callback: api() asks supabase for the session
-        const res=await api("/api/me").catch(()=>null);
+        const res=await Promise.race([api("/api/me").catch(()=>null),new Promise(r=>setTimeout(()=>r(null),10000))]);   // a session or server that hangs leaves the logo alone on the screen
         const ok=!res||res.status!==403;   // a server that cannot be reached is not a refusal
         const me=res&&res.ok?await res.json().catch(()=>({})):{}, teacher=!!me.teacher;
         const mine=me.classes||[];   // a teacher practises every lesson and is not asked for a class

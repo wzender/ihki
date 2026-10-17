@@ -6,7 +6,7 @@ Env:  MODEL_ID  (default facebook/wav2vec2-xlsr-53-espeak-cv-ft, or a path to a 
       SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY  (Google sign-in, see app/auth.py)
       TEACHER_EMAILS, SUPABASE_SECRET_KEY  (the teacher's management panel, its classes and the lesson videos, see app/auth.py)
       TUTORS_EMAIL  (more accounts that, like the teachers, flag a recording scored wrong, see app/auth.py)
-      ANTHROPIC_API_KEY, TUTOR_OPEN  (the AI tutor game בחכי ערבי, see app/tutor.py)
+      ANTHROPIC_API_KEY, TUTOR_OPEN, TUTOR_MODEL  (the AI tutor game בחכי ערבי, see app/tutor.py)
 A local .env file is loaded if present; real environment variables win over it.
 """
 from __future__ import annotations

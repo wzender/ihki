@@ -9,7 +9,8 @@ from test_lab import FakeAuth, NoTTS
 from test_scoring import emissions, scorer_for
 
 from app.main import create_app
-from app.tutor import BY_ID, DAILY_LIMIT, MAX_TURNS, OPEN, READY, SCENARIOS, Tutor, _lines, is_known, vocabulary
+from app.tutor import (BY_ID, DAILY_LIMIT, DEFAULT_MODEL, MAX_TURNS, OPEN, READY, SCENARIOS, Tutor, _lines, is_known,
+                       load_tutor, vocabulary)
 
 
 def answer(words=(("كيف", "כִּיף", "איך"), ("حالك", "חַאלַ-כּ", "מצבך"), ("؟", "?", "")), fix="", note="",
@@ -101,6 +102,22 @@ def test_a_conversation_runs_its_turns_and_ends_with_a_summary(monkeypatch):
     assert len(last["messages"]) == 2 + 2 * MAX_TURNS                 # the opening, then each turn: nothing rewritten
     kept = auth.chats[opened["id"]]
     assert kept["finished"] and kept["turns"] == MAX_TURNS and len(kept["messages"]) == 1 + 2 * MAX_TURNS
+
+
+def test_the_model_comes_from_the_environment_haiku_by_default(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    monkeypatch.delenv("TUTOR_MODEL", raising=False)
+    assert load_tutor().model == DEFAULT_MODEL == "claude-haiku-5-5"
+    monkeypatch.setenv("TUTOR_MODEL", "claude-sonnet-5-5")   # read when the tutor is made, after .env is loaded
+    assert load_tutor().model == "claude-sonnet-5-5"
+    model = FakeClient()
+    with TestClient(create_app(scorer_for(emissions(["ħ"])), NoTTS(), auth=TutorAuth(),
+                               tutor=Tutor(model, "claude-sonnet-5-5"))) as c:
+        start(c)
+    assert model.calls[0]["model"] == "claude-sonnet-5-5" and model.calls[0]["thinking"] == {"type": "between_tools"}
+    with client(TutorAuth(), FakeClient()) as c:
+        start(c)
+    assert Tutor(FakeClient()).model == DEFAULT_MODEL
 
 
 def test_a_word_the_lessons_never_had_is_marked_new():

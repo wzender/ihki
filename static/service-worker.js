@@ -1,4 +1,4 @@
-const CACHE = "ihki-shell-v2";
+const CACHE = "ihki-shell-v3";
 const SHELL = [
   "/static/manifest.webmanifest",
   "/static/icons/icon-192.png?v=2",
@@ -27,7 +27,10 @@ self.addEventListener("fetch", event => {
   if (url.origin !== self.location.origin || !url.pathname.startsWith("/static/")) return;
   event.respondWith(
     caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
-      if (response.ok) caches.open(CACHE).then(cache => cache.put(event.request, response.clone()));
+      if (response.ok) {
+        const copy = response.clone();   // cloned now: the page reads the body before the cache opens
+        caches.open(CACHE).then(cache => cache.put(event.request, copy));
+      }
       return response;
     }))
   );

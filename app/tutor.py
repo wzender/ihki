@@ -11,12 +11,13 @@ of the tutor's message with its Hebrew translation, and marks a word the student
 A sentence of the student's that is wrong in grammar or wording gets a correction, explained in Hebrew.
 A conversation lasts MAX_TURNS sentences of the student's and ends with a short summary in Hebrew.
 
-The model is Claude Haiku (MODEL), called with the server's key; the browser never sees it. A conversation lives in
+The model is Claude Haiku (DEFAULT_MODEL, or TUTOR_MODEL), called with the server's key; the browser never sees it. A conversation lives in
 this process's memory while it runs (a restart ends it) and is kept, turn by turn, in the Supabase table
 `tutor_chats` (CREATE_TUTOR_CHATS), so the teacher can read what was said and how the tutor answered.
 
 Env:  ANTHROPIC_API_KEY (or CLAUDE_API_KEY)  required; without it the game is not offered
       TUTOR_OPEN  "1": every student gets the game; otherwise only the teachers (and an open service with no sign-in)
+      TUTOR_MODEL  optional: the Claude model the tutor runs on (default DEFAULT_MODEL), e.g. claude-sonnet-5-5
 """
 from __future__ import annotations
 
@@ -34,9 +35,7 @@ from .phrases import CATEGORIES, LESSONS, PHRASES
 from .workbook import LEX
 
 log = logging.getLogger("ihki.tutor")
-MODEL = os.environ.get("TUTOR_MODEL", "").strip() or "claude-haiku-5-5"
-# A chat answer needs no thinking: Haiku turns it off with "disabled", Sonnet 5.5 (which refuses that) with "between_tools"
-THINKING = {"type": "between_tools"} if MODEL.startswith("claude-sonnet-5-5") else {"type": "disabled"}
+DEFAULT_MODEL = "claude-haiku-5-5"
 NO_FIX = re.compile(r"אין (?:כאן )?(?:צורך|תיקון|טעות)|(?:המשפט|הדוגמה|התשובה) (?:שלך |שלכם )?נכונ")   # a correction whose note says there is none
 MAX_TURNS = 10   # the student's sentences in one conversation
 DAILY_LIMIT = 10   # conversations a student starts in a day; a teacher has no limit
@@ -315,18 +314,26 @@ class Chat:
     seen: float = field(default_factory=time.monotonic)
     input_tokens: int = 0
     output_tokens: int = 0
+    model: str = DEFAULT_MODEL
 
     def row(self) -> dict:
         """The conversation as the table `tutor_chats` keeps it."""
         return {"id": self.id, "user_id": self.user_id, "email": self.email, "scenario": self.scenario,
                 "gender": self.gender, "messages": self.log, "turns": self.turns, "finished": self.done,
-                "model": MODEL, "input_tokens": self.input_tokens, "output_tokens": self.output_tokens,
+                "model": self.model, "input_tokens": self.input_tokens, "output_tokens": self.output_tokens,
                 "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
 
 
+def thinking_for(model: str) -> dict:
+    """No thinking for a chat answer: Haiku turns it off with "disabled", Sonnet 5.5 (which refuses that) with
+    "between_tools"."""
+    return {"type": "between_tools"} if model.startswith("claude-sonnet-5-5") else {"type": "disabled"}
+
+
 class Tutor:
-    def __init__(self, client):
+    def __init__(self, client, model: str = DEFAULT_MODEL):
         self.client = client   # an anthropic.Anthropic
+        self.model = model
         self._chats: dict[str, Chat] = {}
         self._started: dict[tuple[str, str], int] = {}   # (student, day): conversations started
         self._lock = threading.Lock()
@@ -350,7 +357,7 @@ class Tutor:
         if limit is not None and self.started(student, day, seed) >= limit:
             raise TutorLimit()
         chat = Chat(id=str(uuid.uuid4()), scenario=scenario, gender=gender, user_id=user_id, email=email,
-                    system=system_prompt(sc, gender))
+                    system=system_prompt(sc, gender), model=self.model)
         messages = [{"role": "user", "content": OPEN}]
         data = self._answer(chat, messages)
         opening = self.message(data, sc)
@@ -427,8 +434,8 @@ class Tutor:
         import anthropic
         try:
             res = self.client.messages.create(
-                model=MODEL, max_tokens=4000, system=system, messages=messages,
-                thinking=THINKING,
+                model=self.model, max_tokens=4000, system=system, messages=messages,
+                thinking=thinking_for(self.model),
                 output_config={"effort": "low", "format": {"type": "json_schema", "schema": REPLY_SCHEMA}},
                 cache_control={"type": "ephemeral"},
             )
@@ -479,7 +486,9 @@ def load_tutor() -> Tutor | None:
     except ImportError:
         log.warning("ANTHROPIC_API_KEY is set but the anthropic package is not installed: the tutor game is off")
         return None
-    return Tutor(anthropic.Anthropic(api_key=key, timeout=30.0, max_retries=2))
+    model = os.environ.get("TUTOR_MODEL", "").strip() or DEFAULT_MODEL
+    log.info("the tutor game (בחכי ערבי) runs on %s", model)
+    return Tutor(anthropic.Anthropic(api_key=key, timeout=30.0, max_retries=2), model)
 
 
 def tutor_open() -> bool:
