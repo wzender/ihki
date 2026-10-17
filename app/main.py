@@ -1849,6 +1849,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             return {"available": False}
         student, day, limit, seed = tutor_day(user)
         return {"available": True, "turns": MAX_TURNS,
+                "daily_limit": limit,
                 "left": None if limit is None else max(0, limit - t.started(student, day, seed)),
                 "scenarios": [{k: s[k] for k in ("id", "lesson", "title", "desc", "who", "ar", "she")} for s in SCENARIOS]}
 

@@ -196,9 +196,15 @@ body.tutor-chat{overflow:hidden}
 .tc-pop{position:absolute;z-index:5;max-width:220px;padding:6px 12px;border-radius:10px;background:var(--ink);color:var(--bg);font-size:16px;box-shadow:0 4px 12px rgba(0,0,0,.25);display:flex;flex-direction:column;align-items:center;text-align:center;pointer-events:none}
 .tc-pop-new{color:var(--orange);font-weight:700}
 #vids .tc-intro{border:0;padding:0 2px}
+.tc-quota{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;align-items:center;padding:12px 14px;border:2px solid var(--olive);border-radius:14px;background:var(--olive-soft);color:var(--ink)}
+.tc-quota strong{grid-row:span 2;font:400 42px/1 var(--f-display);color:var(--olive);font-variant-numeric:tabular-nums}.tc-quota span{font-weight:800}.tc-quota small{color:var(--muted)}
+.tc-quota-bar{grid-column:1/-1;height:9px;border-radius:999px;background:var(--line);overflow:hidden}.tc-quota-bar i{display:block;height:100%;border-radius:inherit;background:var(--olive)}
 #vids .tc-card{grid-template-columns:auto 1fr}
 #vids .tc-card small{grid-column:2}
 .tc-card .tc-avatar{grid-row:span 2;width:38px;height:38px;font-size:20px}
+.tc-card.here{position:relative;border:4px solid var(--olive)!important;background:color-mix(in srgb,var(--olive-soft) 72%,#fff)!important;box-shadow:0 7px 18px color-mix(in srgb,var(--olive) 32%,transparent);transform:scale(1.015)}
+.tc-card.here::after{content:"המיקום שלכם במסלול";position:absolute;inset-inline-end:10px;bottom:-13px;padding:3px 10px;border-radius:999px;background:var(--olive);color:var(--on-olive);font-size:11px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.tc-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.tc-here{padding:4px 10px;border-radius:999px;background:var(--olive);color:var(--on-olive);font-size:13px;font-weight:900;box-shadow:0 2px 5px rgba(0,0,0,.2)}
 .tc-he{font-size:15px;border-top:1px solid var(--line);margin-top:4px!important;padding-top:4px}
 .tc-show{align-self:flex-start;border:0;background:none;color:var(--olive);font:600 14px/1 var(--f-body);padding:4px 0;cursor:pointer}
 .tc-time{align-self:flex-end;font-size:11px;color:var(--muted)}
@@ -2062,17 +2068,24 @@ function tutorScenarios(){   // the scenarios of the student's lessons that they
   const mine=new Set(LESSONS.map(l=>l.id));
   return ((TUTOR_INFO&&TUTOR_INFO.scenarios)||[]).filter(s=>mine.has(s.lesson)&&lessonStarted(s.lesson));
 }
-function drawTutorList(box){   // ערבוט: a card for each open scenario, the latest lesson's first
+function drawTutorList(box){   // ערבוט: open scenarios from the first course lesson onward
   const back=mark("back","","button");
   back.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> חזרה למשחקים'; back.onclick=()=>{ tutorList=false; drawNav(); };
   box.append(back,mark("","ערבוט","h2"));
-  const open=tutorScenarios(), all=((TUTOR_INFO&&TUTOR_INFO.scenarios)||[]).filter(s=>LESSONS.some(l=>l.id===s.lesson)), left=TUTOR_INFO.left;
-  box.append(mark("tc-intro",`בחרו שיחה. ח'ליל וחבריו מדברים רק במילים שכבר למדתם${left==null?"":` · נשארו ${left} שיחות היום`}`,"p"));
+  const order=new Map(ALL_LESSONS.map((l,i)=>[l.id,i])), open=tutorScenarios().sort((a,b)=>(order.get(a.lesson)??1e9)-(order.get(b.lesson)??1e9)), all=((TUTOR_INFO&&TUTOR_INFO.scenarios)||[]).filter(s=>LESSONS.some(l=>l.id===s.lesson)), left=TUTOR_INFO.left;
+  const activeLesson=(ALL_CATS.find(c=>c.id===cat)||{}).lesson, here=open.some(s=>s.lesson===activeLesson)?activeLesson:(open[open.length-1]||{}).lesson;
+  box.append(mark("tc-intro","בחרו שיחה. ח'ליל וחבריו מדברים רק במילים שכבר למדתם.","p"));
+  if(left!=null){
+    const limit=TUTOR_INFO.daily_limit||10, quota=mark("tc-quota","","div"), bar=mark("tc-quota-bar","","div"), fill=document.createElement("i");
+    quota.setAttribute("role","status"); quota.setAttribute("aria-label",`${left} מתוך ${limit} שיחות נשארו היום`);
+    quota.append(mark("",String(left),"strong"),mark("","שיחות נשארו היום","span"),mark("",`מתוך ${limit} שיחות יומיות`,"small")); fill.style.width=`${Math.max(0,Math.min(100,left/limit*100))}%`; bar.append(fill); quota.append(bar); box.append(quota);
+  }
   if(!open.length) box.append(mark("","התרחיש הראשון ייפתח כשתתחילו את השיעור הראשון 💛","p"));
-  for(const s of [...open].reverse()){
-    const b=mark("now tc-card","",  "button"), face=mark("tc-avatar","","span"), lesson=(ALL_LESSONS.find(l=>l.id===s.lesson)||{}).name||"";
+  for(const s of open){
+    const isHere=s.lesson===here, b=mark("now tc-card"+(isHere?" here":""),"",  "button"), face=mark("tc-avatar","","span"), lesson=ALL_LESSONS.find(l=>l.id===s.lesson), title=mark("tc-title","","span");
     face.lang="ar"; face.textContent=s.ar.replace(/^(ابو|امّ|ام|ال)\s*/,"").charAt(0)||s.ar.charAt(0);
-    b.append(face,mark("",s.title,"b"),mark("",`${lesson} · ${s.desc}`,"small"));
+    title.append(mark("",s.title,"b")); if(isHere){ title.append(mark("tc-here","📍 אתם כאן","span")); b.setAttribute("aria-current","step"); }
+    b.append(face,title,mark("",`${lessonName(lesson)} · ${s.desc}`,"small"));
     b.onclick=()=>openTutorChat(s); box.append(b);
   }
   const shut=all.length-open.length;
@@ -2124,7 +2137,10 @@ const tcTime=()=>new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2
 function tcScroll(){ tc.log.scrollTop=tc.log.scrollHeight; }
 function tcNote(text,cls=""){ const n=mark("tc-note "+cls,text,"p"); tc.log.append(n); tcScroll(); return n; }
 function tcLock(on){ tc.busy=on; tc.mic.disabled=on||tc.done; tc.type.querySelector("button").disabled=on||tc.done; }
-function tcCount(turn,turns){ tc.root.querySelector(".tc-count").textContent=`${turn}/${turns}`; }
+function tcCount(turn,turns){
+  const left=Math.max(0,turns-turn), count=tc.root.querySelector(".tc-count");
+  count.textContent=`${left} הודעות נותרו`; count.setAttribute("aria-label",`${left} אינטראקציות נותרו בשיחה`);
+}
 function tcTutor(m){   // the tutor's message: the Arabic in Hebrew letters, word by word, and the translation behind a tap
   const b=mark("tc-msg in","","div"), he=mark("tc-he",m.he,"p"), show=mark("tc-show","תרגום","button");
   const tr=mark("tc-tr","","p");
