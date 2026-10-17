@@ -2075,9 +2075,10 @@ function drawTutorList(box){   // יאללה נדבר: open scenarios from the f
   const activeLesson=(ALL_CATS.find(c=>c.id===cat)||{}).lesson, here=open.some(s=>s.lesson===activeLesson)?activeLesson:(open[open.length-1]||{}).lesson;
   box.append(mark("tc-intro","בחרו שיחה. ח'ליל וחבריו מדברים רק במילים שכבר למדתם.","p"));
   if(left!=null){
-    const limit=TUTOR_INFO.daily_limit||10, quota=mark("tc-quota","","div"), bar=mark("tc-quota-bar","","div"), fill=document.createElement("i");
+    const limit=TUTOR_INFO.daily_limit||5, quota=mark("tc-quota","","div"), bar=mark("tc-quota-bar","","div"), fill=document.createElement("i");
     quota.setAttribute("role","status"); quota.setAttribute("aria-label",`${left} מתוך ${limit} שיחות נשארו היום`);
-    quota.append(mark("",String(left),"strong"),mark("","שיחות נשארו היום","span"),mark("",`מתוך ${limit} שיחות יומיות`,"small")); fill.style.width=`${Math.max(0,Math.min(100,left/limit*100))}%`; bar.append(fill); quota.append(bar); box.append(quota);
+    const used=Math.max(0,limit-left);
+    quota.append(mark("",String(left),"strong"),mark("","שיחות נשארו היום","span"),mark("",`נוצלו ${used} מתוך ${limit} · המכסה מתחדשת בכל יום`,"small")); fill.style.width=`${Math.max(0,Math.min(100,used/limit*100))}%`; fill.title=`נוצלו ${used} מתוך ${limit}`; bar.setAttribute("role","progressbar"); bar.setAttribute("aria-label","שיחות שנוצלו היום"); bar.setAttribute("aria-valuemin","0"); bar.setAttribute("aria-valuemax",String(limit)); bar.setAttribute("aria-valuenow",String(used)); bar.append(fill); quota.append(bar); box.append(quota);
   }
   if(!open.length) box.append(mark("","התרחיש הראשון ייפתח כשתתחילו את השיעור הראשון 💛","p"));
   for(const s of open){

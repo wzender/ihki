@@ -1829,11 +1829,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return app.state.tutor
 
     def tutor_day(user: dict | None) -> tuple[str, str, int | None, object]:
-        """The student's key for the day's count, the day, their limit (None: a teacher, or no sign-in) and how to read
+        """The account's key for the day's count, the day, its limit (None only without sign-in) and how to read
         the count Supabase keeps."""
         now = datetime.now(LOCAL_TZ)
         day = now.date().isoformat()
-        if not user or user["teacher"]:
+        if not user or "developer" in user.get("roles", ()):
             return "open", day, None, None
         since = now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
         return user["id"], day, DAILY_LIMIT, lambda: app.state.auth.tutor_chats_since(user["id"], since)
