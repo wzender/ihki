@@ -796,37 +796,35 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/lab/minerva")
     def lab_minerva(a: SupabaseAuth = Depends(teacher_only)):
-        """The imported Minerva pilot, grouped into videos for the lab's native-speech runner."""
-        titles = {"U8aBRd3-wlM": "במכולת", "OuAwxXUZBU4": "אסיפת הורים", "V2y6LqnoXTo": "הקדרה"}
-        files = {"U8aBRd3-wlM": "במכולת ＊ פִי א-דֻכַּאן ＊  في الدّكّان ＊ קטע שיחה בערבית מדוברת [U8aBRd3-wlM].webm",
-                 "OuAwxXUZBU4": "אסיפת הורים ＊ אִגתִמַאע אַהַאלִי ＊ إجتماع أهالي ＊ קטע שיחה בערבית מדוברת [OuAwxXUZBU4].webm",
-                 "V2y6LqnoXTo": "הקְדֵרָה הולידה קְדֵרָה ＊ אִ-טֻנגָ'רָה וִלדַת טֻנגָ'רָה ＊ الطّنجرة ولدت طنجرة ＊ סיפור בערבית מדוברת [V2y6LqnoXTo].mkv"}
+        """The imported Minerva audio joined with its reviewed JSON sentence metadata."""
         try:
             samples = a.lab_samples(full=True)
         except AuthUnavailable as e:
             raise lab_error(e)
+        manifest = lab.minerva_metadata()
+        definitions = {segment["item"]: (video, segment) for video in manifest for segment in video["segments"]}
         videos: dict[str, dict] = {}
         for s in samples:
-            match = re.fullmatch(r"minerva:([\w-]{11}):(\d+)", s.get("item") or "")
-            if (s.get("speaker") or "") != "מינרווה" or not match:
+            definition = definitions.get(s.get("item"))
+            if (s.get("speaker") or "") != "מינרווה" or definition is None:
                 continue
-            video_id, line = match.group(1), int(match.group(2))
-            timing = re.fullmatch(rf"minerva:{re.escape(video_id)}:([0-9.]+)-([0-9.]+)", s.get("device") or "")
+            meta_video, segment = definition
+            video_id = meta_video["id"]
             stored = s.get("result") or {}
             excluded = stored.get("_lab_excluded_words") or {}
             if not isinstance(excluded, dict):
                 excluded = {}
-            video = videos.setdefault(video_id, {"id": video_id, "title": titles.get(video_id, video_id),
-                                                  "filename": files.get(video_id, ""), "samples": []})
-            video["samples"].append({"id": s["id"], "item": s["item"], "line": line,
-                                     "start": float(timing.group(1)) if timing else None,
-                                     "end": float(timing.group(2)) if timing else None,
-                                     "ar": s.get("ar") or "", "ipa": s.get("ipa") or "",
+            video = videos.setdefault(video_id, {"id": video_id, "title": meta_video["title"],
+                                                  "filename": meta_video["filename"], "samples": []})
+            video["samples"].append({"id": s["id"], "item": s["item"], "line": segment["line"],
+                                     "start": segment["start"], "end": segment["end"],
+                                     "ar": segment["ar"], "tr": segment["tr"], "he": segment["he"],
+                                     "ipa": segment["ipa"],
                                      "score": s.get("score"), "heard_ipa": s.get("heard_ipa") or "",
                                      "flagged": s.get("flagged") or [],
                                      "unrelated": bool(stored.get("unrelated")), "audio": bool(s.get("audio")),
                                      "excluded_words": {str(k): str(v) for k, v in excluded.items()}})
-        order = list(titles)
+        order = [video["id"] for video in manifest]
         out = list(videos.values())
         out.sort(key=lambda v: order.index(v["id"]) if v["id"] in order else len(order))
         for video in out:

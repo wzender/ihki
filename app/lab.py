@@ -18,6 +18,10 @@ The IPA follows the bank's (phrases.py), and a word the bank has keeps the bank'
 """
 from __future__ import annotations
 
+import json
+from functools import lru_cache
+from pathlib import Path
+
 from .align import POOLS
 from .scorer import LETTER_GOOD
 from .tips import VOWELS
@@ -96,6 +100,50 @@ ITEMS = [
     _item("vow-miin", "vowels", "iː", "מי", ("مين", "m iː n"), pair="i / iː"),
 ]
 BY_ID = {item["id"]: item for item in ITEMS}
+MINERVA_METADATA = Path(__file__).resolve().parent.parent / "data" / "minerva_metadata.json"
+
+
+@lru_cache(maxsize=1)
+def minerva_metadata() -> tuple[dict, ...]:
+    """The reviewed Minerva captions used by both the lab page and every rescore.
+
+    Supabase owns the recording and its historical result; this file owns the sentence, timing and expected phones.
+    Keeping that boundary explicit means an OCR correction takes effect on the next server start without reimporting
+    audio or editing database rows.
+    """
+    raw = json.loads(MINERVA_METADATA.read_text(encoding="utf-8"))
+    if not isinstance(raw, list):
+        raise ValueError("Minerva metadata must be a JSON array")
+    videos, seen = [], set()
+    for video in raw:
+        video_id = str(video.get("youtube_id") or "")
+        segments = video.get("segments")
+        if not video_id or video_id in seen or not isinstance(segments, list):
+            raise ValueError(f"invalid Minerva video metadata: {video_id or '<missing id>'}")
+        seen.add(video_id)
+        lines = []
+        for line, segment in enumerate(segments, 1):
+            timing = segment.get("voice_time_seconds") or {}
+            required = (segment.get("arabic"), segment.get("hebrew_transliteration"),
+                        segment.get("hebrew"), segment.get("expected_phonemes"))
+            if not all(isinstance(value, str) and value.strip() for value in required):
+                raise ValueError(f"incomplete Minerva metadata: {video_id}:{line:02d}")
+            try:
+                start, end = float(timing["start"]), float(timing["end"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError(f"invalid Minerva timing: {video_id}:{line:02d}") from exc
+            if end <= start:
+                raise ValueError(f"invalid Minerva timing: {video_id}:{line:02d}")
+            lines.append({"item": f"minerva:{video_id}:{line:02d}", "line": line, "start": start, "end": end,
+                          "ar": required[0], "tr": required[1], "he": required[2], "ipa": required[3]})
+        videos.append({"id": video_id, "title": str(video.get("title_hebrew") or video_id),
+                       "filename": str(video.get("file_name") or ""), "segments": tuple(lines)})
+    return tuple(videos)
+
+
+def minerva_segments() -> dict[str, dict]:
+    """Reviewed Minerva segments by their persisted lab item key."""
+    return {segment["item"]: segment for video in minerva_metadata() for segment in video["segments"]}
 
 
 def phrase(item: dict) -> dict:
@@ -112,6 +160,10 @@ def sample_phrase(sample: dict) -> dict | None:
     item = BY_ID.get(sample.get("item"))
     if item is not None:
         return phrase(item)
+    segment = minerva_segments().get(sample.get("item"))
+    if segment is not None:
+        return {"cat": "lab", "key": segment["item"], "he": segment["he"],
+                "variants": [(segment["ar"], segment["ipa"])]}
     ar, ipa = sample.get("ar"), sample.get("ipa")
     if not ar or not ipa:
         return None

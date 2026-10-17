@@ -238,7 +238,12 @@ def test_minerva_lab_groups_imported_segments_by_video():
         d = c.get("/api/lab/minerva", headers=teacher).json()
         assert len(d["videos"]) == 1 and d["videos"][0]["id"] == "U8aBRd3-wlM"
         assert [s["line"] for s in d["videos"][0]["samples"]] == [1, 2]
-        assert d["videos"][0]["samples"][0]["start"] == 1.0
+        # Sentence data comes from data/minerva_metadata.json, not the deliberately different stored row above.
+        first = d["videos"][0]["samples"][0]
+        assert first["start"] == 9.0 and first["end"] == 10.8
+        assert first["ar"] == "فيه عندك حليب طارة؟"
+        assert first["ipa"] == "f iː h | ʕ i n d a k | ħ a l iː b | tˤ aː r e"
+        assert first["tr"] == "פִיה עִנְדַכּ חַלִיב טַארֶה?" and first["he"] == "יש לך חלב טרי?"
         audio = c.get("/api/lab/samples/1/audio", headers=teacher)
         assert audio.status_code == 200 and audio.headers["content-type"] == "audio/wav"
         assert c.get("/api/lab/samples/99/audio", headers=teacher).status_code == 404
@@ -443,6 +448,10 @@ def test_lab_opens_the_trace_of_any_saved_recording():
 
 def test_imported_lab_line_reconstructs_its_phrase_outside_the_fixed_list():
     from app.lab import sample_phrase
+
+    reviewed = sample_phrase({"id": 6, "item": "minerva:U8aBRd3-wlM:01", "ar": "wrong", "ipa": "x"})
+    assert reviewed["variants"] == [("فيه عندك حليب طارة؟",
+                                      "f iː h | ʕ i n d a k | ħ a l iː b | tˤ aː r e")]
 
     phrase = sample_phrase({"id": 7, "item": "minerva:video:01", "ar": "حال", "ipa": "ħ aː l",
                             "speaker": "מינרווה"})
