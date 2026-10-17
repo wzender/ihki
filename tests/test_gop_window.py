@@ -5,7 +5,7 @@ Every frame is a distribution: the named sounds get their probability, a 1e-4 fl
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 import pytest
@@ -93,12 +93,24 @@ def test_windows():
     assert token_window(spans, 0, 14, 1) == (0, 3)
 
 
+def test_consonant_window_does_not_cross_a_long_pause():
+    logp = np.log(np.full((100, 4), 0.01))
+    logp[:, BLANK] = np.log(0.95)
+    logp[44, 1] = np.log(0.9)       # the aligned consonant
+    logp[70, 3] = np.log(0.99)      # unrelated sound deep inside the following pause
+    spans = [(44, 45), (80, 81)]
+    score = compute_token_gop(logp, spans, 0, [1, 2], BLANK, GopConfig(consonant_window=4))
+    assert score.window == (40, 49)
+    assert score.score == 100 and np.exp(score.comp_peak) < 0.02  # not the 99% peak at frame 70
+
+
 def test_wide_vowel_window_is_the_previous_scorer():
     """vowel_window None reads a vowel exactly as score_tokens did before it had classes."""
     for c in CASES:
         al = ctc_viterbi(c.logp, c.tokens, BLANK)
-        old = score_tokens(c.logp, al, c.tokens, BLANK, WIDE)
-        assert score_tokens(c.logp, al, c.tokens, BLANK, WIDE, vowels=c.vowels) == old, c.name
+        old = score_tokens(c.logp, al, c.tokens, BLANK, replace(WIDE, consonant_window=None))
+        new = score_tokens(c.logp, al, c.tokens, BLANK, WIDE, vowels=c.vowels)
+        assert new[c.target] == old[c.target], c.name
 
 
 def test_narrow_window_drops_a_transition_spike():

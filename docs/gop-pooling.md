@@ -79,6 +79,9 @@ lse 59, top2 70, mean / energy / gated / top3 80. These are synthetic numbers. U
 
 `compute_token_gop` reads each token from a window chosen by its class (`token_window`):
 
+- **Consonants:** the aligned span ± `GopConfig.consonant_window` (default 4 frames, about 80 ms), clipped at the
+  neighbouring token boundaries. This prevents a long pause from contributing an unrelated consonant peak.
+
 - **Consonants: wide**, `[end(i−1), start(i+1))`. When the alignment forces a path through a consonant that was
   substituted, the sound actually said peaks in the blanks around the forced frame
   (`consonant: competitor in blanks`: wide 15.8, competitor q; read narrow, q is lost).

@@ -131,6 +131,9 @@ class GopConfig:
     energy_gate: float = 0.3     # gated: frames quieter than this fraction of the window's loudest are dropped
     energy_spread: int = 1       # frames the energy is max-filtered over (CTC peaks lead/lag the acoustics)
     pool_vowels_only: bool = True  # consonants keep the max (bursts and voiceless sounds are short and quiet)
+    # Consonants need some surrounding blank for a CTC peak that leads/lags the forced span, but must not inherit an
+    # arbitrarily long pause up to the next token (e.g. a 760 ms window across a sentence break).
+    consonant_window: int | None = 4
     # A vowel's competitors are read from its aligned span +- this many frames (None: the wide window consonants
     # use). Its presence (`peak`, `deleted`) is still read from the wide window. GOP_VOWEL_WINDOW sets it.
     vowel_window: int | None = field(default_factory=env_vowel_window)
@@ -193,13 +196,14 @@ def compute_token_gop(logp: np.ndarray, spans: list[tuple[int, int]], i: int, to
     Presence is read from the wide window for every token: `peak` (behind the confidence) and `deleted` (target under
     deleted_peak and no competitor over deleted_comp), so a vowel aligned to a single frame is still found deleted.
     The competitor ratio of a vowel is read from its narrow window (cfg.vowel_window) and pooled with cfg.ratio_pool;
-    a consonant keeps the wide window, and the max unless cfg.pool_vowels_only is off. `pooled` overrides the latter.
+    a consonant is capped at its span +- cfg.consonant_window and keeps the max unless cfg.pool_vowels_only is off.
+    `pooled` overrides the latter.
     `edge`: ids that are no competitor on the frames between the token's span and its left / right neighbour (a vowel
     gliding into j or w passes through i or u: coarticulation, not a substitution). `energy` is already spread.
     """
     T = logp.shape[0]
     accept = accept or [None] * len(tokens)
-    a, b = token_window(spans, i, T)
+    a, b = token_window(spans, i, T, cfg.consonant_window) if not vowel else token_window(spans, i, T)
     ra, rb = token_window(spans, i, T, cfg.vowel_window) if vowel and cfg.vowel_window is not None else (a, b)
     tok, (s0, s1) = tokens[i], spans[i]
     seg = logp[a:b]

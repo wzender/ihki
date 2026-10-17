@@ -513,6 +513,69 @@ def test_article_vowel_after_a_vowel_may_be_dropped():
     assert any(i["missing"] for i in r["issues"])
 
 
+def test_rule_28_exempts_final_b_heard_as_p_only_before_a_voiceless_onset():
+    phrase = {"variants": [("حليب طارة", "ħ a l iː b | tˤ aː r e")]}
+    extra = ["iː", "b", "p", "tˤ", "r"]
+    phones = ["ħ", "a", "l", "iː", "p", "tˤ", "aː", "r", "e"]
+    scorer = custom_scorer(extra, phones)
+    result = scorer.score(None, phrase, diagnostics=True)
+    b = next(t for t in result["trace"]["tokens"] if t["ipa"] == "b")
+    exemption = next(stage for stage in b["stages"] if stage["stage"] == "exemption")
+    assert b["competitor"] == "p" and exemption == {
+        "stage": "exemption", "score": 100.0, "applied": "final_b_devoicing"
+    }
+    assert result["words"][0]["phonemes"][-1]["score"] == 100
+
+    scorer.set_disabled({"final_b_devoicing"})
+    without_rule = scorer.score(None, phrase)
+    assert without_rule["words"][0]["phonemes"][-1]["score"] < 50
+
+    # The same model confusion before a voiced onset is not covered by the narrow contextual rule.
+    voiced = custom_scorer(extra, ["ħ", "a", "l", "iː", "p", "d", "a", "r"])
+    no_exemption = voiced.score(None, {"variants": [("حليب دار", "ħ a l iː b | d a r")]})
+    assert no_exemption["words"][0]["phonemes"][-1]["score"] < 50
+
+
+def test_rule_29_floors_a_deleted_final_short_vowel_before_a_vowel_initial_word():
+    phrase = {"variants": [("على إيدك", "ʕ a l a | ʔ iː d e k")]}
+    scorer = custom_scorer(["iː"], ["ʕ", "a", "l", "ʔ", "iː", "d", "e", "k"])
+    result = scorer.score(None, phrase, diagnostics=True)
+    final_a = [t for t in result["trace"]["tokens"] if t["word"] == 0][-1]
+    exemption = next(stage for stage in final_a["stages"] if stage["stage"] == "exemption")
+    assert final_a["ipa"] == "a" and final_a["deleted"]
+    assert exemption == {"stage": "exemption", "score": 90.0, "applied": "word_final_vowel_linking"}
+
+    scorer.set_disabled({"word_final_vowel_linking"})
+    without_rule = scorer.score(None, phrase, diagnostics=True)
+    final_a = [t for t in without_rule["trace"]["tokens"] if t["word"] == 0][-1]
+    exemption = next(stage for stage in final_a["stages"] if stage["stage"] == "exemption")
+    assert exemption == {"stage": "exemption", "score": 90.0, "applied": "unmarked_short_vowel"}
+
+    # A deleted final vowel before a consonant is not a hiatus and remains penalised.
+    consonant = custom_scorer(["r"], ["ʕ", "a", "l", "d", "a", "r"])
+    no_exemption = consonant.score(None, {"variants": [("على دار", "ʕ a l a | d a r")]}, diagnostics=True)
+    final_a = [t for t in no_exemption["trace"]["tokens"] if t["word"] == 0][-1]
+    assert next(s for s in final_a["stages"] if s["stage"] == "exemption")["applied"] != "word_final_vowel_linking"
+
+
+def test_rule_30_floors_an_unmarked_short_vowel_but_not_checked_internal_u():
+    # The conjunction's word-initial u is not a learner check; a native u mislabelled v cannot collapse the word.
+    scorer = custom_scorer(["u", "v"], ["a", "v", "ʕ"])
+    result = scorer.score(None, {"variants": [("ا و", "a | u ʕ")]}, diagnostics=True)
+    u = next(t for t in result["trace"]["tokens"] if t["ipa"] == "u")
+    exemption = next(stage for stage in u["stages"] if stage["stage"] == "exemption")
+    assert u["competitor"] == "v"
+    assert exemption == {"stage": "exemption", "score": 90.0, "applied": "unmarked_short_vowel"}
+    assert result["words"][1]["phonemes"][0]["score"] == 90
+
+    # u after a consonant in the same word remains checked by the kubutz rule (3.11).
+    checked = custom_scorer(["u", "v"], ["k", "v", "l"])
+    result = checked.score(None, {"variants": [("كل", "k u l")]}, diagnostics=True)
+    u = next(t for t in result["trace"]["tokens"] if t["ipa"] == "u")
+    exemption = next(stage for stage in u["stages"] if stage["stage"] == "exemption")
+    assert exemption["applied"] is None and exemption["score"] < 50
+
+
 ALA = {"variants": [("على الحمام", "ʕ a l a | i l ħ a m m aː m")]}
 MISHEARD = ["ʔ", "a", "l", "a", "i", "l", "ħ", "a", "m", "aː", "m"]   # the model's ʕ in على: a glottal stop
 

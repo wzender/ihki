@@ -262,6 +262,9 @@ These are cases the model hears as a mistake that are ordinary native speech. Th
 | `glottal_dropped` | token deleted and its sound is ʔ or `Q` | 100 |
 | `article_vowel_elided` | deleted vowel of ال right after a word ending in a vowel | 100 |
 | `near_vowel` | vowel heard as same-group neighbour (i/e, u/o, a/ə/e) or other length | ≥ 90 (`near_vowel_floor`) |
+| `unmarked_short_vowel` | short vowel deliberately not judged by policy; excludes word-internal post-consonantal u (rule 30) | ≥ 90 (`near_vowel_floor`) |
+| `final_b_devoicing` | word-final b heard as p before a voiceless onset in the next word (rule 28) | 100 |
+| `word_final_vowel_linking` | deleted word-final short vowel before a vowel-initial next word, including ʔ+V (rule 29) | ≥ 90 (`near_vowel_floor`) |
 
 A glottal stop replaced by another consonant is not exempt (only a deletion is), unless the class accepts it (ق → k).
 
@@ -474,6 +477,7 @@ The values live in code, not in the rules document. The `scoring:` block of `pro
 | `GopConfig.leniency` | 0.5 | exponent on the target/competitor ratio |
 | `GopConfig.confident_peak` | 0.30 | target posterior above which confidence stops lowering the score |
 | `GopConfig.deleted_peak` / `deleted_comp` | 0.05 / 0.20 | deletion thresholds |
+| `GopConfig.consonant_window` | 4 frames | maximum context on each side of a consonant span; never crosses neighbours |
 | `ScorerConfig.flag_below` | 50 | max score for a flag and tip |
 | `ScorerConfig.issue_below` | 90 | max score to be listed as an issue |
 | `ScorerConfig.near_vowel_floor` | 90 | floor for neighbouring vowel qualities |

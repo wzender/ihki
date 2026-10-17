@@ -238,12 +238,53 @@ def _near_vowel(toks, i, sc, heard, ar_words):
     return near_vowels(toks[i].phoneme, heard)
 
 
+# Short vowels are deliberately not judged by the learner policy, except u after a consonant inside the same word
+# (rule 3.11).  Their acoustic score must follow that decision: an unflagged 1/100 must not collapse the word score.
+def _unmarked_short_vowel(toks, i, sc, heard, ar_words):
+    t = toks[i]
+    checked_u = (t.phoneme == "u" and i > 0 and toks[i - 1].word == t.word
+                 and toks[i - 1].phoneme not in VOWELS)
+    return t.phoneme in {"a", "i", "u", "e", "o"} and not checked_u
+
+
+# Rule 28: a native final /b/ can lose its acoustic voicing before a voiceless consonant across a word boundary.
+# The multilingual CTC then strongly labels that closure /p/ (ħaliib tˤaare), although Arabic has no phonemic /p/.
+# Keep this narrow: a learner's /p/ inside a word, or before a voiced sound, must not be hidden.
+_VOICELESS_ONSETS = {"t", "tˤ", "k", "q", "ʔ", "s", "sˤ", "ʃ", "f", "x", "ħ", "h", "θ"}
+
+
+def _final_b_devoicing(toks, i, sc, heard, ar_words):
+    if base(toks[i].phoneme) != "b" or base(heard or "") != "p" or i + 1 >= len(toks):
+        return False
+    following = toks[i + 1]
+    return following.word == toks[i].word + 1 and base(following.phoneme) in _VOICELESS_ONSETS
+
+
+# Rule 29: in connected speech, a word-final short vowel flows into a vowel-initial next word.  The next word is
+# commonly represented with an initial ʔ token, so accept either V or ʔ+V as the hiatus context.  CTC may assign the
+# transition to only one side and call the final vowel deleted even in native speech (على إيدك).
+def _word_final_vowel_linking(toks, i, sc, heard, ar_words):
+    t = toks[i]
+    if not sc.deleted or t.phoneme not in {"a", "i", "u", "e", "o"} or i + 1 >= len(toks):
+        return False
+    following = toks[i + 1]
+    if following.word != t.word + 1:
+        return False
+    if following.phoneme in VOWELS:
+        return True
+    return (following.sound in {"ʔ", "Q"} and i + 2 < len(toks)
+            and toks[i + 2].word == following.word and toks[i + 2].phoneme in VOWELS)
+
+
 # (name, applies(tokens, index, TokenScore, heard symbol, Arabic words), score it gets: None = full marks,
 # else the name of the ScorerConfig floor). The first that applies wins.
 EXEMPTIONS = [
     ("glottal_dropped", _glottal_dropped, None),
     ("article_vowel_elided", _article_vowel_elided, None),
     ("near_vowel", _near_vowel, "near_vowel_floor"),
+    ("final_b_devoicing", _final_b_devoicing, None),
+    ("word_final_vowel_linking", _word_final_vowel_linking, "near_vowel_floor"),
+    ("unmarked_short_vowel", _unmarked_short_vowel, "near_vowel_floor"),
 ]
 
 
@@ -281,6 +322,15 @@ def _toggles() -> list[Toggle]:
                "ה־i של ال שלא נאמרה אחרי מילה שמסתיימת בתנועה (עַלַא לְ...) אינה טעות."),
         Toggle("near_vowel", "judge", "6.3 #7", "תנועות קרובות",
                "תנועה שנשמעה כשכנתה (i/e, u/o, a/e) או באורך אחר מקבלת לפחות 90."),
+        Toggle("unmarked_short_vowel", "judge", "6.3 #30", "תנועה קצרה שאינה נבדקת",
+               "תנועה קצרה שהמדיניות אינה מסמנת מקבלת לפחות 90, כדי שלא תפיל את ציון המילה. "
+               "u אחרי עיצור בתוך אותה מילה עדיין נבדקת לפי כלל הקובוץ."),
+        Toggle("final_b_devoicing", "judge", "6.3 #28", "b סופית לפני עיצור אטום",
+               "b בסוף מילה שהמודל שמע כ־p לפני עיצור אטום במילה הבאה מקבלת ציון מלא; "
+               "באמצע מילה או לפני עיצור קולי אין פטור."),
+        Toggle("word_final_vowel_linking", "judge", "6.3 #29", "תנועה סופית שמתחברת לתנועה הבאה",
+               "תנועה קצרה בסוף מילה שהמודל רואה כמחוקה לפני מילה שמתחילה בתנועה מקבלת לפחות 90; "
+               "באמצע מילה או לפני עיצור אין פטור."),
         Toggle("margins", "judge", "6.2", "מרווח ביטחון לזוגות שהמודל מבלבל",
                "עיצור מודגש נחשב שגוי רק אם הרגיל סביר ממנו פי 2 בערך, ħ מול h פי 1.5, "
                "ו־h נחשבת שנבלעה רק אם היא חלשה פי 2 מסף ההשמטה. "

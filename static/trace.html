@@ -78,6 +78,15 @@ svg .strong{fill:var(--ink);font-weight:700}
 .facts{display:flex;flex-wrap:wrap;gap:6px}
 .facts span{background:var(--raise);border-radius:8px;padding:3px 8px;font-size:12px;color:var(--ink-2)}
 .facts b{color:var(--ink);font-weight:700}
+.frame-tools{display:flex;align-items:center;gap:8px;margin-inline-start:auto}
+.frame-tools button{padding:4px 9px}
+.frame-race{display:grid;gap:4px;direction:ltr;min-height:84px}
+.race-row{display:grid;grid-template-columns:54px minmax(80px,1fr) 54px;gap:7px;align-items:center;font-size:12px}
+.race-row .name{font:600 12px ui-monospace,monospace;text-align:right;overflow:hidden;text-overflow:ellipsis}
+.race-row .track{height:9px;border-radius:6px;background:var(--grid);overflow:hidden}
+.race-row .bar{height:100%;border-radius:6px;background:var(--muted);transition:width 55ms linear}
+.race-row.target .bar{background:var(--s1)} .race-row.competitor .bar{background:var(--s2)}
+.race-row .value{font-variant-numeric:tabular-nums;color:var(--ink-2)}
 /* status: never colour alone (a mark and a word) */
 .band-good{background:var(--good-bg);color:var(--good-ink)} .band-warn{background:var(--warn-bg);color:var(--warn-ink)} .band-crit{background:var(--crit-bg);color:var(--crit-ink)}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-inline-end:4px;vertical-align:middle}
@@ -154,9 +163,10 @@ details summary{cursor:pointer;color:var(--ink-2);font-size:12px}
 
   <div class="grid2">
     <section class="panel" id="p1" aria-labelledby="p1h">
-      <div class="head"><h2 id="p1h">פריימים וחלון</h2><span class="sub" id="p1sub"></span></div>
+      <div class="head"><h2 id="p1h">פריימים וחלון</h2><span class="sub" id="p1sub"></span><span class="frame-tools"><button id="framePlay" disabled>▶ נגן פריימים</button><span class="sub ltr" id="frameNow"></span></span></div>
       <div id="overview" dir="ltr"></div>
       <div id="frames" dir="ltr"></div>
+      <div class="frame-race" id="frameRace" aria-live="polite"></div>
       <div class="legend" id="p1legend"></div>
       <div class="facts" id="p1facts"></div>
     </section>
@@ -201,10 +211,12 @@ const pct=x=>x==null?"—":x>0&&x<.001?"<0.1%":fmt(100*x,1)+"%";
 const band=s=>s>=75?"good":s>=50?"warn":"crit";
 const BAND_NAME={good:"טוב",warn:"כמעט",crit:"חלש"};
 const STAGE_NAME={gop:"GOP גולמי",exemption:"פטורים",insertion:"תקרת צרור",baseline:"קו בסיס ילידי",calibration:"רצפת כיול",final:"סופי"};
-const EXEMPT_NAME={glottal_dropped:"עצירה סותמית שהושמטה",article_vowel_elided:"תנועת ال אחרי תנועה",near_vowel:"תנועה קרובה"};
+const EXEMPT_NAME={glottal_dropped:"עצירה סותמית שהושמטה",article_vowel_elided:"תנועת ال אחרי תנועה",near_vowel:"תנועה קרובה",final_b_devoicing:"b סופית לפני עיצור אטום (כלל 28)",word_final_vowel_linking:"תנועה סופית לפני תנועה (כלל 29)",unmarked_short_vowel:"תנועה קצרה שאינה נבדקת (כלל 30)"};
 
 let R=null, T=null, PH=[], sel=0, pinned=false, traceSource="";
 let wordAudio=null, wordAudioEnd=0, wordAudioNode=null;
+let frameAudio=null, frameRaf=0, frameAudioTimer=0, frameCursor=null, frameX=null, frameCurve=null;
+const FRAME_ANIMATION_MS=10000;
 let wordAudioUrl=new URLSearchParams(location.search).get("src")==="app"?(localStorage.getItem("ihki.traceAudio")||""):"";
 let traceContext={}; try{ traceContext=JSON.parse(localStorage.getItem("ihki.traceContext")||"{}"); }catch{}
 let excludedWords={...(traceContext.excluded_words||{})};
@@ -214,6 +226,8 @@ function load(result,source){
   if(!result||!result.trace||!result.trace.tokens){ show("בקובץ אין trace. פתחו את הלוח מהמעבדה או מניתוח הפונמות של מורה, או טענו את הדוגמה."); return; }
   if(source!=="מהאפליקציה"){ traceContext={}; excludedWords={}; wordAudioUrl=""; }
   R=result; T=result.trace; PH=(R.words||[]).flatMap(w=>w.phonemes||[]); traceSource=source;
+  $("framePlay").disabled=!wordAudioUrl;
+  $("framePlay").title=wordAudioUrl?"נגינת חלון הפריימים עם סמן מסונכרן":"אין אודיו מצורף ל־trace";
   const worst=T.tokens.reduce((b,t)=>t.final<b.final?t:b,T.tokens[0]), asked=+new URLSearchParams(location.search).get("i");
   sel=asked>=0&&asked<T.tokens.length&&new URLSearchParams(location.search).has("i")?asked:worst?worst.i:0; pinned=new URLSearchParams(location.search).has("i");
   $("what").textContent=`${source} · ציון ${R.score}`+(R.phrase?` · ${R.phrase.he}`:"");
@@ -323,15 +337,21 @@ function chooseExclusionReason(){
 }
 function playWord(wi,node){
   const tokens=T.tokens.filter(t=>t.word===wi); if(!wordAudioUrl||!tokens.length) return;
+  stopFramePlayback(true);
   if(wordAudio){ wordAudio.pause(); if(wordAudioNode) wordAudioNode.classList.remove("playing"); }
   const ms=T.frames.ms||20, offset=(T.audio&&T.audio.trim_start_ms||0)/1000,
-    start=Math.max(0,offset+Math.min(...tokens.map(t=>t.span[0]))*ms/1000-.15),
-    end=Math.max(start+.08,offset+Math.max(...tokens.map(t=>t.span[1]))*ms/1000+.15);
+    first=Math.min(...tokens.map(t=>t.span[0])), last=Math.max(...tokens.map(t=>t.span[1])),
+    previous=T.tokens.filter(t=>t.word<wi).map(t=>t.span[1]), following=T.tokens.filter(t=>t.word>wi).map(t=>t.span[0]),
+    leftLimit=previous.length?Math.max(...previous):0, rightLimit=following.length?Math.min(...following):T.frames.count,
+    start=Math.max(0,offset+Math.max(leftLimit,first-150/ms)*ms/1000),
+    end=Math.max(start+.08,offset+Math.min(rightLimit,last+150/ms)*ms/1000);
   const audio=wordAudio=new Audio(wordAudioUrl); wordAudioEnd=end; wordAudioNode=node; node.classList.add("playing");
-  audio.ontimeupdate=()=>{ if(audio.currentTime>=wordAudioEnd){ audio.pause(); audio.currentTime=start; node.classList.remove("playing"); } };
-  audio.onended=()=>node.classList.remove("playing");
-  audio.onerror=()=>{ node.classList.remove("playing"); $("wordHint").textContent="לא ניתן להשמיע את ההקלטה"; };
-  const startPlaying=()=>{ audio.currentTime=start; audio.play().catch(()=>{ node.classList.remove("playing"); $("wordHint").textContent="הדפדפן חסם את ההשמעה"; }); };
+  let stopTimer=null;
+  const finish=()=>{ if(stopTimer) clearTimeout(stopTimer); audio.pause(); audio.currentTime=start; node.classList.remove("playing"); };
+  audio.ontimeupdate=()=>{ if(audio.currentTime>=wordAudioEnd) finish(); };
+  audio.onended=finish;
+  audio.onerror=()=>{ finish(); $("wordHint").textContent="לא ניתן להשמיע את ההקלטה"; };
+  const startPlaying=()=>{ audio.currentTime=start; audio.play().then(()=>{ stopTimer=setTimeout(finish,Math.max(80,(end-start)*1000)); }).catch(()=>{ finish(); $("wordHint").textContent="הדפדפן חסם את ההשמעה"; }); };
   if(audio.readyState>=1) startPlaying(); else audio.onloadedmetadata=startPlaying;
 }
 function drawTree(){
@@ -370,6 +390,7 @@ function drawOverview(){
   box.replaceChildren(svg);
 }
 function drawFrames(){
+  stopFramePlayback(true);
   const t=T.tokens[sel], c=t.curves, L=c.target.length, ms=T.frames.ms;
   const box=$("frames"), W=width("frames"), padL=34, padR=10, top=10, ph=170, eh=36, gap=14, H=top+ph+gap+eh+26;
   const x=f=>padL+(f-c.start)/Math.max(1,L-1)*(W-padL-padR), yP=v=>top+ph-v*ph;
@@ -398,10 +419,12 @@ function drawFrames(){
   // hover: a crosshair and every value of the frame
   const cross=sv("line",{y1:top,y2:ey+eh,stroke:"var(--ink-2)","stroke-width":1,opacity:0});
   svg.append(cross);
+  frameCursor=cross; frameX=x; frameCurve=c;
   const hit=sv("rect",{x:padL,y:top,width:W-padL-padR,height:ey+eh-top,fill:"transparent"});
   hit.onmousemove=ev=>{
     const r=svg.getBoundingClientRect(), fx=(ev.clientX-r.left)/r.width*W, k=Math.max(0,Math.min(L-1,Math.round((fx-padL)/(W-padL-padR)*(L-1)))), f=c.start+k;
     cross.setAttribute("x1",x(f)); cross.setAttribute("x2",x(f)); cross.setAttribute("opacity",.6);
+    renderFrameRace(k);
     const inWin=f>=win[0]&&f<win[1];
     tipShow(ev,[el("div",{class:"t",text:`פריים ${f} · ${fmt(f*ms/1000,2)} s`+(inWin?" · בחלון":"")}),
       trow(`p(${t.ipa})`,pct(c.target[k])), c.competitor?trow(`p(${t.competitor||"מתחרה"})`,pct(c.competitor[k])):null,
@@ -411,6 +434,7 @@ function drawFrames(){
   hit.onmouseleave=()=>{ cross.setAttribute("opacity",0); tipHide(); };
   svg.append(hit);
   box.replaceChildren(svg);
+  renderFrameRace(0);
   const nb=i=>i>=0&&i<T.tokens.length?T.tokens[i].ipa:"—";
   $("p1sub").replaceChildren(el("span",{class:"ipa",text:t.ipa}),` · חלון: פריימים ${win[0]}–${win[1]} (פריים = ${fmt(ms,0)} ms)`);
   $("p1legend").replaceChildren(...[
@@ -425,6 +449,61 @@ function drawFrames(){
     fact("GOP",fmt(t.gop,3)), fact("נמחק?",t.deleted?"כן":"לא"), t.class?fact("מימושים",t.class.join(" / ")+(t.realised?` · נאמר ${t.realised}`:"")):null].filter(Boolean));
 }
 function fact(k,v){ return el("span",{},`${k} `,el("b",{class:"ltr",text:v})); }
+
+/* ---------- synchronized frame animation ---------- */
+function frameCandidates(k){
+  const t=T.tokens[sel], c=t.curves, nb=i=>i>=0&&i<T.tokens.length?T.tokens[i].ipa:"—", rows=[
+    {name:t.ipa,value:c.target&&c.target[k],kind:"target"},
+    {name:t.competitor||"מתחרה",value:c.competitor&&c.competitor[k],kind:"competitor"},
+    {name:nb(sel-1),value:c.prev&&c.prev[k],kind:"neighbor"},
+    {name:nb(sel+1),value:c.next&&c.next[k],kind:"neighbor"},
+    {name:"blank",value:c.blank&&c.blank[k],kind:"blank"}
+  ];
+  return rows.filter((r,i)=>r.value!=null&&!rows.slice(0,i).some(x=>x.name===r.name)).sort((a,b)=>b.value-a.value);
+}
+function renderFrameRace(k){
+  if(!T||!frameCurve) return;
+  const c=frameCurve, safe=Math.max(0,Math.min(c.target.length-1,k)), f=c.start+safe, t=T.tokens[sel], inSpan=f>=t.span[0]&&f<t.span[1], inWindow=f>=t.window[0]&&f<t.window[1];
+  $("frameNow").textContent=`frame ${f} · ${fmt(f*T.frames.ms/1000,2)}s · ${inSpan?"span":inWindow?"GOP window":"context"}`;
+  const box=$("frameRace"); box.replaceChildren(...frameCandidates(safe).map(r=>{
+    const row=el("div",{class:`race-row ${r.kind}`});
+    row.append(el("span",{class:"name",text:r.name}),el("span",{class:"track"},el("span",{class:"bar",style:`width:${Math.max(0,Math.min(100,r.value*100))}%`})),el("span",{class:"value",text:pct(r.value)}));
+    return row;
+  }));
+  if(frameCursor&&frameX){ frameCursor.setAttribute("x1",frameX(f)); frameCursor.setAttribute("x2",frameX(f)); frameCursor.setAttribute("opacity",.9); }
+}
+function stopFramePlayback(reset=false){
+  if(frameRaf) cancelAnimationFrame(frameRaf); frameRaf=0;
+  if(frameAudioTimer) clearTimeout(frameAudioTimer); frameAudioTimer=0;
+  if(frameAudio){ frameAudio.pause(); frameAudio=null; }
+  const b=$("framePlay"); if(b) b.textContent="▶ נגן פריימים";
+  if(reset&&frameCursor) frameCursor.setAttribute("opacity",0);
+}
+async function playFrames(){
+  if(!T||!wordAudioUrl) return;
+  if(frameAudio){ stopFramePlayback(true); return; }
+  if(wordAudio){ wordAudio.pause(); if(wordAudioNode) wordAudioNode.classList.remove("playing"); wordAudio=null; }
+  const t=T.tokens[sel], c=t.curves, ms=T.frames.ms||20, offset=(T.audio&&T.audio.trim_start_ms||0)/1000,
+    start=offset+c.start*ms/1000, end=offset+(c.start+c.target.length)*ms/1000, audio=frameAudio=new Audio(wordAudioUrl), button=$("framePlay");
+  button.textContent="■ עצירה";
+  let animationStart=0;
+  const tick=now=>{
+    if(frameAudio!==audio) return;
+    const progress=Math.max(0,Math.min(1,(now-animationStart)/FRAME_ANIMATION_MS)), k=Math.round(progress*(c.target.length-1));
+    renderFrameRace(k);
+    if(progress>=1){ stopFramePlayback(false); return; }
+    frameRaf=requestAnimationFrame(tick);
+  };
+  const begin=async()=>{ audio.currentTime=Math.max(0,start); try{
+    await audio.play();
+    // The visualization is deliberately stretched to ten seconds; speech stays natural and is heard once.
+    frameAudioTimer=setTimeout(()=>audio.pause(),Math.max(80,(end-start)*1000));
+    animationStart=performance.now(); frameRaf=requestAnimationFrame(tick);
+  }catch{ stopFramePlayback(true); $("frameNow").textContent="הדפדפן חסם את ההשמעה"; } };
+  audio.onerror=()=>{ stopFramePlayback(true); $("frameNow").textContent="לא ניתן להשמיע את ההקלטה"; };
+  if(audio.readyState>=1) begin(); else audio.onloadedmetadata=begin;
+}
+$("framePlay").onclick=playFrames;
 
 /* ---------- panel 2: the waterfall ---------- */
 function drawWaterfall(){

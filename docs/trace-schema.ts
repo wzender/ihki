@@ -86,6 +86,7 @@ export interface Trace {
 export interface TraceConfig {
   leniency: number;               // gop_factor = exp(gop · leniency)
   confident_peak: number;         // confidence = min(1, p_target / confident_peak)
+  consonant_window: number | null; // max context frames on either side of a consonant span
   deleted_peak: number;           // deleted: p_target < deleted_peak and p_competitor < deleted_comp
   deleted_comp: number;
   flag_below: number;             // a sound under this (and beyond its margin) is flagged
@@ -102,7 +103,7 @@ export interface TraceConfig {
   margin_default: number;
   ayin_deleted_floor: number;
   margins: { target: Ipa; heard: Heard; margin: number }[];   // the pairs that need a clearer win (rules 6.2)
-  exemptions: ("glottal_dropped" | "article_vowel_elided" | "near_vowel")[];
+  exemptions: ("glottal_dropped" | "article_vowel_elided" | "near_vowel" | "unmarked_short_vowel" | "final_b_devoicing" | "word_final_vowel_linking")[];
   insertion: { score_cap: number; min_peak: number; min_frames: number } | null;
   disabled: string[];             // rule switches the teacher turned off
 }

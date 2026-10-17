@@ -166,7 +166,8 @@ def test_long_pause_haze_needs_the_gate():
     p[:, BLANK] = 1 - p.sum(1)
     energy = np.r_[[.3, .6, .5], np.ones(4), np.full(n - 9, .02), [.5, .1]]
     al = Alignment(0.0, [(1, 2), (5, 6), (n - 2, n - 1)])
-    s = lambda cfg: score_tokens(np.log(p), al, TOKENS, BLANK, cfg, energy=energy)[1].score
+    s = lambda cfg: score_tokens(np.log(p), al, TOKENS, BLANK, cfg, energy=energy,
+                                 vowels=[False, True, False])[1].score
     assert s(CONFIGS["mean"]) < 85
     assert s(CONFIGS["gated"]) >= 95 and s(CONFIGS["top2"]) >= 95
 

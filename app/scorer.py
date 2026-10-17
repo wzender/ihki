@@ -779,6 +779,7 @@ class Scorer:
         return {
             "config": {
                 "leniency": g.leniency, "confident_peak": g.confident_peak,
+                "consonant_window": g.consonant_window,
                 "deleted_peak": round(float(np.exp(g.deleted_peak)), 3),
                 "deleted_comp": round(float(np.exp(g.deleted_comp)), 3),
                 "flag_below": cfg.flag_below, "issue_below": cfg.issue_below, "near_vowel_floor": cfg.near_vowel_floor,

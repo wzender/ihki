@@ -8,3 +8,10 @@ def test_minerva_import_takes_every_reviewed_line_from_the_metadata():
     assert all(s["start"] < s["end"] and p["variants"] == [(s["ar"], s["ipa"])] for _, s, p in made)
     pilot = phrases({"U8aBRd3-wlM", "OuAwxXUZBU4", "V2y6LqnoXTo"})
     assert len(pilot) == 70 and pilot[0][2]["key"] == "minerva:U8aBRd3-wlM:01"
+
+
+def test_grocery_price_keeps_the_spoken_number_as_two_arabic_words():
+    price = next(segment for video, segment, _ in phrases({"U8aBRd3-wlM"})
+                 if segment["line"] == 8)
+    assert price["ar"] == "خمسة وعشرين شيقل. تفضّل."
+    assert len(price["ar"].split()) == len(price["ipa"].split("|")) == 4

@@ -3431,7 +3431,7 @@ function drawPhones(r){
 }
 // The classification stage by stage (r.trace, teachers only): the flow with each stage's thresholds and weights,
 // then every sound through the stages. Scores are 0..100; probabilities are the model's posteriors in the sound's window.
-const EXEMPTION_NAMES={glottal_dropped:"עצירה סותמית שהושמטה (ء / ق)",article_vowel_elided:"תנועת ה־ال אחרי תנועה",near_vowel:"תנועה קרובה"};
+const EXEMPTION_NAMES={glottal_dropped:"עצירה סותמית שהושמטה (ء / ق)",article_vowel_elided:"תנועת ה־ال אחרי תנועה",near_vowel:"תנועה קרובה",unmarked_short_vowel:"תנועה קצרה שאינה נבדקת (כלל 30)",final_b_devoicing:"b סופית לפני עיצור אטום (כלל 28)",word_final_vowel_linking:"תנועה סופית לפני תנועה (כלל 29)"};
 function drawStages(r){
   const box=$("stagesBox"), t=r.trace;
   if(!t){ box.hidden=true; return; }
@@ -5726,17 +5726,24 @@ async function playMinervaWord(word,button){
       const res=await api(`/api/lab/samples/${word.sample.id}/audio`); if(!res.ok) throw new Error(res.status);
       minervaAudioUrls[word.sample.id]=URL.createObjectURL(await res.blob());
     }
-    const trace=minervaWordTraces[key], tokens=(trace.tokens||[]).filter(t=>t.word===word.index);
+    const trace=minervaWordTraces[key], allTokens=trace.tokens||[], tokens=allTokens.filter(t=>t.word===word.index);
     if(!tokens.length) throw new Error("לא נמצאו גבולות למילה");
     const ms=trace.frames.ms||20, offset=(trace.audio&&trace.audio.trim_start_ms||0)/1000,
-      start=Math.max(0,offset+Math.min(...tokens.map(t=>t.span[0]))*ms/1000-.15),
-      end=Math.max(start+.08,offset+Math.max(...tokens.map(t=>t.span[1]))*ms/1000+.15);
+      first=Math.min(...tokens.map(t=>t.span[0])), last=Math.max(...tokens.map(t=>t.span[1])),
+      previous=allTokens.filter(t=>t.word<word.index).map(t=>t.span[1]),
+      following=allTokens.filter(t=>t.word>word.index).map(t=>t.span[0]),
+      leftLimit=previous.length?Math.max(...previous):0,
+      rightLimit=following.length?Math.min(...following):trace.frames.count,
+      // Context is useful, but it must never cross an aligned neighbouring word.
+      start=Math.max(0,offset+Math.max(leftLimit,first-150/ms)*ms/1000),
+      end=Math.max(start+.08,offset+Math.min(rightLimit,last+150/ms)*ms/1000);
     const audio=minervaAudio=new Audio(minervaAudioUrls[word.sample.id]); minervaAudioButton=button;
     button.disabled=false; button.textContent="■ עצירה";
-    const finish=()=>{ audio.pause(); button.textContent="▶ מילה"; if(minervaAudio===audio){ minervaAudio=null; minervaAudioButton=null; } };
+    let stopTimer=null;
+    const finish=()=>{ if(stopTimer) clearTimeout(stopTimer); audio.pause(); button.textContent="▶ מילה"; if(minervaAudio===audio){ minervaAudio=null; minervaAudioButton=null; } };
     audio.ontimeupdate=()=>{ if(audio.currentTime>=end) finish(); }; audio.onended=finish;
     audio.onerror=()=>{ finish(); $("minervaState").textContent="לא ניתן לנגן את המילה"; };
-    const startPlaying=()=>{ audio.currentTime=start; audio.play().catch(e=>{ finish(); $("minervaState").textContent=`ההשמעה נכשלה: ${e.message}`; }); };
+    const startPlaying=()=>{ audio.currentTime=start; audio.play().then(()=>{ stopTimer=setTimeout(finish,Math.max(80,(end-start)*1000)); }).catch(e=>{ finish(); $("minervaState").textContent=`ההשמעה נכשלה: ${e.message}`; }); };
     if(audio.readyState>=1) startPlaying(); else audio.onloadedmetadata=startPlaying;
   }catch(e){ button.disabled=false; button.textContent="▶ מילה"; $("minervaState").textContent=`השמעת המילה נכשלה: ${e.message}`; }
 }
