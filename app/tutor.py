@@ -1,4 +1,4 @@
-"""ערבוט: short spoken conversations with an AI tutor, on scenario cards, one for each lesson of the course.
+"""יאללה נדבר: short spoken conversations with an AI tutor, on scenario cards, one for each lesson of the course.
 
 The tutor writes; the student talks. The page turns the student's speech into text (the browser's own recognition)
 and sends the text; the tutor's answer comes back as text too, so the student sees what the tutor understood.
@@ -479,7 +479,7 @@ class Tutor:
 def load_tutor() -> Tutor | None:
     key = (os.environ.get("ANTHROPIC_API_KEY", "") or os.environ.get("CLAUDE_API_KEY", "")).strip()
     if not key:
-        log.info("no ANTHROPIC_API_KEY: the tutor game (ערבוט) is off")
+        log.info("no ANTHROPIC_API_KEY: the tutor game (יאללה נדבר) is off")
         return None
     try:
         import anthropic
@@ -487,7 +487,7 @@ def load_tutor() -> Tutor | None:
         log.warning("ANTHROPIC_API_KEY is set but the anthropic package is not installed: the tutor game is off")
         return None
     model = os.environ.get("TUTOR_MODEL", "").strip() or DEFAULT_MODEL
-    log.info("the tutor game (ערבוט) runs on %s", model)
+    log.info("the tutor game (יאללה נדבר) runs on %s", model)
     return Tutor(anthropic.Anthropic(api_key=key, timeout=30.0, max_retries=2), model)
 
 

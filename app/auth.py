@@ -45,7 +45,7 @@ Writing: a lesson's written homework (see workbook.py) is kept in the Supabase t
 and topic, written with the student's own token like the attempts, so it follows them to any device. The panel
 reads every student's with the secret key.
 
-Tutor: each conversation of the game ערבוט (see tutor.py), what the student said and how the tutor answered, in the
+Tutor: each conversation of the game יאללה נדבר (see tutor.py), what the student said and how the tutor answered, in the
 Supabase table `tutor_chats`, written with the secret key, for the teacher to read.
 
 Env:  SUPABASE_URL             (https://<project-ref>.supabase.co)

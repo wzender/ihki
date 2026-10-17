@@ -146,7 +146,7 @@ The page's "ההתקדמות שלי" button reads these rows back through `GET /
 ### The teacher
 
 Access is managed from **ניהול → הרשאות**. Its matrix grants practice, management, Lab, games, the digital library,
-problem reporting, ערבוט, and the learning path independently. ערבוט has its own permission because each
+problem reporting, יאללה נדבר, and the learning path independently. יאללה נדבר has its own permission because each
 conversation uses the paid model API; unlike the other student features it is off until explicitly granted.
 Developers have full access including the Lab; admins do not receive Lab access. `DEVELOPER_EMAILS` bootstraps one or more developer
 accounts; keep at least one there to prevent a database mistake from locking every developer out. Existing

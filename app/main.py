@@ -6,7 +6,7 @@ Env:  MODEL_ID  (default facebook/wav2vec2-xlsr-53-espeak-cv-ft, or a path to a 
       SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY  (Google sign-in, see app/auth.py)
       TEACHER_EMAILS, SUPABASE_SECRET_KEY  (the teacher's management panel, its classes and the lesson videos, see app/auth.py)
       TUTORS_EMAIL  (more accounts that, like the teachers, flag a recording scored wrong, see app/auth.py)
-      ANTHROPIC_API_KEY, TUTOR_MODEL  (the permission-controlled AI tutor game ערבוט, see app/tutor.py)
+      ANTHROPIC_API_KEY, TUTOR_MODEL  (the permission-controlled AI tutor game יאללה נדבר, see app/tutor.py)
 A local .env file is loaded if present; real environment variables win over it.
 """
 from __future__ import annotations
@@ -1840,7 +1840,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/tutor", dependencies=[Depends(require("tutor.use"))])
     def tutor_info(user: dict | None = Depends(signed_in)):
-        """ערבוט: whether this account may play, its scenario cards (one for each lesson, in the course's order; the
+        """יאללה נדבר: whether this account may play, its scenario cards (one for each lesson, in the course's order; the
         page shows those of the lessons the student has started), and how many conversations are left today (None: no
         limit)."""
         try:

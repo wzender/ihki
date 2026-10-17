@@ -173,7 +173,7 @@ body[data-view=verbs] #vids{max-width:none;gap:6px;margin-top:0}
 /* "הפועל זכרון": the verbs of the verb table's lesson as a memory game on a misbaha that snakes over the whole screen.
    A bead shows gold, turning on its cord; open, a verb: the Hebrew, or the Arabic (said aloud) in transliteration. A found
    pair turns green and stays open. The cord, the imam and the tassel are those of "פועל זמני", grown to the screen. */
-/* ערבוט: the tutor chat, laid out like WhatsApp: the tutor's messages at the right, the student's (green) at the left */
+/* יאללה נדבר: the tutor chat, laid out like WhatsApp: the tutor's messages at the right, the student's (green) at the left */
 :root{--tc-wall:#EFE7DD; --tc-in:#FFFFFF; --tc-out:#D9FDD3; --tc-head:#36501D; --tc-fix:#FFF6D6}
 @media (prefers-color-scheme: dark){:root{--tc-wall:#0B141A; --tc-in:#202C33; --tc-out:#005C4B; --tc-head:#202C33; --tc-fix:#3A2F17}}
 body.tutor-chat{overflow:hidden}
@@ -1797,7 +1797,7 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     box.append(b);
   };
   if(view==="games"){
-    if(tutorList&&TUTOR_INFO&&TUTOR_INFO.available){ drawTutorList(box); return; }   // ערבוט's scenarios, in the tab's place
+    if(tutorList&&TUTOR_INFO&&TUTOR_INFO.available){ drawTutorList(box); return; }   // יאללה נדבר's scenarios, in the tab's place
     const games=can("games.use")?GAMES.filter(game=>!game.hidden):[];
     box.append(mark("","משחקים","h2"));
     if(can("games.use")&&VERB_GAME_VISIBLE){
@@ -1808,10 +1808,10 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     const memo=mark("now","","button"), upto=vtLessonNow();   // the memory game, on the verb table's lesson
     memo.append(mark("","📿","i"),mark("","הפועל זכרון","b"),mark("",`הפכו חרוזים ומצאו זוגות של פעלים · עד ${(ALL_LESSONS.find(l=>l.id===upto)||{}).name||""}`,"small"));
     memo.onclick=openMemoryGame; if(can("games.use")&&upto) box.append(memo);
-    const talk=can("tutor.use")&&TUTOR_INFO&&TUTOR_INFO.available;   // ערבוט: it opens the list of its scenarios
+    const talk=can("tutor.use")&&TUTOR_INFO&&TUTOR_INFO.available;   // יאללה נדבר: it opens the list of its scenarios
     if(talk){
       const b=mark("now","","button"), n=tutorScenarios().length;
-      b.append(mark("","💬","i"),mark("","ערבוט","b"),mark("",n?`שיחה עם דמויות מהשיעורים · ${n} תרחישים פתוחים`:"שיחה עם דמויות מהשיעורים · נפתח עם השיעור הראשון","small"));
+      b.append(mark("","💬","i"),mark("","יאללה נדבר","b"),mark("",n?`שיחה עם דמויות מהשיעורים · ${n} תרחישים פתוחים`:"שיחה עם דמויות מהשיעורים · נפתח עם השיעור הראשון","small"));
       b.onclick=()=>{ tutorList=true; drawNav(); window.scrollTo(0,0); }; box.append(b);
     }
     if(!games.length&&!upto&&!talk) box.append(mark("","המשחקים הראשונים יגיעו בקרוב.","p"));
@@ -2046,7 +2046,7 @@ function mgSamples(t){   // points along the cord every 3px, from the top row's 
   }
   return pts;
 }
-/* ערבוט: a WhatsApp-like chat with an AI tutor (app/tutor.py). The tutor writes; the student talks, and the
+/* יאללה נדבר: a WhatsApp-like chat with an AI tutor (app/tutor.py). The tutor writes; the student talks, and the
    device's speech recognition turns what they said into their own message, sent at once: the student sees what the
    tutor understood. A browser without recognition, or the keyboard button, lets them type instead.
    The students read Arabic only in Hebrew letters, so every Arabic line here is shown in them: the tutor's message,
@@ -2067,10 +2067,10 @@ function tutorScenarios(){   // the scenarios of the student's lessons that they
   const mine=new Set(LESSONS.map(l=>l.id));
   return ((TUTOR_INFO&&TUTOR_INFO.scenarios)||[]).filter(s=>mine.has(s.lesson)&&lessonStarted(s.lesson));
 }
-function drawTutorList(box){   // ערבוט: open scenarios from the first course lesson onward
+function drawTutorList(box){   // יאללה נדבר: open scenarios from the first course lesson onward
   const back=mark("back","","button");
   back.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> חזרה למשחקים'; back.onclick=()=>{ tutorList=false; drawNav(); };
-  box.append(back,mark("","ערבוט","h2"));
+  box.append(back,mark("","יאללה נדבר","h2"));
   const order=new Map(ALL_LESSONS.map((l,i)=>[l.id,i])), open=tutorScenarios().sort((a,b)=>(order.get(a.lesson)??1e9)-(order.get(b.lesson)??1e9)), all=((TUTOR_INFO&&TUTOR_INFO.scenarios)||[]).filter(s=>LESSONS.some(l=>l.id===s.lesson)), left=TUTOR_INFO.left;
   const activeLesson=(ALL_CATS.find(c=>c.id===cat)||{}).lesson, here=open.some(s=>s.lesson===activeLesson)?activeLesson:(open[open.length-1]||{}).lesson;
   box.append(mark("tc-intro","בחרו שיחה. ח'ליל וחבריו מדברים רק במילים שכבר למדתם.","p"));
@@ -2092,7 +2092,7 @@ function drawTutorList(box){   // ערבוט: open scenarios from the first cour
 }
 function openTutorChat(s){
   closeTutorChat();
-  const root=mark("tc","","section"); root.setAttribute("role","dialog"); root.setAttribute("aria-label",`ערבוט · ${s.title}`);
+  const root=mark("tc","","section"); root.setAttribute("role","dialog"); root.setAttribute("aria-label",`יאללה נדבר · ${s.title}`);
   root.innerHTML=`<header class="tc-head"><button class="tc-close" type="button" aria-label="יציאה מהשיחה">→</button>
     <span class="tc-avatar" lang="ar" aria-hidden="true"></span>
     <div class="tc-who"><b></b><small></small></div><span class="tc-count"></span></header>
@@ -4135,7 +4135,7 @@ const ACCESS_COLUMNS=[
   {label:"משחקים",kind:"entitlements",value:"games",permission:"games.use"},
   {label:"ספרייה דיגיטלית",kind:"entitlements",value:"library",permission:"library.view"},
   {label:"דיווח תקלות",kind:"roles",value:"flagger",permission:"flags.create"},
-  {label:"ערבוט",kind:"entitlements",value:"tutor",permission:"tutor.use"},
+  {label:"יאללה נדבר",kind:"entitlements",value:"tutor",permission:"tutor.use"},
   {label:"מסלול",kind:"entitlements",value:"path",permission:"path.use"},
 ];
 async function loadAccess(){
@@ -4152,7 +4152,7 @@ function drawAccess(){
   if(accessError){ box.append(mark("setup",`ההרשאות לא זמינות: ${accessError}`,"p")); return; }
   if(!ACCESS){ box.append(mark("sub","טוען…","p")); return; }
   if(ACCESS.setup){ const code=mark("",ACCESS.setup,"code"); code.dir="ltr"; box.append(mark("setup","יש ליצור את טבלאות ההרשאות ב-Supabase:","p"),code); return; }
-  const note=mark("sub","כל עמודה היא הרשאה נפרדת. ערבוט מופרד ממשחקים כי הוא משתמש בשירות API בתשלום. רק מפתחים יכולים לתת גישה למעבדה.","p"); box.append(note);
+  const note=mark("sub","כל עמודה היא הרשאה נפרדת. יאללה נדבר מופרד ממשחקים כי הוא משתמש בשירות API בתשלום. רק מפתחים יכולים לתת גישה למעבדה.","p"); box.append(note);
   if(ACCESS.migration){ const details=document.createElement("details"), summary=document.createElement("summary"), code=mark("",ACCESS.migration,"code"); summary.textContent="שדרוג טבלת הרשאות קיימת"; code.dir="ltr"; details.className="setup"; details.append(summary,code); box.append(details); }
   const scroll=mark("access-scroll",""), table=mark("access-table","","table"), head=document.createElement("thead"), hr=document.createElement("tr");
   hr.append(mark("","משתמש","th")); for(const col of ACCESS_COLUMNS) hr.append(mark("",col.label,"th")); hr.append(mark("","","th")); head.append(hr); table.append(head);
