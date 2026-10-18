@@ -22,8 +22,6 @@ export interface ScoreResult {
   heard_ipa: string;              // greedy decode: what the model heard, free of the expected text
   heard_tr: string;               // the same in Hebrew letters, cut at the aligned word starts
   unrelated: boolean;             // a different sentence (TraceUnrelated): score capped, no tips
-  uncertain: boolean;             // marginal target fit: score retained, categorical sound feedback suppressed
-  uncertainty_message?: string;
   words: Word[];
   tips: Tip[];                    // the most crucial mistakes, severity first (at most config.max_tips)
   issues: Issue[];                // the rest of the imprecise sounds
@@ -97,7 +95,6 @@ export interface TraceConfig {
   word_min_weight: number;
   vowel_weight: number;           // a vowel's weight in the sentence's phone mean
   unrelated_ratio: number;
-  feedback_uncertain_ratio: number;
   unrelated_cap: number;
   letter_good: number;
   max_tips: number;
@@ -131,8 +128,6 @@ export interface TraceUnrelated {
   tokens: number;
   ratio: number;                  // distance / tokens
   threshold: number;              // over this: a different sentence
-  uncertain_threshold: number;    // at/over this: suppress categorical phoneme feedback
-  uncertain: boolean;
   unrelated: boolean;
 }
 
