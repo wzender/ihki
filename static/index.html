@@ -4482,7 +4482,7 @@ function drawFlags(){
   head.append(mark("meta",`${pending.length} ${pending.length===1?"דיווח":"דיווחים"} מ־${byUser.size} ${byUser.size===1?"מדווח/ת":"מדווחים"}, מקובצים לפי המדווח/ת.`,"p"));
   for(const [who,flags] of [...byUser].sort((a,b)=>b[1].length-a[1].length||a[0].localeCompare(b[0]))){   // the most reports first
     const group=document.createElement("details"), summary=document.createElement("summary");
-    group.className="flag-group"; group.open=flagGroupOpen[who]!==false; group.ontoggle=()=>{ flagGroupOpen[who]=group.open; };
+    group.className="flag-group"; group.open=flagGroupOpen[who]===true; group.ontoggle=()=>{ flagGroupOpen[who]=group.open; };
     summary.append(mark("",who||"ללא משתמש","b"),mark("meta",` · ${flags.length} ${flags.length===1?"דיווח":"דיווחים"}`)); group.append(summary); box.append(group);
     for(const f of flags){
       const card=mark("card flag-review",""), title=mark("",f.he||f.phrase,"h2"), result=f.result||{}, issues=flagIssues(f);
@@ -4538,7 +4538,7 @@ function drawFlags(){
     }
   }
 }
-const flagGroupOpen={};   // reporter -> whether their group of reports is open; open until the teacher closes it
+const flagGroupOpen={};   // reporter -> whether their group of reports is open; closed until the teacher opens it
 let systemActivityOpen=false;   // the recent activity starts closed; a redraw keeps it as the teacher left it
 function drawSystemActivity(box){
   const outer=mark("card system-activity",""), card=document.createElement("details"), summary=document.createElement("summary");
