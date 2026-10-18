@@ -2612,7 +2612,12 @@ async function runLearnDrive(){
     const a=await answer; if(!on()) break;
     if(a) await playUrl(a.url,true); else await speakLocal(p.ar_pointed||p.ar,"ar");
     if(!on()) break;
-    await pause(800); if(!on()) break;
+    await pause(450); if(!on()) break;
+    $("learnDriveStatus").textContent="שוב בערבית";
+    if(a) await playUrl(a.url,true); else await speakLocal(p.ar_pointed||p.ar,"ar");
+    if(!on()) break;
+    $("learnDriveStatus").textContent="עוברים לצמד הבא";
+    await pause(1800); if(!on()) break;
     if(learning.queue[0]===id) learnMark(true);
   }
   if(on()) $("learnDriveStatus").textContent="הסבב הושלם";
