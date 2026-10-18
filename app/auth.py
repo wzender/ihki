@@ -538,7 +538,15 @@ class SupabaseAuth:
     def lab_samples(self, full: bool = False) -> list[dict]:
         """The lab's recordings, oldest first: what labels each one (and, with `full`, the scorer's whole result)."""
         cols = "*" if full else "id,item,speaker,label,mistake,score,heard_ipa,flagged,model,audio,created_at"
-        return self._admin(f"/rest/v1/lab_samples?{urllib.parse.urlencode({'select': cols, 'order': 'id.asc'})}")
+        # PostgREST caps a response (1000 rows by default), so the table is read in pages by id.
+        rows, last, page = [], 0, 500 if full else 1000
+        while True:
+            query = urllib.parse.urlencode({"select": cols, "order": "id.asc", "id": f"gt.{last}", "limit": page})
+            batch = self._admin(f"/rest/v1/lab_samples?{query}") or []
+            rows.extend(batch)
+            if len(batch) < page:
+                return rows
+            last = batch[-1]["id"]
 
     def lab_sample(self, sample_id: int) -> dict | None:
         """One lab recording's row, without the scorer's result, or None."""

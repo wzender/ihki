@@ -258,6 +258,9 @@ body.memory-game{overflow:hidden}
 .mg-side{position:absolute;inset:0;border-radius:50%;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden}
 .mg-back{border:2px solid #72500d;background:radial-gradient(circle at 29% 23%,#fff1a0 0 7%,transparent 10%),radial-gradient(circle at 38% 34%,#ffe27a,#d7a423 44%,#8e5b08 100%);box-shadow:inset calc(var(--d) * -.07) calc(var(--d) * -.09) calc(var(--d) * .13) rgb(91 55 4/.38),0 calc(var(--d) * .08) calc(var(--d) * .12) rgb(0 0 0/.42)}
 .mg-back i{position:absolute;inset:0;border-radius:50%;background:repeating-linear-gradient(180deg,rgb(255 248 200/.3) 0 5%,transparent 5% 14%,rgb(112 71 8/.22) 14% 18%,transparent 18% 25%);background-size:100% 200%;-webkit-mask:radial-gradient(circle,#000 30%,transparent 74%);mask:radial-gradient(circle,#000 30%,transparent 74%);animation:mg-band var(--spin,5s) linear infinite var(--way,normal)}   /* the bands run over the top: the bead turning round its horizontal axis */
+.mg-bead.he .mg-back{border-color:#285d65;background:radial-gradient(circle at 29% 23%,#eaffff 0 7%,transparent 10%),radial-gradient(circle at 38% 34%,#aee4df,#4c9ca0 48%,#24545c 100%);box-shadow:inset calc(var(--d) * -.07) calc(var(--d) * -.09) calc(var(--d) * .13) rgb(14 59 65/.42),0 calc(var(--d) * .08) calc(var(--d) * .12) rgb(0 0 0/.42)}
+.mg-bead.he .mg-back i{background:repeating-linear-gradient(180deg,rgb(226 255 252/.34) 0 4%,transparent 4% 12%,rgb(19 78 84/.28) 12% 17%,transparent 17% 25%)}
+.mg-bead.ar .mg-back{border-color:#72500d}   /* Arabic stays amber; Hebrew uses the turquoise bead above. */
 .mg-face{transform:rotateY(180deg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6%;text-align:center;border:3px solid #c9a24a;background:radial-gradient(circle at 30% 24%,#fff 0 6%,transparent 9%),radial-gradient(circle at 38% 32%,#fffdf3,#f6e7bd 55%,#d9b86a 100%);color:#3c2800;box-shadow:inset calc(var(--d) * -.07) calc(var(--d) * -.09) calc(var(--d) * .13) rgb(120 80 10/.3),0 calc(var(--d) * .08) calc(var(--d) * .12) rgb(0 0 0/.42)}
 .mg-face.he{font:800 calc(var(--d) * .19)/1.15 var(--f-body)}
 .mg-face.ar{border-color:#924d12;background:radial-gradient(circle at 30% 24%,#fff 0 6%,transparent 9%),radial-gradient(circle at 38% 32%,#fff0d3,#ffbd72 55%,#e78329 100%);color:#481d05}
@@ -1198,11 +1201,22 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 #roles{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
 #roles :is(#libraryBtn,#manageBtn,#labBtn){background:#fff;color:#4B6A2C;box-shadow:inset 0 0 0 2px #4B6A2C}
 #bootErr{margin:0;max-width:90vw;font:12px/1.4 ui-monospace,monospace;color:#9B2C2C;white-space:pre-wrap;overflow-wrap:anywhere;text-align:left}
+.install-prompt{position:fixed;z-index:10000;inset:auto 12px calc(12px + env(safe-area-inset-bottom));margin:auto;max-width:430px;padding:14px;border:1px solid var(--olive);border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 8px 28px rgba(0,0,0,.24)}
+.install-prompt strong{display:block;font:400 20px/1.25 var(--f-display)}
+.install-prompt p{margin:4px 0 12px;color:var(--muted);font-size:15px;line-height:1.4}
+.install-actions{display:flex;gap:8px;justify-content:flex-end}
+.install-actions button{padding:9px 16px;border-radius:10px;border:1px solid var(--olive);background:var(--surface);color:var(--olive);font:700 15px/1.2 var(--f-body);cursor:pointer}
+.install-actions .primary{background:var(--olive);color:var(--on-olive)}
 @keyframes start-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#startBtn,#loginBtn,#roles button,#mailForm{animation:none;opacity:1}#logo-splash{transition:none}}
 </style>
 </head>
 <body class="home">
+<aside class="install-prompt" id="installPrompt" role="dialog" aria-labelledby="installTitle" aria-describedby="installText" hidden>
+  <strong id="installTitle">להתקין את אהלא וסהלא?</strong>
+  <p id="installText">כך אפשר לפתוח את האתר כמו אפליקציה ישר ממסך הבית.</p>
+  <div class="install-actions"><button type="button" id="installLater">לא עכשיו</button><button type="button" class="primary" id="installApp">התקנה</button></div>
+</aside>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
   <symbol id="i-next" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
@@ -2274,8 +2288,8 @@ function mgDeal(){   // a new round: as many pairs as fill the screen (or as the
   for(const p of verbs) answerAudio(p.id);   // fetched now, so a bead speaks as it opens
   const sides=shuffle(verbs.flatMap(p=>[{p,side:"he"},{p,side:"ar"}]));
   sides.forEach((b,i)=>{
-    const el=mark("mg-bead","","button"), rot=mark("mg-rot","","span"), back=mark("mg-side mg-back","","span"), face=mark(`mg-side mg-face ${b.side}`,"","span");
-    el.type="button"; el.setAttribute("aria-label","חרוז סגור"); el.style.setProperty("--i",i);
+    const el=mark(`mg-bead ${b.side}`,"","button"), rot=mark("mg-rot","","span"), back=mark("mg-side mg-back","","span"), face=mark(`mg-side mg-face ${b.side}`,"","span");
+    el.type="button"; el.setAttribute("aria-label",`חרוז ${b.side==="he"?"עברית":"ערבית"} סגור`); el.style.setProperty("--i",i);
     el.style.setProperty("--spin",`${(3.75+Math.random()*5).toFixed(2)}s`); el.style.setProperty("--way",Math.random()<.5?"normal":"reverse");
     back.append(document.createElement("i"));
     if(b.side==="he") face.textContent=b.p.he;
@@ -2359,7 +2373,7 @@ function mgFlip(b){
     mg.streak=0; mg.lock=true; mgCount();
     setTimeout(()=>{ if(!mg) return; a.el.classList.add("miss"); b.el.classList.add("miss"); mgTone([[240,.14],[180,.2]],"sawtooth",.035); },650);
     setTimeout(()=>{ if(!mg) return;
-      for(const x of [a,b]){ x.open=false; x.el.classList.remove("open","miss"); x.el.setAttribute("aria-label","חרוז סגור"); }
+      for(const x of [a,b]){ x.open=false; x.el.classList.remove("open","miss"); x.el.setAttribute("aria-label",`חרוז ${x.side==="he"?"עברית":"ערבית"} סגור`); }
       mg.lock=false;
     },1350);
   }
@@ -6248,6 +6262,28 @@ if(AUTH_URL){
 }
 </script>
 <script>
+/* Android browsers expose the native install dialog only after a user action. On the first
+   eligible visit we offer that action ourselves; installed apps and dismissed offers stay quiet. */
+(()=>{
+  const prompt=document.getElementById("installPrompt"), install=document.getElementById("installApp"), later=document.getElementById("installLater");
+  const key="ihki.installPromptSeen";
+  let pending=null;
+  const android=/Android/i.test(navigator.userAgent);
+  const standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+  const seen=()=>{ try{return localStorage.getItem(key)==="1"}catch{return false} };
+  const remember=()=>{ try{localStorage.setItem(key,"1")}catch{} };
+  const close=()=>{ prompt.hidden=true; pending=null; remember(); };
+  if(android&&!standalone&&!seen()) addEventListener("beforeinstallprompt",event=>{
+    event.preventDefault(); pending=event; prompt.hidden=false;
+  });
+  later.addEventListener("click",close);
+  install.addEventListener("click",async()=>{
+    if(!pending) return close();
+    prompt.hidden=true; const event=pending; pending=null;
+    await event.prompt(); await event.userChoice; remember();
+  });
+  addEventListener("appinstalled",close);
+})();
 if("serviceWorker" in navigator){
   addEventListener("load",()=>navigator.serviceWorker.register("/service-worker.js").catch(()=>{}));
 }
