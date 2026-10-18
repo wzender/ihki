@@ -231,13 +231,13 @@ create table public.tutors (
 alter table public.tutors enable row level security;   -- no policy: only the secret key reads and writes it
 ```
 
-Under each score a teacher or a tutor gets an optional note and the button "🚩 אמרתי נכון, המערכת טעתה". Pressing it sends the recording to `POST /api/flags` (teachers and tutors only), which scores it again in memory and then discards the audio. It keeps the structured diagnosis in the table `flags`, written with `SUPABASE_SECRET_KEY`: the sentence, what the model heard, each word's score, and the sounds that were marked down and what took their place. The row holds:
+Under each score a teacher or a tutor gets an optional note and the button "🚩 אמרתי נכון, המערכת טעתה". Pressing it sends the recording to `POST /api/flags` (teachers and tutors only), which keeps the recording in the private `flags` Storage bucket and the structured diagnosis in the table `flags`, written with `SUPABASE_SECRET_KEY`. The row holds:
 
 - who and what: `email`, `cat`, `phrase`, `he`, `note`;
 - the answer the scorer matched (`ar`, `ipa`), its free decode (`heard_ipa`), `score` and `unrelated`;
 - `result`: the whole score response, including the structured diagnostic trace (every word and phoneme, pipeline stage, threshold, score, replacement, tip and issue);
 - `model` and `version`, so a flag can be checked against the model and build that produced it;
-- `audio`: always null for new reports; the nullable legacy column is retained so old reports with recordings remain readable.
+- `audio`: the private Storage object name when the upload succeeded, otherwise null.
 
 Create the table once (until then a flag is refused with this command in the message):
 
@@ -257,7 +257,7 @@ create table public.flags (
   result     jsonb not null,     -- the whole score response
   model      text not null,
   version    text not null default '',
-  audio      text,               -- legacy recordings only; new reports leave this null
+  audio      text,               -- object name in the private flags Storage bucket
   status     text not null default 'pending', -- pending, confirmed, rejected, or fixed
   category   text,
   reviewed_by text,
@@ -267,6 +267,19 @@ create table public.flags (
   created_at timestamptz not null default now()
 );
 alter table public.flags enable row level security;   -- no policy: only the secret key reads and writes it
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'flags',
+  'flags',
+  false,
+  2000000,
+  array['audio/webm','audio/ogg','audio/mp4','audio/mpeg','audio/wav','audio/x-wav']
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 ```
 
 For a `flags` table created before reviews were added, run once:
@@ -281,7 +294,7 @@ alter table public.flags
   add column if not exists false_issues jsonb not null default '[]'::jsonb;
 ```
 
-The management panel's **דיווחים** tab lets a teacher open the existing diagnostic dashboard beside the approval action, confirm or reject each report, classify it, and select the individual sound judgements that were false. The dashboard includes a copyable, identity-free text payload for asking a chat assistant to distinguish acoustic-model, alignment, rule, threshold and feedback failures and suggest regression tests. It can still play a legacy recording when an older row has one, but new reports deliberately retain only diagnostics. The tab groups confirmed `expected → heard` pairs by reports, reporters, and phrases. Only confirmed reports should be used for calibration; review and aggregation use the stored structured result without needing the user's voice file.
+The management panel's **דיווחים** tab lets a teacher open the existing diagnostic dashboard beside the approval action, hear the stored recording, confirm or reject each report, classify it, and select the individual sound judgements that were false. The dashboard includes synchronized recording playback and a copyable, identity-free text payload for asking a chat assistant to distinguish acoustic-model, alignment, rule, threshold and feedback failures and suggest regression tests. The tab groups confirmed `expected → heard` pairs by reports, reporters, and phrases. Only confirmed reports should be used for calibration.
 
 ### The lab (מעבדה)
 

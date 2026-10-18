@@ -1714,10 +1714,13 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         def texts(self, fresh=False):
             return []
 
-        def add_flag(self, row):
+        def add_flag(self, row, audio, mime, name):
             if not self.table:
                 raise AuthUnavailable("supabase answered 404: no table")
-            self.flags.append(row)
+            self.flag_recordings = getattr(self, "flag_recordings", {})
+            self.flag_recordings[len(self.flags) + 1] = (audio, mime)
+            self.flags.append({**row, "audio": name})
+            return True
 
         def list_flags(self, status="pending"):
             if status != "pending":
@@ -1728,7 +1731,7 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
             self.review = (flag_id, values)
 
         def flag_audio(self, flag_id):
-            return None
+            return getattr(self, "flag_recordings", {}).get(flag_id)
 
         def calibrations(self, status=None):
             return [r for r in self.calibration_rows if not status or r["status"] == status]
@@ -1778,7 +1781,7 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         assert send(c, "s").status_code == 403 and not a.flags   # tutors only
         r = send(c, "t", note="  אמרתי  ח נכונה ")
         row, = a.flags
-        assert r.status_code == 200 and r.json() == {"ok": True, "audio": False, "flag": row}, r.text
+        assert r.status_code == 200 and r.json() == {"ok": True, "audio": True, "flag": row}, r.text
         assert row["email"] == "t@b.c" and row["cat"] == TOILET["cat"] and row["he"] == TOILET["he"] and row["note"] == "אמרתי ח נכונה"
         assert row["ipa"] == "w eː n | i l ħ a m m aː m" and "χ" in row["heard_ipa"] and row["score"] == row["result"]["score"] < 100
         assert row["result"]["tips"][0]["key"] == "ħ>x" and row["result"]["trace"]["tokens"]
@@ -1790,7 +1793,7 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         listed = c.get("/api/flags", headers=hs)
         assert listed.status_code == 200 and len(listed.json()["flags"]) == 2
         played = c.get("/api/flags/1/audio", headers=hs)
-        assert played.status_code == 404   # reports keep diagnostics, not the user's voice recording
+        assert played.status_code == 200 and played.content == buf.getvalue()
         assert c.get("/api/flags/999/audio", headers=hs).status_code == 404
         review = c.put("/api/flags/1", headers=hs, json={"status": "confirmed", "category": "recognition",
                        "false_issues": [{"word": 1, "expected": "ħ", "heard": "χ"}], "review_note": "  תקין  "})

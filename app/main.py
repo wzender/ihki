@@ -1853,10 +1853,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             wav = decode_audio(data)
         except ValueError:
             raise HTTPException(400, "could not decode audio")
-        result = app.state.scorer.score(wav, phrase, [])
+        result = app.state.scorer.score(wav, phrase, [], diagnostics=True)
         if result.get("error"):
             raise HTTPException(400, result["message"])
-        return save_flag(phrase, result, note, user)
+        result.pop("phoneme_heatmap", None)
+        return save_flag(phrase, result, note, user, data, audio.content_type or "application/octet-stream")
 
     def tutor_for(user: dict | None) -> Tutor:
         """The paid tutor game, after the tutor.use dependency authorized the account (or on an open service)."""
@@ -2029,7 +2030,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def flag(phrase_id: int = Form(...), audio: UploadFile = File(...), note: str = Form(""),
              user: dict | None = Depends(signed_in)):
         """A tutor's flag: this recording of the phrase was said right and the score was wrong. It is scored again in
-        memory, then discarded. The structured diagnosis is kept in `flags`; the user's audio is not retained."""
+        memory. The structured diagnosis is kept in `flags` and the audio in its private Storage bucket."""
         if not user or not user["tutor"]:
             raise HTTPException(403, "tutors only")
         phrase = phrase_of(phrase_id)
@@ -2041,29 +2042,33 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except ValueError:
             raise HTTPException(400, "could not decode audio")
         refs = app.state.refs.get(phrase_id, phrase) if app.state.refs else []
-        # Keep a structured pipeline trace for the diagnostic dashboard; the audio itself is discarded.
+        # Keep a structured pipeline trace for the diagnostic dashboard alongside the private recording.
         result = app.state.scorer.score(wav, phrase, refs, diagnostics=True)
         if result.get("error"):
             raise HTTPException(400, result["message"])
         # The trace already contains every value used by the dashboard. The dense heatmap is only a display aid
         # for the immediate scoring screen and would make every database report unnecessarily large.
         result.pop("phoneme_heatmap", None)
-        return save_flag(phrase, result, note, user)
+        return save_flag(phrase, result, note, user, data, audio.content_type or "application/octet-stream")
 
-    def save_flag(phrase: dict, result: dict, note: str, user: dict) -> dict:
-        """Store a reviewed-score candidate from a bank phrase or a dynamic verb-game phrase."""
+    def save_flag(phrase: dict, result: dict, note: str, user: dict, audio_data: bytes, audio_mime: str) -> dict:
+        """Store a reviewed-score candidate and its recording from a bank or dynamic verb-game phrase."""
         row = {"email": user["email"].lower(), "cat": phrase["cat"], "phrase": phrase.get("key", phrase["he"]),
                "he": phrase["he"], "ar": result["variant"]["ar"], "ipa": result["variant"]["ipa"],
                "heard_ipa": result["heard_ipa"], "score": result["score"], "unrelated": bool(result["unrelated"]),
                "note": " ".join(note.split())[:MAX_NOTE], "result": result, "model": MODEL_ID, "version": build_version()}
+        mime = audio_mime.lower().partition(";")[0].strip()
+        ext = AUDIO_EXT.get(mime.rpartition("/")[2], "bin")
+        name = f"{date.today():%Y-%m}/{uuid.uuid4().hex}.{ext}"
         try:
-            app.state.auth.add_flag(row)
+            kept = app.state.auth.add_flag(row, audio_data, mime, name)
         except AuthUnavailable as e:
             if "answered 404" in str(e):
                 raise HTTPException(503, "הטבלה flags לא קיימת ב-Supabase. הריצו ב-SQL Editor: "
                                          f"{CREATE_FLAGS} אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
             raise HTTPException(503, f"Supabase לא זמין: {e}")
-        return {"ok": True, "audio": False, "flag": row}
+        row["audio"] = name if kept else None
+        return {"ok": True, "audio": kept, "flag": row}
 
     return app
 
