@@ -2556,12 +2556,22 @@ function saveLearnRound(){
   const L=learning; learnRounds[L.c.id]={queue:[...L.queue],again:[...L.again],review:L.review}; store.set("ihki.learnRounds",learnRounds);
 }
 function clearLearnRound(id){ delete learnRounds[id]; store.set("ihki.learnRounds",learnRounds); }
+function learnDriveQueue(){
+  if(!learning) return [];
+  return learning.again.size?[...learning.again]:[...learning.queue];
+}
+function updateLearnDriveButton(){
+  if(learnDriving) return;
+  const n=learnDriveQueue().length, b=$("learnDrive");
+  b.disabled=!n; b.querySelector("span").textContent=n?`מצב נסיעה · ${n===1?"מילה אחת":`${n} מילים`}`:"מצב נסיעה";
+}
 function learnCard(){
   const L=learning, n=L.words.length, left=L.queue.length;
   $("learnCount").textContent=`${n-left} מתוך ${n} נלמדו`; $("learnLeft").textContent=left?`נשארו ${left}`:"הסבב הושלם";
   $("learnBar").replaceChildren(...L.words.map(p=>mark(!L.queue.includes(p.id)?"known":p.id===L.queue[0]?"cur":L.again.has(p.id)?"again":"","","i")));
   for(const id of ["learnCard","learnActs1"]) $(id).hidden=!left;
   $("learnActs2").hidden=true; $("learnDone").hidden=!!left;
+  updateLearnDriveButton();
   if(!left) return learnDone();
   $("learnHe").textContent=phraseOf(L.queue[0]).he; $("learnBack").hidden=true; $("learnReveal").hidden=false; $("learnSay").textContent="";
 }
@@ -2592,7 +2602,7 @@ function stopLearnDrive(){
   learnDriving=false; learnDriveRun++;
   $("learnDlg").classList.remove("learn-driving");
   $("learnDrive").classList.remove("on"); $("learnDrive").setAttribute("aria-pressed","false");
-  $("learnDrive").querySelector("use").setAttribute("href","#i-car"); $("learnDrive").querySelector("span").textContent="מצב נסיעה";
+  $("learnDrive").querySelector("use").setAttribute("href","#i-car"); updateLearnDriveButton();
   for(const id of learnDriveControls) $(id).disabled=false;
   if(driveAudio){ driveAudio.pause(); if(driveAudioDone) driveAudioDone(); }
   if("speechSynthesis" in window) speechSynthesis.cancel();
@@ -2600,8 +2610,11 @@ function stopLearnDrive(){
 }
 async function runLearnDrive(){
   const run=++learnDriveRun, on=()=>learnDriving&&run===learnDriveRun&&learning&&$("learnDlg").open;
-  while(on()&&learning.queue.length){
-    const id=learning.queue[0], p=phraseOf(id), answer=answerAudio(id);
+  const queue=learnDriveQueue();   // listening only: driving mode must not mark a word "known" or "not yet"
+  for(const id of queue){
+    if(!on()) break;
+    const p=phraseOf(id), answer=answerAudio(id);
+    $("learnHe").textContent=p.he;
     $("learnBack").hidden=true;
     $("learnDriveStatus").textContent="הקשיבו למילה בעברית";
     await sayHe(speakable(p.he_say||p.he)); if(!on()) break;
@@ -2618,14 +2631,16 @@ async function runLearnDrive(){
     if(!on()) break;
     $("learnDriveStatus").textContent="עוברים לצמד הבא";
     await pause(1800); if(!on()) break;
-    if(learning.queue[0]===id) learnMark(true);
   }
-  if(on()) $("learnDriveStatus").textContent="הסבב הושלם";
+  if(on()){
+    learnCard();
+    $("learnDriveStatus").textContent="ההאזנה הושלמה — הסימונים לא השתנו";
+  }
   stopLearnDrive();
 }
 $("learnDrive").onclick=async()=>{
   if(learnDriving){ stopLearnDrive(); $("learnDriveStatus").textContent="מצב הנסיעה נעצר"; return; }
-  if(!learning||!learning.queue.length) return;
+  if(!learnDriveQueue().length) return;
   unlockPlayback(); learnDriving=true;
   $("learnDlg").classList.add("learn-driving");
   $("learnDrive").classList.add("on"); $("learnDrive").setAttribute("aria-pressed","true");
