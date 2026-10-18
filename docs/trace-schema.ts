@@ -153,6 +153,7 @@ export interface TraceToken {
   competitor: Ipa | null;         // strongest other sound, neighbours and blank excluded (null: none, or unnamed)
   competitor_other: boolean;      // the strongest is a sound outside Arabic and Hebrew
   p_competitor: number;           // its peak posterior in the window
+  competitor_frames: number;      // frames where it clears deleted_comp; one frame may be an onset transient
   gop: number;                    // ln(p_target / max(p_target, p_competitor)) ≤ 0
   confidence: number;
   gop_factor: number;

@@ -752,6 +752,7 @@ body.manage #manage{width:100%;max-width:none}
 .activity-head select{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}
 .activity-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.activity-stat{padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}.activity-stat b{display:block;font:400 28px/1 var(--f-display);font-variant-numeric:tabular-nums}.activity-stat small{color:var(--muted);font-size:12px}
 .activity-chart{width:100%;height:190px;overflow:visible}.activity-chart .grid{stroke:var(--line);stroke-width:1}.activity-chart .bar{fill:var(--olive);opacity:.82}.activity-chart .bar:hover{opacity:1}.activity-chart text{fill:var(--muted);font:11px var(--f-body)}
+.flag-group{display:flex;flex-direction:column;gap:10px}.flag-group>summary{cursor:pointer;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:16px}.flag-group>summary .meta{color:var(--muted);font-size:14px}.flag-group[open]>summary{margin-bottom:2px}.flag-group>.card{margin-inline-start:12px}
 .system-activity summary{cursor:pointer}.system-activity summary h2{display:inline;margin:0}.system-activity details[open]>summary{margin-bottom:8px}
 .system-hard{margin:2px 0 4px;padding:10px;border-radius:10px;background:var(--bg)}.system-hard h3{margin:0 0 6px;font:700 15px/1.3 var(--f-body)}.system-hard-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}.system-hard-row:last-child{border-bottom:0}.system-hard-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.system-hard-row small{color:var(--muted);white-space:nowrap}.system-feed{display:flex;flex-direction:column;gap:14px}.system-topic{border-top:1px solid var(--line);padding-top:10px}.system-topic:first-child{border-top:0;padding-top:0}.system-topic h3{margin:0 0 3px;font:700 15px/1.3 var(--f-body)}.system-topic h3 small{color:var(--muted);font-weight:600}.system-event{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}.system-event:last-child{border-bottom:0}.system-event i{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--olive-soft);font-style:normal}.system-event b,.system-event small{display:block}.system-event small,.system-event time{color:var(--muted);font-size:12px}.system-event time{direction:ltr;white-space:nowrap}
 /* the API keys card (developers only): a row per key, where it comes from and a field for a new one; a key is never shown */
@@ -4469,60 +4470,70 @@ function drawFlags(){
     }
     card.append(table); box.append(card);
   }
-  if(!FLAG_REVIEWS.pending.length){ box.append(mark("card","אין כרגע דיווחים שממתינים לבדיקה.")); return; }
-  for(const f of FLAG_REVIEWS.pending){
-    const card=mark("card flag-review",""), title=mark("",f.he||f.phrase,"h2"), result=f.result||{}, issues=flagIssues(f);
-    const ar=mark("",f.ar||"","p"); ar.dir="rtl";
-    card.append(title,ar,mark("meta",`ציון ${f.score} · דווח על ידי ${f.email} · המודל שמע: ${f.heard_ipa||"–"}`,"p"));
-    if(f.note) card.append(mark("",`הערת המדווח/ת: ${f.note}`,"p"));
-    if(f.audio){
-      const audioRow=mark("row",""), play=mark("btn","▶ השמעת ההקלטה","button"), audio=document.createElement("audio"), audioMsg=mark("msg","");
-      audio.controls=true; audio.preload="none"; audio.hidden=true;
-      play.onclick=async()=>{
-        play.disabled=true; audioMsg.textContent="טוען…";
-        try{
-          const res=await api(`/api/flags/${f.id}/audio`), data=res.ok?await res.blob():null;
-          if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
-          const url=URL.createObjectURL(data); flagAudioUrls.push(url); audio.src=url; audio.hidden=false; play.hidden=true; audioMsg.textContent="";
-          audio.play().catch(()=>{});
-        }catch(err){ audioMsg.textContent="ההשמעה נכשלה: "+err.message; play.disabled=false; }
+  const pending=FLAG_REVIEWS.pending, head=mark("card flag-head",""); box.append(head);
+  head.append(mark("","דיווחים שממתינים לבדיקה","h2"));
+  if(!pending.length){ head.append(mark("meta","אין כרגע דיווחים שממתינים לבדיקה.","p")); return; }
+  const byUser=new Map; for(const f of pending){ const who=f.email||""; if(!byUser.has(who)) byUser.set(who,[]); byUser.get(who).push(f); }
+  head.append(mark("meta",`${pending.length} ${pending.length===1?"דיווח":"דיווחים"} מ־${byUser.size} ${byUser.size===1?"מדווח/ת":"מדווחים"}, מקובצים לפי המדווח/ת.`,"p"));
+  for(const [who,flags] of [...byUser].sort((a,b)=>b[1].length-a[1].length||a[0].localeCompare(b[0]))){   // the most reports first
+    const group=document.createElement("details"), summary=document.createElement("summary");
+    group.className="flag-group"; group.open=flagGroupOpen[who]!==false; group.ontoggle=()=>{ flagGroupOpen[who]=group.open; };
+    summary.append(mark("",who||"ללא משתמש","b"),mark("meta",` · ${flags.length} ${flags.length===1?"דיווח":"דיווחים"}`)); group.append(summary); box.append(group);
+    for(const f of flags){
+      const card=mark("card flag-review",""), title=mark("",f.he||f.phrase,"h2"), result=f.result||{}, issues=flagIssues(f);
+      const ar=mark("",f.ar||"","p"); ar.dir="rtl";
+      card.append(title,ar,mark("meta",`ציון ${f.score} · המודל שמע: ${f.heard_ipa||"–"}`,"p"));
+      if(f.note) card.append(mark("",`הערת המדווח/ת: ${f.note}`,"p"));
+      if(f.audio){
+        const audioRow=mark("row",""), play=mark("btn","▶ השמעת ההקלטה","button"), audio=document.createElement("audio"), audioMsg=mark("msg","");
+        audio.controls=true; audio.preload="none"; audio.hidden=true;
+        play.onclick=async()=>{
+          play.disabled=true; audioMsg.textContent="טוען…";
+          try{
+            const res=await api(`/api/flags/${f.id}/audio`), data=res.ok?await res.blob():null;
+            if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
+            const url=URL.createObjectURL(data); flagAudioUrls.push(url); audio.src=url; audio.hidden=false; play.hidden=true; audioMsg.textContent="";
+            audio.play().catch(()=>{});
+          }catch(err){ audioMsg.textContent="ההשמעה נכשלה: "+err.message; play.disabled=false; }
+        };
+        audioRow.append(play,audio,audioMsg); card.append(audioRow);
+      }else card.append(mark("meta","ההקלטה לא נשמרה עם הדיווח הזה.","p"));
+      const field=document.createElement("fieldset"); field.append(mark("","אילו אבחנות של המערכת היו שגויות?","legend"));
+      for(const issue of issues){ const label=document.createElement("label"), input=document.createElement("input"); input.type="checkbox"; input.checked=true; input._issue=issue; label.append(input,issue.label); field.append(label); }
+      if(issues.length) card.append(field); else card.append(mark("meta","בדיווח הזה אין פונמה שסומנה במפורש; עדיין אפשר לסווג ולאשר אותו.","p"));
+      const category=document.createElement("select"); for(const [value,label] of Object.entries(FLAG_CATEGORIES)){ const o=document.createElement("option"); o.value=value; o.textContent=label; category.append(o); }
+      const note=document.createElement("textarea"); note.maxLength=500; note.rows=2; note.placeholder="הערת בדיקה (לא חובה)";
+      const actions=mark("row",""), diagnose=mark("btn","לוח אבחון","button"), confirm=mark("btn primary","אישור הדיווח","button"), reject=mark("btn danger","דחייה","button"), msg=mark("msg","");
+      diagnose.disabled=!result.trace;
+      diagnose.title=result.trace?"פתיחת האבחון המלא, כולל טבלת ההגאים":"הדיווח ישן ואינו כולל נתוני trace";
+      diagnose.onclick=async()=>{
+        const tab=window.open("about:blank","_blank");
+        diagnose.disabled=true; msg.textContent=f.audio?"טוען אבחון וקול…":"פותח אבחון…";
+        const selected=[...field.querySelectorAll("input:checked")].map(x=>({word:x._issue.word,expected:x._issue.expected,heard:x._issue.heard}));
+        let audioUrl="";
+        if(f.audio) try{
+          const res=await api(`/api/flags/${f.id}/audio`); if(!res.ok) throw new Error(res.status);
+          audioUrl=URL.createObjectURL(await res.blob());
+        }catch(err){ msg.textContent="הקול לא נטען; לוח האבחון נפתח ללא קול."; }
+        openTrace({...result,phrase:{he:f.he||f.phrase,ar:f.ar||""},_diagnostic:{prompt_he:f.he||f.phrase,answer_ar:f.ar,
+          expected_ipa:f.ipa,model:f.model,version:f.version,report_note:f.note||"",review_category:category.value,
+          reviewer_marked_false_issues:selected}},audioUrl,tab);
+        diagnose.disabled=false; if(!msg.textContent.includes("לא נטען")) msg.textContent="";
       };
-      audioRow.append(play,audio,audioMsg); card.append(audioRow);
-    }else card.append(mark("meta","ההקלטה לא נשמרה עם הדיווח הזה.","p"));
-    const field=document.createElement("fieldset"); field.append(mark("","אילו אבחנות של המערכת היו שגויות?","legend"));
-    for(const issue of issues){ const label=document.createElement("label"), input=document.createElement("input"); input.type="checkbox"; input.checked=true; input._issue=issue; label.append(input,issue.label); field.append(label); }
-    if(issues.length) card.append(field); else card.append(mark("meta","בדיווח הזה אין פונמה שסומנה במפורש; עדיין אפשר לסווג ולאשר אותו.","p"));
-    const category=document.createElement("select"); for(const [value,label] of Object.entries(FLAG_CATEGORIES)){ const o=document.createElement("option"); o.value=value; o.textContent=label; category.append(o); }
-    const note=document.createElement("textarea"); note.maxLength=500; note.rows=2; note.placeholder="הערת בדיקה (לא חובה)";
-    const actions=mark("row",""), diagnose=mark("btn","לוח אבחון","button"), confirm=mark("btn primary","אישור הדיווח","button"), reject=mark("btn danger","דחייה","button"), msg=mark("msg","");
-    diagnose.disabled=!result.trace;
-    diagnose.title=result.trace?"פתיחת האבחון המלא, כולל טבלת ההגאים":"הדיווח ישן ואינו כולל נתוני trace";
-    diagnose.onclick=async()=>{
-      const tab=window.open("about:blank","_blank");
-      diagnose.disabled=true; msg.textContent=f.audio?"טוען אבחון וקול…":"פותח אבחון…";
-      const selected=[...field.querySelectorAll("input:checked")].map(x=>({word:x._issue.word,expected:x._issue.expected,heard:x._issue.heard}));
-      let audioUrl="";
-      if(f.audio) try{
-        const res=await api(`/api/flags/${f.id}/audio`); if(!res.ok) throw new Error(res.status);
-        audioUrl=URL.createObjectURL(await res.blob());
-      }catch(err){ msg.textContent="הקול לא נטען; לוח האבחון נפתח ללא קול."; }
-      openTrace({...result,phrase:{he:f.he||f.phrase,ar:f.ar||""},_diagnostic:{prompt_he:f.he||f.phrase,answer_ar:f.ar,
-        expected_ipa:f.ipa,model:f.model,version:f.version,report_note:f.note||"",review_category:category.value,
-        reviewer_marked_false_issues:selected}},audioUrl,tab);
-      diagnose.disabled=false; if(!msg.textContent.includes("לא נטען")) msg.textContent="";
-    };
-    const save=async status=>{
-      confirm.disabled=reject.disabled=true; msg.textContent="שומר…";
-      const false_issues=[...field.querySelectorAll("input:checked")].map(x=>({word:x._issue.word,expected:x._issue.expected,heard:x._issue.heard}));
-      try{
-        const res=await api(`/api/flags/${f.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status,category:category.value,false_issues,review_note:note.value})});
-        const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status);
-        flagsLoaded=false; await loadFlags(); drawManage();
-      }catch(err){ msg.textContent="השמירה נכשלה: "+err.message; confirm.disabled=reject.disabled=false; }
-    };
-    confirm.onclick=()=>save("confirmed"); reject.onclick=()=>save("rejected"); actions.append(category,diagnose,confirm,reject,msg); card.append(note,actions); box.append(card);
+      const save=async status=>{
+        confirm.disabled=reject.disabled=true; msg.textContent="שומר…";
+        const false_issues=[...field.querySelectorAll("input:checked")].map(x=>({word:x._issue.word,expected:x._issue.expected,heard:x._issue.heard}));
+        try{
+          const res=await api(`/api/flags/${f.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status,category:category.value,false_issues,review_note:note.value})});
+          const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status);
+          flagsLoaded=false; await loadFlags(); drawManage();
+        }catch(err){ msg.textContent="השמירה נכשלה: "+err.message; confirm.disabled=reject.disabled=false; }
+      };
+      confirm.onclick=()=>save("confirmed"); reject.onclick=()=>save("rejected"); actions.append(category,diagnose,confirm,reject,msg); card.append(note,actions); group.append(card);
+    }
   }
 }
+const flagGroupOpen={};   // reporter -> whether their group of reports is open; open until the teacher closes it
 let systemActivityOpen=false;   // the recent activity starts closed; a redraw keeps it as the teacher left it
 function drawSystemActivity(box){
   const outer=mark("card system-activity",""), card=document.createElement("details"), summary=document.createElement("summary");

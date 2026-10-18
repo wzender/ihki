@@ -361,6 +361,41 @@ def test_dropped_glottal_stop_is_not_an_error():
     assert not r["tips"] and not any("עצירה" in i["sound"] for i in r["issues"])
 
 
+@pytest.mark.parametrize("competitor", ["f", "s", "χ"])
+def test_one_frame_onset_spike_does_not_become_a_glottal_substitution(competitor):
+    """A generic microphone/breath transient must not be reported as a consonant the learner produced."""
+    syms = SYMS + ([competitor] if competitor not in SYMS else [])
+    vocab = {s: i for i, s in enumerate(syms)}
+    V = len(syms)
+
+    def row(sym, peak):
+        p = np.full(V, (1 - peak) / (V - 1))
+        p[vocab[sym]] = peak
+        return p
+
+    # No glottal stop: one weak arbitrary-phone spike, then the clean vowel-initial word.
+    rows = [row("<pad>", .95), row(competitor, .23)]
+    for ph in ["a", "h", "l", "a"]:
+        rows += [row(ph, .9)] * 3 + [row("<pad>", .95)] * 2
+    logp = np.log(np.array(rows))
+    phrase = {"variants": [("اهلا", "ʔ a h l a")]}
+    r = Scorer(lambda wav: logp, Vocab(vocab)).score_logp(logp, phrase, diagnostics=True)
+    onset = r["trace"]["tokens"][0]
+    assert onset["competitor_frames"] == 1
+    assert onset["stages"][1]["applied"] == "glottal_dropped"
+    assert r["words"][0]["score"] >= 90 and not r["tips"]
+
+
+def test_sustained_initial_consonant_is_still_a_glottal_substitution():
+    phrase = {"variants": [("اهلا", "ʔ a h l a")]}
+    r = scorer_for(emissions(["s", "a", "h", "l", "a"])).score(None, phrase, diagnostics=True)
+    onset = r["trace"]["tokens"][0]
+    assert onset["competitor_frames"] >= 2
+    assert onset["stages"][1]["applied"] is None
+    assert r["words"][0]["phonemes"][0]["heard"] == "s"
+    assert r["tips"][0]["key"] == "ʔ>s"
+
+
 def test_ana_explicitly_accepts_the_natural_vowell_initial_form():
     from app.grammar import PRONOUNS
 

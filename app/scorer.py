@@ -763,6 +763,7 @@ class Scorer:
                 "span": list(fit.al.spans[i]), "window": list(gsc.window), "curves": curves,
                 "p_target": p(gsc.peak), "competitor": heard_ph if not gsc.deleted else None,
                 "competitor_other": gsc.other, "p_competitor": p(gsc.comp_peak),
+                "competitor_frames": gsc.comp_frames,
                 "gop": gsc.gop, "confidence": round(confidence, 3),
                 "gop_factor": round(float(np.exp(gsc.gop * g.leniency)), 3),
                 "confidence_factor": round(float(np.sqrt(confidence)), 3),
