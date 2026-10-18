@@ -7,6 +7,7 @@ Env:  MODEL_ID  (default facebook/wav2vec2-xlsr-53-espeak-cv-ft, or a path to a 
       TEACHER_EMAILS, SUPABASE_SECRET_KEY  (the teacher's management panel, its classes and the lesson videos, see app/auth.py)
       TUTORS_EMAIL  (more accounts that, like the teachers, flag a recording scored wrong, see app/auth.py)
       ANTHROPIC_API_KEY, TUTOR_MODEL  (the permission-controlled AI tutor game יאללה נדבר, see app/tutor.py)
+      SECRETS_MASTER_KEY  (lets a developer replace the two API keys from the panel, see app/keystore.py)
 A local .env file is loaded if present; real environment variables win over it.
 """
 from __future__ import annotations
@@ -32,6 +33,8 @@ from fastapi.staticfiles import StaticFiles
 from .arabic_diacritics import point_arabic
 from . import lab
 from .auth import AuthUnavailable, ClassConflict, SupabaseAuth, load_auth
+from .keystore import (CREATE_APP_SECRETS, MAX_LEN as MAX_KEY_LEN, MIGRATE_APP_SECRETS, NAMES as KEY_NAMES, KeyRefused,
+                       check as check_key, load_keys)
 from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .reference import References
@@ -41,7 +44,7 @@ from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
 from .tts import LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
-                    TutorUnavailable, load_tutor)
+                    DEFAULT_MODEL as DEFAULT_TUTOR_MODEL, TutorUnavailable, load_tutor, tutor_client)
 from .verb_game import VerbExerciseGenerator
 
 logging.basicConfig(level=logging.INFO)
@@ -384,11 +387,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.scorer = scorer or load_scorer(MODEL_ID)
-        app.state.tts = tts or load_tts()
-        app.state.tutor = tutor or load_tutor()
+        app.state.auth = auth or load_auth()
+        app.state.keys = load_keys(app.state.auth)   # the API keys a developer set in the panel, else the environment's
+        app.state.tts = tts or load_tts(app.state.keys.get("SAWTAK_API_KEY"))
+        app.state.tutor = tutor or load_tutor(app.state.keys.get("ANTHROPIC_API_KEY"), app.state.keys.get("TUTOR_MODEL"))
         # the playback voices double as the native baseline of the scores (see reference.py)
         app.state.refs = References(app.state.scorer, app.state.tts, list(VOICES.values())) if app.state.tts else None
-        app.state.auth = auth or load_auth()
         if app.state.auth and hasattr(app.state.auth, "calibrations"):
             try:
                 rows = app.state.auth.calibrations("applied")
@@ -1973,6 +1977,91 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             app.state.refs.invalidate()
         return {"ok": True, "removed": removed}
 
+    def keys_only(user: dict | None = Depends(signed_in)) -> SupabaseAuth:
+        """Only developers ("*"): a key decides where the bills go. Unlike require(), an open deployment (no sign-in)
+        is refused too."""
+        permissions = set((user or {}).get("permissions", ()))
+        if app.state.auth is None or ("*" not in permissions and "keys.manage" not in permissions):
+            raise HTTPException(403, "missing permission: keys.manage")
+        return app.state.auth
+
+    def keys_status(response: Response) -> dict:
+        response.headers["Cache-Control"] = "no-store"
+        keys = app.state.keys
+        return {"keys": keys.status(), "writable": keys.writable, "why": keys.why,
+                "setup": CREATE_APP_SECRETS if keys.missing else ""}
+
+    def use_key(name: str) -> None:
+        """Puts the key now in force to work, without a restart. The voice cache, the scores' native baseline and the
+        tutor's open conversations stay."""
+        value = app.state.keys.get(name)
+        if name == "TUTOR_MODEL":   # open conversations go on with the new model from their next sentence
+            if app.state.tutor is not None:
+                app.state.tutor.model = value or DEFAULT_TUTOR_MODEL
+        elif name == "SAWTAK_API_KEY":
+            if app.state.tts is not None and value:
+                app.state.tts.api_key = value
+            else:
+                app.state.tts = load_tts(value)
+                app.state.refs = References(app.state.scorer, app.state.tts, list(VOICES.values())) if app.state.tts else None
+        elif app.state.tutor is not None and value:
+            app.state.tutor.client = tutor_client(value)
+        else:
+            app.state.tutor = load_tutor(value, app.state.keys.get("TUTOR_MODEL"))
+
+    def key_name(name: str) -> str:
+        if name not in KEY_NAMES:
+            raise HTTPException(404, "unknown key")
+        return name
+
+    @app.get("/api/admin/keys")
+    def api_keys(response: Response, _a: SupabaseAuth = Depends(keys_only)):
+        """Which API keys are set and where from (the panel, the server's environment, or none); never the keys."""
+        return keys_status(response)
+
+    @app.put("/api/admin/keys/{name}")
+    def set_api_key(name: str, response: Response, body: dict = Body(...), _a: SupabaseAuth = Depends(keys_only),
+                    user: dict | None = Depends(signed_in)):
+        """Tries a new key with its provider, then keeps it encrypted and puts it to work. The key is never logged."""
+        name, value = key_name(name), body.get("value")
+        if not isinstance(value, str) or not value.strip() or len(value.strip()) > MAX_KEY_LEN or any(c.isspace() for c in value.strip()):
+            raise HTTPException(400, "a key is one word of up to 300 characters")
+        if not app.state.keys.writable:
+            raise HTTPException(503, app.state.keys.why or f"the table app_secrets is missing; run: {CREATE_APP_SECRETS}")
+        value = value.strip()
+        try:
+            check_key(name, value, app.state.keys.get("ANTHROPIC_API_KEY"))
+        except KeyRefused as e:
+            raise HTTPException(400, str(e))
+        try:
+            app.state.keys.set(name, value, (user or {}).get("email", ""))
+        except AuthUnavailable as e:
+            if any(mark in str(e).lower() for mark in ("check constraint", "23514")):   # a table made before TUTOR_MODEL
+                raise HTTPException(409, f"הטבלה app_secrets צריכה עדכון; הריצו ב-Supabase: {MIGRATE_APP_SECRETS}")
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        use_key(name)
+        log.info("API key %s replaced by %s", name, (user or {}).get("email", "?"))
+        if app.state.auth:
+            app.state.auth.log_event("permission", user, f"מפתח API: {name}", {"key": name, "action": "set"})
+        return keys_status(response)
+
+    @app.delete("/api/admin/keys/{name}")
+    def clear_api_key(name: str, response: Response, _a: SupabaseAuth = Depends(keys_only),
+                      user: dict | None = Depends(signed_in)):
+        """Forgets the panel's key: the server's environment key (if any) is used again."""
+        name = key_name(name)
+        if not app.state.keys.writable:
+            raise HTTPException(503, app.state.keys.why or "the table app_secrets is missing")
+        try:
+            app.state.keys.clear(name)
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        use_key(name)
+        log.info("API key %s cleared by %s", name, (user or {}).get("email", "?"))
+        if app.state.auth:
+            app.state.auth.log_event("permission", user, f"מפתח API: {name}", {"key": name, "action": "clear"})
+        return keys_status(response)
+
     @app.get("/api/prompt-audio/{phrase_id}", dependencies=[Depends(require("practice.use"))])
     def prompt_audio(phrase_id: int, engine: str = "gtts"):
         """The Hebrew prompt read aloud (edge-tts or gTTS). 503 tells the page to stay silent."""
@@ -2023,7 +2112,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 "version": build_version()})
             game_ids = {g["id"] for g in GAMES}
             tasks.add_task(app.state.auth.log_event, "game" if phrase["cat"] in game_ids else "exercise", user,
-                           phrase.get("he", ""), {"cat": phrase["cat"]})
+                           phrase.get("he", ""), {"cat": phrase["cat"], "score": round(result["score"]),
+                                                   "flags": len(issues), "unrelated": bool(result.get("unrelated"))})
         return result
 
     @app.post("/api/flags")

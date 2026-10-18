@@ -193,3 +193,27 @@ def test_a_refused_answer_does_not_count():
         model.stop = "end_turn"
         assert c.post("/api/tutor/turn", json={"id": chat["id"], "text": "مرحبا"}, headers=bearer("teacher")).json()["turn"] == 1
         assert c.post("/api/tutor/turn", json={"id": chat["id"], "text": ""}, headers=bearer("teacher")).status_code == 400
+
+
+@pytest.mark.parametrize("model, thinking, effort", [
+    ("claude-haiku-5-5", {"type": "disabled"}, "low"),
+    ("claude-sonnet-5-5", {"type": "between_tools"}, "low"),
+    ("claude-opus-5-5", None, "low"),          # cannot turn thinking off: left adaptive, kept short by effort
+    ("claude-fable-5-1", None, "low"),
+    ("claude-haiku-4-5", {"type": "disabled"}, None),   # no effort parameter
+])
+def test_each_model_gets_only_what_it_accepts(model, thinking, effort):
+    from app.tutor import request_options
+    opts = request_options(model)
+    assert opts.get("thinking") == thinking and opts["output_config"].get("effort") == effort
+    assert opts["output_config"]["format"]["type"] == "json_schema"
+    assert opts["max_tokens"] == (8000 if thinking is None else 4000)   # room to think before the answer
+
+
+def test_the_last_turn_note_fits_the_model():
+    from app.tutor import last_turn
+    history = [{"role": "user", "content": "פתיחה"}, {"role": "assistant", "content": "{}"}, {"role": "user", "content": "مرحبا"}]
+    assert last_turn("claude-haiku-5-5", history, "last")[-1] == {"role": "system", "content": "last"}
+    folded = last_turn("claude-haiku-4-5", history, "last")   # no system messages there: one user turn, two blocks
+    assert len(folded) == 3 and folded[-1]["role"] == "user" and folded[-1]["content"][0]["text"] == "مرحبا"
+    assert "last" in folded[-1]["content"][1]["text"]

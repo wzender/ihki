@@ -111,6 +111,7 @@ class TokenScore:
     realised: int | None = None  # a class target (several correct realisations): the one said
     other: bool = False          # the strongest competitor is a sound outside the named set
     comp_peak: float = NEG       # max log-posterior of the strongest competitor (named or not) in the window
+    comp_frames: int = 0         # frames where that competitor clears deleted_comp (duration evidence)
     window: tuple[int, int] = (0, 0)  # [start, end) frames the target and its competitors were read from
 
 
@@ -239,6 +240,9 @@ def compute_token_gop(logp: np.ndarray, spans: list[tuple[int, int]], i: int, to
     ratio[mask] = NEG
     comp = int(ratio.argmax())
     comp_peak = float(maxed[comp]) if ratio[comp] > NEG / 2 else NEG
+    # A lone CTC spike can be a breath or microphone onset rather than a produced consonant. Keep duration
+    # evidence separately from the peak so pronunciation policy can distinguish transients from substitutions.
+    comp_frames = int(np.count_nonzero(rcols[:, comp] >= cfg.deleted_comp)) if ratio[comp] > NEG / 2 else 0
     tseg = logp[ra:rb, [tok]]
     target = float(tseg.max()) if how == "max" else float(pool_frames(tseg, how, cfg.pool_k, cfg.pool_tau, weight)[0])
 
@@ -248,7 +252,7 @@ def compute_token_gop(logp: np.ndarray, spans: list[tuple[int, int]], i: int, to
     present = comp_peak > NEG / 2
     other = bool(present and named is not None and comp not in named)
     return TokenScore(round(score, 1), round(gop, 3), round(peak, 3), comp if present and not other else None,
-                      deleted, realised, other, round(comp_peak, 3), (int(ra), int(rb)))
+                      deleted, realised, other, round(comp_peak, 3), comp_frames, (int(ra), int(rb)))
 
 
 def score_tokens(logp: np.ndarray, align: Alignment, tokens: list[int], blank: int,

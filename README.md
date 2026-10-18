@@ -158,6 +158,28 @@ create index system_events_created_at_idx on public.system_events (created_at de
 alter table public.system_events enable row level security;
 ```
 
+API keys a developer replaces from the panel (`SAWTAK_API_KEY`, `ANTHROPIC_API_KEY`, see `app/keystore.py`), and the tutor's model (`TUTOR_MODEL`, chosen from a list or typed), so changing one needs no access to the Space. Each value is stored encrypted with `SECRETS_MASTER_KEY`, a Space secret, and the page never gets a key back (the model, which is no secret, it shows). No browser role can read the table:
+
+```sql
+create table public.app_secrets (
+  name        text primary key check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','TUTOR_MODEL')),
+  ciphertext  text not null,
+  last4       text not null default '',
+  updated_by  text not null default '',
+  updated_at  timestamptz not null default now()
+);
+alter table public.app_secrets enable row level security;
+revoke all on public.app_secrets from anon, authenticated;
+```
+
+A table made before the panel could set `TUTOR_MODEL` needs its name check widened once (saving the model answers 409 with this SQL until then):
+
+```sql
+alter table public.app_secrets drop constraint if exists app_secrets_name_check;
+alter table public.app_secrets add constraint app_secrets_name_check
+  check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','TUTOR_MODEL'));
+```
+
 For an existing `attempts` table, add the compact diagnostics once. Until this migration is run, attempts continue to be saved without diagnostics:
 
 ```sql
@@ -610,3 +632,45 @@ Tune them on a handful of labelled learner recordings. A useful target is that n
 - Playback, candidate generation and score calibration all use the Palestinian voice רַאאִף.
 - Without a key the endpoint answers 503 and the page falls back to the device's Arabic voice.
 - The same רַאאִף voice calibrates the scores (step 5 above), once for every phrase that gets scored, also when the learner never presses "השמע". The first score of a phrase waits up to 8 s for it. Without a key the scores are not calibrated; `/api/health` reports this as `references`.
+
+## Cost estimate (API keys)
+
+Estimated 2026-10-18 for **100 students, each doing 5 tutor chats a day (the daily limit, `DAILY_LIMIT`) of 10 turns each**: 500 chats a day, 15,000 a month (30 days). Anthropic prices are list prices per million tokens; the Sawtak price is the rate your own account was charged.
+
+### Anthropic (`ANTHROPIC_API_KEY`) — the tutor game יאללה נדבר
+
+How a chat is billed: 11 calls (the opening plus 10 turns). Each call sends the scenario's system prompt and the reply schema (the prefix), plus the conversation so far. The prefix grows with the lessons' vocabulary: 4,364 tokens in lesson 1, 16,466 mid-course and 22,728 in the last lesson (measured with `count_tokens`; the 5.5 models count the same). Each turn adds about 540 tokens of history, and each answer is about 490 output tokens. `cache_control` caches the prompt, so every call after the first reads the earlier part from the cache and writes only the new turn. That assumes the turns are less than 5 minutes apart, which a spoken conversation is.
+
+Tokens per chat (mid-course): ~22K cache writes (1.25× the input price), ~189K cache reads, ~5.7K output.
+
+| Model (`TUTOR_MODEL`) | $ in / out / cache read per 1M | Per chat (mid-course) | Per day | **Per month**: lesson 1 / mid / last | Per student per month (mid) |
+|---|---|---|---|---|---|
+| `claude-haiku-5-5` (the default) | 0.10 / 0.50 / 0.01 | $0.0075 | $3.73 | **$71 / $112 / $133** | $1.12 |
+| `claude-haiku-4-5` | 1 / 5 / 0.10 | $0.075 | $37 | $712 / $1,120 / $1,332 | $11.20 |
+| `claude-sonnet-5-5` | 2 / 10 / 0.20 | $0.149 | $75 | $1,424 / $2,241 / $2,663 | $22.40 |
+| `claude-opus-5-5` ¹ | 4 / 20 / 0.20 | $0.261 | $130 | $2,644 / $3,914 / $4,572 | $39.10 |
+| `claude-fable-5-1` ¹ | 10 / 50 / 0.25 | $0.605 | $303 | $6,354 / $9,077 / $10,486 | $90.80 |
+
+- **Without the prompt cache** the input would cost 3–3.5× more (for example Haiku 5.5 mid-course: $359 a month instead of $112). Keep `cache_control` in `Tutor._ask`.
+- These are upper bounds for the volume: every student uses all 5 chats, every day, all 10 turns. Real use is usually lower; `tutor_chats` records each chat's `input_tokens` and `output_tokens`, so the real bill can be checked against this table.
+- ¹ Opus 5.5 and Fable 5.1 cannot turn thinking off, so the tutor leaves it adaptive at `effort: "low"` (`thinking_for()` in `app/tutor.py`). The thinking tokens they spend are billed as output and are not in this table, so expect somewhat more for these two.
+- Set a monthly spending limit in the Console (Settings → Limits), so that a bug or unexpected use cannot cost more than planned.
+
+### Sawtak Arabi (`SAWTAK_API_KEY`) — the model-answer voice
+
+Sawtak charges per character of text spoken. This account was charged **$5.00 for 99,600 characters (about $0.05 per 1,000 characters, $50 per million)** in the 30 days before 2026-10-18 (`GET /v1/usage`).
+
+- **If the tutor's messages are spoken with Sawtak too** (the code does not do this yet), each one costs again: every message is new text, so none comes from the cache. A message is one or two short sentences, about 90 characters with vowel marks (the phrase bank averages 51 per phrase). A chat has 11 messages (the opening and 10 answers), so about 1,000 characters:
+
+  | | Characters | Cost |
+  |---|---|---|
+  | Per chat | ~990 | ~$0.05 |
+  | Per day (500 chats) | ~495,000 | ~$25 |
+  | **Per month (15,000 chats)** | ~14.9 million | **~$745** (between ~$500 and ~$1,000 for messages of 60–120 characters) |
+  | Per student per month | ~149,000 | ~$7.45 |
+
+  That is more than the tutor's model costs on Haiku 5.5 (~$112 a month), so voicing the tutor would be most of the bill.
+- The rest of the cost comes from "🔊 השמע" and from the native baseline the scores are calibrated against, both for the phrase bank:
+- Each phrase is generated once and kept in the voice cache (`TTS_CACHE_DIR`). All 3,546 phrases come to about 180,000 characters with their vowel marks, so **voicing the whole bank costs about $9, once**. A text's dialogue lines in the second voice add a little.
+- **The number of students does not change this cost**: 100 students cost the same as 1, because the second student to play a phrase gets it from the cache.
+- What does cost more: the cache is a folder on the server's disk. A Hugging Face Space without persistent storage loses it on every restart and rebuild, and "מחיקת מטמון ההקלטות" in the panel empties it. After either, the phrases are generated again as they are played, up to about $9 each time. To avoid that, give the Space persistent storage and set `TTS_CACHE_DIR=/data/ihki-tts`.

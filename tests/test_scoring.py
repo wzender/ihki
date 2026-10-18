@@ -722,6 +722,10 @@ def test_workbook_lesson_2():
     assert all("seq" not in p for p in pub if p["cat"] == "l2-poss")   # drilled in random order, like the conjugations
     by = {(p["cat"], p["he"]): p for p in PHRASES}
     assert by["l2-dual", "שולחן, שני שולחנות"]["tr"] == "טַאוְלֵה, טַאוְלְתֵין"   # singular and dual said together
+    grandpa = by["l2-family", "סבא (שתי מילים)"]
+    grandma = by["l2-family", "סבתא (שתי מילים)"]
+    assert grandpa["variants"] == [("سيد، جدّ", "s iː d | dʒ i d d"), ("سيد", "s iː d"), ("جدّ", "dʒ i d d")]
+    assert grandma["variants"] == [("ستّ، جدّة", "s i t t | dʒ i d d e"), ("ستّ", "s i t t"), ("جدّة", "dʒ i d d e")]
     # כינויי הקניין: the stem changes before a consonant suffix, and שלך is pointed for the prompt voice
     assert by["l2-poss", "השולחן שלי"]["tr"] == "טַאוְלְת-י" and by["l2-poss", "השולחן שלנו"]["tr"] == "טַאוְלֵת-נַא"
     you = by["l2-poss", "הבת שלך (לאישה)"]

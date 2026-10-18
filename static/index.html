@@ -752,7 +752,14 @@ body.manage #manage{width:100%;max-width:none}
 .activity-head select{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}
 .activity-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.activity-stat{padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}.activity-stat b{display:block;font:400 28px/1 var(--f-display);font-variant-numeric:tabular-nums}.activity-stat small{color:var(--muted);font-size:12px}
 .activity-chart{width:100%;height:190px;overflow:visible}.activity-chart .grid{stroke:var(--line);stroke-width:1}.activity-chart .bar{fill:var(--olive);opacity:.82}.activity-chart .bar:hover{opacity:1}.activity-chart text{fill:var(--muted);font:11px var(--f-body)}
-.system-feed{display:flex;flex-direction:column;gap:0}.system-event{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}.system-event:last-child{border-bottom:0}.system-event i{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--olive-soft);font-style:normal}.system-event b,.system-event small{display:block}.system-event small,.system-event time{color:var(--muted);font-size:12px}.system-event time{direction:ltr;white-space:nowrap}
+.system-activity summary{cursor:pointer}.system-activity summary h2{display:inline;margin:0}.system-activity details[open]>summary{margin-bottom:8px}
+.system-hard{margin:2px 0 4px;padding:10px;border-radius:10px;background:var(--bg)}.system-hard h3{margin:0 0 6px;font:700 15px/1.3 var(--f-body)}.system-hard-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}.system-hard-row:last-child{border-bottom:0}.system-hard-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.system-hard-row small{color:var(--muted);white-space:nowrap}.system-feed{display:flex;flex-direction:column;gap:14px}.system-topic{border-top:1px solid var(--line);padding-top:10px}.system-topic:first-child{border-top:0;padding-top:0}.system-topic h3{margin:0 0 3px;font:700 15px/1.3 var(--f-body)}.system-topic h3 small{color:var(--muted);font-weight:600}.system-event{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}.system-event:last-child{border-bottom:0}.system-event i{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--olive-soft);font-style:normal}.system-event b,.system-event small{display:block}.system-event small,.system-event time{color:var(--muted);font-size:12px}.system-event time{direction:ltr;white-space:nowrap}
+/* the API keys card (developers only): a row per key, where it comes from and a field for a new one; a key is never shown */
+.key-row{display:flex;flex-direction:column;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}.key-row:last-child{border-bottom:0}.key-row b,.key-row small{display:block}.key-row small{color:var(--muted);font-size:12px}
+.key-guide summary{cursor:pointer;color:var(--olive);font-size:14px;font-weight:600}.key-guide ol{margin:8px 0 4px;padding-inline-start:22px;display:flex;flex-direction:column;gap:5px;font-size:14px;line-height:1.5}.key-guide a{color:var(--olive);font-weight:600}.key-cost{margin-top:10px;padding:10px;border-radius:10px;background:var(--bg);font-size:14px;line-height:1.5}.key-cost p{margin:4px 0 8px}.key-cost ul{margin:6px 0 0;padding-inline-start:20px;display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:13px}
+.key-cost-table{overflow-x:auto}.key-cost table{border-collapse:collapse;width:100%;font-size:13px}.key-cost th,.key-cost td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:start;white-space:nowrap}.key-cost th{color:var(--muted);font-weight:600}.key-cost td[dir=ltr]{font-variant-numeric:tabular-nums}
+.key-guide .note{margin:4px 0 0;color:var(--muted);font-size:13px}
+.key-row form{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.key-row select{flex:1 1 220px;min-width:0;font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}.key-row input[hidden]{display:none}.key-row input{flex:1 1 220px;min-width:0;font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}
 @media(max-width:560px){.activity-stats{grid-template-columns:1fr}.activity-chart{height:160px}}
 /* the content part: a level's name, then a card per lesson with its topics and videos, a row each, and the form that adds a video */
 #mContent{display:flex;flex-direction:column;gap:12px}
@@ -4413,6 +4420,7 @@ function drawScoringRules(box){
 function drawFlags(){
   const box=$("mFlags"); box.innerHTML=""; for(const url of flagAudioUrls) URL.revokeObjectURL(url); flagAudioUrls=[];
   drawActivity(box);
+  drawApiKeys(box);
   drawSystemActivity(box);
   drawTtsCacheControls(box);
   if(!flagsLoaded){ box.append(mark("card","בחרו בניטור כדי לטעון את הנתונים.")); return; }
@@ -4515,14 +4523,41 @@ function drawFlags(){
     confirm.onclick=()=>save("confirmed"); reject.onclick=()=>save("rejected"); actions.append(category,diagnose,confirm,reject,msg); card.append(note,actions); box.append(card);
   }
 }
+let systemActivityOpen=false;   // the recent activity starts closed; a redraw keeps it as the teacher left it
 function drawSystemActivity(box){
-  const card=mark("card",""), title=mark("","פעילות אחרונה במערכת","h2"); card.append(title); box.append(card);
+  const outer=mark("card system-activity",""), card=document.createElement("details"), summary=document.createElement("summary");
+  summary.append(mark("","פעילות אחרונה במערכת","h2")); card.open=systemActivityOpen; card.ontoggle=()=>{ systemActivityOpen=card.open; };
+  card.append(summary); outer.append(card); box.append(outer);
   if(systemActivityError){ card.append(mark("note","לא ניתן לטעון פעילות אחרונה: "+systemActivityError,"p")); return; }
   if(!SYSTEM_ACTIVITY){ card.append(mark("note","טוען פעילות…","p")); return; }
   if(SYSTEM_ACTIVITY.setup){ const code=mark("",SYSTEM_ACTIVITY.setup,"code"); code.dir="ltr"; card.append(mark("setup","כדי להתחיל לשמור פעילות, יש ליצור את הטבלה system_events ב־Supabase:","p"),code); return; }
   const events=SYSTEM_ACTIVITY.events||[], labels={exercise:["🎙️","הכנת תרגילים"],game:["🎮","משחקים"],permission:["🔐","שינוי הרשאות"],content:["➕","הוספת תכנים"]}, feed=mark("system-feed","");
   if(!events.length){ card.append(mark("note","עדיין לא נרשמה פעילות.","p")); return; }
-  for(const event of events){ const [icon,kind]=labels[event.kind]||["•","פעילות"], row=mark("system-event",""), text=document.createElement("div"), time=document.createElement("time"), when=new Date(event.created_at); text.append(mark("",kind,"b"),mark("",[event.actor_email,event.label].filter(Boolean).join(" · ")||"פעילות במערכת","small")); time.dateTime=event.created_at; time.textContent=when.toLocaleString("he-IL",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}); row.append(mark("",icon,"i"),text,time); feed.append(row); }
+  const difficult=new Map;
+  for(const event of events){
+    const details=event.details||{}, score=+details.score;
+    if(event.kind!=="exercise"||!event.label||!Number.isFinite(score)||details.unrelated) continue;
+    const key=`${details.cat||""}\n${event.label}`, row=difficult.get(key)||{label:event.label,scores:[],flags:0,students:new Set};
+    row.scores.push(score); row.flags+=Number.isFinite(+details.flags)?+details.flags:0; if(event.actor_email) row.students.add(event.actor_email); difficult.set(key,row);
+  }
+  const hardest=[...difficult.values()].map(x=>({...x,average:Math.round(x.scores.reduce((a,b)=>a+b,0)/x.scores.length)})).sort((a,b)=>a.average-b.average||b.scores.length-a.scores.length).slice(0,5);
+  if(hardest.length){
+    const hard=mark("system-hard",""), heading=mark("","התרגילים המאתגרים ביותר","h3"); hard.append(heading);
+    for(const row of hardest){ const line=mark("system-hard-row",""), attempts=row.scores.length, students=row.students.size; line.append(mark("",row.label,"span"),mark("",`ממוצע ${row.average} · ${attempts} ניסיונות · ${students} תלמידים · ${row.flags} דגלונים`,"small")); hard.append(line); }
+    card.append(hard);
+  }
+  const groups=new Map;
+  for(const event of events){
+    const details=event.details||{}, topic=ALL_CATS.find(c=>c.id===details.cat)||GAMES.find(g=>g.id===details.cat), fallback=(labels[event.kind]||["","פעילות"])[1], key=details.cat?`topic:${details.cat}`:`kind:${event.kind}`;
+    if(!groups.has(key)) groups.set(key,{name:(topic&&topic.name)||fallback,events:[],flags:0});
+    const group=groups.get(key); group.events.push(event); group.flags+=Number.isFinite(+details.flags)?+details.flags:0;
+  }
+  for(const group of groups.values()){
+    const section=mark("system-topic",""), heading=mark("",group.name,"h3");
+    heading.append(" ",mark("",`(${group.events.length} רשומות · ${group.flags} דגלונים)`,"small")); section.append(heading);
+    for(const event of group.events){ const [icon,kind]=labels[event.kind]||["•","פעילות"], row=mark("system-event",""), text=document.createElement("div"), time=document.createElement("time"), when=new Date(event.created_at); text.append(mark("",kind,"b"),mark("",[event.actor_email,event.label].filter(Boolean).join(" · ")||"פעילות במערכת","small")); time.dateTime=event.created_at; time.textContent=when.toLocaleString("he-IL",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}); row.append(mark("",icon,"i"),text,time); section.append(row); }
+    feed.append(section);
+  }
   card.append(feed);
 }
 function drawTtsCacheControls(box){
@@ -4541,6 +4576,119 @@ function drawTtsCacheControls(box){
     button.disabled=false;
   };
   row.append(button,msg); card.append(title,text,row); box.append(card);
+}
+// how to get each key, step by step: a step is its parts, text or [text, link]
+const KEY_GUIDES={
+  SAWTAK_API_KEY:[
+    ["היכנסו ל־",["sawtakarabi.ai/dashboard/api-keys","https://sawtakarabi.ai/dashboard/api-keys"]," והתחברו (או הירשמו, אם עדיין אין חשבון)."],
+    ["לחצו על Create key, תנו למפתח שם שתזהו (למשל ihki) וצרו אותו."],
+    ["העתיקו את המפתח מיד: הוא מוצג פעם אחת בלבד. אם הוא אבד, צרו מפתח חדש."],
+    ["ודאו שיש יתרה בחשבון ב־",["Billing","https://sawtakarabi.ai/dashboard/billing"],". בלי יתרה ההשמעה נכשלת והדף עובר לקול של המכשיר."],
+    ["הדביקו את המפתח כאן ולחצו שמירה. מפתח שנוצר בדשבורד מתאים כמו שהוא; מפתח מוגבל צריך לפחות את ההרשאה tts."],
+    ["אחרי שהמפתח החדש עובד, מחקו את הישן בדשבורד של Sawtak."]],
+  ANTHROPIC_API_KEY:[
+    ["היכנסו ל־",["platform.claude.com","https://platform.claude.com/"]," (ה־Console של Anthropic, לשעבר console.anthropic.com) והתחברו או הירשמו."],
+    ["טענו קרדיט ב־",["Billing","https://platform.claude.com/settings/billing"],". ה־API מחויב בנפרד ממנוי Claude.ai, כך שמנוי לבדו לא מספיק."],
+    ["עברו ל־",["API keys","https://platform.claude.com/settings/keys"],", לחצו Create key, תנו שם (למשל ihki) ובחרו workspace (ברירת המחדל מתאימה)."],
+    ["העתיקו את המפתח מיד (הוא מתחיל ב־sk-ant-): הוא מוצג פעם אחת בלבד."],
+    ["מומלץ: קבעו תקרת הוצאה חודשית ב־",["Limits","https://platform.claude.com/settings/limits"],", כדי שתקלה או שימוש חריג לא יעלו יותר ממה שתכננתם."],
+    ["הדביקו את המפתח כאן ולחצו שמירה. אחרי שהוא עובד, מחקו את המפתח הישן ב־Console."]],
+  TUTOR_MODEL:[
+    ["בחרו מודל מהרשימה. Haiku 5.5 הוא ברירת המחדל והזול ביותר; השוואת העלויות נמצאת בהערכת העלות של מפתח Anthropic למעלה."],
+    ["למודל שלא ברשימה בחרו \"אחר\" והקלידו את המזהה שלו (למשל claude-sonnet-5-5). המזהים מופיעים ב־",["רשימת המודלים של Anthropic","https://platform.claude.com/docs/en/models/overview"],"."],
+    ["השמירה בודקת מול Anthropic שהמודל קיים ושהמפתח שבשימוש יכול להשתמש בו. היא לא עולה כסף."],
+    ["המודל החדש נכנס לשימוש מיד, גם בשיחות פתוחות, מהמשפט הבא של התלמיד."],
+    ["הבקשה מותאמת לכל אחד מהמודלים שברשימה. מודל אחר שתקלידו אולי לא יקבל אותה; אם השיחות נכשלות, חזרו לאחד מהרשימה."]]};
+// what each key costs, estimated 2026-10-18 for 100 students × 5 chats a day × 10 turns (the README has how it was worked out)
+const KEY_COSTS={
+  SAWTAK_API_KEY:{intro:"Sawtak מחייב לפי תווים של טקסט מוקרא: בחשבון הזה כ־$0.05 לכל 1,000 תווים ($50 למיליון).",
+    head:["השמעת המורה (בלי מטמון)","תווים","עלות"],
+    rows:[["לשיחה (11 הודעות)","~990","~$0.05"],["ליום (500 שיחות)","~495,000","~$25"],["לחודש (15,000 שיחות)","~14.9 מיליון","~$745"],["לתלמיד לחודש","~149,000","~$7.45"]],
+    notes:["אם גם ההודעות של המורה (יאללה נדבר) יושמעו ב־Sawtak (הקוד עדיין לא עושה את זה), כל הודעה עולה מחדש: הטקסט תמיד חדש, ולכן אין מטמון. הודעה היא משפט או שניים, כ־90 תווים עם ניקוד. בהודעות של 60 עד 120 תווים: בין כ־$500 לכ־$1,000 לחודש, יותר מהמודל עצמו ב־Haiku 5.5.",
+           "כל משפט נוצר פעם אחת ונשמר במטמון. כל 3,546 המשפטים הם כ־180 אלף תווים, כלומר כ־$9 בסך הכול, פעם אחת.",
+           "מספר התלמידים לא משנה את העלות: 100 תלמידים עולים כמו תלמיד אחד, כי מהשני והלאה המשפט מגיע מהמטמון.",
+           "מה כן עולה: ריסטארט של ה־Space בלי אחסון קבוע, או מחיקת מטמון ההקלטות, מוחקים את המטמון, וההקלטות נוצרות מחדש (עד כ־$9 בכל פעם). מומלץ אחסון קבוע ו־TTS_CACHE_DIR=/data/ihki-tts."]},
+  ANTHROPIC_API_KEY:{intro:"לפי 100 תלמידים × 5 שיחות ביום × 10 תורות: 500 שיחות ביום, 15,000 בחודש. העלות גדלה עם השיעורים, כי ההנחיות למורה כוללות את אוצר המילים שנלמד עד אז.",
+    head:["מודל","לשיחה","ליום","לחודש (שיעור 1 / אמצע / אחרון)"],
+    rows:[["Haiku 5.5 (ברירת המחדל)","$0.0075","$3.73","$71 / $112 / $133"],["Haiku 4.5","$0.075","$37","$712 / $1,120 / $1,332"],
+          ["Sonnet 5.5","$0.15","$75","$1,424 / $2,241 / $2,663"],["Opus 5.5 *","$0.26","$130","$2,644 / $3,914 / $4,572"],["Fable 5.1 *","$0.61","$303","$6,354 / $9,077 / $10,486"]],
+    notes:["העמודות לשיחה וליום הן לאמצע הקורס. ההערכה היא תקרה: כל תלמיד מנצל את 5 השיחות, כל יום, את כל 10 התורות.",
+           "המחירים כוללים את מטמון ההנחיות (prompt cache). בלעדיו הקלט היה עולה פי 3 עד 3.5.",
+           "* ב־Opus 5.5 וב־Fable 5.1 אי אפשר לכבות את החשיבה, ולכן המורה משאיר אותה במאמץ נמוך. טוקני החשיבה מחויבים כפלט ולא נספרו בטבלה, כך שבפועל העלות שלהם קצת גבוהה יותר.",
+           "את המודל בוחרים ב־TUTOR_MODEL בסודות השרת."]}};
+function keyCost(name){
+  const c=KEY_COSTS[name]; if(!c) return null;
+  const box=mark("key-cost",""); box.append(mark("","הערכת עלות","b"),mark("",c.intro,"p"));
+  if(c.rows){
+    const wrap=mark("key-cost-table",""), table=document.createElement("table"), tr=document.createElement("tr");
+    for(const h of c.head) tr.append(mark("",h,"th")); table.append(tr);
+    for(const r of c.rows){ const row=document.createElement("tr"); r.forEach((v,i)=>{ const td=mark("",v,"td"); if(i) td.dir="ltr"; row.append(td); }); table.append(row); }
+    wrap.append(table); box.append(wrap);
+  }
+  const ul=document.createElement("ul"); for(const n of c.notes) ul.append(mark("",n,"li")); box.append(ul);
+  return box;
+}
+function keyGuide(name){
+  const steps=KEY_GUIDES[name]; if(!steps) return null;
+  const details=document.createElement("details"), summary=document.createElement("summary"), list=document.createElement("ol");
+  details.className="key-guide"; summary.textContent="איך משיגים את המפתח?";
+  for(const step of steps){
+    const li=document.createElement("li");
+    for(const part of step){
+      if(typeof part==="string"){ li.append(part); continue; }
+      const a=document.createElement("a"); a.textContent=part[0]; a.href=part[1]; a.target="_blank"; a.rel="noopener noreferrer"; a.dir="ltr"; li.append(a);
+    }
+    list.append(li);
+  }
+  const cost=keyCost(name);
+  details.append(summary,list,...(cost?[cost]:[]),mark("note","אל תשלחו מפתח בצ׳אט, במייל או בווטסאפ: הדביקו אותו רק כאן.","p"));
+  return details;
+}
+let API_KEYS=null;   // what /api/admin/keys answered: whether each key is set and where from, never the key
+function drawApiKeys(box){
+  if(!can("keys.manage")) return;
+  const card=mark("card",""), list=document.createElement("div");
+  card.append(mark("","מפתחות API ומודל","h2"),mark("","מפתח חדש נבדק מול הספק, נשמר מוצפן בשרת ונכנס לשימוש מיד. אחרי השמירה הוא לא מוצג שוב, רק ארבעת התווים האחרונים שלו. גם המודל של המורה נקבע כאן.","p"),list); box.append(card);
+  const show=data=>{
+    API_KEYS=data; list.innerHTML="";
+    if(data.setup){ const code=mark("",data.setup,"code"); code.dir="ltr"; list.append(mark("note","כדי לשמור מפתחות מהפאנל, יש ליצור את הטבלה app_secrets ב־Supabase:","p"),code); }
+    else if(!data.writable&&data.why) list.append(mark("note",data.why,"p"));
+    const sources={db:"נשמר בפאנל",env:"מוגדר בשרת",none:"לא מוגדר"};
+    for(const k of data.keys||[]){
+      const row=mark("key-row",""), info=document.createElement("div"), when=k.updated_at?new Date(k.updated_at).toLocaleDateString("he-IL",{timeZone:"Asia/Jerusalem"}):"";
+      const choice=!!k.choices, inUse=choice&&(k.value?`בשימוש: ${k.value}`:"ברירת המחדל של הקוד (claude-haiku-5-5)");
+      info.append(mark("",k.label,"b"),mark("",[choice&&k.source==="none"?"":sources[k.source]||k.source,inUse,k.last4&&`מסתיים ב־${k.last4}`,k.updated_by&&`על ידי ${k.updated_by}`,when].filter(Boolean).join(" · "),"small"));
+      row.append(info); const guide=keyGuide(k.name); if(guide) row.append(guide); list.append(row);
+      if(!data.writable) continue;
+      const form=document.createElement("form"), input=document.createElement("input"), save=mark("btn primary","שמירה","button"), msg=mark("msg","");
+      input.type=choice?"text":"password"; input.autocomplete="off"; input.spellcheck=false; input.dir="ltr"; input.maxLength=300; input.placeholder=choice?"claude-…":"מפתח חדש"; input.setAttribute("aria-label",choice?"מזהה מודל אחר":`מפתח חדש: ${k.label}`); save.type="submit";
+      let select=null;
+      if(choice){   // the list, and "other" for an id typed in the field
+        select=document.createElement("select"); select.setAttribute("aria-label",k.label);
+        for(const c of [...k.choices,{id:"",label:"אחר (הקלדה חופשית)…"}]){ const o=document.createElement("option"); o.value=c.id; o.textContent=c.id?`${c.label} · ${c.id}`:c.label; select.append(o); }
+        const listed=k.choices.some(c=>c.id===(k.value||k.choices[0].id));
+        select.value=listed?(k.value||k.choices[0].id):""; if(!listed) input.value=k.value;
+        const other=()=>{ input.hidden=select.value!==""; if(!input.hidden) input.focus(); };
+        select.onchange=other; input.hidden=select.value!=="";
+      }
+      const send=async(method,body,busy)=>{
+        for(const b of form.querySelectorAll("button")) b.disabled=true; msg.textContent=busy;
+        try{
+          const res=await api(`/api/admin/keys/${k.name}`,{method,...(body?{headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}:{})}), d=await res.json().catch(()=>({}));
+          if(!res.ok) throw new Error(d.detail||res.status);
+          input.value=""; show(d);
+        }catch(err){ msg.textContent="נכשל: "+err.message; for(const b of form.querySelectorAll("button")) b.disabled=false; }
+      };
+      form.onsubmit=e=>{ e.preventDefault(); const value=select&&select.value?select.value:input.value.trim(); if(value) send("PUT",{value},choice?"בודק את המודל מול Anthropic…":"בודק את המפתח מול הספק…"); };
+      if(select) form.append(select); form.append(input,save);
+      if(k.source==="db"){ const back=mark("btn",choice?"חזרה לברירת המחדל של השרת":"חזרה למפתח השרת","button"); back.type="button"; back.onclick=()=>{ if(confirm(choice?"לחזור למודל שמוגדר בשרת (או לברירת המחדל)?":"למחוק את המפתח שנשמר בפאנל ולחזור למפתח שמוגדר בשרת (אם יש)?")) send("DELETE",null,"מוחק…"); }; form.append(back); }
+      form.append(msg); row.append(form);
+    }
+  };
+  if(API_KEYS){ show(API_KEYS); return; }
+  list.append(mark("note","טוען…","p"));
+  api("/api/admin/keys").then(async res=>{ const d=await res.json().catch(()=>({})); if(!res.ok) throw new Error(d.detail||res.status); show(d); })
+    .catch(err=>{ list.innerHTML=""; list.append(mark("note","לא ניתן לטעון את המפתחות: "+err.message,"p")); });
 }
 function drawActivity(box){
   const days=activityHours===168, range=days?"7 הימים האחרונים":"24 השעות האחרונות", bucket=days?"שעה":"15 דקות";

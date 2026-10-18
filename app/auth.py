@@ -661,6 +661,24 @@ class SupabaseAuth:
             log.warning("access changed but audit row was not stored: %s", e)
         self.log_event("permission", actor, target["email"], {"roles": roles, "entitlements": entitlements})
 
+    def secret_rows(self) -> list[dict] | None:
+        """The API keys set in the panel, encrypted (see keystore.py), or None until the table `app_secrets` exists."""
+        try:
+            return self._admin("/rest/v1/app_secrets?select=name,ciphertext,last4,updated_by,updated_at") or []
+        except AuthUnavailable as e:
+            if "answered 404" in str(e):
+                return None
+            raise
+
+    def save_secret(self, row: dict) -> None:
+        self._admin("/rest/v1/app_secrets?on_conflict=name", "POST",
+                    {**row, "updated_at": datetime.now(timezone.utc).isoformat()},
+                    prefer="resolution=merge-duplicates,return=minimal")
+
+    def delete_secret(self, name: str) -> None:
+        self._admin("/rest/v1/app_secrets?" + urllib.parse.urlencode({"name": f"eq.{name}"}), "DELETE",
+                    prefer="return=minimal")
+
     def all_attempts(self) -> list[dict]:
         """Every student's attempts, as `attempts` gives one student's, each with its user_id. "Different sentence"
         rows remain marked as unrelated for diagnostics, but count toward progress like every non-empty recording."""

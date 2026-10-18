@@ -18,6 +18,7 @@ this process's memory while it runs (a restart ends it) and is kept, turn by tur
 Env:  ANTHROPIC_API_KEY (or CLAUDE_API_KEY)  required; without it the game is not offered
       Access is granted per account in the management panel; an open service remains open.
       TUTOR_MODEL  optional: the Claude model the tutor runs on (default DEFAULT_MODEL), e.g. claude-sonnet-5-5
+                   (request_options() fits the request to it: Haiku 5.5/4.5, Sonnet 5.5, Opus 5.5 and Fable 5.1 all run)
 """
 from __future__ import annotations
 
@@ -324,10 +325,40 @@ class Chat:
                 "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
 
 
-def thinking_for(model: str) -> dict:
-    """No thinking for a chat answer: Haiku turns it off with "disabled", Sonnet 5.5 (which refuses that) with
-    "between_tools"."""
-    return {"type": "between_tools"} if model.startswith("claude-sonnet-5-5") else {"type": "disabled"}
+# models that take a `role: "system"` message in the middle of `messages` (the others answer 400)
+SYSTEM_MESSAGES = ("claude-opus-5", "claude-opus-4-8", "claude-fable-5", "claude-mythos-5", "claude-sonnet-5-5", "claude-haiku-5-5")
+
+
+def thinking_for(model: str) -> dict | None:
+    """As little thinking as each model allows for a chat answer. Sonnet 5.5 refuses "disabled" and turns thinking off
+    with "between_tools"; Opus 5.5 and Fable 5.x cannot turn it off at all (None: the parameter is left out, so it is
+    adaptive, and effort "low" keeps it short); the others take "disabled". Only the answer's text goes back into the
+    history, never a thinking block, so the history stays append-only and nothing is checked against it."""
+    if model.startswith("claude-sonnet-5-5"):
+        return {"type": "between_tools"}
+    if model.startswith(("claude-opus-5-5", "claude-fable-5", "claude-mythos-5")):
+        return None
+    return {"type": "disabled"}
+
+
+def request_options(model: str) -> dict:
+    """The arguments of a chat answer that differ by model: thinking (see thinking_for), effort (Haiku 4.5 has none),
+    and room for a thinking model to think before it answers."""
+    thinking = thinking_for(model)
+    config = {"format": {"type": "json_schema", "schema": REPLY_SCHEMA}}
+    if not model.startswith("claude-haiku-4-5"):
+        config["effort"] = "low"
+    return {"max_tokens": 4000 if thinking else 8000, "output_config": config, **({"thinking": thinking} if thinking else {})}
+
+
+def last_turn(model: str, messages: list[dict], note: str) -> list[dict]:
+    """Tells the model this is the last sentence: as a system message where the model takes one, else after the
+    student's sentence in the same user turn."""
+    if model.startswith(SYSTEM_MESSAGES):
+        return messages + [{"role": "system", "content": note}]
+    *before, student = messages
+    return before + [{"role": "user", "content": [{"type": "text", "text": student["content"]},
+                                                  {"type": "text", "text": f"(Instruction: {note})"}]}]
 
 
 class Tutor:
@@ -404,8 +435,8 @@ class Tutor:
         last = chat.turns + 1 >= MAX_TURNS
         messages = chat.messages + [{"role": "user", "content": text}]
         if last:
-            messages.append({"role": "system", "content": "This is the student's last sentence. Answer it and say "
-                             "goodbye warmly, and write the summary."})
+            messages = last_turn(self.model, messages, "This is the student's last sentence. Answer it and say "
+                                 "goodbye warmly, and write the summary.")
         data = self._answer(chat, messages)
         chat.turns += 1
         chat.done = last
@@ -424,6 +455,7 @@ class Tutor:
     def _answer(self, chat: Chat, messages: list[dict]) -> dict:
         """Asks the model and keeps the exchange in the conversation's history (only once it has answered)."""
         data, usage = self._ask(chat.system, messages)
+        chat.model = self.model   # the panel may have changed it since the conversation began
         chat.messages = messages + [{"role": "assistant", "content": json.dumps(data, ensure_ascii=False)}]
         chat.seen = time.monotonic()
         chat.input_tokens += usage[0]
@@ -434,10 +466,8 @@ class Tutor:
         import anthropic
         try:
             res = self.client.messages.create(
-                model=self.model, max_tokens=4000, system=system, messages=messages,
-                thinking=thinking_for(self.model),
-                output_config={"effort": "low", "format": {"type": "json_schema", "schema": REPLY_SCHEMA}},
-                cache_control={"type": "ephemeral"},
+                model=self.model, system=system, messages=messages, cache_control={"type": "ephemeral"},
+                **request_options(self.model),
             )
         except anthropic.RateLimitError as e:
             log.warning("tutor rate limited: %s", e)
@@ -476,8 +506,16 @@ class Tutor:
             self._started.clear()
 
 
-def load_tutor() -> Tutor | None:
-    key = (os.environ.get("ANTHROPIC_API_KEY", "") or os.environ.get("CLAUDE_API_KEY", "")).strip()
+def tutor_client(key: str):
+    import anthropic
+    return anthropic.Anthropic(api_key=key, timeout=30.0, max_retries=2)
+
+
+def load_tutor(key: str | None = None, model: str | None = None) -> Tutor | None:
+    """`key`, `model`: the ones the panel set (see keystore.py); None reads the environment's."""
+    if key is None:
+        key = os.environ.get("ANTHROPIC_API_KEY", "") or os.environ.get("CLAUDE_API_KEY", "")
+    key = key.strip()
     if not key:
         log.info("no ANTHROPIC_API_KEY: the tutor game (יאללה נדבר) is off")
         return None
@@ -486,9 +524,9 @@ def load_tutor() -> Tutor | None:
     except ImportError:
         log.warning("ANTHROPIC_API_KEY is set but the anthropic package is not installed: the tutor game is off")
         return None
-    model = os.environ.get("TUTOR_MODEL", "").strip() or DEFAULT_MODEL
+    model = (os.environ.get("TUTOR_MODEL", "") if model is None else model).strip() or DEFAULT_MODEL
     log.info("the tutor game (יאללה נדבר) runs on %s", model)
-    return Tutor(anthropic.Anthropic(api_key=key, timeout=30.0, max_retries=2), model)
+    return Tutor(tutor_client(key), model)
 
 
 def tutor_open() -> bool:

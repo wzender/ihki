@@ -4115,8 +4115,14 @@ def workbook_phrases() -> list[dict]:
                 who = said = m[1]
                 he, sentence = he[m.end():], SPEAKER.sub("", sentence)
             words = [_word(t) for t in sentence.split()]
+            variants = _variants(words)
+            # These vocabulary prompts teach two synonymous words. Saying both remains valid, but unlike
+            # conjugation and singular/dual pairs, either synonym on its own is also a complete answer.
+            if "(שתי מילים)" in he:
+                singles = [(a.rstrip("".join(PUNCT)), tr.rstrip("".join(PUNCT.values())), ipas) for a, tr, ipas in words]
+                variants += [variant for word in singles for variant in _variants([word]) if variant not in variants]
             phrase = dict(cat=f"l{lesson_id(*key)}-{tid}", he=he, tr=" ".join(t for _, t, _ in words),
-                          variants=_variants(words), read=kind == "read", **extra)
+                          variants=variants, read=kind == "read", **extra)
             say = _voiced(he_say[0] if he_say else he)
             if say != he:
                 phrase["he_say"] = say

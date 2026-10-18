@@ -125,8 +125,9 @@ class SawtakTTS:
             return data, voice
 
 
-def load_tts() -> SawtakTTS | None:
-    key = os.environ.get("SAWTAK_API_KEY", "").strip()
+def load_tts(key: str | None = None) -> SawtakTTS | None:
+    """`key`: the one the panel set (see keystore.py); None reads the environment's."""
+    key = (os.environ.get("SAWTAK_API_KEY", "") if key is None else key).strip()
     if not key:
         log.info("SAWTAK_API_KEY not set: playback uses the device voice")
         return None

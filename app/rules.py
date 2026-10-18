@@ -14,6 +14,7 @@ with ʁ matches a model that heard ɣ. check_detectable() tells which rules a mo
 from __future__ import annotations
 
 import re
+import math
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -224,8 +225,13 @@ def elided_article(toks, i: int, ar_words: list[str]) -> bool:
 
 # A glottal stop that is simply not there is how natives say it too (انا, اهلا; ق between vowels): #1, #2.
 # A glottal stop replaced by another consonant still counts, unless the class accepts it (ق said as k).
+# At utterance onset, though, one weak competitor frame is commonly a breath or microphone transient. Treat that
+# as an omission regardless of the phone the multilingual model names; two frames (~40 ms) remain a substitution.
 def _glottal_dropped(toks, i, sc, heard, ar_words):
-    return sc.deleted and toks[i].sound in ("ʔ", "Q")
+    if toks[i].sound not in ("ʔ", "Q"):
+        return False
+    transient_onset = i == 0 and sc.peak < math.log(0.05) and sc.comp_frames < 2
+    return sc.deleted or transient_onset
 
 
 def _article_vowel_elided(toks, i, sc, heard, ar_words):     # #3
