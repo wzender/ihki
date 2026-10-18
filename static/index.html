@@ -68,8 +68,7 @@ header{display:flex;align-items:center;gap:4px 12px;flex-wrap:wrap}
 /* Home: the course as one winding road down the screen. A lesson opens with a banner and closes with a cup, and its
    topics are the round buttons along the road, each with its label beside it. The ring around a button fills as its
    sentences are practised: untouched is plain, started is tinted, finished is filled and gets a badge (gold when every
-   sentence reached "מצוין"). The road is green after a finished topic. The one topic to do now carries a bubble and a halo.
-   A locked topic (one before it is not finished) is grey with a padlock. */
+   sentence reached "מצוין"). The road is green after a finished topic. The one topic to do now carries a bubble and a halo. */
 body.home #practice,body.home #driveBtn,body:not(.home) #path,body:not(.home) #today,body:not(.home) #toNow,body.home .where,body:not(.home) .brand,body:not(.home) .maphint{display:none}
 header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 /* the student's guide (static/guide.html): a round "?" beside the class pill, and once, a line under the hint */
@@ -374,11 +373,6 @@ body.memory-game{overflow:hidden}
 .tag small{display:block;font:600 11px/1.3 var(--f-body);opacity:.85}
 .tag:has(small){text-align:center}
 .sat.soon{--c:var(--amber)} .sat.late{--c:var(--sumac)}
-.sat.locked{color:var(--muted);cursor:default}
-.sat.locked .dot{background:var(--bg);font-size:20px;filter:grayscale(1);opacity:.75}
-.sat.locked:active .dot{transform:none;box-shadow:0 var(--s) 0 var(--track)}
-.sat.locked .tag{background:var(--ink);color:var(--bg)}
-.chapter.locked,.chapter.locked:active{background:var(--track);box-shadow:0 4px 0 var(--muted);transform:none;cursor:default}
 .tag.soon{background:var(--amber)} .tag.late{background:var(--sumac)}
 .sat.now .ring::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:2px solid var(--c);animation:beckon 1.8s ease-out infinite}
 @keyframes beckon{from{transform:scale(.92);opacity:.9}to{transform:scale(1.18);opacity:0}}
@@ -510,7 +504,8 @@ body.driving .mic::before{display:none} body.driving .mic-zone.two{display:flex}
 #denied button{display:block;margin:12px auto 0;font:600 16px/1 var(--f-body);padding:10px 22px;border-radius:10px;border:1px solid #4B6A2C;background:#fff;color:#4B6A2C;cursor:pointer}
 /* The teacher's panel (its parts are styled further down: the class tabs, the figures, the lessons, the students). */
 body:not(.manage) #manage,body.lab #manage,body:not(.lab) #lab,body.manage #wrap>header,body.manage #path,body.manage #today,body.manage #toNow,body.manage #practice,body:not(.home) #toManage{display:none}
-body.lab #wrap{max-width:none}
+body.lab #wrap,body.manage #wrap:has(#manage.access){max-width:none}
+body.manage #manage{width:100%;max-width:none}
 .mtitle{font:400 24px/1 var(--f-display);margin:0}
 #mState.setup{padding:10px 12px;border:1px solid var(--sumac);border-radius:10px;color:var(--ink)}
 #mState.setup code{display:block;margin-top:6px;font-size:12px;overflow-wrap:anywhere;user-select:all}
@@ -736,7 +731,7 @@ body.lab #wrap{max-width:none}
 #manage.content :is(#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.content) #mContent{display:none}
 #manage.flags :is(#mClasses,#mContent,#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.flags) #mFlags{display:none}
 #manage.access :is(#mClasses,#mContent,#mFlags,#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.access) #mAccess{display:none}
-.access-scroll{overflow:auto}.access-table{width:100%;border-collapse:collapse;min-width:980px}.access-table :is(th,td){padding:9px 7px;border-bottom:1px solid var(--line);text-align:center}.access-table th{position:sticky;top:0;background:var(--surface);font-size:13px;white-space:nowrap;z-index:1}.access-table :is(th,td):first-child{text-align:start;position:sticky;right:0;background:var(--surface);z-index:2;min-width:190px}.access-table td:first-child{font-weight:700}.access-table td:first-child small{display:block;color:var(--muted);font-weight:400;direction:ltr;overflow:hidden;text-overflow:ellipsis}.access-table input{width:18px;height:18px}.access-table .save-cell{min-width:80px}
+.access-actions{display:flex;justify-content:flex-end;margin:8px 0}.access-scroll{overflow:auto}.access-table{width:100%;border-collapse:collapse;min-width:1180px}.access-table :is(th,td){padding:9px 10px;border-bottom:1px solid var(--line);text-align:center}.access-table th{position:sticky;top:0;background:var(--surface);font-size:13px;white-space:nowrap;z-index:1}.access-table th>span{display:block;margin-bottom:4px}.access-table .access-all{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-weight:600;cursor:pointer}.access-table .access-all small{font-size:11px}.access-table :is(th,td):first-child{text-align:start;position:sticky;right:0;background:var(--surface);z-index:2;min-width:260px}.access-table td:first-child{font-weight:700}.access-table td:first-child small{display:block;color:var(--muted);font-weight:400;direction:ltr;overflow:hidden;text-overflow:ellipsis}.access-table input{width:18px;height:18px}.access-table .save-cell{min-width:96px}
 @media(max-width:700px){.modes{grid-template-columns:repeat(2,1fr)}}
 .flag-review{gap:10px}.flag-review h2{margin:0}.flag-review .meta{color:var(--muted);font-size:13px}.flag-review fieldset{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:7px}
 .flag-review fieldset label{display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid var(--line);border-radius:9px}.flag-review select,.flag-review textarea{font:inherit;border:1px solid var(--line);border-radius:9px;padding:7px;background:var(--surface);color:var(--ink)}
@@ -1726,9 +1721,8 @@ function setTr(el,text){
 }
 /* Home is the path: one road winding down the screen through every lesson. A lesson opens with a banner, which
    opens its first unfinished topic; its topics follow as buttons along the road, and a cup closes it.
-   As in Duolingo, a topic is locked until every topic before it on the path is finished. A topic the student already
-   started stays open, and so does a homework topic: the teacher decides what the class practises. Nothing is locked for a teacher. */
-let FREE=false;   // a teacher: the whole path is open
+   Every topic is open, whatever comes before it on the path. */
+let FREE=false;   // a teacher
 let TUTOR_INFO=null, tc=null, tutorList=false;   // what /api/tutor allows this account; the open conversation; the games tab shows the scenarios
 let lastPhone=null;   // the latest ordinary recording's score response, for the teacher's phoneme observer
 let home=true;   // the path is on screen, not the practice card: nothing is read aloud or recorded
@@ -1995,7 +1989,7 @@ function drawVerbTable(box){
         tr.append(one(past),mark("","·","i"),one(future||"")); say.append(tr);
         say.onclick=async()=>{
           if(vtOnly) vtOnly.classList.remove("on"); vtOnly=say; say.classList.add("on");
-          const a=await answerAudio(p.id); if(a) await playUrl(a.url,true); else await speakLocal(p.ar,"ar");
+          const a=await answerAudio(p.id); if(a) await playUrl(a.url,true); else await speakLocal(p.ar_pointed||p.ar,"ar");
           say.classList.remove("on");
         };
         row.dataset.find=vtPlain(`${p.he} ${p.tr} ${p.ar}`); row.append(he,say); card.append(row);
@@ -2339,8 +2333,8 @@ function mgCount(){
 async function mgSay(p){   // the Arabic, in the lessons' voice, or else the device's
   if(mg.audio) mg.audio.pause();
   const a=await answerAudio(p.id); if(!mg) return;
-  if(!a){ speakLocal(p.ar,"ar"); return; }
-  const au=answerPlayer(a.url); mg.audio=au; au.play().catch(()=>speakLocal(p.ar,"ar"));
+  if(!a){ speakLocal(p.ar_pointed||p.ar,"ar"); return; }
+  const au=answerPlayer(a.url); mg.audio=au; au.play().catch(()=>speakLocal(p.ar_pointed||p.ar,"ar"));
 }
 function mgAt(b){ const r=b.el.getBoundingClientRect(), f=mg.field.getBoundingClientRect(); return {x:r.left-f.left+r.width/2,y:r.top-f.top+r.height/2}; }
 function mgBurst(x,y,many=12){
@@ -2539,8 +2533,7 @@ $("writeClose").onclick=()=>$("writeDlg").close();
 $("writeDlg").addEventListener("close",()=>{
   if(writeTimer){ clearTimeout(writeTimer); writeTimer=null; sendWriting(writeOpen); }   // what was just written is sent at once
   writeOpen=null; if(home&&!document.body.classList.contains("manage")) drawPath(true); });
-/* A lesson's new words ("learn" topic): a card a word, before the lesson's speaking topics, which stay locked until
-   every word was marked known once. Nothing is scored; what the student knows is kept on the device. A round goes
+/* A lesson's new words ("learn" topic): a card a word, before the lesson's speaking topics. Nothing is scored; what the student knows is kept on the device. A round goes
    through the words not known yet (all of them, shuffled, when every one is); "not yet" sends a word to the round's end. */
 let learned=store.get("ihki.learned",{}), learnRounds=store.get("ihki.learnRounds",{}), learning=null;   // known words; unfinished rounds; the round on screen
 let learnDriving=false, learnDriveRun=0, learnWakeLock=null;
@@ -2757,15 +2750,6 @@ function drawPath(stay){
   const road=document.createElementNS(NS,"svg"), stops=[];   // stops: the points the road goes through
   road.setAttribute("class","road"); road.setAttribute("aria-hidden","true"); box.innerHTML=""; box.append(road);
   let next=true, y=0;   // next: the first lesson that is not finished is the one to do now
-  let open=true;   // every topic so far is finished: the next one is not locked
-  const lock=(b,dot,name)=>{   // a locked stop: a padlock, and a tap says why
-    b.classList.add("locked"); b.setAttribute("aria-disabled","true"); dot.textContent="🔒";
-    b.title=`נעול: ${name}. קודם מסיימים את הנושאים שלפניו`; b.setAttribute("aria-label",b.title);
-    b.onclick=()=>{
-      if(b.querySelector(".tag")) return;
-      const tag=mark("tag",""); tag.append(mark("","נעול","small"),"סיימו את הקודם"); dot.before(tag); setTimeout(()=>tag.remove(),2200);
-    };
-  };
   let level=null;
   for(let k=0;k<LESSONS.length;k++){
     const l=LESSONS[k];
@@ -2782,21 +2766,11 @@ function drawPath(stay){
     const whole=tally(listed.filter(p=>cats.some(c=>c.id===p.cat))), now=!whole.over&&next;
     const todo=Math.max(0,parts.findIndex(t=>!t.over));   // the topic to do now, when this is the lesson to do now
     if(now) next=false;
-    const shut=items.map(({c})=>{   // locked: a topic before it is not finished (a written one, like a video, holds nothing back)
-      if(!c) return !open;
-      const t=parts[cats.indexOf(c)], s=!open&&!t.done&&!hws.some(h=>h.c===c);
-      if(t.n&&!t.over&&!c.write&&!((c.learn||c.match)&&whole.done)&&!FREE) open=false;   // new words and their game hold back only a lesson not yet practised
-      return s;
-    });
-    const go=parts.every(t=>t.over)?cats[0]:cats.find((c,i)=>!parts[i].over&&!shut[items.findIndex(it=>it.c===c)]);   // the topic the banner opens: none in a locked lesson
+    const go=cats[parts.findIndex(t=>!t.over)]||cats[0];   // the topic the banner opens: the first unfinished one
     const head=document.createElement("button");
     head.className="chapter"+(whole.gold?" gold":""); head.style.top=y+"px"; head.style.setProperty("--p",`${whole.n?whole.done/whole.n*100:0}%`);
     head.append(mark("",l.name),count(whole),document.createElement("i")); head.title=`${l.name}: תורגלו ${whole.done} מתוך ${whole.n}`;
     if(go) head.onclick=()=>openCat(go);
-    else{   // a locked lesson: its banner leads back to the topic to do now
-      head.classList.add("locked"); head.setAttribute("aria-disabled","true"); head.title=`נעול: ${l.name}. קודם מסיימים את הנושאים שלפניו`; head.querySelector("small").prepend("🔒 ");
-      head.onclick=()=>{ const at=box.querySelector("[aria-current]"); if(at) at.scrollIntoView({block:"center",behavior:"smooth"}); };
-    }
     box.append(head);
     y+=64+86;   // the banner, room for the bubble, half a button
     const seat=(b,i)=>{   // a button's place on the road, and its label
@@ -2811,7 +2785,7 @@ function drawPath(stay){
         b.classList.add("video"); dot.textContent="▶\uFE0E"; if(seen) dot.before(mark("badge","✓"));
         label.append(mark("",v.title,"b"),mark("",seen?"✓ נצפה":"סרטון","small")); b.append(label);
         b.title=`סרטון: ${v.title}`; b.setAttribute("aria-label",b.title);
-        b.onclick=()=>playVideo(v); if(shut[at]) lock(b,dot,v.title); box.append(b);
+        b.onclick=()=>playVideo(v); box.append(b);
         stops.push({x,y,went:seen,breakBefore:at===0}); y+=STEP; return;
       }
       const i=cats.indexOf(c), t=parts[i], cur=now&&i===todo, [b,dot]=ball(t,cur), [x,label]=seat(b,at);
@@ -2830,7 +2804,7 @@ function drawPath(stay){
       const did=c.write?"נכתבו":c.learn?"נלמדו":c.match?"הותאמו":"תורגלו";
       label.append(mine&&t.over?mark("","✓ שיעורי הבית הושלמו 🎉","small"):count(t,did)); b.append(label);
       b.title=(mine&&!t.over?`שיעורי בית, ${hw.msg}. `:"")+`${c.name}: ${did} ${t.done} מתוך ${t.n}`; b.setAttribute("aria-label",b.title);
-      b.onclick=()=>openCat(c); if(shut[at]) lock(b,dot,c.name); box.append(b);
+      b.onclick=()=>openCat(c); box.append(b);
       stops.push({x,y,went:t.over,cur,breakBefore:at===0}); y+=STEP;
     });
     const cup=document.createElement("div"), x=-SWAY[items.length%8]*amp;   // the lesson ends with the masbaha's ornamental finial
@@ -3717,7 +3691,7 @@ $("flagBtn").onclick=async()=>{
     const res=await api("/api/flags",{method:"POST",body:fd});
     if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error(e.detail||res.status); }
     const out=await res.json();
-    msg.textContent=out.audio?"נשמר למורה, עם ההקלטה. תודה!":"נשמר למורה, אבל בלי ההקלטה (אין מקום אחסון flags ב-Supabase).";
+    msg.textContent="האבחון נשמר למורה. קובץ הקול לא נשמר.";
     $("flagNote").disabled=true;   // one flag for a recording
     if(out.flag){ drawFlag(out.flag,out.audio); $("flagDlg").showModal(); }
   }catch(err){ msg.textContent="הדיווח לא נשמר: "+err.message; btn.disabled=false; }
@@ -3744,7 +3718,7 @@ function drawFlag(f,audio){
   fact("פונמות צפויות",mark("ipa",f.ipa)).className="ipa";
   fact("פונמות שנשמעו",mark("ipa",f.heard_ipa||"–")).className="ipa";
   if(f.note) fact("ההערה שלך",f.note);
-  fact("ההקלטה",audio?"נשמרה עם הדיווח":"לא נשמרה (אין מקום אחסון flags ב-Supabase)");
+  fact("פרטיות","קובץ הקול עובד לצורך האבחון ולא נשמר");
   fact("המודל",mark("ipa",f.model+(f.version?" · "+f.version:""))).className="ipa";
 }
 $("flagClose").onclick=()=>$("flagDlg").close();
@@ -3859,7 +3833,7 @@ async function bubbleOutcome(r,expired=false){
     if(cur.id!==id||home) return;
     const a=await answerAudio(id);
     if(cur.id!==id||home) return;
-    if(a) await playUrl(a.url,true); else await speakLocal(cur.ar,"ar");
+    if(a) await playUrl(a.url,true); else await speakLocal(cur.ar_pointed||cur.ar,"ar");
     await pause(80);
   }
   bubbleResolving=false;
@@ -4089,7 +4063,13 @@ function playUrl(url,answer){   // answer: the Arabic answer, played at the chos
 function speakLocal(text,lang){   // device voice, when the server could not speak
   return new Promise(res=>{
     if(!("speechSynthesis" in window)) return res();
-    const u=new SpeechSynthesisUtterance(text); u.lang=lang; if(lang==="ar") u.rate=answerRate(); u.onend=u.onerror=()=>res();
+    const u=new SpeechSynthesisUtterance(text);
+    if(lang==="ar"){
+      const v=arVoice();
+      if(v){ u.voice=v; u.lang=v.lang; } else u.lang="ar-PS";
+      u.rate=answerRate();
+    }else u.lang=lang;
+    u.onend=u.onerror=()=>res();
     speechSynthesis.cancel(); speechSynthesis.speak(u);
   });
 }
@@ -4233,7 +4213,7 @@ const ACCESS_COLUMNS=[
   {label:"מעבדה",kind:"roles",value:"developer",permission:"lab.access"},
   {label:"משחקים",kind:"entitlements",value:"games",permission:"games.use"},
   {label:"ספרייה דיגיטלית",kind:"entitlements",value:"library",permission:"library.view"},
-  {label:"דיווח תקלות",kind:"roles",value:"flagger",permission:"flags.create"},
+  {label:"דיווחי תקלות",kind:"roles",value:"flagger",permission:"flags.create"},
   {label:"יאללה נדבר",kind:"entitlements",value:"tutor",permission:"tutor.use"},
   {label:"מסלול",kind:"entitlements",value:"path",permission:"path.use"},
 ];
@@ -4254,31 +4234,58 @@ function drawAccess(){
   const note=mark("sub","כל עמודה היא הרשאה נפרדת. יאללה נדבר מופרד ממשחקים כי הוא משתמש בשירות API בתשלום. רק מפתחים יכולים לתת גישה למעבדה.","p"); box.append(note);
   if(ACCESS.migration){ const details=document.createElement("details"), summary=document.createElement("summary"), code=mark("",ACCESS.migration,"code"); summary.textContent="שדרוג טבלת הרשאות קיימת"; code.dir="ltr"; details.className="setup"; details.append(summary,code); box.append(details); }
   const scroll=mark("access-scroll",""), table=mark("access-table","","table"), head=document.createElement("thead"), hr=document.createElement("tr");
-  hr.append(mark("","משתמש","th")); for(const col of ACCESS_COLUMNS) hr.append(mark("",col.label,"th")); hr.append(mark("","","th")); head.append(hr); table.append(head);
+  const allFor=col=>[...table.querySelectorAll('tbody input[type="checkbox"]')].filter(x=>!x.disabled&&x.dataset.kind===col.kind&&x.value===col.value);
+  const syncAll=()=>{
+    for(const col of ACCESS_COLUMNS){
+      const master=head.querySelector(`input[data-kind="${col.kind}"][value="${col.value}"]`), inputs=allFor(col), marked=inputs.filter(x=>x.checked).length;
+      master.checked=!!inputs.length&&marked===inputs.length; master.indeterminate=marked>0&&marked<inputs.length; master.disabled=!inputs.length;
+    }
+  };
+  hr.append(mark("","משתמש","th"));
+  for(const col of ACCESS_COLUMNS){
+    const th=document.createElement("th"), label=mark("",col.label,"span"), all=document.createElement("input"), allLabel=mark("access-all","","label");
+    all.type="checkbox"; all.dataset.kind=col.kind; all.value=col.value; all.setAttribute("aria-label",`סימון כל המשתמשים: ${col.label}`); all.title=`סימון כל המשתמשים בעמודה ${col.label}`;
+    all.onchange=()=>{ for(const input of allFor(col)){ input.checked=all.checked; input.closest("tr").dataset.dirty="1"; } syncAll(); };
+    allLabel.append(all,mark("","הכול","small")); th.append(label,allLabel); hr.append(th);
+  }
+  hr.append(mark("","","th")); head.append(hr); table.append(head);
   const body=document.createElement("tbody");
+  const selected=(row,kind)=>[...row.querySelectorAll(`input[data-kind="${kind}"]:checked`)].map(x=>x.value);
+  const saveRow=async(row,user,save)=>{
+    const roles=[...(user.roles||[]).filter(x=>!["admin","developer","flagger"].includes(x)),...selected(row,"roles")], entitlements=selected(row,"entitlements");
+    if(!roles.length) roles.push("student");
+    save.disabled=true;
+    try{
+      const res=await api(`/api/access/users/${user.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({roles,entitlements})});
+      const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status);
+      user.roles=roles; user.entitlements=entitlements; delete row.dataset.dirty; save.disabled=false; return true;
+    }catch(e){ note.textContent="השמירה נכשלה: "+e.message; save.disabled=false; return false; }
+  };
   for(const user of ACCESS.users||[]){
-    const row=document.createElement("tr"), who=document.createElement("td"), email=mark("",user.email,"small"); email.dir="ltr"; who.append(user.name||user.email,email); row.append(who);
+    const row=document.createElement("tr"), who=document.createElement("td"), email=mark("",user.email,"small"), rowLocked=user.id===ACCESS.me||((user.fixed_roles||[]).includes("developer")&&!can("lab.access")); email.dir="ltr"; who.append(user.name||user.email,email); row.append(who);
     for(const col of ACCESS_COLUMNS){
       const td=document.createElement("td"), input=document.createElement("input"); input.type="checkbox"; input.dataset.kind=col.kind; input.value=col.value; input.checked=(user[col.kind]||[]).includes(col.value)||(user.permissions||[]).includes("*")||(user.permissions||[]).includes(col.permission);
       input.setAttribute("aria-label",`${col.label}: ${user.name||user.email}`);
-      input.disabled=user.id===ACCESS.me||(col.value==="developer"&&!can("lab.access"))||(user.fixed_roles||[]).includes(col.value);
+      input.disabled=rowLocked||(col.value==="developer"&&!can("lab.access"))||(user.fixed_roles||[]).includes(col.value);
+      input.onchange=()=>{ row.dataset.dirty="1"; syncAll(); };
       if((user.fixed_roles||[]).includes(col.value)) input.title="נקבע בהגדרות השרת"; td.append(input); row.append(td);
     }
-    const save=mark("btn primary","שמירה","button"), saveCell=mark("save-cell","","td"); saveCell.append(save); row.append(saveCell); save.disabled=user.id===ACCESS.me||((user.fixed_roles||[]).includes("developer")&&!can("lab.access"));
-    save.onclick=async()=>{
-      const selected=kind=>[...row.querySelectorAll(`input[data-kind="${kind}"]:checked`)].map(x=>x.value);
-      const roles=[...(user.roles||[]).filter(x=>!["admin","developer","flagger"].includes(x)),...selected("roles")];
-      if(!roles.length) roles.push("student");
-      save.disabled=true;
-      try{
-        const res=await api(`/api/access/users/${user.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({roles,entitlements:selected("entitlements")})});
-        const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status);
-        note.textContent=`ההרשאות של ${user.name||user.email} נשמרו.`; await loadAccess(); drawAccess();
-      }catch(e){ note.textContent="השמירה נכשלה: "+e.message; save.disabled=false; }
-    };
+    const save=mark("btn primary","שמירה","button"), saveCell=mark("save-cell","","td"); saveCell.append(save); row.append(saveCell); save.disabled=rowLocked;
+    save.onclick=async()=>{ if(await saveRow(row,user,save)) note.textContent=`ההרשאות של ${user.name||user.email} נשמרו.`; };
+    row._access={user,save};
     body.append(row);
   }
-  table.append(body); scroll.append(table); box.append(scroll);
+  const saveAll=mark("btn primary","שמירת כל השינויים","button"), actions=mark("access-actions","","div"); actions.append(saveAll);
+  saveAll.onclick=async()=>{
+    const rows=[...body.rows].filter(row=>row.dataset.dirty&&row._access);
+    if(!rows.length){ note.textContent="אין שינויים לשמור."; return; }
+    saveAll.disabled=true; let saved=0;
+    for(const row of rows){ const {user,save}=row._access; if(await saveRow(row,user,save)) saved++; }
+    saveAll.disabled=false; syncAll();
+    if(saved===rows.length) note.textContent=`נשמרו הרשאות עבור ${saved} משתמשים.`;
+    else note.textContent=`נשמרו ${saved} מתוך ${rows.length} משתמשים. בדקו את השורות שלא נשמרו.`;
+  };
+  table.append(body); syncAll(); scroll.append(table); box.append(actions,scroll);
 }
 function drawManage(){
   const classes=CLASS.classes||[];

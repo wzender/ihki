@@ -92,7 +92,6 @@ section{display:flex;flex-direction:column;gap:16px}
 .ball.now{border-color:var(--olive);color:var(--olive);box-shadow:0 0 0 6px var(--olive-soft)}
 .ball.done{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
 .ball.gold{background:var(--gold-bg);border-color:var(--gold);color:var(--gold)}
-.ball.locked{opacity:.6;font-size:18px}
 .ball.video{border-style:dashed;color:var(--olive)}
 .ball .badge{position:absolute;top:-4px;inset-inline-end:-4px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;background:var(--ok);color:#fff}
 .ball.gold .badge{background:var(--gold)}
@@ -253,7 +252,7 @@ a,button{-webkit-tap-highlight-color:transparent}
           <div class="stop L" style="left:calc(26% - 26px);top:304px"><div class="ball started now"><div class="tag">התחילו</div><span>3</span></div><div class="lbl">משפטים א׳<span class="chip read">ער׳ ← עב׳</span><small>תורגלו 4 מתוך 10</small></div></div>
           <div class="stop" style="right:calc(50% - 26px);top:392px"><div class="ball"><div class="tag hw">שיעורי בית<small>עוד יומיים</small></div>💬</div><div class="lbl">סיפור השוק<small>תורגלו 0 מתוך 12</small></div></div>
           <span class="n" style="top:468px;right:-25px">6</span>
-          <div class="stop" style="right:calc(26% - 26px);top:480px"><div class="ball locked">🔒</div><div class="lbl">כתיבת משפטים<small>נעול</small></div></div>
+          <div class="stop" style="right:calc(26% - 26px);top:480px"><div class="ball">✎&#xFE0E;</div><div class="lbl">כתיבת משפטים<small>נכתבו 0 מתוך 8</small></div></div>
         </div>
       </div>
       <ol class="key">
@@ -262,7 +261,7 @@ a,button{-webkit-tap-highlight-color:transparent}
         <li><span class="n">3</span><div><b>לשוניות</b><span class="d">המסלול, הספרייה הדיגיטלית (סרטונים וטקסטים) וחבר מביא חבר.</span></div></li>
         <li><span class="n">4</span><div><b>כותרת השיעור</b><span class="d">הפס מראה כמה מהשיעור תורגל. לחיצה עליה פותחת את הנושא הבא שעוד לא נגמר. בסוף כל שיעור יש גביע 🏆 שמזהיב כשהשיעור הושלם.</span></div></li>
         <li><span class="n">5</span><div><b>הנושא של עכשיו</b><span class="d">מסומן בהילה ובבועה „התחילו” או „המשך”. אם גללתם רחוק, הכפתור „חזרה לנושא הנוכחי” מחזיר אליו.</span></div></li>
-        <li><span class="n">6</span><div><b>נושאים נעולים</b><span class="d">נפתחים כשמתרגלים את כל המשפטים בנושאים שלפניהם. גם <b style="display:inline">מילים חדשות</b> ו<b style="display:inline">התאימו זוגות</b> נועלים את המשך השיעור עד שמסיימים אותם, אלא אם כבר התחלתם לתרגל את השיעור. נושא שהוא שיעורי בית פתוח תמיד, וסרטון או כתיבה לא נועלים את מה שאחריהם.</span></div></li>
+        <li><span class="n">6</span><div><b>כל הנושאים פתוחים</b><span class="d">אפשר לפתוח כל נושא בכל שיעור, גם בלי לסיים את מה שלפניו.</span></div></li>
       </ol>
     </div>
   </section>
@@ -278,7 +277,6 @@ a,button{-webkit-tap-highlight-color:transparent}
       <div class="state"><div class="ball started"><span>3</span></div><b>בתהליך</b><span>הטבעת מראה כמה כבר תורגל</span></div>
       <div class="state"><div class="ball done"><span class="badge">✓</span>2</div><b>הושלם</b><span>כל המשפטים נאמרו לפחות פעם אחת</span></div>
       <div class="state"><div class="ball gold"><span class="badge">★</span>1</div><b>זהב</b><span>כל המשפטים קיבלו „מצוין” (85 ומעלה)</span></div>
-      <div class="state"><div class="ball locked">🔒</div><b>נעול</b><span>קודם מסיימים את הנושאים שלפניו</span></div>
       <div class="state"><div class="ball" style="border-color:var(--amber);margin-top:22px"><div class="tag hw" style="font-size:10px">עוד 3 ימים</div>5</div><b>שיעורי בית</b><span>הבועה סופרת את הימים עד ההגשה</span></div>
     </div>
   </section>

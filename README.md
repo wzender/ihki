@@ -231,15 +231,15 @@ create table public.tutors (
 alter table public.tutors enable row level security;   -- no policy: only the secret key reads and writes it
 ```
 
-Under each score a teacher or a tutor gets an optional note and the button "🚩 אמרתי נכון, המערכת טעתה". Pressing it sends the recording to `POST /api/flags` (teachers and tutors only), which scores it again and keeps what describes the case in the table `flags`, written with `SUPABASE_SECRET_KEY`. A box then shows what was kept in words: the sentence, what the model heard, each word's score, the sounds that were marked down and what took their place, and whether the recording was stored. The row holds:
+Under each score a teacher or a tutor gets an optional note and the button "🚩 אמרתי נכון, המערכת טעתה". Pressing it sends the recording to `POST /api/flags` (teachers and tutors only), which scores it again in memory and then discards the audio. It keeps the structured diagnosis in the table `flags`, written with `SUPABASE_SECRET_KEY`: the sentence, what the model heard, each word's score, and the sounds that were marked down and what took their place. The row holds:
 
 - who and what: `email`, `cat`, `phrase`, `he`, `note`;
 - the answer the scorer matched (`ar`, `ipa`), its free decode (`heard_ipa`), `score` and `unrelated`;
 - `result`: the whole score response (every word and phoneme with its score and what took its place, the tips, the issues);
 - `model` and `version`, so a flag can be checked against the model and build that produced it;
-- `audio`: the recording's name in the private storage bucket `flags` (null when it could not be stored).
+- `audio`: always null for new reports; the nullable legacy column is retained so old reports with recordings remain readable.
 
-Create the table and the bucket once (until then a flag is refused with this command in the message):
+Create the table once (until then a flag is refused with this command in the message):
 
 ```sql
 create table public.flags (
@@ -257,7 +257,7 @@ create table public.flags (
   result     jsonb not null,     -- the whole score response
   model      text not null,
   version    text not null default '',
-  audio      text,               -- the recording's name in the storage bucket flags
+  audio      text,               -- legacy recordings only; new reports leave this null
   status     text not null default 'pending', -- pending, confirmed, rejected, or fixed
   category   text,
   reviewed_by text,
@@ -267,7 +267,6 @@ create table public.flags (
   created_at timestamptz not null default now()
 );
 alter table public.flags enable row level security;   -- no policy: only the secret key reads and writes it
-insert into storage.buckets (id, name) values ('flags', 'flags') on conflict (id) do nothing;
 ```
 
 For a `flags` table created before reviews were added, run once:
@@ -282,7 +281,7 @@ alter table public.flags
   add column if not exists false_issues jsonb not null default '[]'::jsonb;
 ```
 
-The management panel's **דיווחים** tab lets a teacher privately play the recording, confirm or reject each report, classify it, and select the individual sound judgements that were false. The recording is fetched through a teacher-only endpoint, so neither the private bucket nor its secret key is exposed to the browser. The tab also groups confirmed `expected → heard` pairs by reports, reporters, and phrases. Only confirmed reports should be used for calibration; the review and aggregation themselves use the stored result. As a flag says the sentence was said as written, `audio,ipa` of these rows is also training data in the format `train/finetune.py` reads (see "Fine-tuning").
+The management panel's **דיווחים** tab lets a teacher confirm or reject each report, classify it, and select the individual sound judgements that were false. It can still play a legacy recording when an older row has one, but new reports deliberately retain only diagnostics. The tab groups confirmed `expected → heard` pairs by reports, reporters, and phrases. Only confirmed reports should be used for calibration; review and aggregation use the stored structured result without needing the user's voice file.
 
 ### The lab (מעבדה)
 

@@ -708,7 +708,10 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             result.append({**account, "roles": sorted(roles & ROLES),
                            "entitlements": sorted(entitlements), "permissions": sorted(effective),
                            "fixed_roles": sorted(set(fixed))})
-        return {"users": result, "setup": "", "migration": MIGRATE_USER_ACCESS,
+        # A successful read cannot tell us which CHECK expression PostgreSQL has, and showing the
+        # migration unconditionally makes it look unfinished even after it was run.  If an old
+        # constraint rejects a newly selected entitlement, update_access returns the migration there.
+        return {"users": result, "setup": "", "migration": "",
                 "me": actor["id"] if actor else ""}
 
     @app.put("/api/access/users/{target_id}")
@@ -749,6 +752,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except AuthUnavailable as e:
             if "answered 404" in str(e):
                 raise HTTPException(503, f"permissions table is missing; run: {CREATE_USER_ACCESS}")
+            if any(mark in str(e).lower() for mark in ("valid_entitlements", "check constraint", "23514")):
+                raise HTTPException(409, f"permissions table needs upgrading; run: {MIGRATE_USER_ACCESS}")
             raise HTTPException(503, f"Supabase לא זמין: {e}")
         return {"ok": True}
 
@@ -1851,7 +1856,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         result = app.state.scorer.score(wav, phrase, [])
         if result.get("error"):
             raise HTTPException(400, result["message"])
-        return save_flag(phrase, result, data, audio.content_type, note, user)
+        return save_flag(phrase, result, note, user)
 
     def tutor_for(user: dict | None) -> Tutor:
         """The paid tutor game, after the tutor.use dependency authorized the account (or on an open service)."""
@@ -2023,10 +2028,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.post("/api/flags")
     def flag(phrase_id: int = Form(...), audio: UploadFile = File(...), note: str = Form(""),
              user: dict | None = Depends(signed_in)):
-        """A tutor's flag: this recording of the phrase was said right and the score was wrong. The recording is scored
-        again here, so what is kept is the scorer's own answer and not the page's copy of it: the row of `flags`
-        (see CREATE_FLAGS) and the recording beside it. {"ok", "audio": whether the recording was kept too, "flag": the
-        row that was kept, which the page shows the tutor}."""
+        """A tutor's flag: this recording of the phrase was said right and the score was wrong. It is scored again in
+        memory, then discarded. The structured diagnosis is kept in `flags`; the user's audio is not retained."""
         if not user or not user["tutor"]:
             raise HTTPException(403, "tutors only")
         phrase = phrase_of(phrase_id)
@@ -2041,25 +2044,22 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         result = app.state.scorer.score(wav, phrase, refs)
         if result.get("error"):
             raise HTTPException(400, result["message"])
-        return save_flag(phrase, result, data, audio.content_type, note, user)
+        return save_flag(phrase, result, note, user)
 
-    def save_flag(phrase: dict, result: dict, data: bytes, content_type: str | None,
-                  note: str, user: dict) -> dict:
+    def save_flag(phrase: dict, result: dict, note: str, user: dict) -> dict:
         """Store a reviewed-score candidate from a bank phrase or a dynamic verb-game phrase."""
-        mime = (content_type or "application/octet-stream").lower()
-        ext = AUDIO_EXT.get(mime.partition(";")[0].strip().rpartition("/")[2], "bin")
         row = {"email": user["email"].lower(), "cat": phrase["cat"], "phrase": phrase.get("key", phrase["he"]),
                "he": phrase["he"], "ar": result["variant"]["ar"], "ipa": result["variant"]["ipa"],
                "heard_ipa": result["heard_ipa"], "score": result["score"], "unrelated": bool(result["unrelated"]),
                "note": " ".join(note.split())[:MAX_NOTE], "result": result, "model": MODEL_ID, "version": build_version()}
         try:
-            kept = app.state.auth.add_flag(row, data, mime, f"{date.today():%Y-%m}/{uuid.uuid4().hex}.{ext}")
+            app.state.auth.add_flag(row)
         except AuthUnavailable as e:
             if "answered 404" in str(e):
                 raise HTTPException(503, "הטבלה flags לא קיימת ב-Supabase. הריצו ב-SQL Editor: "
                                          f"{CREATE_FLAGS} אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
             raise HTTPException(503, f"Supabase לא זמין: {e}")
-        return {"ok": True, "audio": kept, "flag": row}
+        return {"ok": True, "audio": False, "flag": row}
 
     return app
 

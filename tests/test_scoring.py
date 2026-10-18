@@ -1714,24 +1714,21 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         def texts(self, fresh=False):
             return []
 
-        def add_flag(self, row, audio, mime, name):
+        def add_flag(self, row):
             if not self.table:
                 raise AuthUnavailable("supabase answered 404: no table")
-            self.flags.append((row, audio, mime, name))
-            return True
+            self.flags.append(row)
 
         def list_flags(self, status="pending"):
             if status != "pending":
                 return []
-            return [{"id": i + 1, **row, "status": status} for i, (row, _, __, ___) in enumerate(self.flags)]
+            return [{"id": i + 1, **row, "status": status} for i, row in enumerate(self.flags)]
 
         def review_flag(self, flag_id, values):
             self.review = (flag_id, values)
 
         def flag_audio(self, flag_id):
-            if flag_id < 1 or flag_id > len(self.flags):
-                return None
-            return self.flags[flag_id - 1][1], self.flags[flag_id - 1][2]
+            return None
 
         def calibrations(self, status=None):
             return [r for r in self.calibration_rows if not status or r["status"] == status]
@@ -1780,12 +1777,11 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         assert c.post("/api/flags", data={"phrase_id": pid}, files={"audio": ("rec", b"x", "audio/wav")}).status_code == 401
         assert send(c, "s").status_code == 403 and not a.flags   # tutors only
         r = send(c, "t", note="  אמרתי  ח נכונה ")
-        (row, audio, mime, name), = a.flags
-        assert r.status_code == 200 and r.json() == {"ok": True, "audio": True, "flag": row}, r.text   # the page shows what was kept
+        row, = a.flags
+        assert r.status_code == 200 and r.json() == {"ok": True, "audio": False, "flag": row}, r.text
         assert row["email"] == "t@b.c" and row["cat"] == TOILET["cat"] and row["he"] == TOILET["he"] and row["note"] == "אמרתי ח נכונה"
         assert row["ipa"] == "w eː n | i l ħ a m m aː m" and "χ" in row["heard_ipa"] and row["score"] == row["result"]["score"] < 100
         assert row["result"]["tips"][0]["key"] == "ħ>x" and "phoneme_heatmap" not in row["result"]
-        assert audio == buf.getvalue() and mime == "audio/wav" and re.fullmatch(r"\d{4}-\d\d/[0-9a-f]{32}\.wav", name)
         assert send(c, "t", phrase_id=10**6).status_code == 404
         a.teachers = frozenset({"s@b.c"})   # a teacher flags too
         assert c.get("/api/me", headers={"Authorization": "Bearer s"}).json()["tutor"] is True and send(c, "s").status_code == 200
@@ -1793,7 +1789,7 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         listed = c.get("/api/flags", headers=hs)
         assert listed.status_code == 200 and len(listed.json()["flags"]) == 2
         played = c.get("/api/flags/1/audio", headers=hs)
-        assert played.status_code == 200 and played.content == buf.getvalue() and played.headers["content-type"] == "audio/wav"
+        assert played.status_code == 404   # reports keep diagnostics, not the user's voice recording
         assert c.get("/api/flags/999/audio", headers=hs).status_code == 404
         review = c.put("/api/flags/1", headers=hs, json={"status": "confirmed", "category": "recognition",
                        "false_issues": [{"word": 1, "expected": "ħ", "heard": "χ"}], "review_note": "  תקין  "})

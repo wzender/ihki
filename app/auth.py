@@ -492,13 +492,9 @@ class SupabaseAuth:
             media_type = mimetypes.guess_type(name)[0] or media_type
         return data, media_type
 
-    def add_flag(self, row: dict, audio: bytes, mime: str, name: str) -> bool:
-        """Keeps a flagged score: the recording in the storage bucket `flags` under `name`, and the row in the table
-        `flags` with that name as its `audio`. A recording that cannot be stored is logged and the row is kept
-        without it (`audio` null); False tells that. A row that cannot be kept is raised."""
-        kept = self._put_object("flags", name, audio, mime)
-        self._admin("/rest/v1/flags", "POST", {**row, "audio": name if kept else None})
-        return kept
+    def add_flag(self, row: dict) -> None:
+        """Keeps the structured diagnosis of a flagged score, without retaining the user's recording."""
+        self._admin("/rest/v1/flags", "POST", {**row, "audio": None})
 
     def list_flags(self, status: str = "pending") -> list[dict]:
         """Flagged scores for the teacher's review, newest first."""
