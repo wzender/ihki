@@ -521,10 +521,17 @@ class SupabaseAuth:
         name = rows[0].get("audio") if rows else None
         return self._get_object("flags", name) if name else None
 
-    def add_lab_sample(self, row: dict, audio: bytes, mime: str, name: str) -> bool:
+    def add_lab_sample(self, row: dict, audio: bytes, mime: str, name: str, attempts: int = 1) -> bool:
         """Keeps a lab recording (see lab.py): the recording in the storage bucket `lab`, the row in the table
-        `lab_samples`. As with a flag, a recording that cannot be stored leaves the row without it (False)."""
-        kept = self._put_object("lab", name, audio, mime)
+        `lab_samples`. As with a flag, a recording that cannot be stored leaves the row without it (False).
+        `attempts` retries the upload (a bulk import outlives the storage's transient 5xx errors)."""
+        kept = False
+        for attempt in range(max(1, attempts)):
+            if attempt:
+                time.sleep(2 * attempt)
+            kept = self._put_object("lab", name, audio, mime)
+            if kept:
+                break
         self._admin("/rest/v1/lab_samples", "POST", {**row, "audio": name if kept else None}, prefer="return=minimal")
         return kept
 

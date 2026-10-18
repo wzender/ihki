@@ -805,6 +805,7 @@ body.lab #wrap{max-width:none}
 .learn-drive{display:flex;align-items:center;gap:5px;color:var(--olive)}
 .learn-drive.on{background:var(--sumac);border-color:var(--sumac);color:#fff}
 #learnDriveStatus{display:block;min-height:1.4em;margin:8px 0 0;text-align:center;color:var(--olive);font:600 14px/1.4 var(--f-body)}
+#learnDlg.learn-driving :is(#learnReveal,#learnActs1,#learnActs2){display:none}
 .lprog{display:flex;justify-content:space-between;gap:8px;font:600 14px/1.2 var(--f-body);color:var(--muted);margin-top:4px}
 .lbar{display:flex;gap:3px;margin:6px 0 12px}
 .lbar i{flex:1;height:8px;border-radius:4px;background:var(--line)}
@@ -2589,6 +2590,7 @@ const learnDriveControls=["learnReveal","learnShow","learnAgain","learnKnow","le
 function stopLearnDrive(){
   if(!learnDriving) return;
   learnDriving=false; learnDriveRun++;
+  $("learnDlg").classList.remove("learn-driving");
   $("learnDrive").classList.remove("on"); $("learnDrive").setAttribute("aria-pressed","false");
   $("learnDrive").querySelector("use").setAttribute("href","#i-car"); $("learnDrive").querySelector("span").textContent="מצב נסיעה";
   for(const id of learnDriveControls) $(id).disabled=false;
@@ -2599,15 +2601,17 @@ function stopLearnDrive(){
 async function runLearnDrive(){
   const run=++learnDriveRun, on=()=>learnDriving&&run===learnDriveRun&&learning&&$("learnDlg").open;
   while(on()&&learning.queue.length){
-    const id=learning.queue[0], p=phraseOf(id);
-    $("learnDriveStatus").textContent="הקשיבו למילה בערבית";
-    const a=await answerAudio(id); if(!on()) break;
+    const id=learning.queue[0], p=phraseOf(id), answer=answerAudio(id);
+    $("learnBack").hidden=true;
+    $("learnDriveStatus").textContent="הקשיבו למילה בעברית";
+    await sayHe(speakable(p.he_say||p.he)); if(!on()) break;
+    $("learnDriveStatus").textContent="נסו להיזכר בערבית";
+    await pause(1100); if(!on()) break;
+    setTr($("learnTr"),p.tr); $("learnAr").textContent=p.ar_pointed||p.ar; $("learnBack").hidden=false;
+    $("learnDriveStatus").textContent="התשובה בערבית";
+    const a=await answer; if(!on()) break;
     if(a) await playUrl(a.url,true); else await speakLocal(p.ar_pointed||p.ar,"ar");
     if(!on()) break;
-    $("learnDriveStatus").textContent="נסו להיזכר בתרגום";
-    await pause(1100); if(!on()) break;
-    $("learnDriveStatus").textContent="התרגום בעברית";
-    await sayHe(speakable(p.he_say||p.he)); if(!on()) break;
     await pause(800); if(!on()) break;
     if(learning.queue[0]===id) learnMark(true);
   }
@@ -2618,6 +2622,7 @@ $("learnDrive").onclick=async()=>{
   if(learnDriving){ stopLearnDrive(); $("learnDriveStatus").textContent="מצב הנסיעה נעצר"; return; }
   if(!learning||!learning.queue.length) return;
   unlockPlayback(); learnDriving=true;
+  $("learnDlg").classList.add("learn-driving");
   $("learnDrive").classList.add("on"); $("learnDrive").setAttribute("aria-pressed","true");
   $("learnDrive").querySelector("use").setAttribute("href","#i-stop"); $("learnDrive").querySelector("span").textContent="עצירה";
   for(const id of learnDriveControls) $(id).disabled=true;

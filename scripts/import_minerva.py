@@ -137,7 +137,7 @@ def main() -> int:
                "heard_ipa": result["heard_ipa"], "flagged": lab.flagged_sounds(result), "result": result,
                "model": model, "version": build_version()}
         name = f"{date.today():%Y-%m}/minerva-{video['id']}-{segment['line']:02d}-{uuid.uuid4().hex}.wav"
-        if not auth.add_lab_sample(row, data, "audio/wav", name):
+        if not auth.add_lab_sample(row, data, "audio/wav", name, attempts=4):
             raise RuntimeError(f"{item}: row saved but audio upload failed; stop before creating more incomplete rows")
         saved += 1
         print(f"[{n}/{total}] saved {item}: {result['score']}")
