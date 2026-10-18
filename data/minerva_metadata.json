@@ -25487,5 +25487,2512 @@
         "expected_phonemes": "u t uː t a | t uː t a | x i l sˤ a t | i l ħ a d uː t e"
       }
     ]
+  },
+  {
+    "file_name": "כוחה של הכנסת אורחים ＊ קֻוֶתֶ א-דִיָאפֶה ＊ قوّة الضّيافة ＊ סיפור בערבית מדוברת [9g1B1s3NL1A].webm",
+    "youtube_id": "9g1B1s3NL1A",
+    "title_hebrew": "כוחה של הכנסת אורחים",
+    "segments": [
+      {
+        "voice_time_seconds": {
+          "start": 0.4,
+          "end": 5.6
+        },
+        "arabic": "قوّة الضّيافة",
+        "hebrew_transliteration": "קֻוֶּת אִ-דִّיַאפֶה",
+        "hebrew": "כוחה של הכנסת אורחים",
+        "expected_phonemes": "ʔ u w e t | ʔ i d d i j aː f e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 6.4,
+          "end": 9.8
+        },
+        "arabic": "مرّة كان فيه خنفسة صغيرة.",
+        "hebrew_transliteration": "מַרַّה כַּאן פִיה חֻ'נפֻסֶה זְעִ'ירֶה.",
+        "hebrew": "פעם הייתה חיפושית קטנה.",
+        "expected_phonemes": "m a r r a | k aː n | f iː h | x u n f u s e | z ɣ iː r e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 9.8,
+          "end": 13.6
+        },
+        "arabic": "كلّ يوم كانت خنفسة تلفلف في الحقول،",
+        "hebrew_transliteration": "כֻּלّ יוֹם כַּאנַת חֻ'נפֻסֶה תְלַפלֶף פִי לְ-חֻקוּל,",
+        "hebrew": "כל יום החיפושית הסתובבה בשדות,",
+        "expected_phonemes": "k u l l | j oː m | k aː n a t | x u n f u s e | t l a f l e f | f i | l ħ u ʔ uː l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 13.6,
+          "end": 18.2
+        },
+        "arabic": "تركض من هون لهناك، ومن هناك لهون،",
+        "hebrew_transliteration": "תֻרכֹּד' מִן הוֹן לַהֻנַאכּ, וּמִן הֻנַאכּ לַהוֹן,",
+        "hebrew": "רצה מכאן לשם, ומשם לכאן,",
+        "expected_phonemes": "t u r k o dˤ | m i n | h oː n | l a h u n aː k | u m i n | h u n aː k | l a h oː n"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 18.2,
+          "end": 21.6
+        },
+        "arabic": "بتلمّ أكل وبتجيبه على بيتها.",
+        "hebrew_transliteration": "בִּתלֻםّ אַכֶּל וּבִּתגִ'יבּוֹ עַלַא בֵּיתְהַא.",
+        "hebrew": "אוספת אוכל ומביאה אותו לביתה.",
+        "expected_phonemes": "b i t l u m m | ʔ a k e l | u b i t dʒ iː b o | ʕ a l a | b eː t h a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 21.6,
+          "end": 25.2
+        },
+        "arabic": "هيك كانت تعمل طول فصل الصّيف.",
+        "hebrew_transliteration": "הֵיכּ כַּאנַת תַעמַל טוּל פַצֶל אִ-צֵּיף.",
+        "hebrew": "כך עשתה כל הקיץ.",
+        "expected_phonemes": "h eː k | k aː n a t | t a ʕ m a l | tˤ uː l | f a sˤ e l | ʔ i sˤ eː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 25.2,
+          "end": 27.4
+        },
+        "arabic": "بواحد من هالصّبحيّات،",
+        "hebrew_transliteration": "בְּוַאחַד מִן הַ-צֻּבְחִיַّאת,",
+        "hebrew": "באחד הבקרים,",
+        "expected_phonemes": "b w aː ħ a d | m i n | h a sˤ u b ħ i j j aː t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 27.4,
+          "end": 30.2
+        },
+        "arabic": "سمعت صوت غريب على شبّاكها.",
+        "hebrew_transliteration": "סִמעַת צוֹת עַ'רִיבּ עַלַא שֻבַּّאכְּהַא.",
+        "hebrew": "שמעה קול מוזר על החלון שלה.",
+        "expected_phonemes": "s i m ʕ a t | sˤ oː t | ɣ a r iː b | ʕ a l a | ʃ u b b aː k h a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 30.2,
+          "end": 33.6
+        },
+        "arabic": "تيپ توپ، تيپ توپ...",
+        "hebrew_transliteration": "טִיפ טוּפ, טִיפ טוּפ...",
+        "hebrew": "טיפ טופ, טיפ טופ...",
+        "expected_phonemes": "tˤ iː f | tˤ uː f | tˤ iː f | tˤ uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 33.6,
+          "end": 36.0
+        },
+        "arabic": "فتحت خنفسة الشّبّاك،",
+        "hebrew_transliteration": "פַתחַת חֻ'נפֻסֶה שֻּׁבַّאכּ,",
+        "hebrew": "החיפושית פתחה את החלון,",
+        "expected_phonemes": "f a t ħ a t | x u n f u s e | ʃ u b b aː k"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 36.0,
+          "end": 38.2
+        },
+        "arabic": "زاحت البرداي – وهوپ!",
+        "hebrew_transliteration": "זַאחַת לְ-בֻּרדַאי – וּהוֹפּ!",
+        "hebrew": "הזיזה את הווילון – והופ!",
+        "expected_phonemes": "z aː ħ a t | l b u r d aː i | u h oː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 38.2,
+          "end": 41.2
+        },
+        "arabic": "شو هاد؟ شو شافت؟",
+        "hebrew_transliteration": "שוּ הַאד? שוּ שַאפַת?",
+        "hebrew": "מה זה? מה ראתה?",
+        "expected_phonemes": "ʃ u | h aː d | ʃ u | ʃ aː f a t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 41.2,
+          "end": 45.2
+        },
+        "arabic": "ميّ عم تنزل من السّما – شتا!",
+        "hebrew_transliteration": "מַיّ עַם-תִנזַל מִן סַּמַא – שִתַא!",
+        "hebrew": "מים יורדים מהשמיים – גשם!",
+        "expected_phonemes": "m a j j | ʕ a m t i n z a l | m i n | s a m a | ʃ i t a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 45.2,
+          "end": 49.4
+        },
+        "arabic": "«طيّب»، قالت الخنفسة، «أجا فصل الشّتا.»",
+        "hebrew_transliteration": "טַיֶّבּ, קַאלַת לְ-חֻ'נפֻסֶה, אַגַ'א פַצֶל שִּׁתַא.",
+        "hebrew": "טוב, אמרה החיפושית, הגיע החורף.",
+        "expected_phonemes": "tˤ a j j e b | ʔ aː l a t | l x u n f u s e | ʔ a dʒ a | f a sˤ e l | ʃ i t a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 49.4,
+          "end": 53.0
+        },
+        "arabic": "طلّعت الجرزاي من الخزانة،",
+        "hebrew_transliteration": "טַלַّעַת לְ-גַ'רזַאי מִן לְ-חַ'זַאנֶה,",
+        "hebrew": "הוציאה את הסוודר מהארון,",
+        "expected_phonemes": "tˤ a l l a ʕ a t | l dʒ a r z aː i | m i n | l x a z aː n e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 53.0,
+          "end": 57.6
+        },
+        "arabic": "ضوّت الفرن وقعدت تتدفّى قبال النّار.",
+        "hebrew_transliteration": "דַוַّת לְ-פֻרֶן וּקַעדַת תִתדַפַّא קְבַּאל נַּאר.",
+        "hebrew": "הדליקה את התנור וישבה להתחמם מול האש.",
+        "expected_phonemes": "d a w w a t | l f u r e n | u ʔ a ʕ d a t | t i t d a f f a | ʔ b aː l | n aː r"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 57.6,
+          "end": 59.4
+        },
+        "arabic": "خنفسة كانت قاعدة،",
+        "hebrew_transliteration": "חֻ'נפֻסֶה כַּאנַת קַאעְדֶה,",
+        "hebrew": "החיפושית ישבה,",
+        "expected_phonemes": "x u n f u s e | k aː n a t | ʔ aː ʕ d e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 59.4,
+          "end": 64.0
+        },
+        "arabic": "وصارت تفكّر، وفجأة، شو هاد؟",
+        "hebrew_transliteration": "וּצַארַת תְפַכַּר, וּפַגְ'אַה, שוּ הַאד?",
+        "hebrew": "והתחילה לחשוב, ופתאום, מה זה?",
+        "expected_phonemes": "u sˤ aː r a t | t f a k a r | u f a dʒ ʔ a | ʃ u | h aː d"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 64.0,
+          "end": 68.2
+        },
+        "arabic": "تهيّأ إلها إنها سمعت حدا بدقّ على الباب.",
+        "hebrew_transliteration": "תְהַיַّא אִלְהַא אִנְّהַא סִמעַת חַדַא בִּידֻקّ עַלַא לְ-בַּאבּ.",
+        "hebrew": "נדמה לה ששמעה מישהו דופק בדלת.",
+        "expected_phonemes": "t h a j j a | i l h a | ʔ i n n h a | s i m ʕ a t | ħ a d a | b iː d u ʔ ʔ | ʕ a l a | l b aː b"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 68.2,
+          "end": 72.4
+        },
+        "arabic": "نسطت منيح، وعنجد فيه حدا بدقّ.",
+        "hebrew_transliteration": "נַסטַת מְנִיח, וּעַנגַ'ד פִיה חַדַא בִּידֻקّ.",
+        "hebrew": "הקשיבה היטב, ובאמת מישהו דופק.",
+        "expected_phonemes": "n a s tˤ a t | m n iː ħ | u ʕ a n dʒ a d | f iː h | ħ a d a | b iː d u ʔ ʔ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 72.4,
+          "end": 75.0
+        },
+        "arabic": "«مين؟» سألت خنفسة.",
+        "hebrew_transliteration": "מִין? סַאַלַת חֻ'נפֻסֶה.",
+        "hebrew": "מי? שאלה החיפושית.",
+        "expected_phonemes": "m iː n | s a ʔ a l a t | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 75.0,
+          "end": 77.0
+        },
+        "arabic": "«هاي أنا، فارة!»",
+        "hebrew_transliteration": "הַאי אַנַא, פַארַה!",
+        "hebrew": "זו אני, עכברה!",
+        "expected_phonemes": "h aː i | ʔ a n a | f aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 77.0,
+          "end": 79.0
+        },
+        "arabic": "«شو بدّك يا فارة؟»",
+        "hebrew_transliteration": "שוּ בַּדֶّכּ יַא פַארַה?",
+        "hebrew": "מה את רוצה, עכברה?",
+        "expected_phonemes": "ʃ u | b a d d e k | j a | f aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 79.0,
+          "end": 81.6
+        },
+        "arabic": "فارة قالت: «أنا بردانة!",
+        "hebrew_transliteration": "פַארַה קַאלַת: אַנַא בַּרדַאנֶה!",
+        "hebrew": "העכברה אמרה: קר לי!",
+        "expected_phonemes": "f aː r a | ʔ aː l a t | ʔ a n a | b a r d aː n e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 81.6,
+          "end": 85.2
+        },
+        "arabic": "الدّنيا عم بتشتّي، كلّ فروتي مبلولة.",
+        "hebrew_transliteration": "אִ-דֻּנְיַא עַם-בִּתשַתִّי, כֻּלّ פַרוִתִי מַבְּלוּלֶה.",
+        "hebrew": "יורד גשם, כל הפרווה שלי רטובה.",
+        "expected_phonemes": "ʔ i d u n j a | ʕ a m b i t ʃ a t t i | k u l l | f a r w i t i | m a b l uː l e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 85.2,
+          "end": 88.8
+        },
+        "arabic": "إعملي معروف، فوّتيني لبيتك.»",
+        "hebrew_transliteration": "אִעמַלִי מַערוּף, פַוְّתִינִי לַבֵּיתֶכּ.",
+        "hebrew": "עשי טובה, הכניסי אותי לביתך.",
+        "expected_phonemes": "ʔ i ʕ m a l i | m a ʕ r uː f | f a w w t iː n i | l a b eː t e k"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 88.8,
+          "end": 91.0
+        },
+        "arabic": "خنفسة جاوبت وقالت:",
+        "hebrew_transliteration": "חֻ'נפֻסֶה גַ'אוַבַּת וּקַאלַת:",
+        "hebrew": "החיפושית ענתה ואמרה:",
+        "expected_phonemes": "x u n f u s e | dʒ aː w a b a t | u ʔ aː l a t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 91.0,
+          "end": 94.6
+        },
+        "arabic": "«فارة حبيبتي، كان بفوّتك بكلّ سرور،",
+        "hebrew_transliteration": "פַארַה חַבִּיבְּתִי, כַּאן בַּפַוְּתֶכּ בְּכֻלّ סֻרוּר,",
+        "hebrew": "עכברה יקירתי, הייתי מכניסה אותך בשמחה רבה,",
+        "expected_phonemes": "f aː r a | ħ a b iː b t i | k aː n | b a f a w t e k | b k u l l | s u r uː r"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 94.6,
+          "end": 96.2
+        },
+        "arabic": "بسّ بنفعش.",
+        "hebrew_transliteration": "בַּס בִּנפַעֶש.",
+        "hebrew": "אבל אי אפשר.",
+        "expected_phonemes": "b a s | b i n f a ʕ e ʃ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 96.2,
+          "end": 98.4
+        },
+        "arabic": "كيف ممكن فارة كبيرة متلك",
+        "hebrew_transliteration": "כִּיף מֻמכֶּן פַארַה כְּבִּירֶה מִתלֶכּ",
+        "hebrew": "איך יכולה עכברה גדולה כמוך",
+        "expected_phonemes": "k iː f | m u m k e n | f aː r a | k b iː r e | m i t l e k"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 98.4,
+          "end": 100.8
+        },
+        "arabic": "تفوت على عشّ الخنفسة؟»",
+        "hebrew_transliteration": "תְפוּת עַלַא עֻשّ לְ-חֻ'נפֻסֶה?",
+        "hebrew": "להיכנס לקן של החיפושית?",
+        "expected_phonemes": "t f uː t | ʕ a l a | ʕ u ʃ ʃ | l x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 100.8,
+          "end": 104.6
+        },
+        "arabic": "«خلّيني أجرّب،» قالت فارة، «بلكي قدرت.»",
+        "hebrew_transliteration": "חַ'לִّינִי אַגַ'רֶّבּ, קַאלַת פַארַה, בַּלְכִּי קִדְרֶת.",
+        "hebrew": "תני לי לנסות, אמרה העכברה, אולי אצליח.",
+        "expected_phonemes": "x a l l iː n i | ʔ a dʒ a r r e b | ʔ aː l a t | f aː r a | b a l k i | ʔ i d r e t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 104.6,
+          "end": 107.2
+        },
+        "arabic": "«طيّب، جرّبي.»",
+        "hebrew_transliteration": "טַיֶّבּ, גַ'רְّבִּי.",
+        "hebrew": "טוב, נסי.",
+        "expected_phonemes": "tˤ a j j e b | dʒ a r r b i"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 107.2,
+          "end": 108.8
+        },
+        "arabic": "وفارة حاولت:",
+        "hebrew_transliteration": "וּפַארַה חַאוְלַת:",
+        "hebrew": "והעכברה ניסתה:",
+        "expected_phonemes": "u f aː r a | ħ aː w l a t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 108.8,
+          "end": 110.8
+        },
+        "arabic": "فوّتت إجر واحدة،",
+        "hebrew_transliteration": "פַוַّתַת אִגֶ'ר וַאחדֶה,",
+        "hebrew": "הכניסה רגל אחת,",
+        "expected_phonemes": "f a w w a t a t | ʔ i dʒ e r | w aː ħ d e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 110.8,
+          "end": 113.0
+        },
+        "arabic": "فوّتت الإجر الثّانية،",
+        "hebrew_transliteration": "פַוַّתַת לְ-אִגֶ'ר תַּאנְיֶה,",
+        "hebrew": "הכניסה את הרגל השנייה,",
+        "expected_phonemes": "f a w w a t a t | l ʔ i dʒ e r | t aː n j e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 113.0,
+          "end": 117.0
+        },
+        "arabic": "طوت ذنبها، قلّصت شواربها، وهوپ!",
+        "hebrew_transliteration": "טַוַّת דַנַבְּהַא, קַלַّצַת שַוַארְבְּהַא, וּהוֹפּ!",
+        "hebrew": "קיפלה את זנבה, כיווצה את שפמה, והופ!",
+        "expected_phonemes": "tˤ a w w a t | d a n a b h a | ʔ a l l a sˤ a t | ʃ a w aː r b h a | u h oː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 117.0,
+          "end": 121.6
+        },
+        "arabic": "وهيك بقلب العشّ قاعدات: خنفسة وفارة.",
+        "hebrew_transliteration": "וּהֵיכּ בְּקַלבּ לְ-עֻשّ קַאעְדַאת: חֻ'נפֻסֶה וּפַארַה.",
+        "hebrew": "וכך בתוך הקן יושבות: חיפושית ועכברה.",
+        "expected_phonemes": "u h eː k | b ʔ a l b | l ʕ u ʃ ʃ | ʔ aː ʕ d aː t | x u n f u s e | u f aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 121.6,
+          "end": 123.6
+        },
+        "arabic": "خنفسة وفارة قاعدات،",
+        "hebrew_transliteration": "חֻ'נפֻסֶה וּפַארַה קַאעְדַאת,",
+        "hebrew": "החיפושית והעכברה יושבות,",
+        "expected_phonemes": "x u n f u s e | u f aː r a | ʔ aː ʕ d aː t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 123.6,
+          "end": 127.2
+        },
+        "arabic": "بشربوا شاي وبحكوا عن هاد وهداك",
+        "hebrew_transliteration": "בִּישרַבּוּ שַאי וּבִּיחכּוּ עַן הַאד וּהַדַאכּ",
+        "hebrew": "שותות תה ומדברות על זה ועל זה",
+        "expected_phonemes": "b iː ʃ r a b u | ʃ aː j | u b iː ħ k u | ʕ a n | h aː d | u h a d aː k"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 127.2,
+          "end": 129.6
+        },
+        "arabic": "وبرّا الدّنيا عم بتشتّي:",
+        "hebrew_transliteration": "וּבַּרַّא אִ-דֻּנְיַא עַם-בִּתשַתִّי:",
+        "hebrew": "ובחוץ יורד גשם:",
+        "expected_phonemes": "u b a r r a | ʔ i d u n j a | ʕ a m b i t ʃ a t t i"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 129.6,
+          "end": 135.8
+        },
+        "arabic": "تيپ توپ، تيپ توپ، تيپ توپ!",
+        "hebrew_transliteration": "טִיפ טוּפ, טִיפ טוּפ, טִיפ טוּפ!",
+        "hebrew": "טיפ טופ, טיפ טופ, טיפ טופ!",
+        "expected_phonemes": "tˤ iː f | tˤ uː f | tˤ iː f | tˤ uː f | tˤ iː f | tˤ uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 135.8,
+          "end": 140.0
+        },
+        "arabic": "الشّتا عم بنزل وبقوى أكتر وأكتر",
+        "hebrew_transliteration": "אִ-שִּׁתַא עַם-בִּינזַל וּבִּיקוַא אַכְּתַר וּאַכְּתַר",
+        "hebrew": "הגשם יורד ומתחזק יותר ויותר",
+        "expected_phonemes": "ʔ i ʃ i t a | ʕ a m b iː n z a l | u b iː ʔ w a | ʔ a k t a r | u ʔ a k t a r"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 140.0,
+          "end": 141.8
+        },
+        "arabic": "والهوا عم بهبّ:",
+        "hebrew_transliteration": "וִל-הַוַא עַם-בִּיהֶבّ:",
+        "hebrew": "והרוח נושבת:",
+        "expected_phonemes": "w i l h a w a | ʕ a m b iː h e b b"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 141.8,
+          "end": 147.2
+        },
+        "arabic": "تيپ توپ، تيپ توپ، تيپي تيپي تيپي توپ!",
+        "hebrew_transliteration": "טִיפ טוּפ, טִיפ טוּפ, טִיפִּי טִיפִּי טִיפִּי טוּפ!",
+        "hebrew": "טיפ טופ, טיפ טופ, טיפי טיפי טיפי טופ!",
+        "expected_phonemes": "tˤ iː f | tˤ uː f | tˤ iː f | tˤ uː f | tˤ iː f i | tˤ iː f i | tˤ iː f i | tˤ uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 147.2,
+          "end": 149.4
+        },
+        "arabic": "وفجأة تهيّأ إلهم",
+        "hebrew_transliteration": "וּפַגְ'אַה תְהַיַّא אִלְהֹם",
+        "hebrew": "ופתאום נדמה להן",
+        "expected_phonemes": "u f a dʒ ʔ a | t h a j j a | i l h o m"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 149.4,
+          "end": 152.4
+        },
+        "arabic": "إنهم سمعوا صوت دقّ على الباب.",
+        "hebrew_transliteration": "אִנְّהֹם סִמעוּ צוֹת דַקّ עַלַא לְ-בַּאבּ.",
+        "hebrew": "ששמעו קול דפיקה בדלת.",
+        "expected_phonemes": "ʔ i n n h o m | s i m ʕ u | sˤ oː t | d a ʔ ʔ | ʕ a l a | l b aː b"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 152.4,
+          "end": 155.0
+        },
+        "arabic": "«مين؟» سألت خنفسة.",
+        "hebrew_transliteration": "מִין? סַאַלַת חֻ'נפֻסֶה.",
+        "hebrew": "מי? שאלה החיפושית.",
+        "expected_phonemes": "m iː n | s a ʔ a l a t | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 155.0,
+          "end": 157.6
+        },
+        "arabic": "«مين؟» سألت فارة.",
+        "hebrew_transliteration": "מִין? סַאַלַת פַארַה.",
+        "hebrew": "מי? שאלה העכברה.",
+        "expected_phonemes": "m iː n | s a ʔ a l a t | f aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 157.6,
+          "end": 160.6
+        },
+        "arabic": "«هاي أنا، جاجة أم نقّارة!»",
+        "hebrew_transliteration": "הַאי אַנַא, גַ'אגֶ'ת אֻםّ נַקַّארַה!",
+        "hebrew": "זו אני, התרנגולת אם נקארה!",
+        "expected_phonemes": "h aː i | ʔ a n a | dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 160.6,
+          "end": 163.4
+        },
+        "arabic": "«شو بدّك يا جاجة أم نقّارة؟»",
+        "hebrew_transliteration": "שוּ בַּדֶّכּ יַא גַ'אגֶ'ת אֻםّ נַקַّארַה?",
+        "hebrew": "מה את רוצה, תרנגולת אם נקארה?",
+        "expected_phonemes": "ʃ u | b a d d e k | j a | dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 163.4,
+          "end": 165.4
+        },
+        "arabic": "جاجة أم نقّارة قالت:",
+        "hebrew_transliteration": "גַ'אגֶ'ת אֻםّ נַקַّארַה קַאלַת:",
+        "hebrew": "התרנגולת אם נקארה אמרה:",
+        "expected_phonemes": "dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a | ʔ aː l a t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 165.4,
+          "end": 166.8
+        },
+        "arabic": "«أنا بردانة!",
+        "hebrew_transliteration": "אַנַא בַּרדַאנֶה!",
+        "hebrew": "קר לי!",
+        "expected_phonemes": "ʔ a n a | b a r d aː n e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 166.8,
+          "end": 170.6
+        },
+        "arabic": "الدّنيا عم بتشتّي، كلّ ريشاتي مبلولات.",
+        "hebrew_transliteration": "אִ-דֻּנְיַא עַם-בִּתשַתִّי, כֻּלّ רִישַאתִי מַבְּלוּלַאת.",
+        "hebrew": "יורד גשם, כל הנוצות שלי רטובות.",
+        "expected_phonemes": "ʔ i d u n j a | ʕ a m b i t ʃ a t t i | k u l l | r iː ʃ aː t i | m a b l uː l aː t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 170.6,
+          "end": 172.8
+        },
+        "arabic": "بلكي بقدر أفوت؟»",
+        "hebrew_transliteration": "בַּלְכִּי בַּקדַר אַפוּת?",
+        "hebrew": "אולי אוכל להיכנס?",
+        "expected_phonemes": "b a l k i | b a ʔ d a r | ʔ a f uː t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 172.8,
+          "end": 174.8
+        },
+        "arabic": "خنفسة جاوبت وقالت:",
+        "hebrew_transliteration": "חֻ'נפֻסֶה גַ'אוַבַּת וּקַאלַת:",
+        "hebrew": "החיפושית ענתה ואמרה:",
+        "expected_phonemes": "x u n f u s e | dʒ aː w a b a t | u ʔ aː l a t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 174.8,
+          "end": 177.8
+        },
+        "arabic": "«أنا كتير متأسّفة، سيّدة أم نقّارة،",
+        "hebrew_transliteration": "אַנַא כְּתִיר מִתאַסְّפֶה, סַיֶّדֶה אֻםّ נַקַّארַה,",
+        "hebrew": "אני מצטערת מאוד, גברת אם נקארה,",
+        "expected_phonemes": "ʔ a n a | k t iː r | m i t ʔ a s s f e | s a j j e d e | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 177.8,
+          "end": 180.0
+        },
+        "arabic": "كان بفوّتك بكلّ سرور،",
+        "hebrew_transliteration": "כַּאן בַּפַוְּתֶכּ בְּכֻלّ סֻרוּר,",
+        "hebrew": "הייתי מכניסה אותך בשמחה רבה,",
+        "expected_phonemes": "k aː n | b a f a w t e k | b k u l l | s u r uː r"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 180.0,
+          "end": 182.4
+        },
+        "arabic": "بسّ فش عندي محلّ.",
+        "hebrew_transliteration": "בַּס פִש עִנדִי מַחַלّ.",
+        "hebrew": "אבל אין לי מקום.",
+        "expected_phonemes": "b a s | f i ʃ | ʕ i n d i | m a ħ a l l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 182.4,
+          "end": 186.4
+        },
+        "arabic": "جاجة بعشّ خنفسة، هاد مش معقول!»",
+        "hebrew_transliteration": "גַ'אגֶ'ה בְּעֻשّ חֻ'נפֻסֶה, הַאד מִש מַעקוּל!",
+        "hebrew": "תרנגולת בקן של חיפושית, זה לא הגיוני!",
+        "expected_phonemes": "dʒ aː dʒ e | b ʕ u ʃ ʃ | x u n f u s e | h aː d | m i ʃ | m a ʕ ʔ uː l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 186.4,
+          "end": 189.0
+        },
+        "arabic": "«فش إشي بوقّف قدّام الإرادة،»",
+        "hebrew_transliteration": "פִש אִשִי בִּוַקֶّף קֻדַّאם לְ-אִרַאדֶה,",
+        "hebrew": "שום דבר לא עומד בפני הרצון,",
+        "expected_phonemes": "f i ʃ | ʔ i ʃ i | b i w a ʔ ʔ e f | ʔ u d d aː m | l ʔ i r aː d e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 189.0,
+          "end": 190.8
+        },
+        "arabic": "قالت جاجة أم نقّارة،",
+        "hebrew_transliteration": "קַאלַת גַ'אגֶ'ת אֻםّ נַקַّארַה,",
+        "hebrew": "אמרה התרנגולת אם נקארה,",
+        "expected_phonemes": "ʔ aː l a t | dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 190.8,
+          "end": 192.8
+        },
+        "arabic": "«خلّوني أجرّب.»",
+        "hebrew_transliteration": "חַלּוּנִי אַגַ'רֶّבּ.",
+        "hebrew": "תנו לי לנסות.",
+        "expected_phonemes": "ħ a l uː n i | ʔ a dʒ a r r e b"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 192.8,
+          "end": 194.8
+        },
+        "arabic": "«طيّب، جرّبي.»",
+        "hebrew_transliteration": "טַיֶّבּ, גַ'רְّבִּי.",
+        "hebrew": "טוב, נסי.",
+        "expected_phonemes": "tˤ a j j e b | dʒ a r r b i"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 194.8,
+          "end": 198.2
+        },
+        "arabic": "وجاجة أم نقّارة بتجرّب وبتحاول:",
+        "hebrew_transliteration": "וּגַ'אגֶ'ת אֻםّ נַקַّארַה בִּתגַ'רֶّבּ וּבִּתחַאוֶל:",
+        "hebrew": "והתרנגולת אם נקארה מנסה ומשתדלת:",
+        "expected_phonemes": "u dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a | b i t dʒ a r r e b | u b i t ħ aː w e l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 198.2,
+          "end": 201.6
+        },
+        "arabic": "بتطوي عرفها، بتكتّ تلت ريشات،",
+        "hebrew_transliteration": "בְּתִטוִי עֻרְפְהַא, בְּתְכֻּתّ תַלַת רִישַאת,",
+        "hebrew": "מקפלת את כרבולתה, משירה שלוש נוצות,",
+        "expected_phonemes": "b t i tˤ w i | ʕ u r f h a | b t k u t t | t a l a t | r iː ʃ aː t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 201.6,
+          "end": 204.6
+        },
+        "arabic": "بتدحش هون، بتضغط هناك،",
+        "hebrew_transliteration": "בְּתִדחַש הוֹן, בְּתִדְ'עַ'ט הֻנַאכּ,",
+        "hebrew": "נדחקת כאן, לוחצת שם,",
+        "expected_phonemes": "b t i d ħ a ʃ | h oː n | b t i dˤ ɣ a tˤ | h u n aː k"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 204.6,
+          "end": 209.2
+        },
+        "arabic": "بسّ النّهاي سعيدة – كلّ إشي منيح.",
+        "hebrew_transliteration": "בַּס נִּהַאי סַעִידֶה – כֻּלّ אִשִי מְנִיח.",
+        "hebrew": "אבל הסוף טוב – הכול בסדר.",
+        "expected_phonemes": "b a s | n i h aː i | s a ʕ iː d e | k u l l | ʔ i ʃ i | m n iː ħ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 209.2,
+          "end": 212.2
+        },
+        "arabic": "جاجة أم نقّارة قدرت تفوت.",
+        "hebrew_transliteration": "גַ'אגֶ'ת אֻםّ נַקַّארַה קִדְרַת תְפוּת.",
+        "hebrew": "התרנגולת אם נקארה הצליחה להיכנס.",
+        "expected_phonemes": "dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a | ʔ i d r a t | t f uː t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 212.2,
+          "end": 215.0
+        },
+        "arabic": "وبقلب العشّ قاعدين:",
+        "hebrew_transliteration": "וּבְּקַלבּ לְ-עֻשّ קַאעְדִין:",
+        "hebrew": "ובתוך הקן יושבות:",
+        "expected_phonemes": "u b ʔ a l b | l ʕ u ʃ ʃ | ʔ aː ʕ d iː n"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 215.0,
+          "end": 219.2
+        },
+        "arabic": "خنفسة وفارة وجاجة أم نقّارة!",
+        "hebrew_transliteration": "חֻ'נפֻסֶה וּפַארַה וּגַ'אגֶ'ת אֻםّ נַקַّארַה!",
+        "hebrew": "חיפושית ועכברה ותרנגולת אם נקארה!",
+        "expected_phonemes": "x u n f u s e | u f aː r a | u dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 219.2,
+          "end": 221.6
+        },
+        "arabic": "كمان مرّة! كلّنا سوا:",
+        "hebrew_transliteration": "כַּמַאן מַרַّה! כֻּלְّנַא סַוַא:",
+        "hebrew": "עוד פעם! כולנו יחד:",
+        "expected_phonemes": "k a m aː n | m a r r a | k u l l n a | s a w a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 221.6,
+          "end": 225.2
+        },
+        "arabic": "خنفسة وفارة وجاجة أم نقّارة!",
+        "hebrew_transliteration": "חֻ'נפֻסֶה וּפַארַה וּגַ'אגֶ'ת אֻםّ נַקַّארַה!",
+        "hebrew": "חיפושית ועכברה ותרנגולת אם נקארה!",
+        "expected_phonemes": "x u n f u s e | u f aː r a | u dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 225.2,
+          "end": 228.8
+        },
+        "arabic": "قاعدات خنفسة وفارة وجاجة أم نقّارة،",
+        "hebrew_transliteration": "קַאעְדַאת חֻ'נפֻסֶה וּפַארַה וּגַ'אגֶ'ת אֻםّ נַקַّארַה,",
+        "hebrew": "יושבות החיפושית והעכברה והתרנגולת אם נקארה,",
+        "expected_phonemes": "ʔ aː ʕ d aː t | x u n f u s e | u f aː r a | u dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 228.8,
+          "end": 231.6
+        },
+        "arabic": "قاعدات وبتدفّوا جنب الفرن.",
+        "hebrew_transliteration": "קַאעְדַאת וּבִּתדַפַّוּ גַ'נבּ לְ-פֻרֶן.",
+        "hebrew": "יושבות ומתחממות ליד התנור.",
+        "expected_phonemes": "ʔ aː ʕ d aː t | u b i t d a f f a w | dʒ a n b | l f u r e n"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 231.6,
+          "end": 233.0
+        },
+        "arabic": "فارة بتطبخ،",
+        "hebrew_transliteration": "פַארַה בְּתֻטבֻּחְ',",
+        "hebrew": "העכברה מבשלת,",
+        "expected_phonemes": "f aː r a | b t u tˤ b u x"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 233.0,
+          "end": 236.2
+        },
+        "arabic": "جاجة أم نقّارة بتقدّم الأكل للطّاولة،",
+        "hebrew_transliteration": "גַ'אגֶ'ת אֻםّ נַקַّארַה בִּתקַדֶّם לְ-אַכֶּל לַ-טַּאוְלֶה,",
+        "hebrew": "התרנגולת אם נקארה מגישה את האוכל לשולחן,",
+        "expected_phonemes": "dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a | b i t ʔ a d d e m | l ʔ a k e l | l a tˤ aː w l e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 236.2,
+          "end": 239.4
+        },
+        "arabic": "وكلّهن قاعدات يوكلوا مبسوطات.",
+        "hebrew_transliteration": "וּכֻּלְّהֶן קַאעְדַאת יוֹכְּלוּ מַבְּסוּטַאת.",
+        "hebrew": "וכולן יושבות ואוכלות בשמחה.",
+        "expected_phonemes": "u k u l l h e n | ʔ aː ʕ d aː t | j oː k l u | m a b s uː tˤ aː t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 239.4,
+          "end": 242.0
+        },
+        "arabic": "وبرّا الدّنيا عم بتشتّي:",
+        "hebrew_transliteration": "וּבַּרַّא אִ-דֻּנְיַא עַם-בִּתשַתִّי:",
+        "hebrew": "ובחוץ יורד גשם:",
+        "expected_phonemes": "u b a r r a | ʔ i d u n j a | ʕ a m b i t ʃ a t t i"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 242.0,
+          "end": 247.6
+        },
+        "arabic": "تيپ توپ، تيپ توپ، تيپي تيپي توپ!",
+        "hebrew_transliteration": "טִיפ טוּפ, טִיפ טוּפ, טִיפִּי טִיפִּי טוּפ!",
+        "hebrew": "טיפ טופ, טיפ טופ, טיפי טיפי טופ!",
+        "expected_phonemes": "tˤ iː f | tˤ uː f | tˤ iː f | tˤ uː f | tˤ iː f i | tˤ iː f i | tˤ uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 247.6,
+          "end": 250.8
+        },
+        "arabic": "وفجأة سمعوا صوت: بوم!",
+        "hebrew_transliteration": "וּפַגְ'אַה סִמעוּ צוֹת: בּוּם!",
+        "hebrew": "ופתאום שמעו קול: בום!",
+        "expected_phonemes": "u f a dʒ ʔ a | s i m ʕ u | sˤ oː t | b uː m"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 250.8,
+          "end": 253.6
+        },
+        "arabic": "وكمان مرّة: بوم! بوم!",
+        "hebrew_transliteration": "וּכַּמַאן מַרַّה: בּוּם! בּוּם!",
+        "hebrew": "ועוד פעם: בום! בום!",
+        "expected_phonemes": "u k a m aː n | m a r r a | b uː m | b uː m"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 253.6,
+          "end": 255.6
+        },
+        "arabic": "«شو هاد؟» سألت خنفسة.",
+        "hebrew_transliteration": "שוּ הַאד? סַאַלַת חֻ'נפֻסֶה.",
+        "hebrew": "מה זה? שאלה החיפושית.",
+        "expected_phonemes": "ʃ u | h aː d | s a ʔ a l a t | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 255.6,
+          "end": 257.8
+        },
+        "arabic": "«مين هناك؟» سألت فارة.",
+        "hebrew_transliteration": "מִין הֻנַאכּ? סַאַלַת פַארַה.",
+        "hebrew": "מי שם? שאלה העכברה.",
+        "expected_phonemes": "m iː n | h u n aː k | s a ʔ a l a t | f aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 257.8,
+          "end": 261.2
+        },
+        "arabic": "«شو هاي الأصوات؟» قالت جاجة أم نقّارة.",
+        "hebrew_transliteration": "שוּ הַאי לְ-אַצוַאת? קַאלַת גַ'אגֶ'ת אֻםّ נַקַّארַה.",
+        "hebrew": "מה הקולות האלה? אמרה התרנגולת אם נקארה.",
+        "expected_phonemes": "ʃ u | h aː i | l ʔ a sˤ w aː t | ʔ aː l a t | dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 261.2,
+          "end": 264.0
+        },
+        "arabic": "هدوء. فش جواب.",
+        "hebrew_transliteration": "הֻדוּא. פִש גַ'וַאבּ.",
+        "hebrew": "שקט. אין תשובה.",
+        "expected_phonemes": "h u d uː a | f i ʃ | dʒ a w aː b"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 264.0,
+          "end": 266.2
+        },
+        "arabic": "وفجأة كمان مرّة:",
+        "hebrew_transliteration": "וּפַגְ'אַה כַּמַאן מַרַّה:",
+        "hebrew": "ופתאום עוד פעם:",
+        "expected_phonemes": "u f a dʒ ʔ a | k a m aː n | m a r r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 266.2,
+          "end": 269.6
+        },
+        "arabic": "بوم! بو-بو-بو-بوم! بوم!",
+        "hebrew_transliteration": "בּוּם! בּוּ-בּוּ-בּוּ-בּוּם! בּוּם!",
+        "hebrew": "בום! בו-בו-בו-בום! בום!",
+        "expected_phonemes": "b uː m | b uː b uː b uː b uː m | b uː m"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 269.6,
+          "end": 272.8
+        },
+        "arabic": "خنفسة راحت لعند الشّبّاك،",
+        "hebrew_transliteration": "חֻ'נפֻסֶה רַאחַת לַעִנד שֻּׁבַּّאכּ,",
+        "hebrew": "החיפושית הלכה אל החלון,",
+        "expected_phonemes": "x u n f u s e | r aː ħ a t | l a ʕ i n d | ʃ u b b aː k"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 272.8,
+          "end": 276.0
+        },
+        "arabic": "زاحت البرداي، وشو شافت؟",
+        "hebrew_transliteration": "זַאחַת לְ-בֻּרדַאי, וּשוּ שַאפַת?",
+        "hebrew": "הזיזה את הווילון, ומה ראתה?",
+        "expected_phonemes": "z aː ħ a t | l b u r d aː i | u ʃ u | ʃ aː f a t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 276.0,
+          "end": 279.6
+        },
+        "arabic": "برد عم بنزل، وعم بضرب على الباب،",
+        "hebrew_transliteration": "בַּרַד עַם-בִּינזַל, וּעַם-בִּידְ'רֻבּ עַלַא לְ-בַּאבּ,",
+        "hebrew": "ברד יורד, ומכה על הדלת,",
+        "expected_phonemes": "b a r a d | ʕ a m b iː n z a l | u ʕ a m b iː dˤ r u b | ʕ a l a | l b aː b"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 279.6,
+          "end": 284.4
+        },
+        "arabic": "وبدوب على لتريس، بسّ جوّا دفا وعفا.",
+        "hebrew_transliteration": "וּבִּדוּבּ עַלַא לְ-תְרִיס, בַּס גֻ'וַّא דַפַא וּעַפַא.",
+        "hebrew": "ונמס על המרפסת, אבל בפנים חם ונעים.",
+        "expected_phonemes": "u b i d uː b | ʕ a l a | l t r iː s | b a s | dʒ u w w a | d a f a | u ʕ a f a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 284.4,
+          "end": 287.0
+        },
+        "arabic": "وفجأة، مع صوت البرد،",
+        "hebrew_transliteration": "וּפַגְ'אַה, מַע צוֹת לְ-בַּרַד,",
+        "hebrew": "ופתאום, עם קול הברד,",
+        "expected_phonemes": "u f a dʒ ʔ a | m a ʕ | sˤ oː t | l b a r a d"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 287.0,
+          "end": 289.8
+        },
+        "arabic": "بسمعوا صوت دقّ على الباب.",
+        "hebrew_transliteration": "בִּסמְעוּ צוֹת דַקّ עַלַא לְ-בַּאבּ.",
+        "hebrew": "שומעות קול דפיקה בדלת.",
+        "expected_phonemes": "b i s m ʕ u | sˤ oː t | d a ʔ ʔ | ʕ a l a | l b aː b"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 289.8,
+          "end": 293.2
+        },
+        "arabic": "«بتهيّألي حدا عم بدقّ!» قالت فارة.",
+        "hebrew_transliteration": "בִּתהַיַّאלִי חַדַא עַם-בִּדֻקّ! קַאלַת פַארַה.",
+        "hebrew": "נדמה לי שמישהו דופק! אמרה העכברה.",
+        "expected_phonemes": "b i t h a j j aː l i | ħ a d a | ʕ a m b i d u ʔ ʔ | ʔ aː l a t | f aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 293.2,
+          "end": 296.0
+        },
+        "arabic": "«مين هناك؟» سألت خنفسة.",
+        "hebrew_transliteration": "מִין הֻנַאכּ? סַאַלַת חֻ'נפֻסֶה.",
+        "hebrew": "מי שם? שאלה החיפושית.",
+        "expected_phonemes": "m iː n | h u n aː k | s a ʔ a l a t | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 296.0,
+          "end": 299.2
+        },
+        "arabic": "«مين هاد؟» قالت جاجة أم نقّارة.",
+        "hebrew_transliteration": "מִין הַאד? קַאלַת גַ'אגֶ'ת אֻםّ נַקַّארַה.",
+        "hebrew": "מי זה? אמרה התרנגולת אם נקארה.",
+        "expected_phonemes": "m iː n | h aː d | ʔ aː l a t | dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 299.2,
+          "end": 302.6
+        },
+        "arabic": "«هاد أنا، ديك أبو سحّارة!»",
+        "hebrew_transliteration": "הַאד אַנַא, דִיכּ אַבּוּ סַחַّארַה!",
+        "hebrew": "זה אני, התרנגול אבו סחארה!",
+        "expected_phonemes": "h aː d | ʔ a n a | d iː k | ʔ a b u | s a ħ ħ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 302.6,
+          "end": 306.6
+        },
+        "arabic": "«شو بدّك؟ ديك أبو سحّارة؟» سألت خنفسة.",
+        "hebrew_transliteration": "שוּ בַּדַّכּ, דִיכּ אַבּוּ סַחַّארַה? סַאַלַת חֻ'נפֻסֶה.",
+        "hebrew": "מה אתה רוצה, תרנגול אבו סחארה? שאלה החיפושית.",
+        "expected_phonemes": "ʃ u | b a d d a k | d iː k | ʔ a b u | s a ħ ħ aː r a | s a ʔ a l a t | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 306.6,
+          "end": 309.6
+        },
+        "arabic": "«سمعت إنّه مرتي موجودة هون.",
+        "hebrew_transliteration": "סִמִעֶת אִנּוֹ מַרְתִי מַוְגּ'וּדֶה הוֹן.",
+        "hebrew": "שמעתי שאשתי נמצאת כאן.",
+        "expected_phonemes": "s i m i ʕ e t | ʔ i n o | m a r t i | m a w dʒ uː d e | h oː n"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 309.6,
+          "end": 311.4
+        },
+        "arabic": "بدّي أنضمّلها.",
+        "hebrew_transliteration": "בַּדִّי אַנדַ'מַّ-לְהַא.",
+        "hebrew": "אני רוצה להצטרף אליה.",
+        "expected_phonemes": "b a d d i | ʔ a n dˤ a m m a l h a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 311.4,
+          "end": 314.8
+        },
+        "arabic": "أنا بردان، البرد عم بضرب على جسمي.",
+        "hebrew_transliteration": "אַנַא בַּרדַאן, אִל-בַּרַד עַם-בִּידְ'רֻבּ עַלַא גִ'סמִי.",
+        "hebrew": "קר לי, הברד מכה על גופי.",
+        "expected_phonemes": "ʔ a n a | b a r d aː n | i l b a r a d | ʕ a m b iː dˤ r u b | ʕ a l a | dʒ i s m i"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 314.8,
+          "end": 317.6
+        },
+        "arabic": "إعملوا معروف، خلّوني أفوت!»",
+        "hebrew_transliteration": "אִעמַלוּ מַערוּף, חַלּוּנִי אַפוּת!",
+        "hebrew": "עשו טובה, תנו לי להיכנס!",
+        "expected_phonemes": "ʔ i ʕ m a l u | m a ʕ r uː f | ħ a l uː n i | ʔ a f uː t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 317.6,
+          "end": 320.8
+        },
+        "arabic": "«بسّ يا ديك أبو سحّارة،» قالت خنفسة،",
+        "hebrew_transliteration": "בַּס יַא דִיכּ אַבּוּ סַחַّארַה, קַאלַת חֻ'נפֻסֶה,",
+        "hebrew": "אבל, תרנגול אבו סחארה, אמרה החיפושית,",
+        "expected_phonemes": "b a s | j a | d iː k | ʔ a b u | s a ħ ħ aː r a | ʔ aː l a t | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 320.8,
+          "end": 325.4
+        },
+        "arabic": "«كيف رح يقدر ديك، هالقدّ رائع وكبير،",
+        "hebrew_transliteration": "כִּיף רַח-יִקדַר דִיכּ, הַל-קַדّ רַאאֶע וּכְּבִּיר,",
+        "hebrew": "איך יוכל תרנגול, נהדר וגדול כל כך,",
+        "expected_phonemes": "k iː f | r a ħ j i ʔ d a r | d iː k | h a l ʔ a d d | r aː ʔ e ʕ | u k b iː r"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 325.4,
+          "end": 327.6
+        },
+        "arabic": "يفوت على عشّ الخنفسة؟",
+        "hebrew_transliteration": "יְפוּת עַלַא עֻשّ לְ-חֻ'נפֻסֶה?",
+        "hebrew": "להיכנס לקן של החיפושית?",
+        "expected_phonemes": "j f uː t | ʕ a l a | ʕ u ʃ ʃ | l x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 327.6,
+          "end": 330.2
+        },
+        "arabic": "عم تطلب إشي مستحيل!»",
+        "hebrew_transliteration": "עַם-תֻטלֹבּ אִשִי מֻסתַחִיל!",
+        "hebrew": "אתה מבקש דבר בלתי אפשרי!",
+        "expected_phonemes": "ʕ a m t u tˤ l o b | ʔ i ʃ i | m u s t a ħ iː l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 330.2,
+          "end": 332.8
+        },
+        "arabic": "«بحياتك،» قال ديك أبو سحّارة،",
+        "hebrew_transliteration": "בְּחַיַאתֶכּ, קַאל דִיכּ אַבּוּ סַחַّארַה,",
+        "hebrew": "בחייך, אמר התרנגול אבו סחארה,",
+        "expected_phonemes": "b ħ a j aː t e k | ʔ aː l | d iː k | ʔ a b u | s a ħ ħ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 332.8,
+          "end": 336.0
+        },
+        "arabic": "«إسمحيلي أفوت. برّا كتير برد.",
+        "hebrew_transliteration": "אִסמַחִילִי אַפוּת. בַּרַّא כְּתִיר בַּרְד.",
+        "hebrew": "הרשי לי להיכנס. בחוץ קר מאוד.",
+        "expected_phonemes": "ʔ i s m a ħ iː l i | ʔ a f uː t | b a r r a | k t iː r | b a r d"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 336.0,
+          "end": 337.8
+        },
+        "arabic": "إذا مش رح ألاقي ملجأ،",
+        "hebrew_transliteration": "אִזַא מִש רַח-אַלַאקִי מַלגַ'א,",
+        "hebrew": "אם לא אמצא מחסה,",
+        "expected_phonemes": "ʔ i z a | m i ʃ | r a ħ ʔ a l aː ʔ i | m a l dʒ a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 337.8,
+          "end": 339.6
+        },
+        "arabic": "رح أجمّد هون للموت.",
+        "hebrew_transliteration": "רַח-אַגַ'מֶّד הוֹן לַל-מוֹת.",
+        "hebrew": "אקפא כאן למוות.",
+        "expected_phonemes": "r a ħ ʔ a dʒ a m m e d | h oː n | l a l m oː t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 339.6,
+          "end": 341.6
+        },
+        "arabic": "خلّوني أحاول.»",
+        "hebrew_transliteration": "חַלּוּנִי אַחַאוֶל.",
+        "hebrew": "תנו לי לנסות.",
+        "expected_phonemes": "ħ a l uː n i | ʔ a ħ aː w e l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 341.6,
+          "end": 343.8
+        },
+        "arabic": "«طيّب،» قالت خنفسة،",
+        "hebrew_transliteration": "טַיֶّבּ, קַאלַת חֻ'נפֻסֶה,",
+        "hebrew": "טוב, אמרה החיפושית,",
+        "expected_phonemes": "tˤ a j j e b | ʔ aː l a t | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 343.8,
+          "end": 346.2
+        },
+        "arabic": "«إذا نجحت – تفضّل.»",
+        "hebrew_transliteration": "אִזַא נִגְ'חֶת – תְפַדַّל.",
+        "hebrew": "אם תצליח – בבקשה.",
+        "expected_phonemes": "ʔ i z a | n i dʒ ħ e t | t f a dˤ dˤ a l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 346.2,
+          "end": 348.8
+        },
+        "arabic": "وديك أبو سحّارة بحاول:",
+        "hebrew_transliteration": "וּדִיכּ אַבּוּ סַחַّארַה בִּחַאוֶל:",
+        "hebrew": "והתרנגול אבו סחארה מנסה:",
+        "expected_phonemes": "u d iː k | ʔ a b u | s a ħ ħ aː r a | b i ħ aː w e l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 348.8,
+          "end": 352.4
+        },
+        "arabic": "فوّت إجر واحدة، فوّت الإجر التّانية،",
+        "hebrew_transliteration": "פַוַّת אִגֶ'ר וַאחדֶה, פַוַّת לְ-אִגֶ'ר תַּאנְיֶה,",
+        "hebrew": "הכניס רגל אחת, הכניס את הרגל השנייה,",
+        "expected_phonemes": "f a w w a t | ʔ i dʒ e r | w aː ħ d e | f a w w a t | l ʔ i dʒ e r | t aː n j e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 352.4,
+          "end": 355.2
+        },
+        "arabic": "طوى عرفه، لفّ ذنبه،",
+        "hebrew_transliteration": "טַוַא עֻרְפוֹ, לַףّ דַנַבּוֹ,",
+        "hebrew": "קיפל את כרבולתו, גלגל את זנבו,",
+        "expected_phonemes": "tˤ a w a | ʕ u r f o | l a f f | d a n a b o"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 355.2,
+          "end": 357.8
+        },
+        "arabic": "كتّ تلت ريشات وإنحشر",
+        "hebrew_transliteration": "כַּתّ תַלַת רִישַאת וּאִנחַשַר",
+        "hebrew": "השיר שלוש נוצות ונדחק",
+        "expected_phonemes": "k a t t | t a l a t | r iː ʃ aː t | u ʔ i n ħ a ʃ a r"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 357.8,
+          "end": 361.4
+        },
+        "arabic": "و... هوپ! بقلب العشّ قاعدين –",
+        "hebrew_transliteration": "וּ... הוֹפּ! בְּקַלבּ לְ-עֻשّ קַאעְדִין –",
+        "hebrew": "ו... הופ! בתוך הקן יושבים –",
+        "expected_phonemes": "w | h oː f | b ʔ a l b | l ʕ u ʃ ʃ | ʔ aː ʕ d iː n"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 361.4,
+          "end": 364.6
+        },
+        "arabic": "الكلّ سوا معي:",
+        "hebrew_transliteration": "אִל-כֻּלّ סַוַא מַעִי:",
+        "hebrew": "כולם יחד איתי:",
+        "expected_phonemes": "i l k u l l | s a w a | m a ʕ i"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 364.6,
+          "end": 368.0
+        },
+        "arabic": "خنفسة وفارة وجاجة أم نقّارة",
+        "hebrew_transliteration": "חֻ'נפֻסֶה וּפַארַה וּגַ'אגֶ'ת אֻםّ נַקַّארַה",
+        "hebrew": "חיפושית ועכברה ותרנגולת אם נקארה",
+        "expected_phonemes": "x u n f u s e | u f aː r a | u dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 368.0,
+          "end": 370.2
+        },
+        "arabic": "وديك أبو سحّارة!",
+        "hebrew_transliteration": "וּדִיכּ אַבּוּ סַחַّארַה!",
+        "hebrew": "ותרנגול אבו סחארה!",
+        "expected_phonemes": "u d iː k | ʔ a b u | s a ħ ħ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 370.2,
+          "end": 373.2
+        },
+        "arabic": "كمان مرّة! غنّوا كلّكو معي:",
+        "hebrew_transliteration": "כַּמַאן מַרַّה! עַ'נּוּ כֻּלְّכּוּ מַעִי:",
+        "hebrew": "עוד פעם! שירו כולכם איתי:",
+        "expected_phonemes": "k a m aː n | m a r r a | ɣ a n u | k u l l k u | m a ʕ i"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 373.2,
+          "end": 376.6
+        },
+        "arabic": "خنفسة وفارة وجاجة أم نقّارة",
+        "hebrew_transliteration": "חֻ'נפֻסֶה וּפַארַה וּגַ'אגֶ'ת אֻםّ נַקַّארַה",
+        "hebrew": "חיפושית ועכברה ותרנגולת אם נקארה",
+        "expected_phonemes": "x u n f u s e | u f aː r a | u dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 376.6,
+          "end": 379.0
+        },
+        "arabic": "وديك أبو سحّارة!",
+        "hebrew_transliteration": "וּדִיכּ אַבּוּ סַחַّארַה!",
+        "hebrew": "ותרנגול אבו סחארה!",
+        "expected_phonemes": "u d iː k | ʔ a b u | s a ħ ħ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 379.0,
+          "end": 381.0
+        },
+        "arabic": "قاعدين خنفسة وفارة،",
+        "hebrew_transliteration": "קַאעְדִין חֻ'נפֻסֶה וּפַארַה,",
+        "hebrew": "יושבים החיפושית והעכברה,",
+        "expected_phonemes": "ʔ aː ʕ d iː n | x u n f u s e | u f aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 381.0,
+          "end": 384.2
+        },
+        "arabic": "وجاجة أم نقّارة وديك أبو سحّارة،",
+        "hebrew_transliteration": "וּגַ'אגֶ'ת אֻםّ נַקַّארַה וּדִיכּ אַבּוּ סַחַّארַה,",
+        "hebrew": "והתרנגולת אם נקארה והתרנגול אבו סחארה,",
+        "expected_phonemes": "u dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a | u d iː k | ʔ a b u | s a ħ ħ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 384.2,
+          "end": 387.4
+        },
+        "arabic": "بقلب العشّ، قاعدين وبتدفّوا.",
+        "hebrew_transliteration": "בְּקַלבּ לְ-עֻשّ, קַאעְדִין וּבִּתדַפּוּ.",
+        "hebrew": "בתוך הקן, יושבים ומתחממים.",
+        "expected_phonemes": "b ʔ a l b | l ʕ u ʃ ʃ | ʔ aː ʕ d iː n | u b i t d a f u"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 387.4,
+          "end": 389.0
+        },
+        "arabic": "فارة بتقرا كتاب،",
+        "hebrew_transliteration": "פַארַה בְּתִקרַא כְּתַאבּ,",
+        "hebrew": "העכברה קוראת ספר,",
+        "expected_phonemes": "f aː r a | b t i ʔ r a | k t aː b"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 389.0,
+          "end": 391.6
+        },
+        "arabic": "خنفسة بتحضر تلفزيون،",
+        "hebrew_transliteration": "חֻ'נפֻסֶה בְּתִחְדַ'ר תִלִפִזיוֹן,",
+        "hebrew": "החיפושית צופה בטלוויזיה,",
+        "expected_phonemes": "x u n f u s e | b t i ħ dˤ a r | t i l i f i z j oː n"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 391.6,
+          "end": 394.2
+        },
+        "arabic": "ديك أبو سحّارة ملزّق بمرته",
+        "hebrew_transliteration": "דִיכּ אַבּוּ סַחַّארַה מְלַזֶّק בְּמַרְתוֹ",
+        "hebrew": "התרנגול אבו סחארה צמוד לאשתו",
+        "expected_phonemes": "d iː k | ʔ a b u | s a ħ ħ aː r a | m l a z z e ʔ | b m a r t o"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 394.2,
+          "end": 396.8
+        },
+        "arabic": "والكلّ فرحان ومبسوط.",
+        "hebrew_transliteration": "וִל-כֻּלّ פַרחַאן וּמַבְּסוּט.",
+        "hebrew": "וכולם שמחים ומרוצים.",
+        "expected_phonemes": "w i l k u l l | f a r ħ aː n | u m a b s uː tˤ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 396.8,
+          "end": 399.4
+        },
+        "arabic": "وبرّا عم بنزل برد:",
+        "hebrew_transliteration": "וּבַּרַّא עַם-בִּינזַל בַּרַד:",
+        "hebrew": "ובחוץ יורד ברד:",
+        "expected_phonemes": "u b a r r a | ʕ a m b iː n z a l | b a r a d"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 399.4,
+          "end": 402.4
+        },
+        "arabic": "بوم بوم، بيلي بيلي بوم،",
+        "hebrew_transliteration": "בּוּם בּוּם, בִּילִי בִּילִי בּוּם,",
+        "hebrew": "בום בום, בילי בילי בום,",
+        "expected_phonemes": "b uː m | b uː m | b iː l i | b iː l i | b uː m"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 402.4,
+          "end": 405.6
+        },
+        "arabic": "بوم طراخ، طيخ طاخ!",
+        "hebrew_transliteration": "בּוּם טְרַאחַ', טִיחַ' טַאחַ'!",
+        "hebrew": "בום טראח', טיח' טאח'!",
+        "expected_phonemes": "b uː m | tˤ r aː x a | tˤ iː x a | tˤ aː x a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 405.6,
+          "end": 408.4
+        },
+        "arabic": "البرد عم بنزل وعم بقوى،",
+        "hebrew_transliteration": "אִל-בַּרַד עַם-בִּינזַל וּעַם-בִּיקוַא,",
+        "hebrew": "הברד יורד ומתחזק,",
+        "expected_phonemes": "i l b a r a d | ʕ a m b iː n z a l | u ʕ a m b iː ʔ w a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 408.4,
+          "end": 412.2
+        },
+        "arabic": "وبالقوّة صار الواحد قادر يحكي من الضّجّة،",
+        "hebrew_transliteration": "וּבִּל-קֻוֶּה צַאר לְ-וַאחַד קַאדֶר יִחכִּי מִן אִ-דַّ'גֶّה,",
+        "hebrew": "ובקושי אפשר לדבר מרוב הרעש,",
+        "expected_phonemes": "u b i l ʔ u w e | sˤ aː r | l w aː ħ a d | ʔ aː d e r | j i ħ k i | m i n | ʔ i dˤ dˤ a g g e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 412.2,
+          "end": 414.6
+        },
+        "arabic": "وفجأة – بقلب كلّ الضّجّة",
+        "hebrew_transliteration": "וּפַגְ'אַה – בְּקַלבּ כֻּלّ אִ-דַّ'גֶّה",
+        "hebrew": "ופתאום – בתוך כל הרעש",
+        "expected_phonemes": "u f a dʒ ʔ a | b ʔ a l b | k u l l | ʔ i dˤ dˤ a g g e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 414.6,
+          "end": 419.8
+        },
+        "arabic": "تهيّألهم عم بسمعوا صوت غريب برّا.",
+        "hebrew_transliteration": "תְהַיַّא-לְהֹם עַם-בִּסמְעוּ צוֹת עַ'רִיבּ בַּרַّא.",
+        "hebrew": "נדמה להם ששומעים קול מוזר בחוץ.",
+        "expected_phonemes": "t h a j j aː l h o m | ʕ a m b i s m ʕ u | sˤ oː t | ɣ a r iː b | b a r r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 419.8,
+          "end": 422.4
+        },
+        "arabic": "«مين هناك؟» سألت خنفسة.",
+        "hebrew_transliteration": "מִין הֻנַאכּ? סַאַלַת חֻ'נפֻסֶה.",
+        "hebrew": "מי שם? שאלה החיפושית.",
+        "expected_phonemes": "m iː n | h u n aː k | s a ʔ a l a t | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 422.4,
+          "end": 425.2
+        },
+        "arabic": "«شو ممكن يكون؟» قالت فارة.",
+        "hebrew_transliteration": "שוּ מֻמכֶּן יְכּוּן? קַאלַת פַארַה.",
+        "hebrew": "מה זה יכול להיות? אמרה העכברה.",
+        "expected_phonemes": "ʃ u | m u m k e n | j k uː n | ʔ aː l a t | f aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 425.2,
+          "end": 429.0
+        },
+        "arabic": "«بلكي لتريس زاح؟» قالت جاجة أم نقّارة.",
+        "hebrew_transliteration": "בַּלְכִּי לְ-תְרִיס זַאח? קַאלַת גַ'אגֶ'ת אֻםّ נַקַّארַה.",
+        "hebrew": "אולי המרפסת זזה? אמרה התרנגולת אם נקארה.",
+        "expected_phonemes": "b a l k i | l t r iː s | z aː ħ | ʔ aː l a t | dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 429.0,
+          "end": 432.6
+        },
+        "arabic": "«هاد أكيد الهوا!» قال ديك أبو سحّارة.",
+        "hebrew_transliteration": "הַאד אַכִּיד לְ-הַוַא! קַאל דִיכּ אַבּוּ סַחַّארַה.",
+        "hebrew": "זו בטח הרוח! אמר התרנגול אבו סחארה.",
+        "expected_phonemes": "h aː d | ʔ a k iː d | l h a w a | ʔ aː l | d iː k | ʔ a b u | s a ħ ħ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 432.6,
+          "end": 436.2
+        },
+        "arabic": "الكلّ رجع لشغله، بسّ بعد لحظة",
+        "hebrew_transliteration": "אִל-כֻּלّ רִגֶ'ע לַשֻעְ'לוֹ, בַּס בַּעֶד לַחזַה",
+        "hebrew": "כולם חזרו לעיסוקיהם, אבל אחרי רגע",
+        "expected_phonemes": "i l k u l l | r i dʒ e ʕ | l a ʃ u ɣ l o | b a s | b a ʕ e d | l a ħ ðˤ a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 436.2,
+          "end": 440.8
+        },
+        "arabic": "رجعوا سمعوا صوت غريب: مه، مهه...",
+        "hebrew_transliteration": "רִגְעוּ סִמעוּ צוֹת עַ'רִיבּ: מֶה, מֶהֶה...",
+        "hebrew": "שוב שמעו קול מוזר: מה, מהה...",
+        "expected_phonemes": "r i g ʕ u | s i m ʕ u | sˤ oː t | ɣ a r iː b | m e | m e h e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 440.8,
+          "end": 443.4
+        },
+        "arabic": "«مين هاد؟» قالت خنفسة.",
+        "hebrew_transliteration": "מִין הַאד? קַאלַת חֻ'נפֻסֶה.",
+        "hebrew": "מי זה? אמרה החיפושית.",
+        "expected_phonemes": "m iː n | h aː d | ʔ aː l a t | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 443.4,
+          "end": 445.6
+        },
+        "arabic": "«مين هناك؟» صرّخت فارة.",
+        "hebrew_transliteration": "מִין הֻנַאכּ? צַרַّחַת פַארַה.",
+        "hebrew": "מי שם? צעקה העכברה.",
+        "expected_phonemes": "m iː n | h u n aː k | sˤ a r r a ħ a t | f aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 445.6,
+          "end": 449.4
+        },
+        "arabic": "«حدا دقّ؟» سأل ديك أبو سحّارة.",
+        "hebrew_transliteration": "חַדַא דַקّ? סַאַל דִיכּ אַבּוּ סַחַّארַה.",
+        "hebrew": "מישהו דפק? שאל התרנגול אבו סחארה.",
+        "expected_phonemes": "ħ a d a | d a ʔ ʔ | s a ʔ a l | d iː k | ʔ a b u | s a ħ ħ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 449.4,
+          "end": 453.6
+        },
+        "arabic": "«بلكي نفتح ونشوف؟» إقترحت جاجة أم نقّارة.",
+        "hebrew_transliteration": "בַּלְכִּי נִפתַח וּנְשוּף? אִקתַרְחַת גַ'אגֶ'ת אֻםّ נַקַّארַה.",
+        "hebrew": "אולי נפתח ונראה? הציעה התרנגולת אם נקארה.",
+        "expected_phonemes": "b a l k i | n i f t a ħ | u n ʃ uː f | ʔ i ʔ t a r ħ a t | dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 453.6,
+          "end": 455.4
+        },
+        "arabic": "فتحوا الباب شويّ،",
+        "hebrew_transliteration": "פַתַחוּ לְ-בַּאבּ שְוַיّ,",
+        "hebrew": "פתחו את הדלת קצת,",
+        "expected_phonemes": "f a t a ħ u | l b aː b | ʃ w a j j"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 455.4,
+          "end": 459.4
+        },
+        "arabic": "وشافوا راس مليان شعر واقف برّا.",
+        "hebrew_transliteration": "וּשַאפוּ רַאס מַליַאן שַעַר וַאקֶף בַּרַّא.",
+        "hebrew": "וראו ראש מלא שיער עומד בחוץ.",
+        "expected_phonemes": "u ʃ aː f u | r aː s | m a l j aː n | ʃ a ʕ a r | w aː ʔ e f | b a r r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 459.4,
+          "end": 462.0
+        },
+        "arabic": "«مين إنت؟» سألت خنفسة.",
+        "hebrew_transliteration": "מִין אִנתֶ? סַאַלַת חֻ'נפֻסֶה.",
+        "hebrew": "מי אתה? שאלה החיפושית.",
+        "expected_phonemes": "m iː n | ʔ i n t e | s a ʔ a l a t | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 462.0,
+          "end": 464.6
+        },
+        "arabic": "«أنا خروف أبو صوف.»",
+        "hebrew_transliteration": "אַנַא חַ'רוּף אַבּוּ צוּף.",
+        "hebrew": "אני הכבש אבו צוף.",
+        "expected_phonemes": "ʔ a n a | x a r uː f | ʔ a b u | sˤ uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 464.6,
+          "end": 467.0
+        },
+        "arabic": "«شو بدّك، خروف أبو صوف؟»",
+        "hebrew_transliteration": "שוּ בַּדַّכּ, חַ'רוּף אַבּוּ צוּף?",
+        "hebrew": "מה אתה רוצה, כבש אבו צוף?",
+        "expected_phonemes": "ʃ u | b a d d a k | x a r uː f | ʔ a b u | sˤ uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 467.0,
+          "end": 470.0
+        },
+        "arabic": "«أنا بردان، عم برجّ من البرد.",
+        "hebrew_transliteration": "אַנַא בַּרדַאן, עַם-בַּרֻגّ מִן לְ-בַּרְד.",
+        "hebrew": "קר לי, אני רועד מקור.",
+        "expected_phonemes": "ʔ a n a | b a r d aː n | ʕ a m b a r u g g | m i n | l b a r d"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 470.0,
+          "end": 473.4
+        },
+        "arabic": "البرد عم بجلدني. خلّوني أفوت!»",
+        "hebrew_transliteration": "אִל-בַּרַד עַם-בִּיגַ'לְדְנִי. חַלּוּנִי אַפוּת!",
+        "hebrew": "הברד מצליף בי. תנו לי להיכנס!",
+        "expected_phonemes": "i l b a r a d | ʕ a m b iː dʒ a l d n i | ħ a l uː n i | ʔ a f uː t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 473.4,
+          "end": 475.8
+        },
+        "arabic": "«بسّ يا صاحبي، خروف أبو صوف،»",
+        "hebrew_transliteration": "בַּס יַא צַאחְבִּי, חַ'רוּף אַבּוּ צוּף,",
+        "hebrew": "אבל, ידידי, כבש אבו צוף,",
+        "expected_phonemes": "b a s | j a | sˤ aː ħ b i | x a r uː f | ʔ a b u | sˤ uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 475.8,
+          "end": 479.0
+        },
+        "arabic": "قالت خنفسة، «هاد مستحيل.",
+        "hebrew_transliteration": "קַאלַת חֻ'נפֻסֶה, הַאד מֻסתַחִיל.",
+        "hebrew": "אמרה החיפושית, זה בלתי אפשרי.",
+        "expected_phonemes": "ʔ aː l a t | x u n f u s e | h aː d | m u s t a ħ iː l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 479.0,
+          "end": 482.0
+        },
+        "arabic": "كيف حتّى بتفكّر بهيك فكرة:",
+        "hebrew_transliteration": "כִּיף חַתַّא בְּתְפַכַּר בְּהֵיכּ פִכּרַה:",
+        "hebrew": "איך אתה בכלל חושב על רעיון כזה:",
+        "expected_phonemes": "k iː f | ħ a t t a | b t f a k a r | b h eː k | f i k r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 482.0,
+          "end": 486.0
+        },
+        "arabic": "خروف بقلب عشّ خنفسة؟!»",
+        "hebrew_transliteration": "חַ'רוּף בְּקַלבּ עֻשّ חֻ'נפֻסֶה?!",
+        "hebrew": "כבש בתוך קן של חיפושית?!",
+        "expected_phonemes": "x a r uː f | b ʔ a l b | ʕ u ʃ ʃ | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 486.0,
+          "end": 489.6
+        },
+        "arabic": "«إذا الله أراد، كلّ شي ممكن يتحقّق.",
+        "hebrew_transliteration": "אִזַא אַללַّה אַרַאד, כֻּלّ שִי מֻמכֶּן יִתחַקַّק.",
+        "hebrew": "אם אלוהים ירצה, הכול יכול להתגשם.",
+        "expected_phonemes": "ʔ i z a | ʔ a l l a | ʔ a r aː d | k u l l | ʃ i | m u m k e n | j i t ħ a ʔ ʔ a ʔ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 489.6,
+          "end": 492.6
+        },
+        "arabic": "إعملي معروف، خلّيني أفوت!»",
+        "hebrew_transliteration": "אִעמַלִי מַערוּף, חַלִّינִי אַפוּת!",
+        "hebrew": "עשי טובה, תני לי להיכנס!",
+        "expected_phonemes": "ʔ i ʕ m a l i | m a ʕ r uː f | ħ a l l iː n i | ʔ a f uː t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 492.6,
+          "end": 496.0
+        },
+        "arabic": "«هاد مستحيل،» قالت خنفسة،",
+        "hebrew_transliteration": "הַאד מֻסתַחִיל, קַאלַת חֻ'נפֻסֶה,",
+        "hebrew": "זה בלתי אפשרי, אמרה החיפושית,",
+        "expected_phonemes": "h aː d | m u s t a ħ iː l | ʔ aː l a t | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 496.0,
+          "end": 497.8
+        },
+        "arabic": "«إذا بدّك، حاول،",
+        "hebrew_transliteration": "אִזַא בַּדַّכּ, חַאוֶל,",
+        "hebrew": "אם אתה רוצה, נסה,",
+        "expected_phonemes": "ʔ i z a | b a d d a k | ħ aː w e l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 497.8,
+          "end": 501.4
+        },
+        "arabic": "بسّ أنا متأكّدة إنّك مش رح تنجح.»",
+        "hebrew_transliteration": "בַּס אַנַא מִתאַכְּדֶה אִנַّכּ מִש רַח-תִנגַ'ח.",
+        "hebrew": "אבל אני בטוחה שלא תצליח.",
+        "expected_phonemes": "b a s | ʔ a n a | m i t ʔ a k d e | ʔ i n n a k | m i ʃ | r a ħ t i n dʒ a ħ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 501.4,
+          "end": 506.4
+        },
+        "arabic": "«طيّب.» خروف أبو صوف فوّت طرف إجر،",
+        "hebrew_transliteration": "טַיֶّבּ. חַ'רוּף אַבּוּ צוּף פַוַّת טַרַף אִגֶ'ר,",
+        "hebrew": "טוב. הכבש אבו צוף הכניס קצה רגל,",
+        "expected_phonemes": "tˤ a j j e b | x a r uː f | ʔ a b u | sˤ uː f | f a w w a t | tˤ a r a f | ʔ i dʒ e r"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 506.4,
+          "end": 511.4
+        },
+        "arabic": "فوّت طرف دان، طوى ذنبه، إندحش وإنضغط",
+        "hebrew_transliteration": "פַוַّת טַרַף דַאן, טַוַא דַנַבּוֹ, אִנדַחַש וּאִנדַ'עַ'ט",
+        "hebrew": "הכניס קצה אוזן, קיפל את זנבו, נדחק ונלחץ",
+        "expected_phonemes": "f a w w a t | tˤ a r a f | d aː n | tˤ a w a | d a n a b o | ʔ i n d a ħ a ʃ | u ʔ i n dˤ a ɣ a tˤ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 511.4,
+          "end": 516.2
+        },
+        "arabic": "– مش عم بنجح بولا أي شكل من الأشكال.",
+        "hebrew_transliteration": "– מִש עַם-בִּינגַ'ח בּוּלַא אַיّ שַכֶּל מִן לְ-אַשכַּאל.",
+        "hebrew": "– לא מצליח בשום צורה.",
+        "expected_phonemes": "m i ʃ | ʕ a m b iː n dʒ a ħ | b uː l a | ʔ a j j | ʃ a k e l | m i n | l ʔ a ʃ k aː l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 516.2,
+          "end": 520.0
+        },
+        "arabic": "«إسمع منّي،» قالّه ديك أبو سحّارة،",
+        "hebrew_transliteration": "אִסמַע מִנִّי, קַאל-לוֹ דִיכּ אַבּוּ סַחַّארַה,",
+        "hebrew": "שמע ממני, אמר לו התרנגול אבו סחארה,",
+        "expected_phonemes": "ʔ i s m a ʕ | m i n n i | ʔ aː l l o | d iː k | ʔ a b u | s a ħ ħ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 520.0,
+          "end": 525.0
+        },
+        "arabic": "«بلكي ترجع أكمّ متر لورا عشان تجمّع قوّة؟»",
+        "hebrew_transliteration": "בַּלְכִּי תִרגַ'ע אַכַּם מִתֶר לַוַרַא עַשַאן תְגַ'מֶّע קֻוֶّה?",
+        "hebrew": "אולי תחזור כמה מטרים אחורה כדי לאסוף כוח?",
+        "expected_phonemes": "b a l k i | t i r dʒ a ʕ | ʔ a k a m | m i t e r | l a w a r a | ʕ a ʃ aː n | t dʒ a m m e ʕ | ʔ u w w e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 525.0,
+          "end": 528.2
+        },
+        "arabic": "«هاي فكرة!» قال خروف أبو صوف.",
+        "hebrew_transliteration": "הַאי פִכּרַה! קַאל חַ'רוּף אַבּוּ צוּף.",
+        "hebrew": "זה רעיון! אמר הכבש אבו צוף.",
+        "expected_phonemes": "h aː i | f i k r a | ʔ aː l | x a r uː f | ʔ a b u | sˤ uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 528.2,
+          "end": 533.6
+        },
+        "arabic": "خطا أكمّ خطوة لورا، ركض، ركض، ركض.",
+        "hebrew_transliteration": "חַ'טַא אַכַּם חֻ'טוֶה לַוַרַא, רַכַּד', רַכַּד', רַכַּד'.",
+        "hebrew": "צעד כמה צעדים אחורה, רץ, רץ, רץ.",
+        "expected_phonemes": "x a tˤ a | ʔ a k a m | x u tˤ w e | l a w a r a | r a k a dˤ | r a k a dˤ | r a k a dˤ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 533.6,
+          "end": 536.6
+        },
+        "arabic": "بوم! طراخ! كلّ العشّ رجّ،",
+        "hebrew_transliteration": "בּוּם! טְרַאחַ'! כֻּלّ לְ-עֻשّ רַגّ,",
+        "hebrew": "בום! טראח'! כל הקן רעד,",
+        "expected_phonemes": "b uː m | tˤ r aː x a | k u l l | l ʕ u ʃ ʃ | r a g g"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 536.6,
+          "end": 540.4
+        },
+        "arabic": "وهوپا! – بقلب العشّ قاعدين –",
+        "hebrew_transliteration": "וּהוֹפַּה! – בְּקַלבּ לְ-עֻשّ קַאעְדִין –",
+        "hebrew": "והופה! – בתוך הקן יושבים –",
+        "expected_phonemes": "u h oː f a | b ʔ a l b | l ʕ u ʃ ʃ | ʔ aː ʕ d iː n"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 540.4,
+          "end": 542.8
+        },
+        "arabic": "الكلّ يغنّي معي:",
+        "hebrew_transliteration": "אִל-כֻּלّ יְעַ'נִّי מַעִי:",
+        "hebrew": "כולם שרים איתי:",
+        "expected_phonemes": "i l k u l l | j ɣ a n n i | m a ʕ i"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 542.8,
+          "end": 546.2
+        },
+        "arabic": "خنفسة وفارة وجاجة أم نقّارة،",
+        "hebrew_transliteration": "חֻ'נפֻסֶה וּפַארַה וּגַ'אגֶ'ת אֻםّ נַקַّארַה,",
+        "hebrew": "חיפושית ועכברה ותרנגולת אם נקארה,",
+        "expected_phonemes": "x u n f u s e | u f aː r a | u dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 546.2,
+          "end": 549.8
+        },
+        "arabic": "وديك أبو سحّارة، خروف أبو صوف!",
+        "hebrew_transliteration": "וּדִיכּ אַבּוּ סַחַّארַה, חַ'רוּף אַבּוּ צוּף!",
+        "hebrew": "ותרנגול אבו סחארה, כבש אבו צוף!",
+        "expected_phonemes": "u d iː k | ʔ a b u | s a ħ ħ aː r a | x a r uː f | ʔ a b u | sˤ uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 549.8,
+          "end": 552.0
+        },
+        "arabic": "كمان مرّة، أعلى!",
+        "hebrew_transliteration": "כַּמַאן מַרַّה, אַעלַא!",
+        "hebrew": "עוד פעם, חזק יותר!",
+        "expected_phonemes": "k a m aː n | m a r r a | ʔ a ʕ l a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 552.0,
+          "end": 555.4
+        },
+        "arabic": "خنفسة وفارة وجاجة أم نقّارة",
+        "hebrew_transliteration": "חֻ'נפֻסֶה וּפַארַה וּגַ'אגֶ'ת אֻםّ נַקַّארַה",
+        "hebrew": "חיפושית ועכברה ותרנגולת אם נקארה",
+        "expected_phonemes": "x u n f u s e | u f aː r a | u dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 555.4,
+          "end": 559.4
+        },
+        "arabic": "وديك أبو سحّارة، خروف أبو صوف!",
+        "hebrew_transliteration": "וּדִיכּ אַבּוּ סַחַّארַה, חַ'רוּף אַבּוּ צוּף!",
+        "hebrew": "ותרנגול אבו סחארה, כבש אבו צוף!",
+        "expected_phonemes": "u d iː k | ʔ a b u | s a ħ ħ aː r a | x a r uː f | ʔ a b u | sˤ uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 559.4,
+          "end": 561.4
+        },
+        "arabic": "قاعدين خنفسة وفارة",
+        "hebrew_transliteration": "קַאעְדִין חֻ'נפֻסֶה וּפַארַה",
+        "hebrew": "יושבים החיפושית והעכברה",
+        "expected_phonemes": "ʔ aː ʕ d iː n | x u n f u s e | u f aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 561.4,
+          "end": 565.2
+        },
+        "arabic": "وجاجة أم نقّارة وديك أبو سحّارة",
+        "hebrew_transliteration": "וּגַ'אגֶ'ת אֻםّ נַקַّארַה וּדִיכּ אַבּוּ סַחַّארַה",
+        "hebrew": "והתרנגולת אם נקארה והתרנגול אבו סחארה",
+        "expected_phonemes": "u dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a | u d iː k | ʔ a b u | s a ħ ħ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 565.2,
+          "end": 567.2
+        },
+        "arabic": "مع خروف أبو صوف،",
+        "hebrew_transliteration": "מַע חַ'רוּף אַבּוּ צוּף,",
+        "hebrew": "עם הכבש אבו צוף,",
+        "expected_phonemes": "m a ʕ | x a r uː f | ʔ a b u | sˤ uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 567.2,
+          "end": 570.2
+        },
+        "arabic": "قاعدين بحكوا وبشربوا شاي،",
+        "hebrew_transliteration": "קַאעְדִין בִּחכּוּ וּבִּשרַבּוּ שַאי,",
+        "hebrew": "יושבים, מדברים ושותים תה,",
+        "expected_phonemes": "ʔ aː ʕ d iː n | b i ħ k u | u b i ʃ r a b u | ʃ aː j"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 570.2,
+          "end": 572.6
+        },
+        "arabic": "والبرد عم بنزل برّا:",
+        "hebrew_transliteration": "וִל-בַּרַד עַם-בִּינזַל בַּרַّא:",
+        "hebrew": "והברד יורד בחוץ:",
+        "expected_phonemes": "w i l b a r a d | ʕ a m b iː n z a l | b a r r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 572.6,
+          "end": 576.8
+        },
+        "arabic": "بوم طراخ، طيخ طاخ!",
+        "hebrew_transliteration": "בּוּם טְרַאחַ', טִיחַ' טַאחַ'!",
+        "hebrew": "בום טראח', טיח' טאח'!",
+        "expected_phonemes": "b uː m | tˤ r aː x a | tˤ iː x a | tˤ aː x a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 576.8,
+          "end": 581.8
+        },
+        "arabic": "بنزل من دون توقّف. وفجأة – هدوء!",
+        "hebrew_transliteration": "בִּינזַל מִן דוּן תוַקֻّף. וּפַגְ'אַה – הֻדוּא!",
+        "hebrew": "יורד בלי הפסקה. ופתאום – שקט!",
+        "expected_phonemes": "b iː n z a l | m i n | d uː n | t w a ʔ ʔ u f | u f a dʒ ʔ a | h u d uː a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 581.8,
+          "end": 585.4
+        },
+        "arabic": "البرد وقّف، الهوا بطّل يهبّ",
+        "hebrew_transliteration": "אִל-בַּרַד וַקַّף, אִל-הַוַא בַּטַّל יְהֶבّ",
+        "hebrew": "הברד פסק, הרוח חדלה לנשוב",
+        "expected_phonemes": "i l b a r a d | w a ʔ ʔ a f | i l h a w a | b a tˤ tˤ a l | j h e b b"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 585.4,
+          "end": 589.6
+        },
+        "arabic": "وبقلب الهدوء سمعوا فجأة صوت غريب:",
+        "hebrew_transliteration": "וּבְּקַלבּ לְ-הֻדוּא סִמעוּ פַגְ'אַה צוֹת עַ'רִיבּ:",
+        "hebrew": "ובתוך השקט שמעו פתאום קול מוזר:",
+        "expected_phonemes": "u b ʔ a l b | l h u d uː a | s i m ʕ u | f a dʒ ʔ a | sˤ oː t | ɣ a r iː b"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 594.2,
+          "end": 596.8
+        },
+        "arabic": "«شو هاد؟» سألت خنفسة.",
+        "hebrew_transliteration": "שוּ הַאד? סַאַלַת חֻ'נפֻסֶה.",
+        "hebrew": "מה זה? שאלה החיפושית.",
+        "expected_phonemes": "ʃ u | h aː d | s a ʔ a l a t | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 596.8,
+          "end": 599.4
+        },
+        "arabic": "«شو صار؟» قال خروف أبو صوف.",
+        "hebrew_transliteration": "שוּ צַאר? קַאל חַ'רוּף אַבּוּ צוּף.",
+        "hebrew": "מה קרה? אמר הכבש אבו צוף.",
+        "expected_phonemes": "ʃ u | sˤ aː r | ʔ aː l | x a r uː f | ʔ a b u | sˤ uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 599.4,
+          "end": 603.4
+        },
+        "arabic": "«أمّا صوت غريب!» قالت جاجة أم نقّارة.",
+        "hebrew_transliteration": "אַמַّא צוֹת עַ'רִיבּ! קַאלַת גַ'אגֶ'ת אֻםّ נַקַّארַה.",
+        "hebrew": "איזה קול מוזר! אמרה התרנגולת אם נקארה.",
+        "expected_phonemes": "ʔ a m m a | sˤ oː t | ɣ a r iː b | ʔ aː l a t | dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 603.4,
+          "end": 608.2
+        },
+        "arabic": "راحوا لعند الشّبّاك، زاحوا البرداي، وشو شافوا؟",
+        "hebrew_transliteration": "רַאחוּ לַעִנד שֻּׁבַّאכּ, זַאחוּ לְ-בֻּרדַאי, וּשוּ שַאפוּ?",
+        "hebrew": "הלכו אל החלון, הזיזו את הווילון, ומה ראו?",
+        "expected_phonemes": "r aː ħ u | l a ʕ i n d | ʃ u b b aː k | z aː ħ u | l b u r d aː i | u ʃ u | ʃ aː f u"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 608.2,
+          "end": 611.8
+        },
+        "arabic": "كلّ إشي أبيض! عم تتلج:",
+        "hebrew_transliteration": "כֻּלّ אִשִי אַבְּיַד'! עַם-תִתלֶג':",
+        "hebrew": "הכול לבן! יורד שלג:",
+        "expected_phonemes": "k u l l | ʔ i ʃ i | ʔ a b j a dˤ | ʕ a m t i t l e dʒ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 617.8,
+          "end": 620.8
+        },
+        "arabic": "كمان تلج وكمان تلج.",
+        "hebrew_transliteration": "כַּמַאן תַלֶג' וּכַּמַאן תַלֶג'.",
+        "hebrew": "עוד שלג ועוד שלג.",
+        "expected_phonemes": "k a m aː n | t a l e dʒ | u k a m aː n | t a l e dʒ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 620.8,
+          "end": 623.6
+        },
+        "arabic": "كلّ إشي تغطّا بغطا أبيض –",
+        "hebrew_transliteration": "כֻּלّ אִשִי תְעַ'טַّא בְּעַ'טַא אַבְּיַד' –",
+        "hebrew": "הכול התכסה בכיסוי לבן –",
+        "expected_phonemes": "k u l l | ʔ i ʃ i | t ɣ a tˤ tˤ a | b ɣ a tˤ a | ʔ a b j a dˤ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 623.6,
+          "end": 628.2
+        },
+        "arabic": "الشّجر، لحجار، لصخور.",
+        "hebrew_transliteration": "אִ-שַּׁגַ'ר, לֶ-חְגַ'אר, לֶ-צְחוּר.",
+        "hebrew": "העצים, האבנים, הסלעים.",
+        "expected_phonemes": "ʔ i ʃ a dʒ a r | l e ħ dʒ aː r | l e sˤ ħ uː r"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 628.2,
+          "end": 631.6
+        },
+        "arabic": "وفجأة مع همس التّلج",
+        "hebrew_transliteration": "וּפַגְ'אַה מַע הַמֶס אִ-תַּלֶג'",
+        "hebrew": "ופתאום עם לחישת השלג",
+        "expected_phonemes": "u f a dʒ ʔ a | m a ʕ | h a m e s | ʔ i t a l e dʒ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 631.6,
+          "end": 634.0
+        },
+        "arabic": "سمعوا حدا عم بمشي برّا:",
+        "hebrew_transliteration": "סִמעוּ חַדַא עַם-בִּמשִי בַּרַّא:",
+        "hebrew": "שמעו מישהו הולך בחוץ:",
+        "expected_phonemes": "s i m ʕ u | ħ a d a | ʕ a m b i m ʃ i | b a r r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 636.6,
+          "end": 638.6
+        },
+        "arabic": "بدعس بقلب التّلج",
+        "hebrew_transliteration": "בִּדעַס בְּקַלבּ אִ-תַּלֶג'",
+        "hebrew": "דורך בתוך השלג",
+        "expected_phonemes": "b i d ʕ a s | b ʔ a l b | ʔ i t a l e dʒ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 638.6,
+          "end": 641.6
+        },
+        "arabic": "ودغري سمعوا صوت دقّ على الباب.",
+        "hebrew_transliteration": "וּדֻעְ'רִי סִמעוּ צוֹת דַקّ עַלַא לְ-בַּאבּ.",
+        "hebrew": "ומיד שמעו קול דפיקה בדלת.",
+        "expected_phonemes": "u d u ɣ r i | s i m ʕ u | sˤ oː t | d a ʔ ʔ | ʕ a l a | l b aː b"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 641.6,
+          "end": 644.8
+        },
+        "arabic": "«مين هناك؟» سألت خنفسة.",
+        "hebrew_transliteration": "מִין הֻנַאכּ? סַאַלַת חֻ'נפֻסֶה.",
+        "hebrew": "מי שם? שאלה החיפושית.",
+        "expected_phonemes": "m iː n | h u n aː k | s a ʔ a l a t | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 644.8,
+          "end": 647.2
+        },
+        "arabic": "«مين هاد؟» نادت فارة.",
+        "hebrew_transliteration": "מִין הַאד? נַאדַת פַארַה.",
+        "hebrew": "מי זה? קראה העכברה.",
+        "expected_phonemes": "m iː n | h aː d | n aː d a t | f aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 647.2,
+          "end": 650.2
+        },
+        "arabic": "«هاد أنا، جمل أبو طويل!»",
+        "hebrew_transliteration": "הַאד אַנַא, גַ'מַל אַבּוּ טַוִיל!",
+        "hebrew": "זה אני, הגמל אבו טוויל!",
+        "expected_phonemes": "h aː d | ʔ a n a | dʒ a m a l | ʔ a b u | tˤ a w iː l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 650.2,
+          "end": 652.6
+        },
+        "arabic": "«شو بدّك، يا جمل أبو طويل؟»",
+        "hebrew_transliteration": "שוּ בַּדַّכּ, יַא גַ'מַל אַבּוּ טַוִיל?",
+        "hebrew": "מה אתה רוצה, גמל אבו טוויל?",
+        "expected_phonemes": "ʃ u | b a d d a k | j a | dʒ a m a l | ʔ a b u | tˤ a w iː l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 652.6,
+          "end": 656.4
+        },
+        "arabic": "«أنا بردان، أنا مش متعوّد على هيك طقس.",
+        "hebrew_transliteration": "אַנַא בַּרדַאן, אַנַא מִש מִתעַוֶّד עַלַא הֵיכּ טַקֶס.",
+        "hebrew": "קר לי, אני לא רגיל למזג אוויר כזה.",
+        "expected_phonemes": "ʔ a n a | b a r d aː n | ʔ a n a | m i ʃ | m i t ʕ a w w e d | ʕ a l a | h eː k | tˤ a ʔ e s"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 656.4,
+          "end": 660.0
+        },
+        "arabic": "الدّنيا تلج. وأنا مفرّز من البرد.",
+        "hebrew_transliteration": "אִ-דֻּנְיַא תַלֶג'. וּאַנַא מְפַרֶّז מִן לְ-בַּרְד.",
+        "hebrew": "יורד שלג. ואני קופא מקור.",
+        "expected_phonemes": "ʔ i d u n j a | t a l e dʒ | u ʔ a n a | m f a r r e z | m i n | l b a r d"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 660.0,
+          "end": 661.4
+        },
+        "arabic": "خلّوني أفوت!»",
+        "hebrew_transliteration": "חַלּוּנִי אַפוּת!",
+        "hebrew": "תנו לי להיכנס!",
+        "expected_phonemes": "ħ a l uː n i | ʔ a f uː t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 661.4,
+          "end": 664.0
+        },
+        "arabic": "«إنجنّيت؟» قالت خنفسة،",
+        "hebrew_transliteration": "אִנגַ'נֵّית? קַאלַת חֻ'נפֻסֶה,",
+        "hebrew": "השתגעת? אמרה החיפושית,",
+        "expected_phonemes": "ʔ i n dʒ a n n eː t | ʔ aː l a t | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 664.0,
+          "end": 667.4
+        },
+        "arabic": "«إنت بتصدّق يعني إنّه جمل كبير متلك",
+        "hebrew_transliteration": "אִנתֶ בִּתצַדֶّק יַעְנִי אִנּוֹ גַ'מַל כְּבִּיר מִתלַכּ",
+        "hebrew": "אתה באמת מאמין שגמל גדול כמוך",
+        "expected_phonemes": "ʔ i n t e | b i t sˤ a d d e ʔ | j a ʕ n i | ʔ i n o | dʒ a m a l | k b iː r | m i t l a k"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 667.4,
+          "end": 670.0
+        },
+        "arabic": "يقدر يفوت على عشّ خنفسة؟!»",
+        "hebrew_transliteration": "יִקדַר יְפוּת עַלַא עֻשّ חֻ'נפֻסֶה?!",
+        "hebrew": "יוכל להיכנס לקן של חיפושית?!",
+        "expected_phonemes": "j i ʔ d a r | j f uː t | ʕ a l a | ʕ u ʃ ʃ | x u n f u s e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 670.0,
+          "end": 672.8
+        },
+        "arabic": "«فشّ عندي حلّ،» قال جمل أبو طويل،",
+        "hebrew_transliteration": "פִש עִנדִי חַלّ, קַאל גַ'מַל אַבּוּ טַוִיל,",
+        "hebrew": "אין לי ברירה, אמר הגמל אבו טוויל,",
+        "expected_phonemes": "f i ʃ | ʕ i n d i | ħ a l l | ʔ aː l | dʒ a m a l | ʔ a b u | tˤ a w iː l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 672.8,
+          "end": 674.8
+        },
+        "arabic": "«إذا مش رح تخلّيني أفوت،",
+        "hebrew_transliteration": "אִזַא מִש רַח-תְחַ'לִّינִי אַפוּת,",
+        "hebrew": "אם לא תתני לי להיכנס,",
+        "expected_phonemes": "ʔ i z a | m i ʃ | r a ħ t x a l l iː n i | ʔ a f uː t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 674.8,
+          "end": 676.4
+        },
+        "arabic": "رح أجمّد من البرد.»",
+        "hebrew_transliteration": "רַח-אַגַ'מֶّד מִן לְ-בַּרְד.",
+        "hebrew": "אקפא מקור.",
+        "expected_phonemes": "r a ħ ʔ a dʒ a m m e d | m i n | l b a r d"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 676.4,
+          "end": 678.2
+        },
+        "arabic": "«طيّب، حاول.",
+        "hebrew_transliteration": "טַיֶّבּ, חַאוֶל.",
+        "hebrew": "טוב, נסה.",
+        "expected_phonemes": "tˤ a j j e b | ħ aː w e l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 678.2,
+          "end": 681.4
+        },
+        "arabic": "بسّ إعرف إنّه فشّ عندك فرصة!»",
+        "hebrew_transliteration": "בַּס אִערֶף אִנּוֹ פִש עִנדַכּ פֻרצַה!",
+        "hebrew": "אבל דע שאין לך סיכוי!",
+        "expected_phonemes": "b a s | ʔ i ʕ r e f | ʔ i n o | f i ʃ | ʕ i n d a k | f u r sˤ a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 681.4,
+          "end": 683.8
+        },
+        "arabic": "جمل أبو طويل بحاول:",
+        "hebrew_transliteration": "גַ'מַל אַבּוּ טַוִיל בִּחַאוֶל:",
+        "hebrew": "הגמל אבו טוויל מנסה:",
+        "expected_phonemes": "dʒ a m a l | ʔ a b u | tˤ a w iː l | b i ħ aː w e l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 683.8,
+          "end": 686.8
+        },
+        "arabic": "فوّت إجر، فوّت الإجر التّانية.",
+        "hebrew_transliteration": "פַוַّת אִגֶ'ר, פַוַّת לְ-אִגֶ'ר תַּאנְיֶה.",
+        "hebrew": "הכניס רגל, הכניס את הרגל השנייה.",
+        "expected_phonemes": "f a w w a t | ʔ i dʒ e r | f a w w a t | l ʔ i dʒ e r | t aː n j e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 686.8,
+          "end": 689.4
+        },
+        "arabic": "ولا إشي، مش عم تزبط.",
+        "hebrew_transliteration": "וַלַא אִשִי, מִש עַם-תִזבַּט.",
+        "hebrew": "כלום, זה לא מסתדר.",
+        "expected_phonemes": "w a l a | ʔ i ʃ i | m i ʃ | ʕ a m t i z b a tˤ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 689.4,
+          "end": 691.6
+        },
+        "arabic": "«هيك مش راح تنجح بحياتك،»",
+        "hebrew_transliteration": "הֵיכּ מִש רַאח תִנגַ'ח בְּחַיַאתַכּ,",
+        "hebrew": "כך לא תצליח לעולם,",
+        "expected_phonemes": "h eː k | m i ʃ | r aː ħ | t i n dʒ a ħ | b ħ a j aː t a k"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 691.6,
+          "end": 693.8
+        },
+        "arabic": "قال خروف أبو صوف،",
+        "hebrew_transliteration": "קַאל חַ'רוּף אַבּוּ צוּף,",
+        "hebrew": "אמר הכבש אבו צוף,",
+        "expected_phonemes": "ʔ aː l | x a r uː f | ʔ a b u | sˤ uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 693.8,
+          "end": 698.4
+        },
+        "arabic": "«بلكي ترجع أكمّ متر لورا عشان تجمّع قوّة؟»",
+        "hebrew_transliteration": "בַּלְכִּי תִרגַ'ע אַכַּם מִתֶר לַוַרַא עַשַאן תְגַ'מֶّע קֻוֶّה?",
+        "hebrew": "אולי תחזור כמה מטרים אחורה כדי לאסוף כוח?",
+        "expected_phonemes": "b a l k i | t i r dʒ a ʕ | ʔ a k a m | m i t e r | l a w a r a | ʕ a ʃ aː n | t dʒ a m m e ʕ | ʔ u w w e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 698.4,
+          "end": 703.2
+        },
+        "arabic": "«طيّب.» جمل أبو طويل رجع أكمّ خطوة لورا،",
+        "hebrew_transliteration": "טַיֶّבּ. גַ'מַל אַבּוּ טַוִיל רִגֶ'ע אַכַּם חֻ'טוֶה לַוַרַא,",
+        "hebrew": "טוב. הגמל אבו טוויל חזר כמה צעדים אחורה,",
+        "expected_phonemes": "tˤ a j j e b | dʒ a m a l | ʔ a b u | tˤ a w iː l | r i dʒ e ʕ | ʔ a k a m | x u tˤ w e | l a w a r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 703.2,
+          "end": 706.4
+        },
+        "arabic": "ركض، ركض، ركض، بقلب التّلج،",
+        "hebrew_transliteration": "רַכַּד', רַכַּד', רַכַּד', בְּקַלבּ אִ-תַּלֶג',",
+        "hebrew": "רץ, רץ, רץ, בתוך השלג,",
+        "expected_phonemes": "r a k a dˤ | r a k a dˤ | r a k a dˤ | b ʔ a l b | ʔ i t a l e dʒ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 706.4,
+          "end": 709.8
+        },
+        "arabic": "زاد سرعته و... بوم!",
+        "hebrew_transliteration": "זַאד סֻרעתוֹ וּ... בּוּם!",
+        "hebrew": "הגביר את מהירותו ו... בום!",
+        "expected_phonemes": "z aː d | s u r ʕ t o | w | b uː m"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 709.8,
+          "end": 711.4
+        },
+        "arabic": "كلّ العشّ إهتزّ،",
+        "hebrew_transliteration": "כֻּלّ לְ-עֻשّ אִהתַזّ,",
+        "hebrew": "כל הקן רעד,",
+        "expected_phonemes": "k u l l | l ʕ u ʃ ʃ | ʔ i h t a z z"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 711.4,
+          "end": 715.8
+        },
+        "arabic": "بسّ جمل أبو طويل بقي برّا.",
+        "hebrew_transliteration": "בַּס גַ'מַל אַבּוּ טַוִיל בְּקִי בַּרַّא.",
+        "hebrew": "אבל הגמל אבו טוויל נשאר בחוץ.",
+        "expected_phonemes": "b a s | dʒ a m a l | ʔ a b u | tˤ a w iː l | b ʔ i | b a r r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 715.8,
+          "end": 717.8
+        },
+        "arabic": "ما قدرش يفوت.",
+        "hebrew_transliteration": "מַא קִדְרֶש יְפוּת.",
+        "hebrew": "לא הצליח להיכנס.",
+        "expected_phonemes": "m a | ʔ i d r e ʃ | j f uː t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 717.8,
+          "end": 719.8
+        },
+        "arabic": "«ما أخدتش كفاي قوّة!»",
+        "hebrew_transliteration": "מַא אַחַ'דתֶש כְּפַאי קֻוֶّה!",
+        "hebrew": "לא לקחת מספיק תנופה!",
+        "expected_phonemes": "m a | ʔ a x a d t e ʃ | k f aː i | ʔ u w w e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 719.8,
+          "end": 721.6
+        },
+        "arabic": "صيّح ديك أبو سحّارة،",
+        "hebrew_transliteration": "צַיַّח דִיכּ אַבּוּ סַחַّארַה,",
+        "hebrew": "צעק התרנגול אבו סחארה,",
+        "expected_phonemes": "sˤ a j j a ħ | d iː k | ʔ a b u | s a ħ ħ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 721.6,
+          "end": 724.2
+        },
+        "arabic": "«حاول كمان مرّة!»",
+        "hebrew_transliteration": "חַאוֶל כַּמַאן מַרַّה!",
+        "hebrew": "נסה עוד פעם!",
+        "expected_phonemes": "ħ aː w e l | k a m aː n | m a r r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 724.2,
+          "end": 727.0
+        },
+        "arabic": "جمل أبو طويل ما يأسش.",
+        "hebrew_transliteration": "גַ'מַל אַבּוּ טַוִיל מַא יִאֶס.",
+        "hebrew": "הגמל אבו טוויל לא התייאש.",
+        "expected_phonemes": "dʒ a m a l | ʔ a b u | tˤ a w iː l | m a | j i ʔ e s"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 727.0,
+          "end": 732.2
+        },
+        "arabic": "بعّد عن العشّ تقريبا ميّة خطوة وبلّش يركض،",
+        "hebrew_transliteration": "בַּעַّד עַן לְ-עֻשّ תַקרִיבַּן מִית חֻ'טוֶה וּבַּלַّש יִרכֹּד',",
+        "hebrew": "התרחק מהקן כמאה צעדים והתחיל לרוץ,",
+        "expected_phonemes": "b a ʕ ʕ a d | ʕ a n | l ʕ u ʃ ʃ | t a ʔ r iː b a n | m iː t | x u tˤ w e | u b a l l a ʃ | j i r k o dˤ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 732.2,
+          "end": 735.4
+        },
+        "arabic": "وهوّ بركض، وبركض، وبركض، وبركض،",
+        "hebrew_transliteration": "וּהֻוֶّ בִּרכֹּד', וּבִּרכֹּד', וּבִּרכֹּד', וּבִּרכֹּד',",
+        "hebrew": "והוא רץ, ורץ, ורץ, ורץ,",
+        "expected_phonemes": "u h u w w e | b i r k o dˤ | u b i r k o dˤ | u b i r k o dˤ | u b i r k o dˤ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 735.4,
+          "end": 738.4
+        },
+        "arabic": "إكتسب سرعة وطراخ!",
+        "hebrew_transliteration": "אִכּתַסַבּ סֻרעַה וּטְרַאחַ'!",
+        "hebrew": "צבר מהירות וטראח'!",
+        "expected_phonemes": "ʔ i k t a s a b | s u r ʕ a | u tˤ r aː x a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 738.4,
+          "end": 740.6
+        },
+        "arabic": "دغري لقلب العشّ.",
+        "hebrew_transliteration": "דֻעְ'רִי לַקַלבּ לְ-עֻשّ.",
+        "hebrew": "ישר לתוך הקן.",
+        "expected_phonemes": "d u ɣ r i | l a ʔ a l b | l ʕ u ʃ ʃ"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 740.6,
+          "end": 742.0
+        },
+        "arabic": "العشّ رجّ.",
+        "hebrew_transliteration": "אִל-עֻשّ רַגّ.",
+        "hebrew": "הקן רעד.",
+        "expected_phonemes": "i l ʕ u ʃ ʃ | r a g g"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 742.0,
+          "end": 744.6
+        },
+        "arabic": "لطراشة وقعت من الحيطان،",
+        "hebrew_transliteration": "לְ-טְרַאשֶה וִקעַת מִן לְ-חִיטַאן,",
+        "hebrew": "הטיח נפל מהקירות,",
+        "expected_phonemes": "l tˤ r aː ʃ e | w i ʔ ʕ a t | m i n | l ħ iː tˤ aː n"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 744.6,
+          "end": 747.6
+        },
+        "arabic": "الأدوات في الخزانة طلّعوا صوت،",
+        "hebrew_transliteration": "אִל-אַדַוַאת פִי לְ-חַ'זַאנֶה טַלַّעוּ צוֹת,",
+        "hebrew": "הכלים בארון השמיעו קול,",
+        "expected_phonemes": "i l ʔ a d a w aː t | f i | l x a z aː n e | tˤ a l l a ʕ u | sˤ oː t"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 747.6,
+          "end": 752.2
+        },
+        "arabic": "بسّ جمل أبو طويل جوّا!",
+        "hebrew_transliteration": "בַּס גַ'מַל אַבּוּ טַוִיל גֻ'וַّא!",
+        "hebrew": "אבל הגמל אבו טוויל בפנים!",
+        "expected_phonemes": "b a s | dʒ a m a l | ʔ a b u | tˤ a w iː l | dʒ u w w a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 752.2,
+          "end": 756.8
+        },
+        "arabic": "وبقلب العشّ قاعدين كلّ أصحاب الشّلّة –",
+        "hebrew_transliteration": "וּבְּקַלבּ לְ-עֻשّ קַאעְדִין כֻּלّ אַצְחַאבּ שִּׁלֶّה –",
+        "hebrew": "ובתוך הקן יושבים כל חברי החבורה –",
+        "expected_phonemes": "u b ʔ a l b | l ʕ u ʃ ʃ | ʔ aː ʕ d iː n | k u l l | ʔ a sˤ ħ aː b | ʃ i l l e"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 756.8,
+          "end": 759.8
+        },
+        "arabic": "كلّنا سوا بصوت عالي:",
+        "hebrew_transliteration": "כֻּלְّנַא סַוַא בְּצוֹת עַאלִי:",
+        "hebrew": "כולנו יחד בקול רם:",
+        "expected_phonemes": "k u l l n a | s a w a | b sˤ oː t | ʕ aː l i"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 759.8,
+          "end": 763.2
+        },
+        "arabic": "خنفسة وفارة، وجاجة أم نقّارة،",
+        "hebrew_transliteration": "חֻ'נפֻסֶה וּפַארַה, וּגַ'אגֶ'ת אֻםّ נַקַّארַה,",
+        "hebrew": "חיפושית ועכברה, ותרנגולת אם נקארה,",
+        "expected_phonemes": "x u n f u s e | u f aː r a | u dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 763.2,
+          "end": 767.0
+        },
+        "arabic": "وديك أبو سحّارة، خروف أبو صوف،",
+        "hebrew_transliteration": "וּדִיכּ אַבּוּ סַחַّארַה, חַ'רוּף אַבּוּ צוּף,",
+        "hebrew": "ותרנגול אבו סחארה, כבש אבו צוף,",
+        "expected_phonemes": "u d iː k | ʔ a b u | s a ħ ħ aː r a | x a r uː f | ʔ a b u | sˤ uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 767.0,
+          "end": 769.4
+        },
+        "arabic": "وجمل أبو طويل!",
+        "hebrew_transliteration": "וּגַ'מַל אַבּוּ טַוִיל!",
+        "hebrew": "וגמל אבו טוויל!",
+        "expected_phonemes": "u dʒ a m a l | ʔ a b u | tˤ a w iː l"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 769.4,
+          "end": 772.4
+        },
+        "arabic": "هاي قوّة إدخال الضّيوف!",
+        "hebrew_transliteration": "הַאי קֻוֶّת אִדחַ'אל אִ-דְּיוּף!",
+        "hebrew": "זה כוחה של הכנסת אורחים!",
+        "expected_phonemes": "h aː i | ʔ u w w e t | ʔ i d x aː l | ʔ i d j uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 772.4,
+          "end": 776.4
+        },
+        "arabic": "وعشان ما ننسى – غنّوا معي كمان مرّة:",
+        "hebrew_transliteration": "וּעַשַאן מַא נִנסַא – עַ'נּוּ מַעִי כַּמַאן מַרַّה:",
+        "hebrew": "וכדי שלא נשכח – שירו איתי עוד פעם:",
+        "expected_phonemes": "u ʕ a ʃ aː n | m a | n i n s a | ɣ a n u | m a ʕ i | k a m aː n | m a r r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 776.4,
+          "end": 780.2
+        },
+        "arabic": "خنفسة وفارة، وجاجة أم نقّارة،",
+        "hebrew_transliteration": "חֻ'נפֻסֶה וּפַארַה, וּגַ'אגֶ'ת אֻםّ נַקַّארַה,",
+        "hebrew": "חיפושית ועכברה, ותרנגולת אם נקארה,",
+        "expected_phonemes": "x u n f u s e | u f aː r a | u dʒ aː dʒ e t | ʔ u m m | n a ʔ ʔ aː r a"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 780.2,
+          "end": 783.8
+        },
+        "arabic": "وديك أبو سحّارة، خروف أبو صوف،",
+        "hebrew_transliteration": "וּדִיכּ אַבּוּ סַחַّארַה, חַ'רוּף אַבּוּ צוּף,",
+        "hebrew": "ותרנגול אבו סחארה, כבש אבו צוף,",
+        "expected_phonemes": "u d iː k | ʔ a b u | s a ħ ħ aː r a | x a r uː f | ʔ a b u | sˤ uː f"
+      },
+      {
+        "voice_time_seconds": {
+          "start": 783.8,
+          "end": 785.8
+        },
+        "arabic": "وجمل أبو طويل!",
+        "hebrew_transliteration": "וּגַ'מַל אַבּוּ טַוִיל!",
+        "hebrew": "וגמל אבו טוויל!",
+        "expected_phonemes": "u dʒ a m a l | ʔ a b u | tˤ a w iː l"
+      }
+    ]
   }
 ]

@@ -801,6 +801,10 @@ body.lab #wrap{max-width:none}
 #writeDlg small{display:block;margin-top:12px;color:var(--muted);font-size:14px}
 /* a lesson's new words, before anything is said: a card a word, the Hebrew first and the Arabic on a tap */
 #learnDlg{width:min(92vw,440px)}
+.learn-head-actions{display:flex;align-items:center;gap:6px}
+.learn-drive{display:flex;align-items:center;gap:5px;color:var(--olive)}
+.learn-drive.on{background:var(--sumac);border-color:var(--sumac);color:#fff}
+#learnDriveStatus{display:block;min-height:1.4em;margin:8px 0 0;text-align:center;color:var(--olive);font:600 14px/1.4 var(--f-body)}
 .lprog{display:flex;justify-content:space-between;gap:8px;font:600 14px/1.2 var(--f-body);color:var(--muted);margin-top:4px}
 .lbar{display:flex;gap:3px;margin:6px 0 12px}
 .lbar i{flex:1;height:8px;border-radius:4px;background:var(--line)}
@@ -1462,9 +1466,10 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   <small id="writeNote" aria-live="polite"></small>
 </dialog>
 <dialog id="learnDlg" aria-labelledby="learnTitle">
-  <div class="dlg-head"><h2 id="learnTitle"></h2><button class="btn" id="learnClose">סגירה</button></div>
+  <div class="dlg-head"><h2 id="learnTitle"></h2><div class="learn-head-actions"><button class="btn learn-drive" id="learnDrive"><svg class="ic" aria-hidden="true"><use href="#i-car"/></svg><span>מצב נסיעה</span></button><button class="btn" id="learnClose">סגירה</button></div></div>
   <div class="lprog"><span id="learnCount"></span><span id="learnLeft"></span></div>
   <div class="lbar" id="learnBar" aria-hidden="true"></div>
+  <small id="learnDriveStatus" aria-live="polite"></small>
   <div id="learnCard">
     <p class="lq">איך אומרים בערבית?</p>
     <p class="lhe" id="learnHe"></p>
@@ -2522,7 +2527,8 @@ $("writeDlg").addEventListener("close",()=>{
 /* A lesson's new words ("learn" topic): a card a word, before the lesson's speaking topics, which stay locked until
    every word was marked known once. Nothing is scored; what the student knows is kept on the device. A round goes
    through the words not known yet (all of them, shuffled, when every one is); "not yet" sends a word to the round's end. */
-let learned=store.get("ihki.learned",{}), learning=null;   // {topic id: the ids of its words known}; the round on screen
+let learned=store.get("ihki.learned",{}), learnRounds=store.get("ihki.learnRounds",{}), learning=null;   // known words; unfinished rounds; the round on screen
+let learnDriving=false, learnDriveRun=0, learnWakeLock=null;
 const lWords=c=>PHRASES.filter(p=>p.cat===c.id).sort((a,b)=>(a.seq??0)-(b.seq??0));
 function lTally(c){ const ids=new Set(learned[c.id]||[]), list=lWords(c), done=list.filter(p=>ids.has(p.id)).length; return {done,n:list.length,over:list.length>0&&done>=list.length,gold:false}; }
 const topicT=c=>c.write?wTally(c):c.learn?lTally(c):c.match?mTally(c):tally(PHRASES.filter(p=>p.listed!==false&&p.cat===c.id));
@@ -2533,11 +2539,22 @@ function nextUp(btn,c,dlg){   // the button that goes on to the lesson's next to
   btn.onclick=()=>{ $(dlg).close(); openCat(next); };
 }
 function learnTopic(c){
+  stopLearnDrive();
+  $("learnDriveStatus").textContent="";
   const words=lWords(c), known=new Set(learned[c.id]||[]), left=words.filter(p=>!known.has(p.id));
-  learning={c,words,queue:(left.length?left:shuffle([...words])).map(p=>p.id),again:new Set()};
+  const review=!left.length, valid=new Set((review?words:left).map(p=>p.id)), saved=learnRounds[c.id]||{};
+  const resume=Array.isArray(saved.queue)&&(review?saved.review===true:saved.review!==true), queue=resume?saved.queue.filter(id=>valid.has(id)):[];
+  // A saved queue resumes on the same card. Missing newly-added words are appended without disturbing that position.
+  if(!review) for(const p of left) if(!queue.includes(p.id)) queue.push(p.id);
+  learning={c,words,review,queue:queue.length?queue:shuffle([...words]).map(p=>p.id),again:new Set(resume&&Array.isArray(saved.again)?saved.again.filter(id=>valid.has(id)):[])};
+  saveLearnRound();
   $("learnTitle").replaceChildren(c.name,mark("",lessonName(LESSONS.find(l=>l.id===c.lesson)),"small"));
   learnCard(); if(!$("learnDlg").open) $("learnDlg").showModal();
 }
+function saveLearnRound(){
+  const L=learning; learnRounds[L.c.id]={queue:[...L.queue],again:[...L.again],review:L.review}; store.set("ihki.learnRounds",learnRounds);
+}
+function clearLearnRound(id){ delete learnRounds[id]; store.set("ihki.learnRounds",learnRounds); }
 function learnCard(){
   const L=learning, n=L.words.length, left=L.queue.length;
   $("learnCount").textContent=`${n-left} מתוך ${n} נלמדו`; $("learnLeft").textContent=left?`נשארו ${left}`:"הסבב הושלם";
@@ -2568,10 +2585,50 @@ async function learnPlay(slow){   // the word in the answers' voice (the device'
   if(v){u.voice=v;u.lang=v.lang;} else u.lang="ar-SA";
   u.rate=.85*answerRate()*(slow?.7:1); speechSynthesis.cancel(); speechSynthesis.speak(u);
 }
+const learnDriveControls=["learnReveal","learnShow","learnAgain","learnKnow","learnPlay","learnSlow","learnNext","learnRound"];
+function stopLearnDrive(){
+  if(!learnDriving) return;
+  learnDriving=false; learnDriveRun++;
+  $("learnDrive").classList.remove("on"); $("learnDrive").setAttribute("aria-pressed","false");
+  $("learnDrive").querySelector("use").setAttribute("href","#i-car"); $("learnDrive").querySelector("span").textContent="מצב נסיעה";
+  for(const id of learnDriveControls) $(id).disabled=false;
+  if(driveAudio){ driveAudio.pause(); if(driveAudioDone) driveAudioDone(); }
+  if("speechSynthesis" in window) speechSynthesis.cancel();
+  if(learnWakeLock){ learnWakeLock.release().catch(()=>{}); learnWakeLock=null; }
+}
+async function runLearnDrive(){
+  const run=++learnDriveRun, on=()=>learnDriving&&run===learnDriveRun&&learning&&$("learnDlg").open;
+  while(on()&&learning.queue.length){
+    const id=learning.queue[0], p=phraseOf(id);
+    $("learnDriveStatus").textContent="הקשיבו למילה בערבית";
+    const a=await answerAudio(id); if(!on()) break;
+    if(a) await playUrl(a.url,true); else await speakLocal(p.ar_pointed||p.ar,"ar");
+    if(!on()) break;
+    $("learnDriveStatus").textContent="נסו להיזכר בתרגום";
+    await pause(1100); if(!on()) break;
+    $("learnDriveStatus").textContent="התרגום בעברית";
+    await sayHe(speakable(p.he_say||p.he)); if(!on()) break;
+    await pause(800); if(!on()) break;
+    if(learning.queue[0]===id) learnMark(true);
+  }
+  if(on()) $("learnDriveStatus").textContent="הסבב הושלם";
+  stopLearnDrive();
+}
+$("learnDrive").onclick=async()=>{
+  if(learnDriving){ stopLearnDrive(); $("learnDriveStatus").textContent="מצב הנסיעה נעצר"; return; }
+  if(!learning||!learning.queue.length) return;
+  unlockPlayback(); learnDriving=true;
+  $("learnDrive").classList.add("on"); $("learnDrive").setAttribute("aria-pressed","true");
+  $("learnDrive").querySelector("use").setAttribute("href","#i-stop"); $("learnDrive").querySelector("span").textContent="עצירה";
+  for(const id of learnDriveControls) $(id).disabled=true;
+  try{ learnWakeLock=await navigator.wakeLock.request("screen"); }catch{}
+  runLearnDrive();
+};
 function learnMark(know){
   const L=learning, id=L.queue.shift();
   if(know){ learned[L.c.id]=[...new Set([...(learned[L.c.id]||[]),id])]; store.set("ihki.learned",learned); }
   else{ L.queue.push(id); L.again.add(id); }
+  if(L.queue.length) saveLearnRound(); else clearLearnRound(L.c.id);
   learnCard();
 }
 function learnDone(){
@@ -2586,7 +2643,7 @@ $("learnPlay").onclick=()=>learnPlay(false); $("learnSlow").onclick=()=>learnPla
 $("learnKnow").onclick=()=>learnMark(true); $("learnAgain").onclick=()=>learnMark(false);
 $("learnRound").onclick=()=>learnTopic(learning.c);
 $("learnClose").onclick=()=>$("learnDlg").close();
-$("learnDlg").addEventListener("close",()=>{ learning=null; if(home&&!document.body.classList.contains("manage")) drawPath(true); });
+$("learnDlg").addEventListener("close",()=>{ stopLearnDrive(); learning=null; if(home&&!document.body.classList.contains("manage")) drawPath(true); });
 /* "התאימו זוגות" (a match topic): the lesson's new words in rounds of up to five, the Hebrew in one column and the
    transliteration, shuffled, in the other; a tap on each joins a pair, and a joined pair is heard. A word matched
    once counts toward the topic, which, like the words, holds back a lesson not yet practised; a game with no
