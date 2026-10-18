@@ -1781,7 +1781,8 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         assert r.status_code == 200 and r.json() == {"ok": True, "audio": False, "flag": row}, r.text
         assert row["email"] == "t@b.c" and row["cat"] == TOILET["cat"] and row["he"] == TOILET["he"] and row["note"] == "אמרתי ח נכונה"
         assert row["ipa"] == "w eː n | i l ħ a m m aː m" and "χ" in row["heard_ipa"] and row["score"] == row["result"]["score"] < 100
-        assert row["result"]["tips"][0]["key"] == "ħ>x" and "phoneme_heatmap" not in row["result"]
+        assert row["result"]["tips"][0]["key"] == "ħ>x" and row["result"]["trace"]["tokens"]
+        assert "phoneme_heatmap" not in row["result"]
         assert send(c, "t", phrase_id=10**6).status_code == 404
         a.teachers = frozenset({"s@b.c"})   # a teacher flags too
         assert c.get("/api/me", headers={"Authorization": "Bearer s"}).json()["tutor"] is True and send(c, "s").status_code == 200

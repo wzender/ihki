@@ -2041,9 +2041,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except ValueError:
             raise HTTPException(400, "could not decode audio")
         refs = app.state.refs.get(phrase_id, phrase) if app.state.refs else []
-        result = app.state.scorer.score(wav, phrase, refs)
+        # Keep a structured pipeline trace for the diagnostic dashboard; the audio itself is discarded.
+        result = app.state.scorer.score(wav, phrase, refs, diagnostics=True)
         if result.get("error"):
             raise HTTPException(400, result["message"])
+        # The trace already contains every value used by the dashboard. The dense heatmap is only a display aid
+        # for the immediate scoring screen and would make every database report unnecessarily large.
+        result.pop("phoneme_heatmap", None)
         return save_flag(phrase, result, note, user)
 
     def save_flag(phrase: dict, result: dict, note: str, user: dict) -> dict:

@@ -235,7 +235,7 @@ Under each score a teacher or a tutor gets an optional note and the button "🚩
 
 - who and what: `email`, `cat`, `phrase`, `he`, `note`;
 - the answer the scorer matched (`ar`, `ipa`), its free decode (`heard_ipa`), `score` and `unrelated`;
-- `result`: the whole score response (every word and phoneme with its score and what took its place, the tips, the issues);
+- `result`: the whole score response, including the structured diagnostic trace (every word and phoneme, pipeline stage, threshold, score, replacement, tip and issue);
 - `model` and `version`, so a flag can be checked against the model and build that produced it;
 - `audio`: always null for new reports; the nullable legacy column is retained so old reports with recordings remain readable.
 
@@ -281,7 +281,7 @@ alter table public.flags
   add column if not exists false_issues jsonb not null default '[]'::jsonb;
 ```
 
-The management panel's **דיווחים** tab lets a teacher confirm or reject each report, classify it, and select the individual sound judgements that were false. It can still play a legacy recording when an older row has one, but new reports deliberately retain only diagnostics. The tab groups confirmed `expected → heard` pairs by reports, reporters, and phrases. Only confirmed reports should be used for calibration; review and aggregation use the stored structured result without needing the user's voice file.
+The management panel's **דיווחים** tab lets a teacher open the existing diagnostic dashboard beside the approval action, confirm or reject each report, classify it, and select the individual sound judgements that were false. The dashboard includes a copyable, identity-free text payload for asking a chat assistant to distinguish acoustic-model, alignment, rule, threshold and feedback failures and suggest regression tests. It can still play a legacy recording when an older row has one, but new reports deliberately retain only diagnostics. The tab groups confirmed `expected → heard` pairs by reports, reporters, and phrases. Only confirmed reports should be used for calibration; review and aggregation use the stored structured result without needing the user's voice file.
 
 ### The lab (מעבדה)
 

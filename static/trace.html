@@ -141,6 +141,9 @@ table.data{border-collapse:collapse;font-size:12px;width:100%}
 table.data th,table.data td{padding:3px 6px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
 details summary{cursor:pointer;color:var(--ink-2);font-size:12px}
 .scroll{overflow-x:auto}
+.chat-payload{width:100%;min-height:320px;resize:vertical;padding:10px;border:1px solid var(--axis);border-radius:9px;background:var(--page);color:var(--ink);font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left;white-space:pre}
+.copy-row{display:flex;align-items:center;justify-content:flex-end;gap:10px}
+.copy-status{color:var(--ink-2);font-size:13px}
 </style>
 </head>
 <body>
@@ -188,6 +191,12 @@ details summary{cursor:pointer;color:var(--ink-2);font-size:12px}
   <section class="panel">
     <details><summary>טבלת הגאים (כל המספרים)</summary><div class="scroll"><table class="data" id="table"></table></div></details>
   </section>
+
+  <section class="panel" aria-labelledby="chatPayloadTitle">
+    <div class="head"><h2 id="chatPayloadTitle">מידע להתייעצות על ה־pipeline</h2><span class="sub">אבחון מלא להעתקה לצ׳אט, ללא זהות המשתמש וללא קובץ קול</span></div>
+    <textarea class="chat-payload" id="chatPayload" readonly aria-label="מידע מלא להעתקה לצ׳אט"></textarea>
+    <div class="copy-row"><span class="copy-status" id="copyStatus" role="status"></span><button id="copyPayload">העתקה לצ׳אט</button></div>
+  </section>
 </main>
 <dialog id="excludeDlg" aria-labelledby="excludeTitle">
   <form method="dialog" class="exclude-form">
@@ -221,11 +230,29 @@ let wordAudioUrl=new URLSearchParams(location.search).get("src")==="app"?(localS
 let traceContext={}; try{ traceContext=JSON.parse(localStorage.getItem("ihki.traceContext")||"{}"); }catch{}
 let excludedWords={...(traceContext.excluded_words||{})};
 
+function diagnosticChatText(result){
+  const t=result.trace||{}, context={...(result.phrase||{}),...(result._diagnostic||{})};
+  const trace={...t,
+    tokens:(t.tokens||[]).map(({curves,...token})=>token),
+    frames:t.frames?{count:t.frames.count,ms:t.frames.ms}:null
+  };
+  const publicResult={...result,trace};
+  delete publicResult.email; delete publicResult.audio; delete publicResult.phoneme_heatmap; delete publicResult._diagnostic;
+  return [
+    "Please analyze this Palestinian-Arabic pronunciation-scoring diagnostic.",
+    "Identify the most likely failure point and distinguish between acoustic-model, segmentation/alignment, pronunciation-rule, threshold/calibration, and feedback-generation problems.",
+    "Propose prioritized, concrete pipeline changes and regression tests. Do not infer the speaker's identity.",
+    "",
+    JSON.stringify({context,result:publicResult},null,2)
+  ].join("\n");
+}
+
 /* ---------- loading ---------- */
 function load(result,source){
   if(!result||!result.trace||!result.trace.tokens){ show("בקובץ אין trace. פתחו את הלוח מהמעבדה או מניתוח הפונמות של מורה, או טענו את הדוגמה."); return; }
   if(source!=="מהאפליקציה"){ traceContext={}; excludedWords={}; wordAudioUrl=""; }
   R=result; T=result.trace; PH=(R.words||[]).flatMap(w=>w.phonemes||[]); traceSource=source;
+  $("chatPayload").value=diagnosticChatText(result); $("copyStatus").textContent="";
   $("framePlay").disabled=!wordAudioUrl;
   $("framePlay").title=wordAudioUrl?"נגינת חלון הפריימים עם סמן מסונכרן":"אין אודיו מצורף ל־trace";
   const worst=T.tokens.reduce((b,t)=>t.final<b.final?t:b,T.tokens[0]), asked=+new URLSearchParams(location.search).get("i");
@@ -239,6 +266,11 @@ async function loadMock(){
   catch(e){ show(`הדוגמה לא נטענה (${e.message}). הריצו python scripts/mock_trace.py`); }
 }
 $("mock").onclick=loadMock;
+$("copyPayload").onclick=async()=>{
+  const field=$("chatPayload"), status=$("copyStatus");
+  try{ await navigator.clipboard.writeText(field.value); status.textContent="הועתק."; }
+  catch{ field.focus(); field.select(); status.textContent="הטקסט סומן; העתיקו עם Ctrl/Cmd+C."; }
+};
 $("file").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ load(JSON.parse(await f.text()),f.name); }catch(err){ show(`לא JSON תקין: ${err.message}`); } };
 addEventListener("keydown",e=>{ if(!T||e.target.tagName==="INPUT") return; if(e.key==="ArrowLeft"){ step(1); e.preventDefault(); } if(e.key==="ArrowRight"){ step(-1); e.preventDefault(); } });
 $("next").onclick=()=>step(1); $("prev").onclick=()=>step(-1);
