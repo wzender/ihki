@@ -311,6 +311,27 @@ def test_unrelated_sentence():
     assert r["unrelated"] and r["score"] <= 30
 
 
+def test_marginal_sentence_fit_suppresses_categorical_sound_feedback():
+    # Half of the target phones differ: still score the attempt, but do not tell the learner they said specific sounds.
+    phrase = {"variants": [("تتتتت", "t a t a t a t a t a")]}
+    phones = ["d", "a", "d", "a", "d", "a", "d", "a", "d", "a"]
+    r = custom_scorer(["t"], phones).score(None, phrase, diagnostics=True)
+    assert not r["unrelated"] and r["uncertain"]
+    assert r["tips"] == [] and r["issues"] == []
+    assert not any(p["flagged"] or p["heard"] for w in r["words"] for p in w["phonemes"])
+    assert r["uncertainty_message"]
+    assert r["trace"]["unrelated"]["uncertain"]
+    assert r["trace"]["unrelated"]["ratio"] == 0.5
+
+
+def test_clear_sentence_fit_still_reports_a_real_substitution():
+    phrase = {"variants": [("تتتتت", "t a t a t a t a t a")]}
+    phones = ["d", "a", "t", "a", "t", "a", "t", "a", "t", "a"]
+    r = custom_scorer(["t"], phones).score(None, phrase)
+    assert not r["unrelated"] and not r["uncertain"]
+    assert r["tips"][0]["key"] == "t>d"
+
+
 @pytest.mark.parametrize("p", PHRASES, ids=lambda p: p["he"])
 def test_phrase_bank_word_counts_match(p):
     for ar, ipa in p["variants"]:

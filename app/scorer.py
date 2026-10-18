@@ -198,6 +198,7 @@ class Reference:
 class ScorerConfig:
     flag_below: float = 50.0        # phoneme score under which a consonant gets a tip
     unrelated_ratio: float = 0.65   # normalised edit distance above which we say "different sentence"
+    feedback_uncertain_margin: float = 0.15  # below unrelated_ratio: score, but make no named sound claims
     issue_below: float = 90.0       # phoneme score under which it is listed as imprecise
     max_issues: int = 8
     max_tips: int | None = None     # None: as many as the rules document says (scoring.max_tips)
@@ -581,6 +582,8 @@ class Scorer:
         ar, ipa, toks, al, scores, unrelated = fit.ar, fit.ipa, fit.toks, fit.al, fit.scores, fit.unrelated
         i2t = self.vocab.i2t
         heard = " ".join(i2t[i] for i in fit.heard_ids)
+        fit_ratio = fit.distance / max(1, len(toks))
+        uncertain = bool(not unrelated and fit_ratio >= self.cfg.unrelated_ratio - self.cfg.feedback_uncertain_margin)
         # Measure against what the model gives a native on the same sound: a sound it misses in the
         # reference voice too (ʕ in على heard as dropped) is the model's weakness, not the learner's.
         heatmap = self._heatmap(fit.logp, toks, al, scores, duration_s) if diagnostics else None
@@ -617,7 +620,7 @@ class Scorer:
             heard_ph = "_" if sc.deleted else (i2t.get(sc.competitor) if sc.competitor is not None else None)
             check = self._check(tok, heard_ph)
             beyond.append(self._beyond_margin(tok, sc, heard_ph))
-            flagged = (bool(sc.score < self.cfg.flag_below) and beyond[-1]
+            flagged = (not uncertain and bool(sc.score < self.cfg.flag_below) and beyond[-1]
                        and (tok.phoneme not in VOWELS or self._flag_vowel(toks, idx)))
             if idx in fit.inserted:   # a vowel before this consonant (3.10): the reason its letter gives
                 spec = self.rules.insertion
@@ -644,7 +647,7 @@ class Scorer:
                     tip["idx"] = idx
                     tip["score"] = round(sc.score)
                     tips.append(tip)
-            if idx in fit.inserted and not unrelated and "cluster" not in seen:
+            if idx in fit.inserted and not unrelated and not uncertain and "cluster" not in seen:
                 seen.add("cluster")
                 spec = self.rules.insertion
                 tips.append({"title": self.rules.titles.get(spec["rule"], spec["rule"]), "text": str(spec["feedback"]),
@@ -665,7 +668,7 @@ class Scorer:
                 got = [i for j in at for i in carriers[w][j] if 0 <= i < len(phonemes)]
                 worst = min(got, key=lambda i: phonemes[i]["score"]) if got else None
                 letter = {"t": text, "score": phonemes[worst]["score"] if got else None}
-                if got and letter["score"] < LETTER_GOOD and not unrelated:
+                if got and letter["score"] < LETTER_GOOD and not unrelated and not uncertain:
                     letter.update(letter_reason(toks[worst].sound, heard_as[worst], checks[worst]))
                 letters.append(letter)
             if w in forgiven and min(ws) >= self.cfg.issue_below:
@@ -689,7 +692,7 @@ class Scorer:
         # Anything short of 100 must say why: every imprecise sound that did not get a full tip,
         # weakest first. If nothing is clearly off, name the weakest few.
         issues = []
-        if round(overall) < 100 and not unrelated:
+        if round(overall) < 100 and not unrelated and not uncertain:
             tipped = {t.pop("idx") for t in tips}
             rest = sorted((i for i in range(len(toks)) if i not in tipped and scores[i].score < 100),
                           key=lambda i: scores[i].score)
@@ -711,8 +714,11 @@ class Scorer:
         for t in tips:
             t.pop("idx", None)
         result = {"score": round(overall), "variant": {"ar": ar, "tr": " ".join(tr_words), "ipa": ipa}, "heard_ipa": heard, "heard_tr": " ".join(h for h in heard_words if h),
-                  "unrelated": unrelated, "words": words, "tips": tips, "issues": issues, "references": len(refs),
+                  "unrelated": unrelated, "uncertain": uncertain,
+                  "words": words, "tips": tips, "issues": issues, "references": len(refs),
                   **self._dialect(toks, scores)}
+        if uncertain:
+            result["uncertainty_message"] = "ההקלטה זוהתה רק באופן חלקי, ולכן אי אפשר לקבוע אילו הגאים נאמרו אחרת. נסו שוב."
         if calibrated:
             result["calibrated"] = calibrated
         if heatmap is not None:
@@ -785,6 +791,7 @@ class Scorer:
                 "deleted_comp": round(float(np.exp(g.deleted_comp)), 3),
                 "flag_below": cfg.flag_below, "issue_below": cfg.issue_below, "near_vowel_floor": cfg.near_vowel_floor,
                 "word_min_weight": cfg.word_min_weight, "vowel_weight": 0.5, "unrelated_ratio": cfg.unrelated_ratio,
+                "feedback_uncertain_ratio": round(cfg.unrelated_ratio - cfg.feedback_uncertain_margin, 3),
                 "unrelated_cap": 30.0, "letter_good": LETTER_GOOD, "max_tips": max_tips, "max_issues": cfg.max_issues,
                 "ref_min_mean": cfg.ref_min_mean, "margin_default": float(self.rules.scoring.get("margin_default", 0.0)),
                 "ayin_deleted_floor": cfg.ayin_deleted_floor,
@@ -804,6 +811,9 @@ class Scorer:
             "aipa": fit.aipa,
             "unrelated": {"heard": heard, "distance": fit.distance, "tokens": n,
                           "ratio": round(fit.distance / max(1, n), 3), "threshold": cfg.unrelated_ratio,
+                          "uncertain_threshold": round(cfg.unrelated_ratio - cfg.feedback_uncertain_margin, 3),
+                          "uncertain": (not fit.unrelated and fit.distance / max(1, n) >=
+                                        cfg.unrelated_ratio - cfg.feedback_uncertain_margin),
                           "unrelated": fit.unrelated},
             "references": [{"mean": round(float(np.mean(r.scores)), 1), "sounds": len(r.sounds)} for r in refs],
             "tokens": tokens,

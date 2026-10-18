@@ -3170,7 +3170,7 @@ function drawStory(){
     }else if(b!=null) tools.append(pill(b,"הציון הטוב ביותר"));
     if(b!=null||r){   // a line that was said shows its Arabic
       const tr=document.createElement("span"); tr.className="tr"; row.classList.add("said");
-      if(r&&!(r.score>STORY.pass&&!r.unrelated)&&r.words.length&&r.words.every(w=>w.letters)){
+      if(r&&!(r.score>STORY.pass&&!r.unrelated&&!r.uncertain)&&r.words.length&&r.words.every(w=>w.letters)){
         tr.classList.add("lit");
         r.words.forEach((w,k)=>{ if(k) tr.append(" "); litWord(tr,w); });
       }else setTr(tr,p.tr);
@@ -3758,7 +3758,7 @@ function render(r){
   $("score").textContent=r.score;
   const pill=$("pill"); const s=r.score;
   pill.className="pill "+(s>=85?"good":s>=60?"mid":"bad");
-  pill.textContent= r.unrelated ? "משפט אחר?" : s>=85?"מצוין": s>=60?"כמעט":"נסו שוב";
+  pill.textContent= r.unrelated ? "משפט אחר?" : r.uncertain ? "לא ברור" : s>=85?"מצוין": s>=60?"כמעט":"נסו שוב";
 
   $("words").hidden=true;
   drawAnalyzedAnswer(r);
@@ -3768,6 +3768,10 @@ function render(r){
   if(r.unrelated){
     const li=document.createElement("li");
     li.innerHTML='<span class="what">ההקלטה לא דומה למשפט הצפוי</span><span>ייתכן שבחרתם ניסוח אחר. גלו את מילות התשובה ונסו את הנוסח המוצע.</span>';
+    tips.appendChild(li);
+  }else if(r.uncertain){
+    const li=document.createElement("li");
+    li.innerHTML=`<span class="what">הזיהוי לא היה מספיק ברור</span><span>${r.uncertainty_message||"אי אפשר לקבוע אילו הגאים נאמרו אחרת. נסו שוב."}</span>`;
     tips.appendChild(li);
   }
   for(const t of r.tips){
@@ -3785,7 +3789,7 @@ function render(r){
     setTr(body,r.issues.map(i=>`${i.sound} ב״${i.word_tr}״ (${i.score})`+(i.missing?" – לא נשמעה":i.heard?` – נשמע כמו ${i.heard}`:"")).join(" · "));
     li.append(what,body); tips.appendChild(li);
   }
-  if(!r.unrelated && !r.tips.length && !r.issues.length){
+  if(!r.unrelated && !r.uncertain && !r.tips.length && !r.issues.length){
     const li=document.createElement("li"); li.innerHTML='<span class="what">כל העיצורים נשמעו נכון</span><span>נסו לומר את המשפט בקצב דיבור טבעי.</span>';
     tips.appendChild(li);
   }
@@ -3794,9 +3798,9 @@ function render(r){
   keepScore(cur.id,s); if(daily) dailySaid.add(cur.id);   // only an empty recording is not practice
   const story=!driving&&!$("story").hidden;
   if(story){ storyLast[cur.id]=r; drawStory(); }   // the line was said: its grade and its Arabic appear on it
-  if(story&&!(!r.unrelated&&s>STORY.pass)) storyRetry();
+  if(story&&!(!r.unrelated&&!r.uncertain&&s>STORY.pass)) storyRetry();
   if(bubbleCat()){ bubbleOutcome(r); return; }
-  if(!driving&&!r.unrelated&&s>=AUTO_NEXT.minimum){   // driving mode moves on by itself, in its own loop
+  if(!driving&&!r.unrelated&&!r.uncertain&&s>=AUTO_NEXT.minimum){   // driving mode moves on by itself, in its own loop
     $("status").textContent=`ציון ${s} ✓ עוברים למשפט הבא`;
     startAutoNext();
   }
@@ -3817,7 +3821,7 @@ function waText(r,passed){
   waMsg=el; $("bubbleFoot").prepend(el);
 }
 async function bubbleOutcome(r,expired=false){
-  const id=cur.id, correct=!r.unrelated&&r.score>=BUBBLE_PASS;
+  const id=cur.id, correct=!r.unrelated&&!r.uncertain&&r.score>=BUBBLE_PASS;
   if(bubbleResolving) return;
   bubbleResolving=true;
   if(!expired){
@@ -3959,7 +3963,8 @@ function drawAnalyzedAnswer(r){
     const pair=mark("analysis-word","","span"), expected=mark("expected","","span");
     if(word.letters&&word.letters.length) litWord(expected,word);
     else{ expected.classList.add(band(word.score)); setTr(expected,word.tr); }
-    const heard=mark(`heard-word${word.heard_tr?"":" empty"}`,"","span"); setTr(heard,word.heard_tr||"לא זוהה");
+    const heardText=r.uncertain?"לא זוהה בביטחון":(word.heard_tr||"לא זוהה");
+    const heard=mark(`heard-word${word.heard_tr&&!r.uncertain?"":" empty"}`,"","span"); setTr(heard,heardText);
     pair.append(expected,heard); main.append(pair);
   });
   card.replaceChildren(mark("analysis-key","למעלה: התשובה · למטה: המערכת שמעה","small"),main);
