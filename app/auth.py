@@ -268,7 +268,8 @@ class SupabaseAuth:
         return rows
 
     def save_class(self, id: int | None, name: str, emails: list[str], nicknames: dict[str, str],
-                   lessons: list[str], homeworks: list[dict] = (), dailies: list[dict] | None = None) -> None:
+                   lessons: list[str], homeworks: list[dict] = (), dailies: list[dict] | None = None,
+                   subject: str = "") -> None:
         """Adds a class (id None) or replaces one's name, emails, nicknames, lessons and homeworks ([{"topic", "due"}]),
         and its daily videos' days ([{"video", "date"}]; None leaves them as they are, so a table made before them
         still takes a class that has none). A name already taken raises ClassConflict."""
@@ -278,6 +279,7 @@ class SupabaseAuth:
         if dailies is not None:
             body["dailies"] = list(dailies)
         if id is None:
+            body["subject"] = subject
             self._admin("/rest/v1/classes", "POST", body)
         elif not self._admin(f"/rest/v1/classes?id=eq.{int(id)}", "PATCH", body):
             raise KeyError(id)
@@ -624,12 +626,17 @@ class SupabaseAuth:
             return hit[1]
         try:
             rows = self._admin("/rest/v1/user_access?" + urllib.parse.urlencode({
-                "user_id": f"eq.{user_id}", "select": "user_id,email,roles,entitlements,updated_at"}))
+                "user_id": f"eq.{user_id}", "select": "user_id,email,roles,entitlements,subject,updated_at"}))
             value = rows[0] if rows else None
         except AuthUnavailable as e:
-            if "answered 404" not in str(e):
+            if "subject" in str(e).lower():
+                rows = self._admin("/rest/v1/user_access?" + urllib.parse.urlencode({
+                    "user_id": f"eq.{user_id}", "select": "user_id,email,roles,entitlements,updated_at"}))
+                value = ({**rows[0], "subject": ""} if rows else None)
+            elif "answered 404" not in str(e):
                 raise
-            value = None
+            else:
+                value = None
         with self._lock:
             self._access[user_id] = (now + CLASSES_TTL, value)
         return value
@@ -637,8 +644,11 @@ class SupabaseAuth:
     def access_rows(self) -> list[dict] | None:
         """All explicit access assignments, or None until the user_access table is installed."""
         try:
-            return self._admin("/rest/v1/user_access?select=user_id,email,roles,entitlements,updated_at") or []
+            return self._admin("/rest/v1/user_access?select=user_id,email,roles,entitlements,subject,updated_at") or []
         except AuthUnavailable as e:
+            if "subject" in str(e).lower():
+                return [{**r, "subject": ""} for r in
+                        (self._admin("/rest/v1/user_access?select=user_id,email,roles,entitlements,updated_at") or [])]
             if "answered 404" in str(e):
                 return None
             raise
@@ -660,6 +670,19 @@ class SupabaseAuth:
         except AuthUnavailable as e:
             log.warning("access changed but audit row was not stored: %s", e)
         self.log_event("permission", actor, target["email"], {"roles": roles, "entitlements": entitlements})
+
+    def set_admin_subject(self, target: dict, subject: str, actor: dict) -> None:
+        """Set an admin's subject without changing their access assignment."""
+        old = self.access_for(target["id"]) or {}
+        row = {"user_id": target["id"], "email": target["email"].lower(),
+               "roles": old.get("roles") or ["student"], "entitlements": old.get("entitlements") or [],
+               "subject": subject, "updated_at": datetime.now(timezone.utc).isoformat(),
+               "updated_by": actor["id"]}
+        self._admin("/rest/v1/user_access?on_conflict=user_id", "POST", row,
+                    prefer="resolution=merge-duplicates,return=minimal")
+        with self._lock:
+            self._access.pop(target["id"], None)
+        self.log_event("permission", actor, target["email"], {"admin_subject": subject})
 
     def secret_rows(self) -> list[dict] | None:
         """The API keys set in the panel, encrypted (see keystore.py), or None until the table `app_secrets` exists."""

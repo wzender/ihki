@@ -10,3 +10,6 @@ __pycache__/
 # local transcription of the copyrighted course book
 book/
 *.pdf
+# local Minerva clips cut by scripts/minerva_dataset.py (copyrighted videos; never committed)
+data/minerva/
+checkpoints/

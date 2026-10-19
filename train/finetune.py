@@ -11,6 +11,9 @@ which is exactly what the scorer depends on.
 Example:
   python -m train.finetune --train data/train.csv --eval data/eval.csv --out checkpoints/ihki-ft
 Then serve it with MODEL_ID=checkpoints/ihki-ft.
+
+On a small GPU (6GB): --train-layers 8 --optim adamw_bnb_8bit --checkpointing --batch 2
+(the batch is accumulated to 32 either way, so only memory and speed change).
 """
 from __future__ import annotations
 
@@ -85,6 +88,11 @@ def main():
     ap.add_argument("--epochs", type=float, default=20)
     ap.add_argument("--lr", type=float, default=3e-5)
     ap.add_argument("--batch", type=int, default=8)
+    ap.add_argument("--train-layers", type=int, default=0,
+                    help="train only the top N transformer layers and the CTC head (0: all layers)")
+    ap.add_argument("--optim", default="adamw_torch", help="e.g. adamw_bnb_8bit to cut optimizer memory by ~4x")
+    ap.add_argument("--checkpointing", action="store_true", help="gradient checkpointing: less memory, ~30%% slower")
+    ap.add_argument("--max-steps", type=int, default=-1, help="stop after this many steps (a quick memory check)")
     args = ap.parse_args()
 
     vocab_path = hf_hub_download(args.base, "vocab.json") if not Path(args.base).is_dir() else str(Path(args.base) / "vocab.json")
@@ -93,6 +101,15 @@ def main():
     model = Wav2Vec2ForCTC.from_pretrained(args.base, ctc_loss_reduction="mean", ctc_zero_infinity=True,
                                            pad_token_id=vocab.blank)
     model.freeze_feature_encoder()  # small data: train only the transformer + CTC head
+    if args.train_layers:
+        layers = model.wav2vec2.encoder.layers
+        for p in model.wav2vec2.parameters():
+            p.requires_grad = False
+        for part in [*layers[len(layers) - args.train_layers:], model.wav2vec2.encoder.layer_norm]:
+            for p in part.parameters():
+                p.requires_grad = True
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"training {trainable / 1e6:.0f}M of {sum(p.numel() for p in model.parameters()) / 1e6:.0f}M parameters")
 
     train_ds = PhonemeDataset(args.train, vocab, fe)
     eval_ds = PhonemeDataset(args.eval, vocab, fe)
@@ -101,10 +118,12 @@ def main():
 
     targs = TrainingArguments(
         output_dir=args.out, per_device_train_batch_size=args.batch, per_device_eval_batch_size=args.batch,
-        gradient_accumulation_steps=max(1, 32 // args.batch), learning_rate=args.lr, warmup_ratio=0.1,
+        gradient_accumulation_steps=max(1, 32 // args.batch), learning_rate=args.lr, warmup_steps=0.1,
         num_train_epochs=args.epochs, eval_strategy="epoch", save_strategy="epoch", save_total_limit=2,
         load_best_model_at_end=True, metric_for_best_model="per", greater_is_better=False,
         fp16=torch.cuda.is_available(), logging_steps=10, report_to="none", remove_unused_columns=False,
+        optim=args.optim, gradient_checkpointing=args.checkpointing,
+        gradient_checkpointing_kwargs={"use_reentrant": False}, max_steps=args.max_steps,
     )
     trainer = Trainer(model=model, args=targs, train_dataset=train_ds, eval_dataset=eval_ds,
                       data_collator=Collator(fe), compute_metrics=per_metric(vocab.blank),

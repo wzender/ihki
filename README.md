@@ -189,7 +189,7 @@ alter table public.attempts
   add column if not exists version text not null default '';
 ```
 
-The page's "ההתקדמות שלי" button reads these rows back through `GET /api/progress` (best score and tries per phrase, recordings, days practised) and shows them per topic; the best scores then follow the student between devices. The teacher's **דיווחים** tab aggregates `issues` without returning student identities. It shows a candidate when the same judgement occurred in at least five attempts, for at least three students and 30% of the students who attempted that phrase. These are investigation candidates, not proof of a scoring error; a teacher must explicitly turn one into a calibration draft and apply it.
+The page reads these rows back through `GET /api/progress` (best score and tries per phrase, recordings, days practised, distinct practice days in the current week, and current/longest consecutive-day streaks); the best scores then follow the student between devices. Above the path, **הערבית שכבר שלכם** turns every practised phrase into a bead and scores of 85 or more into gold beads. It also shows a four-day weekly practice ring and a 🔥 consecutive-day streak; yesterday keeps a streak alive until the student has had today to continue it. New beads, gold mastery, meaningful personal bests, streaks and completed topics are celebrated on the practice card. The teacher's **דיווחים** tab aggregates `issues` without returning student identities. It shows a candidate when the same judgement occurred in at least five attempts, for at least three students and 30% of the students who attempted that phrase. These are investigation candidates, not proof of a scoring error; a teacher must explicitly turn one into a calibration draft and apply it.
 
 ### The teacher
 
@@ -208,6 +208,7 @@ create table public.user_access (
   email text not null,
   roles text[] not null default array['student']::text[],
   entitlements text[] not null default '{}'::text[],
+  subject text not null default '',                 -- developer-set subject for admin-created classes
   updated_at timestamptz not null default now(),
   updated_by uuid references auth.users(id),
   constraint valid_roles check (roles <@ array['student','teacher','flagger','admin','developer']::text[]),
@@ -229,6 +230,7 @@ alter table public.access_audit enable row level security;
 If `user_access` was created with the earlier three student features, run this once:
 
 ```sql
+alter table public.user_access add column if not exists subject text not null default '';
 alter table public.user_access drop constraint if exists valid_entitlements;
 update public.user_access
 set entitlements = array_append(entitlements, 'practice')
@@ -564,6 +566,7 @@ create table public.classes (
   emails     text[] not null default '{}',         -- the students' Google emails, lower-case
   nicknames  jsonb  not null default '{}',         -- {email: nickname}, for the students who have one
   lessons    text[] not null default '{}',         -- the lesson ids the class studies; empty = every lesson
+  subject    text   not null default 'ערבית',      -- existing classes; new ones copy the creating admin
   homework   text   not null default '',           -- the topic id the class practises now, e.g. l2-talk; '' = none
   due        date,                                 -- the day the homework is due, if it has one
   homeworks  jsonb  not null default '[]',         -- every homework of the class: [{"topic": ..., "due": ...}]
@@ -581,7 +584,9 @@ alter table public.classes add column if not exists nicknames jsonb not null def
                            add column if not exists homework text not null default '',
                            add column if not exists due date,
                            add column if not exists homeworks jsonb not null default '[]',
-                           add column if not exists dailies jsonb not null default '[]';
+                           add column if not exists dailies jsonb not null default '[]',
+                           add column if not exists subject text not null default 'ערבית';
+update public.classes set subject = 'ערבית' where subject = '';
 ```
 
 The server keeps the list for a minute, so a change in the SQL editor (rather than the panel) applies within that time.

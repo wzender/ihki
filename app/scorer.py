@@ -197,6 +197,8 @@ class Reference:
 @dataclass
 class ScorerConfig:
     flag_below: float = 50.0        # phoneme score under which a consonant gets a tip
+    flag_below_sound: dict[str, float] = field(default_factory=dict)   # per sound, in place of flag_below (see
+                                                                       # FLAG_BELOW_BY_MODEL: it depends on the model)
     unrelated_ratio: float = 0.65   # normalised edit distance above which we say "different sentence"
     issue_below: float = 90.0       # phoneme score under which it is listed as imprecise
     max_issues: int = 8
@@ -619,7 +621,7 @@ class Scorer:
             heard_ph = "_" if sc.deleted else (i2t.get(sc.competitor) if sc.competitor is not None else None)
             check = self._check(tok, heard_ph)
             beyond.append(self._beyond_margin(tok, sc, heard_ph))
-            flagged = (bool(sc.score < self.cfg.flag_below) and beyond[-1]
+            flagged = (bool(sc.score < self.cfg.flag_below_sound.get(tok.sound, self.cfg.flag_below)) and beyond[-1]
                        and (tok.phoneme not in VOWELS or self._flag_vowel(toks, idx)))
             if idx in fit.inserted:   # a vowel before this consonant (3.10): the reason its letter gives
                 spec = self.rules.insertion
@@ -785,7 +787,7 @@ class Scorer:
                 "consonant_window": g.consonant_window,
                 "deleted_peak": round(float(np.exp(g.deleted_peak)), 3),
                 "deleted_comp": round(float(np.exp(g.deleted_comp)), 3),
-                "flag_below": cfg.flag_below, "issue_below": cfg.issue_below, "near_vowel_floor": cfg.near_vowel_floor,
+                "flag_below": cfg.flag_below, "flag_below_sound": dict(cfg.flag_below_sound), "issue_below": cfg.issue_below, "near_vowel_floor": cfg.near_vowel_floor,
                 "word_min_weight": cfg.word_min_weight, "vowel_weight": 0.5, "unrelated_ratio": cfg.unrelated_ratio,
                 "unrelated_cap": 30.0, "letter_good": LETTER_GOOD, "max_tips": max_tips, "max_issues": cfg.max_issues,
                 "ref_min_mean": cfg.ref_min_mean, "margin_default": float(self.rules.scoring.get("margin_default", 0.0)),
@@ -874,10 +876,24 @@ def decode_audio(data: bytes) -> np.ndarray:
     return decode_audio_with_timing(data)[0]
 
 
+# Per-sound flag thresholds, chosen per model on the Minerva dev split and checked on its test split
+# (scripts/minerva_benchmark.py --sweep / --compare, with the TTS baselines). A threshold belongs to the model it was
+# measured on: another model (a fine-tuned checkpoint) starts from the global flag_below until it is measured too.
+FLAG_BELOW_BY_MODEL: dict[str, dict[str, float]] = {
+    # The base model hears a correct ح as ه/خ with scores in the 20s-40s: at 50 it flagged 12.7% of natives' ح;
+    # at 20, 5.6%, still catching 69% of خ and 71% of ه said for ح (was 76% / 75%).
+    "facebook/wav2vec2-xlsr-53-espeak-cv-ft": {"ħ": 20.0},
+}
+
+
+def scorer_config(model_id: str) -> ScorerConfig:
+    return ScorerConfig(flag_below_sound=dict(FLAG_BELOW_BY_MODEL.get(model_id, {})))
+
+
 def load_scorer(model_id: str) -> Scorer:
     emitter = HFEmitter(model_id)
     vocab = Vocab(emitter.token_to_id)
-    scorer = Scorer(emitter, vocab)
+    scorer = Scorer(emitter, vocab, scorer_config(model_id))
     # resolve every phoneme once at startup so missing symbols show up in the logs and /api/health
     from .phrases import PHRASES
     for p in PHRASES:

@@ -2,6 +2,7 @@
 import io
 import re
 import wave
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -1323,9 +1324,9 @@ def test_sign_in_guards_the_practice_endpoints():
             self.rank = self.rank | {email} if on else self.rank - {email}
             self.by = by
 
-        def save_class(self, id, name, emails, nicknames, lessons, homeworks=(), dailies=None):
+        def save_class(self, id, name, emails, nicknames, lessons, homeworks=(), dailies=None, subject=""):
             row = {"name": name, "emails": emails, "nicknames": nicknames, "lessons": lessons, "homeworks": list(homeworks),
-                   **({} if dailies is None else {"dailies": list(dailies)})}
+                   **({} if dailies is None else {"dailies": list(dailies)}), **({"subject": subject} if id is None and subject else {})}
             if id is None:
                 self.cls.insert(0, {"id": len(self.cls) + 1, **row})
             elif c := next((c for c in self.cls if c["id"] == id), None):
@@ -1682,10 +1683,14 @@ def test_sign_in_guards_the_practice_endpoints():
         assert token == "good" and row["phrase"] == TOILET["he"] and row["cat"] == TOILET["cat"]
         assert row["score"] == round(r.json()["score"]) and row["unrelated"] is False
         assert c.get("/api/progress").status_code == 401
-        assert c.get("/api/progress", headers={"Authorization": "Bearer good"}).json() == {
+        progress = c.get("/api/progress", headers={"Authorization": "Bearer good"}).json()
+        assert {k: progress[k] for k in ("best", "tries", "recordings", "days")} == {
             "best": {str(PHRASES.index(VERB)): 88}, "tries": {str(PHRASES.index(VERB)): 2}, "recordings": 3, "days": 2}
+        assert 0 <= progress["week_days"] <= 7
+        assert set(progress["streak"]) == {"current", "best", "last"}
     with TestClient(create_app(scorer_for(emissions(["w"])))) as c:   # no sign-in: nothing to show
-        assert c.get("/api/progress").json() == {"best": {}, "tries": {}, "recordings": 0, "days": 0}
+        assert c.get("/api/progress").json() == {"best": {}, "tries": {}, "recordings": 0, "days": 0,
+                                                  "week_days": 0, "streak": {"current": 0, "best": 0, "last": None}}
     with TestClient(create_app(scorer_for(emissions(["w"])))) as c:   # not configured: open, as before
         assert 'AUTH_URL=""' in c.get("/").text and c.get("/api/tts/0").status_code == 503
 
@@ -2012,3 +2017,23 @@ def test_trace_carries_frames_curves_and_paths():
     assert all(v["tokens"] for v in t["variants"]) and sum(v["chosen"] for v in t["variants"]) == 1
     e = frame_energy(np.r_[np.zeros(320), np.ones(320)], 2)
     assert np.allclose(e, [0, 1])
+
+
+def test_flag_threshold_per_sound():
+    # ħ said as χ: flagged at the global 50, not once its own threshold is under the score; other sounds unchanged
+    logp = emissions(["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"])
+    scorer = scorer_for(logp)
+    h = lambda r: next(p for w in r["words"] for p in w["phonemes"] if p["ipa"] == "ħ")
+    before = h(scorer.score(None, TOILET))
+    assert before["flagged"] and before["heard"] == "χ"
+    scorer.cfg = replace(scorer.cfg, flag_below_sound={"ħ": before["score"]})
+    r = scorer.score_logp(logp, TOILET, diagnostics=True)
+    assert not h(r)["flagged"] and h(r)["score"] == before["score"]
+    assert r["trace"]["config"]["flag_below_sound"] == {"ħ": before["score"]}
+
+
+def test_flag_thresholds_belong_to_their_model():
+    from app.scorer import scorer_config
+    assert scorer_config("facebook/wav2vec2-xlsr-53-espeak-cv-ft").flag_below_sound == {"ħ": 20.0}
+    assert scorer_config("checkpoints/ihki-ft").flag_below_sound == {}
+    assert scorer_config("checkpoints/ihki-ft").flag_below == 50

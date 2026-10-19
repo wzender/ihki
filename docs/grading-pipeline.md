@@ -296,7 +296,7 @@ The base multilingual model also has one conservative built-in calibration: when
 
 Final per-token scores now exist. The decision to **flag** a token (show "heard as X" and a tip) needs all three of:
 
-1. `score < flag_below` (50).
+1. `score < flag_below` (50), or the sound's own threshold in `flag_below_sound`. That is set per model (`FLAG_BELOW_BY_MODEL`): for the base model ح uses 20, because it scores a correct ح in the 20s–40s (measured with `scripts/minerva_benchmark.py`).
 2. The competitor beats the target by at least the pair's **margin** (rules §6.2):
    - substitution: `−gop ≥ margin(target, heard)`
    - deletion: `p_target ≤ deleted_peak − margin(target, "_")` in log space
@@ -479,6 +479,7 @@ The values live in code, not in the rules document. The `scoring:` block of `pro
 | `GopConfig.deleted_peak` / `deleted_comp` | 0.05 / 0.20 | deletion thresholds |
 | `GopConfig.consonant_window` | 4 frames | maximum context on each side of a consonant span; never crosses neighbours |
 | `ScorerConfig.flag_below` | 50 | max score for a flag and tip |
+| `ScorerConfig.flag_below_sound` | `{ħ: 20}` for the base model | per-sound replacement of `flag_below`, from `FLAG_BELOW_BY_MODEL[MODEL_ID]` |
 | `ScorerConfig.issue_below` | 90 | max score to be listed as an issue |
 | `ScorerConfig.near_vowel_floor` | 90 | floor for neighbouring vowel qualities |
 | `ScorerConfig.word_min_weight` | 0.5 | weight of the weakest phoneme in a word |

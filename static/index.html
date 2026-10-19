@@ -319,6 +319,17 @@ body.memory-game{overflow:hidden}
 /* the way back to the path, at the head of the daily videos' screen (no tab of the foot's bar is lit there) */
 #vids button.back{display:inline-flex;align-self:flex-start;gap:6px;padding:6px 12px;border-radius:10px;background:var(--olive);border-color:var(--olive);color:var(--on-olive);font:700 15px var(--f-body)}
 #dailyDlg{width:min(92vw,380px)}
+.reward-shelf{width:100%;max-width:460px;margin:0 auto;padding:11px 14px;border:1px solid var(--olive);border-radius:14px;background:var(--surface);color:var(--ink);display:grid;grid-template-columns:54px 1fr auto;align-items:center;gap:10px;text-align:start;cursor:pointer;box-shadow:0 2px 0 var(--line);font-family:var(--f-body)}
+.reward-shelf:hover{background:var(--olive-soft)}
+.streak-ring{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;background:var(--amber-bg);border:2px solid var(--orange);color:var(--orange);font:700 16px/1 var(--f-body);box-shadow:0 2px 0 color-mix(in srgb,var(--orange) 55%,var(--line))}
+.reward-copy{display:flex;min-width:0;flex-direction:column;line-height:1.25}.reward-copy b{font-size:16px}.reward-copy small{color:var(--orange);font-weight:700}.reward-totals{display:flex;flex-direction:column;align-items:flex-end;gap:3px;white-space:nowrap;font:700 13px/1.15 var(--f-body)}.reward-total{color:var(--amber)}.reward-week{color:var(--olive)}
+body:not(.home) .reward-shelf,body.manage .reward-shelf,body[data-view] .reward-shelf{display:none}
+#rewardsDlg{width:min(94vw,520px);max-height:88vh}.reward-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:4px 0 12px}.reward-summary div{padding:10px 6px;border-radius:12px;background:var(--olive-soft);text-align:center}.reward-summary div:first-child{background:var(--amber-bg);box-shadow:inset 0 0 0 1px var(--orange)}.reward-summary div:first-child b{color:var(--orange)}.reward-summary b{display:block;color:var(--olive);font:400 25px/1.1 var(--f-display)}.reward-summary small{font-size:12px;color:var(--muted)}
+.reward-lesson{margin:18px 0 0;padding:8px 0 5px;border-bottom:1px solid var(--line);color:var(--olive);font:400 20px/1.2 var(--f-display)}.reward-lesson:first-child{margin-top:8px}.reward-topic{margin:10px 0 5px;font:700 15px/1.2 var(--f-body)}.reward-topic small{margin-inline-start:6px;color:var(--muted)}.reward-beads{display:flex;flex-wrap:wrap;gap:7px;direction:rtl}.phrase-bead{width:31px;height:31px;border-radius:50%;border:3px solid #52624b;background:radial-gradient(circle at 32% 27%,#dce7d4 0 9%,#769064 23%,#405136 72%);box-shadow:inset -2px -3px 3px rgb(0 0 0/.3),0 2px 2px rgb(0 0 0/.2);cursor:pointer}.phrase-bead.gold{border-color:#9b690b;background:radial-gradient(circle at 32% 27%,#fff3a7 0 9%,#e4b83e 27%,#9d6509 75%)}
+.reward-empty{padding:20px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);text-align:center}
+.reward-pop{position:fixed;z-index:60;left:50%;top:18%;width:min(88vw,360px);transform:translate(-50%,-12px) scale(.96);padding:14px 18px;border:1px solid var(--olive);border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 12px 38px rgb(0 0 0/.28);text-align:center;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}.reward-pop.show{opacity:1;transform:translate(-50%,0) scale(1)}.reward-pop b{display:block;color:var(--olive);font:400 22px/1.25 var(--f-display)}.reward-pop.gold b{color:var(--amber)}.reward-pop small{color:var(--muted);font-weight:600}
+@media (prefers-reduced-motion:reduce){.reward-pop{transition:none}}
+@media (max-width:430px){.reward-summary{grid-template-columns:repeat(2,1fr)}}
 .path{--track:color-mix(in srgb,var(--muted) 75%,var(--bg));position:relative;width:100%;max-width:460px;margin:4px auto 72px;background:#101510 url("/static/assets/arabic-calligraphy-path.webp?v=7") top center/100% auto repeat-y}
 .road{position:absolute;left:50%;top:0;width:1px;height:100%;overflow:visible;pointer-events:none}
 .road path{fill:none;stroke-linecap:round}
@@ -1256,6 +1267,11 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   </header>
 
   <div id="today" hidden></div>
+  <button class="reward-shelf" id="rewardShelf" type="button" hidden>
+    <span class="streak-ring" id="rewardStreak">🔥 0</span>
+    <span class="reward-copy"><b>הערבית שכבר שלכם</b><small id="rewardCopy">עוד לא נאספו משפטים</small></span>
+    <span class="reward-totals"><span class="reward-week" id="rewardWeek">0/4 השבוע</span><span class="reward-total" id="rewardTotal">0 ★</span></span>
+  </button>
   <section id="vids" aria-live="polite"></section>
   <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="refer">חבר מביא חבר</button></nav>
   <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
@@ -1541,6 +1557,13 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   <p class="dlg-text" id="dailyText"></p>
   <div class="row"><button class="btn primary" id="dailyClose">חזרה למסלול</button><button class="btn" id="dailyMore">סבב נוסף</button></div>
 </dialog>
+<dialog id="rewardsDlg" aria-labelledby="rewardsTitle">
+  <div class="dlg-head"><h2 id="rewardsTitle">הערבית שכבר שלכם</h2><button class="btn" id="rewardsClose">סגירה</button></div>
+  <p class="dlg-text">כל משפט שאמרתם הוא חרוז במסבחה. ציון 85 ומעלה הופך אותו לזהב.</p>
+  <div class="reward-summary" id="rewardSummary"></div>
+  <div id="rewardCollection"></div>
+</dialog>
+<div class="reward-pop" id="rewardPop" role="status" aria-live="polite"><b></b><small></small></div>
 <dialog id="driveDlg" aria-labelledby="driveTitle">
   <div class="dlg-head"><h2 id="driveTitle">מצב נסיעה</h2></div>
   <p class="dlg-text">תרגול בלי לגעת במסך: האפליקציה מקריאה כל משפט, מקשיבה לתשובה שלכם ואומרת את ההערכה בקול. לסיום לוחצים על "סיום נסיעה".</p>
@@ -1707,6 +1730,7 @@ let ME_EMAIL="";   // the signed-in account: in the lab, who records
 let MY_CLASSES=[], MY_CLASS=null;   // a student's classes ({name, lessons, homeworks, dailies}), and the one they practise in now
 let daily=null, dailySaid=new Set(), dailyWas={};   // the daily session on the card: its sentence ids, those said in it, and their best scores before it
 let ALL_LEVELS=[], ALL_LESSONS=[], ALL_CATS=[], GAMES=[], MY_LESSONS=null, LESSONS=[], CATS=[], PHRASES=[], cat=store.get("ihki.cat",""), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
+let serverWeekDays=0, serverStreak={current:0,best:0,last:null}, rewardTimer=null;
 let myAudioUrl=null;
 let TUTOR=false, lastRec=null;   // a teacher, or an account of TUTORS_EMAIL, flags a score that is wrong; the latest recording sent to be scored, {id, blob}
 let ME_PERMISSIONS=new Set(), ME_ROLES=[], ME_ENTITLEMENTS=[];
@@ -2430,7 +2454,81 @@ function drawToday(){   // above the path: the daily session, and the homework t
   work.append(mark("","שיעורי בית"),mark("",hw?(hw.left==null?hw.c.name:hw.msg):all.length?"✓ הושלמו":"אין כרגע","small"));
   if(hw){ work.title=[hw.c.name,hw.l&&hw.l.name,hw.left==null?"":hw.msg].filter(Boolean).join(" · "); work.onclick=()=>openCat(hw.c); } else work.disabled=true;
   box.append(vid,go,work); box.hidden=false;
+  drawRewardShelf();
 }
+const localPracticeDays=()=>store.get("ihki.practiceDays",[]).filter(d=>typeof d==="string");
+function currentWeekDays(){
+  const now=new Date(), start=new Date(now.getFullYear(),now.getMonth(),now.getDate()-((now.getDay()+6)%7));
+  const local=localPracticeDays().filter(d=>new Date(d+"T12:00:00")>=start&&new Date(d+"T12:00:00")<=now).length;
+  return Math.max(serverWeekDays,local);
+}
+function streakOf(values){
+  const days=[...new Set(values)].sort(); if(!days.length) return {current:0,best:0,last:null};
+  let run=1, bestRun=1; for(let i=1;i<days.length;i++){
+    const previous=new Date(days[i-1]+"T12:00:00"), expected=new Date(previous); expected.setDate(previous.getDate()+1);
+    run=todayOf(expected)===days[i]?run+1:1; bestRun=Math.max(bestRun,run);
+  }
+  const now=today(), yesterday=new Date(); yesterday.setDate(yesterday.getDate()-1);
+  let current=days.at(-1)===now||days.at(-1)===todayOf(yesterday)?1:0;
+  for(let i=days.length-1;current&&i>0;i--){ const d=new Date(days[i]+"T12:00:00"); d.setDate(d.getDate()-1); if(todayOf(d)!==days[i-1]) break; current++; }
+  return {current,best:bestRun,last:days.at(-1)};
+}
+const todayOf=d=>d.toLocaleDateString("sv");
+function combinedStreak(){
+  const local=streakOf(localPracticeDays()), yesterday=new Date(); yesterday.setDate(yesterday.getDate()-1);
+  let current=Math.max(serverStreak.current||0,local.current);
+  if(local.last===today()&&serverStreak.last===todayOf(yesterday)) current=Math.max(current,(serverStreak.current||0)+1);
+  return {current,best:Math.max(serverStreak.best||0,local.best,current)};
+}
+function notePracticeDay(){
+  const before=combinedStreak(), day=today(), existing=localPracticeDays(), fresh=!existing.includes(day);
+  const days=[...new Set([...existing,day])].sort().slice(-60); store.set("ihki.practiceDays",days);
+  const after=combinedStreak(); return fresh&&after.current>before.current?{...after,newBest:after.best>before.best}:null;
+}
+function rewardPhrases(){
+  const cats=new Set(CATS.map(c=>c.id));
+  return PHRASES.filter(p=>p.listed!==false&&cats.has(p.cat)&&best[p.id]!=null);
+}
+function drawRewardShelf(){
+  const shelf=$("rewardShelf"); if(!PHRASES.length){ shelf.hidden=true; return; }
+  const got=rewardPhrases(), gold=got.filter(p=>best[p.id]>=EXCELLENT).length, wd=currentWeekDays(), streak=combinedStreak(), goal=4;
+  $("rewardStreak").textContent=`🔥 ${streak.current}`; $("rewardStreak").title=`רצף נוכחי: ${streak.current} ימים · שיא אישי: ${streak.best}`;
+  $("rewardCopy").textContent=streak.current?`רצף של ${streak.current} ימים · שיא ${streak.best} · ${got.length} משפטים`:got.length?`מתחילים רצף היום · ${got.length} משפטים נאספו`:`אמרו משפט ראשון והתחילו רצף`;
+  $("rewardWeek").textContent=`${Math.min(wd,goal)}/${goal} השבוע`;
+  $("rewardTotal").textContent=`${gold} ★`; shelf.hidden=false;
+}
+function drawRewards(){
+  const got=rewardPhrases(), gold=got.filter(p=>best[p.id]>=EXCELLENT).length, week=currentWeekDays(), streak=combinedStreak(), summary=$("rewardSummary"), box=$("rewardCollection");
+  summary.replaceChildren();
+  for(const [n,label] of [[`🔥 ${streak.current}`,`רצף נוכחי · שיא ${streak.best}`],[got.length,"משפטים שלכם"],[gold,"חרוזי זהב"],[week,"ימי תרגול השבוע"]]){
+    const tile=document.createElement("div"); tile.append(mark("",String(n),"b"),mark("",label,"small")); summary.append(tile);
+  }
+  box.replaceChildren();
+  if(!got.length){ box.append(mark("reward-empty","החרוז הראשון יחכה כאן אחרי שתאמרו משפט.","div")); return; }
+  for(const lesson of LESSONS){
+    const cats=CATS.filter(c=>c.lesson===lesson.id&&got.some(p=>p.cat===c.id)); if(!cats.length) continue;
+    box.append(mark("reward-lesson",lessonName(lesson),"h3"));
+    for(const c of cats){
+      const phrases=got.filter(p=>p.cat===c.id), title=mark("reward-topic",c.name,"h4"), mastered=phrases.filter(p=>best[p.id]>=EXCELLENT).length;
+      title.append(mark("",`${mastered}/${phrases.length} בזהב`,"small")); box.append(title);
+      const row=mark("reward-beads","","div");
+      for(const p of phrases){
+        const bead=mark("phrase-bead"+(best[p.id]>=EXCELLENT?" gold":""),"","button");
+        bead.type="button"; bead.title=`${lessonName(lesson)} · ${c.name} · ${p.he} · הציון הטוב ביותר ${Math.round(best[p.id])}`;
+        bead.setAttribute("aria-label",bead.title); bead.onclick=()=>{ $("rewardsDlg").close(); pickCat(p.cat); openSentence(p.id); };
+        row.append(bead);
+      }
+      box.append(row);
+    }
+  }
+}
+function rewardPop(title,detail,gold=false){
+  const pop=$("rewardPop"); clearTimeout(rewardTimer); pop.className="reward-pop"+(gold?" gold":"");
+  pop.querySelector("b").textContent=title; pop.querySelector("small").textContent=detail;
+  requestAnimationFrame(()=>pop.classList.add("show")); rewardTimer=setTimeout(()=>pop.classList.remove("show"),2600);
+}
+$("rewardShelf").onclick=()=>{ drawRewards(); $("rewardsDlg").showModal(); };
+$("rewardsClose").onclick=()=>$("rewardsDlg").close();
 function ball(t,now){   // a topic's button and the disc inside its ring
   const b=document.createElement("button"), ring=document.createElement("span"), dot=document.createElement("span");
   b.className="sat"+(t.gold?" gold":t.over?" done":now?" now":t.done?" started":"");
@@ -2870,6 +2968,8 @@ async function loadProgress(){
   try{
     const res=await api("/api/progress"); if(!res.ok) return;
     const d=await res.json();
+    serverWeekDays=Number(d.week_days)||0;
+    serverStreak=d.streak||serverStreak;
     best={...d.best};
     for(const k in sessionBest) if(best[k]==null||sessionBest[k]>best[k]) best[k]=sessionBest[k];
     store.set("ihki.best2",best); marks();
@@ -3459,9 +3559,19 @@ $("heBtn").onclick=async()=>{
   $("status").textContent="מקשיב… אמרו את התרגום בעברית (או לחצו לסיום)";
 };
 function keepScore(id,s){   // a sentence's best score, on the device and for this visit
-  if(best[id]==null||s>best[id]){best[id]=s; store.set("ihki.best2",best);}
+  const old=best[id], phrase=phraseOf(id), c=phrase&&CATS.find(x=>x.id===phrase.cat), before=c&&topicT(c);
+  const improved=old==null||s>old;
+  if(improved){best[id]=s; store.set("ihki.best2",best);}
   if(!(sessionBest[id]>=s)) sessionBest[id]=s;
+  const streakReward=notePracticeDay();
   marks();
+  if(!phrase) return;
+  const after=c&&topicT(c), becameGold=s>=EXCELLENT&&(old==null||old<EXCELLENT);
+  if(improved&&before&&!before.over&&after.over) rewardPop(after.gold?"הנושא כולו בזהב!":"הנושא הושלם!",c.name,after.gold);
+  else if(becameGold) rewardPop("המשפט הפך לזהב ★",phrase.he,true);
+  else if(streakReward&&streakReward.current>=2) rewardPop(`🔥 רצף של ${streakReward.current} ימים`,streakReward.newBest?"שיא אישי חדש":"ממשיכים מחר");
+  else if(old==null) rewardPop("חרוז חדש נאסף",phrase.he);
+  else if(improved&&s-old>=8) rewardPop(`שיא חדש: ${Math.round(old)} ← ${Math.round(s)}`,phrase.he);
 }
 
 /* A teacher can inspect the two phoneme sequences already produced by scoring. The expected row uses the
@@ -4172,6 +4282,7 @@ let FLAG_REVIEWS={pending:[],confirmed:[]}, CALIBRATIONS=[], ATTEMPT_PATTERNS=[]
 let SCORING_RULES=null, scoringRulesError="";   // the rules of pronunciation-rules.md and whether each is on (see drawScoringRules)
 let ACTIVITY=null, activityError="";
 let SYSTEM_ACTIVITY=null, systemActivityError="";
+let ADMIN_SUBJECTS=null;
 let activityHours=+store.get("ihki.activityHours","24"); if(![24,168].includes(activityHours)) activityHours=24;
 let shownStudent="", classScroll=0;   // the student whose screen is on show (an email; "" for the class's), and where the class's was left
 let CLASS_LESSONS=[], CLASS_SOON=[];   // the ready lessons of the class on show, and those still to come (every lesson before the first class)
@@ -4422,6 +4533,7 @@ function drawScoringRules(box){
 function drawFlags(){
   const box=$("mFlags"); box.innerHTML=""; for(const url of flagAudioUrls) URL.revokeObjectURL(url); flagAudioUrls=[];
   drawActivity(box);
+  drawAdminSubjects(box);
   drawApiKeys(box);
   drawSystemActivity(box);
   drawTtsCacheControls(box);
@@ -4535,6 +4647,26 @@ function drawFlags(){
       confirm.onclick=()=>save("confirmed"); reject.onclick=()=>save("rejected"); actions.append(category,diagnose,confirm,reject,msg); card.append(note,actions); group.append(card);
     }
   }
+}
+
+/* Developer-only: the subject stamped onto every class an admin creates. The API enforces the same boundary. */
+function drawAdminSubjects(box){
+  if(!can("*")) return;
+  const card=mark("card",""), list=document.createElement("div");
+  card.append(mark("","מקצועות מנהלים","h2"),mark("sub","רק מפתחים רואים ועורכים את הכרטיס הזה. כיתה חדשה מקבלת אוטומטית את המקצוע של המנהל/ת שפתח/ה אותה.","p"),list); box.append(card);
+  const show=data=>{
+    ADMIN_SUBJECTS=data; list.replaceChildren();
+    if(data.setup){ const code=mark("",data.setup,"code"); code.dir="ltr"; list.append(mark("setup","יש ליצור את טבלת ההרשאות:","p"),code); return; }
+    if(!(data.admins||[]).length){ list.append(mark("sub","אין כרגע מנהלים.","p")); return; }
+    for(const admin of data.admins){
+      const row=mark("key-row",""), who=document.createElement("div"), form=document.createElement("form"), input=document.createElement("input"), save=mark("btn primary","שמירה","button"), msg=mark("msg","");
+      who.append(mark("",admin.name||admin.email,"b"),mark("",admin.email,"small")); input.value=admin.subject||""; input.maxLength=80; input.required=true; input.placeholder="למשל: מתמטיקה או ערבית"; input.setAttribute("aria-label",`המקצוע של ${admin.name||admin.email}`); save.type="submit";
+      form.onsubmit=async e=>{ e.preventDefault(); save.disabled=true; msg.textContent="שומר…"; try{ const res=await api(`/api/admin-subjects/${admin.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({subject:input.value})}), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); admin.subject=data.subject; input.value=data.subject; msg.textContent="נשמר"; }catch(err){ msg.textContent="השמירה נכשלה: "+err.message; } save.disabled=false; };
+      form.append(input,save,msg); row.append(who,form); list.append(row);
+    }
+  };
+  if(ADMIN_SUBJECTS){ show(ADMIN_SUBJECTS); return; }
+  list.append(mark("sub","טוען…","p")); api("/api/admin-subjects").then(async res=>{ const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); show(data); }).catch(err=>list.replaceChildren(mark("note","לא ניתן לטעון את מקצועות המנהלים: "+err.message,"p")));
 }
 const flagGroupOpen={};   // reporter -> whether their group of reports is open; closed until the teacher opens it
 let systemActivityOpen=false;   // the recent activity starts closed; a redraw keeps it as the teacher left it
@@ -4744,6 +4876,7 @@ function drawClasses(classes){
     const card=mark("card",""), top=mark("chead",""), name=mark("","","h2"), n=document.createElement("bdi"), edit=mark("btn","עריכה","button"), del=mark("btn danger","מחיקה","button");
     n.textContent=c.name; name.append(n); edit.onclick=()=>editClass(c); del.onclick=()=>deleteClass(c); top.append(name,edit,del);
     const facts=mark("facts","","dl"), fact=(what,...value)=>{ const dd=document.createElement("dd"); dd.append(...value); facts.append(mark("",what,"dt"),dd); };
+    fact("מקצוע",c.subject||"לא הוגדר");
     fact("שיעורים",lessonsLine(ALL_LESSONS.filter(l=>c.lessons.includes(l.id))));
     const mine=CLASS.students.filter(s=>c.name in s.classes);
     fact("תלמידים",...(mine.length?[`${mine.length}: `,...mine.flatMap((s,k)=>{ const b=document.createElement("bdi"); b.textContent=s.classes[c.name]||s.name||s.email; return k?[", ",b]:[b]; })]:["עוד אין"]));

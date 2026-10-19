@@ -13,7 +13,7 @@
 :root{
   --bg:#EEF0E8; --surface:#FAFBF6; --ink:#1C241D; --muted:#5E685C; --line:#D5DACB;
   --olive:#4B6A2C; --olive-deep:#36501D; --on-olive:#FFFFFF; --olive-soft:#E3EAD6;
-  --sumac:#A3303F; --sumac-bg:#F6E3E3; --ok:#2F7A4A; --ok-bg:#E1F0E4; --amber:#8A5E0E; --amber-bg:#F5ECD8; --gold:#B8860B; --gold-bg:#F7EBC6;
+  --sumac:#A3303F; --sumac-bg:#F6E3E3; --ok:#2F7A4A; --ok-bg:#E1F0E4; --amber:#8A5E0E; --amber-bg:#F5ECD8; --orange:#C45F00; --gold:#B8860B; --gold-bg:#F7EBC6;
   --f-display:"Secular One","Assistant",system-ui,sans-serif;
   --f-body:"Assistant",system-ui,"Segoe UI",Arial,sans-serif;
   --f-tr:"Noto Sans Hebrew","Arial Hebrew",sans-serif;
@@ -21,12 +21,12 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#141915; --surface:#1D241F; --ink:#E7EBE2; --muted:#9AA595; --line:#2F3830;
   --olive:#93B85F; --olive-deep:#6E8F42; --on-olive:#10150F; --olive-soft:#26301F;
-  --sumac:#E77B87; --sumac-bg:#3A1E23; --ok:#6CC08A; --ok-bg:#1C3324; --amber:#E0B45A; --amber-bg:#3A2F17; --gold:#E8C35A; --gold-bg:#3A3217;
+  --sumac:#E77B87; --sumac-bg:#3A1E23; --ok:#6CC08A; --ok-bg:#1C3324; --amber:#E0B45A; --amber-bg:#3A2F17; --orange:#F2A04A; --gold:#E8C35A; --gold-bg:#3A3217;
   color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#141915; --surface:#1D241F; --ink:#E7EBE2; --muted:#9AA595; --line:#2F3830;
   --olive:#93B85F; --olive-deep:#6E8F42; --on-olive:#10150F; --olive-soft:#26301F;
-  --sumac:#E77B87; --sumac-bg:#3A1E23; --ok:#6CC08A; --ok-bg:#1C3324; --amber:#E0B45A; --amber-bg:#3A2F17; --gold:#E8C35A; --gold-bg:#3A3217;
+  --sumac:#E77B87; --sumac-bg:#3A1E23; --ok:#6CC08A; --ok-bg:#1C3324; --amber:#E0B45A; --amber-bg:#3A2F17; --orange:#F2A04A; --gold:#E8C35A; --gold-bg:#3A3217;
   color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font:400 17px/1.6 var(--f-body);margin:0;padding-inline:max(16px,env(safe-area-inset-left),env(safe-area-inset-right));padding-block:max(18px,env(safe-area-inset-top)) max(48px,env(safe-area-inset-bottom));-webkit-text-size-adjust:100%}
@@ -69,6 +69,9 @@ section{display:flex;flex-direction:column;gap:16px}
 .m-today div{border:1px solid var(--line);border-radius:12px;padding:6px 4px;text-align:center;font:700 13px/1.25 var(--f-body);background:var(--bg)}
 .m-today div small{display:block;font-weight:400;color:var(--muted);font-size:11px}
 .m-today .hot{border-color:var(--olive);background:var(--olive-soft)}
+.m-rewards{display:grid;grid-template-columns:46px 1fr auto;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--olive);border-radius:12px;background:var(--surface)}
+.m-week{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--amber-bg);border:2px solid var(--orange);color:var(--orange);font:700 13px var(--f-body)}
+.m-rewards b{display:block;font-size:13px}.m-rewards small{display:block;color:var(--orange);font-size:10.5px;font-weight:700}.m-fire{color:var(--olive);font-weight:700;font-size:11px;text-align:left}
 .m-nav{display:flex;gap:4px;flex-wrap:wrap}
 .m-nav span:not(.n){font:600 12px/1 var(--f-body);padding:6px 8px;border-radius:8px;color:var(--muted)}
 .m-nav span.on:not(.n){background:var(--olive);color:var(--on-olive)}
@@ -180,6 +183,8 @@ section{display:flex;flex-direction:column;gap:16px}
 .tips{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
 .tip{border-inline-start:3px solid var(--olive);padding:4px 12px;display:flex;flex-direction:column;gap:4px}
 .tip p{font-size:15.5px;color:var(--muted)}
+.reward-demo{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px}.reward-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.reward-stats div{padding:9px 4px;border-radius:10px;background:var(--olive-soft);text-align:center}.reward-stats div:first-child{background:var(--amber-bg);box-shadow:inset 0 0 0 1px var(--orange)}.reward-stats div:first-child b{color:var(--orange)}.reward-stats b{display:block;color:var(--olive);font:400 23px/1.1 var(--f-display)}.reward-stats small{font-size:11px;color:var(--muted)}
+.reward-lesson{font:400 19px/1.2 var(--f-display);color:var(--olive);border-bottom:1px solid var(--line);padding-bottom:5px}.reward-subject{font-weight:700;font-size:14px}.beads{display:flex;gap:7px;flex-wrap:wrap}.bead{width:28px;height:28px;border-radius:50%;border:3px solid #52624b;background:radial-gradient(circle at 32% 27%,#dce7d4 0 9%,#769064 23%,#405136 72%);box-shadow:inset -2px -3px 3px rgb(0 0 0/.25)}.bead.gold{border-color:#9b690b;background:radial-gradient(circle at 32% 27%,#fff3a7 0 9%,#e4b83e 27%,#9d6509 75%)}
 .jump{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--line)}
 .jump::-webkit-scrollbar{display:none}
 .jump a{flex:none;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;font:700 14px/1.2 var(--f-body)}
@@ -218,10 +223,10 @@ a,button{-webkit-tap-highlight-color:transparent}
   <header class="top">
     <span class="eyebrow">אהלא וסהלא · מדריך קצר</span>
     <h1>איך מתרגלים במסלול</h1>
-    <p class="lead">המסלול הוא הדרך שלכם בין השיעורים. כל עיגול בדרך הוא נושא: בוחרים אותו, שומעים, אומרים בקול ומקבלים ציון על ההגייה. כל שיעור נפתח במילים החדשות שלו ובמשחק עליהן, כדי שתכירו אותן לפני שאומרים משפטים. כאן תמצאו מה עושה כל כפתור, ומה ההבדל בין סוגי הנושאים.</p>
+    <p class="lead">המסלול הוא הדרך שלכם בין השיעורים. לומדים מילים, מתרגלים משפטים בקול, מקבלים משוב על ההגייה ואוספים את המשפטים שכבר הפכו לשלכם. כאן תמצאו את המסלול, הפרסים והמשוב, כל סוגי התרגול והכלים הנוספים באפליקציה.</p>
   </header>
 
-  <nav class="jump" aria-label="תוכן המדריך"><a href="#path">המסלול</a><a href="#states">העיגולים</a><a href="#kinds">סוגי נושאים</a><a href="#practice">התרגול</a><a href="#settings">הגדרות</a><a href="#tips">טיפים</a></nav>
+  <nav class="jump" aria-label="תוכן המדריך"><a href="#path">המסלול</a><a href="#states">העיגולים</a><a href="#rewards">ההתקדמות שלי</a><a href="#kinds">סוגי נושאים</a><a href="#practice">התרגול</a><a href="#more">עוד דרכי תרגול</a><a href="#settings">הגדרות</a><a href="#tips">טיפים</a></nav>
 
   <!-- 1. the path screen -->
   <section id="path">
@@ -231,13 +236,14 @@ a,button{-webkit-tap-highlight-color:transparent}
     </div>
     <div class="pair">
       <div class="phone" aria-label="דוגמה של מסך המסלול">
-        <div class="m-head at"><span class="n">1</span><span class="m-brand">אהלא וסהלא</span><span class="m-pill">כיתה ב׳ ▾</span><span class="m-drive">🚗 מצב נסיעה</span></div>
+        <div class="m-head at"><span class="n">1</span><span class="m-brand">אהלא וסהלא</span><span class="m-pill">כיתה ב׳ ▾</span><span class="m-drive">? מדריך</span></div>
         <div class="m-today at l"><span class="n">2</span>
           <div class="hot">סרטון יומי<small>יום 3 · ברכות</small></div>
           <div>תרגול יומי<small>10 משפטים</small></div>
           <div>שיעורי בית<small>עוד יומיים</small></div>
         </div>
-        <div class="m-nav at"><span class="n">3</span><span class="on">מסלול</span><span>ספריה דיגיטלית</span><span>חבר מביא חבר</span></div>
+        <div class="m-rewards at"><span class="n">3</span><span class="m-week">🔥 6</span><span><b>הערבית שכבר שלכם</b><small>רצף של 6 ימים · שיא 11</small></span><span class="m-fire">3/4 השבוע<br>18 ★</span></div>
+        <div class="m-nav"><span class="on">מסלול</span><span>פעלים</span><span>משחקים</span><span>חבר מביא חבר</span></div>
         <div class="m-level">שלב א׳<small>8 מתוך 10 שיעורים מוכנים</small></div>
         <div class="m-chapter at l"><span class="n">4</span><div>שיעור 3<i></i></div><small>תורגלו 22 מתוך 40</small></div>
         <div class="road">
@@ -256,9 +262,9 @@ a,button{-webkit-tap-highlight-color:transparent}
         </div>
       </div>
       <ol class="key">
-        <li><span class="n">1</span><div><b>הכיתה ומצב נסיעה</b><span class="d">לחיצה על שם הכיתה מראה את חברי הכיתה, או מחליפה כיתה אם אתם ביותר מאחת. <b style="display:inline">מצב נסיעה</b> מקריא את המשפט, מקשיב לתשובה ואומר את ההערכה בקול, בלי להסתכל על המסך.</span></div></li>
+        <li><span class="n">1</span><div><b>הכיתה והמדריך</b><span class="d">לחיצה על שם הכיתה מראה את חברי הכיתה, או מחליפה כיתה אם אתם ביותר מאחת. הכפתור <b style="display:inline">?</b> מחזיר למדריך הזה בכל רגע מהמסלול.</span></div></li>
         <li><span class="n">2</span><div><b>שלושה קיצורים להיום</b><span class="d"><b style="display:inline">סרטון יומי</b> שהמורה קבע להיום (מודגש עד שצופים). <b style="display:inline">תרגול יומי</b>: סבב של 10 משפטים, חצי לשיפור וחצי חדשים מהשיעור הנוכחי. <b style="display:inline">שיעורי בית</b>: פותח ישר את הנושא הקרוב להגשה.</span></div></li>
-        <li><span class="n">3</span><div><b>לשוניות</b><span class="d">המסלול, הספרייה הדיגיטלית (סרטונים וטקסטים) וחבר מביא חבר.</span></div></li>
+        <li><span class="n">3</span><div><b>ההתקדמות והרצף שלכם</b><span class="d">🔥 הוא מספר ימי התרגול הרצופים ומופיע במרכז הכרטיס. לידו מופיעים יעד ארבעת הימים השבועי ומספר משפטי הזהב ★. לחיצה פותחת את כל אוסף החרוזים, לפי שיעור ונושא.</span></div></li>
         <li><span class="n">4</span><div><b>כותרת השיעור</b><span class="d">הפס מראה כמה מהשיעור תורגל. לחיצה עליה פותחת את הנושא הבא שעוד לא נגמר. בסוף כל שיעור יש גביע 🏆 שמזהיב כשהשיעור הושלם.</span></div></li>
         <li><span class="n">5</span><div><b>הנושא של עכשיו</b><span class="d">מסומן בהילה ובבועה „התחילו” או „המשך”. אם גללתם רחוק, הכפתור „חזרה לנושא הנוכחי” מחזיר אליו.</span></div></li>
         <li><span class="n">6</span><div><b>כל הנושאים פתוחים</b><span class="d">אפשר לפתוח כל נושא בכל שיעור, גם בלי לסיים את מה שלפניו.</span></div></li>
@@ -278,10 +284,36 @@ a,button{-webkit-tap-highlight-color:transparent}
       <div class="state"><div class="ball done"><span class="badge">✓</span>2</div><b>הושלם</b><span>כל המשפטים נאמרו לפחות פעם אחת</span></div>
       <div class="state"><div class="ball gold"><span class="badge">★</span>1</div><b>זהב</b><span>כל המשפטים קיבלו „מצוין” (85 ומעלה)</span></div>
       <div class="state"><div class="ball" style="border-color:var(--amber);margin-top:22px"><div class="tag hw" style="font-size:10px">עוד 3 ימים</div>5</div><b>שיעורי בית</b><span>הבועה סופרת את הימים עד ההגשה</span></div>
+      <div class="state"><div class="ball video">▶&#xFE0E;</div><b>סרטון</b><span>✓ מופיע אחרי שפתחתם וצפיתם</span></div>
     </div>
   </section>
 
-  <!-- 3. topic kinds -->
+  <!-- 3. progress rewards -->
+  <section id="rewards">
+    <div class="sechead">
+      <h2>הערבית שכבר שלכם</h2>
+      <p>זה המקום לראות לא רק מה סיימתם, אלא כמה ערבית כבר צברתם לאורך הדרך. פותחים אותו בלחיצה על הכרטיס שמעל המסלול.</p>
+    </div>
+    <div class="pair">
+      <div class="reward-demo" aria-label="דוגמה של אוסף ההתקדמות">
+        <div class="reward-stats"><div><b>🔥 6</b><small>רצף · שיא 11</small></div><div><b>42</b><small>משפטים שלכם</small></div><div><b>18</b><small>חרוזי זהב</small></div><div><b>3</b><small>ימים השבוע</small></div></div>
+        <div class="reward-lesson">שלב א׳ · שיעור 3</div>
+        <div class="reward-subject">משפטים: עברית ← ערבית א׳</div>
+        <div class="beads" aria-hidden="true"><i class="bead gold"></i><i class="bead gold"></i><i class="bead"></i><i class="bead gold"></i><i class="bead"></i><i class="bead"></i></div>
+        <div class="reward-subject">פעלים בעבר</div>
+        <div class="beads" aria-hidden="true"><i class="bead gold"></i><i class="bead"></i><i class="bead gold"></i><i class="bead"></i></div>
+      </div>
+      <div class="tips">
+        <div class="tip"><h3>חרוז לכל משפט</h3><p>הקלטה ראשונה עם דיבור אוספת את המשפט. לחיצה על חרוז באוסף מחזירה ישר למשפט שלו.</p></div>
+        <div class="tip"><h3>זהב ב־85</h3><p>כשהציון הטוב ביותר במשפט מגיע ל־85, החרוז הופך לזהב. האפליקציה שומרת את הציון הגבוה ביותר, לא את האחרון.</p></div>
+        <div class="tip"><h3>יעד שבועי 4/4</h3><p>הטבעת סופרת ימים שונים שבהם תרגלתם השבוע, מיום שני עד יום ראשון. די בהקלטה אחת עם דיבור כדי שהיום ייספר.</p></div>
+        <div class="tip"><h3>רצף 🔥</h3><p>הרצף סופר ימי תרגול רצופים. הרצף של אתמול נשאר מוצג במשך היום כדי שתספיקו להמשיך אותו; אם היום עובר בלי תרגול, הוא מתאפס. השיא האישי נשמר.</p></div>
+        <div class="tip"><h3>רגעים שחוגגים</h3><p>חרוז חדש, מעבר לזהב, שיא חדש, המשך רצף והשלמת נושא מקבלים הודעת חגיגה קצרה אחרי הציון.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. topic kinds -->
   <section id="kinds">
     <div class="sechead">
       <h2>סוגי הנושאים</h2>
@@ -332,7 +364,7 @@ a,button{-webkit-tap-highlight-color:transparent}
     </div>
   </section>
 
-  <!-- 4. the practice screen -->
+  <!-- 5. the practice screen -->
   <section id="practice">
     <div class="sechead">
       <h2>מסך התרגול</h2>
@@ -340,7 +372,7 @@ a,button{-webkit-tap-highlight-color:transparent}
     </div>
     <div class="pair">
       <div class="phone" aria-label="דוגמה של מסך התרגול">
-        <div class="m-bar at"><span class="n">1</span><span class="m-btn p">→ חזרה למסלול</span><span class="m-sp"></span><span class="m-btn">☰ רשימה</span><span class="m-btn gear">⚙</span></div>
+        <div class="m-bar at"><span class="n">1</span><span class="m-btn p">→ חזרה למסלול</span><span class="m-btn">🚗 מצב נסיעה</span><span class="m-sp"></span><span class="m-btn">☰ רשימה</span><span class="m-btn gear">⚙</span></div>
         <div class="m-card">
           <div class="m-meta"><span>3 / 10</span><span>משפטים א׳</span></div>
           <div class="at l" style="display:flex;flex-direction:column;gap:6px;padding-inline:14px"><span class="n">2</span>
@@ -360,7 +392,7 @@ a,button{-webkit-tap-highlight-color:transparent}
         </div>
       </div>
       <ol class="key">
-        <li><span class="n">1</span><div><b>שורת הכלים</b><span class="d"><b style="display:inline">חזרה למסלול</b> מימין. משמאל <b style="display:inline">רשימת המשפטים</b>, עם הציון הכי טוב בכל משפט, ו־⚙ <b style="display:inline">הגדרות ההשמעה</b> בפינה השמאלית העליונה (פירוט בהמשך).</span></div></li>
+        <li><span class="n">1</span><div><b>שורת הכלים</b><span class="d"><b style="display:inline">חזרה למסלול</b>, <b style="display:inline">מצב נסיעה</b> שמקריא ומקשיב בלי לגעת במסך, <b style="display:inline">רשימת המשפטים</b> עם הציון הכי טוב בכל משפט, ו־⚙ להגדרות ההשמעה. בשיחה מופיעים כאן גם השמעת השיחה ובוחן.</span></div></li>
         <li><span class="n">2</span><div><b>המשפט</b><span class="d">מה שצריך לומר, ומעליו המיקום בנושא.</span></div></li>
         <li><span class="n">3</span><div><b>המיקרופון</b><span class="d">לוחצים פעם אחת ומדברים, וההקלטה נעצרת לבד. בלי מיקרופון אפשר לבחור <b style="display:inline">תרגול שקט</b> ולהרכיב את המשפט ממילים.</span></div></li>
         <li><span class="n">4</span><div><b>הציון</b><span class="d">כל מילה נצבעת לפי מה שנשמע: ירוק נאמר נכון, צהוב כמעט. מתחת מופיעים טיפים לשיפור.</span></div></li>
@@ -374,32 +406,46 @@ a,button{-webkit-tap-highlight-color:transparent}
     </div>
   </section>
 
+  <!-- 6. other practice routes -->
+  <section id="more">
+    <div class="sechead">
+      <h2>עוד דרכים לתרגל</h2>
+      <p>לא חייבים לבחור נושא ולתרגל אותו מההתחלה עד הסוף. אלה המסלולים הקצרים והמשחקיים שמופיעים לפי ההרשאות והשיעורים של הכיתה.</p>
+    </div>
+    <div class="topics">
+      <article class="topic"><div class="th"><div class="ball now">10</div><div><h3>תרגול יומי</h3><small>הכפתור מעל המסלול</small></div></div><p>סבב קצר של עד עשרה משפטים. הוא משלב משפטים חלשים שכדאי לשפר עם משפטים חדשים משיעורי הבית או מהשיעור הראשון שעוד לא הושלם. בסוף רואים כמה נאמרו וכמה ציונים השתפרו.</p><p class="ex"><b>הסבב מסומן כהושלם להיום:</b> אחרי שאמרתם לפחות חצי ממנו.</p></article>
+      <article class="topic"><div class="th"><div class="ball now">🚗</div><div><h3>מצב נסיעה</h3><small>במסך התרגול</small></div></div><p>האפליקציה מקריאה את ההנחיה, מקשיבה לתשובה, אומרת את ההערכה בקול וממשיכה. מתאים להליכה או נסיעה שבהן לא רוצים לגעת במסך. מסיימים בכפתור „סיום נסיעה”.</p></article>
+      <article class="topic"><div class="th"><div class="ball now">פעל</div><div><h3>לשונית פעלים</h3><small>טבלת הפעלים של הקורס</small></div></div><p>מחפשים פועל, עוברים בין השיעורים ורואים את הצורות שכבר נלמדו לפי בניין וגזרה. לחיצה על צורה בערבית משמיעה אותה. הסברים קצרים עוזרים לזהות את התבנית.</p></article>
+      <article class="topic"><div class="th"><div class="ball now">📿</div><div><h3>משחקי חזרה</h3><small>בלשונית משחקים, כשזמינים</small></div></div><p>משחק הזיכרון הופך חרוזים ומחבר בין פעלים בעברית ובערבית. משחקים נוספים יכולים להיפתח לפי החומר וההרשאה של הכיתה.</p></article>
+      <article class="topic"><div class="th"><div class="ball now">💬</div><div><h3>יאללה נדבר</h3><small>שיחה עם דמויות מהשיעורים, כשזמינה</small></div></div><p>בוחרים תרחיש ומנהלים שיחה קצרה בערבית עם דמות מהקורס. השיחה משתמשת במילים ובדקדוק שכבר נלמדו, ומתקנת ניסוח או דקדוק בעברית כשצריך.</p></article>
+      <article class="topic"><div class="th"><div class="ball video">▶&#xFE0E;</div><div><h3>סרטונים וספרייה</h3><small>לפי התוכן שהמורה פרסם</small></div></div><p>סרטון יומי מופיע מעל המסלול ביום שנקבע. סרטוני שיעור נמצאים בתוך הדרך, והספרייה הדיגיטלית נפתחת ממסך הכניסה למי שקיבל גישה.</p></article>
+    </div>
+  </section>
 
-  <!-- 5. playback settings -->
+
+  <!-- 7. playback settings -->
   <section id="settings">
     <div class="sechead">
       <h2>הגדרות השמעה ⚙</h2>
-      <p>במסך התרגול, בפינה השמאלית העליונה, יש כפתור ⚙. הוא פותח חלון עם שלוש הגדרות. הבחירה נשמרת במכשיר לפעם הבאה.</p>
+      <p>במסך התרגול יש כפתור ⚙. הוא פותח שתי הגדרות שנשמרות במכשיר לפעם הבאה.</p>
     </div>
     <div class="pair">
       <div class="phone" aria-label="דוגמה של חלון הגדרות ההשמעה">
         <div class="m-bar"><span class="m-btn p">→ חזרה למסלול</span><span class="m-sp"></span><span class="m-btn">☰ רשימה</span><span class="m-btn gear hl">⚙</span></div>
         <div class="dlg">
           <div class="dlg-h"><b>הגדרות השמעה</b><span class="m-btn">סגירה</span></div>
-          <div class="row at l"><span class="n">1</span><span>קול ההשמעה</span><span class="sel">רַאאִף</span></div>
-          <div class="row at l"><span class="n">2</span><span>מהירות</span><span class="seg"><i>x0.8</i><i class="on">x1</i><i>x1.5</i></span></div>
-          <div class="row at l"><span class="n">3</span><span>הקראת המשפט בעברית</span><span class="tg on" aria-hidden="true"></span></div>
+          <div class="row at l"><span class="n">1</span><span>מהירות</span><span class="sel">x1</span></div>
+          <div class="row at l"><span class="n">2</span><span>הקראת המשפט בעברית</span><span class="tg on" aria-hidden="true"></span></div>
         </div>
       </div>
       <ol class="key">
-        <li><span class="n">1</span><div><b>קול ההשמעה</b><span class="d"><b style="display:inline">רַאאִף</b> מקריא את כל התשובות, הסיפורים והשיחות.</span></div></li>
-        <li><span class="n">2</span><div><b>מהירות</b><span class="d"><b style="display:inline">x0.8</b> לאט יותר, כדי לשמוע כל הברה. <b style="display:inline">x1</b> רגיל. <b style="display:inline">x1.5</b> מהיר, לאימון הבנת שמיעה.</span></div></li>
-        <li><span class="n">3</span><div><b>הקראת המשפט בעברית</b><span class="d">כשמסומן, כל משפט חדש מוקרא בקול בעברית לפני שעונים, כך שאפשר לתרגל בלי לקרוא מהמסך. בנושאי ערבית ← עברית אין הקראה, כי העברית היא התשובה.</span></div></li>
+        <li><span class="n">1</span><div><b>מהירות</b><span class="d"><b style="display:inline">x0.8</b> לאט יותר, כדי לשמוע כל הברה. <b style="display:inline">x1</b> רגיל. <b style="display:inline">x1.5</b> מהיר, לאימון הבנת שמיעה.</span></div></li>
+        <li><span class="n">2</span><div><b>הקראת המשפט בעברית</b><span class="d">כשמסומן, כל משפט חדש מוקרא בקול בעברית לפני שעונים, כך שאפשר לתרגל בלי לקרוא מהמסך. בנושאי ערבית ← עברית אין הקראה, כי העברית היא התשובה.</span></div></li>
       </ol>
     </div>
   </section>
 
-  <!-- 6. tips -->
+  <!-- 8. tips -->
   <section id="tips">
     <div class="sechead"><h2>כמה טיפים</h2></div>
     <div class="tips">

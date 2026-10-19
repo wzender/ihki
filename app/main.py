@@ -161,7 +161,8 @@ CREATE_TUTORS = ("create table public.tutors (email text primary key, granted_by
                  "created_at timestamptz not null default now()); alter table public.tutors enable row level security;")
 CREATE_USER_ACCESS = ("create table public.user_access (user_id uuid primary key references auth.users(id) on delete cascade, "
                       "email text not null, roles text[] not null default array['student']::text[], "
-                      "entitlements text[] not null default '{}'::text[], updated_at timestamptz not null default now(), "
+                      "entitlements text[] not null default '{}'::text[], subject text not null default '', "
+                      "updated_at timestamptz not null default now(), "
                       "updated_by uuid references auth.users(id), "
                       "constraint valid_roles check (roles <@ array['student','teacher','flagger','admin','developer']::text[]), "
                       "constraint valid_entitlements check (entitlements <@ array['practice','games','tutor','path','library']::text[])); "
@@ -179,7 +180,8 @@ CREATE_SYSTEM_EVENTS = ("create table public.system_events (id bigint generated 
                         "created_at timestamptz not null default now()); "
                         "create index system_events_created_at_idx on public.system_events (created_at desc); "
                         "alter table public.system_events enable row level security;")
-MIGRATE_USER_ACCESS = ("alter table public.user_access drop constraint if exists valid_entitlements; "
+MIGRATE_USER_ACCESS = ("alter table public.user_access add column if not exists subject text not null default ''; "
+                       "alter table public.user_access drop constraint if exists valid_entitlements; "
                        "update public.user_access set entitlements = array_append(entitlements, 'practice') "
                        "where 'path' = any(entitlements) and not ('practice' = any(entitlements)); "
                        "alter table public.user_access add constraint valid_entitlements check "
@@ -220,7 +222,9 @@ MIGRATE_CLASSES = ("alter table public.classes add column if not exists nickname
                    "add column if not exists lessons text[] not null default '{}', "
                    "add column if not exists homework text not null default '', add column if not exists due date, "
                    "add column if not exists homeworks jsonb not null default '[]', "
-                   "add column if not exists dailies jsonb not null default '[]';")
+                   "add column if not exists dailies jsonb not null default '[]', "
+                   "add column if not exists subject text not null default 'ערבית'; "
+                   "update public.classes set subject = 'ערבית' where subject = '';")
 MAX_HOMEWORKS = 30
 
 
@@ -382,6 +386,38 @@ def summary(rows: list[dict], texts: dict[int, dict] | None = None) -> dict:
             "last": last.isoformat() if last else None}
 
 
+def weekly_practice_days(rows: list[dict]) -> int:
+    """Distinct Jerusalem calendar days practised since Monday of the current week."""
+    today = datetime.now(LOCAL_TZ).date()
+    monday = today - timedelta(days=today.weekday())
+    return len({utc(r["created_at"]).astimezone(LOCAL_TZ).date() for r in rows
+                if monday <= utc(r["created_at"]).astimezone(LOCAL_TZ).date() <= today})
+
+
+def practice_streak(rows: list[dict]) -> dict:
+    """Current and longest runs of consecutive Jerusalem calendar days.
+
+    Yesterday may anchor the current run: a student does not lose the visible streak
+    before they have had a chance to practise today.
+    """
+    days = sorted({utc(r["created_at"]).astimezone(LOCAL_TZ).date() for r in rows})
+    if not days:
+        return {"current": 0, "best": 0, "last": None}
+    longest = run = 1
+    for previous, day in zip(days, days[1:]):
+        run = run + 1 if day == previous + timedelta(days=1) else 1
+        longest = max(longest, run)
+    today = datetime.now(LOCAL_TZ).date()
+    current = 0
+    if days[-1] >= today - timedelta(days=1):
+        current = 1
+        for i in range(len(days) - 1, 0, -1):
+            if days[i - 1] != days[i] - timedelta(days=1):
+                break
+            current += 1
+    return {"current": current, "best": longest, "last": days[-1].isoformat()}
+
+
 def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                auth: SupabaseAuth | None = None, tutor: Tutor | None = None) -> FastAPI:
     @asynccontextmanager
@@ -428,7 +464,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except AuthUnavailable as e:
             raise HTTPException(503, f"class list not available: {e}")
         mine = [c for c in classes if email in c["emails"]]   # a student may be in several classes
-        roles, entitlements = {"student"}, set(DEFAULT_ENTITLEMENTS)
+        roles, entitlements, assigned = {"student"}, set(DEFAULT_ENTITLEMENTS), None
         if hasattr(a, "access_for"):
             try:
                 assigned = a.access_for(user["id"])
@@ -456,6 +492,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         permissions = set().union(*(ROLE_PERMISSIONS[r] for r in roles))
         permissions.update(*[ENTITLEMENT_PERMISSIONS[e] for e in entitlements])
         return {**user, "token": token.strip(), "roles": sorted(roles), "entitlements": sorted(entitlements),
+                "subject": str((assigned or {}).get("subject") or ""),
                 "permissions": sorted(permissions), "teacher": bool(roles & {"teacher", "admin", "developer"}),
                 "tutor": "flags.create" in permissions or "*" in permissions, "classes": mine}
 
@@ -554,9 +591,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/progress")
     def progress(user: dict | None = Depends(signed_in)):
-        """The signed-in student's progress: best score and tries per phrase id, recordings, days practised."""
-        s = summary(app.state.auth.attempts(user["token"]) if user else [], text_bank(text_rows()))
-        return {k: s[k] for k in ("best", "tries", "recordings", "days")}
+        """The student's best scores and compact practice totals, including this week's active days."""
+        rows = app.state.auth.attempts(user["token"]) if user else []
+        s = summary(rows, text_bank(text_rows()))
+        return {**{k: s[k] for k in ("best", "tries", "recordings", "days")},
+                "week_days": weekly_practice_days(rows), "streak": practice_streak(rows)}
 
     @app.get("/api/writing", dependencies=[Depends(require("practice.use"))])
     def writing(user: dict | None = Depends(signed_in)):
@@ -760,6 +799,56 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 raise HTTPException(409, f"permissions table needs upgrading; run: {MIGRATE_USER_ACCESS}")
             raise HTTPException(503, f"Supabase לא זמין: {e}")
         return {"ok": True}
+
+    @app.get("/api/admin-subjects")
+    def admin_subjects(a: SupabaseAuth = Depends(require("*")), actor: dict | None = Depends(signed_in)):
+        """Developer-only data for the dedicated subject editor in Monitoring."""
+        if not actor or "*" not in actor.get("permissions", ()):
+            raise HTTPException(403, "developers only")
+        try:
+            users, rows = a.users(), a.access_rows()
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        if rows is None:
+            return {"admins": [], "setup": CREATE_USER_ACCESS, "migration": MIGRATE_USER_ACCESS}
+        assigned = {r["user_id"]: r for r in rows}
+        out = []
+        for account in users:
+            row, email = assigned.get(account["id"], {}), account["email"].lower()
+            roles = set(row.get("roles") or [])
+            if email in getattr(a, "teachers", ()):
+                roles.add("admin")
+            if "admin" in roles:
+                out.append({"id": account["id"], "email": account["email"], "name": account.get("name", ""),
+                            "subject": str(row.get("subject") or "")})
+        return {"admins": out, "setup": "", "migration": ""}
+
+    @app.put("/api/admin-subjects/{target_id}")
+    def update_admin_subject(target_id: str, body: dict = Body(...),
+                             a: SupabaseAuth = Depends(require("*")), actor: dict | None = Depends(signed_in)):
+        if not actor or "*" not in actor.get("permissions", ()):
+            raise HTTPException(403, "developers only")
+        subject = " ".join(str(body.get("subject", "")).split())
+        if not subject or len(subject) > 80:
+            raise HTTPException(400, "subject must contain 1–80 characters")
+        try:
+            target = next((u for u in a.users() if u["id"] == target_id), None)
+            if not target:
+                raise HTTPException(404, "account not found")
+            old = a.access_for(target_id) or {}
+            roles = set(old.get("roles") or [])
+            if target["email"].lower() in getattr(a, "teachers", ()):
+                roles.add("admin")
+            if "admin" not in roles:
+                raise HTTPException(400, "the account is not an admin")
+            a.set_admin_subject(target, subject, actor)
+        except HTTPException:
+            raise
+        except AuthUnavailable as e:
+            if "subject" in str(e).lower():
+                raise HTTPException(503, f"permissions table needs upgrading; run: {MIGRATE_USER_ACCESS}")
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        return {"ok": True, "subject": subject}
 
     @app.get("/api/flags")
     def flags(status: str = Query("pending"), a: SupabaseAuth = Depends(teacher_only)):
@@ -1410,11 +1499,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if "answered 404" in str(e):
             return ("הטבלה classes לא קיימת ב-Supabase. צרו אותה ב-SQL Editor (הפקודה ב-README); "
                     "אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
-        if any(col in str(e) for col in ("nicknames", "lessons", "homework", "'due'", "dailies")):   # a table made before them
+        if any(col in str(e) for col in ("nicknames", "lessons", "homework", "'due'", "dailies", "subject")):   # a table made before them
             return f"לטבלה classes חסרות עמודות. הריצו ב-SQL Editor של Supabase: {MIGRATE_CLASSES}"
         return f"Supabase לא זמין: {e}"
 
-    def save_class(a: SupabaseAuth, id: int | None, body: dict) -> dict:
+    def save_class(a: SupabaseAuth, id: int | None, body: dict, actor: dict | None = None) -> dict:
         """Checks a class from the panel ({"name", "emails": the student list, see `class_members`, "lessons": lesson
         ids, "homeworks": [{"topic": a topic of one of them, "due": its ISO date, or ""}], each topic once; or, as
         before a class could have several, "homework" and "due" for a single one; "dailies": [{"video": the id of
@@ -1472,7 +1561,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 raise HTTPException(409, f"כבר יש כיתה בשם {taken}")
             # a class that has no daily videos, and had none, is saved without them: a table made before them takes it
             had = any(c["id"] == id and c.get("dailies") for c in a.classes())
-            a.save_class(id, name, emails, nicks, lessons, homeworks, dailies if dailies or had else None)
+            subject = str((actor or {}).get("subject") or "").strip()
+            if (id is None and hasattr(a, "access_for") and actor and "admin" in actor.get("roles", ())
+                    and "developer" not in actor.get("roles", ()) and not subject):
+                raise HTTPException(409, "לא הוגדר מקצוע למנהל/ת. מפתח/ת צריך להגדיר אותו בניטור.")
+            a.save_class(id, name, emails, nicks, lessons, homeworks, dailies if dailies or had else None, subject)
         except ClassConflict:
             raise HTTPException(409, f"כבר יש כיתה בשם {name}")
         except KeyError:
@@ -1482,12 +1575,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"ok": True}
 
     @app.post("/api/classes")
-    def add_class(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
-        return save_class(a, None, body)
+    def add_class(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only), actor: dict | None = Depends(signed_in)):
+        return save_class(a, None, body, actor)
 
     @app.put("/api/classes/{class_id}")
-    def edit_class(class_id: int, body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
-        return save_class(a, class_id, body)
+    def edit_class(class_id: int, body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only), actor: dict | None = Depends(signed_in)):
+        return save_class(a, class_id, body, actor)
 
     @app.delete("/api/classes/{class_id}")
     def delete_class(class_id: int, a: SupabaseAuth = Depends(teacher_only)):

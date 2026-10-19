@@ -90,6 +90,7 @@ export interface TraceConfig {
   deleted_peak: number;           // deleted: p_target < deleted_peak and p_competitor < deleted_comp
   deleted_comp: number;
   flag_below: number;             // a sound under this (and beyond its margin) is flagged
+  flag_below_sound: Record<string, number>; // per sound, in place of flag_below (set per model)
   issue_below: number;            // a sound under this is listed as imprecise
   near_vowel_floor: number;
   word_min_weight: number;
