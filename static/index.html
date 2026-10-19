@@ -4427,9 +4427,10 @@ function drawFlags(){
   if(!flagsLoaded){ box.append(mark("card","בחרו בניטור כדי לטעון את הנתונים.")); return; }
   drawScoringRules(box);
   if(flagsError){ const card=mark("card",""); card.append(mark("","לא ניתן לטעון את הדיווחים","h2"),mark("",flagsError,"p")); box.append(card); return; }
-  if(CALIBRATIONS.some(c=>c.status!=="rejected"&&!(c.evidence||{}).dismissed)){
+  const visibleCalibration=c=>c.status!=="rejected"&&!(c.evidence||{}).dismissed;
+  if(CALIBRATIONS.some(visibleCalibration)){
     const list=mark("card",""); list.append(mark("","הצעות כיול","h2"));
-    for(const c of CALIBRATIONS.filter(c=>c.status!=="rejected"&&!(c.evidence||{}).dismissed)){
+    for(const c of CALIBRATIONS.filter(visibleCalibration)){
       const row=mark("flag-review",""), title=mark("",`${phoneName(c.expected)} → ${phoneName(c.heard)} · ${c.status==="applied"?"פעיל":"טיוטה"}`,"b");
       const floor=document.createElement("input"); floor.type="number"; floor.min=0; floor.max=100; floor.value=c.floor; floor.title="ציון מינימום כשמתקיים הבלבול";
       const scope=document.createElement("select"); for(const [value,label] of [["global","כל המשפטים"],["phrase","משפט מסוים"]]){ const o=document.createElement("option"); o.value=value; o.textContent=label; scope.append(o); } scope.value=c.scope||"global";
@@ -4447,7 +4448,7 @@ function drawFlags(){
     const table=mark("flag-patterns","","table"), head=document.createElement("tr"); for(const x of ["משפט וצמד","תלמידים","ניסיונות","שיעור מהמתרגלים","פעולה"]) head.append(mark("",x,"th")); table.append(head);
     for(const p of frequent){
       const row=document.createElement("tr"), label=`${p.phrase} · ${phoneName(p.expected)} → ${phoneName(p.heard)}`; for(const x of [label,p.students,p.attempts,`${Math.round(p.student_rate*100)}%`]) row.append(mark("",x,"td"));
-      const cell=document.createElement("td"), exists=CALIBRATIONS.some(c=>c.expected===p.expected&&c.heard===p.heard&&c.status!=="rejected"), propose=mark("btn",exists?"כבר קיימת הצעה":"יצירת טיוטה לבדיקה","button"); propose.disabled=exists;
+      const cell=document.createElement("td"), exists=CALIBRATIONS.some(c=>c.expected===p.expected&&c.heard===p.heard&&visibleCalibration(c)), propose=mark("btn",exists?"כבר קיימת הצעה":"יצירת טיוטה לבדיקה","button"); propose.disabled=exists;
       propose.onclick=async()=>{ propose.disabled=true; try{ const evidence={source:"student_attempts",attempts:p.attempts,students:p.students,student_rate:p.student_rate,phrases:[p.phrase],average_score:p.average_score}; const res=await api("/api/calibrations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({expected:p.expected,heard:p.heard,evidence})}), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); flagsLoaded=false; await loadFlags(); drawManage(); }catch(err){ alert("יצירת ההצעה נכשלה: "+err.message); propose.disabled=false; } }; cell.append(propose); row.append(cell); table.append(row);
     }
     card.append(table); box.append(card);
