@@ -105,8 +105,8 @@ svg .strong{fill:var(--ink);font-weight:700}
 .word .tr{font-size:20px;font-weight:700;line-height:1.3}
 .word .ar{font-size:17px;color:var(--ink-2);line-height:1.2}
 .word .ws{font-size:12px;font-weight:600}
-.phones{display:flex;gap:3px;direction:ltr}
-.ph{font:600 13px ui-monospace,monospace;min-width:24px;padding:3px 5px;border-radius:6px;background:var(--surface);border:1px solid var(--ring);cursor:pointer;text-align:center;color:var(--ink)}
+.phones{display:flex;gap:3px;direction:rtl}
+.ph{font:600 13px var(--font);min-width:24px;padding:3px 5px;border-radius:6px;background:var(--surface);border:1px solid var(--ring);cursor:pointer;text-align:center;color:var(--ink)}
 .ph.good{box-shadow:inset 0 -3px 0 var(--good)} .ph.warn{box-shadow:inset 0 -3px 0 var(--warn)} .ph.crit{box-shadow:inset 0 -3px 0 var(--crit)}
 .ph.flag::after{content:"!";color:var(--crit-ink);margin-inline-start:2px}
 .ph.sel{outline:2px solid var(--s1);outline-offset:1px}
@@ -221,6 +221,14 @@ const band=s=>s>=75?"good":s>=50?"warn":"crit";
 const BAND_NAME={good:"טוב",warn:"כמעט",crit:"חלש"};
 const STAGE_NAME={gop:"GOP גולמי",exemption:"פטורים",insertion:"תקרת צרור",baseline:"קו בסיס ילידי",calibration:"רצפת כיול",final:"סופי"};
 const EXEMPT_NAME={glottal_dropped:"עצירה סותמית שהושמטה",article_vowel_elided:"תנועת ال אחרי תנועה",near_vowel:"תנועה קרובה",final_b_devoicing:"b סופית לפני עיצור אטום (כלל 28)",word_final_vowel_linking:"תנועה סופית לפני תנועה (כלל 29)",unmarked_short_vowel:"תנועה קצרה שאינה נבדקת (כלל 30)"};
+const PHONE_HEBREW={
+  "ʔ":"א","b":"בּ","t":"ת","dʒ":"ג׳","ħ":"ח","x":"ח׳","χ":"ח׳","d":"ד","r":"ר","ɾ":"ר","z":"ז",
+  "s":"ס","ʃ":"ש","sˤ":"צ","dˤ":"ד׳","tˤ":"ט","ðˤ":"ט׳","ʕ":"ע","ɣ":"ע׳","ʁ":"ע׳","f":"פ",
+  "q":"ק","k":"כּ","g":"ג","ɡ":"ג","l":"ל","ɫ":"ל","m":"מ","n":"נ","h":"ה","ɦ":"ה","w":"ו","j":"י",
+  "tʃ":"צ׳","θ":"ת׳","ð":"ד״","p":"פּ","v":"ב","β":"ב","ʋ":"ב","ts":"טס",
+  "a":"אַ","i":"אִ","u":"אֻ","e":"אֶ","o":"אוֹ","aː":"אַא","iː":"אִי","uː":"אוּ","eː":"אֵי","oː":"אוֹ"
+};
+const phoneHebrew=p=>PHONE_HEBREW[p]||p;
 
 let R=null, T=null, PH=[], sel=0, pinned=false, traceSource="";
 let wordAudio=null, wordAudioEnd=0, wordAudioNode=null;
@@ -325,7 +333,8 @@ function drawSentence(){
     word.append(el("span",{class:"tr",text:w.tr}),el("span",{class:"ar",text:w.ar}),el("span",{class:"ws",text:`${fmt(w.score,0)} · ${BAND_NAME[b]}`}));
     const phones=el("div",{class:"phones"});
     T.tokens.forEach(t=>{ if(t.word!==wi) return;
-      const c=el("button",{class:`ph ${band(t.final)}${t.flagged?" flag":""}`,"data-i":t.i,"aria-label":`${t.ipa}, ציון ${fmt(t.final,0)}`,text:t.ipa});
+      const c=el("button",{class:`ph ${band(t.final)}${t.flagged?" flag":""}`,"data-i":t.i,
+        "aria-label":`${phoneHebrew(t.ipa)}, IPA ${t.ipa}, ציון ${fmt(t.final,0)}`,title:`IPA: ${t.ipa}`,text:phoneHebrew(t.ipa)});
       c.onmouseenter=e=>{ hover(t.i); tipShow(e,soundTip(t.i)); }; c.onmousemove=tipMove; c.onmouseleave=tipHide;
       c.onfocus=()=>hover(t.i); c.onclick=e=>{ e.stopPropagation(); pick(t.i); };
       phones.append(c); });

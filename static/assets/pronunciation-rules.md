@@ -329,9 +329,11 @@ scoring:
   accept_alt_min_post: 0.20 # an accepted realisation counts if its peak posterior >= this
   accepted_score_floor: 90  # score given to a phoneme realised as an accepted alternative
   deletion: {target_peak_max: 0.05, competitor_peak_max: 0.20}
+  gop_leniency: 0.35        # a competitor twice as likely still scores about 78
   vowel_weight: 0.5
+  word_min_weight: 0.35     # weakest phoneme contributes 35%; the other 65% is the word's phoneme mean
   severity_weight: {1: 1.0, 2: 1.5, 3: 2.0}
-  sentence_score: "0.5 * weighted_phoneme_mean + 0.5 * mean(word_min)"   # a word scores as its weakest phoneme
+  sentence_score: "0.5 * weighted_phoneme_mean + 0.5 * mean(word_score)"
   bands: {excellent: 85, almost: 60}                                    # below 60 = try again
   max_tips: 3
   # default margin: flag when log P(competitor) - log P(target) >= log(1.0), i.e. competitor at least as likely

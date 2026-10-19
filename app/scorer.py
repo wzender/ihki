@@ -202,10 +202,12 @@ class ScorerConfig:
     max_issues: int = 8
     max_tips: int | None = None     # None: as many as the rules document says (scoring.max_tips)
     near_vowel_floor: float = 90.0  # a vowel heard as its neighbour (i/e, u/o, a/ə, short/long) scores at least this
-    word_min_weight: float = 0.5    # word score = this much weakest phoneme, the rest the mean of its phonemes
+    word_min_weight: float = 0.35   # one weak phoneme matters, without dominating half of the whole word
     ref_min_mean: float = 60.0      # a native reference whose mean phoneme score is under this is not trusted
     ayin_deleted_floor: float = 60.0 # the base model often drops a correctly pronounced pharyngeal ʕ
-    gop: GopConfig = field(default_factory=GopConfig)
+    # The learner-facing pipeline is more encouraging than the generic GOP primitive: a competitor twice as likely
+    # scores about 78, while a clearly dominant competitor can still pull the phoneme below the feedback threshold.
+    gop: GopConfig = field(default_factory=lambda: GopConfig(leniency=0.35))
 
 
 def frame_energy(wav: np.ndarray | None, frames: int) -> np.ndarray | None:

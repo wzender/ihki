@@ -4428,8 +4428,9 @@ function drawFlags(){
   drawScoringRules(box);
   if(flagsError){ const card=mark("card",""); card.append(mark("","לא ניתן לטעון את הדיווחים","h2"),mark("",flagsError,"p")); box.append(card); return; }
   const visibleCalibration=c=>c.status!=="rejected"&&!(c.evidence||{}).dismissed;
-  if(CALIBRATIONS.some(visibleCalibration)){
+  {
     const list=mark("card",""); list.append(mark("","הצעות כיול","h2"));
+    if(!CALIBRATIONS.some(visibleCalibration)) list.append(mark("meta","אין כרגע הצעות כיול פעילות או טיוטות. אפשר ליצור הצעה מתוך הדפוסים שלמטה.","p"));
     for(const c of CALIBRATIONS.filter(visibleCalibration)){
       const row=mark("flag-review",""), title=mark("",`${phoneName(c.expected)} → ${phoneName(c.heard)} · ${c.status==="applied"?"פעיל":"טיוטה"}`,"b");
       const floor=document.createElement("input"); floor.type="number"; floor.min=0; floor.max=100; floor.value=c.floor; floor.title="ציון מינימום כשמתקיים הבלבול";

@@ -111,7 +111,7 @@ def test_applied_phrase_calibration_raises_only_the_matching_confusion():
     r = scorer.score(None, TOILET)
     h = next(p for p in r["words"][1]["phonemes"] if p["ipa"] == "ħ")
     assert h["score"] == 70 and not h["flagged"]
-    assert r["calibrated"] == [{"expected": "ħ", "heard": "χ", "from": 1, "to": 70}]
+    assert r["calibrated"] == [{"expected": "ħ", "heard": "χ", "from": 2, "to": 70}]
 
 
 def test_deleted_ayin_gets_conservative_builtin_calibration():
@@ -1992,7 +1992,8 @@ def test_teacher_trace_follows_every_stage():
     assert "trace" not in scorer.score(None, TOILET)                     # students do not get it
     scorer.set_calibrations([{"expected": "ħ", "heard": "χ", "floor": 60}])
     t = scorer.score_logp(logp, TOILET, diagnostics=True)["trace"]
-    assert t["config"]["flag_below"] == 50 and t["config"]["leniency"] == 0.5 and t["variants"][0]["chosen"]
+    assert t["config"]["flag_below"] == 50 and t["config"]["leniency"] == 0.35 and t["variants"][0]["chosen"]
+    assert t["config"]["word_min_weight"] == 0.35
     h = next(x for x in t["tokens"] if x["ipa"] == "ħ")
     assert [s["stage"] for s in h["stages"]] == ["gop", "exemption", "insertion", "baseline", "calibration"]
     assert h["stages"][0]["score"] < 50 and h["stages"][4]["applied"] and h["final"] == 60
