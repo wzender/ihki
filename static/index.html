@@ -3954,19 +3954,20 @@ function revealWord(button){
 function revealAllWords(){ for(const button of $("wordReveals").children) revealWord(button); }
 function drawAnalyzedAnswer(r){
   const card=$("wordReveals").firstElementChild; if(!card) return;
-  const main=mark("analyzed","","span");
+  const showHeard=r.score<EXCELLENT, main=mark("analyzed","","span");
   r.words.forEach(word=>{
     const pair=mark("analysis-word","","span"), expected=mark("expected","","span");
     if(word.letters&&word.letters.length) litWord(expected,word);
     else{ expected.classList.add(band(word.score)); setTr(expected,word.tr); }
-    const heard=mark(`heard-word${word.heard_tr?"":" empty"}`,"","span"); setTr(heard,word.heard_tr||"לא זוהה");
-    pair.append(expected,heard); main.append(pair);
+    pair.append(expected);
+    if(showHeard){ const heard=mark(`heard-word${word.heard_tr?"":" empty"}`,"","span"); setTr(heard,word.heard_tr||"לא זוהה"); pair.append(heard); }
+    main.append(pair);
   });
-  card.replaceChildren(mark("analysis-key","למעלה: התשובה · למטה: המערכת שמעה","small"),main);
+  card.replaceChildren(showHeard?mark("analysis-key","למעלה: התשובה · למטה: המערכת שמעה","small"):mark("analysis-key","התשובה","small"),main);
   card.append(mark("ar",cur.ar_pointed||cur.ar,"small"));
   if(cur.read) card.append(mark("he",cur.he,"small"));
   card.classList.add("revealed","scored"); card.removeAttribute("role"); card.removeAttribute("tabindex"); card.removeAttribute("aria-label"); card.onclick=null; card.onkeydown=null;
-  $("hintLabel").textContent=hasWhy(r)?WHY_HINT:"התשובה וניתוח ההגייה";
+  $("hintLabel").textContent=showHeard?(hasWhy(r)?WHY_HINT:"התשובה וניתוח ההגייה"):"התשובה";
 }
 function drawWordReveals(){
   const box=$("wordReveals"), answer=(cur.read?cur.he:cur.tr).trim();
