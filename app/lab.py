@@ -186,7 +186,7 @@ def public_items() -> list[dict]:
 # ---------- the benchmark ----------
 # A recording's sounds are judged against its label: a sound said right should not be flagged (one that is, is a false
 # rejection), and the planted mistake should be (one that is not, is a miss). The numbers are per sound as written.
-GOOD_SCORE = 85   # a recording said right should score at least this (the card's "מצוין")
+GOOD_SCORE = 75   # a recording said right should score at least this (the card's "מצוין")
 
 
 def flag_phrase(row: dict) -> dict:

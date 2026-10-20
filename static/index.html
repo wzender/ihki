@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="he" dir="rtl">
+<html lang="he" dir="rtl" data-subject="__SUBJECT__">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -11,7 +11,7 @@
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/icons/icon-192.png?v=2" sizes="192x192">
 <link rel="apple-touch-icon" href="/static/icons/icon-192.png?v=2">
-<title>אהלא וסהלא</title>
+<title>__TITLE__</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Secular+One&family=Noto+Naskh+Arabic:wght@500;700&family=Noto+Sans+Hebrew:wght@500;700&family=Noto+Sans+Mono&display=swap">
 <style>
@@ -761,8 +761,9 @@ body.manage #manage{width:100%;max-width:none}
 .rule-warn code{display:block;margin-top:4px;white-space:pre-wrap;word-break:break-all}.flag-patterns{width:100%;border-collapse:collapse;text-align:start}.flag-patterns :is(th,td){padding:6px;border-bottom:1px solid var(--line)}
 .activity{display:flex;flex-direction:column;gap:12px}.activity-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.activity-head h2{margin:0}.activity-head p{margin:3px 0 0;color:var(--muted);font-size:13px}
 .activity-head select{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}
-.activity-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.activity-stat{padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}.activity-stat b{display:block;font:400 28px/1 var(--f-display);font-variant-numeric:tabular-nums}.activity-stat small{color:var(--muted);font-size:12px}
-.activity-chart{width:100%;height:190px;overflow:visible}.activity-chart .grid{stroke:var(--line);stroke-width:1}.activity-chart .bar{fill:var(--olive);opacity:.82}.activity-chart .bar:hover{opacity:1}.activity-chart text{fill:var(--muted);font:11px var(--f-body)}
+.activity-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.activity-stat{padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}.activity-stat b{display:block;font:400 28px/1 var(--f-display);font-variant-numeric:tabular-nums}.activity-stat small{color:var(--muted);font-size:12px}
+.activity-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.activity-tools span{margin-inline-end:auto;color:var(--muted);font-size:12px}.activity-tools button{width:32px;height:30px;padding:0;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:700 18px/1 var(--f-body);cursor:pointer}.activity-tools button:last-child{width:auto;padding-inline:10px;font-size:13px}.activity-tools button:disabled{opacity:.45;cursor:default}
+.activity-chart{width:100%;height:190px;overflow:visible;cursor:grab;touch-action:none;user-select:none}.activity-chart.dragging{cursor:grabbing}.activity-chart .grid{stroke:var(--line);stroke-width:1}.activity-chart .bar{fill:var(--olive);opacity:.82}.activity-chart .bar:hover{opacity:1}.activity-chart text{fill:var(--muted);font:11px var(--f-body)}
 .flag-group{display:flex;flex-direction:column;gap:10px}.flag-group>summary{cursor:pointer;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:16px}.flag-group>summary .meta{color:var(--muted);font-size:14px}.flag-group[open]>summary{margin-bottom:2px}.flag-group>.card{margin-inline-start:12px}
 .system-activity summary{cursor:pointer}.system-activity summary h2{display:inline;margin:0}.system-activity details[open]>summary{margin-bottom:8px}
 .system-hard{margin:2px 0 4px;padding:10px;border-radius:10px;background:var(--bg)}.system-hard h3{margin:0 0 6px;font:700 15px/1.3 var(--f-body)}.system-hard-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}.system-hard-row:last-child{border-bottom:0}.system-hard-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.system-hard-row small{color:var(--muted);white-space:nowrap}.system-feed{display:flex;flex-direction:column;gap:14px}.system-topic{border-top:1px solid var(--line);padding-top:10px}.system-topic:first-child{border-top:0;padding-top:0}.system-topic h3{margin:0 0 3px;font:700 15px/1.3 var(--f-body)}.system-topic h3 small{color:var(--muted);font-weight:600}.system-event{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}.system-event:last-child{border-bottom:0}.system-event i{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--olive-soft);font-style:normal}.system-event b,.system-event small{display:block}.system-event small,.system-event time{color:var(--muted);font-size:12px}.system-event time{direction:ltr;white-space:nowrap}
@@ -1200,7 +1201,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 .prow[aria-current="true"]{background:var(--olive-soft)}
 .prow .i{font-size:13px;font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums}
 .prow .none{font-size:13px;font-weight:400;color:var(--muted)}
-/* Opening screen: the ornament is sketched in lines that resolve into the logo (the animation lives in logo-intro.svg), then the start button appears; pressing it fades the screen out. */
+/* Opening screen: the logo plays in (an olive hexagon traces itself, the knot blooms and turns into it, the name is written right to left; the animation lives in the logo's svg), then the start button appears; pressing it fades the screen out. */
 #logo-splash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:white;transition:opacity .35s ease,visibility .35s ease}
 #logo-splash.done{opacity:0;visibility:hidden;pointer-events:none}
 #logo-splash img{width:min(82vw,620px);height:auto}
@@ -1221,6 +1222,10 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 .install-actions{display:flex;gap:8px;justify-content:flex-end}
 .install-actions button{padding:9px 16px;border-radius:10px;border:1px solid var(--olive);background:var(--surface);color:var(--olive);font:700 15px/1.2 var(--f-body);cursor:pointer}
 .install-actions .primary{background:var(--olive);color:var(--on-olive)}
+/* The math class (/math) opens on its own logo, with the buttons in its blue. */
+html[data-subject="math"] :is(#startBtn,#loginBtn,#roles button){background:#2F5597}
+html[data-subject="math"] #roles :is(#libraryBtn,#manageBtn,#labBtn){background:#fff;color:#2F5597;box-shadow:inset 0 0 0 2px #2F5597}
+html[data-subject="math"] #mailForm button{border-color:#2F5597;color:#2F5597}
 @keyframes start-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#startBtn,#loginBtn,#roles button,#mailForm{animation:none;opacity:1}#logo-splash{transition:none}}
 </style>
@@ -1243,7 +1248,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
   <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></symbol>
   <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
 </defs></svg>
-<div id="logo-splash"><img src="static/logo-intro.svg" alt="אהלא וסהלא, בית הספר ללימוד השפה הערבית" width="489" height="225"><button id="startBtn">יאללה נבלש</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="libraryBtn">ספרייה דיגיטלית</button><button id="manageBtn">ניהול</button><button id="labBtn">מעבדה</button></div><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="denied" hidden>הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
+<div id="logo-splash"><img src="__SPLASH_LOGO__" alt="__SPLASH_ALT__" width="489" height="225"><button id="startBtn">__START_LABEL__</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="libraryBtn">ספרייה דיגיטלית</button><button id="manageBtn">ניהול</button><button id="labBtn">מעבדה</button></div><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="denied" hidden>הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
 <script>
 /* While the opening screen is up, an error that stops the page's start shows under the logo: a phone has no console to read it in. */
 (()=>{
@@ -1559,7 +1564,7 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 </dialog>
 <dialog id="rewardsDlg" aria-labelledby="rewardsTitle">
   <div class="dlg-head"><h2 id="rewardsTitle">הערבית שכבר שלכם</h2><button class="btn" id="rewardsClose">סגירה</button></div>
-  <p class="dlg-text">כל משפט שאמרתם הוא חרוז במסבחה. ציון 85 ומעלה הופך אותו לזהב.</p>
+    <p class="dlg-text">כל משפט שאמרתם הוא חרוז במסבחה; סיפור או שיחה שלמים הם חרוז אחד. ציון 75 ומעלה הופך משפט לזהב, וסיפור הופך לזהב כשכל שורותיו בזהב.</p>
   <div class="reward-summary" id="rewardSummary"></div>
   <div id="rewardCollection"></div>
 </dialog>
@@ -1760,7 +1765,7 @@ let lastPhone=null;   // the latest ordinary recording's score response, for the
 let home=true;   // the path is on screen, not the practice card: nothing is read aloud or recorded
 function tally(list){   // how far a set of sentences got
   const done=list.filter(p=>best[p.id]!=null).length, over=list.length>0&&done>=list.length;
-  return {done, n:list.length, over, gold:over&&list.every(p=>best[p.id]>=EXCELLENT)};
+  return {done, n:list.length, over, gold:over&&list.every(p=>best[p.id]>=GOLD)};
 }
 const lessonList=l=>{ const ids=CATS.filter(c=>c.lesson===l.id).map(c=>c.id); return PHRASES.filter(p=>p.listed!==false&&ids.includes(p.cat)); };
 function dueText(due){   // the homework's day in words ("עד מחר", "עד יום חמישי, 15.10"), and whether it has passed
@@ -2489,33 +2494,43 @@ function rewardPhrases(){
   const cats=new Set(CATS.map(c=>c.id));
   return PHRASES.filter(p=>p.listed!==false&&cats.has(p.cat)&&best[p.id]!=null);
 }
+function rewardItems(){
+  const got=rewardPhrases(), items=[];
+  for(const c of CATS){
+    const practised=got.filter(p=>p.cat===c.id); if(!practised.length) continue;
+    if(!c.story){ items.push(...practised.map(p=>({cat:c,phrases:[p],gold:best[p.id]>=GOLD,target:p}))); continue; }
+    const all=PHRASES.filter(p=>p.listed!==false&&p.cat===c.id), target=all.find(p=>best[p.id]==null)||[...all].sort((a,b)=>(best[a.id]??Infinity)-(best[b.id]??Infinity))[0];
+    items.push({cat:c,phrases:all,gold:all.length>0&&all.every(p=>best[p.id]>=GOLD),target});
+  }
+  return items;
+}
 function drawRewardShelf(){
   const shelf=$("rewardShelf"); if(!PHRASES.length){ shelf.hidden=true; return; }
-  const got=rewardPhrases(), gold=got.filter(p=>best[p.id]>=EXCELLENT).length, wd=currentWeekDays(), streak=combinedStreak(), goal=4;
+  const got=rewardItems(), gold=got.filter(x=>x.gold).length, wd=currentWeekDays(), streak=combinedStreak(), goal=4;
   $("rewardStreak").textContent=`🔥 ${streak.current}`; $("rewardStreak").title=`רצף נוכחי: ${streak.current} ימים · שיא אישי: ${streak.best}`;
-  $("rewardCopy").textContent=streak.current?`רצף של ${streak.current} ימים · שיא ${streak.best} · ${got.length} משפטים`:got.length?`מתחילים רצף היום · ${got.length} משפטים נאספו`:`אמרו משפט ראשון והתחילו רצף`;
+  $("rewardCopy").textContent=streak.current?`רצף של ${streak.current} ימים · שיא ${streak.best} · ${got.length} חרוזים`:got.length?`מתחילים רצף היום · ${got.length} חרוזים נאספו`:`אמרו משפט ראשון והתחילו רצף`;
   $("rewardWeek").textContent=`${Math.min(wd,goal)}/${goal} השבוע`;
   $("rewardTotal").textContent=`${gold} ★`; shelf.hidden=false;
 }
 function drawRewards(){
-  const got=rewardPhrases(), gold=got.filter(p=>best[p.id]>=EXCELLENT).length, week=currentWeekDays(), streak=combinedStreak(), summary=$("rewardSummary"), box=$("rewardCollection");
+  const got=rewardItems(), gold=got.filter(x=>x.gold).length, week=currentWeekDays(), streak=combinedStreak(), summary=$("rewardSummary"), box=$("rewardCollection");
   summary.replaceChildren();
-  for(const [n,label] of [[`🔥 ${streak.current}`,`רצף נוכחי · שיא ${streak.best}`],[got.length,"משפטים שלכם"],[gold,"חרוזי זהב"],[week,"ימי תרגול השבוע"]]){
+  for(const [n,label] of [[`🔥 ${streak.current}`,`רצף נוכחי · שיא ${streak.best}`],[got.length,"חרוזים שלכם"],[gold,"חרוזי זהב"],[week,"ימי תרגול השבוע"]]){
     const tile=document.createElement("div"); tile.append(mark("",String(n),"b"),mark("",label,"small")); summary.append(tile);
   }
   box.replaceChildren();
   if(!got.length){ box.append(mark("reward-empty","החרוז הראשון יחכה כאן אחרי שתאמרו משפט.","div")); return; }
   for(const lesson of LESSONS){
-    const cats=CATS.filter(c=>c.lesson===lesson.id&&got.some(p=>p.cat===c.id)); if(!cats.length) continue;
+    const cats=CATS.filter(c=>c.lesson===lesson.id&&got.some(x=>x.cat.id===c.id)); if(!cats.length) continue;
     box.append(mark("reward-lesson",lessonName(lesson),"h3"));
     for(const c of cats){
-      const phrases=got.filter(p=>p.cat===c.id), title=mark("reward-topic",c.name,"h4"), mastered=phrases.filter(p=>best[p.id]>=EXCELLENT).length;
-      title.append(mark("",`${mastered}/${phrases.length} בזהב`,"small")); box.append(title);
+      const items=got.filter(x=>x.cat.id===c.id), title=mark("reward-topic",c.name,"h4"), mastered=items.filter(x=>x.gold).length, storyName=c.voices?"השיחה":"הסיפור";
+      title.append(mark("",c.story?(items[0].gold?`${storyName} בזהב`:`${items[0].phrases.filter(p=>best[p.id]>=GOLD).length}/${items[0].phrases.length} שורות בזהב`):`${mastered}/${items.length} בזהב`,"small")); box.append(title);
       const row=mark("reward-beads","","div");
-      for(const p of phrases){
-        const bead=mark("phrase-bead"+(best[p.id]>=EXCELLENT?" gold":""),"","button");
-        bead.type="button"; bead.title=`${lessonName(lesson)} · ${c.name} · ${p.he} · הציון הטוב ביותר ${Math.round(best[p.id])}`;
-        bead.setAttribute("aria-label",bead.title); bead.onclick=()=>{ $("rewardsDlg").close(); pickCat(p.cat); openSentence(p.id); };
+      for(const item of items){
+        const p=item.target, done=item.phrases.filter(x=>best[x.id]!=null).length, bead=mark("phrase-bead"+(item.gold?" gold":""),"","button");
+        bead.type="button"; bead.title=c.story?`${lessonName(lesson)} · ${c.name} · ${done}/${item.phrases.length} שורות תורגלו${item.gold?" · הסיפור בזהב":""}`:`${lessonName(lesson)} · ${c.name} · ${p.he} · הציון הטוב ביותר ${Math.round(best[p.id])}`;
+        bead.setAttribute("aria-label",bead.title); bead.onclick=()=>{ $("rewardsDlg").close(); pickCat(c.id); openSentence(p.id); };
         row.append(bead);
       }
       box.append(row);
@@ -2975,7 +2990,7 @@ async function loadProgress(){
     store.set("ihki.best2",best); marks();
   }catch{}
 }
-const EXCELLENT=85;   // the score the verdict calls "מצוין"
+const GOLD=75, EXCELLENT=75;
 // A category whose phrases carry seq (the course's own order) is shown in that order; the others are shuffled.
 // The round is the topic's sentences that were not practised yet. With the box ticked, or when none is
 // left, it is the whole topic, and a practised sentence shows its best score (see show).
@@ -3232,7 +3247,7 @@ for(const ev of ["pointerdown","keydown"]) addEventListener(ev,()=>{
 // A grade at AUTO_NEXT.minimum or above moves on by itself after the grade has been seen for a moment; lower grades
 // stay on the card until the student presses "next", so there is time to inspect the pronunciation feedback.
 // The seconds left are counted down on the "next sentence" button.
-const AUTO_NEXT={minimum:85, seconds:3};
+const AUTO_NEXT={minimum:75, seconds:3};
 let autoNext=null;
 function cancelAutoNext(){ clearInterval(autoNext); autoNext=null; $("nextLeft").textContent=""; }
 function startAutoNext(){
@@ -3566,11 +3581,11 @@ function keepScore(id,s){   // a sentence's best score, on the device and for th
   const streakReward=notePracticeDay();
   marks();
   if(!phrase) return;
-  const after=c&&topicT(c), becameGold=s>=EXCELLENT&&(old==null||old<EXCELLENT);
+  const after=c&&topicT(c), becameGold=s>=GOLD&&(old==null||old<GOLD);
   if(improved&&before&&!before.over&&after.over) rewardPop(after.gold?"הנושא כולו בזהב!":"הנושא הושלם!",c.name,after.gold);
-  else if(becameGold) rewardPop("המשפט הפך לזהב ★",phrase.he,true);
+  else if(becameGold&&!c?.story) rewardPop("המשפט הפך לזהב ★",phrase.he,true);
   else if(streakReward&&streakReward.current>=2) rewardPop(`🔥 רצף של ${streakReward.current} ימים`,streakReward.newBest?"שיא אישי חדש":"ממשיכים מחר");
-  else if(old==null) rewardPop("חרוז חדש נאסף",phrase.he);
+  else if(old==null&&(!c?.story||before.done===0)) rewardPop("חרוז חדש נאסף",c?.story?c.name:phrase.he);
   else if(improved&&s-old>=8) rewardPop(`שיא חדש: ${Math.round(old)} ← ${Math.round(s)}`,phrase.he);
 }
 
@@ -3619,7 +3634,7 @@ function drawPhones(r){
 }
 // The classification stage by stage (r.trace, teachers only): the flow with each stage's thresholds and weights,
 // then every sound through the stages. Scores are 0..100; probabilities are the model's posteriors in the sound's window.
-const EXEMPTION_NAMES={glottal_dropped:"עצירה סותמית שהושמטה (ء / ق)",article_vowel_elided:"תנועת ה־ال אחרי תנועה",near_vowel:"תנועה קרובה",unmarked_short_vowel:"תנועה קצרה שאינה נבדקת (כלל 30)",final_b_devoicing:"b סופית לפני עיצור אטום (כלל 28)",word_final_vowel_linking:"תנועה סופית לפני תנועה (כלל 29)"};
+const EXEMPTION_NAMES={glottal_dropped:"עצירה סותמית שהושמטה (ء / ق)",onset_transient:"קפיצה בפריים אחד לפני העיצור הראשון (כלל 31)",article_vowel_elided:"תנועת ה־ال אחרי תנועה",near_vowel:"תנועה קרובה",unmarked_short_vowel:"תנועה קצרה שאינה נבדקת (כלל 30)",final_b_devoicing:"b סופית לפני עיצור אטום (כלל 28)",word_final_vowel_linking:"תנועה סופית לפני תנועה (כלל 29)"};
 function drawStages(r){
   const box=$("stagesBox"), t=r.trace;
   if(!t){ box.hidden=true; return; }
@@ -3659,7 +3674,7 @@ function drawStages(r){
     `100·e^(GOP·${c.leniency})·√min(1,p/${c.confident_peak})`,
     `${count(x=>stageOf(x,"gop").score<c.flag_below)} הגאים מתחת ל־${c.flag_below} · ${count(x=>x.deleted)} הושמטו`);
   card("exemption",4,"פטורים ותוספות","מה שהמודל שומע כטעות אבל הוא דיבור רגיל (6.3), ותנועה שנוספה בין עיצורים (3.10).",
-    [...c.exemptions.map(e=>[EXEMPTION_NAMES[e]||e,e==="near_vowel"?"≥ "+c.near_vowel_floor:"100"]),
+    [...c.exemptions.map(e=>[EXEMPTION_NAMES[e]||e,e==="near_vowel"?"≥ "+c.near_vowel_floor:e==="onset_transient"?"≥ "+c.onset_transient_floor:"100"]),
      ...(c.insertion?[["תנועה בין עיצורים: תקרה",c.insertion.score_cap],["… p תנועה ≥",c.insertion.min_peak],["… פריימים ≥",c.insertion.min_frames]]:[])],null,
     `${count(x=>stageOf(x,"exemption").applied)} פטורים · ${count(x=>(stageOf(x,"insertion")||{}).applied)} תוספות תנועה`);
   card("baseline",5,"קו בסיס ילידי","ציון ההגה מחולק בציון שהמודל נותן לקול הילידי על אותו הגה.",
@@ -3867,8 +3882,8 @@ function render(r){
   $("nextBtn").classList.add("primary");
   $("score").textContent=r.score;
   const pill=$("pill"); const s=r.score;
-  pill.className="pill "+(s>=85?"good":s>=60?"mid":"bad");
-  pill.textContent= r.unrelated ? "משפט אחר?" : s>=85?"מצוין": s>=60?"כמעט":"נסו שוב";
+  pill.className="pill "+(s>=EXCELLENT?"good":s>=60?"mid":"bad");
+  pill.textContent= r.unrelated ? "משפט אחר?" : s>=EXCELLENT?"מצוין": s>=60?"כמעט":"נסו שוב";
 
   $("words").hidden=true;
   drawAnalyzedAnswer(r);
@@ -3933,7 +3948,7 @@ async function bubbleOutcome(r,expired=false){
   if(!expired){
     waText(r,correct);
     const old=$("prompt").querySelector(".bubble-grade"); if(old) old.remove();
-    const score=Math.round(r.score), band=score>=85?"good":score>=60?"mid":"bad";
+    const score=Math.round(r.score), band=score>=EXCELLENT?"good":score>=60?"mid":"bad";
     $("prompt").append(mark(`bubble-grade ${band}`,`${score} נק׳`));
   }
   if(correct){
@@ -4283,7 +4298,9 @@ let SCORING_RULES=null, scoringRulesError="";   // the rules of pronunciation-ru
 let ACTIVITY=null, activityError="";
 let SYSTEM_ACTIVITY=null, systemActivityError="";
 let ADMIN_SUBJECTS=null;
-let activityHours=+store.get("ihki.activityHours","24"); if(![24,168].includes(activityHours)) activityHours=24;
+const FIVE_MINUTES=1/12;
+let activityHours=+store.get("ihki.activityHours","24"); if(![FIVE_MINUTES,24,168].includes(activityHours)) activityHours=24;
+const activityViews=new Map();
 let shownStudent="", classScroll=0;   // the student whose screen is on show (an email; "" for the class's), and where the class's was left
 let CLASS_LESSONS=[], CLASS_SOON=[];   // the ready lessons of the class on show, and those still to come (every lesson before the first class)
 const HARD=70;   // a sentence whose class average (of each student's best score) is under this is flagged as hard
@@ -4451,8 +4468,8 @@ const PHONE_NAMES={"ħ":"ח (ح)","ʕ":"ע (ع)","x":"ח׳ (خ)","χ":"ח׳ (خ)
 const phoneName=p=>PHONE_NAMES[p]||({a:"אַ",i:"אִ",u:"אֻ",e:"אֶ",o:"אוֹ","aː":"אַא","iː":"אִי","uː":"אוּ","eː":"אֵי","oː":"אוֹ"}[p])||p;
 async function loadActivity(){
   activityError="";
-  const mins=activityHours===168?60:15;
-  try{ const res=await api(`/api/activity?hours=${activityHours}&bucket_minutes=${mins}`), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); ACTIVITY=data; }
+  const short=activityHours===FIVE_MINUTES, mins=short?1:activityHours===168?60:15;
+  try{ const res=await api(`/api/activity?hours=${short?1:activityHours}&bucket_minutes=${mins}${short?"&window_minutes=5":""}`), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); ACTIVITY=data; }
   catch(err){ ACTIVITY=null; activityError=err.message; }
 }
 async function loadSystemActivity(){
@@ -4708,7 +4725,9 @@ function drawSystemActivity(box){
 }
 function drawTtsCacheControls(box){
   const card=mark("card",""), title=mark("","מטמון הקלטות Sawtak","h2"), text=mark("","מחיקה גורמת ליצירה מחדש של הקלטות התשובה בהשמעה הבאה. גם הקלטות שנבחרו ידנית יימחקו.","p");
-  const row=mark("row",""), button=mark("btn","מחיקת מטמון ההקלטות","button"), msg=mark("msg","");
+  const usage=mark("activity-stats",""), row=mark("row",""), button=mark("btn","מחיקת מטמון ההקלטות","button"), msg=mark("msg","");
+  const show=data=>{ usage.replaceChildren(); const size=data.bytes<1024?`${data.bytes} B`:data.bytes<1048576?`${(data.bytes/1024).toFixed(1)} KB`:`${(data.bytes/1048576).toFixed(1)} MB`, rate=data.hit_rate==null?"–":`${Math.round(data.hit_rate*100)}%`; for(const [n,label] of [[data.files,"קבצי שמע במטמון"],[size,"נפח בדיסק"],[data.hits,"פגיעות מאז ההפעלה"],[data.misses,"יצירות מאז ההפעלה"],[rate,"שיעור פגיעה"]]){ const stat=mark("activity-stat",""); stat.append(mark("",n,"b"),mark("",label,"small")); usage.append(stat); } if(!data.available) msg.textContent="Sawtak אינו מוגדר בשרת."; };
+  api("/api/tts-cache").then(async res=>{ const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); show(data); }).catch(err=>msg.textContent="נתוני המטמון לא זמינים: "+err.message);
   button.onclick=async()=>{
     if(!confirm("למחוק את כל הקלטות התשובה מהמטמון? גם הקלטות שנבחרו ידנית יימחקו, ולא ניתן לבטל את הפעולה.")) return;
     button.disabled=true; msg.textContent="מוחק…";
@@ -4718,10 +4737,11 @@ function drawTtsCacheControls(box){
       for(const value of Object.values(ttsUrls)) URL.revokeObjectURL(value.url);
       for(const key of Object.keys(ttsUrls)) delete ttsUrls[key];
       msg.textContent=`נמחקו ${data.removed} קבצי מטמון.`;
+      show({available:true,files:0,bytes:0,hits:0,misses:0,hit_rate:null});
     }catch(err){ msg.textContent="המחיקה נכשלה: "+err.message; }
     button.disabled=false;
   };
-  row.append(button,msg); card.append(title,text,row); box.append(card);
+  row.append(button,msg); card.append(title,text,usage,row); box.append(card);
 }
 // how to get each key, step by step: a step is its parts, text or [text, link]
 const KEY_GUIDES={
@@ -4837,10 +4857,10 @@ function drawApiKeys(box){
     .catch(err=>{ list.innerHTML=""; list.append(mark("note","לא ניתן לטעון את המפתחות: "+err.message,"p")); });
 }
 function drawActivity(box){
-  const days=activityHours===168, range=days?"7 הימים האחרונים":"24 השעות האחרונות", bucket=days?"שעה":"15 דקות";
+  const short=activityHours===FIVE_MINUTES, days=activityHours===168, range=short?"5 הדקות האחרונות":days?"7 הימים האחרונים":"24 השעות האחרונות", bucket=short?"דקה":days?"שעה":"15 דקות";
   const card=mark("card activity",""), head=mark("activity-head",""), title=mark("",`פעילות ב־${range}`,"h2"), sub=mark("",`כל עמודה מייצגת ${bucket} · מתעדכן פעם בדקה`,"p");
   const heading=document.createElement("div"), select=document.createElement("select"); heading.append(title,sub);
-  for(const [value,label] of [[24,"24 שעות"],[168,"7 ימים"]]){ const option=document.createElement("option"); option.value=value; option.textContent=label; option.selected=activityHours===value; select.append(option); }
+  for(const [value,label] of [[FIVE_MINUTES,"5 דקות"],[24,"24 שעות"],[168,"7 ימים"]]){ const option=document.createElement("option"); option.value=value; option.textContent=label; option.selected=activityHours===value; select.append(option); }
   select.setAttribute("aria-label","טווח גרף הפעילות"); select.onchange=async()=>{ activityHours=+select.value; store.set("ihki.activityHours",activityHours); ACTIVITY=null; drawActivityOnly(); await loadActivity(); drawActivityOnly(); };
   head.append(heading,select); card.append(head);
   if(activityError){ card.append(mark("note",`גרף הפעילות אינו זמין. יש ליצור את פונקציית activity_buckets ב־Supabase (${activityError}).`,"p")); box.append(card); return; }
@@ -4848,14 +4868,25 @@ function drawActivity(box){
   const mins=ACTIVITY.bucket_minutes||15, count=Math.ceil((ACTIVITY.hours||24)*60/mins), now=Date.now(), end=Math.floor(now/(mins*60000))*mins*60000, by=new Map((ACTIVITY.buckets||[]).map(x=>[new Date(x.bucket).getTime(),x]));
   const rows=Array.from({length:count},(_,i)=>{ const time=end-(count-1-i)*mins*60000, r=by.get(time)||{}; return {time,attempts:+r.attempts||0,active:+r.active_students||0}; });
   const totalAttempts=ACTIVITY.summary?.attempts??rows.reduce((n,r)=>n+r.attempts,0), activeStudents=ACTIVITY.summary?.active_students;
-  const stats=mark("activity-stats",""), figures=[[totalAttempts,`תרגולים ב־${range}`],[activeStudents??"–",`תלמידים פעילים ב־${range}`]];
+  const returning=ACTIVITY.summary?.returning_students, activeDays=ACTIVITY.summary?.active_days, average=activeStudents?Math.round(totalAttempts/activeStudents*10)/10:"–";
+  const stats=mark("activity-stats",""), figures=[[activeStudents??"–",`תלמידים פעילים ב־${range}`],[totalAttempts,`תרגולים ב־${range}`],[average,"תרגולים לתלמיד/ה"],[returning??"–","חזרו ביום נוסף"],[activeDays??"–","ימים עם פעילות"]];
   for(const [n,label] of figures){ const s=mark("activity-stat",""); s.append(mark("",n,"b"),mark("",label,"small")); stats.append(s); } card.append(stats);
-  if(activeStudents==null) card.append(mark("note","כדי להציג מספר תלמידים ייחודיים בכל הטווח, יש להתקין את פונקציית activity_summary שמופיעה ב־README.","p"));
+  if(activeStudents==null) card.append(mark("note","כדי להציג את מדדי המעורבות לכל הטווח, יש להתקין את פונקציית activity_summary שמופיעה ב־README.","p"));
+  const tools=mark("activity-tools",""), help=mark("","גרירה לאורך ציר הזמן · גלילה לזום אופקי","span"), zoomIn=mark("","+","button"), zoomOut=mark("","−","button"), reset=mark("","איפוס","button");
+  zoomIn.type=zoomOut.type=reset.type="button"; zoomIn.title="זום זמן פנימה"; zoomOut.title="זום זמן החוצה"; reset.title="איפוס תצוגת הגרף"; zoomIn.setAttribute("aria-label",zoomIn.title); zoomOut.setAttribute("aria-label",zoomOut.title); tools.append(help,zoomIn,zoomOut,reset); card.append(tools);
   const ns="http://www.w3.org/2000/svg", svg=document.createElementNS(ns,"svg"); svg.classList.add("activity-chart"); svg.setAttribute("viewBox","0 0 720 190"); svg.setAttribute("role","img"); svg.setAttribute("aria-label",`גרף פעילות: ${totalAttempts} תרגולים ב־${range}`);
-  const max=Math.max(1,...rows.map(r=>r.attempts)), left=32, top=10, width=678, height=145, gap=.7, bw=width/rows.length;
-  for(const frac of [0,.5,1]){ const y=top+height*(1-frac), line=document.createElementNS(ns,"line"); line.setAttribute("class","grid"); line.setAttribute("x1",left); line.setAttribute("x2",left+width); line.setAttribute("y1",y); line.setAttribute("y2",y); svg.append(line); const t=document.createElementNS(ns,"text"); t.setAttribute("x",0); t.setAttribute("y",y+4); t.textContent=Math.round(max*frac); svg.append(t); }
-  rows.forEach((r,i)=>{ const h=r.attempts/max*height, rect=document.createElementNS(ns,"rect"); rect.setAttribute("class","bar"); rect.setAttribute("x",left+i*bw); rect.setAttribute("y",top+height-h); rect.setAttribute("width",Math.max(.5,bw-gap)); rect.setAttribute("height",h); const tip=document.createElementNS(ns,"title"), time=new Date(r.time).toLocaleString("he-IL",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}); tip.textContent=`${time}: ${r.attempts} תרגולים, ${r.active} תלמידים`; rect.append(tip); svg.append(rect); });
-  for(const i of [0,Math.floor((rows.length-1)/2),rows.length-1]){ const t=document.createElementNS(ns,"text"), r=rows[i]; t.setAttribute("x",left+i*bw); t.setAttribute("y",180); t.setAttribute("text-anchor",i?i===rows.length-1?"end":"middle":"start"); t.textContent=new Date(r.time).toLocaleString("he-IL",days?{day:"numeric",month:"numeric",timeZone:"Asia/Jerusalem"}:{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}); svg.append(t); }
+  const left=32, top=10, width=678, height=145, gap=.7, view=activityViews.get(activityHours)||{zoom:1,offset:0}; activityViews.set(activityHours,view);
+  const clip=document.createElementNS(ns,"clipPath"), clipRect=document.createElementNS(ns,"rect"), plot=document.createElementNS(ns,"g"); clip.id=`activity-clip-${String(activityHours).replace(".","-")}`; clipRect.setAttribute("x",left); clipRect.setAttribute("y",top); clipRect.setAttribute("width",width); clipRect.setAttribute("height",height); clip.append(clipRect); svg.append(clip); plot.setAttribute("clip-path",`url(#${clip.id})`); svg.append(plot);
+  const grid=[0,.5,1].map(()=>{ const line=document.createElementNS(ns,"line"), label=document.createElementNS(ns,"text"); line.setAttribute("class","grid"); line.setAttribute("x1",left); line.setAttribute("x2",left+width); label.setAttribute("x",0); svg.append(line,label); return {line,label}; });
+  const bars=rows.map(r=>{ const rect=document.createElementNS(ns,"rect"); rect.setAttribute("class","bar"); const tip=document.createElementNS(ns,"title"), time=new Date(r.time).toLocaleString("he-IL",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}); tip.textContent=`${time}: ${r.attempts} תרגולים, ${r.active} תלמידים`; rect.append(tip); plot.append(rect); return rect; });
+  const timeLabels=[0,.5,1].map((_,i)=>{ const label=document.createElementNS(ns,"text"); label.setAttribute("y",180); label.setAttribute("text-anchor",i?i===2?"end":"middle":"start"); svg.append(label); return label; });
+  const maxZoom=Math.max(1,rows.length/4), formatTime=(time,span)=>new Date(time).toLocaleString("he-IL",span*mins<=24*60&&days?{day:"numeric",month:"numeric",hour:"2-digit",timeZone:"Asia/Jerusalem"}:days?{day:"numeric",month:"numeric",timeZone:"Asia/Jerusalem"}:{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"});
+  const renderView=()=>{ view.zoom=Math.max(1,Math.min(maxZoom,view.zoom)); const span=rows.length/view.zoom; view.offset=Math.max(0,Math.min(rows.length-span,view.offset)); const first=Math.max(0,Math.floor(view.offset)), last=Math.min(rows.length,Math.ceil(view.offset+span)), max=Math.max(1,...rows.slice(first,last).map(r=>r.attempts)), bw=width/span; grid.forEach(({line,label},i)=>{ const frac=i/2, y=top+height*(1-frac); line.setAttribute("y1",y); line.setAttribute("y2",y); label.setAttribute("y",y+4); label.textContent=Math.round(max*frac); }); rows.forEach((r,i)=>{ const h=r.attempts/max*height; bars[i].setAttribute("x",left+(i-view.offset)*bw); bars[i].setAttribute("y",top+height-h); bars[i].setAttribute("width",Math.max(.5,bw-gap)); bars[i].setAttribute("height",h); }); timeLabels.forEach((label,i)=>{ const frac=i/2, index=Math.max(0,Math.min(rows.length-1,Math.round(view.offset+(span-1)*frac))); label.setAttribute("x",left+width*frac); label.textContent=formatTime(rows[index].time,span); }); zoomIn.disabled=view.zoom>=maxZoom; zoomOut.disabled=view.zoom<=1; reset.disabled=view.zoom===1&&view.offset===0; };
+  const zoomBy=(factor,anchor=.5)=>{ const oldSpan=rows.length/view.zoom, point=view.offset+oldSpan*anchor; view.zoom=Math.max(1,Math.min(maxZoom,view.zoom*factor)); const span=rows.length/view.zoom; view.offset=point-span*anchor; renderView(); };
+  zoomIn.onclick=()=>zoomBy(1.6); zoomOut.onclick=()=>zoomBy(1/1.6); reset.onclick=()=>{ view.zoom=1; view.offset=0; renderView(); };
+  svg.onwheel=e=>{ e.preventDefault(); const bounds=svg.getBoundingClientRect(), plotLeft=bounds.left+bounds.width*left/720, plotWidth=bounds.width*width/720, anchor=Math.max(0,Math.min(1,(e.clientX-plotLeft)/plotWidth)); zoomBy(e.deltaY<0?1.25:1/1.25,anchor); };
+  let drag=null; svg.onpointerdown=e=>{ drag={x:e.clientX,offset:view.offset}; svg.setPointerCapture(e.pointerId); svg.classList.add("dragging"); }; svg.onpointermove=e=>{ if(!drag)return; const span=rows.length/view.zoom, plotPixels=svg.getBoundingClientRect().width*width/720; view.offset=drag.offset-(e.clientX-drag.x)/plotPixels*span; renderView(); }; const stopDrag=e=>{ if(!drag)return; drag=null; svg.classList.remove("dragging"); if(svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId); }; svg.onpointerup=svg.onpointercancel=stopDrag;
+  renderView();
   card.append(svg); box.append(card);
 }
 function drawActivityOnly(){
@@ -5707,7 +5738,7 @@ $("labMic").onclick=async()=>{
 // scorer agreed with the label (a sound said right must not be flagged; the planted mistake must be)
 function drawLabResult(it,said,r){
   $("labResult").hidden=false;
-  $("labScore").textContent=r.score; $("labScore").style.color=`var(--${r.score>=85?"ok":r.score>=60?"amber":"sumac"})`;
+  $("labScore").textContent=r.score; $("labScore").style.color=`var(--${r.score>=EXCELLENT?"ok":r.score>=60?"amber":"sumac"})`;
   $("labHeard").textContent=`heard: ${r.heard_ipa||"—"}`+(r.unrelated?" · משפט אחר?":"");
   const toks=(r.trace&&r.trace.tokens)||[], phones=r.words.flatMap(w=>w.phonemes||[]);
   const want=said>=0?it.sounds[said]:null;
@@ -5723,7 +5754,7 @@ function drawLabResult(it,said,r){
     cell(mark("ipa",p.realised&&p.realised!==sound?`${sound} (${p.realised})`:sound)).title=phoneName(sound);
     cell(pct(x.p_target));
     cell(x.deleted?"לא נשמע דבר":x.competitor?mark("ipa",`${x.competitor} ${pct(x.p_competitor)}`):"—");
-    cell(Math.round(p.score),p.score>=85?"ok":p.score>=60?"mid":"bad");
+    cell(Math.round(p.score),p.score>=EXCELLENT?"ok":p.score>=60?"mid":"bad");
     cell(p.flagged?"כן":"");
     const planted=want!=null&&(p.ipa===want||sound===want), right=planted?p.flagged:!p.flagged;
     cell(planted?(p.flagged?"✓ הטעות נתפסה":"✗ הטעות לא נתפסה"):(p.flagged?"✗ סומן בטעות":"✓"),right?"hit":"miss");
@@ -6062,7 +6093,7 @@ function drawMinervaWords(video,results){
   for(const [rank,w] of lowest.entries()){
     const tr=document.createElement("tr"), phones=w.phonemes||[], expected=phones.map(p=>p.ipa).join(" "),
       heard=phones.map(p=>p.heard||p.ipa).join(" ");
-    for(const [value,cls] of [[rank+1,""],[w.ar||w.tr||"—","ar"],[w.score??"—",(w.score??0)>=85?"ok":(w.score??0)>=70?"mid":"bad"],
+    for(const [value,cls] of [[rank+1,""],[w.ar||w.tr||"—","ar"],[w.score??"—",(w.score??0)>=EXCELLENT?"ok":(w.score??0)>=70?"mid":"bad"],
       [`${expected} / ${heard}`,"ipa"]]){
       const td=mark(cls,String(value),"td"); tr.append(td);
     }
@@ -6373,7 +6404,7 @@ function drawSweep(d){
     {name:"חלון תנועה",hint:"GOP_VOWEL_WINDOW",cat:order(["wide","0","1","2"],r=>String(r.window)),get:r=>String(r.window),fmt:sweepWin},
     {name:"סומנו בטעות",hint:"↑ פחות",get:r=>r.totals.frr,fmt:sweepPct,lower:true},
     {name:"זיהוי",hint:"↑ יותר",get:r=>r.totals.detection,fmt:sweepPct},
-    {name:"ציון 85+",hint:"↑ יותר",get:r=>r.totals.good_share,fmt:sweepPct},
+    {name:"ציון 75+",hint:"↑ יותר",get:r=>r.totals.good_share,fmt:sweepPct},
     {name:"תנועות חלשות",hint:"נכונות מתחת ל-75 ↑ פחות",get:r=>r.vowels&&r.vowels.weak,fmt:sweepPct,lower:true},
     {name:"ציון תנועות",hint:"נכונות, ממוצע ↑",get:r=>r.vowels&&r.vowels.mean,fmt:sweepQ},
     {name:"הפרדת תנועות",hint:"AUC ↑ יותר",get:r=>r.vowels&&r.vowels.auc,fmt:x=>x==null?"—":x.toFixed(2)},
@@ -6435,7 +6466,7 @@ function drawSweep(d){
   // the table: the same numbers, best first
   const tb=$("labSweepTable"); tb.replaceChildren();
   const head=document.createElement("tr");
-  for(const h of ["#","איגום","חלון תנועה","איכות","סומנו בטעות","זיהוי","ציון 85+","תנועות חלשות","ציון תנועות","הפרדת תנועות","ציונים ששונו","משפט אחר"]) head.append(mark("",h,"th"));
+  for(const h of ["#","איגום","חלון תנועה","איכות","סומנו בטעות","זיהוי","ציון 75+","תנועות חלשות","ציון תנועות","הפרדת תנועות","ציונים ששונו","משפט אחר"]) head.append(mark("",h,"th"));
   tb.append(head);
   for(const [k,r] of all.entries()){
     const tr=document.createElement("tr"), t=r.totals, v=r.vowels||{};
@@ -6468,7 +6499,7 @@ function drawLabBench(d,cmp,label){
   const t=d.totals, c=cmp?cmp.totals:{}, tiles=$("labTiles"); tiles.replaceChildren();
   for(const [v,label] of [[t.recordings,"הקלטות"],[delta(t.frr,c.frr,true),`סומנו בטעות (${t.false_flags} מתוך ${t.right} הגאים)`],
     [delta(t.detection,c.detection,false),`טעויות מכוונות שזוהו (${t.caught} מתוך ${t.planted})`],
-    [delta(t.good_share,c.good_share,false),"הקלטות נכונות עם ציון 85 ומעלה"],[t.unrelated,"זוהו כ\"משפט אחר\""]]){
+    [delta(t.good_share,c.good_share,false),"הקלטות נכונות עם ציון 75 ומעלה"],[t.unrelated,"זוהו כ\"משפט אחר\""]]){
     const tile=document.createElement("div"), b=document.createElement("b"); b.append(v); tile.append(b,mark("",label,"small")); tiles.append(tile); }
   const was=Object.fromEntries((cmp?cmp.sounds:[]).map(r=>[r.sound,r]));
   const tb=$("labBench"); tb.replaceChildren();

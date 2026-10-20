@@ -397,6 +397,67 @@ def test_sustained_initial_consonant_is_still_a_glottal_substitution():
     assert r["tips"][0]["key"] == "ʔ>s"
 
 
+TAWLITNA = {"variants": [("طاولتنا", "tˤ aː w l i t n a")]}
+
+
+def onset_logp(lead, competitor_frames=1, target_peak=.10, competitor="j"):
+    """طاولتنا whose first consonant (after the `lead` phones) peaks weakly, behind `competitor_frames` frames of a
+    competitor at 23%: the shape of a breath or microphone onset in front of a word-initial stop."""
+    syms = ["<pad>", "tˤ", "aː", "w", "l", "i", "t", "n", "a", "j", "o"]
+    vocab = {s: i for i, s in enumerate(syms)}
+
+    def row(sym, peak):
+        p = np.full(len(syms), (1 - peak) / (len(syms) - 1))
+        p[vocab[sym]] = peak
+        return p
+
+    rows = [row("<pad>", .95)]
+    for ph in lead:
+        rows += [row(ph, .9)] * 3 + [row("<pad>", .95)] * 2
+    rows += [row(competitor, .23)] * competitor_frames + [row("tˤ", target_peak), row("<pad>", .95)]
+    for ph in ["aː", "w", "l", "i", "t", "n", "a"]:
+        rows += [row(ph, .9)] * 3 + [row("<pad>", .95)] * 2
+    logp = np.log(np.array(rows))
+    return Scorer(lambda wav: logp, Vocab(vocab)), logp
+
+
+def test_one_frame_spike_before_the_first_consonant_is_not_a_substitution():
+    """Rule 31: tˤ said but weak at onset, outscored by one j frame (the reviewed طاولتنا recording)."""
+    scorer, logp = onset_logp([])
+    r = scorer.score_logp(logp, TAWLITNA, diagnostics=True)
+    onset = r["trace"]["tokens"][0]
+    assert onset["competitor_frames"] == 1 and onset["gop"] < 0
+    assert onset["stages"][1]["applied"] == "onset_transient"
+    assert onset["final"] >= 90 and not onset["flagged"]
+    assert not r["tips"] and all(i["heard"] is None for i in r["issues"])   # listed as the weakest, j not named
+
+
+def test_two_frame_competitor_before_the_first_consonant_is_still_a_substitution():
+    scorer, logp = onset_logp([], competitor_frames=2)
+    r = scorer.score_logp(logp, TAWLITNA, diagnostics=True)
+    onset = r["trace"]["tokens"][0]
+    assert onset["competitor_frames"] >= 2
+    assert onset["stages"][1]["applied"] is None
+    assert onset["flagged"] and r["tips"][0]["key"] == "tˤ>j"
+
+
+def test_one_frame_spike_inside_the_phrase_is_not_an_onset_transient():
+    scorer, logp = onset_logp(["a"])
+    phrase = {"variants": [("اطاولتنا", "a tˤ aː w l i t n a")]}
+    r = scorer.score_logp(logp, phrase, diagnostics=True)
+    tok = next(t for t in r["trace"]["tokens"] if t["ipa"] == "tˤ")
+    assert tok["i"] > 0 and tok["stages"][1]["applied"] != "onset_transient"
+    assert tok["flagged"]
+
+
+def test_onset_transient_toggle_switches_the_exemption_off():
+    scorer, logp = onset_logp([])
+    scorer.disabled = {"onset_transient"}
+    r = scorer.score_logp(logp, TAWLITNA, diagnostics=True)
+    assert r["trace"]["tokens"][0]["stages"][1]["applied"] is None
+    assert r["trace"]["tokens"][0]["flagged"]
+
+
 def test_ana_explicitly_accepts_the_natural_vowell_initial_form():
     from app.grammar import PRONOUNS
 
@@ -2037,3 +2098,18 @@ def test_flag_thresholds_belong_to_their_model():
     assert scorer_config("facebook/wav2vec2-xlsr-53-espeak-cv-ft").flag_below_sound == {"ħ": 20.0}
     assert scorer_config("checkpoints/ihki-ft").flag_below_sound == {}
     assert scorer_config("checkpoints/ihki-ft").flag_below == 50
+
+
+def test_each_class_topic_opens_on_its_own_screen():
+    from fastapi.testclient import TestClient
+    from app.main import create_app
+
+    with TestClient(create_app(scorer_for(emissions(["w"])))) as c:
+        for path in ("/", "/arabic"):   # "/" stays Arabic
+            page = c.get(path).text
+            assert 'data-subject="arabic"' in page and "/static/logo-intro-alt.svg" in page and "<title>אהלא וסהלא</title>" in page
+        math = c.get("/math").text
+        assert 'data-subject="math"' in math and "/static/logo-math.svg" in math and "<title>מתמטיקה בכיף</title>" in math
+        assert "__SUBJECT__" not in math and "__START_LABEL__" not in math
+        assert c.get("/history").status_code == 404
+        assert c.get("/static/logo-math.svg").status_code == 200

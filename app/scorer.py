@@ -207,6 +207,7 @@ class ScorerConfig:
     word_min_weight: float = 0.35   # one weak phoneme matters, without dominating half of the whole word
     ref_min_mean: float = 60.0      # a native reference whose mean phoneme score is under this is not trusted
     ayin_deleted_floor: float = 60.0 # the base model often drops a correctly pronounced pharyngeal ʕ
+    onset_transient_floor: float = 90.0  # a first consonant outscored by a one-frame onset spike (rule 31)
     # The learner-facing pipeline is more encouraging than the generic GOP primitive: a competitor twice as likely
     # scores about 78, while a clearly dominant competitor can still pull the phoneme below the feedback threshold.
     gop: GopConfig = field(default_factory=lambda: GopConfig(leniency=0.35))
@@ -703,7 +704,9 @@ class Scorer:
             issue_idx = picked[:self.cfg.max_issues]
             for i in issue_idx:
                 tok, sc = toks[i], scores[i]
-                comp = i2t.get(sc.competitor) if sc.competitor is not None else None
+                # a one-frame onset spike (rule 31) is no sound the learner said: listed, but not named
+                comp = (i2t.get(sc.competitor) if sc.competitor is not None and fit.exempted[i] != "onset_transient"
+                        else None)
                 if i in fit.inserted:
                     issues.append({"sound": "תנועה מיותרת לפני " + (sound_name(tok.phoneme) or tok.phoneme),
                                    "word_tr": tr_words[tok.word], "score": round(sc.score), "missing": False,
@@ -791,7 +794,7 @@ class Scorer:
                 "word_min_weight": cfg.word_min_weight, "vowel_weight": 0.5, "unrelated_ratio": cfg.unrelated_ratio,
                 "unrelated_cap": 30.0, "letter_good": LETTER_GOOD, "max_tips": max_tips, "max_issues": cfg.max_issues,
                 "ref_min_mean": cfg.ref_min_mean, "margin_default": float(self.rules.scoring.get("margin_default", 0.0)),
-                "ayin_deleted_floor": cfg.ayin_deleted_floor,
+                "ayin_deleted_floor": cfg.ayin_deleted_floor, "onset_transient_floor": cfg.onset_transient_floor,
                 "margins": [{"target": t, "heard": h, "margin": m} for (t, h), m in sorted(self.rules.margins.items())]
                 if self._on("margins") else [],
                 "exemptions": [name for name, _, _ in EXEMPTIONS if self._on(name)],

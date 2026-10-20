@@ -40,6 +40,7 @@ class SawtakTTS:
         self.voice_name = "רַאאִף"
         self.cache_dir = cache_dir or Path.home() / ".cache" / "ihki-tts"
         self._lock = threading.Lock()  # one generation at a time; also guards the voice lookup
+        self._cache_hits = self._cache_misses = 0
 
     def _request(self, path: str, body: dict | None = None):
         req = urllib.request.Request(
@@ -92,6 +93,7 @@ class SawtakTTS:
         """Delete only generated audio files from this instance's dedicated cache directory."""
         with self._lock:
             if not self.cache_dir.is_dir():
+                self._cache_hits = self._cache_misses = 0
                 return 0
             removed = 0
             for path in self.cache_dir.iterdir():
@@ -103,7 +105,25 @@ class SawtakTTS:
                         pass
                     except OSError as e:
                         raise TTSUnavailable(f"could not clear voice cache: {e}") from None
+            self._cache_hits = self._cache_misses = 0
             return removed
+
+    def cache_stats(self) -> dict:
+        """Anonymous disk and process-lifetime cache usage for the monitoring panel."""
+        with self._lock:
+            files = size = 0
+            if self.cache_dir.is_dir():
+                try:
+                    for path in self.cache_dir.iterdir():
+                        if path.is_file() and path.suffix == ".wav":
+                            files += 1
+                            size += path.stat().st_size
+                except OSError as e:
+                    raise TTSUnavailable(f"could not inspect voice cache: {e}") from None
+            requests = self._cache_hits + self._cache_misses
+            return {"files": files, "bytes": size, "hits": self._cache_hits,
+                    "misses": self._cache_misses,
+                    "hit_rate": round(self._cache_hits / requests, 4) if requests else None}
 
     def wav(self, text: str, voice: str = "") -> tuple[bytes, str]:
         """(WAV, voice id) for `text` in Raef's voice, or a dialogue line's own (LINE_VOICES); cached on disk."""
@@ -111,7 +131,9 @@ class SawtakTTS:
             voice = voice if voice in LINE_VOICES.values() else RAEF_VOICE_ID
             path = self._path(text, voice)
             if path.exists():
+                self._cache_hits += 1
                 return path.read_bytes(), voice
+            self._cache_misses += 1
             # The caller supplies the phrase's Palestinian vowel marks. Sawtak preserves existing
             # marks; enhancement fills remaining pronunciation cues using the selected voice's dialect.
             data = self._generate(text, voice)

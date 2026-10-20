@@ -234,6 +234,16 @@ def _glottal_dropped(toks, i, sc, heard, ar_words):
     return sc.deleted or transient_onset
 
 
+# Rule 31: the same onset transient in front of any other first consonant. The multilingual model hears a
+# word-initial stop (طاولتنا: closure silence, then a short burst) weakly, and a single breath or microphone frame
+# above deleted_comp then outscores it under an arbitrary name (tˤ heard as j). The target must still be there
+# (not deleted, peak at least deleted_peak); an omission, or a competitor held two frames (~40 ms), still counts.
+def _onset_transient(toks, i, sc, heard, ar_words):
+    t = toks[i]
+    return (i == 0 and t.phoneme not in VOWELS and t.sound not in ("ʔ", "Q") and not sc.deleted
+            and sc.comp_frames == 1 and sc.peak >= math.log(0.05))
+
+
 def _article_vowel_elided(toks, i, sc, heard, ar_words):     # #3
     return sc.deleted and elided_article(toks, i, ar_words)
 
@@ -286,6 +296,7 @@ def _word_final_vowel_linking(toks, i, sc, heard, ar_words):
 # else the name of the ScorerConfig floor). The first that applies wins.
 EXEMPTIONS = [
     ("glottal_dropped", _glottal_dropped, None),
+    ("onset_transient", _onset_transient, "onset_transient_floor"),
     ("article_vowel_elided", _article_vowel_elided, None),
     ("near_vowel", _near_vowel, "near_vowel_floor"),
     ("final_b_devoicing", _final_b_devoicing, None),
@@ -324,6 +335,9 @@ def _toggles() -> list[Toggle]:
                "בֵּית ובַּיְת נכונות שתיהן (נבדק כווריאנט נוסף). כבוי: רק התנועה הארוכה."),
         Toggle("glottal_dropped", "judge", "6.3 #1–2", "עצירה סותמית שהושמטה אינה טעות",
                "ʔ (ء, ו־ق עירונית) שלא נשמעה מקבלת ציון מלא, כמו אצל דוברים ילידיים (אַנַא ← אנה)."),
+        Toggle("onset_transient", "judge", "6.3 #31", "קפיצה של פריים אחד לפני העיצור הראשון",
+               "עיצור שפותח את המשפט, שנשמע אך חלש, ומתחרה שהופיע בפריים אחד בלבד (נשימה או רעש מיקרופון) מקבל "
+               "לפחות 90 ולא מסומן. השמטה, או מתחרה בשני פריימים ומעלה, עדיין נבדקים."),
         Toggle("article_vowel_elided", "judge", "6.3 #3", "תנועת ה־ال אחרי תנועה",
                "ה־i של ال שלא נאמרה אחרי מילה שמסתיימת בתנועה (עַלַא לְ...) אינה טעות."),
         Toggle("near_vowel", "judge", "6.3 #7", "תנועות קרובות",

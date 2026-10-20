@@ -51,6 +51,13 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("ihki")
 STATIC = Path(__file__).resolve().parent.parent / "static"
 load_dotenv(STATIC.parent / ".env")
+# A class topic's opening screen, by the path it is served at; "/" is Arabic.
+SUBJECTS = {
+    "arabic": {"__TITLE__": "אהלא וסהלא", "__SPLASH_LOGO__": "/static/logo-intro-alt.svg",
+               "__SPLASH_ALT__": "אהלא וסהלא, בית הספר ללימוד השפה הערבית", "__START_LABEL__": "יאללה נבלש"},
+    "math": {"__TITLE__": "מתמטיקה בכיף", "__SPLASH_LOGO__": "/static/logo-math.svg",
+             "__SPLASH_ALT__": "מתמטיקה בכיף, המורה הפרטי למתמטיקה", "__START_LABEL__": "יאללה נתחיל"},
+}
 MODEL_ID = os.environ.get("MODEL_ID", "facebook/wav2vec2-xlsr-53-espeak-cv-ft")
 LOCAL_TZ = ZoneInfo("Asia/Jerusalem")  # a day of practice is the students' calendar day
 MAX_UPLOAD = 2_000_000  # bytes; 15 s of opus is ~100 KB
@@ -512,6 +519,14 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     members = [Depends(signed_in)]
 
+    def managed_classes(a: SupabaseAuth, actor: dict | None, fresh: bool = False) -> list[dict]:
+        """Classes visible in management: developers see all; admins only their own subject."""
+        classes = a.classes(fresh=fresh)
+        if not actor or "developer" in actor.get("roles", ()) or not hasattr(a, "access_for"):
+            return classes
+        subject = str(actor.get("subject") or "").strip()
+        return [c for c in classes if subject and str(c.get("subject") or "").strip() == subject]
+
     def text_rows() -> list[dict]:
         """The teacher's texts in the lessons the path shows. None without sign-in, or when they cannot be read."""
         a: SupabaseAuth | None = app.state.auth
@@ -547,14 +562,21 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(404, "unknown phrase")
         return phrase
 
-    @app.get("/")
-    def index():
+    def page(subject: str) -> HTMLResponse:
         html = (STATIC / "index.html").read_text(encoding="utf-8")
         a: SupabaseAuth | None = app.state.auth
-        for mark, value in (("__VERSION__", build_version()), ("__SUPABASE_URL__", a.url if a else ""),
-                            ("__SUPABASE_KEY__", a.key if a else "")):
+        marks = {"__VERSION__": build_version(), "__SUPABASE_URL__": a.url if a else "",
+                 "__SUPABASE_KEY__": a.key if a else "", "__SUBJECT__": subject, **SUBJECTS[subject]}
+        for mark, value in marks.items():
             html = html.replace(mark, value)
         return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+
+    @app.get("/")
+    def index():
+        return page("arabic")
+
+    for subject in SUBJECTS:   # the same app under a class topic's own opening screen: /arabic, /math
+        app.get(f"/{subject}", include_in_schema=False)(lambda subject=subject: page(subject))
 
     @app.get("/service-worker.js", include_in_schema=False)
     def service_worker():
@@ -629,7 +651,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"ok": True}
 
     @app.get("/api/class")
-    def class_progress(a: SupabaseAuth = Depends(teacher_only)):
+    def class_progress(a: SupabaseAuth = Depends(teacher_only), actor: dict | None = Depends(signed_in)):
         """The teacher's panel: the classes (with their lessons and homework), and every student's summary (see `summary`) with
         "written", their written homework ({topic id: its lines}), with
         "tutor" (the teacher gave them the tutor's rank, see `set_tutor`; "tutor_fixed" when TEACHER_EMAILS or TUTORS_EMAIL gives it, which the panel cannot change),
@@ -637,7 +659,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         made since the class was opened: a new class starts clean, whatever its students practised before. The students are the classes' accounts, or every account that signed in
         when there is no class yet; one that never signed in has joined = false."""
         try:
-            classes, users, rows, wrote = a.classes(fresh=True), a.users(), a.all_attempts(), a.all_writings()
+            classes, users, rows, wrote = managed_classes(a, actor, fresh=True), a.users(), a.all_attempts(), a.all_writings()
             ranked = a.ranked(fresh=True)
         except AuthUnavailable as e:
             raise HTTPException(503, str(e))
@@ -663,8 +685,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                     "tutor": fixed or email.lower() in (ranked or ()), **({"tutor_fixed": True} if fixed else {}),
                     **summary(mine, bank)}
 
+        subject_scoped = bool(actor and "developer" not in actor.get("roles", ()) and hasattr(a, "access_for"))
         students = [student(u["email"], u["name"], True, by.get(u["id"], []), written.get(u["id"]))
-                    for u in users if not classes or u["email"].lower() in member]
+                    for u in users if (not classes and not subject_scoped) or u["email"].lower() in member]
         missing = member.keys() - {s["email"].lower() for s in students}
         students += [student(e, "", False, []) for e in sorted(missing)]
         # "setup": what the teacher still has to run in Supabase, in words and as SQL; without it the panel would
@@ -680,16 +703,45 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/activity")
     def activity(hours: int = Query(24, ge=1, le=168), bucket_minutes: int = Query(15, ge=1, le=60),
-                 a: SupabaseAuth = Depends(teacher_only)):
+                 window_minutes: int | None = Query(None, ge=1, le=60),
+                 a: SupabaseAuth = Depends(teacher_only), actor: dict | None = Depends(signed_in)):
         """Anonymous, aggregated practice activity for the teacher's monitoring graph."""
         try:
-            data = a.activity(hours, bucket_minutes)
+            scoped = bool(actor and "developer" not in actor.get("roles", ()) and hasattr(a, "access_for"))
+            if scoped or window_minutes is not None:
+                ids = None
+                if scoped:
+                    classes, users = managed_classes(a, actor, fresh=True), a.users()
+                    emails = {email for c in classes for email in c.get("emails", ())}
+                    ids = {u["id"] for u in users if u["email"].lower() in emails}
+                start = datetime.now(timezone.utc) - (timedelta(minutes=window_minutes) if window_minutes else timedelta(hours=hours))
+                rows = [r for r in a.all_attempts()
+                        if (ids is None or r.get("user_id") in ids) and utc(r["created_at"]) >= start]
+                seconds, buckets = bucket_minutes * 60, {}
+                for row in rows:
+                    stamp = int(utc(row["created_at"]).timestamp()) // seconds * seconds
+                    item = buckets.setdefault(stamp, {"users": set(), "attempts": 0})
+                    item["attempts"] += 1
+                    item["users"].add(row["user_id"])
+                per_user = {}
+                for row in rows:
+                    per_user.setdefault(row["user_id"], set()).add(utc(row["created_at"]).astimezone(LOCAL_TZ).date())
+                data = {"buckets": [{"bucket": datetime.fromtimestamp(stamp, timezone.utc).isoformat(),
+                                      "attempts": item["attempts"], "active_students": len(item["users"])}
+                                     for stamp, item in sorted(buckets.items())],
+                        "summary": {"attempts": len(rows), "active_students": len(per_user),
+                                    "returning_students": sum(len(days) >= 2 for days in per_user.values()),
+                                    "active_days": len({day for days in per_user.values() for day in days})}}
+            else:
+                data = a.activity(hours, bucket_minutes)
             # Accept the former list return shape from lightweight test doubles and older integrations.
             if isinstance(data, list):
                 data = {"buckets": data}
             elif data.get("summary") is None:
                 data = {"buckets": data["buckets"]}
-            return {"hours": hours, "bucket_minutes": bucket_minutes, **data}
+            return {"hours": window_minutes / 60 if window_minutes else hours,
+                    **({"window_minutes": window_minutes} if window_minutes else {}),
+                    "bucket_minutes": bucket_minutes, **data}
         except AuthUnavailable as e:
             raise HTTPException(503, str(e))
 
@@ -1557,10 +1609,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         try:
             # a class's name is its own: the same words in other letter case or spacing are the same name
             same = lambda other: " ".join(other.split()).casefold() == name.casefold()
-            if taken := next((c["name"] for c in a.classes(fresh=True) if c["id"] != id and same(c["name"])), None):
+            visible = managed_classes(a, actor, fresh=True)
+            if id is not None and not any(c["id"] == id for c in visible):
+                raise HTTPException(404, "הכיתה לא נמצאה")
+            if taken := next((c["name"] for c in visible if c["id"] != id and same(c["name"])), None):
                 raise HTTPException(409, f"כבר יש כיתה בשם {taken}")
             # a class that has no daily videos, and had none, is saved without them: a table made before them takes it
-            had = any(c["id"] == id and c.get("dailies") for c in a.classes())
+            had = any(c["id"] == id and c.get("dailies") for c in visible)
             subject = str((actor or {}).get("subject") or "").strip()
             if (id is None and hasattr(a, "access_for") and actor and "admin" in actor.get("roles", ())
                     and "developer" not in actor.get("roles", ()) and not subject):
@@ -1583,9 +1638,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return save_class(a, class_id, body, actor)
 
     @app.delete("/api/classes/{class_id}")
-    def delete_class(class_id: int, a: SupabaseAuth = Depends(teacher_only)):
+    def delete_class(class_id: int, a: SupabaseAuth = Depends(teacher_only), actor: dict | None = Depends(signed_in)):
         try:
+            if not any(c["id"] == class_id for c in managed_classes(a, actor, fresh=True)):
+                raise HTTPException(404, "הכיתה לא נמצאה")
             a.delete_class(class_id)
+        except HTTPException:
+            raise
         except AuthUnavailable as e:
             raise HTTPException(503, class_store_error(e))
         return {"ok": True}
@@ -2056,6 +2115,16 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             "Cache-Control": "private, no-store", "X-TTS-Provider": "sawtakarabi.ai",
             "X-TTS-Voice-Id": urllib.parse.quote(used),
             "X-TTS-Voice-Name": urllib.parse.quote(names.get(used) or getattr(tts, "voice_name", ""))})
+
+    @app.get("/api/tts-cache")
+    def tts_cache_usage(_a: SupabaseAuth = Depends(teacher_only)):
+        """Cache size and process-lifetime hit rate for Monitoring; contains no phrase or user data."""
+        if app.state.tts is None:
+            return {"available": False, "files": 0, "bytes": 0, "hits": 0, "misses": 0, "hit_rate": None}
+        try:
+            return {"available": True, **app.state.tts.cache_stats()}
+        except TTSUnavailable as e:
+            raise HTTPException(503, str(e))
 
     @app.delete("/api/tts-cache")
     def clear_tts_cache(_a: SupabaseAuth = Depends(teacher_only)):

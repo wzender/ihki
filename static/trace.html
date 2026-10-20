@@ -220,7 +220,7 @@ const pct=x=>x==null?"—":x>0&&x<.001?"<0.1%":fmt(100*x,1)+"%";
 const band=s=>s>=75?"good":s>=50?"warn":"crit";
 const BAND_NAME={good:"טוב",warn:"כמעט",crit:"חלש"};
 const STAGE_NAME={gop:"GOP גולמי",exemption:"פטורים",insertion:"תקרת צרור",baseline:"קו בסיס ילידי",calibration:"רצפת כיול",final:"סופי"};
-const EXEMPT_NAME={glottal_dropped:"עצירה סותמית שהושמטה",article_vowel_elided:"תנועת ال אחרי תנועה",near_vowel:"תנועה קרובה",final_b_devoicing:"b סופית לפני עיצור אטום (כלל 28)",word_final_vowel_linking:"תנועה סופית לפני תנועה (כלל 29)",unmarked_short_vowel:"תנועה קצרה שאינה נבדקת (כלל 30)"};
+const EXEMPT_NAME={glottal_dropped:"עצירה סותמית שהושמטה",onset_transient:"קפיצה בפריים אחד לפני העיצור הראשון (כלל 31)",article_vowel_elided:"תנועת ال אחרי תנועה",near_vowel:"תנועה קרובה",final_b_devoicing:"b סופית לפני עיצור אטום (כלל 28)",word_final_vowel_linking:"תנועה סופית לפני תנועה (כלל 29)",unmarked_short_vowel:"תנועה קצרה שאינה נבדקת (כלל 30)"};
 const PHONE_HEBREW={
   "ʔ":"א","b":"בּ","t":"ת","dʒ":"ג׳","ħ":"ח","x":"ח׳","χ":"ח׳","d":"ד","r":"ר","ɾ":"ר","z":"ז",
   "s":"ס","ʃ":"ש","sˤ":"צ","dˤ":"ד׳","tˤ":"ט","ðˤ":"ט׳","ʕ":"ע","ɣ":"ע׳","ʁ":"ע׳","f":"פ",

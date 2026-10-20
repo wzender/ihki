@@ -442,12 +442,12 @@ The scorer grades one recording. Everything above that level is aggregation, mos
 
 ```mermaid
 flowchart TD
-    R["Recording score 0–100"] --> BAND["Verdict on the card<br/>≥ 85 מצוין · ≥ 60 כמעט · else נסו שוב<br/>unrelated → משפט אחר?"]
+    R["Recording score 0–100"] --> BAND["Verdict on the card<br/>≥ 75 מצוין · ≥ 60 כמעט · else נסו שוב<br/>unrelated → משפט אחר?"]
     R --> BEST["Sentence best = max over attempts<br/>(device + attempts table)"]
-    BEST --> TOPIC["Topic: done when every sentence has a best<br/>★ gold when all bests ≥ 85"]
+    BEST --> TOPIC["Topic: done when every sentence has a best<br/>★ gold when all bests ≥ 75"]
     TOPIC --> LESSON["Lesson / homework progress"]
     BEST --> PANEL["Teacher panel: student grade = mean of bests<br/>class 'hard sentences' = class mean of bests under 70"]
-    BEST --> DAILY["Daily session review pool: bests under 85"]
+    BEST --> DAILY["Daily session review pool: bests under 75"]
     R --> QUIZ["Story quiz: mean of line scores said<br/>+ top 3 mistakes by frequency"]
     R --> VERB["Verb game L4–5: ≥ 75 correct<br/>unrelated / too short → uncertain, not counted"]
     VERB --> GATE["Level gates: share correct ≥ 85–90 %"]
@@ -455,9 +455,9 @@ flowchart TD
 
 | Exercise | Grade | Where |
 |---|---|---|
-| Single sentence | The recording's `score`; band 85 / 60 | `index.html` (`EXCELLENT = 85`) |
+| Single sentence | The recording's `score`; band 75 / 60 | `index.html` (`EXCELLENT = 75`) |
 | Sentence progress | Best score over all attempts. Any non-empty recording, including an unrelated one, marks the sentence as practised | `keepScore` |
-| Topic | Practised count / total; gold if every best ≥ 85 | `tally()` |
+| Topic | Practised count / total; gold if every best ≥ 75 | `tally()` |
 | Story quiz ("בוחן") | Arithmetic mean of the lines' scores. One recording per line, no retries | `quizEnd()` |
 | Verb game, levels 4–5 | `correct` if score ≥ 75. `unrelated` or too short → `outcome: "uncertain"`, `counts_as_attempt: false`, never a grammar error | [app/speech_evaluation.py](../app/speech_evaluation.py) |
 | Verb game, unlocking | Correct ratio ≥ `VERB_THRESH` (0.85–0.90) over a minimum number of attempts | `index.html` |
