@@ -49,7 +49,7 @@ sudo apt install ffmpeg
 python3 -m venv .venv && source .venv/bin/activate
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
-uvicorn app.main:app --port 7860
+uvicorn app.main:app --host 0.0.0.0 --port 7860
 ```
 
 Open http://localhost:7860. The first start downloads the model (~1.2 GB). CPU inference on a 3 s clip takes about a second.
@@ -253,7 +253,7 @@ alter table public.user_access add constraint valid_entitlements check (
 
 ### Flags: a score that is wrong
 
-Sometimes a sentence is said right and the system scores it wrong. The teachers (`TEACHER_EMAILS`) report such cases, and `TUTORS_EMAIL` names more accounts that do (several are separated by commas or spaces; they may sign in without being in a class, and get no management panel). The teacher also gives a student this tutor's rank in the panel: at the top of **תלמידים**, the part "🚩 מדווחים על ציונים שגויים" opens a list of every student of every class, each with a box to tick. The rank is the student's, whatever classes they are in, and by itself lets nobody sign in; the panel marks such a student with 🚩 in every class (`PUT /api/tutors`, teachers only: `{"email", "tutor": true|false}`). It is kept by email in the table `tutors`; create it once (until then the panel shows this command):
+Sometimes a sentence is said right and the system scores it wrong. The teachers (`TEACHER_EMAILS`) report such cases, and `TUTORS_EMAIL` names more accounts that do (several are separated by commas or spaces; they may sign in without being in a class, and get no management panel). The rank is kept by email in the table `tutors`:
 
 ```sql
 create table public.tutors (
@@ -600,6 +600,12 @@ alter table public.classes add column if not exists nicknames jsonb not null def
 update public.classes set subject = 'ערבית' where subject = '';
 ```
 
+A subject is one of a fixed list, `SUBJECT_LABELS` in `app/main.py`: ערבית (served at `/`, and `/arabic`) and מתמטיקה (`/math`). It is kept in Hebrew, as the panel shows it, and the developer picks an admin's subject from that list in Monitoring; any other text is refused. `/api/me` names the subject of the account (an admin's own, or their class's), and the page moves an account that opened another subject's address to its own. A developer stays where they are. Each subject has its own title, colour and opening screen (`SUBJECTS`), and the installed app of a subject other than Arabic has its own manifest, `/math/manifest.webmanifest`, so its home-screen icon is named for it and opens `/math`.
+
+**The math path.** On `/math`, the start button opens the math path (`static/math.js`, `static/math.css`) in place of the Arabic one. Its skill graph is `app/math_algebra9.json`, served at `/api/math/skills`: 9th-grade algebra for the 5-unit track, by the Ministry's 2026/27 teaching schedule, in six units (foundations, algebraic technique, function properties, the quadratic function and equation, powers and roots, word problems). Each skill names the skills it needs, and has a sample question whose wrong choices are each a known mistake; a mistake sends the student back to the skill it comes from. `app/math_skills.py` refuses a graph with a cycle, an unknown skill, a redundant link, a question without exactly one right answer, or a mistake that sends a student forward. A skill is open once every skill it needs is done, and the path goes on from the first open one; a locked skill can still be opened, with the skills to do first named on it. For now a right answer to the sample question marks the skill done, and progress is kept on the device (`ihki.math.v1:<email>`). The questions were written for the app and still need a 5-unit teacher's review.
+
+**A photographed problem.** "צילום תרגיל" on the math path lets a student photograph a problem (camera or gallery). The page shrinks the photo to about 1600 px and sends it to `POST /api/math/photo`, where Claude (`app/math_photo.py`) reads it and solves it in a fixed JSON shape: the problem as read, the solution as steps (each a hint and the step itself), the answer, and the path's skill it practises. The sheet shows the reading and one hint; further hints, each step and the full solution with its answer come only when the student asks, and the skill links into the path. It runs on the tutor's Anthropic key (`ANTHROPIC_API_KEY`, or the panel's) and on `MATH_MODEL` (default `claude-opus-5-5`, with the API's default fallback model when it declines). A signed-in student has `DAILY_PHOTOS` (20) a day, counted in memory; a photo it could not read does not count, and developers are exempt. The photo is sent to Anthropic's API and not kept by the app; say so on the privacy page before students use it.
+
 The server keeps the list for a minute, so a change in the SQL editor (rather than the panel) applies within that time.
 
 ### Live lessons
@@ -645,7 +651,7 @@ A few hundred utterances are enough to move the needle with the feature encoder 
 ```bash
 pip install -r requirements-train.txt
 python -m train.finetune --train data/train.csv --eval data/eval.csv --out checkpoints/ihki-ft
-MODEL_ID=checkpoints/ihki-ft uvicorn app.main:app --port 7860
+MODEL_ID=checkpoints/ihki-ft uvicorn app.main:app --host 0.0.0.0 --port 7860
 ```
 
 The script reports phoneme error rate (PER) before and after training. A GPU is advisable. A free Colab T4 handles a few hundred clips in minutes.

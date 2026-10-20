@@ -2113,3 +2113,72 @@ def test_each_class_topic_opens_on_its_own_screen():
         assert "__SUBJECT__" not in math and "__START_LABEL__" not in math
         assert c.get("/history").status_code == 404
         assert c.get("/static/logo-math.svg").status_code == 200
+        # its installed app has its own name, colour and start page; Arabic keeps the static manifest
+        assert '<meta name="theme-color" content="#000000">' in math and 'href="/math/manifest.webmanifest"' in math
+        assert '"__' not in math and '<meta name="theme-color" content="#4B6A2C">' in c.get("/").text
+        assert re.search(r'<script src="/static/math\.js\?v=[0-9a-f]{7}" defer>', math)   # the path's script, stamped
+        assert 'href="/static/manifest.webmanifest"' in c.get("/").text
+        installed = c.get("/math/manifest.webmanifest")
+        assert installed.headers["content-type"].startswith("application/manifest+json")
+        assert {k: installed.json()[k] for k in ("id", "name", "start_url", "scope")} == {
+            "id": "/math", "name": "מתמטיקה בכיף", "start_url": "/math", "scope": "/"}
+        assert c.get("/arabic/manifest.webmanifest").status_code == 404
+
+
+def test_an_account_is_sent_to_its_subjects_pages():
+    from fastapi.testclient import TestClient
+    from app.main import create_app, subject_code
+
+    assert subject_code("מתמטיקה") == "math" and subject_code(" ערבית ") == "arabic"
+    assert subject_code("חשבון") == subject_code("") == subject_code(None) == ""
+
+    class FakeAuth:
+        url, key, teachers, tutors, developers = "https://proj.supabase.co", "sb_publishable_x", frozenset(), frozenset(), {"d@b.c"}
+        users_ = {"s": {"id": "u1", "email": "s@b.c"}, "t": {"id": "u2", "email": "t@b.c", "name": "T"},
+                  "d": {"id": "u3", "email": "d@b.c"}}
+
+        def __init__(self):
+            self.cls, self.access = [], {"u2": {"user_id": "u2", "roles": ["admin"], "subject": "מתמטיקה"}}
+
+        def user(self, token):
+            return self.users_.get(token)
+
+        def users(self):
+            return list(self.users_.values())
+
+        def classes(self, fresh=False):
+            return self.cls
+
+        def access_for(self, user_id):
+            return self.access.get(user_id)
+
+        def access_rows(self):
+            return list(self.access.values())
+
+        def set_admin_subject(self, target, subject, actor):
+            self.access[target["id"]]["subject"] = subject
+
+        def ranked(self, fresh=False):
+            return frozenset()
+
+        def __getattr__(self, name):   # the content tables /api/me reads: empty
+            return lambda *a, **k: []
+
+    tok = lambda t: {"Authorization": f"Bearer {t}"}
+    with TestClient(create_app(scorer_for(emissions(["w"])), auth=FakeAuth())) as c:
+        auth = c.app.state.auth
+        auth.cls = [{"id": 1, "name": "ט1", "emails": ["s@b.c"], "nicknames": {}, "lessons": [], "subject": "מתמטיקה"}]
+        me = c.get("/api/me", headers=tok("s")).json()   # a student goes where their class is
+        assert me["subject"] == "math" and me["classes"][0]["subject"] == "math"
+        assert c.get("/api/me", headers=tok("t")).json()["subject"] == "math"   # an admin, where their own subject is
+        assert "subject" not in c.get("/api/me", headers=tok("d")).json()   # a developer stays on the page they opened
+        auth.cls[0]["subject"] = "חשבון"   # a subject outside the list sends nowhere
+        assert "subject" not in c.get("/api/me", headers=tok("s")).json()
+        # the developer picks an admin's subject from the list; free text is refused
+        listed = c.get("/api/admin-subjects", headers=tok("d")).json()
+        assert listed["subjects"] == [{"code": "arabic", "label": "ערבית"}, {"code": "math", "label": "מתמטיקה"}]
+        assert listed["admins"] == [{"id": "u2", "email": "t@b.c", "name": "T", "subject": "מתמטיקה"}]
+        put = lambda subject: c.put("/api/admin-subjects/u2", json={"subject": subject}, headers=tok("d"))
+        assert put("חשבון").status_code == 400 and auth.access["u2"]["subject"] == "מתמטיקה"
+        assert put(" ערבית ").json() == {"ok": True, "subject": "ערבית"} and auth.access["u2"]["subject"] == "ערבית"
+        assert c.get("/api/me", headers=tok("t")).json()["subject"] == "arabic"

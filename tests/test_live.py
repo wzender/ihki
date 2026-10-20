@@ -43,3 +43,11 @@ def test_failed_recording_can_be_retried_and_end_erases_session():
     live.begin_answer(code, STUDENT["id"])
     live.end(code)
     assert live.get(code) is None
+
+
+def test_question_accepts_the_server_phrase_shape():
+    live = LiveStore()
+    code = live.start(COURSE, TEACHER)["code"]
+    question = live.ask(code, {"id": 13, "he": "מה שלומך?", "tr": "כִּיף חַאלַכּ?",
+                               "variants": [("كيف حالك؟", "kiːf ħaːlak")]})["question"]
+    assert question["ar"] == "كيف حالك؟"

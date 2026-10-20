@@ -79,6 +79,15 @@ MAX_ATTEMPTS = 20_000  # of one student, read for their progress
 MAX_CLASS_ATTEMPTS = 200_000  # of all students, read for the teacher's panel
 CLASSES_TTL = 60  # seconds the class list is trusted without reading it again (each sign-in check uses it)
 
+# Application-owned data. Supabase's auth users and managed schemas are deliberately not copied.
+BACKUP_TABLES = (
+    "dailies", "library", "videos", "texts", "classes", "writings", "tutors", "flags",
+    "lab_samples", "calibrations", "scoring_rules", "user_access", "access_audit", "app_secrets",
+    "system_events", "tutor_chats",
+)
+BACKUP_NATURAL_KEYS = {"writings": "user_id,topic", "tutors": "email", "scoring_rules": "id",
+                       "user_access": "user_id", "app_secrets": "name", "tutor_chats": "id"}
+
 
 class AuthUnavailable(RuntimeError):
     pass
@@ -218,7 +227,8 @@ class SupabaseAuth:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
             return json.load(res)
 
-    def _admin(self, path: str, method: str = "GET", body: dict | None = None, prefer: str = "return=representation"):
+    def _admin(self, path: str, method: str = "GET", body: dict | None = None, prefer: str = "return=representation",
+               timeout: int = TIMEOUT):
         """A call with the secret key, for the teacher's panel. Unlike a student's own progress, a failure is raised."""
         if not self.secret:
             raise AuthUnavailable("SUPABASE_SECRET_KEY is not set")
@@ -227,7 +237,7 @@ class SupabaseAuth:
             headers={"Authorization": f"Bearer {self.secret}", "apikey": self.secret, "Content-Type": "application/json",
                      "Prefer": prefer, "User-Agent": "ihki/1.0"})
         try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
+            with urllib.request.urlopen(req, timeout=timeout) as res:
                 return json.loads(res.read() or b"null")
         except urllib.error.HTTPError as e:
             detail = e.read().decode(errors="replace")[:300]
@@ -236,6 +246,119 @@ class SupabaseAuth:
             raise AuthUnavailable(f"supabase answered {e.code}: {detail}") from e
         except (urllib.error.URLError, TimeoutError, ValueError) as e:
             raise AuthUnavailable(str(e)) from e
+
+    def backup_rows(self) -> dict[str, list[dict]]:
+        """All application-owned table rows. Tables not installed in an older deployment are omitted."""
+        result: dict[str, list[dict]] = {}
+        for table in BACKUP_TABLES:
+            rows = []
+            try:
+                for offset in range(0, 10_000_000, PAGE):
+                    path = f"/rest/v1/{table}?select=*&limit={PAGE}&offset={offset}"
+                    for attempt in range(3):
+                        try:
+                            batch = self._admin(path, timeout=60) or []
+                            break
+                        except AuthUnavailable as e:
+                            if attempt == 2 or not any(x in str(e).lower() for x in ("timed out", "timeout")):
+                                raise
+                    rows.extend(batch)
+                    if len(batch) < PAGE:
+                        break
+                result[table] = rows
+            except AuthUnavailable as e:
+                if "answered 404" not in str(e):
+                    raise
+        return result
+
+    def final_scores(self) -> list[dict]:
+        """One compact row per student and exercise: the highest score that drives the panel's final grades."""
+        best: dict[tuple[str, str, str], dict] = {}
+        for offset in range(0, MAX_CLASS_ATTEMPTS, PAGE):
+            query = urllib.parse.urlencode({"select": "user_id,cat,phrase,score,created_at",
+                                            "order": "id.asc", "limit": PAGE, "offset": offset})
+            path = f"/rest/v1/attempts?{query}"
+            for attempt in range(3):
+                try:
+                    batch = self._admin(path, timeout=60) or []
+                    break
+                except AuthUnavailable as e:
+                    if attempt == 2 or not any(x in str(e).lower() for x in ("timed out", "timeout")):
+                        raise
+            for row in batch:
+                key = (str(row["user_id"]), str(row["cat"]), str(row["phrase"]))
+                if key not in best or int(row["score"]) > int(best[key]["score"]):
+                    best[key] = row
+            if len(batch) < PAGE:
+                break
+        return list(best.values())
+
+    def restore_final_scores(self, rows: list[dict]) -> int:
+        """Restore only grades that improve the currently stored best score, without restoring attempt history."""
+        current = {(r["user_id"], r["cat"], r["phrase"]): int(r["score"]) for r in self.final_scores()}
+        add = [{**r, "unrelated": False} for r in rows
+               if int(r.get("score", -1)) > current.get((r.get("user_id"), r.get("cat"), r.get("phrase")), -1)]
+        for start in range(0, len(add), 200):
+            self._admin("/rest/v1/attempts", "POST", add[start:start + 200], prefer="return=minimal", timeout=60)
+        return len(add)
+
+    def restore_rows(self, tables: dict[str, list[dict]]) -> dict[str, int]:
+        """Merge a validated application backup. Existing rows are updated; unrelated current rows remain."""
+        restored: dict[str, int] = {}
+        text_ids: dict[int, int] = {}
+        daily_ids: dict[int, int] = {}
+        for table in BACKUP_TABLES:
+            rows = [dict(r) for r in tables.get(table, [])]
+            if not rows:
+                continue
+            if table == "classes":
+                for row in rows:
+                    row["dailies"] = [{**d, "video": daily_ids.get(d.get("video"), d.get("video"))}
+                                      for d in (row.get("dailies") or [])]
+                    for field in ("homework",):
+                        value = row.get(field, "")
+                        if isinstance(value, str) and value.startswith("t") and value[1:].isdigit():
+                            row[field] = "t" + str(text_ids.get(int(value[1:]), int(value[1:])))
+                    row["homeworks"] = [{**h, "topic": "t" + str(text_ids.get(int(h["topic"][1:]), int(h["topic"][1:])))
+                                          if isinstance(h.get("topic"), str) and h["topic"].startswith("t") and h["topic"][1:].isdigit()
+                                          else h.get("topic")} for h in (row.get("homeworks") or [])]
+            if table == "writings":
+                field = "topic"
+                for row in rows:
+                    value = row.get(field, "")
+                    if isinstance(value, str) and value.startswith("t") and value[1:].isdigit():
+                        row[field] = "t" + str(text_ids.get(int(value[1:]), int(value[1:])))
+            if table in BACKUP_NATURAL_KEYS:
+                key = BACKUP_NATURAL_KEYS[table]
+                for start in range(0, len(rows), 200):
+                    self._admin(f"/rest/v1/{table}?on_conflict={key}", "POST", rows[start:start + 200],
+                                prefer="resolution=merge-duplicates,return=minimal")
+                restored[table] = len(rows)
+                continue
+            for original in rows:
+                row = dict(original)
+                old_id = row.get("id")
+                if old_id is not None:
+                    patch = dict(row)
+                    patch.pop("id", None)
+                    existing = self._admin(f"/rest/v1/{table}?id=eq.{urllib.parse.quote(str(old_id))}", "PATCH", patch)
+                    if existing:
+                        new_id = old_id
+                    else:
+                        row.pop("id", None)  # identity columns reject explicitly supplied values
+                        made = self._admin(f"/rest/v1/{table}", "POST", row)
+                        new_id = made[0].get("id") if made else None
+                    if table == "texts" and new_id is not None:
+                        text_ids[int(old_id)] = int(new_id)
+                    if table == "dailies" and new_id is not None:
+                        daily_ids[int(old_id)] = int(new_id)
+                else:
+                    self._admin(f"/rest/v1/{table}", "POST", row, prefer="return=minimal")
+            restored[table] = len(rows)
+        self._classes = self._videos = self._texts = self._ranked = None
+        self._level_videos.clear()
+        self._access.clear()
+        return restored
 
     def classes(self, fresh: bool = False) -> list[dict]:
         """Every class, newest first: id, name, emails (lower-case), nicknames ({email: nickname}), lessons (lesson ids;
@@ -496,6 +619,36 @@ class SupabaseAuth:
         if media_type == "application/octet-stream":
             media_type = mimetypes.guess_type(name)[0] or media_type
         return data, media_type
+
+    def ensure_backup_bucket(self) -> None:
+        """Create the private application-backup bucket on first use."""
+        try:
+            self._admin("/storage/v1/bucket/backups")
+        except AuthUnavailable as e:
+            detail = str(e).lower()
+            if not any(mark in detail for mark in ("answered 404", '"statuscode":"404"', "nosuchbucket", "bucket not found")):
+                raise
+            self._admin("/storage/v1/bucket", "POST", {"id": "backups", "name": "backups", "public": False},
+                        prefer="return=minimal")
+
+    def save_backup(self, name: str, data: bytes) -> None:
+        self.ensure_backup_bucket()
+        req = urllib.request.Request(
+            f"{self.url}/storage/v1/object/backups/{urllib.parse.quote(name)}", data=data, method="POST",
+            headers={"Authorization": f"Bearer {self.secret}", "apikey": self.secret,
+                     "Content-Type": "application/zip", "User-Agent": "ihki/1.0"})
+        try:
+            urllib.request.urlopen(req, timeout=max(TIMEOUT, 60)).close()
+        except urllib.error.HTTPError as e:
+            raise AuthUnavailable(f"supabase storage answered {e.code}: {e.read().decode(errors='replace')[:300]}") from e
+        except (urllib.error.URLError, TimeoutError) as e:
+            raise AuthUnavailable(str(e)) from e
+
+    def list_backups(self) -> list[dict]:
+        self.ensure_backup_bucket()
+        rows = self._admin("/storage/v1/object/list/backups", "POST",
+                           {"prefix": "", "limit": 100, "offset": 0, "sortBy": {"column": "name", "order": "desc"}})
+        return [r for r in (rows or []) if str(r.get("name", "")).endswith(".zip")]
 
     def add_flag(self, row: dict, audio: bytes, mime: str, name: str) -> bool:
         """Keeps a flagged score and its recording in the private `flags` bucket."""

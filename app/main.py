@@ -13,6 +13,8 @@ A local .env file is loaded if present; real environment variables win over it.
 from __future__ import annotations
 
 import hashlib
+import io
+import json
 import logging
 import os
 import re
@@ -20,6 +22,7 @@ import subprocess
 import time
 import urllib.parse
 import uuid
+import zipfile
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -36,6 +39,9 @@ from .auth import AuthUnavailable, ClassConflict, SupabaseAuth, load_auth
 from .keystore import (CREATE_APP_SECRETS, MAX_LEN as MAX_KEY_LEN, MIGRATE_APP_SECRETS, NAMES as KEY_NAMES, KeyRefused,
                        check as check_key, load_keys)
 from .live import LiveConflict, LiveStore
+from .math_photo import (DAILY_PHOTOS, MAX_PHOTO, MEDIA_TYPES as PHOTO_TYPES, PhotoSolver, PhotoUnavailable, math_model,
+                         photo_client)
+from .math_skills import algebra9
 from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .reference import References
@@ -55,13 +61,28 @@ load_dotenv(STATIC.parent / ".env")
 # A class topic's opening screen, by the path it is served at; "/" is Arabic.
 SUBJECTS = {
     "arabic": {"__TITLE__": "אהלא וסהלא", "__SPLASH_LOGO__": "/static/logo-intro.svg",
-               "__SPLASH_ALT__": "אהלא וסהלא, בית הספר ללימוד השפה הערבית", "__START_LABEL__": "יאללה נבלש"},
+               "__SPLASH_ALT__": "אהלא וסהלא, בית הספר ללימוד השפה הערבית", "__START_LABEL__": "יאללה נבלש",
+               "__APP_NAME__": "אהלא  וסהלא", "__THEME_COLOR__": "#4B6A2C", "__MANIFEST__": "/static/manifest.webmanifest"},
     "math": {"__TITLE__": "מתמטיקה בכיף", "__SPLASH_LOGO__": "/static/logo-math.svg",
-             "__SPLASH_ALT__": "מתמטיקה בכיף, המורה הפרטי למתמטיקה", "__START_LABEL__": "יאללה נתחיל"},
+             "__SPLASH_ALT__": "מתמטיקה בכיף, המורה הפרטי למתמטיקה", "__START_LABEL__": "יאללה נתחיל",
+             "__APP_NAME__": "מתמטיקה בכיף", "__THEME_COLOR__": "#000000", "__MANIFEST__": "/math/manifest.webmanifest"},
 }
+# A subject as an admin and a class keep it (in Hebrew, as the panel shows it), by the path its pages are served at.
+SUBJECT_LABELS = {"arabic": "ערבית", "math": "מתמטיקה"}
+# What the installed app of a subject other than Arabic changes in /static/manifest.webmanifest: its own name and
+# start page, so a math student's home-screen icon opens /math. The scope stays "/", the service worker's.
+MANIFESTS = {"math": {"id": "/math", "name": "מתמטיקה בכיף", "short_name": "מתמטיקה בכיף", "description": "תרגול מתמטיקה",
+                      "start_url": "/math", "theme_color": "#000000", "background_color": "#000000"}}
+
+
+def subject_code(label: object) -> str:
+    """The path of a stored subject ("ערבית" -> "arabic"); "" for none, and for one that is not in SUBJECT_LABELS."""
+    label = " ".join(str(label or "").split())
+    return next((code for code, name in SUBJECT_LABELS.items() if name == label), "")
 MODEL_ID = os.environ.get("MODEL_ID", "facebook/wav2vec2-xlsr-53-espeak-cv-ft")
 LOCAL_TZ = ZoneInfo("Asia/Jerusalem")  # a day of practice is the students' calendar day
 MAX_UPLOAD = 2_000_000  # bytes; 15 s of opus is ~100 KB
+MAX_BACKUP_UPLOAD = 250_000_000
 EMAIL = re.compile(r"[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+")
 MAX_NICKNAME = 40
 ALL_LESSONS = [l["id"] for l in LESSONS]   # with the lessons still to come: a class may take them ahead
@@ -237,9 +258,27 @@ MIGRATE_CLASSES = ("alter table public.classes add column if not exists nickname
 MAX_HOMEWORKS = 30
 
 
+def is_math(c: dict) -> bool:
+    return subject_code(c.get("subject")) == "math"
+
+
 def lessons_of(c: dict) -> list[str]:
-    """A class's lessons in the course's order; a class saved before classes had lessons has every one."""
+    """A class's Arabic lessons in the course's order; a class saved before classes had lessons has every one.
+    A math class has none: its `lessons` column holds the math units it studies (see `units_of`)."""
+    if is_math(c):
+        return []
     return [l for l in ALL_LESSONS if l in c["lessons"]] or ALL_LESSONS
+
+
+def units_of(c: dict) -> list[str]:
+    """A math class's units of the path (app/math_algebra9.json), in the path's order; none chosen means every one."""
+    ids = [u["id"] for u in algebra9()["units"]]
+    return [u for u in ids if u in (c.get("lessons") or [])] or ids
+
+
+def class_lessons(c: dict) -> list[str]:
+    """What a class studies, as the page gets it: math units for a math class, Arabic lessons for any other."""
+    return units_of(c) if is_math(c) else lessons_of(c)
 
 
 def homework_of(c: dict, topics: dict[str, str] = TOPIC_LESSON) -> dict:
@@ -318,8 +357,10 @@ def class_members(text: str) -> tuple[list[str], dict[str, str]]:
 
 
 def build_version() -> str:
-    """Debug build stamp: short content hash of the served code + newest file time (UTC)."""
-    files = sorted(Path(__file__).resolve().parent.glob("*.py")) + [STATIC / "index.html"]
+    """Debug build stamp: short content hash of the served code + newest file time (UTC). The hash also stamps the
+    page's own scripts and styles (?v=), so a change to one of them reaches the service worker's cache-first copy."""
+    files = (sorted(Path(__file__).resolve().parent.glob("*.py")) + [STATIC / "index.html"]
+             + sorted(STATIC.glob("*.js")) + sorted(STATIC.glob("*.css")))
     h = hashlib.sha1()
     for f in files:
         h.update(f.read_bytes())
@@ -569,18 +610,32 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def page(subject: str) -> HTMLResponse:
         html = (STATIC / "index.html").read_text(encoding="utf-8")
         a: SupabaseAuth | None = app.state.auth
-        marks = {"__VERSION__": build_version(), "__SUPABASE_URL__": a.url if a else "",
-                 "__SUPABASE_KEY__": a.key if a else "", "__SUBJECT__": subject, **SUBJECTS[subject]}
+        version = build_version()
+        marks = {"__VERSION__": version, "__ASSET_V__": version.split(" ")[0], "__SUPABASE_URL__": a.url if a else "",
+                 "__SUPABASE_KEY__": a.key if a else "", "__SUBJECT__": subject, "__HOME__": home, **SUBJECTS[subject]}
         for mark, value in marks.items():
             html = html.replace(mark, value)
         return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
 
+    # the subject "/" opens: Arabic, or on a Space of its own another one (HOME_SUBJECT=math on mathly); each also has its own path
+    home = os.environ.get("HOME_SUBJECT", "").strip() or "arabic"
+    if home not in SUBJECTS:
+        raise RuntimeError(f"HOME_SUBJECT must be one of: {', '.join(SUBJECTS)}")
+
     @app.get("/")
     def index():
-        return page("arabic")
+        return page(home)
 
     for subject in SUBJECTS:   # the same app under a class topic's own opening screen: /arabic, /math
         app.get(f"/{subject}", include_in_schema=False)(lambda subject=subject: page(subject))
+
+    def manifest(subject: str) -> Response:
+        base = json.loads((STATIC / "manifest.webmanifest").read_text(encoding="utf-8"))
+        return Response(json.dumps({**base, **MANIFESTS[subject]}, ensure_ascii=False), media_type="application/manifest+json",
+                        headers={"Cache-Control": "no-cache"})
+
+    for subject in MANIFESTS:
+        app.get(f"/{subject}/manifest.webmanifest", include_in_schema=False)(lambda subject=subject: manifest(subject))
 
     @app.get("/service-worker.js", include_in_schema=False)
     def service_worker():
@@ -606,14 +661,19 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         for d in [d for c in app.state.auth.classes() for d in dailies_of(c, daily_rows())] if can_manage else []:
             if d["id"] not in every or d["date"] < every[d["id"]]["date"]:
                 every[d["id"]] = d
+        # the subject whose pages the account belongs on: an admin's own, else their class's (a student has one)
+        subject = subject_code(user.get("subject")) if user else ""
+        subject = subject or next((s for c in mine if (s := subject_code(c.get("subject")))), "")
         return {"email": user["email"] if user else "", "teacher": bool(user and user["teacher"]),
+                **({"subject": subject} if subject else {}),
                 **({"tutor": True} if user and user["tutor"] else {}),   # the page shows them the flag under a score
                 "roles": user.get("roles", []) if user else [], "entitlements": user.get("entitlements", []) if user else [],
                 "permissions": user.get("permissions", []) if user else ["*"],
                 **({"dailies": sorted(every.values(), key=lambda d: (d["date"], d["id"]))} if can_all else {}),
-                "classes": [{"name": c["name"], "lessons": lessons_of(c), **homework_of(c, topics()),
-                             "dailies": dailies_of(c, daily_rows())} for c in mine],
-                **({"teaches": [{"id": c["id"], "name": c["name"], "lessons": lessons_of(c)}
+                "classes": [{"name": c["name"], "lessons": class_lessons(c), **homework_of(c, topics()),
+                             "dailies": dailies_of(c, daily_rows()),
+                             **({"subject": s} if (s := subject_code(c.get("subject"))) else {})} for c in mine],
+                **({"teaches": [{"id": c["id"], "name": c["name"], "lessons": class_lessons(c)}
                                   for c in user.get("teaches", [])]} if user and user.get("teaches") else {}),
                 "lessons": lessons}
 
@@ -628,14 +688,15 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(403, "רק מורה של הכיתה יכול/ה לנהל את המפגש")
 
     @app.get("/api/live")
-    def live_list(user: dict | None = Depends(signed_in)):
+    def live_list(response: Response, user: dict | None = Depends(signed_in)):
+        response.headers["Cache-Control"] = "no-store"
         if not user:
             return {"sessions": [], "teaches": []}
         mine = {c["id"] for c in user.get("classes", [])}
         teaches = {c["id"] for c in user.get("teaches", [])}
         sessions = app.state.live.list_for(mine | teaches, user["id"])
         return {"sessions": [{**s, "teacher": s["class_id"] in teaches} for s in sessions],
-                "teaches": [{"id": c["id"], "name": c["name"], "lessons": lessons_of(c)}
+                "teaches": [{"id": c["id"], "name": c["name"], "lessons": class_lessons(c)}
                             for c in user.get("teaches", [])]}
 
     @app.post("/api/live")
@@ -674,7 +735,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return session, course
 
     @app.get("/api/live/{code}")
-    def live_status(code: str, user: dict | None = Depends(signed_in)):
+    def live_status(code: str, response: Response, user: dict | None = Depends(signed_in)):
+        response.headers["Cache-Control"] = "no-store"
         session = app.state.live.get(code)
         if not session:
             raise HTTPException(404, "המפגש הסתיים")
@@ -829,7 +891,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if ranked is None:
             setup.append({"what": "הטבלה tutors לא קיימת ב-Supabase, ולכן אי אפשר לתת לתלמיד דרגת מדווח/ת (דגל 🚩 מתחת לציון).",
                           "sql": CREATE_TUTORS})
-        return {"classes": [{**c, "lessons": lessons_of(c), **homework_of(c, lesson_of)} for c in classes], "students": students,
+        return {"classes": [{**c, "lessons": class_lessons(c), **homework_of(c, lesson_of)} for c in classes], "students": students,
                 "setup": setup}
 
     @app.get("/api/activity")
@@ -992,8 +1054,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             users, rows = a.users(), a.access_rows()
         except AuthUnavailable as e:
             raise HTTPException(503, f"Supabase לא זמין: {e}")
+        subjects = [{"code": code, "label": label} for code, label in SUBJECT_LABELS.items()]
         if rows is None:
-            return {"admins": [], "setup": CREATE_USER_ACCESS, "migration": MIGRATE_USER_ACCESS}
+            return {"admins": [], "subjects": subjects, "setup": CREATE_USER_ACCESS, "migration": MIGRATE_USER_ACCESS}
         assigned = {r["user_id"]: r for r in rows}
         out = []
         for account in users:
@@ -1004,7 +1067,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             if "admin" in roles:
                 out.append({"id": account["id"], "email": account["email"], "name": account.get("name", ""),
                             "subject": str(row.get("subject") or "")})
-        return {"admins": out, "setup": "", "migration": ""}
+        return {"admins": out, "subjects": subjects, "setup": "", "migration": ""}
 
     @app.put("/api/admin-subjects/{target_id}")
     def update_admin_subject(target_id: str, body: dict = Body(...),
@@ -1012,8 +1075,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not actor or "*" not in actor.get("permissions", ()):
             raise HTTPException(403, "developers only")
         subject = " ".join(str(body.get("subject", "")).split())
-        if not subject or len(subject) > 80:
-            raise HTTPException(400, "subject must contain 1–80 characters")
+        if not subject_code(subject):   # a fixed list: a class matches its admin's subject only when both are spelled the same
+            raise HTTPException(400, "subject must be one of: " + ", ".join(SUBJECT_LABELS.values()))
         try:
             target = next((u for u in a.users() if u["id"] == target_id), None)
             if not target:
@@ -1032,6 +1095,114 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 raise HTTPException(503, f"permissions table needs upgrading; run: {MIGRATE_USER_ACCESS}")
             raise HTTPException(503, f"Supabase לא זמין: {e}")
         return {"ok": True, "subject": subject}
+
+    def make_backup_archive(a: SupabaseAuth) -> tuple[str, bytes]:
+        tables, archive = a.backup_rows(), io.BytesIO()
+        tables["final_scores"] = a.final_scores()
+        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as out:
+            manifest = {"format": "ihki-backup", "version": 1,
+                        "created_at": datetime.now(timezone.utc).isoformat(), "tables": tables, "files": []}
+            out.writestr("backup.json", json.dumps(manifest, ensure_ascii=False, separators=(",", ":")))
+        stamp = datetime.now(LOCAL_TZ).strftime("%Y-%m-%d_%H-%M-%S")
+        return f"ihki-backup-{stamp}.zip", archive.getvalue()
+
+    def apply_backup_archive(raw: bytes, a: SupabaseAuth) -> dict[str, int]:
+        with zipfile.ZipFile(io.BytesIO(raw)) as src:
+            if sum(x.file_size for x in src.infolist()) > MAX_BACKUP_UPLOAD * 2:
+                raise ValueError("הארכיון גדול מדי לאחר פתיחה")
+            manifest = json.loads(src.read("backup.json"))
+            if manifest.get("format") != "ihki-backup" or manifest.get("version") != 1:
+                raise ValueError("זה אינו קובץ גיבוי נתמך של המערכת")
+            tables, files = manifest.get("tables"), manifest.get("files")
+            if not isinstance(tables, dict) or not isinstance(files, list) or \
+                    any(not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows)
+                        for rows in tables.values()):
+                raise ValueError("מבנה הנתונים בגיבוי אינו תקין")
+            restored = a.restore_rows(tables)
+            if "final_scores" in tables:
+                restored["final_scores"] = a.restore_final_scores(tables["final_scores"])
+            return restored
+
+    @app.post("/api/admin/backups")
+    def create_saved_backup(a: SupabaseAuth = Depends(require("*")), actor: dict | None = Depends(signed_in)):
+        """Create a timestamped database-only archive in the private backups bucket."""
+        if not actor or "*" not in actor.get("permissions", ()):
+            raise HTTPException(403, "developers only")
+        try:
+            name, data = make_backup_archive(a)
+            a.save_backup(name, data)
+            return {"ok": True, "name": name}
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"הגיבוי נכשל: {e}")
+
+    @app.get("/api/admin/backups")
+    def saved_backups(a: SupabaseAuth = Depends(require("*")), actor: dict | None = Depends(signed_in)):
+        if not actor or "*" not in actor.get("permissions", ()):
+            raise HTTPException(403, "developers only")
+        try:
+            return {"backups": a.list_backups()}
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"טעינת הגיבויים נכשלה: {e}")
+
+    @app.get("/api/admin/backups/file")
+    def download_saved_backup(name: str = Query(...), a: SupabaseAuth = Depends(require("*")),
+                              actor: dict | None = Depends(signed_in)):
+        if not actor or "*" not in actor.get("permissions", ()):
+            raise HTTPException(403, "developers only")
+        if not re.fullmatch(r"ihki-backup-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.zip", name):
+            raise HTTPException(400, "שם גיבוי לא תקין")
+        try:
+            data, _ = a._get_object("backups", name)
+            return Response(data, media_type="application/zip", headers={
+                "Content-Disposition": f'attachment; filename="{name}"', "Cache-Control": "no-store"})
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"הורדת הגיבוי נכשלה: {e}")
+
+    @app.get("/api/admin/backup")
+    def download_backup(a: SupabaseAuth = Depends(require("*")), actor: dict | None = Depends(signed_in)):
+        """Download a fresh archive directly; retained for manual off-site copies."""
+        if not actor or "*" not in actor.get("permissions", ()):
+            raise HTTPException(403, "developers only")
+        try:
+            name, data = make_backup_archive(a)
+            return Response(data, media_type="application/zip", headers={
+                "Content-Disposition": f'attachment; filename="{name}"', "Cache-Control": "no-store"})
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"הגיבוי נכשל: {e}")
+
+    @app.post("/api/admin/backups/restore")
+    def restore_saved_backup(body: dict = Body(...), a: SupabaseAuth = Depends(require("*")),
+                             actor: dict | None = Depends(signed_in)):
+        if not actor or "*" not in actor.get("permissions", ()):
+            raise HTTPException(403, "developers only")
+        name = str(body.get("name", ""))
+        if not re.fullmatch(r"ihki-backup-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.zip", name):
+            raise HTTPException(400, "שם גיבוי לא תקין")
+        try:
+            raw, _ = a._get_object("backups", name)
+            restored = apply_backup_archive(raw, a)
+            return {"ok": True, "tables": restored, "name": name}
+        except (ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as e:
+            raise HTTPException(400, f"קובץ הגיבוי אינו תקין: {e}")
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"השחזור נעצר: {e}")
+
+    @app.post("/api/admin/restore")
+    async def restore_backup(backup: UploadFile = File(...), a: SupabaseAuth = Depends(require("*")),
+                             actor: dict | None = Depends(signed_in)):
+        """Merge a portable app backup. It updates matching rows but never deletes unrelated current data."""
+        if not actor or "*" not in actor.get("permissions", ()):
+            raise HTTPException(403, "developers only")
+        raw = await backup.read(MAX_BACKUP_UPLOAD + 1)
+        if len(raw) > MAX_BACKUP_UPLOAD:
+            raise HTTPException(413, "קובץ הגיבוי גדול מדי (עד 250 MB)")
+        try:
+            restored = apply_backup_archive(raw, a)
+            return {"ok": True, "tables": restored}
+        except (ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as e:
+            raise HTTPException(400, f"קובץ הגיבוי אינו תקין: {e}")
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"השחזור נעצר: {e}")
 
     @app.get("/api/flags")
     def flags(status: str = Query("pending"), a: SupabaseAuth = Depends(teacher_only)):
@@ -1686,6 +1857,19 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             return f"לטבלה classes חסרות עמודות. הריצו ב-SQL Editor של Supabase: {MIGRATE_CLASSES}"
         return f"Supabase לא זמין: {e}"
 
+    def class_subject(a: SupabaseAuth, id: int | None, body: dict, actor: dict | None) -> str:
+        """The subject of a class being saved: a stored class keeps its own; a new one takes its admin's, and one
+        opened by a developer (who has none) the subject the page asks for ("subject", as SUBJECT_LABELS spells it)."""
+        if id is not None:
+            try:
+                stored = next((c for c in managed_classes(a, actor, fresh=True) if c["id"] == id), None)
+            except AuthUnavailable as e:
+                raise HTTPException(503, class_store_error(e))
+            return str((stored or {}).get("subject") or "").strip()
+        own = str((actor or {}).get("subject") or "").strip()
+        asked = " ".join(str(body.get("subject") or "").split())
+        return own or (asked if subject_code(asked) else "")
+
     def save_class(a: SupabaseAuth, id: int | None, body: dict, actor: dict | None = None) -> dict:
         """Checks a class from the panel ({"name", "emails": the student list, see `class_members`, "lessons": lesson
         ids, "homeworks": [{"topic": a topic of one of them, "due": its ISO date, or ""}], each topic once; or, as
@@ -1699,10 +1883,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             emails, nicks = class_members(str(body.get("emails", "")))
         except ValueError as e:
             raise HTTPException(400, f"בשורה הזו אין כתובת מייל: {e}")
+        subject = class_subject(a, id, body, actor)
+        math = subject_code(subject) == "math"   # a math class studies units of the math path, and has no homework or daily videos yet
+        known = [u["id"] for u in algebra9()["units"]] if math else ALL_LESSONS
         lessons = body.get("lessons")
-        if not isinstance(lessons, list) or not lessons or not set(map(str, lessons)) <= set(ALL_LESSONS):
-            raise HTTPException(400, "בחרו לפחות שיעור אחד לכיתה")
-        lessons = [l for l in ALL_LESSONS if l in map(str, lessons)]
+        if not isinstance(lessons, list) or not lessons or not set(map(str, lessons)) <= set(known):
+            raise HTTPException(400, "בחרו לפחות יחידה אחת לכיתה" if math else "בחרו לפחות שיעור אחד לכיתה")
+        lessons = [l for l in known if l in map(str, lessons)]
         teachers = body.get("teachers")
         if teachers is not None:
             if not isinstance(teachers, list) or not all(isinstance(e, str) for e in teachers):
@@ -1710,7 +1897,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             teachers = list(dict.fromkeys(e.strip().lower() for e in teachers if e.strip()))
             if not set(teachers) <= set(emails):
                 raise HTTPException(400, "מורה של הכיתה צריך להיות אחד מהתלמידים הרשומים בה")
-        listed = body.get("homeworks")
+        listed = [] if math else body.get("homeworks")
         if listed is None:
             listed = [{"topic": body.get("homework"), "due": body.get("due")}]
         if not isinstance(listed, list) or len(listed) > MAX_HOMEWORKS or not all(isinstance(h, dict) for h in listed):
@@ -1728,7 +1915,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 homeworks.append({"topic": topic, "due": date.fromisoformat(due).isoformat() if due else None})
             except ValueError:
                 raise HTTPException(400, "התאריך של שיעורי הבית לא תקין")
-        dailies = body.get("dailies")
+        dailies = None if math else body.get("dailies")
         if dailies is not None:
             if not isinstance(dailies, list) or len(dailies) > MAX_DAILIES or not all(isinstance(d, dict) for d in dailies):
                 raise HTTPException(400, "הסרטונים היומיים לא תקינים")
@@ -1754,7 +1941,6 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 raise HTTPException(409, f"כבר יש כיתה בשם {taken}")
             # a class that has no daily videos, and had none, is saved without them: a table made before them takes it
             had = any(c["id"] == id and c.get("dailies") for c in visible)
-            subject = str((actor or {}).get("subject") or "").strip()
             if (id is None and hasattr(a, "access_for") and actor and "admin" in actor.get("roles", ())
                     and "developer" not in actor.get("roles", ()) and not subject):
                 raise HTTPException(409, "לא הוגדר מקצוע למנהל/ת. מפתח/ת צריך להגדיר אותו בניטור.")
@@ -2066,6 +2252,47 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             students = sorted((s for s in named if s["name"]), key=lambda s: s["name"])
             out.append({"name": c["name"], "students": students, "unnamed": len(named) - len(students)})
         return {"classes": out}
+
+    @app.get("/api/math/skills")
+    def math_skills():
+        """The math path's skill graph (see app/math_skills.py). Public, as the phrase list is."""
+        return algebra9()
+
+    photo_counts: dict[tuple[str, str], int] = {}   # (account, day) -> photos solved; in memory, so a restart resets it
+
+    def photo_solver() -> PhotoSolver:
+        """The solver on the key in use now (the panel's, else the environment's): a key changed in the panel applies."""
+        key = (app.state.keys.get("ANTHROPIC_API_KEY") or "").strip()
+        if not key:
+            raise HTTPException(503, "פתרון מתמונה לא מוגדר בשרת (חסר ANTHROPIC_API_KEY)")
+        if getattr(app.state, "photo_key", None) != key:
+            app.state.photo, app.state.photo_key = PhotoSolver(photo_client(key), math_model(), algebra9()["skills"]), key
+        return app.state.photo
+
+    @app.post("/api/math/photo")
+    def math_photo(photo: UploadFile = File(...), user: dict | None = Depends(signed_in)):
+        """A photographed problem, solved by Claude (see app/math_photo.py): {readable, problem, steps: [{hint, work}],
+        answer, skill, note, left}. `left` is how many photos the account has left today (None: no limit). 429 past
+        DAILY_PHOTOS a day (developers and an open service are exempt), 502 when the model did not solve it."""
+        solver = photo_solver()
+        day = datetime.now(LOCAL_TZ).date().isoformat()
+        who = (user["id"], day) if user and "developer" not in user.get("roles", ()) else None
+        if who and photo_counts.get(who, 0) >= DAILY_PHOTOS:
+            raise HTTPException(429, f"צילמתם {DAILY_PHOTOS} תרגילים היום. נתראה מחר!")
+        if photo.content_type not in PHOTO_TYPES:
+            raise HTTPException(415, "אפשר לשלוח תמונה מסוג JPEG,‏ PNG או WebP.")
+        image = photo.file.read(MAX_PHOTO + 1)
+        if not image:
+            raise HTTPException(400, "התמונה ריקה.")
+        if len(image) > MAX_PHOTO:
+            raise HTTPException(413, "התמונה גדולה מדי.")
+        try:
+            out = solver.solve(image, photo.content_type)
+        except PhotoUnavailable as e:
+            raise HTTPException(502, str(e))
+        if who and out.get("readable"):   # an unreadable photo does not count against the day
+            photo_counts[who] = photo_counts.get(who, 0) + 1
+        return {**out, "left": DAILY_PHOTOS - photo_counts.get(who, 0) if who else None}
 
     @app.get("/api/phrases")
     def phrases():

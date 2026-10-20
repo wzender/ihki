@@ -1,4 +1,4 @@
-const CACHE = "ihki-shell-v17";
+const CACHE = "ihki-shell-v18";
 const SHELL = [
   "/static/manifest.webmanifest",
   "/static/icons/icon-192.png?v=2",

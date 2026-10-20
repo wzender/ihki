@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 489 225" role="img" aria-label="מתמטיקה בכיף"><style>
-.ink{fill:none;stroke:#242222;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1s ease-in-out var(--d) forwards}
-.op{fill:none;stroke:#2F5597;stroke-width:7;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;animation:draw .45s ease-out var(--d) forwards}
-.dot{fill:#2F5597;opacity:0;animation:show .3s ease-out var(--d) forwards}
+.ink{fill:none;stroke:#F4F2EC;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1s ease-in-out var(--d) forwards}
+.op{fill:none;stroke:#7FA6F0;stroke-width:7;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;animation:draw .45s ease-out var(--d) forwards}
+.dot{fill:#7FA6F0;opacity:0;animation:show .3s ease-out var(--d) forwards}
 .curve{fill:none;stroke:#E8A33D;stroke-width:4;opacity:.85;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;animation:draw .7s ease-in-out .55s forwards}
 text{opacity:0;animation:show .5s ease-out var(--d) forwards;font-family:Assistant,"Secular One","Noto Sans Hebrew",Arial,sans-serif}
 @keyframes draw{to{stroke-dashoffset:0}}@keyframes show{to{opacity:1}}
@@ -20,7 +20,7 @@ text{opacity:0;animation:show .5s ease-out var(--d) forwards;font-family:Assista
 <circle class="dot" style="--d:1.05s" cx="372.5" cy="132" r="4.5"/>
 <circle class="dot" style="--d:1.05s" cx="372.5" cy="158" r="4.5"/>
 <!-- the name -->
-<text style="--d:1.3s" x="318" y="112" text-anchor="end" font-size="64" font-weight="700" fill="#242222">מתמטיקה</text>
-<text style="--d:1.45s" x="318" y="156" text-anchor="end" font-size="38" font-weight="600" fill="#2F5597">בכיף</text>
-<text style="--d:1.6s" x="318" y="188" text-anchor="end" font-size="19" fill="#5B665C">המורה הפרטי שלך למתמטיקה</text>
+<text style="--d:1.3s" x="318" y="112" text-anchor="end" font-size="64" font-weight="700" fill="#F4F2EC">מתמטיקה</text>
+<text style="--d:1.45s" x="318" y="156" text-anchor="end" font-size="38" font-weight="600" fill="#7FA6F0">בכיף</text>
+<text style="--d:1.6s" x="318" y="188" text-anchor="end" font-size="19" fill="#B4BDB5">המורה הפרטי שלך למתמטיקה</text>
 </svg>

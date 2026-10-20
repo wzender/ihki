@@ -13,3 +13,5 @@ book/
 # local Minerva clips cut by scripts/minerva_dataset.py (copyrighted videos; never committed)
 data/minerva/
 checkpoints/
+.env.*
+!.env.example

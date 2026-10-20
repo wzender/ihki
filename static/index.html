@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="he" dir="rtl" data-subject="__SUBJECT__">
+<html lang="he" dir="rtl" data-subject="__SUBJECT__" data-home="__HOME__">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#4B6A2C">
+<meta name="theme-color" content="__THEME_COLOR__">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="אהלא  וסהלא">
-<link rel="manifest" href="/static/manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="__APP_NAME__">
+<link rel="manifest" href="__MANIFEST__">
 <link rel="icon" href="/static/icons/icon-192.png?v=2" sizes="192x192">
 <link rel="apple-touch-icon" href="/static/icons/icon-192.png?v=2">
 <title>__TITLE__</title>
@@ -740,10 +740,10 @@ body.manage #manage{width:100%;max-width:none}
 .modes button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 6px;border:0;border-radius:10px;background:transparent;color:var(--ink);font:700 16px/1.2 var(--f-body);cursor:pointer}
 .modes button small{font:600 12px/1.2 var(--f-body);color:var(--muted)}
 .modes button[aria-selected=true]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.15)}
-#manage.classes :is(#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.classes) #mClasses{display:none}
-#manage.content :is(#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.content) #mContent{display:none}
-#manage.flags :is(#mClasses,#mContent,#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.flags) #mFlags{display:none}
-#manage.access :is(#mClasses,#mContent,#mFlags,#mTutors,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.access) #mAccess{display:none}
+#manage.classes :is(#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.classes) #mClasses{display:none}
+#manage.content :is(#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.content) #mContent{display:none}
+#manage.flags :is(#mClasses,#mContent,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.flags) #mFlags{display:none}
+#manage.access :is(#mClasses,#mContent,#mFlags,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.access) #mAccess{display:none}
 .access-actions{display:flex;justify-content:flex-end;margin:8px 0}.access-scroll{overflow:auto}.access-table{width:100%;border-collapse:collapse;min-width:1180px}.access-table :is(th,td){padding:9px 10px;border-bottom:1px solid var(--line);text-align:center}.access-table th{position:sticky;top:0;background:var(--surface);font-size:13px;white-space:nowrap;z-index:1}.access-table th>span{display:block;margin-bottom:4px}.access-table .access-all{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-weight:600;cursor:pointer}.access-table .access-all small{font-size:11px}.access-table :is(th,td):first-child{text-align:start;position:sticky;right:0;background:var(--surface);z-index:2;min-width:260px}.access-table td:first-child{font-weight:700}.access-table td:first-child small{display:block;color:var(--muted);font-weight:400;direction:ltr;overflow:hidden;text-overflow:ellipsis}.access-table input{width:18px;height:18px}.access-table .save-cell{min-width:96px}
 @media(max-width:700px){.modes{grid-template-columns:repeat(2,1fr)}}
 .flag-review{gap:10px}.flag-review h2{margin:0}.flag-review .meta{color:var(--muted);font-size:13px}.flag-review fieldset{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:7px}
@@ -875,17 +875,12 @@ body.manage #manage{width:100%;max-width:none}
 #mClasses>.btn{align-self:flex-start}
 #mClasses .card>.btn{align-self:flex-start}
 /* a student's own screen takes the class's place in the panel: the way back, their figures, their lessons, their sentences */
-#manage.student :is(#mTutors,#mTabs,#mHead,#mLessons,#mRoster),#manage:not(.student) #mStudent{display:none}
+#manage.student :is(#mTabs,#mHead,#mLessons,#mRoster),#manage:not(.student) #mStudent{display:none}
 #mStudent{display:flex;flex-direction:column;gap:inherit}
 #mStudent .back{align-self:flex-start}
 .student-classes{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px}
 .student-classes>span{color:var(--muted);font-size:13px}
 .student-classes .tab{padding:7px 11px;font-size:13px}
-#mTutors .note{margin:0;padding:8px 16px}
-#mTutors label{display:flex;align-items:center;gap:10px;padding:7px 16px;border-top:1px solid var(--line);cursor:pointer}
-#mTutors label span{display:flex;flex-direction:column;min-width:0}
-#mTutors label b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#mTutors label small{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cform{display:flex;flex-direction:column;gap:10px}
 .cform label{display:flex;flex-direction:column;gap:4px;font:700 14px/1.3 var(--f-body)}
 .cform label small{font-weight:500;color:var(--muted)}
@@ -1226,10 +1221,16 @@ html[data-subject="arabic"] #mailForm{animation-delay:6.55s}
 .install-actions{display:flex;gap:8px;justify-content:flex-end}
 .install-actions button{padding:9px 16px;border-radius:10px;border:1px solid var(--olive);background:var(--surface);color:var(--olive);font:700 15px/1.2 var(--f-body);cursor:pointer}
 .install-actions .primary{background:var(--olive);color:var(--on-olive)}
-/* The math class (/math) opens on its own logo, with the buttons in its blue. */
+/* The math class (/math) opens on its own logo, on black (the logo's ink is light for it), with the buttons in its blue. */
+html[data-subject="math"] #logo-splash{background:#000}
+html[data-subject="math"] #libraryBtn{display:none}   /* the digital library is Arabic videos */
 html[data-subject="math"] :is(#startBtn,#loginBtn,#roles button){background:#2F5597}
-html[data-subject="math"] #roles :is(#libraryBtn,#manageBtn,#labBtn){background:#fff;color:#2F5597;box-shadow:inset 0 0 0 2px #2F5597}
-html[data-subject="math"] #mailForm button{border-color:#2F5597;color:#2F5597}
+html[data-subject="math"] #roles :is(#libraryBtn,#manageBtn,#labBtn){background:#000;color:#7FA6F0;box-shadow:inset 0 0 0 2px #7FA6F0}
+html[data-subject="math"] #mailForm span{color:#9EA7A0}
+html[data-subject="math"] #mailForm input{background:#111;border-color:#3A403C;color:#F4F2EC}
+html[data-subject="math"] #mailForm button,html[data-subject="math"] #denied button{background:#000;border-color:#7FA6F0;color:#7FA6F0}
+html[data-subject="math"] :is(#mailMsg,#denied){color:#F4F2EC}
+html[data-subject="math"] #bootErr{color:#F08A8A}
 @keyframes start-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#startBtn,#loginBtn,#roles button,#mailForm{animation:none;opacity:1}#logo-splash{transition:none}}
 #wrap{opacity:1;transition:opacity .65s ease .1s}
@@ -1284,7 +1285,7 @@ html[data-subject="math"] #mailForm button{border-color:#2F5597;color:#2F5597}
     <span class="reward-totals"><span class="reward-week" id="rewardWeek">0/4 השבוע</span><span class="reward-total" id="rewardTotal">0 ★</span></span>
   </button>
   <section id="vids" aria-live="polite"></section>
-  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="live" hidden>שיעור חי</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="refer">חבר מביא חבר</button></nav>
+  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="live">שיעור חי</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="refer">חבר מביא חבר</button></nav>
   <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
   <section class="live-page" id="liveView" aria-live="polite"></section>
   <button id="toNow" hidden></button>
@@ -1368,7 +1369,6 @@ html[data-subject="math"] #mailForm button{border-color:#2F5597;color:#2F5597}
     <div id="mContent"></div>
     <div id="mFlags"></div>
     <div class="card" id="mAccess"></div>
-    <div class="card hard" id="mTutors" hidden></div>
     <div class="tabs" id="mTabs" role="tablist" aria-label="סינון תלמידים לפי כיתה" hidden></div>
     <div class="card" id="mHead" hidden></div>
     <div class="card hard" id="mLessons" hidden></div>
@@ -1469,7 +1469,7 @@ html[data-subject="math"] #mailForm button{border-color:#2F5597;color:#2F5597}
     <fieldset class="lpick"><legend>סרטונים יומיים<small>הסרטונים של הרמות שהכיתה לומדת, מהספרייה שתחת „תוכן”. קבעו תאריך לסרטון, ומאותו יום התלמידים רואים אותו בכפתור „סרטון יומי” שמעל המסלול, והוא מסומן עד שצופים בו. סרטון בלי תאריך לא מוצג לכיתה.</small></legend><div class="dailies" id="editDailies"></div></fieldset>
     <label>התלמידים<small>שורה לכל תלמיד: כתובת הדוא"ל שבה הוא נכנס, ואחריה כינוי אם רוצים. בכיתה רואים את הכינוי, או את השם מ-Google. תלמיד יכול להיות בכמה כיתות.</small>
       <textarea id="editEmails" spellcheck="false" placeholder="dana@gmail.com דנה&#10;avi@gmail.com"></textarea></label>
-    <fieldset class="lpick"><legend>מורי הכיתה<small>בחרו אחד או יותר מתלמידי הכיתה. ההרשאה היא לכיתה הזו בלבד.</small></legend><div class="teacher-picks" id="editTeachers"></div></fieldset>
+    <fieldset class="lpick" id="editTeachersField" hidden><legend>מורי הכיתה<small>בחרו אחד או יותר מתלמידי הכיתה. ההרשאה היא לכיתה הזו בלבד.</small></legend><div class="teacher-picks" id="editTeachers"></div></fieldset>
     <div class="row"><button class="btn primary" id="editSave"></button><span class="sub" id="editCount"></span><span class="sep"></span><button class="btn danger" type="button" id="editDelete">מחיקת הכיתה</button><span class="msg" id="editMsg" role="alert"></span></div>
   </form>
 </dialog>
@@ -1739,7 +1739,7 @@ const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v)
 let driving=false;
 /* LESSONS and CATS are the student's: the lessons of their classes (all of them for a teacher, or before the first class) */
 let TEACHER_DAILIES=[];   // for a teacher: the daily videos of every class, {id, title, embed, date}
-let ME_EMAIL="";   // the signed-in account: in the lab, who records
+let ME_EMAIL="", ME_SUBJECT="";   // ME_SUBJECT: the account's subject as /api/me gives it ("math"), "" for none   // the signed-in account: in the lab, who records
 let MY_CLASSES=[], MY_CLASS=null;   // a student's classes ({name, lessons, homeworks, dailies}), and the one they practise in now
 let daily=null, dailySaid=new Set(), dailyWas={};   // the daily session on the card: its sentence ids, those said in it, and their best scores before it
 let ALL_LEVELS=[], ALL_LESSONS=[], ALL_CATS=[], GAMES=[], MY_LESSONS=null, LESSONS=[], CATS=[], PHRASES=[], cat=store.get("ihki.cat",""), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
@@ -2440,14 +2440,14 @@ function showView(view){   // "" is the path, which is laid out again: it was no
   if(view) document.body.dataset.view=view; else delete document.body.dataset.view;
   scrollTo(0,0); drawPath(true); if(view==="live") loadLive();
 }
-const LIVE_TAB_ENABLED=false; // Keep the finished live-class flow hidden until it is ready for release.
+const LIVE_TAB_ENABLED=true;
 let LIVE={sessions:[],teaches:[],code:"",timer:null,rec:null,busy:false};
 const liveEsc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const livePhrase=p=>`${liveEsc(p.he)} · ${liveEsc((ALL_CATS.find(c=>c.id===p.cat)||{}).name||"")}`;
 function liveSchedule(){ clearTimeout(LIVE.timer); if(document.body.dataset.view==="live"&&LIVE.code) LIVE.timer=setTimeout(()=>loadLiveSession(),3000); }
 async function loadLive(silent=false){
   try{
-    const res=await api("/api/live"), data=await res.json(); if(!res.ok) throw new Error(data.detail||res.status);
+    const res=await api("/api/live",{cache:"no-store"}), data=await res.json(); if(!res.ok) throw new Error(data.detail||res.status);
     LIVE.sessions=data.sessions||[]; LIVE.teaches=data.teaches||[];
     const tab=$("nav").querySelector('[data-view="live"]'); tab.hidden=!LIVE_TAB_ENABLED; tab.classList.toggle("live-on",LIVE_TAB_ENABLED&&LIVE.sessions.length>0);
     if(!silent&&document.body.dataset.view==="live"&&!LIVE.code) drawLiveHome();
@@ -2480,7 +2480,7 @@ function openLive(code,teacher){ LIVE.code=code; LIVE.teacher=teacher; loadLiveS
 async function loadLiveSession(){
   if(!LIVE.code||LIVE.busy) return liveSchedule();
   try{
-    const res=await api(`/api/live/${LIVE.code}`), data=await res.json().catch(()=>({}));
+    const res=await api(`/api/live/${LIVE.code}`,{cache:"no-store"}), data=await res.json().catch(()=>({}));
     if(res.status===404){ LIVE.code=""; await loadLive(); return; }
     if(!res.ok) throw new Error(data.detail||res.status);
     if(LIVE.teacher) drawLiveTeacher(data.session); else drawLiveStudent(data.session);
@@ -4415,7 +4415,7 @@ async function loadManage(){
       const detail=(await res.json().catch(()=>({}))).detail||res.status;
       state.textContent=res.status===403?"הפאנל פתוח למורים בלבד.":`נתוני התלמידים לא זמינים כרגע (${detail}).`; return;
     }
-    CLASS=await res.json(); await loadContent();
+    CLASS=await res.json(); await Promise.all([loadContent(),loadMathUnits()]);
     if(mMode==="flags") await loadFlags();
     if(mMode==="access") await loadAccess();
     TEACHER_DAILIES=CLASS.classes.flatMap(classDailies).map(d=>({...d.v,date:d.date})).sort((a,b)=>a.date.localeCompare(b.date));   // as just saved; the earliest day of each comes first
@@ -4531,7 +4531,7 @@ function drawManage(){
   if(!["classes","students","content","flags","access"].includes(mMode)) mMode=classes.length?"students":"classes";
   $("mModes").hidden=false; for(const mode of ["classes","content","flags","access"]) $("manage").classList.toggle(mode,mMode===mode);
   for(const b of $("mModes").children) b.setAttribute("aria-selected",b.dataset.mode===mMode);
-  drawClasses(classes); drawContent(); drawFlags(); drawAccess(); drawTutors(); drawTabs(classes); drawHead(klass,students);
+  drawClasses(classes); drawContent(); drawFlags(); drawAccess(); drawTabs(classes); drawHead(klass,students);
   if(klass||!classes.length) drawLessons(students,listed); else{ $("mLessons").innerHTML=""; $("mLessons").hidden=true; }
   drawRoster(klass,students,listed);
   const one=students.find(s=>s.email===shownStudent);   // a student who left the class has no screen in it
@@ -4639,6 +4639,7 @@ function drawFlags(){
   const box=$("mFlags"); box.innerHTML=""; for(const url of flagAudioUrls) URL.revokeObjectURL(url); flagAudioUrls=[];
   drawActivity(box);
   drawAdminSubjects(box);
+  drawBackupControls(box);
   drawApiKeys(box);
   drawSystemActivity(box);
   drawTtsCacheControls(box);
@@ -4754,6 +4755,54 @@ function drawFlags(){
   }
 }
 
+let SAVED_BACKUPS=null, backupsLoading=false;
+/* Developer-only database archives kept in a private Supabase Storage bucket. */
+function drawBackupControls(box){
+  if(!can("*")) return;
+  const card=mark("card",""), actions=mark("row",""), create=mark("btn primary","יצירת גיבוי","button"),
+    select=document.createElement("select"), restore=mark("btn","שחזור הגיבוי הנבחר","button"), download=mark("btn","הורדת עותק","button"), msg=mark("msg","");
+  const fill=()=>{
+    select.replaceChildren();
+    if(!SAVED_BACKUPS||!SAVED_BACKUPS.length){ const o=document.createElement("option"); o.textContent=backupsLoading?"טוען גיבויים…":"אין גיבויים שמורים"; o.value=""; select.append(o); }
+    else for(const b of SAVED_BACKUPS){ const o=document.createElement("option"), match=b.name.match(/(\d{4}-\d{2}-\d{2})_(\d{2})-(\d{2})-(\d{2})/), stamp=match?`${match[1]} · ${match[2]}:${match[3]}:${match[4]}`:b.name; o.value=b.name; o.textContent=stamp+(b.metadata&&b.metadata.size?` · ${Math.ceil(b.metadata.size/1024)} KB`:""); select.append(o); }
+    restore.disabled=!select.value; download.disabled=!select.value;
+  };
+  if(SAVED_BACKUPS===null&&!backupsLoading){
+    backupsLoading=true; api("/api/admin/backups").then(async res=>{ const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); SAVED_BACKUPS=data.backups||[]; })
+      .catch(err=>msg.textContent="טעינת הגיבויים נכשלה: "+err.message).finally(()=>{ backupsLoading=false; fill(); });
+  }
+  fill();
+  create.onclick=async()=>{
+    create.disabled=restore.disabled=download.disabled=true; msg.textContent="יוצר גיבוי…";
+    try{ const res=await api("/api/admin/backups",{method:"POST"}), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); const list=await api("/api/admin/backups"), listed=await list.json(); if(!list.ok) throw new Error(listed.detail||list.status); SAVED_BACKUPS=listed.backups||[]; fill(); select.value=data.name; msg.textContent="הגיבוי נשמר."; }
+    catch(err){ msg.textContent=err.message.startsWith("הגיבוי נכשל")?err.message:"הגיבוי נכשל: "+err.message; }
+    create.disabled=false; fill();
+  };
+  download.onclick=async()=>{
+    download.disabled=restore.disabled=create.disabled=true; msg.textContent="מכין הורדה…";
+    try{
+      const res=await api(`/api/admin/backups/file?name=${encodeURIComponent(select.value)}`); if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
+      const url=URL.createObjectURL(await res.blob()), a=document.createElement("a"); a.href=url; a.download=select.value; a.click(); setTimeout(()=>URL.revokeObjectURL(url),30000); msg.textContent="העותק הורד.";
+    }catch(err){ msg.textContent="הגיבוי נכשל: "+err.message; }
+    create.disabled=false; fill();
+  };
+  restore.onclick=async()=>{
+    const name=select.value; if(!name||!confirm(`לשחזר מהגיבוי ${name}? נתונים בעלי אותו מזהה יעודכנו. נתונים חדשים שאינם בגיבוי לא יימחקו.`)) return;
+    restore.disabled=download.disabled=create.disabled=true; msg.textContent="משחזר… אין לסגור את החלון.";
+    try{
+      const res=await api("/api/admin/backups/restore",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name})}), data=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(data.detail||res.status);
+      const rows=Object.values(data.tables||{}).reduce((a,b)=>a+b,0);
+      msg.textContent=`השחזור הושלם: ${rows} רשומות.`;
+      CLASS=null; flagsLoaded=false; ADMIN_SUBJECTS=null; await loadManage();
+    }catch(err){ msg.textContent="השחזור נכשל: "+err.message; }
+    create.disabled=false; fill();
+  };
+  actions.append(create,select,restore,download,msg);
+  card.append(mark("","גיבוי ושחזור","h2"),mark("sub","הגיבויים נשמרים לפי חותמת זמן וכוללים את נתוני האפליקציה ואת הציון הטוב ביותר של כל תלמיד בכל משפט. היסטוריית הניסיונות וההקלטות אינן נשמרות. השחזור ממזג את הגיבוי ואינו מוחק נתונים חדשים. משתמשי ההתחברות עצמם וגיבויי התשתית של Supabase אינם כלולים.","p"),actions);
+  box.append(card);
+}
+
 /* Developer-only: the subject stamped onto every class an admin creates. The API enforces the same boundary. */
 function drawAdminSubjects(box){
   if(!can("*")) return;
@@ -4764,8 +4813,11 @@ function drawAdminSubjects(box){
     if(data.setup){ const code=mark("",data.setup,"code"); code.dir="ltr"; list.append(mark("setup","יש ליצור את טבלת ההרשאות:","p"),code); return; }
     if(!(data.admins||[]).length){ list.append(mark("sub","אין כרגע מנהלים.","p")); return; }
     for(const admin of data.admins){
-      const row=mark("key-row",""), who=document.createElement("div"), form=document.createElement("form"), input=document.createElement("input"), save=mark("btn primary","שמירה","button"), msg=mark("msg","");
-      who.append(mark("",admin.name||admin.email,"b"),mark("",admin.email,"small")); input.value=admin.subject||""; input.maxLength=80; input.required=true; input.placeholder="למשל: מתמטיקה או ערבית"; input.setAttribute("aria-label",`המקצוע של ${admin.name||admin.email}`); save.type="submit";
+      const row=mark("key-row",""), who=document.createElement("div"), form=document.createElement("form"), input=document.createElement("select"), save=mark("btn primary","שמירה","button"), msg=mark("msg","");
+      who.append(mark("",admin.name||admin.email,"b"),mark("",admin.email,"small")); const labels=(data.subjects||[]).map(s=>s.label), option=(value,text,off)=>{ const o=document.createElement("option"); o.value=value; o.textContent=text; o.disabled=!!off; input.append(o); };
+      if(!admin.subject) option("","בחירת מקצוע",true);
+      else if(!labels.includes(admin.subject)) option(admin.subject,`${admin.subject} (לא ברשימה, יש לבחור מחדש)`,true);   // typed before the list: no class can match it
+      labels.forEach(l=>option(l,l)); input.value=admin.subject||""; input.required=true; input.setAttribute("aria-label",`המקצוע של ${admin.name||admin.email}`); save.type="submit";
       form.onsubmit=async e=>{ e.preventDefault(); save.disabled=true; msg.textContent="שומר…"; try{ const res=await api(`/api/admin-subjects/${admin.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({subject:input.value})}), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); admin.subject=data.subject; input.value=data.subject; msg.textContent="נשמר"; }catch(err){ msg.textContent="השמירה נכשלה: "+err.message; } save.disabled=false; };
       form.append(input,save,msg); row.append(who,form); list.append(row);
     }
@@ -4983,6 +5035,16 @@ function drawActivityOnly(){
 }
 const lessonsLine=ls=>byLevel(ls).map(g=>`${g.level.name}: ${lessonsWord(g.lessons)} (${g.lessons.filter(l=>!l.soon).length} מוכנים)`).join(" · ");   // "שלב א: שיעורים 1–10 (2 מוכנים)"
 /* The classes' part: a card per class with what it is made of, and its buttons: edit, delete, and on to its students' progress. */
+/* A math class (subject "מתמטיקה") studies units of the math path, kept as its lessons; it has no homework or daily
+   videos yet. A new class is a math one when its admin's subject is, or, for a developer, when it is opened on /math. */
+const MATH_LABEL="מתמטיקה";
+let MATH_UNITS=null;   // [{id, name, count}]: the math path's units, loaded with the panel
+const isMathClass=c=>c?c.subject===MATH_LABEL:(ME_SUBJECT||document.documentElement.dataset.subject)==="math";
+async function loadMathUnits(){
+  if(MATH_UNITS) return;
+  try{ const r=await fetch("/api/math/skills"); if(r.ok){ const g=await r.json(); MATH_UNITS=g.units.map(u=>({id:u.id,name:u.name,count:g.skills.filter(s=>s.unit===u.id).length})); } }catch{}
+}
+const unitsLine=ids=>{ const all=MATH_UNITS||[], mine=all.filter(u=>ids.includes(u.id)); return mine.length===all.length?`כל היחידות (${all.length})`:mine.map(u=>u.name).join(" · "); };
 function drawClasses(classes){
   const box=$("mClasses"); box.innerHTML="";
   if(!classes.length){
@@ -4995,15 +5057,17 @@ function drawClasses(classes){
     const card=mark("card",""), top=mark("chead",""), name=mark("","","h2"), n=document.createElement("bdi"), edit=mark("btn","עריכה","button"), del=mark("btn danger","מחיקה","button");
     n.textContent=c.name; name.append(n); edit.onclick=()=>editClass(c); del.onclick=()=>deleteClass(c); top.append(name,edit,del);
     const facts=mark("facts","","dl"), fact=(what,...value)=>{ const dd=document.createElement("dd"); dd.append(...value); facts.append(mark("",what,"dt"),dd); };
+    const math=isMathClass(c);
     fact("מקצוע",c.subject||"לא הוגדר");
-    fact("שיעורים",lessonsLine(ALL_LESSONS.filter(l=>c.lessons.includes(l.id))));
+    if(math) fact("יחידות",unitsLine(c.lessons));
+    else fact("שיעורים",lessonsLine(ALL_LESSONS.filter(l=>c.lessons.includes(l.id))));
     const mine=CLASS.students.filter(s=>c.name in s.classes);
     fact("תלמידים",...(mine.length?[`${mine.length}: `,...mine.flatMap((s,k)=>{ const b=document.createElement("bdi"); b.textContent=s.classes[c.name]||s.name||s.email; return k?[", ",b]:[b]; })]:["עוד אין"]));
     const teachers=(c.teachers||[]).map(e=>{ const s=mine.find(x=>x.email.toLowerCase()===e); return s&&(s.classes[c.name]||s.name)||e; });
     fact("מורים",teachers.length?teachers.join(" · "):"עוד לא נבחרו");
     const hws=hwOf(c,ALL_CATS).map(h=>mark("",[h.c.name,lessonName(ALL_LESSONS.find(l=>l.id===h.c.lesson)),dueText(h.due).text].filter(Boolean).join(" · "),"div"));
-    fact("שיעורי בית",...(hws.length?hws:["אין"]));
-    const days=classDailies(c);
+    if(!math) fact("שיעורי בית",...(hws.length?hws:["אין"]));
+    const days=math?[]:classDailies(c);
     if(days.length) fact("סרטונים יומיים",...days.map(d=>mark("",`${d.v.title} · ${dayWord(d.date)}`,"div")));
     const go=mark("btn","התקדמות התלמידים ‹","button"); go.onclick=()=>{ shownClass=c.name; store.set("ihki.mstudentClass",c.name); shownStudent=""; showMode("students"); scrollTo(0,0); };
     card.append(top,facts,go); box.append(card);
@@ -5200,33 +5264,6 @@ addEventListener("popstate",e=>{
   const to=e.state&&e.state.student||""; if(to===shownStudent||!CLASS) return;
   shownStudent=to; drawManage(); scrollTo(0,to?0:classScroll);
 });
-/* Above the classes' tabs: every student of every class, each with the tutor's rank to tick. The rank is the student's
-   whatever class they are in: one who has it gets the flag under each score, and 🚩 beside their name in the lists. */
-let tutorsOpen=false;
-function drawTutors(){
-  const box=$("mTutors"), all=[...CLASS.students].sort((a,b)=>(a.name||a.email).localeCompare(b.name||b.email,"he"));
-  box.innerHTML=""; box.hidden=!all.length; if(!all.length) return;
-  const sec=part(box), said=mark("note","מי שמסומן רואה דגל 🚩 מתחת לכל ציון, ומדווח כשאמר נכון והמערכת טעתה. הדרגה חלה בכל הכיתות של התלמיד/ה.","p");
-  sec.open=tutorsOpen; sec.ontoggle=()=>{ tutorsOpen=sec.open; };
-  sec.firstChild.append(mark("","🚩 מדווחים על ציונים שגויים"),mark("",`${all.filter(s=>s.tutor).length} מתוך ${all.length} תלמידים`,"small"));
-  sec.append(said);
-  for(const s of all){
-    const row=document.createElement("label"), tick=document.createElement("input"), who=mark("",""), name=mark("",Object.values(s.classes).find(Boolean)||s.name||s.email,"b"), mail=document.createElement("bdi");
-    name.dir="auto"; mail.dir="ltr"; mail.textContent=s.email;
-    const more=mark("","","small"); more.append(mail,[...Object.keys(s.classes).map(c=>" · "+c),s.tutor_fixed?" · נקבע בהגדרות השרת":""].join(""));
-    who.append(name,more);
-    tick.type="checkbox"; tick.checked=!!s.tutor; tick.disabled=!!s.tutor_fixed;
-    tick.onchange=async()=>{
-      const on=tick.checked; tick.disabled=true;
-      try{
-        const res=await api("/api/tutors",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:s.email,tutor:on})});
-        if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
-        s.tutor=on; drawManage();
-      }catch(err){ tick.checked=!on; tick.disabled=false; said.textContent="הדרגה לא נשמרה: "+err.message; }
-    };
-    row.append(tick,who); sec.append(row);
-  }
-}
 function drawTabs(classes){
   const tabs=$("mTabs"); tabs.innerHTML=""; tabs.hidden=!classes.length;
   const all=mark("tab","כל התלמידים","button"); all.setAttribute("role","tab"); all.setAttribute("aria-selected",shownClass==="*");
@@ -5263,7 +5300,7 @@ function drawHead(klass,students){   // the class's name and its figures; before
     }
     top.append(mark("","כל התלמידים","h2"),mark("","כל תלמיד מופיע פעם אחת. לבדיקת שיעורי בית והתקדמות מאז פתיחת כיתה, בחרו כיתה במסנן.","p"));
   }else{
-    top.append(mark("",klass.name,"h2"),mark("",lessonsLine(ALL_LESSONS.filter(l=>klass.lessons.includes(l.id))),"p"));
+    top.append(mark("",klass.name,"h2"),mark("",isMathClass(klass)?`מתמטיקה: ${unitsLine(klass.lessons)}. ההתקדמות במסלול המתמטיקה נשמרת בינתיים במכשיר של התלמיד, ולכן לא מופיעה כאן.`:lessonsLine(ALL_LESSONS.filter(l=>klass.lessons.includes(l.id))),"p"));
   }
   head.append(top);
   const tiles=mark("tiles",""), tile=(n,what)=>{ const t=mark("tile",""), b=mark("",n,"b"); b.dir="ltr"; t.append(b,mark("",what,"small")); tiles.append(t); };
@@ -5437,26 +5474,36 @@ function editTeacherChoices(){
 }
 function editClass(c){
   editing=c;
+  $("editTeachersField").hidden=!LIVE_TAB_ENABLED;
   editTeacherSet=new Set(c&&c.teachers||[]);
   $("editTitle").textContent=c?`עריכת ${c.name}`:"כיתה חדשה";
   $("editName").value=c?c.name:"";
+  // a math class picks units of the math path, and has no homework or daily videos; any other picks Arabic lessons
+  const math=isMathClass(c), lessonsBox=$("editLessons").closest("fieldset"), legend=lessonsBox.querySelector("legend"), note=legend.querySelector("small");
+  note.dataset.text??=note.textContent; legend.firstChild.textContent=math?"היחידות":"השיעורים";
+  note.textContent=math?"התלמידים של הכיתה רואים במסלול רק את המיומנויות של היחידות האלה.":note.dataset.text;
+  for(const box of [$("editHws").closest("fieldset"),$("editDailies").closest("fieldset")]) box.hidden=math;
   // the lessons by level: a level's box ticks all of it, its chips one lesson each; a new class starts with the first level
-  const pick=$("editLessons"), chosen=c?c.lessons:ALL_LESSONS.filter(l=>l.level===(ALL_LEVELS[0]||{}).id).map(l=>l.id);
+  const units=MATH_UNITS||[], groups=math?[{name:"מתמטיקה כיתה ט׳ · 5 יח״ל",items:units.map(u=>({id:u.id,label:u.name,title:`${u.count} מיומנויות`}))}]
+    :ALL_LEVELS.map(v=>({name:v.name,items:ALL_LESSONS.filter(l=>l.level===v.id).map(l=>({id:l.id,label:String(l.n),soon:l.soon,title:l.soon?`${l.name}: עוד לא מוכן, ייפתח לכיתה כשיהיה`:l.name}))}));
+  const pick=$("editLessons"), chosen=c?c.lessons:math?units.map(u=>u.id):ALL_LESSONS.filter(l=>l.level===(ALL_LEVELS[0]||{}).id).map(l=>l.id);
   pick.innerHTML="";
-  for(const v of ALL_LEVELS){
+  if(math&&!units.length) pick.append(mark("note","לא הצלחנו לטעון את יחידות המתמטיקה. לחצו „רענון” ונסו שוב.","p"));
+  const days=()=>{ if(!math) dailyRows($("editDailies"),editLevels(),editDays); };
+  for(const g of groups){
     const row=mark("lvl",""), head=mark("lvlhead","","label"), all=document.createElement("input"), chips=mark("chips",""), boxes=[];
-    all.type="checkbox"; head.append(all,v.name); row.append(head,chips); pick.append(row);
-    for(const l of ALL_LESSONS.filter(l=>l.level===v.id)){
-      const box=document.createElement("input"), lab=mark(l.soon?"soon":"","","label");
-      box.type="checkbox"; box.value=l.id; box.checked=chosen.includes(l.id); boxes.push(box);
-      lab.append(box,String(l.n)); lab.title=l.soon?`${l.name}: עוד לא מוכן, ייפתח לכיתה כשיהיה`:l.name; chips.append(lab);
+    all.type="checkbox"; head.append(all,g.name); row.append(head,chips); pick.append(row);
+    for(const it of g.items){
+      const box=document.createElement("input"), lab=mark(it.soon?"soon":"","","label");
+      box.type="checkbox"; box.value=it.id; box.checked=chosen.includes(it.id); boxes.push(box);
+      lab.append(box,it.label); lab.title=it.title; chips.append(lab);
     }
     const sync=()=>{ const n=boxes.filter(b=>b.checked).length; all.checked=n===boxes.length; all.indeterminate=n>0&&n<boxes.length; };
-    all.onchange=()=>{ boxes.forEach(b=>b.checked=all.checked); sync(); dailyRows($("editDailies"),editLevels(),editDays); };
-    boxes.forEach(b=>b.onchange=()=>{ sync(); dailyRows($("editDailies"),editLevels(),editDays); }); sync();
+    all.onchange=()=>{ boxes.forEach(b=>b.checked=all.checked); sync(); days(); };
+    boxes.forEach(b=>b.onchange=()=>{ sync(); days(); }); sync();
   }
-  editDays=Object.fromEntries((c&&c.dailies||[]).map(d=>[d.video,d.date])); dailyRows($("editDailies"),editLevels(),editDays);
-  $("editHws").replaceChildren(); for(const h of hwOf(c,ALL_CATS)) hwRow(h.c.id,h.due);
+  editDays=Object.fromEntries((c&&c.dailies||[]).map(d=>[d.video,d.date])); days();
+  $("editHws").replaceChildren(); if(!math) for(const h of hwOf(c,ALL_CATS)) hwRow(h.c.id,h.due);
   $("editEmails").value=c?c.emails.map(e=>[e,c.nicknames&&c.nicknames[e]].filter(Boolean).join(" ")).join("\n"):"";
   $("editSave").textContent=c?"שמירה":"פתיחת הכיתה"; $("editDelete").hidden=!c; $("editMsg").textContent="";
   countStudents(); editTeacherChoices(); $("editDlg").showModal(); (c?$("editEmails"):$("editName")).focus();
@@ -5498,12 +5545,14 @@ async function sendClass(method,body){
 }
 $("editForm").onsubmit=e=>{
   e.preventDefault();
-  const lessons=[...$("editLessons").querySelectorAll(".chips :checked")].map(b=>b.value);
-  if(!lessons.length){ $("editMsg").textContent="בחרו לפחות שיעור אחד."; return; }
+  const lessons=[...$("editLessons").querySelectorAll(".chips :checked")].map(b=>b.value), math=isMathClass(editing);
+  if(!lessons.length){ $("editMsg").textContent=math?"בחרו לפחות יחידה אחת.":"בחרו לפחות שיעור אחד."; return; }
+  const who={name:$("editName").value,emails:$("editEmails").value,...(LIVE_TAB_ENABLED?{teachers:[...editTeacherSet]}:{})};
+  if(math){ sendClass(editing?"PUT":"POST",{...who,lessons,...(editing?{}:{subject:MATH_LABEL})}); return; }
   const homeworks=hwRows();
   if(homeworks.some(h=>!lessons.includes((ALL_CATS.find(c=>c.id===h.topic)||{}).lesson))){ $("editMsg").textContent="שיעורי הבית הם נושאים משיעורי הכיתה: סמנו את השיעור שלהם למעלה, או הסירו אותם."; return; }
   if(new Set(homeworks.map(h=>h.topic)).size<homeworks.length){ $("editMsg").textContent="אותו נושא מופיע פעמיים בשיעורי הבית."; return; }
-  sendClass(editing?"PUT":"POST",{name:$("editName").value,emails:$("editEmails").value,teachers:[...editTeacherSet],lessons,homeworks,dailies:daysOf(editDays,editLevels())});
+  sendClass(editing?"PUT":"POST",{name:$("editName").value,emails:$("editEmails").value,...(LIVE_TAB_ENABLED?{teachers:[...editTeacherSet]}:{}),lessons,homeworks,dailies:daysOf(editDays,editLevels())});
 };
 $("editDelete").onclick=()=>{
   if(confirm(`למחוק את הכיתה ${editing.name}? התלמידים שלה לא יוכלו להיכנס עוד. ההקלטות וההתקדמות שלהם נשמרות.`)) sendClass("DELETE");
@@ -5511,17 +5560,25 @@ $("editDelete").onclick=()=>{
 
 /* A new class is opened in steps, a question each: its name, its level (the class studies the level's lessons), its
    students with their nicknames, its homework, and a summary to confirm, which says where all of it is changed later. */
-const WIZ=["שם הכיתה","רמה","תלמידים","שיעורי בית וסרטונים","אישור"], ADDRESS=/[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+/g;
+const WIZ=["שם הכיתה","רמה","תלמידים","שיעורי בית וסרטונים","אישור"], WIZ_MATH=["שם הכיתה","יחידות","תלמידים","","אישור"], ADDRESS=/[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+/g;
 let wiz=null;   // {step, students: [{email, name, on, nick}]}: the accounts the panel knows, and those added here
 const wizName=()=>$("newName").value.trim().replace(/\s+/g," ");
 const wizLevel=()=>ALL_LEVELS.find(v=>v.id===($("newLevels").querySelector(":checked")||{}).value)||ALL_LEVELS[0];
 const wizLessons=()=>ALL_LESSONS.filter(l=>l.level===wizLevel().id);
 const wizWho=s=>s.nick.trim()||s.name||s.email;
+const wizSteps=()=>wiz.math?[0,1,2,4]:[0,1,2,3,4];   // a math class has no homework or daily videos to set
+const wizUnits=()=>[...$("newLevels").querySelectorAll(":checked")].map(b=>b.value);
 function newClass(){
-  wiz={step:0,days:{},students:CLASS.students.map(s=>({email:s.email.toLowerCase(),name:s.name,on:false,nick:""}))};
+  wiz={step:0,days:{},math:isMathClass(null),students:CLASS.students.map(s=>({email:s.email.toLowerCase(),name:s.name,on:false,nick:""}))};
   $("newName").value=$("newEmail").value=$("newDue").value=""; $("newHw").innerHTML="";
-  const levels=$("newLevels"); levels.innerHTML="";
-  ALL_LEVELS.forEach((v,k)=>{
+  const levels=$("newLevels"), legend=levels.closest("fieldset").querySelector("legend"), note=legend.querySelector("small"); levels.innerHTML="";
+  note.dataset.text??=note.textContent; legend.firstChild.textContent=wiz.math?"אילו יחידות הכיתה לומדת?":"באיזו רמה הכיתה לומדת?";
+  note.textContent=wiz.math?"התלמידים יראו במסלול את המיומנויות של היחידות שסימנתם. אפשר לשנות אחר כך בעריכת הכיתה.":note.dataset.text;
+  if(wiz.math) for(const u of MATH_UNITS||[]){
+    const lab=document.createElement("label"), box=document.createElement("input"), text=document.createElement("span");
+    box.type="checkbox"; box.value=u.id; box.checked=true; text.append(u.name,mark("",`${u.count} מיומנויות`,"small")); lab.append(box,text); levels.append(lab);
+  }
+  else ALL_LEVELS.forEach((v,k)=>{
     const lab=document.createElement("label"), box=document.createElement("input"), text=document.createElement("span"), ls=ALL_LESSONS.filter(l=>l.level===v.id);
     box.type="radio"; box.name="newLevel"; box.value=v.id; box.checked=!k;
     text.append(v.name,mark("",`${lessonsWord(ls)} · ${ls.filter(l=>!l.soon).length} מוכנים`,"small")); lab.append(box,text); levels.append(lab);
@@ -5531,9 +5588,10 @@ function newClass(){
 function wizStep(n){
   wiz.step=n; $("newMsg").textContent="";
   [...$("newForm").querySelectorAll("section")].forEach((s,k)=>s.hidden=k!==n);
-  $("newStep").textContent=`שלב ${n+1} מתוך ${WIZ.length}: ${WIZ[n]}`;
-  $("newDots").replaceChildren(...WIZ.map((_,k)=>mark(k<=n?"on":"","","i")));
-  $("newBack").hidden=!n; $("newNext").textContent=n===WIZ.length-1?"פתיחת הכיתה":"המשך";
+  const order=wizSteps(), at=order.indexOf(n);
+  $("newStep").textContent=`שלב ${at+1} מתוך ${order.length}: ${(wiz.math?WIZ_MATH:WIZ)[n]}`;
+  $("newDots").replaceChildren(...order.map((_,k)=>mark(k<=at?"on":"","","i")));
+  $("newBack").hidden=!at; $("newNext").textContent=at===order.length-1?"פתיחת הכיתה":"המשך";
   if(n===3) wizHomework();
   if(n===4) wizSummary();
 }
@@ -5583,15 +5641,16 @@ function wizSummary(){
   const line=(what,...value)=>{ const dd=document.createElement("dd"); dd.append(...value); sum.append(mark("",what,"dt"),dd); };
   sum.innerHTML="";
   const name=document.createElement("bdi"); name.textContent=wizName(); line("שם",name);
-  line("רמה",`${level.name}, ${lessonsWord(wizLessons())}`);
+  if(wiz.math) line("יחידות",unitsLine(wizUnits()));
+  else line("רמה",`${level.name}, ${lessonsWord(wizLessons())}`);
   line("תלמידים",...(picked.length?[`${picked.length}: `,...picked.flatMap((s,k)=>{ const b=document.createElement("bdi"); b.textContent=wizWho(s); return k?[", ",b]:[b]; })]:["עוד אין. אפשר להוסיף אחר כך."]));
-  line("שיעורי בית",topic?[topic.name,ALL_LESSONS.find(l=>l.id===topic.lesson).name,dueText($("newDue").value).text].filter(Boolean).join(" · "):"אין בינתיים");
-  const days=daysOf(wiz.days,[level.id]); if(days.length) line("סרטונים יומיים",`${days.length} עם תאריך`);
+  if(!wiz.math) line("שיעורי בית",topic?[topic.name,ALL_LESSONS.find(l=>l.id===topic.lesson).name,dueText($("newDue").value).text].filter(Boolean).join(" · "):"אין בינתיים");
+  const days=wiz.math?[]:daysOf(wiz.days,[level.id]); if(days.length) line("סרטונים יומיים",`${days.length} עם תאריך`);
   const after=$("newAfter"); after.innerHTML="";
   after.append(mark("","מה קורה אחרי הפתיחה?","b"),"הכיתה מופיעה ברשימה תחת „כיתות”, והתלמידים שלה רואים את השיעורים במסלול. את ההתקדמות שלהם רואים תחת „תלמידים”. שום דבר כאן לא סופי: ליד כל כיתה ברשימה יש כפתור „עריכה”, שבו משנים את השם, השיעורים, התלמידים והכינויים ושיעורי הבית והתאריכים של הסרטונים היומיים, וכפתור „מחיקה”.");
   if(!CLASS.classes.length) after.append(mark("","שימו לב: זו הכיתה הראשונה. מרגע שהיא נפתחת, נכנסים לאפליקציה רק התלמידים שבכיתות והמורים.","b"));
 }
-$("newBack").onclick=()=>wizStep(wiz.step-1);
+$("newBack").onclick=()=>{ const order=wizSteps(); wizStep(order[order.indexOf(wiz.step)-1]); };
 $("newClose").onclick=()=>$("newDlg").close();
 $("newForm").onsubmit=async e=>{   // "next" checks the step on show; on the last one the class is opened
   e.preventDefault();
@@ -5600,14 +5659,16 @@ $("newForm").onsubmit=async e=>{   // "next" checks the step on show; on the las
     const taken=CLASS.classes.find(c=>c.name.replace(/\s+/g," ").trim().toLowerCase()===name.toLowerCase());
     if(!name||taken){ msg.textContent=name?`כבר יש כיתה בשם ${taken.name}. בחרו שם אחר.`:"כתבו שם לכיתה."; $("newName").focus(); return; }
   }
+  if(n===1&&wiz.math&&!wizUnits().length){ msg.textContent=MATH_UNITS?"סמנו לפחות יחידה אחת.":"לא הצלחנו לטעון את יחידות המתמטיקה. סגרו, לחצו „רענון” ונסו שוב."; return; }
   if(n===2&&!wizAdd()) return;   // an address still in the field joins too
-  if(n<WIZ.length-1){ wizStep(n+1); return; }
+  const order=wizSteps(); if(n!==order[order.length-1]){ wizStep(order[order.indexOf(n)+1]); return; }
   const homework=$("newHw").value, buttons=$("newForm").querySelectorAll("button");
   const emails=wiz.students.filter(s=>s.on).map(s=>`${s.email} ${s.nick.replace(/[\s@]+/g," ").trim()}`.trim()).join("\n");
   msg.textContent=""; buttons.forEach(b=>b.disabled=true);
   try{
     const res=await api("/api/classes",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({name,emails,lessons:wizLessons().map(l=>l.id),homework,due:homework?$("newDue").value:"",dailies:daysOf(wiz.days,[wizLevel().id])})});
+      body:JSON.stringify(wiz.math?{name,emails,lessons:wizUnits(),subject:MATH_LABEL}
+        :{name,emails,lessons:wizLessons().map(l=>l.id),homework,due:homework?$("newDue").value:"",dailies:daysOf(wiz.days,[wizLevel().id])})});
     if(res.ok){ shownClass=name; store.set("ihki.mstudentClass",name); $("newDlg").close(); loadManage(); }
     else{
       const detail=(await res.json().catch(()=>({}))).detail||`הפתיחה נכשלה (${res.status})`;
@@ -6698,6 +6759,9 @@ if(AUTH_URL){
         const res=await Promise.race([api("/api/me").catch(()=>null),new Promise(r=>setTimeout(()=>r(null),10000))]);   // a session or server that hangs leaves the logo alone on the screen
         const ok=!res||res.status!==403;   // a server that cannot be reached is not a refusal
         const me=res&&res.ok?await res.json().catch(()=>({})):{}, teacher=!!me.teacher;
+        // an account belongs on its subject's pages (its class's, or an admin's own): a math student who opens "/" goes to /math
+        if(me.subject&&me.subject!==document.documentElement.dataset.subject){ location.replace(me.subject===document.documentElement.dataset.home?"/":"/"+me.subject); return; }
+        ME_SUBJECT=me.subject||"";
         ME_PERMISSIONS=new Set(me.permissions||[]); ME_ROLES=me.roles||[]; ME_ENTITLEMENTS=me.entitlements||[];
         $("nav").querySelector('[data-view=""]').hidden=!can("path.use");
         $("nav").querySelector('[data-view="verbs"]').hidden=!can("games.use");
@@ -6744,5 +6808,6 @@ if("serviceWorker" in navigator){
   addEventListener("load",()=>navigator.serviceWorker.register("/service-worker.js").catch(()=>{}));
 }
 </script>
+<script src="/static/math.js?v=__ASSET_V__" defer></script>
 </body>
 </html>

@@ -105,9 +105,11 @@ class LiveStore:
             session = self._sessions.get(code)
             if not session:
                 raise KeyError(code)
+            variants = phrase.get("variants") or []
+            arabic = phrase.get("ar") or (variants[0][0] if variants else "")
             session["question_no"] += 1
             session["question"] = {"no": session["question_no"], "phrase_id": phrase["id"],
-                                   "he": phrase["he"], "ar": phrase["ar"], "tr": phrase["tr"],
+                                   "he": phrase["he"], "ar": arabic, "tr": phrase["tr"],
                                    "started_at": _now_iso()}
             session["answers"] = {}
             session["teacher_seen"] = now
