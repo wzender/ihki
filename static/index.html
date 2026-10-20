@@ -94,11 +94,13 @@ body:not(.home) .help,body.manage .help,body:not(.home) .guidetip,body.manage .g
 #nav{position:fixed;inset:auto 0 0 0;z-index:8;display:flex;justify-content:center;gap:4px;padding:6px 10px calc(6px + env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--line)}
 #nav button{position:relative;flex:1;max-width:160px;padding:10px 6px;border:0;border-radius:10px;background:none;color:var(--muted);font:700 14px/1.2 var(--f-body);cursor:pointer}
 #nav button[aria-current=page]{background:var(--olive-soft);color:var(--olive)}
+#nav button.live-on{color:var(--sumac)}#nav button.live-on::after{content:"";position:absolute;top:7px;inset-inline-end:12px;width:7px;height:7px;border-radius:50%;background:var(--sumac)}
 #nav button.promo{color:var(--orange);animation:refer-pulse 1.8s ease-in-out infinite}
 #nav button.promo::after{content:"🎁 הטבה";position:absolute;top:-11px;inset-inline-end:4px;padding:2px 6px;border-radius:999px;background:var(--orange);color:#fff;font:700 11px/1.35 var(--f-body);white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,.2)}
 @keyframes refer-pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--orange) 0%,transparent)}50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--orange) 22%,transparent)}}
 @media (prefers-reduced-motion:reduce){#nav button.promo{animation:none}}
 body:not(.home) #nav,body.manage #nav,body:not(.home) #vids,body.manage #vids,body:not([data-view]) #vids,body[data-view] #path,body[data-view] #today,body[data-view] #toNow,body[data-view] .maphint{display:none}
+body:not([data-view=live]) #liveView{display:none}.live-page{display:flex;flex-direction:column;gap:12px;padding-bottom:90px}.live-page>.card{padding:18px}.live-page h1,.live-page h2{margin:0;font-family:var(--f-display);font-weight:400}.live-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}.live-class{display:flex;flex-direction:column;gap:7px;padding:14px;border:1px solid var(--line);border-radius:13px;background:var(--surface)}.live-class .acts{display:flex;gap:7px;margin-top:auto}.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-inline-end:6px}.live-code{font:700 24px/1 var(--f-body);letter-spacing:.12em;direction:ltr}.live-question{text-align:center;padding:24px!important}.live-question .prompt{font-size:30px;margin:14px 0}.live-question .waiting-ring{width:64px;height:64px;margin:16px auto;border:6px solid var(--olive-soft);border-top-color:var(--olive);border-radius:50%;animation:live-turn 1.4s linear infinite}@keyframes live-turn{to{transform:rotate(360deg)}}.live-mic{display:grid;place-items:center;width:86px;height:86px;margin:20px auto;border:0;border-radius:50%;background:var(--sumac);color:white;font-size:28px;box-shadow:0 7px 0 color-mix(in srgb,var(--sumac) 75%,#000)}.live-mic.recording{animation:live-pulse 1s infinite}@keyframes live-pulse{50%{transform:scale(.94)}}.live-result{max-width:560px;margin:14px auto 0;padding:14px;border-radius:12px;background:var(--bg);text-align:start}.live-result .score{font-size:38px}.live-people{display:flex;flex-direction:column}.live-person{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:9px 0;border-top:1px solid var(--line)}.live-person small{display:block;color:var(--muted)}.live-person .online{color:var(--ok)}.live-person .offline{color:var(--muted)}.live-ask{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.live-ask select,.live-ask input{grid-column:1}.live-ask button{grid-column:2;grid-row:1/3}.live-join{display:flex;gap:8px}.live-join input{direction:ltr;text-align:center;letter-spacing:.15em;max-width:180px}.teacher-picks{display:flex;flex-direction:column;gap:6px;margin-top:8px}.teacher-picks label{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:9px}.teacher-picks small{display:block;color:var(--muted)}
 body.home:not(.manage){padding-bottom:84px}
 body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bottom:62px}
 #vids{display:flex;flex-direction:column;gap:6px;width:100%;max-width:460px;margin:8px auto 0}
@@ -1201,13 +1203,15 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 .prow[aria-current="true"]{background:var(--olive-soft)}
 .prow .i{font-size:13px;font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums}
 .prow .none{font-size:13px;font-weight:400;color:var(--muted)}
-/* Opening screen: the logo plays in (an olive hexagon traces itself, the knot blooms and turns into it, the name is written right to left; the animation lives in the logo's svg), then the start button appears; pressing it fades the screen out. */
-#logo-splash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:white;transition:opacity .35s ease,visibility .35s ease}
+/* Opening screen: its fixed top padding prevents late auth controls from shifting the logo. */
+#logo-splash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:28px;box-sizing:border-box;padding:clamp(36px,14vh,120px) 16px 24px;overflow:auto;background:white;transition:opacity .65s ease,visibility .65s ease}
 #logo-splash.done{opacity:0;visibility:hidden;pointer-events:none}
-#logo-splash img{width:min(82vw,620px);height:auto}
-#startBtn,#loginBtn,#roles button{font:400 24px/1 var(--f-display);padding:14px 34px;border-radius:14px;border:0;cursor:pointer;background:#4B6A2C;color:#fff;opacity:0;animation:start-in .45s ease-out 2.1s forwards}
+#logo-splash img{display:block;flex:none;width:min(82vw,620px);height:auto;aspect-ratio:489/225}
+#startBtn,#loginBtn,#roles button{font:400 24px/1 var(--f-display);padding:14px 34px;border-radius:14px;border:0;cursor:pointer;background:#4B6A2C;color:#fff;opacity:0;animation:start-in .65s ease-out 2.1s forwards}
+html[data-subject="arabic"] :is(#startBtn,#loginBtn,#roles button){animation-delay:6.55s}
 /* Under the Google button: sign-in by a link sent to the email, for a student without a Google account. */
 #mailForm{display:flex;flex-direction:column;align-items:center;gap:10px;width:min(82vw,340px);margin-top:-8px;opacity:0;animation:start-in .45s ease-out 2.1s forwards}
+html[data-subject="arabic"] #mailForm{animation-delay:6.55s}
 #mailForm span{font:400 14px/1 var(--f-body);color:#5B665C}
 #mailForm input{width:100%;box-sizing:border-box;font:400 17px/1 var(--f-body);padding:11px 14px;border-radius:10px;border:1px solid #B9C2B4;background:#fff;color:#1C241D;text-align:center}
 #mailForm button{font:600 16px/1 var(--f-body);padding:10px 22px;border-radius:10px;border:1px solid #4B6A2C;background:#fff;color:#4B6A2C;cursor:pointer}
@@ -1228,6 +1232,8 @@ html[data-subject="math"] #roles :is(#libraryBtn,#manageBtn,#labBtn){background:
 html[data-subject="math"] #mailForm button{border-color:#2F5597;color:#2F5597}
 @keyframes start-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#startBtn,#loginBtn,#roles button,#mailForm{animation:none;opacity:1}#logo-splash{transition:none}}
+#wrap{opacity:1;transition:opacity .65s ease .1s}
+#wrap[inert]{opacity:0}
 </style>
 </head>
 <body class="home">
@@ -1278,8 +1284,9 @@ html[data-subject="math"] #mailForm button{border-color:#2F5597;color:#2F5597}
     <span class="reward-totals"><span class="reward-week" id="rewardWeek">0/4 השבוע</span><span class="reward-total" id="rewardTotal">0 ★</span></span>
   </button>
   <section id="vids" aria-live="polite"></section>
-  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="refer">חבר מביא חבר</button></nav>
+  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="live" hidden>שיעור חי</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="refer">חבר מביא חבר</button></nav>
   <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
+  <section class="live-page" id="liveView" aria-live="polite"></section>
   <button id="toNow" hidden></button>
 
   <div class="wrap" id="practice">
@@ -1462,6 +1469,7 @@ html[data-subject="math"] #mailForm button{border-color:#2F5597;color:#2F5597}
     <fieldset class="lpick"><legend>סרטונים יומיים<small>הסרטונים של הרמות שהכיתה לומדת, מהספרייה שתחת „תוכן”. קבעו תאריך לסרטון, ומאותו יום התלמידים רואים אותו בכפתור „סרטון יומי” שמעל המסלול, והוא מסומן עד שצופים בו. סרטון בלי תאריך לא מוצג לכיתה.</small></legend><div class="dailies" id="editDailies"></div></fieldset>
     <label>התלמידים<small>שורה לכל תלמיד: כתובת הדוא"ל שבה הוא נכנס, ואחריה כינוי אם רוצים. בכיתה רואים את הכינוי, או את השם מ-Google. תלמיד יכול להיות בכמה כיתות.</small>
       <textarea id="editEmails" spellcheck="false" placeholder="dana@gmail.com דנה&#10;avi@gmail.com"></textarea></label>
+    <fieldset class="lpick"><legend>מורי הכיתה<small>בחרו אחד או יותר מתלמידי הכיתה. ההרשאה היא לכיתה הזו בלבד.</small></legend><div class="teacher-picks" id="editTeachers"></div></fieldset>
     <div class="row"><button class="btn primary" id="editSave"></button><span class="sub" id="editCount"></span><span class="sep"></span><button class="btn danger" type="button" id="editDelete">מחיקת הכיתה</button><span class="msg" id="editMsg" role="alert"></span></div>
   </form>
 </dialog>
@@ -2430,7 +2438,87 @@ function mgWin(){   // every pair found: the misbaha dances, beads rain, and the
 }
 function showView(view){   // "" is the path, which is laid out again: it was not while hidden
   if(view) document.body.dataset.view=view; else delete document.body.dataset.view;
-  scrollTo(0,0); drawPath(true);
+  scrollTo(0,0); drawPath(true); if(view==="live") loadLive();
+}
+const LIVE_TAB_ENABLED=false; // Keep the finished live-class flow hidden until it is ready for release.
+let LIVE={sessions:[],teaches:[],code:"",timer:null,rec:null,busy:false};
+const liveEsc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const livePhrase=p=>`${liveEsc(p.he)} · ${liveEsc((ALL_CATS.find(c=>c.id===p.cat)||{}).name||"")}`;
+function liveSchedule(){ clearTimeout(LIVE.timer); if(document.body.dataset.view==="live"&&LIVE.code) LIVE.timer=setTimeout(()=>loadLiveSession(),3000); }
+async function loadLive(silent=false){
+  try{
+    const res=await api("/api/live"), data=await res.json(); if(!res.ok) throw new Error(data.detail||res.status);
+    LIVE.sessions=data.sessions||[]; LIVE.teaches=data.teaches||[];
+    const tab=$("nav").querySelector('[data-view="live"]'); tab.hidden=!LIVE_TAB_ENABLED; tab.classList.toggle("live-on",LIVE_TAB_ENABLED&&LIVE.sessions.length>0);
+    if(!silent&&document.body.dataset.view==="live"&&!LIVE.code) drawLiveHome();
+  }catch(err){ if(!silent) $("liveView").innerHTML=`<div class="card">השיעורים החיים אינם זמינים (${liveEsc(err.message)}).</div>`; }
+}
+function drawLiveHome(){
+  clearTimeout(LIVE.timer); const box=$("liveView"), active=new Map(LIVE.sessions.map(s=>[s.class_id,s]));
+  let html='<div class="card"><h1>שיעור חי</h1><p class="sub">הצטרפו למפגש פעיל של אחת הכיתות שלכם, או הכניסו קוד שקיבלתם ממורה.</p></div>';
+  if(LIVE.teaches.length){ html+='<div class="card"><h2>הכיתות שאני מלמד/ת</h2><div class="live-grid">'+LIVE.teaches.map(c=>{const s=active.get(c.id);return `<div class="live-class"><b>${liveEsc(c.name)}</b><small>${s?'<span class="live-dot"></span>מפגש פעיל':'אין מפגש פעיל'}</small><div class="acts"><button class="btn primary" data-live-${s?'open':'start'}="${s?liveEsc(s.code):c.id}">${s?'כניסה למפגש':'פתיחת שיעור חי'}</button></div></div>`}).join('')+'</div></div>'; }
+  const student=LIVE.sessions.filter(s=>!s.teacher);
+  html+='<div class="card"><h2>שיעורים פעילים בכיתות שלי</h2>'+(student.length?'<div class="live-grid">'+student.map(s=>`<div class="live-class"><b>${liveEsc(s.class_name)}</b><small><span class="live-dot"></span>המפגש פתוח עכשיו</small><button class="btn primary" data-live-join="${liveEsc(s.code)}">הצטרפות</button></div>`).join('')+'</div>':'<p class="sub">אין כרגע שיעור חי בכיתות שלכם.</p>')+'</div>';
+  html+='<div class="card"><h2>הצטרפות עם קוד</h2><p class="sub">אפשרות גיבוי למפגש שאינו ברשימת הכיתות שלכם.</p><form class="live-join" id="liveCodeForm"><input id="liveCode" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required aria-label="קוד מפגש"><button class="btn">הצטרפות</button></form><p class="msg" id="liveMsg"></p></div>';
+  box.innerHTML=html;
+  box.querySelectorAll("[data-live-start]").forEach(b=>b.onclick=()=>startLive(+b.dataset.liveStart));
+  box.querySelectorAll("[data-live-open]").forEach(b=>b.onclick=()=>openLive(b.dataset.liveOpen,true));
+  box.querySelectorAll("[data-live-join]").forEach(b=>b.onclick=()=>joinLive(b.dataset.liveJoin));
+  $("liveCodeForm").onsubmit=e=>{e.preventDefault();joinLive($("liveCode").value)};
+}
+async function startLive(classId){
+  const res=await api("/api/live",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({class_id:classId})}), data=await res.json().catch(()=>({}));
+  if(!res.ok){ $("liveMsg").textContent=data.detail||`הפתיחה נכשלה (${res.status})`; return; }
+  openLive(data.session.code,true);
+}
+async function joinLive(code){
+  code=String(code).replace(/\D/g,""); const res=await api("/api/live/join",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code})}), data=await res.json().catch(()=>({}));
+  if(!res.ok){ const msg=$("liveMsg"); if(msg) msg.textContent=data.detail||`ההצטרפות נכשלה (${res.status})`; return; }
+  openLive(data.session.code,false);
+}
+function openLive(code,teacher){ LIVE.code=code; LIVE.teacher=teacher; loadLiveSession(); }
+async function loadLiveSession(){
+  if(!LIVE.code||LIVE.busy) return liveSchedule();
+  try{
+    const res=await api(`/api/live/${LIVE.code}`), data=await res.json().catch(()=>({}));
+    if(res.status===404){ LIVE.code=""; await loadLive(); return; }
+    if(!res.ok) throw new Error(data.detail||res.status);
+    if(LIVE.teacher) drawLiveTeacher(data.session); else drawLiveStudent(data.session);
+  }catch(err){ $("liveView").innerHTML=`<div class="card">המפגש אינו זמין (${liveEsc(err.message)}). <button class="btn" id="liveBack">חזרה</button></div>`; $("liveBack").onclick=()=>{LIVE.code="";loadLive()}; }
+  liveSchedule();
+}
+function eligibleLivePhrases(session){
+  const course=LIVE.teaches.find(c=>c.id===session.class_id), lessons=new Set(course&&course.lessons||[]), cats=new Set(ALL_CATS.filter(c=>lessons.has(c.lesson)).map(c=>c.id));
+  return PHRASES.filter(p=>cats.has(p.cat)&&p.listed!==false&&!p.read);
+}
+function drawLiveTeacher(s){
+  const list=eligibleLivePhrases(s), answered=(s.participants||[]).filter(p=>p.answer).length;
+  let html=`<div class="card"><button class="btn" id="liveBack">חזרה</button> <button class="btn danger" id="liveEnd">סיום המפגש</button><h1>${liveEsc(s.class_name)}</h1><p>קוד גיבוי: <b class="live-code">${liveEsc(s.code)}</b></p></div>`;
+  html+=`<div class="card"><h2>שליחת שאלה</h2><p class="sub">בחרו משפט או הקלידו בעברית כדי לחפש במאגר של שיעורי הכיתה.</p><div class="live-ask"><input id="liveSearch" placeholder="חיפוש משפט בעברית"><select id="livePhrase">${list.map(p=>`<option value="${p.id}">${livePhrase(p)}</option>`).join('')}</select><button class="btn primary" id="liveAsk" ${list.length?'':'disabled'}>שליחה לכיתה</button></div><p class="msg" id="liveAskMsg"></p></div>`;
+  if(s.question) html+=`<div class="card"><h2>השאלה הנוכחית</h2><p><b>${liveEsc(s.question.he)}</b></p><p class="sub">ענו ${answered} מתוך ${(s.participants||[]).length}</p></div>`;
+  html+=`<div class="card"><h2>תלמידים במפגש</h2><div class="live-people">${(s.participants||[]).length?(s.participants||[]).map(p=>`<div class="live-person"><span><b>${liveEsc(p.name)}</b><small class="${p.online?'online':'offline'}">${p.online?'מחובר/ת עכשיו':'לא מחובר/ת'}</small>${p.answer?`<small>צריך: ${liveEsc(p.answer.expected_tr)}<br>נאמר: ${liveEsc(p.answer.heard_tr)}</small>`:''}</span><span>${p.answer?`<b class="pill">${p.answer.score}</b>`:'ממתינ/ה'}</span></div>`).join(''):'<p class="sub">עוד אין תלמידים במפגש.</p>'}</div></div>`;
+  $("liveView").innerHTML=html; $("liveBack").onclick=()=>{LIVE.code="";loadLive()}; $("liveEnd").onclick=endLive;
+  const search=$("liveSearch"), select=$("livePhrase"); search.oninput=()=>{ const q=search.value.trim(); select.replaceChildren(...list.filter(p=>!q||p.he.includes(q)).slice(0,100).map(p=>new Option(`${p.he} · ${(ALL_CATS.find(c=>c.id===p.cat)||{}).name||""}`,p.id))); $("liveAsk").disabled=!select.value; };
+  $("liveAsk").onclick=async()=>{ const res=await api(`/api/live/${s.code}/question`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phrase_id:+select.value})}), data=await res.json().catch(()=>({})); if(!res.ok) $("liveAskMsg").textContent=data.detail||res.status; else loadLiveSession(); };
+}
+async function endLive(){ if(!confirm("לסיים את המפגש? התוצאות הזמניות יימחקו."))return; await api(`/api/live/${LIVE.code}`,{method:"DELETE"}); LIVE.code=""; loadLive(); }
+function drawLiveStudent(s){
+  let body;
+  if(!s.question) body='<div class="waiting-ring"></div><h1>מחכים לשאלה</h1><p class="sub">אתם מחוברים. השאלה תופיע כאן כשהמורה ישלח אותה.</p>';
+  else if(s.answer) body=`<h1>המשוב האישי שלך</h1><div class="live-result"><b class="score">${s.answer.score}</b><p><small>צריך</small><br><b>${liveEsc(s.answer.expected_tr)}</b></p><p><small>נאמר</small><br><b>${liveEsc(s.answer.heard_tr)}</b></p></div><p class="sub">ניסיון אחד בלבד. רק את/ה והמורה רואים את התוצאה.</p>`;
+  else if(s.answered) body='<div class="waiting-ring"></div><h1>בודקים את ההגייה…</h1>';
+  else body=`<small>${liveEsc(s.class_name)}</small><h1 class="prompt">${liveEsc(s.question.he)}</h1><p class="sub">ענו בערבית. התשובה אינה מוצגת לפני ההקלטה.</p><button class="live-mic" id="liveMic" aria-label="הקלטת תשובה"><svg class="ic" aria-hidden="true"><use href="#i-mic"/></svg></button><b id="liveStatus">לחצו ודברו</b>`;
+  $("liveView").innerHTML=`<div class="card"><button class="btn" id="liveBack">יציאה</button></div><div class="card live-question">${body}</div>`; $("liveBack").onclick=()=>{LIVE.code="";loadLive()}; if($("liveMic")) $("liveMic").onclick=liveRecord;
+}
+async function liveRecord(){
+  if(LIVE.rec&&LIVE.rec.state==="recording"){ LIVE.rec.stop(); return; }
+  let stream; try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }catch{ $("liveStatus").textContent="אין גישה למיקרופון"; return; }
+  const chunks=[], type=pickType(); LIVE.rec=new MediaRecorder(stream,type?{mimeType:type}:{}); LIVE.busy=true;
+  LIVE.rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)}; LIVE.rec.onstart=()=>{ $("liveMic").classList.add("recording"); $("liveStatus").textContent="מקליט… לחצו לסיום"; };
+  LIVE.rec.onstop=async()=>{ stream.getTracks().forEach(t=>t.stop()); const blob=new Blob(chunks,{type:LIVE.rec.mimeType||"audio/webm"}), fd=new FormData(); fd.append("audio",blob,"live"); $("liveStatus").textContent="בודקים…";
+    try{ const res=await api(`/api/live/${LIVE.code}/answer`,{method:"POST",body:fd}), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); }catch(err){ $("liveStatus").textContent=`לא הצלחנו לבדוק: ${err.message}`; }
+    LIVE.busy=false; LIVE.rec=null; loadLiveSession(); };
+  LIVE.rec.start(); setTimeout(()=>LIVE.rec&&LIVE.rec.state==="recording"&&LIVE.rec.stop(),10000);
 }
 const referTab=$("nav").querySelector('[data-view="refer"]'), referSeenKey="ihki.referSeen.2027";
 if(!store.get(referSeenKey,false)) referTab.classList.add("promo");
@@ -4911,6 +4999,8 @@ function drawClasses(classes){
     fact("שיעורים",lessonsLine(ALL_LESSONS.filter(l=>c.lessons.includes(l.id))));
     const mine=CLASS.students.filter(s=>c.name in s.classes);
     fact("תלמידים",...(mine.length?[`${mine.length}: `,...mine.flatMap((s,k)=>{ const b=document.createElement("bdi"); b.textContent=s.classes[c.name]||s.name||s.email; return k?[", ",b]:[b]; })]:["עוד אין"]));
+    const teachers=(c.teachers||[]).map(e=>{ const s=mine.find(x=>x.email.toLowerCase()===e); return s&&(s.classes[c.name]||s.name)||e; });
+    fact("מורים",teachers.length?teachers.join(" · "):"עוד לא נבחרו");
     const hws=hwOf(c,ALL_CATS).map(h=>mark("",[h.c.name,lessonName(ALL_LESSONS.find(l=>l.id===h.c.lesson)),dueText(h.due).text].filter(Boolean).join(" · "),"div"));
     fact("שיעורי בית",...(hws.length?hws:["אין"]));
     const days=classDailies(c);
@@ -5333,9 +5423,21 @@ function dailyRows(box,levels,days){
 }
 const daysOf=(days,levels)=>DAILIES.filter(v=>levels.includes(v.level)&&days[v.id]).map(v=>({video:v.id,date:days[v.id]}));
 const editLevels=()=>{ const on=[...$("editLessons").querySelectorAll(".chips :checked")].map(b=>b.value); return ALL_LEVELS.filter(v=>ALL_LESSONS.some(l=>l.level===v.id&&on.includes(l.id))).map(v=>v.id); };
-let editing=null, editDays={};
+let editing=null, editDays={}, editTeacherSet=new Set();
+function editTeacherChoices(){
+  const box=$("editTeachers"), found=($("editEmails").value.match(/[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+/g)||[]).map(e=>e.toLowerCase());
+  editTeacherSet=new Set([...editTeacherSet].filter(e=>found.includes(e))); box.replaceChildren();
+  if(!found.length){ box.append(mark("sub","הוסיפו קודם תלמידים לכיתה.")); return; }
+  for(const email of found){
+    const row=document.createElement("label"), tick=document.createElement("input"), known=(CLASS.students||[]).find(s=>s.email.toLowerCase()===email), text=document.createElement("span");
+    tick.type="checkbox"; tick.checked=editTeacherSet.has(email); tick.onchange=()=>tick.checked?editTeacherSet.add(email):editTeacherSet.delete(email);
+    text.append(known&&(known.name||Object.values(known.classes||{}).find(Boolean))||email); if(known&&known.name){ const small=mark("",email,"small"); small.dir="ltr"; text.append(small); }
+    row.append(tick,text); box.append(row);
+  }
+}
 function editClass(c){
   editing=c;
+  editTeacherSet=new Set(c&&c.teachers||[]);
   $("editTitle").textContent=c?`עריכת ${c.name}`:"כיתה חדשה";
   $("editName").value=c?c.name:"";
   // the lessons by level: a level's box ticks all of it, its chips one lesson each; a new class starts with the first level
@@ -5357,7 +5459,7 @@ function editClass(c){
   $("editHws").replaceChildren(); for(const h of hwOf(c,ALL_CATS)) hwRow(h.c.id,h.due);
   $("editEmails").value=c?c.emails.map(e=>[e,c.nicknames&&c.nicknames[e]].filter(Boolean).join(" ")).join("\n"):"";
   $("editSave").textContent=c?"שמירה":"פתיחת הכיתה"; $("editDelete").hidden=!c; $("editMsg").textContent="";
-  countStudents(); $("editDlg").showModal(); (c?$("editEmails"):$("editName")).focus();
+  countStudents(); editTeacherChoices(); $("editDlg").showModal(); (c?$("editEmails"):$("editName")).focus();
 }
 /* The class's homeworks in its dialog: a row each, a lesson, a topic of it and its day, and a button to drop it.
    "+" adds the last topic of the first ticked lesson that has no homework yet: its written homework, where it has one. */
@@ -5380,7 +5482,7 @@ $("editHwAdd").onclick=()=>{
   $("editMsg").textContent=""; hwRow(last.id,"").focus();
 };
 function countStudents(){ const n=($("editEmails").value.match(/[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+/g)||[]).length; $("editCount").textContent=n?`${n} תלמידים`:""; }
-$("editEmails").oninput=countStudents;
+$("editEmails").oninput=()=>{ countStudents(); editTeacherChoices(); };
 $("editClose").onclick=()=>$("editDlg").close();
 async function sendClass(method,body){
   const msg=$("editMsg"), buttons=$("editForm").querySelectorAll("button");
@@ -5401,7 +5503,7 @@ $("editForm").onsubmit=e=>{
   const homeworks=hwRows();
   if(homeworks.some(h=>!lessons.includes((ALL_CATS.find(c=>c.id===h.topic)||{}).lesson))){ $("editMsg").textContent="שיעורי הבית הם נושאים משיעורי הכיתה: סמנו את השיעור שלהם למעלה, או הסירו אותם."; return; }
   if(new Set(homeworks.map(h=>h.topic)).size<homeworks.length){ $("editMsg").textContent="אותו נושא מופיע פעמיים בשיעורי הבית."; return; }
-  sendClass(editing?"PUT":"POST",{name:$("editName").value,emails:$("editEmails").value,lessons,homeworks,dailies:daysOf(editDays,editLevels())});
+  sendClass(editing?"PUT":"POST",{name:$("editName").value,emails:$("editEmails").value,teachers:[...editTeacherSet],lessons,homeworks,dailies:daysOf(editDays,editLevels())});
 };
 $("editDelete").onclick=()=>{
   if(confirm(`למחוק את הכיתה ${editing.name}? התלמידים שלה לא יוכלו להיכנס עוד. ההקלטות וההתקדמות שלהם נשמרות.`)) sendClass("DELETE");
@@ -6547,7 +6649,7 @@ const ready=fetch("/api/phrases").then(r=>{ if(!r.ok) throw new Error(`phrases: 
 /* The opening screen stays until the start button is pressed. */
 function enter(){
   const splash=$("logo-splash");
-  $("wrap").inert=false; splash.classList.add("done"); setTimeout(()=>splash.remove(),400);
+  $("wrap").inert=false; splash.classList.add("done"); setTimeout(()=>splash.remove(),700);
   if(MY_CLASSES.length>1&&!MY_CLASS) askClass();   // in several classes and none practised in before: which one?
   if(AUTH_URL&&!can("path.use")){ if(can("games.use")||can("tutor.use")) showView("games"); else if(can("library.view")) showView("library"); }
 }
@@ -6609,7 +6711,7 @@ if(AUTH_URL){
         else{ const last=MY_CLASSES.find(c=>c.name===store.get("ihki.class","")); if(last) useClass(last); }   // the class practised in last
         const management=can("management.access"), laboratory=can("lab.access"), library=can("library.view"), practice=can("practice.use")||can("path.use")||can("games.use")||can("tutor.use");
         start.hidden=!ok||management||laboratory||library; roles.hidden=!management&&!laboratory&&!library; $("practiceBtn").hidden=!practice; $("libraryBtn").hidden=!library; $("manageBtn").hidden=$("toManage").hidden=!management; $("labBtn").hidden=!laboratory; $("mLab").hidden=!laboratory; denied.hidden=ok;
-        if(ok){ [...roles.querySelectorAll("button:not([hidden])"),start].find(x=>!x.hidden)?.focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); loadContent(); loadWriting(); loadTutor(); }
+        if(ok){ $("nav").querySelector('[data-view="live"]').hidden=!LIVE_TAB_ENABLED; loadLive(true); [...roles.querySelectorAll("button:not([hidden])"),start].find(x=>!x.hidden)?.focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); loadContent(); loadWriting(); loadTutor(); }
       }catch(e){ start.hidden=false; throw e; } },0);   // a failure here still lets the student in, and shows under the logo
     });
   }

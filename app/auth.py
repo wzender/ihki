@@ -259,6 +259,7 @@ class SupabaseAuth:
                     r["nicknames"], r["lessons"] = r.get("nicknames") or {}, r.get("lessons") or []
                     r["homework"], r["due"] = r.get("homework") or "", r.get("due") or None
                     r["homeworks"], r["dailies"] = r.get("homeworks") or [], r.get("dailies") or []
+                    r["teachers"] = [str(e).lower() for e in (r.get("teachers") or [])]
             except AuthUnavailable as e:
                 if "answered 404" not in str(e):
                     raise
@@ -269,7 +270,7 @@ class SupabaseAuth:
 
     def save_class(self, id: int | None, name: str, emails: list[str], nicknames: dict[str, str],
                    lessons: list[str], homeworks: list[dict] = (), dailies: list[dict] | None = None,
-                   subject: str = "") -> None:
+                   subject: str = "", teachers: list[str] | None = None) -> None:
         """Adds a class (id None) or replaces one's name, emails, nicknames, lessons and homeworks ([{"topic", "due"}]),
         and its daily videos' days ([{"video", "date"}]; None leaves them as they are, so a table made before them
         still takes a class that has none). A name already taken raises ClassConflict."""
@@ -278,6 +279,8 @@ class SupabaseAuth:
                 "homework": first["topic"], "due": first["due"], "homeworks": list(homeworks)}
         if dailies is not None:
             body["dailies"] = list(dailies)
+        if teachers is not None:
+            body["teachers"] = list(teachers)
         if id is None:
             body["subject"] = subject
             self._admin("/rest/v1/classes", "POST", body)

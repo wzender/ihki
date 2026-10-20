@@ -1,19 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 489 225" role="img" aria-label="אהלא וסהלא, בית הספר ללימוד השפה הערבית"><style>
 /* Every piece rests in its final look; the animations only play in from it, so a viewer without them still sees the whole logo. */
 *{transform-box:view-box}
-.spin{transform-origin:397px 107.5px;animation:spin 1.3s cubic-bezier(.2,.75,.25,1) both}
-.line1{animation:slide .9s cubic-bezier(.2,.7,.3,1) .45s both}
-.line2{animation:slide .85s cubic-bezier(.2,.7,.3,1) .85s both}
-.wet{opacity:0}
-.line1 .wet{animation:wet 1.25s linear .45s both}
-.line2 .wet{animation:wet 1.2s linear .85s both}
-.pen1{animation:pen1 .75s cubic-bezier(.45,.05,.4,1) .45s both}
-.pen1.ink{animation-delay:.6s}
-.pen2{animation:pen2 .7s cubic-bezier(.45,.05,.4,1) .85s both}
-.pen2.ink{animation-delay:1s}
-.dots{transform-origin:219px 34px;animation:dots .5s cubic-bezier(.3,1.5,.5,1) 1.5s both}
-.rule{fill:none;stroke:#4B6A2C;stroke-width:1.6;stroke-linecap:round;stroke-dasharray:1;opacity:0;animation:rule .75s ease-out 1.4s}
-.unfold{transform-origin:0 172px;animation:unfold .4s cubic-bezier(.2,.8,.3,1) 1.7s both}
+.spin{transform-origin:397px 107.5px;animation:rollRight 3.2s cubic-bezier(.18,.75,.22,1) both}
+.line1{animation:calligraphyReveal 1.1s cubic-bezier(.2,.8,.25,1) 3.05s both}
+.line2{animation:calligraphyReveal 1.15s cubic-bezier(.2,.8,.25,1) 3.55s both}
+.wet{display:none}
+.pen1,.pen2{animation:none}
+.dots{transform-origin:219px 34px;animation:dots .55s cubic-bezier(.3,1.5,.5,1) 4.7s both}
+.rule{display:none}
+.unfold{transform-origin:157px 176px;animation:schoolIn .9s cubic-bezier(.2,.8,.25,1) 5.15s both}
+@keyframes rollRight{from{opacity:0;transform:translateX(-315px) rotate(-720deg) scale(.72)}20%{opacity:1}85%{transform:translateX(7px) rotate(12deg) scale(1)}to{opacity:1;transform:translateX(0) rotate(0) scale(1)}}
+@keyframes calligraphyReveal{from{opacity:0;clip-path:inset(0 0 0 100%);transform:translateY(8px) skewX(-5deg);filter:blur(3px)}to{opacity:1;clip-path:inset(0);transform:translateY(0) skewX(0);filter:blur(0)}}
+@keyframes schoolIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes spin{from{opacity:0;transform:rotate(-360deg) scale(.6)}30%{opacity:1}}
 @keyframes slide{from{transform:translateX(16px)}}
 @keyframes wet{0%,72%{opacity:1}100%{opacity:0}}
@@ -48,6 +46,6 @@
 <g class="line2"><g clip-path="url(#line2)"><g class="wet" mask="url(#m2w)" filter="url(#green)"><use href="#nameImg"/></g>
 <g mask="url(#m2)"><use href="#nameImg"/></g></g></g>
 <g class="dots"><use href="#nameImg" clip-path="url(#dots)"/></g>
-<path class="rule" pathLength="1" d="M260,172H38"/>
+<path class="rule" pathLength="1" d="M288,158H27"/>
 <g class="unfold"><use href="#nameImg" clip-path="url(#sub)"/></g>
 </svg>

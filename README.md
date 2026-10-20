@@ -576,6 +576,7 @@ create table public.classes (
   nicknames  jsonb  not null default '{}',         -- {email: nickname}, for the students who have one
   lessons    text[] not null default '{}',         -- the lesson ids the class studies; empty = every lesson
   subject    text   not null default 'ערבית',      -- existing classes; new ones copy the creating admin
+  teachers   text[] not null default '{}',         -- class-scoped teachers; each address is also in emails
   homework   text   not null default '',           -- the topic id the class practises now, e.g. l2-talk; '' = none
   due        date,                                 -- the day the homework is due, if it has one
   homeworks  jsonb  not null default '[]',         -- every homework of the class: [{"topic": ..., "due": ...}]
@@ -593,12 +594,30 @@ alter table public.classes add column if not exists nicknames jsonb not null def
                            add column if not exists homework text not null default '',
                            add column if not exists due date,
                            add column if not exists homeworks jsonb not null default '[]',
+                           add column if not exists teachers text[] not null default '{}',
                            add column if not exists dailies jsonb not null default '[]',
                            add column if not exists subject text not null default 'ערבית';
 update public.classes set subject = 'ערבית' where subject = '';
 ```
 
 The server keeps the list for a minute, so a change in the SQL editor (rather than the panel) applies within that time.
+
+### Live lessons
+
+An admin can choose several class teachers from the class's own student list. The assignment is scoped to that class:
+a person may teach one class and remain a student in another. Developers can edit every class; subject admins can edit
+only classes in their assigned subject.
+
+A class teacher opens **שיעור חי**, chooses their class and starts its single active session. Students see active sessions
+from their registered classes in the same tab. A six-digit code is also shown as a fallback; any signed-in account may
+join with it for that session only, without becoming a member of the class. The teacher chooses an existing sentence or
+searches the class's lesson bank by Hebrew text. No translation or LLM is used.
+
+The page polls every three seconds. The teacher sees the whole roster, who has joined, who is online, and each submitted
+score; a student sees only their own result. Every student gets one scored attempt per question. Empty or undecodable
+recordings may be retried because they never became a scored attempt. Session state, attendance and answers live only in
+the application process: ending a session, restarting the server, or two hours without a teacher heartbeat erases them.
+No live-session audio or result history is stored.
 
 The **ניטור** activity dashboard can switch between the last 5 minutes, 24 hours and 7 days. It also reports Sawtak cache usage: cached WAV count, disk size, cache hits, generated misses, and the hit rate since the current server process started. `GET /api/tts-cache` returns only these aggregate figures; clearing the cache resets the process counters.
 

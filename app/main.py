@@ -35,6 +35,7 @@ from . import lab
 from .auth import AuthUnavailable, ClassConflict, SupabaseAuth, load_auth
 from .keystore import (CREATE_APP_SECRETS, MAX_LEN as MAX_KEY_LEN, MIGRATE_APP_SECRETS, NAMES as KEY_NAMES, KeyRefused,
                        check as check_key, load_keys)
+from .live import LiveConflict, LiveStore
 from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .reference import References
@@ -53,7 +54,7 @@ STATIC = Path(__file__).resolve().parent.parent / "static"
 load_dotenv(STATIC.parent / ".env")
 # A class topic's opening screen, by the path it is served at; "/" is Arabic.
 SUBJECTS = {
-    "arabic": {"__TITLE__": "אהלא וסהלא", "__SPLASH_LOGO__": "/static/logo-intro-alt.svg",
+    "arabic": {"__TITLE__": "אהלא וסהלא", "__SPLASH_LOGO__": "/static/logo-intro.svg",
                "__SPLASH_ALT__": "אהלא וסהלא, בית הספר ללימוד השפה הערבית", "__START_LABEL__": "יאללה נבלש"},
     "math": {"__TITLE__": "מתמטיקה בכיף", "__SPLASH_LOGO__": "/static/logo-math.svg",
              "__SPLASH_ALT__": "מתמטיקה בכיף, המורה הפרטי למתמטיקה", "__START_LABEL__": "יאללה נתחיל"},
@@ -230,7 +231,8 @@ MIGRATE_CLASSES = ("alter table public.classes add column if not exists nickname
                    "add column if not exists homework text not null default '', add column if not exists due date, "
                    "add column if not exists homeworks jsonb not null default '[]', "
                    "add column if not exists dailies jsonb not null default '[]', "
-                   "add column if not exists subject text not null default 'ערבית'; "
+                   "add column if not exists subject text not null default 'ערבית', "
+                   "add column if not exists teachers text[] not null default '{}'; "
                    "update public.classes set subject = 'ערבית' where subject = '';")
 MAX_HOMEWORKS = 30
 
@@ -451,6 +453,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     app = FastAPI(title="ihki", lifespan=lifespan)
     app.state.verb_game = VerbExerciseGenerator()
+    app.state.live = LiveStore()
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
     def signed_in(request: Request) -> dict | None:
@@ -471,6 +474,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except AuthUnavailable as e:
             raise HTTPException(503, f"class list not available: {e}")
         mine = [c for c in classes if email in c["emails"]]   # a student may be in several classes
+        teaches = [c for c in classes if email in (c.get("teachers") or [])]
         roles, entitlements, assigned = {"student"}, set(DEFAULT_ENTITLEMENTS), None
         if hasattr(a, "access_for"):
             try:
@@ -501,7 +505,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {**user, "token": token.strip(), "roles": sorted(roles), "entitlements": sorted(entitlements),
                 "subject": str((assigned or {}).get("subject") or ""),
                 "permissions": sorted(permissions), "teacher": bool(roles & {"teacher", "admin", "developer"}),
-                "tutor": "flags.create" in permissions or "*" in permissions, "classes": mine}
+                "tutor": "flags.create" in permissions or "*" in permissions, "classes": mine, "teaches": teaches}
 
     def require(permission: str):
         def allowed(user: dict | None = Depends(signed_in)) -> SupabaseAuth:
@@ -609,7 +613,134 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 **({"dailies": sorted(every.values(), key=lambda d: (d["date"], d["id"]))} if can_all else {}),
                 "classes": [{"name": c["name"], "lessons": lessons_of(c), **homework_of(c, topics()),
                              "dailies": dailies_of(c, daily_rows())} for c in mine],
+                **({"teaches": [{"id": c["id"], "name": c["name"], "lessons": lessons_of(c)}
+                                  for c in user.get("teaches", [])]} if user and user.get("teaches") else {}),
                 "lessons": lessons}
+
+    def live_course(class_id: int) -> dict:
+        course = next((c for c in app.state.auth.classes() if c["id"] == class_id), None)
+        if not course:
+            raise HTTPException(404, "הכיתה לא נמצאה")
+        return course
+
+    def live_teacher(course: dict, user: dict | None) -> None:
+        if not user or user["email"].lower() not in (course.get("teachers") or []):
+            raise HTTPException(403, "רק מורה של הכיתה יכול/ה לנהל את המפגש")
+
+    @app.get("/api/live")
+    def live_list(user: dict | None = Depends(signed_in)):
+        if not user:
+            return {"sessions": [], "teaches": []}
+        mine = {c["id"] for c in user.get("classes", [])}
+        teaches = {c["id"] for c in user.get("teaches", [])}
+        sessions = app.state.live.list_for(mine | teaches, user["id"])
+        return {"sessions": [{**s, "teacher": s["class_id"] in teaches} for s in sessions],
+                "teaches": [{"id": c["id"], "name": c["name"], "lessons": lessons_of(c)}
+                            for c in user.get("teaches", [])]}
+
+    @app.post("/api/live")
+    def live_start(body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        try:
+            class_id = int(body.get("class_id"))
+        except (TypeError, ValueError):
+            raise HTTPException(400, "צריך לבחור כיתה")
+        course = live_course(class_id)
+        live_teacher(course, user)
+        return {"session": app.state.live.start(course, user)}
+
+    @app.post("/api/live/join")
+    def live_join(body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        code = re.sub(r"\D", "", str(body.get("code", "")))
+        if len(code) != 6:
+            raise HTTPException(400, "קוד המפגש מכיל 6 ספרות")
+        session = app.state.live.get(code)
+        if not session:
+            raise HTTPException(404, "לא נמצא מפגש פעיל בקוד הזה")
+        course = live_course(session["class_id"])
+        email = user["email"].lower()
+        name = (course.get("nicknames") or {}).get(email, "")
+        try:
+            joined = app.state.live.join(code, user, name)
+        except KeyError:
+            raise HTTPException(404, "המפגש הסתיים")
+        return {"session": joined}
+
+    def live_session_teacher(code: str, user: dict | None) -> tuple[dict, dict]:
+        session = app.state.live.get(code)
+        if not session:
+            raise HTTPException(404, "המפגש הסתיים")
+        course = live_course(session["class_id"])
+        live_teacher(course, user)
+        return session, course
+
+    @app.get("/api/live/{code}")
+    def live_status(code: str, user: dict | None = Depends(signed_in)):
+        session = app.state.live.get(code)
+        if not session:
+            raise HTTPException(404, "המפגש הסתיים")
+        course = live_course(session["class_id"])
+        teacher = bool(user and user["email"].lower() in (course.get("teachers") or []))
+        try:
+            return {"session": app.state.live.heartbeat(code, user, teacher)}
+        except PermissionError:
+            raise HTTPException(403, "יש להצטרף למפגש תחילה")
+        except KeyError:
+            raise HTTPException(404, "המפגש הסתיים")
+
+    @app.post("/api/live/{code}/question")
+    def live_question(code: str, body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        _session, course = live_session_teacher(code, user)
+        phrase_id = body.get("phrase_id")
+        if not isinstance(phrase_id, int):
+            raise HTTPException(400, "צריך לבחור משפט מהמאגר")
+        phrase = phrase_of(phrase_id)
+        if topics().get(phrase["cat"]) not in lessons_of(course):
+            raise HTTPException(403, "המשפט אינו בשיעורים של הכיתה")
+        return {"session": app.state.live.ask(code, {**phrase, "id": phrase_id})}
+
+    @app.post("/api/live/{code}/answer")
+    def live_answer(code: str, audio: UploadFile = File(...), user: dict | None = Depends(signed_in)):
+        try:
+            question = app.state.live.begin_answer(code, user["id"])
+        except LiveConflict:
+            raise HTTPException(409, "כבר ענית על השאלה הזו")
+        except PermissionError:
+            raise HTTPException(403, "יש להצטרף למפגש תחילה")
+        except KeyError:
+            raise HTTPException(404, "אין כרגע שאלה פעילה")
+        try:
+            data = audio.file.read(MAX_UPLOAD + 1)
+            if len(data) > MAX_UPLOAD:
+                raise HTTPException(413, "recording too long")
+            try:
+                wav = decode_audio(data)
+            except ValueError:
+                raise HTTPException(400, "could not decode audio")
+            if wav.size < SAMPLE_RATE * .3:
+                raise HTTPException(400, "לא נשמע מספיק דיבור. נסו שוב.")
+            phrase = phrase_of(question["phrase_id"])
+            refs = app.state.refs.get(question["phrase_id"], phrase) if app.state.refs else []
+            result = app.state.scorer.score(wav, phrase, refs)
+            if result.get("error"):
+                raise HTTPException(400, result.get("message") or "ההקלטה לא זוהתה")
+            compact = {"score": round(result["score"]), "unrelated": bool(result.get("unrelated")),
+                       "expected_tr": result.get("variant", {}).get("tr") or phrase.get("tr", ""),
+                       "heard_tr": " ".join(w.get("heard_tr") or "–" for w in result.get("words", [])),
+                       "issues": result.get("issues", [])[:8]}
+            app.state.live.finish_answer(code, user["id"], compact)
+            return {"answer": compact, "result": result}
+        except Exception:
+            app.state.live.cancel_answer(code, user["id"])
+            raise
+
+    @app.delete("/api/live/{code}")
+    def live_end(code: str, user: dict | None = Depends(signed_in)):
+        live_session_teacher(code, user)
+        try:
+            app.state.live.end(code)
+        except KeyError:
+            raise HTTPException(404, "המפגש הסתיים")
+        return {"ok": True}
 
     @app.get("/api/progress")
     def progress(user: dict | None = Depends(signed_in)):
@@ -1551,7 +1682,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if "answered 404" in str(e):
             return ("הטבלה classes לא קיימת ב-Supabase. צרו אותה ב-SQL Editor (הפקודה ב-README); "
                     "אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
-        if any(col in str(e) for col in ("nicknames", "lessons", "homework", "'due'", "dailies", "subject")):   # a table made before them
+        if any(col in str(e) for col in ("nicknames", "lessons", "homework", "'due'", "dailies", "subject", "teachers")):   # a table made before them
             return f"לטבלה classes חסרות עמודות. הריצו ב-SQL Editor של Supabase: {MIGRATE_CLASSES}"
         return f"Supabase לא זמין: {e}"
 
@@ -1572,6 +1703,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not isinstance(lessons, list) or not lessons or not set(map(str, lessons)) <= set(ALL_LESSONS):
             raise HTTPException(400, "בחרו לפחות שיעור אחד לכיתה")
         lessons = [l for l in ALL_LESSONS if l in map(str, lessons)]
+        teachers = body.get("teachers")
+        if teachers is not None:
+            if not isinstance(teachers, list) or not all(isinstance(e, str) for e in teachers):
+                raise HTTPException(400, "רשימת המורים אינה תקינה")
+            teachers = list(dict.fromkeys(e.strip().lower() for e in teachers if e.strip()))
+            if not set(teachers) <= set(emails):
+                raise HTTPException(400, "מורה של הכיתה צריך להיות אחד מהתלמידים הרשומים בה")
         listed = body.get("homeworks")
         if listed is None:
             listed = [{"topic": body.get("homework"), "due": body.get("due")}]
@@ -1620,7 +1758,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             if (id is None and hasattr(a, "access_for") and actor and "admin" in actor.get("roles", ())
                     and "developer" not in actor.get("roles", ()) and not subject):
                 raise HTTPException(409, "לא הוגדר מקצוע למנהל/ת. מפתח/ת צריך להגדיר אותו בניטור.")
-            a.save_class(id, name, emails, nicks, lessons, homeworks, dailies if dailies or had else None, subject)
+            args = (id, name, emails, nicks, lessons, homeworks, dailies if dailies or had else None, subject)
+            if teachers is None:
+                a.save_class(*args)
+            else:
+                a.save_class(*args, teachers=teachers)
         except ClassConflict:
             raise HTTPException(409, f"כבר יש כיתה בשם {name}")
         except KeyError:

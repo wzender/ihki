@@ -2107,7 +2107,7 @@ def test_each_class_topic_opens_on_its_own_screen():
     with TestClient(create_app(scorer_for(emissions(["w"])))) as c:
         for path in ("/", "/arabic"):   # "/" stays Arabic
             page = c.get(path).text
-            assert 'data-subject="arabic"' in page and "/static/logo-intro-alt.svg" in page and "<title>אהלא וסהלא</title>" in page
+            assert 'data-subject="arabic"' in page and "/static/logo-intro.svg" in page and "<title>אהלא וסהלא</title>" in page
         math = c.get("/math").text
         assert 'data-subject="math"' in math and "/static/logo-math.svg" in math and "<title>מתמטיקה בכיף</title>" in math
         assert "__SUBJECT__" not in math and "__START_LABEL__" not in math

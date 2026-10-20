@@ -1,11 +1,10 @@
-const CACHE = "ihki-shell-v7";
+const CACHE = "ihki-shell-v17";
 const SHELL = [
   "/static/manifest.webmanifest",
   "/static/icons/icon-192.png?v=2",
   "/static/icons/icon-512.png?v=2",
   "/static/icons/icon-maskable-512.png?v=2",
   "/static/logo-intro.svg",
-  "/static/logo-intro-alt.svg",
   "/static/logo-math.svg",
   "/static/assets/arabic-calligraphy-path.webp"
 ];
