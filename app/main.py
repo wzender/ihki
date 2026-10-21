@@ -2524,6 +2524,18 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             app.state.refs.invalidate()
         return {"ok": True, "removed": removed}
 
+    @app.get("/api/tts-cache/activity")
+    def tts_cache_activity(_a: SupabaseAuth = Depends(teacher_only)):
+        """What the voice cache is doing: Sawtak requests and bucket uploads in flight and the latest results."""
+        tts = app.state.tts
+        if tts is None or not hasattr(tts, "activity"):
+            return {"now": time.time(), "active": [], "events": [], "pace": None}
+        from .tts import MAX_CONCURRENT, MIN_REQUEST_INTERVAL
+        return {**tts.activity.snapshot(),
+                "pace": {"per_minute": round(60 / MIN_REQUEST_INTERVAL) if MIN_REQUEST_INTERVAL else None,
+                         "max_concurrent": MAX_CONCURRENT,
+                         "sweep_workers": WARM_WORKERS}}
+
     @app.post("/api/tts-cache/import")
     def import_tts_cache(archive: UploadFile = File(...), _a: SupabaseAuth = Depends(teacher_only)):
         """Load an offline copy (a zip from GET /api/tts-cache/download) back into the cache: each WAV that is not
@@ -2571,7 +2583,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 for i in range(0, len(added), 25):
                     batch = added[i:i + 25]
                     try:
-                        mirror.upload([(path, mirror.remote_path(rel)) for path, rel in batch])
+                        mirror.upload([(path, mirror.remote_path(rel)) for path, rel in batch], source="import")
                     except Exception as e:  # the next cache-warm sweep uploads what is still missing
                         log.warning("tts import: bucket upload of %d files failed: %s", len(batch), e)
             threading.Thread(target=upload, name="ihki-tts-import", daemon=True).start()
@@ -2675,7 +2687,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             if not batch:
                 return
             try:
-                mirror.upload([(src, dest) for src, dest, _size in batch])
+                mirror.upload([(src, dest) for src, dest, _size in batch], source="sweep")
                 with uploads:
                     remote.update({dest: size for _src, dest, size in batch})
                 with app.state.tts_warm_lock:

@@ -14,6 +14,8 @@ Env:  SAWTAK_API_KEY   required; without it /api/tts answers 503 and the page fa
 from __future__ import annotations
 
 import hashlib
+import itertools
+from collections import deque
 import http.client
 import io
 import json
@@ -55,6 +57,37 @@ class TTSUnavailable(Exception):
         self.transient = transient or status == 429 or (status is not None and status >= 500)
 
 
+class ActivityLog:
+    """What the voice cache is doing, for the monitoring panel: requests in flight and the latest results.
+
+    Holds phrase-bank text only (no user data), kept in memory for the life of the process."""
+
+    def __init__(self, size: int = 80):
+        self._lock = threading.Lock()
+        self._events: deque[dict] = deque(maxlen=size)
+        self._active: dict[int, dict] = {}
+        self._ids = itertools.count(1)
+
+    def begin(self, **info) -> int:
+        with self._lock:
+            n = next(self._ids)
+            self._active[n] = {**info, "id": n, "started": time.time()}
+            return n
+
+    def end(self, n: int, **result) -> None:
+        with self._lock:
+            event = self._active.pop(n, None) or {"started": time.time()}
+            now = time.time()
+            event.update(result, at=now, ms=round((now - event["started"]) * 1000))
+            self._events.appendleft(event)
+
+    def snapshot(self) -> dict:
+        with self._lock:
+            now = time.time()
+            active = [{**a, "elapsed_ms": round((now - a["started"]) * 1000)} for a in self._active.values()]
+            return {"now": now, "active": sorted(active, key=lambda a: a["started"]), "events": list(self._events)}
+
+
 class BucketMirror:
     """Copies cached WAVs into a Hugging Face Storage Bucket through its API.
 
@@ -63,6 +96,7 @@ class BucketMirror:
 
     def __init__(self, bucket_id: str, prefix: str = "ihki-tts", token: str | None = None):
         self.bucket_id, self.prefix, self.token = bucket_id, prefix.strip("/"), token
+        self.activity: ActivityLog | None = None  # set when attached to a SawtakTTS
 
     def remote_path(self, rel: str) -> str:
         return f"{self.prefix}/{rel}" if self.prefix else rel
@@ -78,11 +112,21 @@ class BucketMirror:
                 out[item.path] = size
         return out
 
-    def upload(self, files: list[tuple[Path | bytes, str]]) -> None:
+    def upload(self, files: list[tuple[Path | bytes, str]], source: str = "") -> None:
         """Upload (local path or bytes, bucket path) pairs in one batch."""
         from huggingface_hub import batch_bucket_files
-        batch_bucket_files(self.bucket_id, add=[(str(src) if isinstance(src, Path) else src, dest)
-                                                for src, dest in files], token=self.token)
+        size = sum(len(src) if isinstance(src, bytes) else src.stat().st_size for src, _dest in files)
+        n = self.activity.begin(kind="upload", source=source, files=len(files), bytes=size,
+                                text=files[0][1].rsplit("/", 1)[-1] if len(files) == 1 else "") if self.activity else 0
+        try:
+            batch_bucket_files(self.bucket_id, add=[(str(src) if isinstance(src, Path) else src, dest)
+                                                    for src, dest in files], token=self.token)
+        except Exception as e:
+            if self.activity:
+                self.activity.end(n, status="error", message=str(e)[:200])
+            raise
+        if self.activity:
+            self.activity.end(n, status="ok")
 
 
 class SawtakTTS:
@@ -96,10 +140,21 @@ class SawtakTTS:
         self._in_flight = threading.Semaphore(MAX_CONCURRENT)
         self._key_locks: dict[str, threading.Lock] = {}  # one generation per recording at a time
         self._cache_hits = self._cache_misses = 0
-        self.mirror: BucketMirror | None = None  # set by load_tts when TTS_BUCKET is configured
+        self.activity = ActivityLog()  # Sawtak requests and bucket uploads, for the monitoring panel
+        self._mirror: BucketMirror | None = None  # set by load_tts when TTS_BUCKET is configured
         # With a mirror, new recordings are written here (local disk) and uploaded through the Bucket API, instead
         # of into cache_dir: a bucket mounted there only flushes a few files every ~30 s, so each write crawled.
         self.staging_dir: Path | None = None
+
+    @property
+    def mirror(self) -> BucketMirror | None:
+        return self._mirror
+
+    @mirror.setter
+    def mirror(self, mirror: BucketMirror | None) -> None:
+        self._mirror = mirror
+        if mirror is not None:
+            mirror.activity = self.activity
 
     def _request(self, path: str, body: dict | None = None):
         req = urllib.request.Request(
@@ -190,15 +245,32 @@ class SawtakTTS:
         with self._lock:
             return self._key_locks.setdefault(key, threading.Lock())
 
-    def _generate(self, text: str, voice: str) -> bytes:
+    def _generate(self, text: str, voice: str, source: str = "") -> bytes:
         """Generate one uncached WAV recording: paced, and at most MAX_CONCURRENT at once."""
+        queued = time.monotonic()
         with self._pace:
             start = max(time.monotonic(), self._next_start)
             self._next_start = start + MIN_REQUEST_INTERVAL
         if start > time.monotonic():
             time.sleep(start - time.monotonic())
         with self._in_flight:
-            return self._generate_now(text, voice)
+            n = self.activity.begin(kind="sawtak", source=source, text=text[:80], voice=voice,
+                                    waited_ms=round((time.monotonic() - queued) * 1000))
+            try:
+                data = self._generate_now(text, voice)
+            except TTSUnavailable as e:
+                self.activity.end(n, status=e.status or "error", message=str(e)[:200])
+                raise
+            except Exception as e:
+                self.activity.end(n, status="error", message=f"{type(e).__name__}: {e}"[:200])
+                raise
+            try:
+                with wave.open(io.BytesIO(data)) as w:
+                    audio = round(w.getnframes() / w.getframerate(), 2)
+            except (wave.Error, EOFError):
+                audio = None
+            self.activity.end(n, status=200, bytes=len(data), audio_s=audio)
+            return data
 
     def _generate_now(self, text: str, voice: str) -> bytes:
         # Sawtak currently returns 320 seconds of silence whenever `temperature` is present,
@@ -262,7 +334,7 @@ class SawtakTTS:
                     "misses": self._cache_misses,
                     "hit_rate": round(self._cache_hits / requests, 4) if requests else None}
 
-    def _wav(self, text: str, voice: str, upload: bool = False) -> tuple[bytes, str]:
+    def _wav(self, text: str, voice: str, upload: bool = False, source: str = "") -> tuple[bytes, str]:
         """Generate or read `text` for an already validated voice id. `upload`: send a new recording to the bucket
         in the background (playback); the cache-warm sweep uploads its own in batches. Different recordings can be
         generated at the same time (see _generate); the same one waits for the first request and then reads it."""
@@ -286,7 +358,7 @@ class SawtakTTS:
             self._count(hit=False)
             # The caller supplies the phrase's Palestinian vowel marks. Sawtak preserves existing
             # marks; enhancement fills remaining pronunciation cues using the selected voice's dialect.
-            data = self._generate(text, voice)
+            data = self._generate(text, voice, source)
             if self.staging_dir is not None:
                 path = self.staging_dir / self.cache_key(text, voice)
             try:
@@ -313,7 +385,7 @@ class SawtakTTS:
 
         def go() -> None:
             try:
-                mirror.upload([(data, mirror.remote_path(rel))])
+                mirror.upload([(data, mirror.remote_path(rel))], source="playback")
             except Exception as e:  # the next cache-warm sweep uploads what is still missing
                 log.warning("tts bucket upload of %s failed: %s", rel, e)
         threading.Thread(target=go, name="ihki-tts-upload", daemon=True).start()
@@ -321,11 +393,11 @@ class SawtakTTS:
     def wav(self, text: str, voice: str = "") -> tuple[bytes, str]:
         """(WAV, voice id) in Raef's voice, or a dialogue line's configured voice."""
         voice = voice if voice in LINE_VOICES.values() else RAEF_VOICE_ID
-        return self._wav(text, voice, upload=True)
+        return self._wav(text, voice, upload=True, source="playback")
 
-    def wav_for_voice(self, text: str, voice: str) -> tuple[bytes, str]:
+    def wav_for_voice(self, text: str, voice: str, source: str = "sweep") -> tuple[bytes, str]:
         """(WAV, voice id) for a teacher-selected, validated Sawtak voice."""
-        return self._wav(text, voice)
+        return self._wav(text, voice, source=source)
 
 
 def load_tts(key: str | None = None) -> SawtakTTS | None:

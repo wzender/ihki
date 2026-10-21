@@ -547,7 +547,7 @@ def test_warm_sweep_uploads_every_cached_wav_to_the_bucket(monkeypatch, tmp_path
     monkeypatch.setattr(app.main, "load_auth", lambda: None)
 
     tts = SawtakTTS("key", cache_dir=tmp_path)
-    monkeypatch.setattr(tts, "_generate", lambda text, voice: b"RIFF" + text.encode())
+    monkeypatch.setattr(tts, "_generate", lambda text, voice, *_: b"RIFF" + text.encode())
     (tmp_path / "legacy.wav").write_bytes(b"old")            # cached before the per-voice layout
     other = tmp_path / "other-voice"; other.mkdir(); (other / "x.wav").write_bytes(b"xx")
 
@@ -557,7 +557,7 @@ def test_warm_sweep_uploads_every_cached_wav_to_the_bucket(monkeypatch, tmp_path
             self.uploads = []
         def remote_sizes(self):
             return {"ihki-tts/other-voice/x.wav": 2}           # already in the bucket: not sent again
-        def upload(self, files):
+        def upload(self, files, source=""):
             self.uploads += [(src if isinstance(src, bytes) else src.read_bytes(), dest) for src, dest in files]
 
     tts.mirror = mirror = FakeMirror()
@@ -2274,7 +2274,7 @@ def test_the_tts_cache_downloads_as_an_offline_zip_with_a_manifest(monkeypatch, 
     monkeypatch.setattr(app.main, "PHRASES", phrases)
     monkeypatch.setattr(app.main, "load_auth", lambda: None)
     tts = SawtakTTS("key", cache_dir=tmp_path)
-    monkeypatch.setattr(tts, "_generate", lambda text, voice: b"RIFF-" + text.encode())
+    monkeypatch.setattr(tts, "_generate", lambda text, voice, *_: b"RIFF-" + text.encode())
     tts.wav(app.main.point_arabic(*phrases[0]["variants"][0]))
     (tmp_path / "stray.wav").write_bytes(b"old")  # a file no phrase names is still included
     with TestClient(create_app(scorer_for(emissions(["w"])), tts, tutor=object())) as c:
@@ -2333,11 +2333,11 @@ def test_with_a_bucket_new_recordings_are_staged_locally_not_written_to_the_moun
     mount, staging = tmp_path / "mount", tmp_path / "staging"
     tts = SawtakTTS("key", cache_dir=mount)
     tts.staging_dir = staging
-    monkeypatch.setattr(tts, "_generate", lambda text, voice: b"RIFF-" + text.encode())
+    monkeypatch.setattr(tts, "_generate", lambda text, voice, *_: b"RIFF-" + text.encode())
     uploaded = []
 
     class Mirror(BucketMirror):
-        def upload(self, files): uploaded.extend(dest for _src, dest in files)
+        def upload(self, files, source=""): uploaded.extend(dest for _src, dest in files)
     tts.mirror = Mirror("user/bucket", "ihki-tts")
 
     data, _ = tts.wav("مرحبا")
@@ -2374,7 +2374,7 @@ def test_an_offline_copy_loads_back_into_the_cache_and_the_bucket(monkeypatch, t
     uploaded = []
 
     class Mirror(BucketMirror):
-        def upload(self, files): uploaded.extend(dest for _src, dest in files)
+        def upload(self, files, source=""): uploaded.extend(dest for _src, dest in files)
     tts.mirror = Mirror("user/bucket", "ihki-tts")
     wav = b"RIFF\0\0\0\0WAVEfmt " + b"\0" * 40
     new, old, legacy = f"{RAEF_VOICE_ID}/{'a' * 40}.wav", f"{RAEF_VOICE_ID}/{'b' * 40}.wav", f"{'c' * 40}.wav"
@@ -2432,3 +2432,48 @@ def test_the_sweep_runs_sawtak_requests_in_parallel_within_the_pace(monkeypatch,
     for t in pair: t.start()
     for t in pair: t.join()
     assert calls == ["مرة"]
+
+
+def test_the_activity_log_shows_each_sawtak_request_and_upload(monkeypatch, tmp_path):
+    import io
+    import wave
+
+    from fastapi.testclient import TestClient
+
+    import app.main
+    import app.tts as tts_module
+    from app.main import create_app
+    from app.tts import RAEF_VOICE_ID, BucketMirror, SawtakTTS, TTSUnavailable
+
+    monkeypatch.setattr(app.main, "load_auth", lambda: None)
+    monkeypatch.setattr(tts_module, "MIN_REQUEST_INTERVAL", 0)
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000); w.writeframes(b"\0" * 48000)
+    tts = SawtakTTS("key", cache_dir=tmp_path)
+
+    def fake(text, voice):
+        if text == "خطأ":
+            raise TTSUnavailable("tts provider error 429: slow down", 429)
+        return buf.getvalue()
+    monkeypatch.setattr(tts, "_generate_now", fake)
+
+    class Mirror(BucketMirror):
+        pass
+    import huggingface_hub
+    monkeypatch.setattr(huggingface_hub, "batch_bucket_files", lambda *a, **k: None)
+    tts.mirror = Mirror("user/bucket")
+    tts.wav_for_voice("مرحبا", RAEF_VOICE_ID)
+    try:
+        tts.wav("خطأ")
+    except TTSUnavailable:
+        pass
+    tts.mirror.upload([(b"RIFF", "ihki-tts/x.wav")], source="sweep")
+    with TestClient(create_app(scorer_for(emissions(["w"])), tts, tutor=object())) as c:
+        data = c.get("/api/tts-cache/activity").json()
+    assert data["active"] == [] and data["pace"]["max_concurrent"] == tts_module.MAX_CONCURRENT
+    upload, failed, ok = data["events"]                         # newest first
+    assert upload["kind"] == "upload" and upload["status"] == "ok" and upload["files"] == 1
+    assert failed["status"] == 429 and failed["source"] == "playback" and "slow down" in failed["message"]
+    assert ok["kind"] == "sawtak" and ok["status"] == 200 and ok["source"] == "sweep" and ok["audio_s"] == 1.0
+    assert ok["text"] == "مرحبا" and ok["ms"] >= 0 and ok["waited_ms"] >= 0

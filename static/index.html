@@ -1235,9 +1235,60 @@ html[data-subject="math"] #bootErr{color:#F08A8A}
 @media (prefers-reduced-motion:reduce){#startBtn,#loginBtn,#roles button,#mailForm{animation:none;opacity:1}#logo-splash{transition:none}}
 #wrap{opacity:1;transition:opacity .65s ease .1s}
 #wrap[inert]{opacity:0}
+/* Accessibility toolbar: available on the splash screen and throughout every app view. */
+.a11y-launch{position:fixed;top:max(12px,env(safe-area-inset-top));left:12px;z-index:100;display:grid;place-items:center;width:46px;height:46px;padding:0;border:2px solid var(--olive);border-radius:50%;background:var(--surface);color:var(--olive);box-shadow:0 3px 12px rgb(0 0 0/.2);font:700 24px/1 var(--f-body);cursor:pointer}
+.a11y-launch:hover,.a11y-launch:focus-visible{background:var(--olive-soft);outline:3px solid var(--surface);outline-offset:2px}
+.a11y-panel{position:fixed;top:max(66px,calc(env(safe-area-inset-top) + 66px));left:12px;z-index:101;width:min(310px,calc(100vw - 24px));padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 8px 28px rgb(0 0 0/.28)}
+.a11y-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.a11y-head strong{font-size:19px}.a11y-close{width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:var(--ink);font:700 18px/1 var(--f-body);cursor:pointer}.a11y-close:hover,.a11y-close:focus-visible{background:var(--olive-soft);outline:2px solid var(--olive)}
+.a11y-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.a11y-grid button{min-height:48px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:700 15px/1.25 var(--f-body);cursor:pointer}.a11y-grid button:hover,.a11y-grid button:focus-visible{border-color:var(--olive);outline:2px solid var(--olive);outline-offset:1px}.a11y-grid button[aria-pressed=true]{border-color:var(--olive);background:var(--olive);color:var(--on-olive)}.a11y-grid .a11y-reset{grid-column:1/-1;color:var(--sumac)}
+html.a11y-font-large{font-size:115%}html.a11y-font-large body{font-size:19px}html.a11y-font-xlarge{font-size:130%}html.a11y-font-xlarge body{font-size:21px}
+html.a11y-contrast{--bg:#000;--surface:#000;--ink:#fff;--muted:#fff;--line:#fff;--olive:#ffeb3b;--olive-deep:#ffeb3b;--on-olive:#000;--olive-soft:#242400;--sumac:#ff8da1;--sumac-bg:#310009;--ok:#70ff9b;--ok-bg:#063d18;--amber:#ffd166;--amber-bg:#3d2b00;--orange:#ffb45b;color-scheme:dark}
+html.a11y-contrast :focus-visible{outline:3px solid #00e5ff!important;outline-offset:3px!important}
+html.a11y-links a{text-decoration:underline!important;text-decoration-thickness:3px!important;text-underline-offset:3px!important}
+html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-motion *::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+@media(max-width:420px){.a11y-launch{top:max(8px,env(safe-area-inset-top));left:8px}.a11y-panel{left:8px;width:calc(100vw - 16px)}}
 </style>
 </head>
 <body class="home">
+<button class="a11y-launch" id="a11yLaunch" type="button" aria-label="פתיחת סרגל נגישות" aria-controls="a11yPanel" aria-expanded="false" title="נגישות">♿</button>
+<section class="a11y-panel" id="a11yPanel" aria-labelledby="a11yTitle" hidden>
+  <div class="a11y-head"><strong id="a11yTitle">אפשרויות נגישות</strong><button class="a11y-close" id="a11yClose" type="button" aria-label="סגירת סרגל הנגישות">✕</button></div>
+  <div class="a11y-grid">
+    <button type="button" data-a11y="font" aria-pressed="false">טקסט גדול</button>
+    <button type="button" data-a11y="contrast" aria-pressed="false">ניגודיות גבוהה</button>
+    <button type="button" data-a11y="links" aria-pressed="false">הדגשת קישורים</button>
+    <button type="button" data-a11y="motion" aria-pressed="false">הפחתת תנועה</button>
+    <button type="button" class="a11y-reset" id="a11yReset">איפוס הגדרות</button>
+  </div>
+</section>
+<script>
+/* Accessibility preferences are local to this device and are applied before the app opens. */
+(()=>{
+  const root=document.documentElement, launch=document.getElementById("a11yLaunch"), panel=document.getElementById("a11yPanel"), close=document.getElementById("a11yClose");
+  const key="ihki.accessibility.v1", defaults={font:0,contrast:false,links:false,motion:false};
+  let prefs={...defaults};
+  try{ prefs={...prefs,...JSON.parse(localStorage.getItem(key)||"{}")} }catch{}
+  const buttons=()=>Object.fromEntries([...panel.querySelectorAll("[data-a11y]")].map(button=>[button.dataset.a11y,button]));
+  const apply=()=>{
+    root.classList.toggle("a11y-font-large",prefs.font===1); root.classList.toggle("a11y-font-xlarge",prefs.font===2);
+    root.classList.toggle("a11y-contrast",prefs.contrast); root.classList.toggle("a11y-links",prefs.links); root.classList.toggle("a11y-reduce-motion",prefs.motion);
+    const b=buttons(); b.font.textContent=["טקסט גדול","טקסט גדול יותר","גודל טקסט רגיל"][prefs.font]; b.font.setAttribute("aria-pressed",String(prefs.font>0));
+    for(const name of ["contrast","links","motion"]) b[name].setAttribute("aria-pressed",String(prefs[name]));
+    try{ localStorage.setItem(key,JSON.stringify(prefs)) }catch{}
+  };
+  const shut=()=>{ panel.hidden=true; launch.setAttribute("aria-expanded","false"); launch.focus({preventScroll:true}); };
+  launch.addEventListener("click",()=>{ const opening=panel.hidden; panel.hidden=!opening; launch.setAttribute("aria-expanded",String(opening)); if(opening) close.focus({preventScroll:true}); });
+  close.addEventListener("click",shut);
+  panel.addEventListener("click",event=>{
+    const button=event.target.closest("[data-a11y]"); if(!button) return;
+    const name=button.dataset.a11y; if(name==="font") prefs.font=(prefs.font+1)%3; else prefs[name]=!prefs[name]; apply();
+  });
+  document.getElementById("a11yReset").addEventListener("click",()=>{ prefs={...defaults}; apply(); });
+  document.addEventListener("keydown",event=>{ if(event.key==="Escape"&&!panel.hidden) shut(); });
+  document.addEventListener("pointerdown",event=>{ if(!panel.hidden&&!panel.contains(event.target)&&event.target!==launch) shut(); });
+  apply();
+})();
+</script>
 <aside class="install-prompt" id="installPrompt" role="dialog" aria-labelledby="installTitle" aria-describedby="installText" hidden>
   <strong id="installTitle">להתקין את אהלא וסהלא?</strong>
   <p id="installText">כך אפשר לפתוח את האתר כמו אפליקציה ישר ממסך הבית.</p>
@@ -4931,7 +4982,33 @@ function drawTtsCacheControls(box){
     }catch(err){ msg.textContent="המחיקה נכשלה: "+err.message; }
     button.disabled=false;
   };
-  row.append(warm,halt,offline,load,loadFile,button,msg); card.append(title,text,usage,progress,progressLabel,row); box.append(card);
+  row.append(warm,halt,offline,load,loadFile,button,msg); card.append(title,text,usage,progress,progressLabel,row,drawTtsActivity(card)); box.append(card);
+}
+// "what is happening now": Sawtak requests and bucket uploads in flight, and the latest results (GET /api/tts-cache/activity)
+function drawTtsActivity(card){
+  const details=document.createElement("details"), summary=mark("","מה קורה עכשיו","summary"), pace=mark("msg","","div"), stats=mark("msg","","div"), active=mark("","","div"), wrap=mark("","","div"), table=document.createElement("table");
+  wrap.style.cssText="overflow-x:auto;max-height:340px;overflow-y:auto"; table.style.cssText="width:100%;border-collapse:collapse;font-size:.85em";
+  details.style.marginTop="12px"; summary.style.cssText="cursor:pointer;font-weight:600"; wrap.append(table); details.append(summary,pace,stats,active,wrap);
+  const SOURCE={sweep:"הכנה",playback:"השמעה",import:"טעינה"}, secs=ms=>ms==null?"–":ms<1000?`${ms} ms`:`${(ms/1000).toFixed(1)} שנ׳`;
+  const result=e=>e.status===200||e.status==="ok"?"✓":e.status===429?"429 · הגבלת קצב":typeof e.status==="number"&&e.status>=500?`${e.status} · תקלה אצל Sawtak`:typeof e.status==="number"?`${e.status} · נדחה`:"שגיאה";
+  const what=e=>e.kind==="upload"?(e.files>1?`${e.files} קבצים · ${(e.bytes/1048576).toFixed(1)} MB`:(e.text||"קובץ אחד")):(e.text||"");
+  const cell=(tr,text,head)=>{ const c=document.createElement(head?"th":"td"); c.textContent=text; c.dir="auto"; c.style.cssText="padding:4px 6px;border-bottom:1px solid #8884;text-align:start;white-space:nowrap"; tr.append(c); return c; };
+  let timer=0;
+  const render=data=>{
+    const p=data.pace; pace.textContent=p?`קצב מותר לשרת הזה: עד ${p.per_minute} בקשות ל־Sawtak בדקה, עד ${p.max_concurrent} במקביל (ההכנה מריצה ${p.sweep_workers}).`:"";
+    const recent=data.events.filter(e=>e.kind==="sawtak"&&data.now-e.at<=300), ok=recent.filter(e=>e.status===200), bad=recent.length-ok.length;
+    const avg=ok.length?ok.reduce((n,e)=>n+e.ms,0)/ok.length:null, waited=ok.length?ok.reduce((n,e)=>n+(e.waited_ms||0),0)/ok.length:null;
+    stats.textContent=`ב־5 הדקות האחרונות: ${recent.length} בקשות ל־Sawtak (${(recent.length/5).toFixed(1)} לדקה)`+(avg!=null?` · משך ממוצע ${secs(Math.round(avg))} · המתנה ממוצעת לתור ${secs(Math.round(waited))}`:"")+(bad?` · ${bad} נכשלו`:"");
+    active.replaceChildren(); for(const a of data.active){ const line=mark("msg","","div"); line.dir="auto"; line.textContent=`⏳ ${a.kind==="upload"?"מעלה לדלי":"שולח ל־Sawtak"} · ${SOURCE[a.source]||a.source||""} · ${what(a)} · ${secs(a.elapsed_ms)}`; active.append(line); }
+    if(!data.active.length) active.append(mark("msg","אין כרגע בקשות פעילות.","div"));
+    table.replaceChildren(); const head=document.createElement("tr"); for(const h of ["שעה","יעד","מקור","מה נשלח","תוצאה","משך","המתנה בתור","אורך השמע"]) cell(head,h,true); table.append(head);
+    for(const e of data.events){ const tr=document.createElement("tr"); cell(tr,new Date(e.at*1000).toLocaleTimeString("he-IL")); cell(tr,e.kind==="upload"?"דלי":"Sawtak"); cell(tr,SOURCE[e.source]||e.source||""); cell(tr,what(e)); const r=cell(tr,result(e)); if(e.message) r.title=e.message; if(r.textContent!=="✓") r.style.color="#c0392b"; cell(tr,secs(e.ms)); cell(tr,e.kind==="sawtak"?secs(e.waited_ms):""); cell(tr,e.audio_s!=null?`${e.audio_s} שנ׳`:""); table.append(tr); }
+    if(!data.events.length){ const tr=document.createElement("tr"); cell(tr,"עוד לא נשלחו בקשות מאז שהשרת עלה.").colSpan=8; table.append(tr); }
+  };
+  const tick=()=>{ clearTimeout(timer); if(!details.open||!card.isConnected) return;
+    api("/api/tts-cache/activity").then(async res=>{const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); render(data);}).catch(err=>{stats.textContent="נתוני הפעילות לא זמינים: "+err.message;}).finally(()=>{ if(details.open&&card.isConnected) timer=setTimeout(tick,2000); }); };
+  details.ontoggle=tick; details.open=true;   // open by default; closing it stops the refresh
+  return details;
 }
 // how to get each key, step by step: a step is its parts, text or [text, link]
 const KEY_GUIDES={
