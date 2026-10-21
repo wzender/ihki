@@ -77,6 +77,7 @@ CACHE_MAX = 2000
 PAGE = 1000  # rows per request: Supabase's default ceiling
 MAX_ATTEMPTS = 20_000  # of one student, read for their progress
 MAX_CLASS_ATTEMPTS = 200_000  # of all students, read for the teacher's panel
+MAX_MONITOR_ATTEMPTS = 5_000  # newest attempts sampled for pronunciation patterns in monitoring
 CLASSES_TTL = 60  # seconds the class list is trusted without reading it again (each sign-in check uses it)
 
 # Application-owned data. Supabase's auth users and managed schemas are deliberately not copied.
@@ -929,12 +930,17 @@ class SupabaseAuth:
             return 0
 
     def all_attempt_issues(self) -> list[dict] | None:
-        """Compact phoneme issues from all attempts. None means the diagnostic columns have not been migrated yet."""
+        """Compact phoneme issues from recent attempts. None means the diagnostic columns have not been migrated.
+
+        Monitoring only needs a useful recent sample; bounding this query keeps opening the panel independent of the
+        full, ever-growing attempt history. Rows are requested newest first.
+        """
         rows: list[dict] = []
-        while len(rows) < MAX_CLASS_ATTEMPTS:
+        while len(rows) < MAX_MONITOR_ATTEMPTS:
+            limit = min(PAGE, MAX_MONITOR_ATTEMPTS - len(rows))
             query = urllib.parse.urlencode({"select": "user_id,phrase,score,issues,model,version",
                                             "unrelated": "is.false", "order": "id.desc",
-                                            "limit": PAGE, "offset": len(rows)})
+                                            "limit": limit, "offset": len(rows)})
             try:
                 batch = self._admin(f"/rest/v1/attempts?{query}")
             except AuthUnavailable as e:
@@ -942,7 +948,7 @@ class SupabaseAuth:
                     return None
                 raise
             rows += batch
-            if len(batch) < PAGE:
+            if len(batch) < limit:
                 break
         return rows
 
