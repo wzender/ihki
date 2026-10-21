@@ -529,7 +529,7 @@ def test_monitoring_can_warm_the_unique_tts_bank(monkeypatch):
             import time; time.sleep(.01)
         assert state == {"running": False, "voice_id": RAEF_VOICE_ID, "total": 2, "done": 2, "generated": 1,
                          "skipped": 1, "failed": 0, "current": "", "waiting": 0, "error": "",
-                         "bucket": "", "uploaded": 0, "upload_failed": 0, "upload_error": ""}
+                         "bucket": "", "uploaded": 0, "upload_failed": 0, "upload_error": "", "stopped": False}
         assert [voice for _text, voice in tts.calls] == [RAEF_VOICE_ID]  # the cached one is not read again
 
 
@@ -2286,3 +2286,38 @@ def test_the_tts_cache_downloads_as_an_offline_zip_with_a_manifest(monkeypatch, 
     assert zf.read(key).startswith(b"RIFF-")
     manifest = zf.read("manifest.csv").decode("utf-8-sig")
     assert "שלום" in manifest and RAEF_VOICE_ID in manifest and "ihki-tts/stray.wav" in manifest
+
+
+def test_the_warm_sweep_stops_on_request_and_keeps_what_it_made(monkeypatch):
+    import threading
+    import time
+
+    from fastapi.testclient import TestClient
+
+    import app.main
+    from app.main import create_app
+    from app.tts import RAEF_VOICE_ID
+
+    phrases = [{"variants": [(word, "a")]} for word in ("واحد", "اثنين", "ثلاثة", "اربعة")]
+    monkeypatch.setattr(app.main, "PHRASES", phrases)
+    monkeypatch.setattr(app.main, "load_auth", lambda: None)
+    first_started, release = threading.Event(), threading.Event()
+
+    class SlowTTS:
+        def __init__(self): self.calls = []
+        def cached(self, text, voice): return False
+        def wav_for_voice(self, text, voice):
+            self.calls.append(text); first_started.set(); release.wait(5); return b"RIFF", voice
+        def cache_stats(self): return {"files": 0, "bytes": 0, "hits": 0, "misses": 0, "hit_rate": None}
+
+    tts = SlowTTS()
+    with TestClient(create_app(scorer_for(emissions(["w"])), tts, tutor=object())) as c:
+        assert c.post("/api/tts-cache/warm", json={"voice_id": RAEF_VOICE_ID}).json()["total"] == 4
+        assert first_started.wait(5)
+        assert c.post("/api/tts-cache/warm/stop").status_code == 200
+        release.set()  # the phrase in progress finishes and is kept; no further phrase starts
+        for _ in range(200):
+            state = c.get("/api/tts-cache").json()["warm"]
+            if not state["running"]: break
+            time.sleep(.01)
+    assert state["stopped"] is True and state["done"] == state["generated"] == 1 and len(tts.calls) == 1

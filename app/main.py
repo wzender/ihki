@@ -480,8 +480,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         app.state.tts = tts or load_tts(app.state.keys.get("SAWTAK_API_KEY"))
         app.state.tts_warm = {"running": False, "voice_id": "", "total": 0, "done": 0, "generated": 0,
                               "skipped": 0, "failed": 0, "current": "", "waiting": 0, "error": "",
-                              "bucket": "", "uploaded": 0, "upload_failed": 0, "upload_error": ""}
+                              "bucket": "", "uploaded": 0, "upload_failed": 0, "upload_error": "", "stopped": False}
         app.state.tts_warm_lock = threading.Lock()
+        app.state.tts_warm_stop = threading.Event()  # set by POST /api/tts-cache/warm/stop
         app.state.tutor = tutor or load_tutor(app.state.keys.get("ANTHROPIC_API_KEY"), app.state.keys.get("TUTOR_MODEL"))
         # the playback voices double as the native baseline of the scores (see reference.py)
         app.state.refs = References(app.state.scorer, app.state.tts, list(VOICES.values())) if app.state.tts else None
@@ -2596,7 +2597,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             app.state.tts_warm = {"running": True, "voice_id": voice, "total": len(jobs), "done": 0, "generated": 0,
                                   "skipped": 0, "failed": 0, "current": "", "waiting": 0, "error": "",
                                   "bucket": mirror.bucket_id if mirror else "", "uploaded": 0, "upload_failed": 0,
-                                  "upload_error": ""}
+                                  "upload_error": "", "stopped": False}
+            stop = app.state.tts_warm_stop
+            stop.clear()
 
         # Every WAV is also uploaded to the Storage Bucket through its API (see tts.BucketMirror): writes to the
         # mounted /data folder alone did not reach the bucket. Files already there with the same size are not resent.
@@ -2641,6 +2644,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                     with app.state.tts_warm_lock:
                         app.state.tts_warm["upload_error"] = f"listing failed: {str(e)[:300]}"
             for text in jobs:
+                if stop.is_set():
+                    break
                 with app.state.tts_warm_lock:
                     app.state.tts_warm["current"] = text
                 try:
@@ -2651,7 +2656,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                             app.state.tts_warm["skipped"] += 1
                             app.state.tts_warm["done"] += 1
                         continue
-                    was_cached = False
+                    was_cached = interrupted = False
                     for attempt in range(5):
                         try:
                             data, _used = tts.wav_for_voice(text, voice)  # serialised: one request in this replica
@@ -2664,9 +2669,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                             delay = max(.2, min(e.retry_after or 2 ** (attempt + 1), 60))
                             with app.state.tts_warm_lock:
                                 app.state.tts_warm["waiting"] = round(delay, 1)
-                            time.sleep(delay)
+                            interrupted = stop.wait(delay)  # a stop request ends the wait at once
                             with app.state.tts_warm_lock:
                                 app.state.tts_warm["waiting"] = 0
+                            if interrupted:
+                                break
+                    if interrupted:
+                        break
                     with app.state.tts_warm_lock:
                         app.state.tts_warm["skipped" if was_cached else "generated"] += 1
                         app.state.tts_warm["done"] += 1
@@ -2676,7 +2685,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                         app.state.tts_warm["failed"] += 1
                         app.state.tts_warm["error"] = str(e)
                     break
-            if mirror is not None:
+            if mirror is not None and stop.is_set():
+                flush()  # what was generated before the stop still reaches the bucket; the full pass waits for next run
+            elif mirror is not None:
                 # also everything cached earlier: other voices, playback misses, the legacy flat layout
                 with app.state.tts_warm_lock:
                     app.state.tts_warm["current"] = "uploading cached files"
@@ -2689,8 +2700,16 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             with app.state.tts_warm_lock:
                 app.state.tts_warm["running"] = False
                 app.state.tts_warm["current"] = ""
+                app.state.tts_warm["stopped"] = stop.is_set()
 
         threading.Thread(target=run, name="ihki-tts-warm", daemon=True).start()
+        with app.state.tts_warm_lock:
+            return dict(app.state.tts_warm)
+
+    @app.post("/api/tts-cache/warm/stop")
+    def stop_tts_cache_warm(_a: SupabaseAuth = Depends(teacher_only)):
+        """Ask the running sweep to stop after its current phrase. Nothing is lost: the next run resumes."""
+        app.state.tts_warm_stop.set()
         with app.state.tts_warm_lock:
             return dict(app.state.tts_warm)
 

@@ -35,7 +35,12 @@ def test_sawtak_keeps_pronunciation_enhancement_on_for_pointed_input(tmp_path):
         def __exit__(self, *_args):
             pass
 
-        def read(self):
+        sent = False
+
+        def read(self, _n=-1):  # the audio once, then the end of the stream
+            if self.sent:
+                return b""
+            self.sent = True
             return b"\0" * 5000
 
     tts = SawtakTTS("key", cache_dir=tmp_path)
@@ -66,7 +71,12 @@ def test_raef_recording_is_cached_and_cache_can_be_cleared(tmp_path):
         def __exit__(self, *_args):
             pass
 
-        def read(self):
+        sent = False
+
+        def read(self, _n=-1):  # the audio once, then the end of the stream
+            if self.sent:
+                return b""
+            self.sent = True
             return b"\0" * 5000
 
     tts = SawtakTTS("key", cache_dir=tmp_path)
@@ -129,7 +139,7 @@ def test_a_cut_off_audio_download_is_a_retryable_tts_error(tmp_path, monkeypatch
         headers = {"X-Sample-Rate": "24000"}
         def __enter__(self): return self
         def __exit__(self, *a): return False
-        def read(self): raise http.client.IncompleteRead(b"x" * 6640)
+        def read(self, _n=-1): raise http.client.IncompleteRead(b"x" * 6640)
 
     tts = SawtakTTS("key", cache_dir=tmp_path)
     monkeypatch.setattr(tts, "_request", lambda path, body=None: Broken())
@@ -138,3 +148,23 @@ def test_a_cut_off_audio_download_is_a_retryable_tts_error(tmp_path, monkeypatch
     assert e.value.transient
     assert TTSUnavailable("x", 429).transient and TTSUnavailable("x", 502).transient
     assert not TTSUnavailable("x", 400).transient and not TTSUnavailable("no audio").transient
+
+
+def test_an_endless_audio_stream_is_abandoned_and_retryable(tmp_path, monkeypatch):
+    import pytest
+
+    import app.tts as tts_module
+    from app.tts import SawtakTTS, TTSUnavailable
+
+    class Endless:  # Sawtak's failure mode: minutes of silence, still streaming
+        headers = {"X-Sample-Rate": "24000"}
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self, n=-1): return b"\0" * 65536
+
+    monkeypatch.setattr(tts_module, "MAX_AUDIO_SECONDS", 5)
+    tts = SawtakTTS("key", cache_dir=tmp_path)
+    monkeypatch.setattr(tts, "_request", lambda path, body=None: Endless())
+    with pytest.raises(TTSUnavailable) as e:
+        tts.wav("مرحبا")
+    assert e.value.transient and not list(tmp_path.rglob("*.wav"))

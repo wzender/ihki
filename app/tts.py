@@ -28,7 +28,9 @@ log = logging.getLogger("ihki.tts")
 BASE_URL = "https://api.sawtakarabi.ai/v1"
 MODEL = "arabic-tts-1"
 CACHE_VERSION = "raef-pointed-enhanced-provider-default-v1"
-TIMEOUT = 60
+TIMEOUT = 60  # per socket operation: a response that keeps trickling never hits it, hence the two caps below
+MAX_SECONDS = 90  # one whole generation, download included
+MAX_AUDIO_SECONDS = 60  # the longest phrase is ~240 characters; Sawtak's broken answer is minutes of silence
 MIN_REQUEST_INTERVAL = .2  # spacing between Sawtak requests; the account allows 60/minute (docs/limits), 429s are retried
 # The single Sawtak voice used throughout the application.
 RAEF_VOICE_ID = "273d81b2-991b-5b76-8525-eeacc6a3d759"
@@ -156,11 +158,19 @@ class SawtakTTS:
                                              "response_format": "pcm", "enhance_pronunciation": True,
                                              }) as res:
             rate = int(res.headers.get("X-Sample-Rate", 24000))
+            started, parts, size = time.monotonic(), [], 0
             try:
-                pcm = res.read()
+                while chunk := res.read(65536):
+                    parts.append(chunk)
+                    size += len(chunk)
+                    if size > rate * 2 * MAX_AUDIO_SECONDS or time.monotonic() - started > MAX_SECONDS:
+                        log.warning("sawtak audio for %r abandoned: %d bytes after %.0fs", text[:40], size,
+                                    time.monotonic() - started)
+                        raise TTSUnavailable("tts provider sent overlong or stalled audio", transient=True)
             except (http.client.HTTPException, OSError) as e:  # e.g. IncompleteRead: the audio arrived cut off
                 log.warning("sawtak audio download broke: %s: %s", type(e).__name__, e)
                 raise TTSUnavailable("tts audio download broke off", transient=True) from None
+            pcm = b"".join(parts)
         if len(pcm) < rate // 5:
             raise TTSUnavailable("tts provider returned no audio")
         buf = io.BytesIO()
