@@ -116,3 +116,25 @@ def test_only_raef_is_offered_and_is_the_configured_default(monkeypatch):
     assert tts.voice_id == RAEF_VOICE_ID
 
 
+
+
+def test_a_cut_off_audio_download_is_a_retryable_tts_error(tmp_path, monkeypatch):
+    import http.client
+
+    import pytest
+
+    from app.tts import SawtakTTS, TTSUnavailable
+
+    class Broken:
+        headers = {"X-Sample-Rate": "24000"}
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self): raise http.client.IncompleteRead(b"x" * 6640)
+
+    tts = SawtakTTS("key", cache_dir=tmp_path)
+    monkeypatch.setattr(tts, "_request", lambda path, body=None: Broken())
+    with pytest.raises(TTSUnavailable) as e:
+        tts.wav("مرحبا")
+    assert e.value.transient
+    assert TTSUnavailable("x", 429).transient and TTSUnavailable("x", 502).transient
+    assert not TTSUnavailable("x", 400).transient and not TTSUnavailable("no audio").transient

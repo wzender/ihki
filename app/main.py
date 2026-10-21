@@ -2595,10 +2595,10 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                             if mirror is not None:  # the disk copy if it was kept, else the bytes themselves
                                 queue(tts.cache_file(text, voice) or data, tts.cache_key(text, voice))
                             break
-                        except TTSUnavailable as e:
-                            if e.status != 429 or attempt == 4:
+                        except TTSUnavailable as e:  # rate limit, provider 5xx or a dropped connection: retry
+                            if not e.transient or attempt == 4:
                                 raise
-                            delay = max(.2, min(e.retry_after or 2 ** attempt, 60))
+                            delay = max(.2, min(e.retry_after or 2 ** (attempt + 1), 60))
                             with app.state.tts_warm_lock:
                                 app.state.tts_warm["waiting"] = round(delay, 1)
                             time.sleep(delay)

@@ -12,6 +12,7 @@ Env:  SAWTAK_API_KEY   required; without it /api/tts answers 503 and the page fa
 from __future__ import annotations
 
 import hashlib
+import http.client
 import io
 import json
 import logging
@@ -28,7 +29,7 @@ BASE_URL = "https://api.sawtakarabi.ai/v1"
 MODEL = "arabic-tts-1"
 CACHE_VERSION = "raef-pointed-enhanced-provider-default-v1"
 TIMEOUT = 60
-MIN_REQUEST_INTERVAL = .2  # <=300/minute, leaving half the account-wide Sawtak allowance for other clients
+MIN_REQUEST_INTERVAL = .2  # spacing between Sawtak requests; the account allows 60/minute (docs/limits), 429s are retried
 # The single Sawtak voice used throughout the application.
 RAEF_VOICE_ID = "273d81b2-991b-5b76-8525-eeacc6a3d759"
 VOICES = {"רַאאִף": RAEF_VOICE_ID}
@@ -38,9 +39,12 @@ LINE_VOICES = {"חנאן": "e41781f5-127c-5eb0-b83c-50bf52a64caf"}
 class TTSUnavailable(Exception):
     """No key configured, or the provider refused / failed. The message is safe to show."""
 
-    def __init__(self, message: str, status: int | None = None, retry_after: float | None = None):
+    def __init__(self, message: str, status: int | None = None, retry_after: float | None = None,
+                 transient: bool = False):
         super().__init__(message)
         self.status, self.retry_after = status, retry_after
+        # worth retrying: rate limited, a provider-side 5xx, or the connection dropped mid-request
+        self.transient = transient or status == 429 or (status is not None and status >= 500)
 
 
 class BucketMirror:
@@ -107,7 +111,7 @@ class SawtakTTS:
                                  e.code, retry_after) from None
         except OSError as e:
             log.warning("sawtak %s unreachable: %s", path, e)
-            raise TTSUnavailable("tts provider unreachable") from None
+            raise TTSUnavailable("tts provider unreachable", transient=True) from None
 
     def _path(self, text: str, voice: str) -> Path:
         name = hashlib.sha1(f"{CACHE_VERSION}|{MODEL}|{voice}|{text}".encode()).hexdigest() + ".wav"
@@ -152,7 +156,11 @@ class SawtakTTS:
                                              "response_format": "pcm", "enhance_pronunciation": True,
                                              }) as res:
             rate = int(res.headers.get("X-Sample-Rate", 24000))
-            pcm = res.read()
+            try:
+                pcm = res.read()
+            except (http.client.HTTPException, OSError) as e:  # e.g. IncompleteRead: the audio arrived cut off
+                log.warning("sawtak audio download broke: %s: %s", type(e).__name__, e)
+                raise TTSUnavailable("tts audio download broke off", transient=True) from None
         if len(pcm) < rate // 5:
             raise TTSUnavailable("tts provider returned no audio")
         buf = io.BytesIO()
