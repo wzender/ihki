@@ -2512,3 +2512,34 @@ def test_the_sweep_decides_what_exists_from_the_bucket_listing_not_the_mount(mon
             if not state["running"]: break
             time.sleep(.01)
     assert (state["skipped"], state["generated"], state["to_generate"], state["failed"]) == (2, 1, 1, 0)
+
+
+def test_a_slow_cache_count_does_not_hold_up_generation(monkeypatch, tmp_path):
+    import threading
+    import time
+
+    import app.tts as tts_module
+    from app.tts import RAEF_VOICE_ID, SawtakTTS
+
+    monkeypatch.setattr(tts_module, "MIN_REQUEST_INTERVAL", 0)
+    tts = SawtakTTS("key", cache_dir=tmp_path)
+    monkeypatch.setattr(tts, "_generate_now", lambda text, voice: b"RIFF" + text.encode())
+    walking = threading.Event()
+
+    def slow_walk():  # a bucket mount: tens of seconds for the whole folder
+        walking.set(); time.sleep(1); return []
+    monkeypatch.setattr(tts, "cached_files", slow_walk)
+    counter = threading.Thread(target=tts.cache_stats); counter.start()
+    assert walking.wait(2)
+    t0 = time.monotonic()
+    tts.wav_for_voice("مرحبا", RAEF_VOICE_ID)
+    assert time.monotonic() - t0 < .5                                # not behind the walk
+    counter.join()
+    walking.clear()
+    tts._disk = (time.monotonic() - 60, 7, 70)                       # a stale count: the next call walks again
+    counter = threading.Thread(target=tts.cache_stats); counter.start()
+    assert walking.wait(2)
+    t0 = time.monotonic()
+    stats = tts.cache_stats()                                        # meanwhile a panel refresh gets the last count
+    assert time.monotonic() - t0 < .5 and stats["files"] == 7 and stats["misses"] == 1
+    counter.join()

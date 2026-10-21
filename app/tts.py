@@ -134,7 +134,13 @@ class SawtakTTS:
         self.api_key, self.voice_id = api_key, RAEF_VOICE_ID
         self.voice_name = "רַאאִף"
         self.cache_dir = cache_dir or Path.home() / ".cache" / "ihki-tts"
-        self._lock = threading.Lock()  # guards the counters and clearing the cache
+        # Separate locks, so nothing slow holds up a generation: walking a bucket-mounted cache folder for the
+        # panel's file count takes tens of seconds, and it once stalled every sweep worker behind it.
+        self._lock = threading.Lock()  # clearing the cache
+        self._counts = threading.Lock()  # the hit and miss counters
+        self._keys_guard = threading.Lock()  # the per-recording locks
+        self._stats_lock = threading.Lock()  # one disk walk at a time for cache_stats
+        self._disk: tuple[float, int, int] | None = None  # (when, files, bytes) of the last walk
         self._pace = threading.Lock()  # hands out request start times, MIN_REQUEST_INTERVAL apart
         self._next_start = 0.0
         self._in_flight = threading.Semaphore(MAX_CONCURRENT)
@@ -242,7 +248,7 @@ class SawtakTTS:
             self._next_start = max(self._next_start, time.monotonic() + seconds)
 
     def _key_lock(self, key: str) -> threading.Lock:
-        with self._lock:
+        with self._keys_guard:
             return self._key_locks.setdefault(key, threading.Lock())
 
     def _generate(self, text: str, voice: str, source: str = "") -> bytes:
@@ -316,23 +322,33 @@ class SawtakTTS:
                         pass
                     except OSError as e:
                         raise TTSUnavailable(f"could not clear voice cache: {e}") from None
-            self._cache_hits = self._cache_misses = 0
+            with self._counts:
+                self._cache_hits = self._cache_misses = 0
+            self._disk = None
             return removed
 
-    def cache_stats(self) -> dict:
-        """Anonymous disk and process-lifetime cache usage for the monitoring panel."""
-        with self._lock:
-            files = size = 0
-            try:
-                for path, _rel in self.cached_files():
-                    files += 1
-                    size += path.stat().st_size
-            except OSError as e:
-                raise TTSUnavailable(f"could not inspect voice cache: {e}") from None
-            requests = self._cache_hits + self._cache_misses
-            return {"files": files, "bytes": size, "hits": self._cache_hits,
-                    "misses": self._cache_misses,
-                    "hit_rate": round(self._cache_hits / requests, 4) if requests else None}
+    def cache_stats(self, max_age: float = 30) -> dict:
+        """Anonymous disk and process-lifetime cache usage for the monitoring panel. The file count is reused for
+        `max_age` seconds, and while one walk runs other callers get the previous count instead of waiting."""
+        disk = self._disk
+        if disk is None or time.monotonic() - disk[0] > max_age:
+            if self._stats_lock.acquire(blocking=disk is None):
+                try:
+                    files = size = 0
+                    for path, _rel in self.cached_files():
+                        files += 1
+                        size += path.stat().st_size
+                    disk = self._disk = (time.monotonic(), files, size)
+                except OSError as e:
+                    raise TTSUnavailable(f"could not inspect voice cache: {e}") from None
+                finally:
+                    self._stats_lock.release()
+            disk = self._disk or disk
+        with self._counts:
+            hits, misses = self._cache_hits, self._cache_misses
+        requests = hits + misses
+        return {"files": disk[1] if disk else 0, "bytes": disk[2] if disk else 0, "hits": hits, "misses": misses,
+                "hit_rate": round(hits / requests, 4) if requests else None}
 
     def _wav(self, text: str, voice: str, upload: bool = False, source: str = "") -> tuple[bytes, str]:
         """Generate or read `text` for an already validated voice id. `upload`: send a new recording to the bucket
@@ -373,7 +389,7 @@ class SawtakTTS:
             return data, voice
 
     def _count(self, hit: bool) -> None:
-        with self._lock:
+        with self._counts:
             if hit:
                 self._cache_hits += 1
             else:
