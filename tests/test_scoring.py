@@ -530,7 +530,8 @@ def test_monitoring_can_warm_the_unique_tts_bank(monkeypatch):
         assert state.pop("started_at") > 0
         assert state == {"running": False, "voice_id": RAEF_VOICE_ID, "total": 2, "done": 2, "generated": 1,
                          "skipped": 1, "failed": 0, "current": "", "waiting": 0, "error": "",
-                         "bucket": "", "uploaded": 0, "upload_failed": 0, "upload_error": "", "stopped": False}
+                         "bucket": "", "uploaded": 0, "upload_failed": 0, "upload_error": "", "stopped": False,
+                         "phase": "", "to_generate": 1}
         assert [voice for _text, voice in tts.calls] == [RAEF_VOICE_ID]  # the cached one is not read again
 
 
@@ -2477,3 +2478,37 @@ def test_the_activity_log_shows_each_sawtak_request_and_upload(monkeypatch, tmp_
     assert failed["status"] == 429 and failed["source"] == "playback" and "slow down" in failed["message"]
     assert ok["kind"] == "sawtak" and ok["status"] == 200 and ok["source"] == "sweep" and ok["audio_s"] == 1.0
     assert ok["text"] == "مرحبا" and ok["ms"] >= 0 and ok["waited_ms"] >= 0
+
+
+def test_the_sweep_decides_what_exists_from_the_bucket_listing_not_the_mount(monkeypatch, tmp_path):
+    import time
+
+    from fastapi.testclient import TestClient
+
+    import app.main
+    import app.tts as tts_module
+    from app.main import create_app
+    from app.tts import RAEF_VOICE_ID, BucketMirror, SawtakTTS
+
+    monkeypatch.setattr(tts_module, "MIN_REQUEST_INTERVAL", 0)
+    words = ["واحد", "اثنين", "ثلاثة"]
+    monkeypatch.setattr(app.main, "PHRASES", [{"variants": [(w, "a")]} for w in words])
+    monkeypatch.setattr(app.main, "load_auth", lambda: None)
+    tts = SawtakTTS("key", cache_dir=tmp_path / "mount")
+    tts.staging_dir = tmp_path / "staging"
+    monkeypatch.setattr(tts, "cached", lambda *a: (_ for _ in ()).throw(AssertionError("asked the slow mount")))
+    monkeypatch.setattr(tts, "_generate_now", lambda text, voice: b"RIFF" + text.encode())
+    keys = [tts.cache_key(app.main.point_arabic(w, "a"), RAEF_VOICE_ID) for w in words]
+
+    class Mirror(BucketMirror):
+        def remote_sizes(self):  # the first in the per-voice layout, the second in the legacy flat one
+            return {f"ihki-tts/{keys[0]}": 10, f"ihki-tts/{keys[1].rsplit('/', 1)[-1]}": 10}
+        def upload(self, files, source=""): pass
+    tts.mirror = Mirror("user/bucket")
+    with TestClient(create_app(scorer_for(emissions(["w"])), tts, tutor=object())) as c:
+        c.post("/api/tts-cache/warm", json={"voice_id": RAEF_VOICE_ID})
+        for _ in range(300):
+            state = c.get("/api/tts-cache").json()["warm"]
+            if not state["running"]: break
+            time.sleep(.01)
+    assert (state["skipped"], state["generated"], state["to_generate"], state["failed"]) == (2, 1, 1, 0)

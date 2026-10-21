@@ -30,6 +30,7 @@ import zipfile
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from queue import Queue
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
@@ -484,7 +485,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         app.state.tts_warm = {"running": False, "voice_id": "", "total": 0, "done": 0, "generated": 0,
                               "skipped": 0, "failed": 0, "current": "", "waiting": 0, "error": "",
                               "bucket": "", "uploaded": 0, "upload_failed": 0, "upload_error": "", "stopped": False,
-                              "started_at": 0}
+                              "started_at": 0, "phase": "", "to_generate": 0}
         app.state.tts_warm_lock = threading.Lock()
         app.state.tts_warm_stop = threading.Event()  # set by POST /api/tts-cache/warm/stop
         app.state.tutor = tutor or load_tutor(app.state.keys.get("ANTHROPIC_API_KEY"), app.state.keys.get("TUTOR_MODEL"))
@@ -2669,7 +2670,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             app.state.tts_warm = {"running": True, "voice_id": voice, "total": len(jobs), "done": 0, "generated": 0,
                                   "skipped": 0, "failed": 0, "current": "", "waiting": 0, "error": "",
                                   "bucket": mirror.bucket_id if mirror else "", "uploaded": 0, "upload_failed": 0,
-                                  "upload_error": "", "stopped": False, "started_at": time.time()}
+                                  "upload_error": "", "stopped": False, "started_at": time.time(),
+                                  "phase": "scanning", "to_generate": 0}
             stop = app.state.tts_warm_stop
             stop.clear()
 
@@ -2749,34 +2751,32 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             return False
 
         def run() -> None:
+            listed = False
             if mirror is not None:
                 try:
                     remote.update(mirror.remote_sizes())
+                    listed = True
                 except Exception as e:  # listing failed: upload everything; the uploads report their own errors
                     log.warning("tts bucket listing failed: %s", e)
                     with app.state.tts_warm_lock:
                         app.state.tts_warm["upload_error"] = f"listing failed: {str(e)[:300]}"
-            # Already cached: skip without reading it (the cache can sit on a bucket mount, where reading each WAV is
-            # a network fetch); the upload pass at the end still sends it if the bucket lacks it.
-            todo = []
-            for text in jobs:
-                if stop.is_set():
-                    break
-                try:
-                    cached = tts.cached(text, voice)
-                except OSError:
-                    cached = False
-                if cached:
-                    bump(skipped=1, done=1)
-                else:
-                    todo.append(text)
-            work = iter(todo)
-            take = threading.Lock()
+
+            def is_cached(text: str) -> bool:
+                """With a bucket listing: the local staging folder or the listing, both instant. Asking the bucket
+                mount instead costs a network lookup per missing file, minutes for the whole bank."""
+                if not listed or getattr(tts, "staging_dir", None) is None:
+                    return tts.cached(text, voice)
+                rel = tts.cache_key(text, voice)
+                return ((tts.staging_dir / rel).is_file() or mirror.remote_path(rel) in remote
+                        or mirror.remote_path(rel.rsplit("/", 1)[-1]) in remote)
+
+            # Already cached: skip without reading it. The upload pass at the end still sends it if the bucket
+            # lacks it. Workers start on the missing phrases while the scan goes on.
+            work: Queue = Queue()
 
             def worker() -> None:
                 while not (stop.is_set() or halted.is_set()):
-                    with take:
-                        text = next(work, None)
+                    text = work.get()
                     if text is None:
                         return
                     with app.state.tts_warm_lock:
@@ -2795,6 +2795,22 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                        for i in range(WARM_WORKERS)]
             for w in workers:
                 w.start()
+            for text in jobs:
+                if stop.is_set() or halted.is_set():
+                    break
+                try:
+                    cached = is_cached(text)
+                except OSError:
+                    cached = False
+                if cached:
+                    bump(skipped=1, done=1)
+                else:
+                    bump(to_generate=1)
+                    work.put(text)
+            with app.state.tts_warm_lock:
+                app.state.tts_warm["phase"] = "generating"
+            for _ in workers:
+                work.put(None)
             for w in workers:
                 w.join()
             if mirror is not None and (stop.is_set() or halted.is_set()):
@@ -2803,6 +2819,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 # also everything cached earlier: other voices, playback misses, the legacy flat layout
                 with app.state.tts_warm_lock:
                     app.state.tts_warm["current"] = "uploading cached files"
+                    app.state.tts_warm["phase"] = "uploading"
                 try:
                     for path, rel in tts.cached_files():
                         queue_upload(path, rel)
@@ -2812,6 +2829,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             with app.state.tts_warm_lock:
                 app.state.tts_warm["running"] = False
                 app.state.tts_warm["current"] = ""
+                app.state.tts_warm["phase"] = ""
                 app.state.tts_warm["stopped"] = stop.is_set()
 
         threading.Thread(target=run, name="ihki-tts-warm", daemon=True).start()
