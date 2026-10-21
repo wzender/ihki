@@ -498,6 +498,81 @@ def test_tts_endpoint_serves_phrase_audio_and_503_without_key():
         assert health["tts"] is True and health["rules"]["pharyngeal_h"]["detectable"]
 
 
+def test_monitoring_can_warm_the_unique_tts_bank(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    import app.main
+    from app.main import create_app
+    from app.tts import RAEF_VOICE_ID
+
+    phrases = [
+        {"variants": [("مرحبا", "m a r ħ a b a")]},
+        {"variants": [("مرحبا", "m a r ħ a b a")]},  # duplicate text and voice is generated once
+        {"variants": [("اهلا", "ʔ a h l a")], "voice": "חנאן"},
+    ]
+    monkeypatch.setattr(app.main, "PHRASES", phrases)
+    monkeypatch.setattr(app.main, "load_auth", lambda: None)
+
+    class FakeTTS:
+        def __init__(self): self.calls = []
+        def cached(self, text, voice): return text.startswith("مَ")
+        def wav_for_voice(self, text, voice): self.calls.append((text, voice)); return b"RIFF", voice
+        def cache_stats(self): return {"files": len(self.calls), "bytes": 0, "hits": 0, "misses": 0, "hit_rate": None}
+
+    tts = FakeTTS()
+    with TestClient(create_app(scorer_for(emissions(["w"])), tts, tutor=object())) as c:
+        started = c.post("/api/tts-cache/warm", json={"voice_id": RAEF_VOICE_ID})
+        assert started.status_code == 200 and started.json()["total"] == 2
+        for _ in range(100):
+            state = c.get("/api/tts-cache").json()["warm"]
+            if not state["running"]: break
+            import time; time.sleep(.01)
+        assert state == {"running": False, "voice_id": RAEF_VOICE_ID, "total": 2, "done": 2, "generated": 1,
+                         "skipped": 1, "failed": 0, "current": "", "waiting": 0, "error": "",
+                         "bucket": "", "uploaded": 0, "upload_failed": 0, "upload_error": ""}
+        assert [voice for _text, voice in tts.calls] == [RAEF_VOICE_ID, RAEF_VOICE_ID]
+
+
+def test_warm_sweep_uploads_every_cached_wav_to_the_bucket(monkeypatch, tmp_path):
+    from fastapi.testclient import TestClient
+
+    import app.main
+    import app.tts
+    from app.main import create_app
+    from app.tts import RAEF_VOICE_ID, BucketMirror, SawtakTTS
+
+    phrases = [{"variants": [("مرحبا", "m a r ħ a b a")]}, {"variants": [("اهلا", "ʔ a h l a")]}]
+    monkeypatch.setattr(app.main, "PHRASES", phrases)
+    monkeypatch.setattr(app.main, "load_auth", lambda: None)
+
+    tts = SawtakTTS("key", cache_dir=tmp_path)
+    monkeypatch.setattr(tts, "_generate", lambda text, voice: b"RIFF" + text.encode())
+    (tmp_path / "legacy.wav").write_bytes(b"old")            # cached before the per-voice layout
+    other = tmp_path / "other-voice"; other.mkdir(); (other / "x.wav").write_bytes(b"xx")
+
+    class FakeMirror(BucketMirror):
+        def __init__(self):
+            super().__init__("user/bucket", "ihki-tts")
+            self.uploads = []
+        def remote_sizes(self):
+            return {"ihki-tts/other-voice/x.wav": 2}           # already in the bucket: not sent again
+        def upload(self, files):
+            self.uploads += [(src if isinstance(src, bytes) else src.read_bytes(), dest) for src, dest in files]
+
+    tts.mirror = mirror = FakeMirror()
+    with TestClient(create_app(scorer_for(emissions(["w"])), tts, tutor=object())) as c:
+        assert c.post("/api/tts-cache/warm", json={"voice_id": RAEF_VOICE_ID}).status_code == 200
+        for _ in range(200):
+            state = c.get("/api/tts-cache").json()["warm"]
+            if not state["running"]: break
+            import time; time.sleep(.01)
+    dests = sorted(dest for _data, dest in mirror.uploads)
+    keys = sorted(f"ihki-tts/{tts.cache_key(app.main.point_arabic(*ph['variants'][0]), RAEF_VOICE_ID)}" for ph in phrases)
+    assert dests == sorted(keys + ["ihki-tts/legacy.wav"])
+    assert all(dest.startswith(f"ihki-tts/{RAEF_VOICE_ID}/") for dest in keys)
+    assert state["bucket"] == "user/bucket" and state["uploaded"] == 3 and state["upload_failed"] == 0
+
+
 def test_spelling_variants_of_a_sound_are_not_errors():
     # the multilingual vocab spells one sound several ways; the model saying t̪ / ɾ / æ for t / r / a is not a mistake
     syms = SYMS + ["t", "t̪", "tː", "r", "ɾ", "æ", "b"]
@@ -1450,8 +1525,8 @@ def test_sign_in_guards_the_practice_endpoints():
             return [{"id": "u1", "email": "A@b.c", "name": "Alef"}, {"id": "u2", "email": "s@b.c", "name": ""},
                     {"id": "u3", "email": "out@b.c", "name": ""}]
 
-        def all_attempts(self):
-            return [{**r, "user_id": "u2"} for r in self.attempts("")[:2]]
+        def all_attempts(self, limit=200_000):
+            return [{**r, "user_id": "u2"} for r in self.attempts("")[:2]][:limit]
 
         def activity(self, hours=24, bucket_minutes=15):
             self.activity_args = hours, bucket_minutes

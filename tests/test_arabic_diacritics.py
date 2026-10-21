@@ -83,12 +83,27 @@ def test_raef_recording_is_cached_and_cache_can_be_cleared(tmp_path):
     assert first == second
     assert voice == second_voice == RAEF_VOICE_ID
     assert generated == 1
+    assert next(tmp_path.rglob("*.wav")).parent.name == RAEF_VOICE_ID
     assert all("temperature" not in body and body["enhance_pronunciation"] is True for body in requests)
 
     (tmp_path / "keep.txt").write_text("not audio")
     assert tts.clear_cache() == 1
     assert (tmp_path / "keep.txt").exists()
-    assert not list(tmp_path.glob("*.wav"))
+    assert not list(tmp_path.rglob("*.wav"))
+
+
+def test_flat_sawtak_cache_is_migrated_into_voice_folder(tmp_path):
+    from app.tts import RAEF_VOICE_ID, SawtakTTS
+
+    tts = SawtakTTS("key", cache_dir=tmp_path)
+    nested = tts._path("مَرْحَبَا", RAEF_VOICE_ID)
+    legacy = tmp_path / nested.name
+    legacy.write_bytes(b"old recording")
+    tts._generate = lambda *_args: (_ for _ in ()).throw(AssertionError("must use cache"))
+
+    data, _ = tts.wav("مَرْحَبَا")
+
+    assert data == b"old recording" and nested.exists() and not legacy.exists()
 
 
 def test_only_raef_is_offered_and_is_the_configured_default(monkeypatch):

@@ -5,6 +5,9 @@ Only phrases from the phrase bank can be synthesised, and each one is generated 
 
 Env:  SAWTAK_API_KEY   required; without it /api/tts answers 503 and the page falls back to the device voice
       TTS_CACHE_DIR    optional; default ~/.cache/ihki-tts
+      TTS_BUCKET       optional Hugging Face Storage Bucket id (e.g. "user/ihki-storage"); the cache-warm sweep
+                       uploads every cached WAV to it through the Bucket API (needs HF_TOKEN with write access)
+      TTS_BUCKET_PREFIX  folder inside the bucket; default "ihki-tts"
 """
 from __future__ import annotations
 
@@ -14,6 +17,7 @@ import json
 import logging
 import os
 import threading
+import time
 import urllib.error
 import urllib.request
 import wave
@@ -24,6 +28,7 @@ BASE_URL = "https://api.sawtakarabi.ai/v1"
 MODEL = "arabic-tts-1"
 CACHE_VERSION = "raef-pointed-enhanced-provider-default-v1"
 TIMEOUT = 60
+MIN_REQUEST_INTERVAL = .2  # <=300/minute, leaving half the account-wide Sawtak allowance for other clients
 # The single Sawtak voice used throughout the application.
 RAEF_VOICE_ID = "273d81b2-991b-5b76-8525-eeacc6a3d759"
 VOICES = {"רַאאִף": RAEF_VOICE_ID}
@@ -33,6 +38,40 @@ LINE_VOICES = {"חנאן": "e41781f5-127c-5eb0-b83c-50bf52a64caf"}
 class TTSUnavailable(Exception):
     """No key configured, or the provider refused / failed. The message is safe to show."""
 
+    def __init__(self, message: str, status: int | None = None, retry_after: float | None = None):
+        super().__init__(message)
+        self.status, self.retry_after = status, retry_after
+
+
+class BucketMirror:
+    """Copies cached WAVs into a Hugging Face Storage Bucket through its API.
+
+    Writing to a mounted /data folder is not enough on its own: files written there have been seen to never reach
+    the bucket. The sweep therefore uploads explicitly, comparing sizes so files already there are not sent again."""
+
+    def __init__(self, bucket_id: str, prefix: str = "ihki-tts", token: str | None = None):
+        self.bucket_id, self.prefix, self.token = bucket_id, prefix.strip("/"), token
+
+    def remote_path(self, rel: str) -> str:
+        return f"{self.prefix}/{rel}" if self.prefix else rel
+
+    def remote_sizes(self) -> dict[str, int]:
+        """{bucket path: size} of every file under the prefix."""
+        from huggingface_hub import list_bucket_tree
+        out = {}
+        for item in list_bucket_tree(self.bucket_id, prefix=f"{self.prefix}/" if self.prefix else None,
+                                     recursive=True, token=self.token):
+            size = getattr(item, "size", None)
+            if size is not None:
+                out[item.path] = size
+        return out
+
+    def upload(self, files: list[tuple[Path | bytes, str]]) -> None:
+        """Upload (local path or bytes, bucket path) pairs in one batch."""
+        from huggingface_hub import batch_bucket_files
+        batch_bucket_files(self.bucket_id, add=[(str(src) if isinstance(src, Path) else src, dest)
+                                                for src, dest in files], token=self.token)
+
 
 class SawtakTTS:
     def __init__(self, api_key: str, voice_id: str = RAEF_VOICE_ID, cache_dir: Path | None = None):
@@ -40,7 +79,9 @@ class SawtakTTS:
         self.voice_name = "רַאאִף"
         self.cache_dir = cache_dir or Path.home() / ".cache" / "ihki-tts"
         self._lock = threading.Lock()  # one generation at a time; also guards the voice lookup
+        self._last_request = 0.0
         self._cache_hits = self._cache_misses = 0
+        self.mirror: BucketMirror | None = None  # set by load_tts when TTS_BUCKET is configured
 
     def _request(self, path: str, body: dict | None = None):
         req = urllib.request.Request(
@@ -58,20 +99,53 @@ class SawtakTTS:
             except ValueError:
                 err = {}
             log.warning("sawtak %s -> %s %s (request %s)", path, e.code, err.get("code"), err.get("request_id"))
-            raise TTSUnavailable(f"tts provider error {e.code}: {err.get('message', 'request failed')}") from None
+            try:
+                retry_after = float(e.headers.get("Retry-After", ""))
+            except (TypeError, ValueError):
+                retry_after = None
+            raise TTSUnavailable(f"tts provider error {e.code}: {err.get('message', 'request failed')}",
+                                 e.code, retry_after) from None
         except OSError as e:
             log.warning("sawtak %s unreachable: %s", path, e)
             raise TTSUnavailable("tts provider unreachable") from None
 
     def _path(self, text: str, voice: str) -> Path:
-        return self.cache_dir / (hashlib.sha1(f"{CACHE_VERSION}|{MODEL}|{voice}|{text}".encode()).hexdigest() + ".wav")
+        name = hashlib.sha1(f"{CACHE_VERSION}|{MODEL}|{voice}|{text}".encode()).hexdigest() + ".wav"
+        return self.cache_dir / voice / name
+
+    def _legacy_path(self, path: Path) -> Path:
+        """The flat cache layout used before recordings were grouped by voice id."""
+        return self.cache_dir / path.name
+
+    def cache_key(self, text: str, voice: str) -> str:
+        """The recording's path relative to the cache folder ("<voice>/<sha1>.wav"), also its path in the bucket."""
+        return self._path(text, voice).relative_to(self.cache_dir).as_posix()
+
+    def cache_file(self, text: str, voice: str) -> Path | None:
+        """The cached WAV on disk, in the current or the legacy flat layout; None when not cached."""
+        path = self._path(text, voice)
+        for candidate in (path, self._legacy_path(path)):
+            if candidate.is_file():
+                return candidate
+        return None
+
+    def cached_files(self) -> list[tuple[Path, str]]:
+        """Every cached WAV on disk, with its path relative to the cache folder."""
+        if not self.cache_dir.is_dir():
+            return []
+        return [(p, p.relative_to(self.cache_dir).as_posix()) for p in sorted(self.cache_dir.rglob("*.wav")) if p.is_file()]
 
     def cached(self, text: str, voice: str) -> bool:
         """Has this voice said `text` before? Then wav() answers from disk, without the provider."""
-        return self._path(text, voice).exists()
+        path = self._path(text, voice)
+        return path.exists() or self._legacy_path(path).exists()
 
     def _generate(self, text: str, voice: str) -> bytes:
         """Generate one uncached WAV recording."""
+        wait = MIN_REQUEST_INTERVAL - (time.monotonic() - self._last_request)
+        if wait > 0:
+            time.sleep(wait)
+        self._last_request = time.monotonic()
         # Sawtak currently returns 320 seconds of silence whenever `temperature` is present,
         # including for 0 and 0.1. Omitting it uses the provider's deterministic supported path.
         with self._request("/audio/speech", {"model": MODEL, "voice": voice, "input": text,
@@ -96,7 +170,7 @@ class SawtakTTS:
                 self._cache_hits = self._cache_misses = 0
                 return 0
             removed = 0
-            for path in self.cache_dir.iterdir():
+            for path in self.cache_dir.rglob("*"):
                 if path.is_file() and (path.suffix == ".wav" or path.name.endswith(".tmp")):
                     try:
                         path.unlink()
@@ -114,7 +188,7 @@ class SawtakTTS:
             files = size = 0
             if self.cache_dir.is_dir():
                 try:
-                    for path in self.cache_dir.iterdir():
+                    for path in self.cache_dir.rglob("*.wav"):
                         if path.is_file() and path.suffix == ".wav":
                             files += 1
                             size += path.stat().st_size
@@ -125,11 +199,18 @@ class SawtakTTS:
                     "misses": self._cache_misses,
                     "hit_rate": round(self._cache_hits / requests, 4) if requests else None}
 
-    def wav(self, text: str, voice: str = "") -> tuple[bytes, str]:
-        """(WAV, voice id) for `text` in Raef's voice, or a dialogue line's own (LINE_VOICES); cached on disk."""
+    def _wav(self, text: str, voice: str) -> tuple[bytes, str]:
+        """Generate or read `text` for an already validated voice id."""
         with self._lock:
-            voice = voice if voice in LINE_VOICES.values() else RAEF_VOICE_ID
             path = self._path(text, voice)
+            legacy = self._legacy_path(path)
+            if not path.exists() and legacy.exists():
+                try:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    legacy.replace(path)
+                except OSError as e:
+                    log.warning("tts cache migration failed: %s: %s", type(e).__name__, e)
+                    path = legacy
             if path.exists():
                 self._cache_hits += 1
                 return path.read_bytes(), voice
@@ -138,13 +219,22 @@ class SawtakTTS:
             # marks; enhancement fills remaining pronunciation cues using the selected voice's dialect.
             data = self._generate(text, voice)
             try:
-                self.cache_dir.mkdir(parents=True, exist_ok=True)
+                path.parent.mkdir(parents=True, exist_ok=True)
                 tmp = path.with_suffix(".tmp")
                 tmp.write_bytes(data)
                 tmp.replace(path)
             except OSError as e:  # read-only or full cache dir: the audio is still good, it just isn't kept
                 log.warning("tts cache write failed: %s: %s", type(e).__name__, e)
             return data, voice
+
+    def wav(self, text: str, voice: str = "") -> tuple[bytes, str]:
+        """(WAV, voice id) in Raef's voice, or a dialogue line's configured voice."""
+        voice = voice if voice in LINE_VOICES.values() else RAEF_VOICE_ID
+        return self._wav(text, voice)
+
+    def wav_for_voice(self, text: str, voice: str) -> tuple[bytes, str]:
+        """(WAV, voice id) for a teacher-selected, validated Sawtak voice."""
+        return self._wav(text, voice)
 
 
 def load_tts(key: str | None = None) -> SawtakTTS | None:
@@ -154,4 +244,9 @@ def load_tts(key: str | None = None) -> SawtakTTS | None:
         log.info("SAWTAK_API_KEY not set: playback uses the device voice")
         return None
     cache = os.environ.get("TTS_CACHE_DIR", "").strip()
-    return SawtakTTS(key, RAEF_VOICE_ID, Path(cache) if cache else None)
+    tts = SawtakTTS(key, RAEF_VOICE_ID, Path(cache) if cache else None)
+    bucket = os.environ.get("TTS_BUCKET", "").strip()
+    if bucket:
+        tts.mirror = BucketMirror(bucket, os.environ.get("TTS_BUCKET_PREFIX", "ihki-tts"),
+                                  os.environ.get("HF_TOKEN", "").strip() or None)
+    return tts

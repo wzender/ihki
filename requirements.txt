@@ -4,7 +4,7 @@ python-multipart>=0.0.9
 numpy>=1.26
 pyyaml>=6.0  # the scorer reads its rules from the yaml blocks of static/assets/pronunciation-rules.md
 transformers>=4.41
-huggingface_hub>=0.23
+huggingface_hub>=1.16  # Storage Bucket API (batch_bucket_files, list_bucket_tree) for the TTS cache
 # torch: CPU build installed separately in the Dockerfile (see README for local installs)
 python-dotenv>=1.0
 anthropic>=1.0  # the AI tutor game בחכי ערבי (app/tutor.py)

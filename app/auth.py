@@ -77,7 +77,7 @@ CACHE_MAX = 2000
 PAGE = 1000  # rows per request: Supabase's default ceiling
 MAX_ATTEMPTS = 20_000  # of one student, read for their progress
 MAX_CLASS_ATTEMPTS = 200_000  # of all students, read for the teacher's panel
-MAX_MONITOR_ATTEMPTS = 5_000  # newest attempts sampled for pronunciation patterns in monitoring
+MAX_MONITOR_ATTEMPTS = 500  # newest attempts sampled for pronunciation patterns in monitoring
 CLASSES_TTL = 60  # seconds the class list is trusted without reading it again (each sign-in check uses it)
 
 # Application-owned data. Supabase's auth users and managed schemas are deliberately not copied.
@@ -859,16 +859,18 @@ class SupabaseAuth:
         self._admin("/rest/v1/app_secrets?" + urllib.parse.urlencode({"name": f"eq.{name}"}), "DELETE",
                     prefer="return=minimal")
 
-    def all_attempts(self) -> list[dict]:
+    def all_attempts(self, limit: int = MAX_CLASS_ATTEMPTS) -> list[dict]:
         """Every student's attempts, as `attempts` gives one student's, each with its user_id. "Different sentence"
         rows remain marked as unrelated for diagnostics, but count toward progress like every non-empty recording."""
+        limit = max(1, min(int(limit), MAX_CLASS_ATTEMPTS))
         rows: list[dict] = []
-        while len(rows) < MAX_CLASS_ATTEMPTS:
+        while len(rows) < limit:
+            page = min(PAGE, limit - len(rows))
             query = urllib.parse.urlencode({"select": "user_id,cat,phrase,score,unrelated,created_at",
-                                            "order": "id.desc", "limit": PAGE, "offset": len(rows)})
+                                            "order": "id.desc", "limit": page, "offset": len(rows)})
             batch = self._admin(f"/rest/v1/attempts?{query}")
             rows += batch
-            if len(batch) < PAGE:
+            if len(batch) < page:
                 break
         return rows
 

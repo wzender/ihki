@@ -19,6 +19,7 @@ import logging
 import os
 import re
 import subprocess
+import threading
 import time
 import urllib.parse
 import uuid
@@ -35,7 +36,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .arabic_diacritics import point_arabic
 from . import lab
-from .auth import AuthUnavailable, ClassConflict, SupabaseAuth, load_auth
+from .auth import AuthUnavailable, ClassConflict, MAX_MONITOR_ATTEMPTS, SupabaseAuth, load_auth
 from .keystore import (CREATE_APP_SECRETS, MAX_LEN as MAX_KEY_LEN, MIGRATE_APP_SECRETS, NAMES as KEY_NAMES, KeyRefused,
                        check as check_key, load_keys)
 from .live import LiveConflict, LiveStore
@@ -476,6 +477,10 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         app.state.auth = auth or load_auth()
         app.state.keys = load_keys(app.state.auth)   # the API keys a developer set in the panel, else the environment's
         app.state.tts = tts or load_tts(app.state.keys.get("SAWTAK_API_KEY"))
+        app.state.tts_warm = {"running": False, "voice_id": "", "total": 0, "done": 0, "generated": 0,
+                              "skipped": 0, "failed": 0, "current": "", "waiting": 0, "error": "",
+                              "bucket": "", "uploaded": 0, "upload_failed": 0, "upload_error": ""}
+        app.state.tts_warm_lock = threading.Lock()
         app.state.tutor = tutor or load_tutor(app.state.keys.get("ANTHROPIC_API_KEY"), app.state.keys.get("TUTOR_MODEL"))
         # the playback voices double as the native baseline of the scores (see reference.py)
         app.state.refs = References(app.state.scorer, app.state.tts, list(VOICES.values())) if app.state.tts else None
@@ -908,7 +913,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                     emails = {email for c in classes for email in c.get("emails", ())}
                     ids = {u["id"] for u in users if u["email"].lower() in emails}
                 start = datetime.now(timezone.utc) - (timedelta(minutes=window_minutes) if window_minutes else timedelta(hours=hours))
-                rows = [r for r in a.all_attempts()
+                rows = [r for r in a.all_attempts(limit=MAX_MONITOR_ATTEMPTS)
                         if (ids is None or r.get("user_id") in ids) and utc(r["created_at"]) >= start]
                 seconds, buckets = bucket_minutes * 60, {}
                 for row in rows:
@@ -2491,7 +2496,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if app.state.tts is None:
             return {"available": False, "files": 0, "bytes": 0, "hits": 0, "misses": 0, "hit_rate": None}
         try:
-            return {"available": True, **app.state.tts.cache_stats()}
+            with app.state.tts_warm_lock:
+                warm = dict(app.state.tts_warm)
+            return {"available": True, **app.state.tts.cache_stats(), "warm": warm}
         except TTSUnavailable as e:
             raise HTTPException(503, str(e))
 
@@ -2500,6 +2507,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         """Delete generated Sawtak recordings; the next playback generates them again."""
         if app.state.tts is None:
             raise HTTPException(503, "tts not configured")
+        with app.state.tts_warm_lock:
+            if app.state.tts_warm["running"]:
+                raise HTTPException(409, "cache warm is running")
         try:
             removed = app.state.tts.clear_cache()
         except TTSUnavailable as e:
@@ -2507,6 +2517,119 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if app.state.refs:
             app.state.refs.invalidate()
         return {"ok": True, "removed": removed}
+
+    @app.post("/api/tts-cache/warm")
+    def warm_tts_cache(body: dict = Body(...), _a: SupabaseAuth = Depends(teacher_only)):
+        """Generate the finite phrase bank for a selected voice, one request at a time."""
+        tts = app.state.tts
+        if tts is None:
+            raise HTTPException(503, "tts not configured")
+        try:
+            voice = str(uuid.UUID(str(body.get("voice_id") or "")))
+        except (ValueError, AttributeError, TypeError):
+            raise HTTPException(400, "invalid Sawtak voice id")
+        with app.state.tts_warm_lock:
+            if app.state.tts_warm["running"]:
+                return dict(app.state.tts_warm)
+            jobs, seen = [], set()
+            for phrase in PHRASES:
+                text = point_arabic(*phrase["variants"][0])
+                if text not in seen:
+                    seen.add(text); jobs.append(text)
+            mirror = getattr(tts, "mirror", None)
+            app.state.tts_warm = {"running": True, "voice_id": voice, "total": len(jobs), "done": 0, "generated": 0,
+                                  "skipped": 0, "failed": 0, "current": "", "waiting": 0, "error": "",
+                                  "bucket": mirror.bucket_id if mirror else "", "uploaded": 0, "upload_failed": 0,
+                                  "upload_error": ""}
+
+        # Every WAV is also uploaded to the Storage Bucket through its API (see tts.BucketMirror): writes to the
+        # mounted /data folder alone did not reach the bucket. Files already there with the same size are not resent.
+        remote: dict[str, int] = {}
+        pending: list[tuple[Path | bytes, str, int]] = []
+
+        def flush() -> None:
+            if not pending:
+                return
+            try:
+                mirror.upload([(src, dest) for src, dest, _size in pending])
+                remote.update({dest: size for _src, dest, size in pending})
+                with app.state.tts_warm_lock:
+                    app.state.tts_warm["uploaded"] += len(pending)
+            except Exception as e:
+                log.warning("tts bucket upload of %d files failed: %s", len(pending), e)
+                with app.state.tts_warm_lock:
+                    app.state.tts_warm["upload_failed"] += len(pending)
+                    app.state.tts_warm["upload_error"] = str(e)[:300]
+            pending.clear()
+
+        def queue(src: Path | bytes, rel: str) -> None:
+            if mirror is None:
+                return
+            try:
+                size = src.stat().st_size if isinstance(src, Path) else len(src)
+            except OSError:
+                return
+            dest = mirror.remote_path(rel)
+            if remote.get(dest) == size or any(d == dest for _s, d, _z in pending):
+                return
+            pending.append((src, dest, size))
+            if len(pending) >= 25:
+                flush()
+
+        def run() -> None:
+            if mirror is not None:
+                try:
+                    remote.update(mirror.remote_sizes())
+                except Exception as e:  # listing failed: upload everything; the uploads report their own errors
+                    log.warning("tts bucket listing failed: %s", e)
+                    with app.state.tts_warm_lock:
+                        app.state.tts_warm["upload_error"] = f"listing failed: {str(e)[:300]}"
+            for text in jobs:
+                with app.state.tts_warm_lock:
+                    app.state.tts_warm["current"] = text
+                try:
+                    was_cached = tts.cached(text, voice)
+                    for attempt in range(5):
+                        try:
+                            data, _used = tts.wav_for_voice(text, voice)  # serialised: one request in this replica
+                            if mirror is not None:  # the disk copy if it was kept, else the bytes themselves
+                                queue(tts.cache_file(text, voice) or data, tts.cache_key(text, voice))
+                            break
+                        except TTSUnavailable as e:
+                            if e.status != 429 or attempt == 4:
+                                raise
+                            delay = max(.2, min(e.retry_after or 2 ** attempt, 60))
+                            with app.state.tts_warm_lock:
+                                app.state.tts_warm["waiting"] = round(delay, 1)
+                            time.sleep(delay)
+                            with app.state.tts_warm_lock:
+                                app.state.tts_warm["waiting"] = 0
+                    with app.state.tts_warm_lock:
+                        app.state.tts_warm["skipped" if was_cached else "generated"] += 1
+                        app.state.tts_warm["done"] += 1
+                except Exception as e:
+                    log.warning("tts cache warm stopped at %r: %s", text, e)
+                    with app.state.tts_warm_lock:
+                        app.state.tts_warm["failed"] += 1
+                        app.state.tts_warm["error"] = str(e)
+                    break
+            if mirror is not None:
+                # also everything cached earlier: other voices, playback misses, the legacy flat layout
+                with app.state.tts_warm_lock:
+                    app.state.tts_warm["current"] = "uploading cached files"
+                try:
+                    for path, rel in tts.cached_files():
+                        queue(path, rel)
+                except OSError as e:
+                    log.warning("tts cache listing failed: %s", e)
+                flush()
+            with app.state.tts_warm_lock:
+                app.state.tts_warm["running"] = False
+                app.state.tts_warm["current"] = ""
+
+        threading.Thread(target=run, name="ihki-tts-warm", daemon=True).start()
+        with app.state.tts_warm_lock:
+            return dict(app.state.tts_warm)
 
     def keys_only(user: dict | None = Depends(signed_in)) -> SupabaseAuth:
         """Only developers ("*"): a key decides where the bills go. Unlike require(), an open deployment (no sign-in)
