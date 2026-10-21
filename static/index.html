@@ -4865,10 +4865,22 @@ function drawSystemActivity(box){
 }
 function drawTtsCacheControls(box){
   const card=mark("card",""), title=mark("","מטמון הקלטות Sawtak","h2"), text=mark("","אפשר להכין מראש את כל מאגר ההקלטות. התהליך מדלג על קבצים קיימים וממשיך מהם בהפעלה הבאה. מחיקה גורמת ליצירה מחדש.","p");
-  const usage=mark("activity-stats",""), progress=document.createElement("progress"), progressLabel=mark("msg",""), row=mark("row",""), warm=mark("btn primary","הכנת כל ההקלטות","button"), button=mark("btn","מחיקת מטמון ההקלטות","button"), offline=mark("btn","הורדת עותק אופליין","button"), halt=mark("btn","עצירת ההכנה","button"), msg=mark("msg","");
+  const usage=mark("activity-stats",""), progress=document.createElement("progress"), progressLabel=mark("msg",""), row=mark("row",""), warm=mark("btn primary","הכנת כל ההקלטות","button"), button=mark("btn","מחיקת מטמון ההקלטות","button"), offline=mark("btn","הורדת עותק אופליין","button"), halt=mark("btn","עצירת ההכנה","button"), load=mark("btn","טעינת עותק אופליין","button"), loadFile=document.createElement("input"), msg=mark("msg","");
+  loadFile.type="file"; loadFile.accept=".zip,application/zip"; loadFile.hidden=true;
   progress.max=100; progress.value=0; progress.hidden=true; progress.style.width="100%"; progress.setAttribute("aria-label","התקדמות הכנת הקלטות Sawtak"); progressLabel.hidden=true;
-  let polling=false;
-  const warmState=s=>{ if(!s) return; warm.disabled=button.disabled=!!s.running; halt.hidden=!s.running; const pct=s.total?Math.round(100*s.done/s.total):0,voice=s.voice_id?` · קול ${s.voice_id}`:""; progress.hidden=progressLabel.hidden=!s.total; progress.value=pct; progressLabel.textContent=`${pct}% · ${s.done} מתוך ${s.total} · נוצרו ${s.generated} · כבר היו ${s.skipped}`+(s.bucket?` · הועלו לדלי ${s.uploaded||0}`+(s.upload_failed?` · נכשלו בהעלאה ${s.upload_failed}`:""):" · אין דלי מוגדר (TTS_BUCKET)")+(s.upload_error?` · ${s.upload_error}`:""); if(s.running) msg.textContent=s.waiting?`Sawtak לא ענה כרגע (הגבלת קצב או תקלת רשת); ניסיון נוסף בעוד ${s.waiting} שניות${voice}`:`מכין הקלטות מול Sawtak${voice}`; else if(s.stopped) msg.textContent=`ההכנה נעצרה לבקשתך אחרי ${s.done} הקלטות. הפעלה חוזרת תמשיך מאותה נקודה${voice}.`; else if(s.error) msg.textContent=`ההכנה נעצרה אחרי ${s.done} הקלטות: ${s.error}${voice}`; else if(s.total&&s.done===s.total) msg.textContent=`המאגר מוכן${voice}.`; if(s.running&&!polling){polling=true; setTimeout(poll,2000);} };
+  let polling=false, samples=[];   // samples: recent [time, done] while the sweep runs, for the time estimate
+  const duration=sec=>{ sec=Math.round(sec); if(sec<60) return "פחות מדקה"; const m=Math.round(sec/60); if(m<60) return `כ־${m} דקות`; const h=Math.floor(m/60),r=m%60; return r?`כ־${h} שעות ו־${r} דקות`:`כ־${h} שעות`; };
+  const estimate=s=>{   // from the pace of the last 3 minutes (cached phrases fly, new ones wait for Sawtak); else since the start
+    const now=Date.now(); if(!s.running){ samples=[]; return s.started_at&&s.total&&s.done===s.total?` · ההכנה ארכה ${duration(now/1000-s.started_at)}`:""; }
+    samples.push([now,s.done]); samples=samples.filter(([t])=>now-t<=180000);
+    const [t0,d0]=samples[0], left=s.total-s.done; let rate=0;
+    if(now-t0>=20000&&s.done>d0) rate=(s.done-d0)/((now-t0)/1000);
+    else if(s.started_at&&s.done) rate=s.done/Math.max(1,now/1000-s.started_at);
+    if(!left) return ""; if(!rate) return " · מחשב זמן משוער…";
+    const end=new Date(now+left/rate*1000).toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
+    return ` · נותרו ${duration(left/rate)} (סיום משוער ${end})`;
+  };
+  const warmState=s=>{ if(!s) return; warm.disabled=button.disabled=!!s.running; halt.hidden=!s.running; const pct=s.total?Math.round(100*s.done/s.total):0,voice=s.voice_id?` · קול ${s.voice_id}`:""; progress.hidden=progressLabel.hidden=!s.total; progress.value=pct; progressLabel.textContent=`${pct}% · ${s.done} מתוך ${s.total} · נוצרו ${s.generated} · כבר היו ${s.skipped}`+(s.bucket?` · הועלו לדלי ${s.uploaded||0}`+(s.upload_failed?` · נכשלו בהעלאה ${s.upload_failed}`:""):" · אין דלי מוגדר (TTS_BUCKET)")+(s.upload_error?` · ${s.upload_error}`:"")+estimate(s); if(s.running) msg.textContent=s.waiting?`Sawtak לא ענה כרגע (הגבלת קצב או תקלת רשת); ניסיון נוסף בעוד ${s.waiting} שניות${voice}`:`מכין הקלטות מול Sawtak${voice}`; else if(s.stopped) msg.textContent=`ההכנה נעצרה לבקשתך אחרי ${s.done} הקלטות. הפעלה חוזרת תמשיך מאותה נקודה${voice}.`; else if(s.error) msg.textContent=`ההכנה נעצרה אחרי ${s.done} הקלטות: ${s.error}${voice}`; else if(s.total&&s.done===s.total) msg.textContent=`המאגר מוכן${voice}.`; if(s.running&&!polling){polling=true; setTimeout(poll,2000);} };
   const show=data=>{ usage.replaceChildren(); const size=data.bytes<1024?`${data.bytes} B`:data.bytes<1048576?`${(data.bytes/1024).toFixed(1)} KB`:`${(data.bytes/1048576).toFixed(1)} MB`, rate=data.hit_rate==null?"–":`${Math.round(data.hit_rate*100)}%`; for(const [n,label] of [[data.files,"קבצי שמע במטמון"],[size,"נפח בדיסק"],[data.hits,"פגיעות מאז ההפעלה"],[data.misses,"יצירות מאז ההפעלה"],[rate,"שיעור פגיעה"]]){ const stat=mark("activity-stat",""); stat.append(mark("",n,"b"),mark("",label,"small")); usage.append(stat); } if(!data.available) msg.textContent="Sawtak אינו מוגדר בשרת."; };
   const poll=()=>api("/api/tts-cache").then(async res=>{const data=await res.json().catch(()=>({}));if(!res.ok) throw new Error(data.detail||res.status);show(data);polling=false;warmState(data.warm);}).catch(err=>{polling=false;msg.textContent="נתוני המטמון לא זמינים: "+err.message;});
   poll();
@@ -4879,6 +4891,20 @@ function drawTtsCacheControls(box){
     try{ const res=await api("/api/tts-cache/warm/stop",{method:"POST"}),data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); warmState(data); }
     catch(err){ msg.textContent="העצירה נכשלה: "+err.message; }
     halt.disabled=false;
+  };
+  load.onclick=()=>{ loadFile.value=""; loadFile.click(); };
+  loadFile.onchange=async()=>{   // a zip from "הורדת עותק אופליין": its recordings back into the cache, then to the bucket
+    const file=loadFile.files[0]; if(!file) return;
+    if(!confirm(`לטעון ${file.name} (${(file.size/1048576).toFixed(1)} MB)? הקלטות שכבר קיימות ידולגו.`)) return;
+    load.disabled=true; msg.textContent=`מעלה ${file.name}…`;
+    try{
+      const form=new FormData(); form.append("archive",file);
+      const res=await api("/api/tts-cache/import",{method:"POST",body:form}),data=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(data.detail||res.status);
+      msg.textContent=`נטענו ${data.added} הקלטות · ${data.skipped} כבר היו`+(data.invalid?` · ${data.invalid} קבצים לא תקינים דולגו`:"")+(data.uploading?" · ההעלאה לדלי ממשיכה ברקע.":".");
+      poll();
+    }catch(err){ msg.textContent="הטעינה נכשלה: "+err.message; }
+    load.disabled=false;
   };
   offline.onclick=async()=>{   // every cached WAV + manifest.csv (which phrase each file is), streamed as one zip
     offline.disabled=true; msg.textContent="מכין עותק אופליין…";
@@ -4905,7 +4931,7 @@ function drawTtsCacheControls(box){
     }catch(err){ msg.textContent="המחיקה נכשלה: "+err.message; }
     button.disabled=false;
   };
-  row.append(warm,halt,offline,button,msg); card.append(title,text,usage,progress,progressLabel,row); box.append(card);
+  row.append(warm,halt,offline,load,loadFile,button,msg); card.append(title,text,usage,progress,progressLabel,row); box.append(card);
 }
 // how to get each key, step by step: a step is its parts, text or [text, link]
 const KEY_GUIDES={

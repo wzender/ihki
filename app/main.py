@@ -19,6 +19,8 @@ import json
 import logging
 import os
 import re
+import shutil
+import tempfile
 import subprocess
 import threading
 import time
@@ -480,7 +482,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         app.state.tts = tts or load_tts(app.state.keys.get("SAWTAK_API_KEY"))
         app.state.tts_warm = {"running": False, "voice_id": "", "total": 0, "done": 0, "generated": 0,
                               "skipped": 0, "failed": 0, "current": "", "waiting": 0, "error": "",
-                              "bucket": "", "uploaded": 0, "upload_failed": 0, "upload_error": "", "stopped": False}
+                              "bucket": "", "uploaded": 0, "upload_failed": 0, "upload_error": "", "stopped": False,
+                              "started_at": 0}
         app.state.tts_warm_lock = threading.Lock()
         app.state.tts_warm_stop = threading.Event()  # set by POST /api/tts-cache/warm/stop
         app.state.tutor = tutor or load_tutor(app.state.keys.get("ANTHROPIC_API_KEY"), app.state.keys.get("TUTOR_MODEL"))
@@ -2520,6 +2523,62 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             app.state.refs.invalidate()
         return {"ok": True, "removed": removed}
 
+    @app.post("/api/tts-cache/import")
+    def import_tts_cache(archive: UploadFile = File(...), _a: SupabaseAuth = Depends(teacher_only)):
+        """Load an offline copy (a zip from GET /api/tts-cache/download) back into the cache: each WAV that is not
+        cached yet is kept, then uploaded to the bucket in the background. manifest.csv and anything else is ignored.
+
+        Answers {"added", "skipped", "invalid", "uploading"}."""
+        tts = app.state.tts
+        if tts is None:
+            raise HTTPException(503, "tts not configured")
+        part = r"[A-Za-z0-9][A-Za-z0-9._-]{0,99}"
+        name_ok = re.compile(rf"(?:ihki-tts/)?((?:{part}/)?[0-9a-f]{{40}}\.wav)")
+        added: list[tuple[Path, str]] = []
+        skipped = invalid = 0
+        spool = tempfile.TemporaryFile()  # a plain file: zipfile seeks, and Python 3.10's spooled upload cannot
+        try:
+            shutil.copyfileobj(archive.file, spool, 1024 * 1024)
+            spool.seek(0)
+            with zipfile.ZipFile(spool) as zf:
+                for info in zf.infolist():
+                    if info.is_dir() or info.filename == "manifest.csv":
+                        continue
+                    m = name_ok.fullmatch(info.filename)
+                    if not m or ".." in info.filename or info.file_size > 20 * 1024 * 1024:
+                        invalid += 1
+                        continue
+                    rel = m.group(1)
+                    existing = tts.has(rel)
+                    if existing is not None and existing.stat().st_size == info.file_size:
+                        skipped += 1
+                        continue
+                    data = zf.read(info)
+                    if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+                        invalid += 1
+                        continue
+                    added.append((tts.store(rel, data), rel))
+        except zipfile.BadZipFile:
+            raise HTTPException(400, "זה לא קובץ zip של עותק אופליין")
+        except OSError as e:
+            raise HTTPException(503, f"could not write the voice cache: {e}")
+        finally:
+            spool.close()
+        mirror = getattr(tts, "mirror", None)
+        if mirror is not None and added:
+            def upload() -> None:
+                for i in range(0, len(added), 25):
+                    batch = added[i:i + 25]
+                    try:
+                        mirror.upload([(path, mirror.remote_path(rel)) for path, rel in batch])
+                    except Exception as e:  # the next cache-warm sweep uploads what is still missing
+                        log.warning("tts import: bucket upload of %d files failed: %s", len(batch), e)
+            threading.Thread(target=upload, name="ihki-tts-import", daemon=True).start()
+        if app.state.refs and added:
+            app.state.refs.invalidate()
+        return {"added": len(added), "skipped": skipped, "invalid": invalid,
+                "uploading": bool(mirror is not None and added)}
+
     @app.get("/api/tts-cache/download")
     def download_tts_cache(_a: SupabaseAuth = Depends(teacher_only)):
         """An offline copy of the Sawtak recordings: every cached WAV, plus manifest.csv naming each file's phrase.
@@ -2597,7 +2656,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             app.state.tts_warm = {"running": True, "voice_id": voice, "total": len(jobs), "done": 0, "generated": 0,
                                   "skipped": 0, "failed": 0, "current": "", "waiting": 0, "error": "",
                                   "bucket": mirror.bucket_id if mirror else "", "uploaded": 0, "upload_failed": 0,
-                                  "upload_error": "", "stopped": False}
+                                  "upload_error": "", "stopped": False, "started_at": time.time()}
             stop = app.state.tts_warm_stop
             stop.clear()
 
@@ -2605,6 +2664,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         # mounted /data folder alone did not reach the bucket. Files already there with the same size are not resent.
         remote: dict[str, int] = {}
         pending: list[tuple[Path | bytes, str, int]] = []
+        oldest = [0.0]  # when the oldest pending file was queued: a batch waits at most 30 s for its 25th file
 
         def flush() -> None:
             if not pending:
@@ -2631,8 +2691,10 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             dest = mirror.remote_path(rel)
             if remote.get(dest) == size or any(d == dest for _s, d, _z in pending):
                 return
+            if not pending:
+                oldest[0] = time.monotonic()
             pending.append((src, dest, size))
-            if len(pending) >= 25:
+            if len(pending) >= 25 or time.monotonic() - oldest[0] > 30:
                 flush()
 
         def run() -> None:

@@ -8,6 +8,8 @@ Env:  SAWTAK_API_KEY   required; without it /api/tts answers 503 and the page fa
       TTS_BUCKET       optional Hugging Face Storage Bucket id (e.g. "user/ihki-storage"); the cache-warm sweep
                        uploads every cached WAV to it through the Bucket API (needs HF_TOKEN with write access)
       TTS_BUCKET_PREFIX  folder inside the bucket; default "ihki-tts"
+      TTS_STAGING_DIR  with TTS_BUCKET: a fast local folder new recordings are written to before their upload;
+                       default <tmp>/ihki-tts-staging. A bucket mounted at /data takes ~10 s per written file.
 """
 from __future__ import annotations
 
@@ -17,6 +19,7 @@ import io
 import json
 import logging
 import os
+import tempfile
 import threading
 import time
 import urllib.error
@@ -88,6 +91,9 @@ class SawtakTTS:
         self._last_request = 0.0
         self._cache_hits = self._cache_misses = 0
         self.mirror: BucketMirror | None = None  # set by load_tts when TTS_BUCKET is configured
+        # With a mirror, new recordings are written here (local disk) and uploaded through the Bucket API, instead
+        # of into cache_dir: a bucket mounted there only flushes a few files every ~30 s, so each write crawled.
+        self.staging_dir: Path | None = None
 
     def _request(self, path: str, body: dict | None = None):
         req = urllib.request.Request(
@@ -127,24 +133,47 @@ class SawtakTTS:
         """The recording's path relative to the cache folder ("<voice>/<sha1>.wav"), also its path in the bucket."""
         return self._path(text, voice).relative_to(self.cache_dir).as_posix()
 
-    def cache_file(self, text: str, voice: str) -> Path | None:
-        """The cached WAV on disk, in the current or the legacy flat layout; None when not cached."""
+    def _candidates(self, text: str, voice: str) -> list[Path]:
+        """Where a recording may be: the local staging folder first (fast), then the cache folder, then its
+        legacy flat layout."""
         path = self._path(text, voice)
-        for candidate in (path, self._legacy_path(path)):
-            if candidate.is_file():
-                return candidate
-        return None
+        staged = [self.staging_dir / self.cache_key(text, voice)] if self.staging_dir else []
+        return staged + [path, self._legacy_path(path)]
+
+    def cache_file(self, text: str, voice: str) -> Path | None:
+        """The cached WAV on disk, wherever it is; None when not cached."""
+        return next((c for c in self._candidates(text, voice) if c.is_file()), None)
 
     def cached_files(self) -> list[tuple[Path, str]]:
-        """Every cached WAV on disk, with its path relative to the cache folder."""
-        if not self.cache_dir.is_dir():
-            return []
-        return [(p, p.relative_to(self.cache_dir).as_posix()) for p in sorted(self.cache_dir.rglob("*.wav")) if p.is_file()]
+        """Every cached WAV on disk with its path relative to its folder; a staged copy wins over the cache's."""
+        found: dict[str, Path] = {}
+        for root in (self.cache_dir, self.staging_dir):  # staging last, so it overrides
+            if root is not None and root.is_dir():
+                for p in root.rglob("*.wav"):
+                    if p.is_file():
+                        found[p.relative_to(root).as_posix()] = p
+        return [(found[rel], rel) for rel in sorted(found)]
+
+    def store(self, rel: str, data: bytes) -> Path:
+        """Keep a recording from an offline copy at `rel` ("<voice>/<sha1>.wav" or a legacy "<sha1>.wav"): in the
+        staging folder with a mirror (the slow mount is not written), else in the cache folder."""
+        path = (self.staging_dir or self.cache_dir) / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_bytes(data)
+        tmp.replace(path)
+        return path
+
+    def has(self, rel: str) -> Path | None:
+        """The cached file at `rel`, staged or in the cache folder; None when neither has it."""
+        for root in (self.staging_dir, self.cache_dir):
+            if root is not None and (root / rel).is_file():
+                return root / rel
+        return None
 
     def cached(self, text: str, voice: str) -> bool:
         """Has this voice said `text` before? Then wav() answers from disk, without the provider."""
-        path = self._path(text, voice)
-        return path.exists() or self._legacy_path(path).exists()
+        return any(c.exists() for c in self._candidates(text, voice))
 
     def _generate(self, text: str, voice: str) -> bytes:
         """Generate one uncached WAV recording."""
@@ -184,11 +213,9 @@ class SawtakTTS:
     def clear_cache(self) -> int:
         """Delete only generated audio files from this instance's dedicated cache directory."""
         with self._lock:
-            if not self.cache_dir.is_dir():
-                self._cache_hits = self._cache_misses = 0
-                return 0
             removed = 0
-            for path in self.cache_dir.rglob("*"):
+            roots = [r for r in (self.cache_dir, self.staging_dir) if r is not None and r.is_dir()]
+            for path in (p for root in roots for p in root.rglob("*")):
                 if path.is_file() and (path.suffix == ".wav" or path.name.endswith(".tmp")):
                     try:
                         path.unlink()
@@ -204,25 +231,28 @@ class SawtakTTS:
         """Anonymous disk and process-lifetime cache usage for the monitoring panel."""
         with self._lock:
             files = size = 0
-            if self.cache_dir.is_dir():
-                try:
-                    for path in self.cache_dir.rglob("*.wav"):
-                        if path.is_file() and path.suffix == ".wav":
-                            files += 1
-                            size += path.stat().st_size
-                except OSError as e:
-                    raise TTSUnavailable(f"could not inspect voice cache: {e}") from None
+            try:
+                for path, _rel in self.cached_files():
+                    files += 1
+                    size += path.stat().st_size
+            except OSError as e:
+                raise TTSUnavailable(f"could not inspect voice cache: {e}") from None
             requests = self._cache_hits + self._cache_misses
             return {"files": files, "bytes": size, "hits": self._cache_hits,
                     "misses": self._cache_misses,
                     "hit_rate": round(self._cache_hits / requests, 4) if requests else None}
 
-    def _wav(self, text: str, voice: str) -> tuple[bytes, str]:
-        """Generate or read `text` for an already validated voice id."""
+    def _wav(self, text: str, voice: str, upload: bool = False) -> tuple[bytes, str]:
+        """Generate or read `text` for an already validated voice id. `upload`: send a new recording to the bucket
+        in the background (playback); the cache-warm sweep uploads its own in batches."""
         with self._lock:
+            found = self.cache_file(text, voice) if self.staging_dir else None
+            if found is not None:  # with a mirror the cache folder may be a slow mount: no migration there
+                self._cache_hits += 1
+                return found.read_bytes(), voice
             path = self._path(text, voice)
             legacy = self._legacy_path(path)
-            if not path.exists() and legacy.exists():
+            if self.staging_dir is None and not path.exists() and legacy.exists():
                 try:
                     path.parent.mkdir(parents=True, exist_ok=True)
                     legacy.replace(path)
@@ -236,6 +266,8 @@ class SawtakTTS:
             # The caller supplies the phrase's Palestinian vowel marks. Sawtak preserves existing
             # marks; enhancement fills remaining pronunciation cues using the selected voice's dialect.
             data = self._generate(text, voice)
+            if self.staging_dir is not None:
+                path = self.staging_dir / self.cache_key(text, voice)
             try:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 tmp = path.with_suffix(".tmp")
@@ -243,12 +275,25 @@ class SawtakTTS:
                 tmp.replace(path)
             except OSError as e:  # read-only or full cache dir: the audio is still good, it just isn't kept
                 log.warning("tts cache write failed: %s: %s", type(e).__name__, e)
+            if upload and self.mirror is not None:
+                self._upload_soon(data, self.cache_key(text, voice))
             return data, voice
+
+    def _upload_soon(self, data: bytes, rel: str) -> None:
+        """One playback recording to the bucket, off the request: the student does not wait for it."""
+        mirror = self.mirror
+
+        def go() -> None:
+            try:
+                mirror.upload([(data, mirror.remote_path(rel))])
+            except Exception as e:  # the next cache-warm sweep uploads what is still missing
+                log.warning("tts bucket upload of %s failed: %s", rel, e)
+        threading.Thread(target=go, name="ihki-tts-upload", daemon=True).start()
 
     def wav(self, text: str, voice: str = "") -> tuple[bytes, str]:
         """(WAV, voice id) in Raef's voice, or a dialogue line's configured voice."""
         voice = voice if voice in LINE_VOICES.values() else RAEF_VOICE_ID
-        return self._wav(text, voice)
+        return self._wav(text, voice, upload=True)
 
     def wav_for_voice(self, text: str, voice: str) -> tuple[bytes, str]:
         """(WAV, voice id) for a teacher-selected, validated Sawtak voice."""
@@ -267,4 +312,6 @@ def load_tts(key: str | None = None) -> SawtakTTS | None:
     if bucket:
         tts.mirror = BucketMirror(bucket, os.environ.get("TTS_BUCKET_PREFIX", "ihki-tts"),
                                   os.environ.get("HF_TOKEN", "").strip() or None)
+        staging = os.environ.get("TTS_STAGING_DIR", "").strip()
+        tts.staging_dir = Path(staging) if staging else Path(tempfile.gettempdir()) / "ihki-tts-staging"
     return tts

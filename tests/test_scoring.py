@@ -527,6 +527,7 @@ def test_monitoring_can_warm_the_unique_tts_bank(monkeypatch):
             state = c.get("/api/tts-cache").json()["warm"]
             if not state["running"]: break
             import time; time.sleep(.01)
+        assert state.pop("started_at") > 0
         assert state == {"running": False, "voice_id": RAEF_VOICE_ID, "total": 2, "done": 2, "generated": 1,
                          "skipped": 1, "failed": 0, "current": "", "waiting": 0, "error": "",
                          "bucket": "", "uploaded": 0, "upload_failed": 0, "upload_error": "", "stopped": False}
@@ -2321,3 +2322,75 @@ def test_the_warm_sweep_stops_on_request_and_keeps_what_it_made(monkeypatch):
             if not state["running"]: break
             time.sleep(.01)
     assert state["stopped"] is True and state["done"] == state["generated"] == 1 and len(tts.calls) == 1
+
+
+def test_with_a_bucket_new_recordings_are_staged_locally_not_written_to_the_mount(monkeypatch, tmp_path):
+    from app.tts import RAEF_VOICE_ID, BucketMirror, SawtakTTS
+
+    mount, staging = tmp_path / "mount", tmp_path / "staging"
+    tts = SawtakTTS("key", cache_dir=mount)
+    tts.staging_dir = staging
+    monkeypatch.setattr(tts, "_generate", lambda text, voice: b"RIFF-" + text.encode())
+    uploaded = []
+
+    class Mirror(BucketMirror):
+        def upload(self, files): uploaded.extend(dest for _src, dest in files)
+    tts.mirror = Mirror("user/bucket", "ihki-tts")
+
+    data, _ = tts.wav("مرحبا")
+    key = tts.cache_key("مرحبا", RAEF_VOICE_ID)
+    assert (staging / key).read_bytes() == data and not mount.exists()   # the slow mount is not written
+    assert tts.cached("مرحبا", RAEF_VOICE_ID) and tts.cache_file("مرحبا", RAEF_VOICE_ID) == staging / key
+    import time
+    for _ in range(100):
+        if uploaded: break
+        time.sleep(.01)
+    assert uploaded == [f"ihki-tts/{key}"]                                # playback uploads in the background
+    (mount / RAEF_VOICE_ID).mkdir(parents=True)                          # the bucket's copy appears in the mount
+    (mount / key).write_bytes(data)
+    assert [rel for _p, rel in tts.cached_files()] == [key]              # counted once
+    assert tts.cache_stats()["files"] == 1
+    assert tts.wav("مرحبا")[0] == data and tts.cache_stats()["hits"] == 1
+    assert tts.clear_cache() == 2 and not tts.cached("مرحبا", RAEF_VOICE_ID)
+
+
+def test_an_offline_copy_loads_back_into_the_cache_and_the_bucket(monkeypatch, tmp_path):
+    import io
+    import time
+    import zipfile
+
+    from fastapi.testclient import TestClient
+
+    import app.main
+    from app.main import create_app
+    from app.tts import RAEF_VOICE_ID, BucketMirror, SawtakTTS
+
+    monkeypatch.setattr(app.main, "load_auth", lambda: None)
+    tts = SawtakTTS("key", cache_dir=tmp_path / "mount")
+    tts.staging_dir = tmp_path / "staging"
+    uploaded = []
+
+    class Mirror(BucketMirror):
+        def upload(self, files): uploaded.extend(dest for _src, dest in files)
+    tts.mirror = Mirror("user/bucket", "ihki-tts")
+    wav = b"RIFF\0\0\0\0WAVEfmt " + b"\0" * 40
+    new, old, legacy = f"{RAEF_VOICE_ID}/{'a' * 40}.wav", f"{RAEF_VOICE_ID}/{'b' * 40}.wav", f"{'c' * 40}.wav"
+    tts.store(old, wav)                                          # already cached: skipped
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr(f"ihki-tts/{new}", wav)
+        zf.writestr(f"ihki-tts/{old}", wav)
+        zf.writestr(f"ihki-tts/{legacy}", wav)
+        zf.writestr("manifest.csv", "file\n")                   # ignored
+        zf.writestr("ihki-tts/../../evil.wav", wav)              # refused: outside the cache
+        zf.writestr(f"ihki-tts/{RAEF_VOICE_ID}/{'d' * 40}.wav", b"not audio")   # refused: not a WAV
+    with TestClient(create_app(scorer_for(emissions(["w"])), tts, tutor=object())) as c:
+        res = c.post("/api/tts-cache/import", files={"archive": ("copy.zip", buf.getvalue(), "application/zip")})
+        assert res.status_code == 200, res.text
+        assert res.json() == {"added": 2, "skipped": 1, "invalid": 2, "uploading": True}
+        assert c.post("/api/tts-cache/import", files={"archive": ("x.zip", b"nope", "application/zip")}).status_code == 400
+    assert tts.has(new) == tts.staging_dir / new and tts.has(legacy) and not (tmp_path / "evil.wav").exists()
+    for _ in range(100):
+        if len(uploaded) == 2: break
+        time.sleep(.01)
+    assert sorted(uploaded) == sorted([f"ihki-tts/{new}", f"ihki-tts/{legacy}"])
