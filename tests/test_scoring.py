@@ -2299,7 +2299,7 @@ def test_the_warm_sweep_stops_on_request_and_keeps_what_it_made(monkeypatch):
     from app.main import create_app
     from app.tts import RAEF_VOICE_ID
 
-    phrases = [{"variants": [(word, "a")]} for word in ("واحد", "اثنين", "ثلاثة", "اربعة")]
+    phrases = [{"variants": [(word, "a")]} for word in ("واحد", "اثنين", "ثلاثة", "اربعة", "خمسة")]
     monkeypatch.setattr(app.main, "PHRASES", phrases)
     monkeypatch.setattr(app.main, "load_auth", lambda: None)
     first_started, release = threading.Event(), threading.Event()
@@ -2308,20 +2308,23 @@ def test_the_warm_sweep_stops_on_request_and_keeps_what_it_made(monkeypatch):
         def __init__(self): self.calls = []
         def cached(self, text, voice): return False
         def wav_for_voice(self, text, voice):
-            self.calls.append(text); first_started.set(); release.wait(5); return b"RIFF", voice
+            self.calls.append(text)
+            if len(self.calls) == app.main.WARM_WORKERS: first_started.set()
+            release.wait(5); return b"RIFF", voice
         def cache_stats(self): return {"files": 0, "bytes": 0, "hits": 0, "misses": 0, "hit_rate": None}
 
     tts = SlowTTS()
     with TestClient(create_app(scorer_for(emissions(["w"])), tts, tutor=object())) as c:
-        assert c.post("/api/tts-cache/warm", json={"voice_id": RAEF_VOICE_ID}).json()["total"] == 4
+        assert c.post("/api/tts-cache/warm", json={"voice_id": RAEF_VOICE_ID}).json()["total"] == 5
         assert first_started.wait(5)
         assert c.post("/api/tts-cache/warm/stop").status_code == 200
-        release.set()  # the phrase in progress finishes and is kept; no further phrase starts
+        release.set()  # the phrases in progress (one per worker) finish and are kept; no further phrase starts
         for _ in range(200):
             state = c.get("/api/tts-cache").json()["warm"]
             if not state["running"]: break
             time.sleep(.01)
-    assert state["stopped"] is True and state["done"] == state["generated"] == 1 and len(tts.calls) == 1
+    workers = app.main.WARM_WORKERS
+    assert state["stopped"] is True and state["done"] == state["generated"] == workers == len(tts.calls) < 5
 
 
 def test_with_a_bucket_new_recordings_are_staged_locally_not_written_to_the_mount(monkeypatch, tmp_path):
@@ -2394,3 +2397,38 @@ def test_an_offline_copy_loads_back_into_the_cache_and_the_bucket(monkeypatch, t
         if len(uploaded) == 2: break
         time.sleep(.01)
     assert sorted(uploaded) == sorted([f"ihki-tts/{new}", f"ihki-tts/{legacy}"])
+
+
+def test_the_sweep_runs_sawtak_requests_in_parallel_within_the_pace(monkeypatch, tmp_path):
+    import threading
+    import time
+
+    import app.tts as tts_module
+    from app.tts import RAEF_VOICE_ID, SawtakTTS
+
+    monkeypatch.setattr(tts_module, "MIN_REQUEST_INTERVAL", .05)
+    tts = SawtakTTS("key", cache_dir=tmp_path)
+    active, peak, starts, guard = [0], [0], [], threading.Lock()
+
+    def slow(text, voice):
+        with guard:
+            active[0] += 1; peak[0] = max(peak[0], active[0]); starts.append(time.monotonic())
+        time.sleep(.3)
+        with guard:
+            active[0] -= 1
+        return b"RIFF" + text.encode()
+    monkeypatch.setattr(tts, "_generate_now", slow)
+    threads = [threading.Thread(target=tts.wav_for_voice, args=(f"نص {i}", RAEF_VOICE_ID)) for i in range(6)]
+    t0 = time.monotonic()
+    for t in threads: t.start()
+    for t in threads: t.join()
+    assert peak[0] == tts_module.MAX_CONCURRENT                      # several at once, never more than allowed
+    gaps = [b - a for a, b in zip(sorted(starts), sorted(starts)[1:])]
+    assert min(gaps) >= .045 and time.monotonic() - t0 < 6 * .3      # paced, yet faster than one at a time
+    # the same phrase asked twice at once is generated once
+    calls = []
+    monkeypatch.setattr(tts, "_generate_now", lambda text, voice: (calls.append(text), time.sleep(.1), b"RIFF")[2])
+    pair = [threading.Thread(target=tts.wav_for_voice, args=("مرة", RAEF_VOICE_ID)) for _ in range(2)]
+    for t in pair: t.start()
+    for t in pair: t.join()
+    assert calls == ["مرة"]

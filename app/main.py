@@ -85,6 +85,7 @@ def subject_code(label: object) -> str:
     return next((code for code, name in SUBJECT_LABELS.items() if name == label), "")
 MODEL_ID = os.environ.get("MODEL_ID", "facebook/wav2vec2-xlsr-53-espeak-cv-ft")
 LOCAL_TZ = ZoneInfo("Asia/Jerusalem")  # a day of practice is the students' calendar day
+WARM_WORKERS = 3  # Sawtak requests the cache-warm sweep runs at once (tts.MAX_CONCURRENT and its pace apply)
 MAX_UPLOAD = 2_000_000  # bytes; 15 s of opus is ~100 KB
 MAX_BACKUP_UPLOAD = 250_000_000
 EMAIL = re.compile(r"[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+")
@@ -2665,23 +2666,27 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         remote: dict[str, int] = {}
         pending: list[tuple[Path | bytes, str, int]] = []
         oldest = [0.0]  # when the oldest pending file was queued: a batch waits at most 30 s for its 25th file
+        uploads = threading.Lock()  # guards remote, pending and oldest: the workers queue at the same time
 
         def flush() -> None:
-            if not pending:
+            with uploads:
+                batch = pending[:]
+                pending.clear()
+            if not batch:
                 return
             try:
-                mirror.upload([(src, dest) for src, dest, _size in pending])
-                remote.update({dest: size for _src, dest, size in pending})
+                mirror.upload([(src, dest) for src, dest, _size in batch])
+                with uploads:
+                    remote.update({dest: size for _src, dest, size in batch})
                 with app.state.tts_warm_lock:
-                    app.state.tts_warm["uploaded"] += len(pending)
+                    app.state.tts_warm["uploaded"] += len(batch)
             except Exception as e:
-                log.warning("tts bucket upload of %d files failed: %s", len(pending), e)
+                log.warning("tts bucket upload of %d files failed: %s", len(batch), e)
                 with app.state.tts_warm_lock:
-                    app.state.tts_warm["upload_failed"] += len(pending)
+                    app.state.tts_warm["upload_failed"] += len(batch)
                     app.state.tts_warm["upload_error"] = str(e)[:300]
-            pending.clear()
 
-        def queue(src: Path | bytes, rel: str) -> None:
+        def queue_upload(src: Path | bytes, rel: str) -> None:
             if mirror is None:
                 return
             try:
@@ -2689,13 +2694,47 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             except OSError:
                 return
             dest = mirror.remote_path(rel)
-            if remote.get(dest) == size or any(d == dest for _s, d, _z in pending):
-                return
-            if not pending:
-                oldest[0] = time.monotonic()
-            pending.append((src, dest, size))
-            if len(pending) >= 25 or time.monotonic() - oldest[0] > 30:
+            with uploads:
+                if remote.get(dest) == size or any(d == dest for _s, d, _z in pending):
+                    return
+                if not pending:
+                    oldest[0] = time.monotonic()
+                pending.append((src, dest, size))
+                due = len(pending) >= 25 or time.monotonic() - oldest[0] > 30
+            if due:
                 flush()
+
+        def bump(**counts: int) -> None:
+            with app.state.tts_warm_lock:
+                for name, n in counts.items():
+                    app.state.tts_warm[name] += n
+
+        halted = threading.Event()  # a phrase failed for good: no worker starts another
+
+        def generate(text: str) -> bool:
+            """One phrase, retried on a rate limit, a provider 5xx or a dropped connection. False: stopped."""
+            for attempt in range(5):
+                if stop.is_set() or halted.is_set():
+                    return False
+                try:
+                    data, _used = tts.wav_for_voice(text, voice)
+                    if mirror is not None:  # the disk copy if it was kept, else the bytes themselves
+                        queue_upload(tts.cache_file(text, voice) or data, tts.cache_key(text, voice))
+                    return True
+                except TTSUnavailable as e:
+                    if not e.transient or attempt == 4:
+                        raise
+                    delay = max(.2, min(e.retry_after or 2 ** (attempt + 1), 60))
+                    if e.status == 429 and hasattr(tts, "hold"):
+                        tts.hold(delay)  # the other workers wait too, instead of hitting the limit again
+                    with app.state.tts_warm_lock:
+                        app.state.tts_warm["waiting"] = round(delay, 1)
+                    interrupted = stop.wait(delay)  # a stop request ends the wait at once
+                    with app.state.tts_warm_lock:
+                        app.state.tts_warm["waiting"] = 0
+                    if interrupted:
+                        return False
+            return False
 
         def run() -> None:
             if mirror is not None:
@@ -2705,57 +2744,56 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                     log.warning("tts bucket listing failed: %s", e)
                     with app.state.tts_warm_lock:
                         app.state.tts_warm["upload_error"] = f"listing failed: {str(e)[:300]}"
+            # Already cached: skip without reading it (the cache can sit on a bucket mount, where reading each WAV is
+            # a network fetch); the upload pass at the end still sends it if the bucket lacks it.
+            todo = []
             for text in jobs:
                 if stop.is_set():
                     break
-                with app.state.tts_warm_lock:
-                    app.state.tts_warm["current"] = text
                 try:
-                    # Already cached: skip without reading it. The cache can sit on a bucket mount, where reading
-                    # each WAV is a network fetch; the upload pass at the end still sends it if the bucket lacks it.
-                    if tts.cached(text, voice):
+                    cached = tts.cached(text, voice)
+                except OSError:
+                    cached = False
+                if cached:
+                    bump(skipped=1, done=1)
+                else:
+                    todo.append(text)
+            work = iter(todo)
+            take = threading.Lock()
+
+            def worker() -> None:
+                while not (stop.is_set() or halted.is_set()):
+                    with take:
+                        text = next(work, None)
+                    if text is None:
+                        return
+                    with app.state.tts_warm_lock:
+                        app.state.tts_warm["current"] = text
+                    try:
+                        if generate(text):
+                            bump(generated=1, done=1)
+                    except Exception as e:
+                        log.warning("tts cache warm stopped at %r: %s", text, e)
+                        halted.set()
                         with app.state.tts_warm_lock:
-                            app.state.tts_warm["skipped"] += 1
-                            app.state.tts_warm["done"] += 1
-                        continue
-                    was_cached = interrupted = False
-                    for attempt in range(5):
-                        try:
-                            data, _used = tts.wav_for_voice(text, voice)  # serialised: one request in this replica
-                            if mirror is not None:  # the disk copy if it was kept, else the bytes themselves
-                                queue(tts.cache_file(text, voice) or data, tts.cache_key(text, voice))
-                            break
-                        except TTSUnavailable as e:  # rate limit, provider 5xx or a dropped connection: retry
-                            if not e.transient or attempt == 4:
-                                raise
-                            delay = max(.2, min(e.retry_after or 2 ** (attempt + 1), 60))
-                            with app.state.tts_warm_lock:
-                                app.state.tts_warm["waiting"] = round(delay, 1)
-                            interrupted = stop.wait(delay)  # a stop request ends the wait at once
-                            with app.state.tts_warm_lock:
-                                app.state.tts_warm["waiting"] = 0
-                            if interrupted:
-                                break
-                    if interrupted:
-                        break
-                    with app.state.tts_warm_lock:
-                        app.state.tts_warm["skipped" if was_cached else "generated"] += 1
-                        app.state.tts_warm["done"] += 1
-                except Exception as e:
-                    log.warning("tts cache warm stopped at %r: %s", text, e)
-                    with app.state.tts_warm_lock:
-                        app.state.tts_warm["failed"] += 1
-                        app.state.tts_warm["error"] = str(e)
-                    break
-            if mirror is not None and stop.is_set():
-                flush()  # what was generated before the stop still reaches the bucket; the full pass waits for next run
+                            app.state.tts_warm["failed"] += 1
+                            app.state.tts_warm["error"] = str(e)
+
+            workers = [threading.Thread(target=worker, name=f"ihki-tts-warm-{i}", daemon=True)
+                       for i in range(WARM_WORKERS)]
+            for w in workers:
+                w.start()
+            for w in workers:
+                w.join()
+            if mirror is not None and (stop.is_set() or halted.is_set()):
+                flush()  # what was generated still reaches the bucket; the full pass waits for the next run
             elif mirror is not None:
                 # also everything cached earlier: other voices, playback misses, the legacy flat layout
                 with app.state.tts_warm_lock:
                     app.state.tts_warm["current"] = "uploading cached files"
                 try:
                     for path, rel in tts.cached_files():
-                        queue(path, rel)
+                        queue_upload(path, rel)
                 except OSError as e:
                     log.warning("tts cache listing failed: %s", e)
                 flush()

@@ -34,7 +34,10 @@ CACHE_VERSION = "raef-pointed-enhanced-provider-default-v1"
 TIMEOUT = 60  # per socket operation: a response that keeps trickling never hits it, hence the two caps below
 MAX_SECONDS = 90  # one whole generation, download included
 MAX_AUDIO_SECONDS = 60  # the longest phrase is ~240 characters; Sawtak's broken answer is minutes of silence
-MIN_REQUEST_INTERVAL = .2  # spacing between Sawtak requests; the account allows 60/minute (docs/limits), 429s are retried
+# The account allows 60 requests a minute and 5 at once (GET /v1/me). Request starts are spaced to at most 45 a minute
+# for this server, and at most 3 are in flight, so student playback and other clients keep some room. 429s are retried.
+MIN_REQUEST_INTERVAL = 60 / 45
+MAX_CONCURRENT = 3
 # The single Sawtak voice used throughout the application.
 RAEF_VOICE_ID = "273d81b2-991b-5b76-8525-eeacc6a3d759"
 VOICES = {"רַאאִף": RAEF_VOICE_ID}
@@ -87,8 +90,11 @@ class SawtakTTS:
         self.api_key, self.voice_id = api_key, RAEF_VOICE_ID
         self.voice_name = "רַאאִף"
         self.cache_dir = cache_dir or Path.home() / ".cache" / "ihki-tts"
-        self._lock = threading.Lock()  # one generation at a time; also guards the voice lookup
-        self._last_request = 0.0
+        self._lock = threading.Lock()  # guards the counters and clearing the cache
+        self._pace = threading.Lock()  # hands out request start times, MIN_REQUEST_INTERVAL apart
+        self._next_start = 0.0
+        self._in_flight = threading.Semaphore(MAX_CONCURRENT)
+        self._key_locks: dict[str, threading.Lock] = {}  # one generation per recording at a time
         self._cache_hits = self._cache_misses = 0
         self.mirror: BucketMirror | None = None  # set by load_tts when TTS_BUCKET is configured
         # With a mirror, new recordings are written here (local disk) and uploaded through the Bucket API, instead
@@ -175,12 +181,26 @@ class SawtakTTS:
         """Has this voice said `text` before? Then wav() answers from disk, without the provider."""
         return any(c.exists() for c in self._candidates(text, voice))
 
+    def hold(self, seconds: float) -> None:
+        """No new request starts for `seconds` (after a 429, so the other requests in flight back off too)."""
+        with self._pace:
+            self._next_start = max(self._next_start, time.monotonic() + seconds)
+
+    def _key_lock(self, key: str) -> threading.Lock:
+        with self._lock:
+            return self._key_locks.setdefault(key, threading.Lock())
+
     def _generate(self, text: str, voice: str) -> bytes:
-        """Generate one uncached WAV recording."""
-        wait = MIN_REQUEST_INTERVAL - (time.monotonic() - self._last_request)
-        if wait > 0:
-            time.sleep(wait)
-        self._last_request = time.monotonic()
+        """Generate one uncached WAV recording: paced, and at most MAX_CONCURRENT at once."""
+        with self._pace:
+            start = max(time.monotonic(), self._next_start)
+            self._next_start = start + MIN_REQUEST_INTERVAL
+        if start > time.monotonic():
+            time.sleep(start - time.monotonic())
+        with self._in_flight:
+            return self._generate_now(text, voice)
+
+    def _generate_now(self, text: str, voice: str) -> bytes:
         # Sawtak currently returns 320 seconds of silence whenever `temperature` is present,
         # including for 0 and 0.1. Omitting it uses the provider's deterministic supported path.
         with self._request("/audio/speech", {"model": MODEL, "voice": voice, "input": text,
@@ -244,11 +264,12 @@ class SawtakTTS:
 
     def _wav(self, text: str, voice: str, upload: bool = False) -> tuple[bytes, str]:
         """Generate or read `text` for an already validated voice id. `upload`: send a new recording to the bucket
-        in the background (playback); the cache-warm sweep uploads its own in batches."""
-        with self._lock:
+        in the background (playback); the cache-warm sweep uploads its own in batches. Different recordings can be
+        generated at the same time (see _generate); the same one waits for the first request and then reads it."""
+        with self._key_lock(self.cache_key(text, voice)):
             found = self.cache_file(text, voice) if self.staging_dir else None
             if found is not None:  # with a mirror the cache folder may be a slow mount: no migration there
-                self._cache_hits += 1
+                self._count(hit=True)
                 return found.read_bytes(), voice
             path = self._path(text, voice)
             legacy = self._legacy_path(path)
@@ -260,9 +281,9 @@ class SawtakTTS:
                     log.warning("tts cache migration failed: %s: %s", type(e).__name__, e)
                     path = legacy
             if path.exists():
-                self._cache_hits += 1
+                self._count(hit=True)
                 return path.read_bytes(), voice
-            self._cache_misses += 1
+            self._count(hit=False)
             # The caller supplies the phrase's Palestinian vowel marks. Sawtak preserves existing
             # marks; enhancement fills remaining pronunciation cues using the selected voice's dialect.
             data = self._generate(text, voice)
@@ -278,6 +299,13 @@ class SawtakTTS:
             if upload and self.mirror is not None:
                 self._upload_soon(data, self.cache_key(text, voice))
             return data, voice
+
+    def _count(self, hit: bool) -> None:
+        with self._lock:
+            if hit:
+                self._cache_hits += 1
+            else:
+                self._cache_misses += 1
 
     def _upload_soon(self, data: bytes, rel: str) -> None:
         """One playback recording to the bucket, off the request: the student does not wait for it."""
