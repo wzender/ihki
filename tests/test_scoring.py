@@ -530,7 +530,7 @@ def test_monitoring_can_warm_the_unique_tts_bank(monkeypatch):
         assert state == {"running": False, "voice_id": RAEF_VOICE_ID, "total": 2, "done": 2, "generated": 1,
                          "skipped": 1, "failed": 0, "current": "", "waiting": 0, "error": "",
                          "bucket": "", "uploaded": 0, "upload_failed": 0, "upload_error": ""}
-        assert [voice for _text, voice in tts.calls] == [RAEF_VOICE_ID, RAEF_VOICE_ID]
+        assert [voice for _text, voice in tts.calls] == [RAEF_VOICE_ID]  # the cached one is not read again
 
 
 def test_warm_sweep_uploads_every_cached_wav_to_the_bucket(monkeypatch, tmp_path):
@@ -2257,3 +2257,32 @@ def test_an_account_is_sent_to_its_subjects_pages():
         assert put("חשבון").status_code == 400 and auth.access["u2"]["subject"] == "מתמטיקה"
         assert put(" ערבית ").json() == {"ok": True, "subject": "ערבית"} and auth.access["u2"]["subject"] == "ערבית"
         assert c.get("/api/me", headers=tok("t")).json()["subject"] == "arabic"
+
+
+def test_the_tts_cache_downloads_as_an_offline_zip_with_a_manifest(monkeypatch, tmp_path):
+    import io
+    import zipfile
+
+    from fastapi.testclient import TestClient
+
+    import app.main
+    from app.main import create_app
+    from app.tts import RAEF_VOICE_ID, SawtakTTS
+
+    phrases = [{"he": "שלום", "tr": "מרחבא", "variants": [("مرحبا", "m a r ħ a b a")]}]
+    monkeypatch.setattr(app.main, "PHRASES", phrases)
+    monkeypatch.setattr(app.main, "load_auth", lambda: None)
+    tts = SawtakTTS("key", cache_dir=tmp_path)
+    monkeypatch.setattr(tts, "_generate", lambda text, voice: b"RIFF-" + text.encode())
+    tts.wav(app.main.point_arabic(*phrases[0]["variants"][0]))
+    (tmp_path / "stray.wav").write_bytes(b"old")  # a file no phrase names is still included
+    with TestClient(create_app(scorer_for(emissions(["w"])), tts, tutor=object())) as c:
+        res = c.get("/api/tts-cache/download")
+    assert res.status_code == 200 and res.headers["x-file-count"] == "2"
+    zf = zipfile.ZipFile(io.BytesIO(res.content))
+    names = sorted(zf.namelist())
+    key = "ihki-tts/" + tts.cache_key(app.main.point_arabic(*phrases[0]["variants"][0]), RAEF_VOICE_ID)
+    assert names == sorted([key, "ihki-tts/stray.wav", "manifest.csv"])
+    assert zf.read(key).startswith(b"RIFF-")
+    manifest = zf.read("manifest.csv").decode("utf-8-sig")
+    assert "שלום" in manifest and RAEF_VOICE_ID in manifest and "ihki-tts/stray.wav" in manifest

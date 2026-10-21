@@ -13,6 +13,7 @@ A local .env file is loaded if present; real environment variables win over it.
 from __future__ import annotations
 
 import hashlib
+import csv
 import io
 import json
 import logging
@@ -31,7 +32,7 @@ from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Body, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .arabic_diacritics import point_arabic
@@ -2518,6 +2519,61 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             app.state.refs.invalidate()
         return {"ok": True, "removed": removed}
 
+    @app.get("/api/tts-cache/download")
+    def download_tts_cache(_a: SupabaseAuth = Depends(teacher_only)):
+        """An offline copy of the Sawtak recordings: every cached WAV, plus manifest.csv naming each file's phrase.
+
+        The zip is streamed (stored, not compressed: WAV barely compresses), so the whole cache never sits in memory."""
+        tts = app.state.tts
+        if tts is None:
+            raise HTTPException(503, "tts not configured")
+        try:
+            files = tts.cached_files()
+        except OSError as e:
+            raise HTTPException(503, f"could not read the voice cache: {e}")
+        names = {i: n for n, i in {**VOICES, **LINE_VOICES}.items()}
+        known: dict[str, dict] = {}  # file name (sha1 of version, voice and text) -> what it says
+        for phrase_id, phrase in enumerate(PHRASES):
+            text = point_arabic(*phrase["variants"][0])
+            for voice in names:
+                info = known.setdefault(Path(tts.cache_key(text, voice)).name,
+                                        {"voice_id": voice, "voice": names[voice], "text": text,
+                                         "he": phrase.get("he", ""), "tr": phrase.get("tr", ""), "phrase_ids": []})
+                info["phrase_ids"].append(str(phrase_id))
+
+        def chunks():
+            class Sink(io.RawIOBase):  # unseekable: zipfile writes data descriptors instead of seeking back
+                def __init__(self): self.parts: list[bytes] = []
+                def writable(self): return True
+                def write(self, b): self.parts.append(bytes(b)); return len(b)
+            sink = Sink()
+
+            def drain() -> bytes:
+                out = b"".join(sink.parts); sink.parts.clear(); return out
+
+            rows = io.StringIO()
+            writer = csv.writer(rows)
+            writer.writerow(["file", "voice_id", "voice", "phrase_ids", "arabic", "hebrew", "transliteration"])
+            with zipfile.ZipFile(sink, "w", zipfile.ZIP_STORED, allowZip64=True) as zf:
+                for path, rel in files:
+                    try:
+                        zf.write(path, f"ihki-tts/{rel}")
+                    except OSError as e:  # removed or unreadable meanwhile: leave it out, keep the rest
+                        log.warning("tts download skipped %s: %s", rel, e)
+                        continue
+                    info = known.get(path.name, {})
+                    writer.writerow([f"ihki-tts/{rel}", info.get("voice_id", rel.split("/")[0] if "/" in rel else ""),
+                                     info.get("voice", ""), " ".join(info.get("phrase_ids", [])), info.get("text", ""),
+                                     info.get("he", ""), info.get("tr", "")])
+                    yield drain()
+                zf.writestr("manifest.csv", "\ufeff" + rows.getvalue())  # BOM: Excel opens the Hebrew/Arabic right
+            yield drain()
+
+        name = f"ihki-tts-{datetime.now(timezone.utc):%Y-%m-%d_%H-%M}.zip"
+        return StreamingResponse(chunks(), media_type="application/zip", headers={
+            "Content-Disposition": f'attachment; filename="{name}"', "Cache-Control": "no-store",
+            "X-File-Count": str(len(files))})
+
     @app.post("/api/tts-cache/warm")
     def warm_tts_cache(body: dict = Body(...), _a: SupabaseAuth = Depends(teacher_only)):
         """Generate the finite phrase bank for a selected voice, one request at a time."""
@@ -2588,7 +2644,14 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 with app.state.tts_warm_lock:
                     app.state.tts_warm["current"] = text
                 try:
-                    was_cached = tts.cached(text, voice)
+                    # Already cached: skip without reading it. The cache can sit on a bucket mount, where reading
+                    # each WAV is a network fetch; the upload pass at the end still sends it if the bucket lacks it.
+                    if tts.cached(text, voice):
+                        with app.state.tts_warm_lock:
+                            app.state.tts_warm["skipped"] += 1
+                            app.state.tts_warm["done"] += 1
+                        continue
+                    was_cached = False
                     for attempt in range(5):
                         try:
                             data, _used = tts.wav_for_voice(text, voice)  # serialised: one request in this replica

@@ -4865,7 +4865,7 @@ function drawSystemActivity(box){
 }
 function drawTtsCacheControls(box){
   const card=mark("card",""), title=mark("","מטמון הקלטות Sawtak","h2"), text=mark("","אפשר להכין מראש את כל מאגר ההקלטות. התהליך מדלג על קבצים קיימים וממשיך מהם בהפעלה הבאה. מחיקה גורמת ליצירה מחדש.","p");
-  const usage=mark("activity-stats",""), progress=document.createElement("progress"), progressLabel=mark("msg",""), row=mark("row",""), warm=mark("btn primary","הכנת כל ההקלטות","button"), button=mark("btn","מחיקת מטמון ההקלטות","button"), msg=mark("msg","");
+  const usage=mark("activity-stats",""), progress=document.createElement("progress"), progressLabel=mark("msg",""), row=mark("row",""), warm=mark("btn primary","הכנת כל ההקלטות","button"), button=mark("btn","מחיקת מטמון ההקלטות","button"), offline=mark("btn","הורדת עותק אופליין","button"), msg=mark("msg","");
   progress.max=100; progress.value=0; progress.hidden=true; progress.style.width="100%"; progress.setAttribute("aria-label","התקדמות הכנת הקלטות Sawtak"); progressLabel.hidden=true;
   let polling=false;
   const warmState=s=>{ if(!s) return; warm.disabled=button.disabled=!!s.running; const pct=s.total?Math.round(100*s.done/s.total):0,voice=s.voice_id?` · קול ${s.voice_id}`:""; progress.hidden=progressLabel.hidden=!s.total; progress.value=pct; progressLabel.textContent=`${pct}% · ${s.done} מתוך ${s.total} · נוצרו ${s.generated} · כבר היו ${s.skipped}`+(s.bucket?` · הועלו לדלי ${s.uploaded||0}`+(s.upload_failed?` · נכשלו בהעלאה ${s.upload_failed}`:""):" · אין דלי מוגדר (TTS_BUCKET)")+(s.upload_error?` · ${s.upload_error}`:""); if(s.running) msg.textContent=s.waiting?`Sawtak לא ענה כרגע (הגבלת קצב או תקלת רשת); ניסיון נוסף בעוד ${s.waiting} שניות${voice}`:`מכין הקלטות מול Sawtak${voice}`; else if(s.error) msg.textContent=`ההכנה נעצרה אחרי ${s.done} הקלטות: ${s.error}${voice}`; else if(s.total&&s.done===s.total) msg.textContent=`המאגר מוכן${voice}.`; if(s.running&&!polling){polling=true; setTimeout(poll,2000);} };
@@ -4873,6 +4873,18 @@ function drawTtsCacheControls(box){
   const poll=()=>api("/api/tts-cache").then(async res=>{const data=await res.json().catch(()=>({}));if(!res.ok) throw new Error(data.detail||res.status);show(data);polling=false;warmState(data.warm);}).catch(err=>{polling=false;msg.textContent="נתוני המטמון לא זמינים: "+err.message;});
   poll();
   warm.onclick=async()=>{ const voice=(prompt("מזהה הקול של Sawtak:","273d81b2-991b-5b76-8525-eeacc6a3d759")||"").trim(); if(!voice) return; if(!confirm(`להכין עכשיו את כל הקלטות Sawtak החסרות לקול ${voice}? התהליך משתמש ביתרה בחשבון וממשיך ברקע.`)) return; warm.disabled=true; msg.textContent="מתחיל…"; try{const res=await api("/api/tts-cache/warm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({voice_id:voice})}),data=await res.json().catch(()=>({}));if(!res.ok) throw new Error(data.detail||res.status);warmState(data);}catch(err){warm.disabled=false;msg.textContent="ההכנה לא התחילה: "+err.message;} };
+  offline.onclick=async()=>{   // every cached WAV + manifest.csv (which phrase each file is), streamed as one zip
+    offline.disabled=true; msg.textContent="מכין עותק אופליין…";
+    try{
+      const res=await api("/api/tts-cache/download"); if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
+      const count=res.headers.get("X-File-Count")||"", name=(/filename="([^"]+)"/.exec(res.headers.get("Content-Disposition")||"")||[])[1]||"ihki-tts.zip";
+      const reader=res.body.getReader(), parts=[]; let got=0;
+      for(;;){ const {done,value}=await reader.read(); if(done) break; parts.push(value); got+=value.length; msg.textContent=`מוריד ${count} הקלטות… ${(got/1048576).toFixed(1)} MB`; }
+      const url=URL.createObjectURL(new Blob(parts,{type:"application/zip"})), a=document.createElement("a"); a.href=url; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),60000);
+      msg.textContent=`העותק הורד: ${count} הקלטות · ${(got/1048576).toFixed(1)} MB · הקובץ manifest.csv בתוכו מפרט איזה משפט בכל קובץ.`;
+    }catch(err){ msg.textContent="ההורדה נכשלה: "+err.message; }
+    offline.disabled=false;
+  };
   button.onclick=async()=>{
     if(!confirm("למחוק את כל הקלטות התשובה מהמטמון? גם הקלטות שנבחרו ידנית יימחקו, ולא ניתן לבטל את הפעולה.")) return;
     button.disabled=true; msg.textContent="מוחק…";
@@ -4886,7 +4898,7 @@ function drawTtsCacheControls(box){
     }catch(err){ msg.textContent="המחיקה נכשלה: "+err.message; }
     button.disabled=false;
   };
-  row.append(warm,button,msg); card.append(title,text,usage,progress,progressLabel,row); box.append(card);
+  row.append(warm,offline,button,msg); card.append(title,text,usage,progress,progressLabel,row); box.append(card);
 }
 // how to get each key, step by step: a step is its parts, text or [text, link]
 const KEY_GUIDES={
