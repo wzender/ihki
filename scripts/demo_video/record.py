@@ -23,6 +23,7 @@ sys.path.insert(0, str(HERE))
 from script import LINES
 
 W, H, DPR, FPS = 432, 768, 2.5, 30          # 9:16 viewport -> 1080x1920 frames
+LOGO_SECONDS = 7.4                          # static/logo-intro.svg's animation, to the dots' last bounce
 
 
 def hold(text, sub):
@@ -208,9 +209,11 @@ async def run(url, takes, voice, out, music_gain, music_file, sound, keep_frames
         await pg.goto(url, wait_until="networkidle")
         await rec.start()
 
-        # 1 · opening: the logo animation
+        # 1 · opening: the logo animation, held until its dots have bounced off the lameds and settled (~7.2s)
+        logo_start = time.monotonic()
         await wait(1200)
         await line("intro"); await spoken(0.5)
+        await asyncio.sleep(max(0.0, logo_start + LOGO_SECONDS - time.monotonic()))
         await tap("#practiceBtn", 700)
         await pg.evaluate("ME_PERMISSIONS=new Set(['practice.use','exercises.use','path.use','games.use','tutor.use'])")
         if await pg.locator("#guideTipClose").is_visible():
@@ -319,9 +322,11 @@ async def run(url, takes, voice, out, music_gain, music_file, sound, keep_frames
         await pg.evaluate("__demo.caption('')")
         await pg.evaluate("""__demo.card(`<img src="/static/logo-intro.svg?v=${Date.now()}" alt="">
             <h2>יאללה, מתחילים!</h2><p>פותחים את האפליקציה<br>ומתרגלים כמה דקות ביום</p>`)""")
+        card_start = time.monotonic()
         await wait(700)
         await line("outro"); await spoken()
-        await wait(2400)
+        await asyncio.sleep(max(0.0, card_start + LOGO_SECONDS - time.monotonic()))
+        await wait(1200)
 
         await rec.stop()
         await wait(500)                          # the last sounds' data

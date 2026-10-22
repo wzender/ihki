@@ -1,6 +1,6 @@
 # Students' feature video
 
-An 82-second vertical (1080×1920) silent walkthrough for Reels/TikTok/WhatsApp status, with Hebrew captions:
+A 97-second vertical (1080×1920) walkthrough for Reels/TikTok/WhatsApp status, with Hebrew captions:
 the path → new words → a spoken answer with a ח mistake, its tip, the retry → a story → streak and beads →
 daily practice → verbs → games (a round of the memory game) → the logo.
 

@@ -6,7 +6,21 @@
 .line2{animation:calligraphyReveal 1.15s cubic-bezier(.2,.8,.25,1) 3.55s both}
 .wet{display:none}
 .pen1,.pen2{animation:none}
-.dots{transform-origin:219px 34px;animation:dots .55s cubic-bezier(.3,1.5,.5,1) 4.7s both}
+/* The dots play on the two lameds: each lamed's forked top is a springboard that squashes under a dot and flings it on.
+   Dot 1 drops on the top lamed and is flung to its place; dot 2 drops on the lower lamed, is flung to the top one, then home.
+   Each dot nests x (with fade) > y > spin > squash, so the arcs and squashes combine. */
+.d1x,.d2x{animation-timing-function:linear;animation-fill-mode:both}
+.d1x{animation-name:d1x;animation-duration:1.6s;animation-delay:4.6s}
+.d1y{animation:d1y 1.6s 4.6s both}
+.d1r{transform-origin:205px 33px;animation:d1r 1.6s ease-in-out 4.6s both}
+.d1s{transform-origin:205px 38px;animation:d1s 1.6s ease-in-out 4.6s both}
+.d2x{animation-name:d2x;animation-duration:2.2s;animation-delay:4.85s}
+.d2y{animation:d2y 2.2s 4.85s both}
+.d2r{transform-origin:221px 33px;animation:d2r 2.2s ease-in-out 4.85s both}
+.d2s{transform-origin:221px 38px;animation:d2s 2.2s ease-in-out 4.85s both}
+/* A lamed bends from the base of its stem: it is hit by dot 1 at 5.08s and dot 2 at 5.95s (top), by dot 2 at 5.25s (lower). */
+.lam1{transform-origin:176px 58px;animation:lam1 1.52s ease-in-out 5.08s both}
+.lam2{transform-origin:102px 108px;animation:lam2 .8s ease-in-out 5.25s both}
 .rule{display:none}
 .unfold{transform-origin:157px 176px;animation:schoolIn .9s cubic-bezier(.2,.8,.25,1) 5.15s both}
 @keyframes rollRight{from{opacity:0;transform:translateX(-315px) rotate(-720deg) scale(.72)}20%{opacity:1}85%{transform:translateX(7px) rotate(12deg) scale(1)}to{opacity:1;transform:translateX(0) rotate(0) scale(1)}}
@@ -17,7 +31,16 @@
 @keyframes wet{0%,72%{opacity:1}100%{opacity:0}}
 @keyframes pen1{from{transform:translateX(282px)}}
 @keyframes pen2{from{transform:translateX(342px)}}
-@keyframes dots{from{opacity:0;transform:translateY(-16px) scale(.3)}50%{opacity:1}}
+@keyframes d1x{0%{opacity:0;transform:translateX(-27px)}5%{opacity:1}34%{transform:translateX(-27px)}65%,to{opacity:1;transform:translateX(0)}}
+@keyframes d1y{0%{transform:translateY(-100px);animation-timing-function:cubic-bezier(.55,0,1,.45)}30%{transform:translateY(-8px)}34%{transform:translateY(-5px);animation-timing-function:cubic-bezier(0,.55,.45,1)}49%{transform:translateY(-26px);animation-timing-function:cubic-bezier(.55,0,1,.45)}65%{transform:translateY(0);animation-timing-function:cubic-bezier(0,.55,.45,1)}76%{transform:translateY(-8px);animation-timing-function:cubic-bezier(.55,0,1,.45)}86%{transform:translateY(0);animation-timing-function:cubic-bezier(0,.55,.45,1)}93%{transform:translateY(-2px);animation-timing-function:cubic-bezier(.55,0,1,.45)}to{transform:translateY(0)}}
+@keyframes d1r{0%,34%{transform:rotate(0)}65%,to{transform:rotate(90deg)}}
+@keyframes d1s{0%,28%{transform:scale(.85,1.2)}32%{transform:scale(1.35,.65)}38%{transform:scale(.85,1.2)}60%{transform:scale(.9,1.1)}66%{transform:scale(1.35,.65)}74%{transform:scale(.92,1.08)}86%{transform:scale(1.12,.88)}93%,to{transform:scale(1)}}
+@keyframes d2x{0%{opacity:0;transform:translateX(-118px)}4%{opacity:1}22%{transform:translateX(-118px)}50%,54%{transform:translateX(-43px)}74%,to{opacity:1;transform:translateX(0)}}
+@keyframes d2y{0%{transform:translateY(-130px);animation-timing-function:cubic-bezier(.55,0,1,.45)}18%{transform:translateY(45px)}22%{transform:translateY(48px);animation-timing-function:cubic-bezier(0,.55,.45,1)}35%{transform:translateY(-22px);animation-timing-function:cubic-bezier(.55,0,1,.45)}50%{transform:translateY(-8px)}54%{transform:translateY(-5px);animation-timing-function:cubic-bezier(0,.55,.45,1)}63%{transform:translateY(-26px);animation-timing-function:cubic-bezier(.55,0,1,.45)}74%{transform:translateY(0);animation-timing-function:cubic-bezier(0,.55,.45,1)}82%{transform:translateY(-8px);animation-timing-function:cubic-bezier(.55,0,1,.45)}90%{transform:translateY(0);animation-timing-function:cubic-bezier(0,.55,.45,1)}95%{transform:translateY(-2px);animation-timing-function:cubic-bezier(.55,0,1,.45)}to{transform:translateY(0)}}
+@keyframes d2r{0%,22%{transform:rotate(0)}50%,54%{transform:rotate(90deg)}74%,to{transform:rotate(180deg)}}
+@keyframes d2s{0%,16%{transform:scale(.85,1.2)}20%{transform:scale(1.35,.65)}25%{transform:scale(.85,1.2)}48%{transform:scale(.85,1.2)}52%{transform:scale(1.35,.65)}57%{transform:scale(.85,1.2)}71%{transform:scale(.9,1.1)}76%{transform:scale(1.35,.65)}83%{transform:scale(.92,1.08)}90%{transform:scale(1.12,.88)}95%,to{transform:scale(1)}}
+@keyframes lam1{0%,42%,57%,to{transform:none}4%,61%{transform:scaleY(.86)}10%,67%{transform:rotate(9deg) scaleY(1.06)}18%,75%{transform:rotate(-6deg)}26%,83%{transform:rotate(4deg)}34%,91%{transform:rotate(-2deg)}}
+@keyframes lam2{0%,to{transform:none}8%{transform:scaleY(.86)}20%{transform:rotate(9deg) scaleY(1.06)}40%{transform:rotate(-6deg)}60%{transform:rotate(4deg)}80%{transform:rotate(-2deg)}}
 @keyframes rule{0%{opacity:1;stroke-dashoffset:1}45%{opacity:1;stroke-dashoffset:0}70%{opacity:0;stroke-dashoffset:0}}
 @keyframes unfold{from{opacity:0;transform:scaleY(0)}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important}}
@@ -30,10 +53,13 @@
 <!-- The knot's PNG also holds the tip of the name's first letter (x 315-320, above y 100): the knot hides it, the first line shows it. -->
 <clipPath id="noTip"><path d="M320,0H489V225H315V100H320Z"/></clipPath>
 <clipPath id="tip"><rect x="315" y="70" width="5" height="30"/></clipPath>
-<!-- Line 1 is the band right of x 116 above y 97, minus the three dots; line 2 is the rest above the school name. -->
-<clipPath id="line1"><path clip-rule="evenodd" d="M116,0H322V97H116Z M198,22V41H240V22Z"/></clipPath>
-<clipPath id="line2"><path clip-rule="evenodd" d="M0,0H322V160H0Z M116,0H322V97H116Z"/></clipPath>
-<clipPath id="dots"><rect x="198" y="22" width="42" height="19"/></clipPath>
+<!-- Line 1 is the band right of x 116 above y 97, minus the dots and the top lamed's stem (each lamed's piece reaches 2 units below its cut, to hide the seam as it bends); line 2 is the rest above the school name. -->
+<clipPath id="line1"><path clip-rule="evenodd" d="M116,0H322V97H116Z M198,22V41H240V22Z M165,15V58H192V15Z"/></clipPath>
+<clipPath id="line2"><path clip-rule="evenodd" d="M0,0H322V160H0Z M116,0H322V97H116Z M92,72V108H114V72Z"/></clipPath>
+<clipPath id="lam1"><rect x="165" y="15" width="27" height="45"/></clipPath>
+<clipPath id="lam2"><rect x="92" y="72" width="22" height="38"/></clipPath>
+<clipPath id="dot1"><rect x="198" y="22" width="15" height="19"/></clipPath>
+<clipPath id="dot2"><rect x="213" y="22" width="27" height="19"/></clipPath>
 <clipPath id="sub"><rect x="0" y="160" width="322" height="30"/></clipPath>
 <mask id="m1w" maskUnits="userSpaceOnUse" x="0" y="0" width="489" height="225"><rect class="pen1 lead" x="60" y="0" width="282" height="100" fill="url(#edge)"/></mask>
 <mask id="m1" maskUnits="userSpaceOnUse" x="0" y="0" width="489" height="225"><rect class="pen1 ink" x="60" y="0" width="282" height="100" fill="url(#edge)"/></mask>
@@ -42,10 +68,13 @@
 </defs>
 <g class="spin"><use href="#knotImg" clip-path="url(#noTip)"/></g>
 <g class="line1"><g clip-path="url(#line1)"><g class="wet" mask="url(#m1w)" filter="url(#green)"><use href="#nameImg"/><use href="#knotImg" clip-path="url(#tip)"/></g>
-<g mask="url(#m1)"><use href="#nameImg"/><use href="#knotImg" clip-path="url(#tip)"/></g></g></g>
+<g mask="url(#m1)"><use href="#nameImg"/><use href="#knotImg" clip-path="url(#tip)"/></g></g>
+<g mask="url(#m1)"><g class="lam1"><use href="#nameImg" clip-path="url(#lam1)"/></g></g></g>
 <g class="line2"><g clip-path="url(#line2)"><g class="wet" mask="url(#m2w)" filter="url(#green)"><use href="#nameImg"/></g>
-<g mask="url(#m2)"><use href="#nameImg"/></g></g></g>
-<g class="dots"><use href="#nameImg" clip-path="url(#dots)"/></g>
+<g mask="url(#m2)"><use href="#nameImg"/></g></g>
+<g mask="url(#m2)"><g class="lam2"><use href="#nameImg" clip-path="url(#lam2)"/></g></g></g>
+<g class="d1x"><g class="d1y"><g class="d1r"><g class="d1s"><use href="#nameImg" clip-path="url(#dot1)"/></g></g></g></g>
+<g class="d2x"><g class="d2y"><g class="d2r"><g class="d2s"><use href="#nameImg" clip-path="url(#dot2)"/></g></g></g></g>
 <path class="rule" pathLength="1" d="M288,158H27"/>
 <g class="unfold"><use href="#nameImg" clip-path="url(#sub)"/></g>
 </svg>
