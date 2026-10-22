@@ -327,28 +327,41 @@ class SawtakTTS:
             self._disk = None
             return removed
 
-    def cache_stats(self, max_age: float = 30) -> dict:
-        """Anonymous disk and process-lifetime cache usage for the monitoring panel. The file count is reused for
-        `max_age` seconds, and while one walk runs other callers get the previous count instead of waiting."""
+    def cache_stats(self, max_age: float = 30, wait: bool = False) -> dict:
+        """Anonymous disk and process-lifetime cache usage for the monitoring panel. Counting the files on a bucket
+        mount takes minutes, so a stale count is refreshed in a background thread and the call returns at once with
+        the previous count (files and bytes are None before the first count ends). `wait`: count now instead."""
         disk = self._disk
         if disk is None or time.monotonic() - disk[0] > max_age:
-            if self._stats_lock.acquire(blocking=disk is None):
-                try:
-                    files = size = 0
-                    for path, _rel in self.cached_files():
-                        files += 1
-                        size += path.stat().st_size
-                    disk = self._disk = (time.monotonic(), files, size)
-                except OSError as e:
-                    raise TTSUnavailable(f"could not inspect voice cache: {e}") from None
-                finally:
-                    self._stats_lock.release()
-            disk = self._disk or disk
+            if wait:
+                with self._stats_lock:
+                    self._count_files()
+            elif self._stats_lock.acquire(blocking=False):
+                def walk() -> None:
+                    try:
+                        self._count_files()
+                    except TTSUnavailable as e:
+                        log.warning("%s", e)
+                    finally:
+                        self._stats_lock.release()
+                threading.Thread(target=walk, name="ihki-tts-count", daemon=True).start()
+        disk = self._disk
         with self._counts:
             hits, misses = self._cache_hits, self._cache_misses
         requests = hits + misses
-        return {"files": disk[1] if disk else 0, "bytes": disk[2] if disk else 0, "hits": hits, "misses": misses,
-                "hit_rate": round(hits / requests, 4) if requests else None}
+        return {"files": disk[1] if disk else None, "bytes": disk[2] if disk else None, "hits": hits,
+                "misses": misses, "hit_rate": round(hits / requests, 4) if requests else None}
+
+    def _count_files(self) -> None:
+        """Walk the cache folder; the caller holds _stats_lock."""
+        files = size = 0
+        try:
+            for path, _rel in self.cached_files():
+                files += 1
+                size += path.stat().st_size
+        except OSError as e:
+            raise TTSUnavailable(f"could not inspect voice cache: {e}") from None
+        self._disk = (time.monotonic(), files, size)
 
     def _wav(self, text: str, voice: str, upload: bool = False, source: str = "") -> tuple[bytes, str]:
         """Generate or read `text` for an already validated voice id. `upload`: send a new recording to the bucket

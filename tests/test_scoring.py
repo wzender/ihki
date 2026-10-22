@@ -2353,7 +2353,7 @@ def test_with_a_bucket_new_recordings_are_staged_locally_not_written_to_the_moun
     (mount / RAEF_VOICE_ID).mkdir(parents=True)                          # the bucket's copy appears in the mount
     (mount / key).write_bytes(data)
     assert [rel for _p, rel in tts.cached_files()] == [key]              # counted once
-    assert tts.cache_stats()["files"] == 1
+    assert tts.cache_stats(wait=True)["files"] == 1
     assert tts.wav("مرحبا")[0] == data and tts.cache_stats()["hits"] == 1
     assert tts.clear_cache() == 2 and not tts.cached("مرحبا", RAEF_VOICE_ID)
 
@@ -2529,7 +2529,16 @@ def test_a_slow_cache_count_does_not_hold_up_generation(monkeypatch, tmp_path):
     def slow_walk():  # a bucket mount: tens of seconds for the whole folder
         walking.set(); time.sleep(1); return []
     monkeypatch.setattr(tts, "cached_files", slow_walk)
-    counter = threading.Thread(target=tts.cache_stats); counter.start()
+    t0 = time.monotonic()
+    stats = tts.cache_stats()                                        # no count yet: answers at once, counts behind
+    assert time.monotonic() - t0 < .5 and stats["files"] is None
+    assert walking.wait(2)
+    for _ in range(300):                                             # wait for that background count to end
+        if tts._disk: break
+        time.sleep(.01)
+    walking.clear()
+    tts._disk = None
+    counter = threading.Thread(target=tts.cache_stats, kwargs={"wait": True}); counter.start()
     assert walking.wait(2)
     t0 = time.monotonic()
     tts.wav_for_voice("مرحبا", RAEF_VOICE_ID)
@@ -2537,7 +2546,7 @@ def test_a_slow_cache_count_does_not_hold_up_generation(monkeypatch, tmp_path):
     counter.join()
     walking.clear()
     tts._disk = (time.monotonic() - 60, 7, 70)                       # a stale count: the next call walks again
-    counter = threading.Thread(target=tts.cache_stats); counter.start()
+    counter = threading.Thread(target=tts.cache_stats, kwargs={"wait": True}); counter.start()
     assert walking.wait(2)
     t0 = time.monotonic()
     stats = tts.cache_stats()                                        # meanwhile a panel refresh gets the last count
