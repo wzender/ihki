@@ -914,13 +914,16 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         """Anonymous, aggregated practice activity for the teacher's monitoring graph."""
         try:
             scoped = bool(actor and "developer" not in actor.get("roles", ()) and hasattr(a, "access_for"))
-            if scoped or window_minutes is not None:
+            if scoped:
                 ids = None
-                if scoped:
-                    classes, users = managed_classes(a, actor, fresh=True), a.users()
-                    emails = {email for c in classes for email in c.get("emails", ())}
-                    ids = {u["id"] for u in users if u["email"].lower() in emails}
+                classes, users = managed_classes(a, actor, fresh=True), a.users()
+                emails = {email for c in classes for email in c.get("emails", ())}
+                ids = {u["id"] for u in users if u["email"].lower() in emails}
                 start = datetime.now(timezone.utc) - (timedelta(minutes=window_minutes) if window_minutes else timedelta(hours=hours))
+                data = a.scoped_activity(ids, start, bucket_minutes)
+            elif window_minutes is not None:
+                ids = None
+                start = datetime.now(timezone.utc) - timedelta(minutes=window_minutes)
                 rows = [r for r in a.all_attempts(limit=MAX_MONITOR_ATTEMPTS)
                         if (ids is None or r.get("user_id") in ids) and utc(r["created_at"]) >= start]
                 seconds, buckets = bucket_minutes * 60, {}

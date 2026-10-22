@@ -373,7 +373,8 @@ body:not(.home) .reward-shelf,body.manage .reward-shelf,body[data-view] .reward-
 .label{position:absolute;top:50%;width:var(--w);transform:translateY(-50%);display:flex;flex-direction:column;gap:2px}
 .sat.R .label{left:calc(100% + 10px);text-align:left;align-items:flex-end}
 .sat.L .label{right:calc(100% + 10px);text-align:right;align-items:flex-start}
-.label small{font:600 12px/1.2 var(--f-body);color:var(--muted)}
+.label b{color:#F7FAEF;text-shadow:0 1px 2px #000,0 0 5px rgb(0 0 0/.8)}
+.label small{font:600 12px/1.2 var(--f-body);color:#D5DDCE;text-shadow:0 1px 2px #000,0 0 5px rgb(0 0 0/.8)}
 .way{padding:1px 7px;border-radius:999px;background:var(--olive-soft);color:var(--olive);font:700 11px/1.3 var(--f-body);white-space:nowrap}
 .way.read{background:var(--surface);color:var(--ink);box-shadow:inset 0 0 0 1px var(--track)}
 .sat.now .label b{font-weight:700}
@@ -747,6 +748,8 @@ body.manage #manage{width:100%;max-width:none}
 .access-actions{display:flex;justify-content:flex-end;margin:8px 0}.access-scroll{overflow:auto}.access-table{width:100%;border-collapse:collapse;min-width:1180px}.access-table :is(th,td){padding:9px 10px;border-bottom:1px solid var(--line);text-align:center}.access-table th{position:sticky;top:0;background:var(--surface);font-size:13px;white-space:nowrap;z-index:1}.access-table th>span{display:block;margin-bottom:4px}.access-table .access-all{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-weight:600;cursor:pointer}.access-table .access-all small{font-size:11px}.access-table :is(th,td):first-child{text-align:start;position:sticky;right:0;background:var(--surface);z-index:2;min-width:260px}.access-table td:first-child{font-weight:700}.access-table td:first-child small{display:block;color:var(--muted);font-weight:400;direction:ltr;overflow:hidden;text-overflow:ellipsis}.access-table input{width:18px;height:18px}.access-table .save-cell{min-width:96px}
 @media(max-width:700px){.modes{grid-template-columns:repeat(2,1fr)}}
 .flag-review{gap:10px}.flag-review h2{margin:0}.flag-review .meta{color:var(--muted);font-size:13px}.flag-review fieldset{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:7px}
+.flag-review.flag-urgent{border-inline-start:4px solid var(--sumac)}.flag-review.flag-lower{border-inline-start:4px solid var(--line)}
+.flag-priority{display:inline-block;margin-inline-start:6px;padding:2px 7px;border-radius:999px;font-size:12px;font-weight:700}.flag-priority.urgent{background:var(--sumac-bg);color:var(--sumac)}.flag-priority.lower{background:var(--bg);color:var(--muted)}
 .flag-review fieldset label{display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid var(--line);border-radius:9px}.flag-review select,.flag-review textarea{font:inherit;border:1px solid var(--line);border-radius:9px;padding:7px;background:var(--surface);color:var(--ink)}
 .flag-review textarea{width:100%;resize:vertical}
 .scoring-rules summary{cursor:pointer;font-size:17px}.scoring-rules details[open] summary{margin-bottom:8px}
@@ -1236,7 +1239,7 @@ html[data-subject="math"] #bootErr{color:#F08A8A}
 #wrap{opacity:1;transition:opacity .65s ease .1s}
 #wrap[inert]{opacity:0}
 /* Accessibility toolbar: available on the splash screen and throughout every app view. */
-.a11y-launch{position:fixed;top:max(12px,env(safe-area-inset-top));left:12px;z-index:100;display:grid;place-items:center;width:46px;height:46px;padding:0;border:2px solid var(--olive);border-radius:50%;background:var(--surface);color:var(--olive);box-shadow:0 3px 12px rgb(0 0 0/.2);font:700 24px/1 var(--f-body);cursor:pointer}
+.a11y-launch{position:fixed;top:max(12px,env(safe-area-inset-top));left:12px;z-index:100;display:none;place-items:center;width:46px;height:46px;padding:0;border:2px solid var(--olive);border-radius:50%;background:var(--surface);color:var(--olive);box-shadow:0 3px 12px rgb(0 0 0/.2);font:700 24px/1 var(--f-body);cursor:pointer}
 .a11y-launch:hover,.a11y-launch:focus-visible{background:var(--olive-soft);outline:3px solid var(--surface);outline-offset:2px}
 .a11y-panel{position:fixed;top:max(66px,calc(env(safe-area-inset-top) + 66px));left:12px;z-index:101;width:min(310px,calc(100vw - 24px));padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 8px 28px rgb(0 0 0/.28)}
 .a11y-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.a11y-head strong{font-size:19px}.a11y-close{width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:var(--ink);font:700 18px/1 var(--f-body);cursor:pointer}.a11y-close:hover,.a11y-close:focus-visible{background:var(--olive-soft);outline:2px solid var(--olive)}
@@ -4747,14 +4750,19 @@ function drawFlags(){
   if(!pending.length){ head.append(mark("meta","אין כרגע דיווחים שממתינים לבדיקה.","p")); return; }
   const byUser=new Map; for(const f of pending){ const who=f.email||""; if(!byUser.has(who)) byUser.set(who,[]); byUser.get(who).push(f); }
   head.append(mark("meta",`${pending.length} ${pending.length===1?"דיווח":"דיווחים"} מ־${byUser.size} ${byUser.size===1?"מדווח/ת":"מדווחים"}, מקובצים לפי המדווח/ת.`,"p"));
-  for(const [who,flags] of [...byUser].sort((a,b)=>b[1].length-a[1].length||a[0].localeCompare(b[0]))){   // the most reports first
+  const flagScore=f=>Number.isFinite(Number(f.score))?Number(f.score):101;
+  const groupPriority=flags=>Math.min(...flags.map(flagScore));
+  for(const [who,flags] of [...byUser].sort((a,b)=>groupPriority(a[1])-groupPriority(b[1])||b[1].length-a[1].length||a[0].localeCompare(b[0]))){
     const group=document.createElement("details"), summary=document.createElement("summary");
     group.className="flag-group"; group.open=flagGroupOpen[who]===true; group.ontoggle=()=>{ flagGroupOpen[who]=group.open; };
-    summary.append(mark("",who||"ללא משתמש","b"),mark("meta",` · ${flags.length} ${flags.length===1?"דיווח":"דיווחים"}`)); group.append(summary); box.append(group);
-    for(const f of flags){
-      const card=mark("card flag-review",""), title=mark("",f.he||f.phrase,"h2"), result=f.result||{}, issues=flagIssues(f);
+    const urgent=flags.filter(f=>flagScore(f)<75).length;
+    summary.append(mark("",who||"ללא משתמש","b"),mark("meta",` · ${flags.length} ${flags.length===1?"דיווח":"דיווחים"}${urgent?` · ${urgent} מתחת ל־75`:" · כולם בחומרה נמוכה"}`)); group.append(summary); box.append(group);
+    for(const f of [...flags].sort((a,b)=>flagScore(a)-flagScore(b))){
+      const lower=flagScore(f)>=75, card=mark(`card flag-review ${lower?"flag-lower":"flag-urgent"}`,""), title=mark("",f.he||f.phrase,"h2"), result=f.result||{}, issues=flagIssues(f);
       const ar=mark("",f.ar||"","p"); ar.dir="rtl";
-      card.append(title,ar,mark("meta",`ציון ${f.score} · המודל שמע: ${f.heard_ipa||"–"}`,"p"));
+      const scoreLine=mark("meta",`ציון ${f.score} · המודל שמע: ${f.heard_ipa||"–"}`,"p");
+      scoreLine.append(mark(`flag-priority ${lower?"lower":"urgent"}`,lower?"חומרה נמוכה":"עדיפות לבדיקה"));
+      card.append(title,ar,scoreLine);
       if(f.note) card.append(mark("",`הערת המדווח/ת: ${f.note}`,"p"));
       if(f.audio){
         const audioRow=mark("row",""), play=mark("btn","▶ השמעת ההקלטה","button"), audio=document.createElement("audio"), audioMsg=mark("msg","");

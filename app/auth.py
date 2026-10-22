@@ -69,6 +69,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 log = logging.getLogger("ihki.auth")
 TIMEOUT = 10
@@ -890,6 +891,49 @@ class SupabaseAuth:
             if "answered 404" not in str(e):
                 raise
         return {"buckets": buckets, "summary": summary}
+
+    def scoped_activity(self, user_ids: set[str], since: datetime, bucket_minutes: int = 15) -> dict:
+        """Aggregated monitoring data for one admin's students, calculated in Postgres without downloading attempts."""
+        if not user_ids:
+            return {"buckets": [], "summary": {"attempts": 0, "active_students": 0,
+                                                 "returning_students": 0, "active_days": 0}}
+        body = {"p_user_ids": sorted(user_ids), "p_since": since.isoformat()}
+        try:
+            buckets = self._admin("/rest/v1/rpc/activity_buckets_scoped", "POST",
+                                  {**body, "p_bucket_minutes": bucket_minutes})
+            rows = self._admin("/rest/v1/rpc/activity_summary_scoped", "POST", body) or []
+            return {"buckets": buckets or [], "summary": rows[0] if rows else None}
+        except AuthUnavailable as e:
+            if "answered 404" not in str(e):
+                raise
+            log.warning("scoped activity RPCs are missing; using the paged timestamp fallback")
+            return self._scoped_activity_fallback(user_ids, since, bucket_minutes)
+
+    def _scoped_activity_fallback(self, user_ids: set[str], since: datetime, bucket_minutes: int) -> dict:
+        """Accurate compatibility path until the scoped aggregate RPC migration is installed."""
+        rows: list[dict] = []
+        for offset in range(0, MAX_CLASS_ATTEMPTS, PAGE):
+            query = urllib.parse.urlencode({"select": "user_id,created_at", "user_id": f"in.({','.join(sorted(user_ids))})",
+                                            "created_at": f"gte.{since.isoformat()}", "order": "created_at.desc",
+                                            "limit": PAGE, "offset": offset})
+            batch = self._admin(f"/rest/v1/attempts?{query}") or []
+            rows += batch
+            if len(batch) < PAGE:
+                break
+        seconds, buckets, per_user = max(1, min(bucket_minutes, 60)) * 60, {}, {}
+        local = ZoneInfo("Asia/Jerusalem")
+        for row in rows:
+            stamp = datetime.strptime(row["created_at"][:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+            slot = int(stamp.timestamp()) // seconds * seconds
+            item = buckets.setdefault(slot, {"users": set(), "attempts": 0})
+            item["attempts"] += 1; item["users"].add(row["user_id"])
+            per_user.setdefault(row["user_id"], set()).add(stamp.astimezone(local).date())
+        return {"buckets": [{"bucket": datetime.fromtimestamp(slot, timezone.utc).isoformat(),
+                              "attempts": item["attempts"], "active_students": len(item["users"])}
+                             for slot, item in sorted(buckets.items())],
+                "summary": {"attempts": len(rows), "active_students": len(per_user),
+                            "returning_students": sum(len(days) >= 2 for days in per_user.values()),
+                            "active_days": len({day for days in per_user.values() for day in days})}}
 
     def log_event(self, kind: str, user: dict | None, label: str = "", details: dict | None = None) -> None:
         """Best-effort append to the management activity feed; a missing audit table never blocks the action."""
