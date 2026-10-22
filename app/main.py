@@ -889,7 +889,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             fixed = email.lower() in a.teachers | a.tutors
             return {"email": email, "name": name, "joined": joined, "classes": into, "since": since, "written": wrote or {},
                     "tutor": fixed or email.lower() in (ranked or ()), **({"tutor_fixed": True} if fixed else {}),
-                    **summary(mine, bank)}
+                    "streak": practice_streak(mine), **summary(mine, bank)}
 
         subject_scoped = bool(actor and "developer" not in actor.get("roles", ()) and hasattr(a, "access_for"))
         students = [student(u["email"], u["name"], True, by.get(u["id"], []), written.get(u["id"]))

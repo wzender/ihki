@@ -321,6 +321,27 @@ body.memory-game{overflow:hidden}
 /* the way back to the path, at the head of the daily videos' screen (no tab of the foot's bar is lit there) */
 #vids button.back{display:inline-flex;align-self:flex-start;gap:6px;padding:6px 12px;border-radius:10px;background:var(--olive);border-color:var(--olive);color:var(--on-olive);font:700 15px var(--f-body)}
 #dailyDlg{width:min(92vw,380px)}
+/* A topic's end: every sentence practised. A medal pops, confetti falls when it all went well, and a bead a sentence
+   shows how each one went (gold 75+, green 60+, red under 60 and wobbling: those are offered for one more round). */
+#topicDoneDlg{width:min(92vw,400px);text-align:center;overflow:hidden}
+.td-medal{font-size:64px;line-height:1;margin:6px 0 2px;display:inline-block;animation:td-pop .7s cubic-bezier(.2,1.6,.4,1) both}
+#topicDoneDlg h2{margin:6px 0 2px;font:400 26px/1.2 var(--f-display);color:var(--olive)}
+#topicDoneDlg .dlg-text{margin:4px 0 10px}
+.td-stars{font-size:26px;letter-spacing:4px;margin:0 0 8px}.td-stars span{display:inline-block;opacity:.22;filter:grayscale(1)}
+.td-stars span.on{opacity:1;filter:none;animation:td-pop .5s cubic-bezier(.2,1.6,.4,1) both}
+.td-stars span.on:nth-child(2){animation-delay:.18s}.td-stars span.on:nth-child(3){animation-delay:.36s}
+.td-beads{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin:4px 0 14px;direction:rtl}
+.td-bead{width:26px;height:26px;padding:0;border-radius:50%;border:2px solid #52624b;cursor:pointer;background:radial-gradient(circle at 32% 27%,#dce7d4 0 9%,#769064 23%,#405136 72%);box-shadow:inset -2px -3px 3px rgb(0 0 0/.3),0 2px 2px rgb(0 0 0/.2);animation:td-pop .4s cubic-bezier(.2,1.6,.4,1) both}
+.td-bead.gold{border-color:#9b690b;background:radial-gradient(circle at 32% 27%,#fff3a7 0 9%,#e4b83e 27%,#9d6509 75%)}
+.td-bead.weak{border-color:#8f3340;background:radial-gradient(circle at 32% 27%,#ffd9de 0 9%,#e77b87 27%,#9c3443 75%);animation:td-pop .4s cubic-bezier(.2,1.6,.4,1) both,td-wobble 1.6s ease-in-out .8s infinite}
+.td-bead.none{border-style:dashed;border-color:var(--muted);background:var(--bg);box-shadow:none}
+.td-bead.fixed{outline:3px solid var(--ok);outline-offset:2px}
+.td-bead:hover,.td-bead:focus-visible{transform:scale(1.18)}
+#topicDoneDlg .lacts .link{min-height:0;border:0;background:none;color:var(--muted);font-size:15px;font-weight:600;text-decoration:underline}
+.td-confetti{position:fixed;top:-12px;width:9px;height:14px;border-radius:2px;pointer-events:none;z-index:-1}   /* behind the text and the buttons */
+@keyframes td-pop{from{transform:scale(0) rotate(-20deg);opacity:0}to{transform:none;opacity:1}}
+@keyframes td-wobble{0%,70%,100%{transform:none}76%{transform:rotate(-14deg) scale(1.08)}84%{transform:rotate(12deg) scale(1.08)}92%{transform:rotate(-6deg)}}
+@media (prefers-reduced-motion:reduce){.td-medal,.td-stars span.on,.td-bead,.td-bead.weak{animation:none}}
 .reward-shelf{width:100%;max-width:460px;margin:0 auto;padding:11px 14px;border:1px solid var(--olive);border-radius:14px;background:var(--surface);color:var(--ink);display:grid;grid-template-columns:54px 1fr auto;align-items:center;gap:10px;text-align:start;cursor:pointer;box-shadow:0 2px 0 var(--line);font-family:var(--f-body)}
 .reward-shelf:hover{background:var(--olive-soft)}
 .streak-ring{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;background:var(--amber-bg);border:2px solid var(--orange);color:var(--orange);font:700 16px/1 var(--f-body);box-shadow:0 2px 0 color-mix(in srgb,var(--orange) 55%,var(--line))}
@@ -771,6 +792,7 @@ body.manage #manage{width:100%;max-width:none}
 .activity-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.activity-tools span{margin-inline-end:auto;color:var(--muted);font-size:12px}.activity-tools button{width:32px;height:30px;padding:0;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:700 18px/1 var(--f-body);cursor:pointer}.activity-tools button:last-child{width:auto;padding-inline:10px;font-size:13px}.activity-tools button:disabled{opacity:.45;cursor:default}
 .activity-legend{display:flex;gap:16px;align-items:center;color:var(--muted);font-size:12px}.activity-legend span{display:flex;align-items:center;gap:5px}.activity-legend i{display:inline-block;width:16px;height:8px;border-radius:2px;background:var(--olive)}.activity-legend .students i{height:3px;background:var(--orange);box-shadow:7px 0 0 -1px var(--orange)}
 .activity-chart{width:100%;height:190px;overflow:visible;cursor:grab;touch-action:none;user-select:none}.activity-chart.dragging{cursor:grabbing}.activity-chart .grid{stroke:var(--line);stroke-width:1}.activity-chart .bar{fill:var(--olive);opacity:.82}.activity-chart .bar:hover{opacity:1}.activity-chart .active-line{fill:none;stroke:var(--orange);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;pointer-events:none}.activity-chart .active-dot{fill:var(--surface);stroke:var(--orange);stroke-width:2}.activity-chart text{fill:var(--muted);font:11px var(--f-body)}.activity-chart .active-axis{fill:var(--orange)}
+.streak-team h2{margin:0}.streak-team>.meta{margin:3px 0 0}.streak-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px;margin-top:10px}.streak-player{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;align-items:center;min-height:68px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}.streak-rank{grid-row:1/3;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:var(--amber-bg);color:var(--amber);font-weight:700}.streak-player:first-child .streak-rank{background:var(--amber);color:#fff}.streak-player b{min-width:0;line-height:1.3;overflow-wrap:anywhere}.streak-player small{min-width:0;color:var(--muted);line-height:1.3}
 .flag-group{display:flex;flex-direction:column;gap:10px}.flag-group>summary{cursor:pointer;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:16px}.flag-group>summary .meta{color:var(--muted);font-size:14px}.flag-group[open]>summary{margin-bottom:2px}.flag-group>.card{margin-inline-start:12px}
 .system-activity summary{cursor:pointer}.system-activity summary h2{display:inline;margin:0}.system-activity details[open]>summary{margin-bottom:8px}
 .system-hard{margin:2px 0 4px;padding:10px;border-radius:10px;background:var(--bg)}.system-hard h3{margin:0 0 6px;font:700 15px/1.3 var(--f-body)}.system-hard-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}.system-hard-row:last-child{border-bottom:0}.system-hard-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.system-hard-row small{color:var(--muted);white-space:nowrap}.system-feed{display:flex;flex-direction:column;gap:14px}.system-topic{border-top:1px solid var(--line);padding-top:10px}.system-topic:first-child{border-top:0;padding-top:0}.system-topic h3{margin:0 0 3px;font:700 15px/1.3 var(--f-body)}.system-topic h3 small{color:var(--muted);font-weight:600}.system-event{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}.system-event:last-child{border-bottom:0}.system-event i{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--olive-soft);font-style:normal}.system-event b,.system-event small{display:block}.system-event small,.system-event time{color:var(--muted);font-size:12px}.system-event time{direction:ltr;white-space:nowrap}
@@ -1625,6 +1647,14 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
   <div class="dlg-head"><h2 id="dailyTitle"></h2></div>
   <p class="dlg-text" id="dailyText"></p>
   <div class="row"><button class="btn primary" id="dailyClose">חזרה למסלול</button><button class="btn" id="dailyMore">סבב נוסף</button></div>
+</dialog>
+<dialog id="topicDoneDlg" aria-labelledby="tdTitle">
+  <div class="td-medal" id="tdMedal" aria-hidden="true"></div>
+  <h2 id="tdTitle"></h2>
+  <div class="td-stars" id="tdStars"></div>
+  <p class="dlg-text" id="tdText"></p>
+  <div class="td-beads" id="tdBeads" role="list" aria-label="המשפטים בנושא"></div>
+  <div class="lacts"><button class="btn primary" id="tdMain"></button><button class="btn" id="tdAlt"></button><button class="btn link" id="tdPath">חזרה למסלול</button></div>
 </dialog>
 <dialog id="rewardsDlg" aria-labelledby="rewardsTitle">
   <div class="dlg-head"><h2 id="rewardsTitle">הערבית שכבר שלכם</h2><button class="btn" id="rewardsClose">סגירה</button></div>
@@ -3098,7 +3128,7 @@ function drawPath(stay){
 }
 addEventListener("resize",()=>{ if(home&&$("path").clientWidth!==drawnW) drawPath(true); });
 function pickCat(id){
-  daily=null; cat=id; store.set("ihki.cat",cat);
+  daily=null; retry=null; cat=id; store.set("ihki.cat",cat);
   home=false; document.body.classList.remove("home"); scrollTo(0,0);
   startCat();
 }
@@ -3140,6 +3170,7 @@ const GOLD=75, EXCELLENT=75;
 // left, it is the whole topic, and a practised sentence shows its best score (see show).
 // `here` is the topic's sentence on the card: not always the round's, because going back passes through the practised ones.
 let ordered=false, topic=[], here=null, showDone=store.get("ihki.showDone",false);
+let retry=null;   // {cat, ids, was: {id: best before}}: a round of just the topic's failed sentences (see showTopicDone)
 const BUBBLE_MS=9000, BUBBLE_HINT_MS=3000, BUBBLE_PAST_MS=6000, BUBBLE_PASS=70, BUBBLE_ROUND=10;
 let bubbleTimer=null, bubbleHintTimer=null, bubblePastTimer=null, bubbleDeadline=0, bubbleFor=null, bubbleResolving=false, bubbleHintShown=false, bubblePastShown=false;
 let bubbleGame={answered:0,correct:0,total:0};
@@ -3224,6 +3255,10 @@ function setRound(){
   }
   ordered=list.length>0&&list.every(p=>p.seq!=null);
   topic=(ordered?list.sort((a,b)=>a.seq-b.seq):shuffle(list)).map(p=>p.id);
+  // a retry round: only the failed sentences, as if they were the whole topic (the counter, the list, the story's lines);
+  // the full topic is back when the round ends (roundEnd)
+  if(retry&&retry.cat===cat){ const ids=topic.filter(id=>retry.ids.includes(id)); if(ids.length){ topic=order=ids; pos=0; marks(); return; } }
+  retry=null;
   const todo=topic.filter(id=>best[id]==null&&!(quiet&&silent[id])), all=showDone||!todo.length, box=$("showDone");
   box.checked=all; box.disabled=!todo.length;
   order=all?topic:todo; pos=0; marks();
@@ -3244,8 +3279,8 @@ function goTo(id){
   pos=Math.max(0,order.indexOf(id)); show(null,true);
 }
 function drawList(){
-  document.querySelector(".donebox").hidden=!!daily;   // a daily session has its own sentences
-  const box=$("plist"); box.innerHTML=""; $("listTitle").textContent=daily?"תרגול יומי":categoryOf(cat).name; $("listTitle").append(mark("",`תורגלו ${topic.filter(id=>best[id]!=null).length} מתוך ${topic.length}`,"small"));
+  document.querySelector(".donebox").hidden=!!daily||!!retry;   // a daily session has its own sentences
+  const box=$("plist"); box.innerHTML=""; $("listTitle").textContent=daily?"תרגול יומי":retry?`${categoryOf(cat).name} · המשפטים שלא עברו`:categoryOf(cat).name; $("listTitle").append(mark("",`תורגלו ${topic.filter(id=>best[id]!=null).length} מתוך ${topic.length}`,"small"));
   const ids=ordered?topic:[...topic].sort((a,b)=>a-b);   // a shuffled topic is listed in the bank's order
   ids.forEach((id,k)=>{
     const p=phraseOf(id), b=best[id], li=document.createElement("li"), row=document.createElement("button");
@@ -3589,7 +3624,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   if(c.bubble){ $("prompt").style.animation="none"; void $("prompt").offsetWidth; $("prompt").style.animation=""; }
   heStop(); $("heCheck").hidden=true; micZone.classList.toggle("two",heOk&&!!cur.read&&!story);   // a phrase to read can be answered in Hebrew too
   $("task").textContent=cur.read?heOk?HE_TASK:"קראו בקול ותרגמו לעברית":mine&&c.task||"איך אומרים את זה בערבית מדוברת?";
-  $("catName").textContent=c.name; $("lessonName").textContent=lessonName(LESSONS.find(l=>l.id===c.lesson));
+  $("catName").textContent=c.name+(retry&&!daily?" · 🔁 סבב חוזר":""); $("lessonName").textContent=lessonName(LESSONS.find(l=>l.id===c.lesson));
   // the number and the bar are the sentence's place in the topic, whatever the round holds
   const b=best[cur.id], at=topic.indexOf(cur.id), hintBox=$("doneHint");
   $("counter").textContent=ordered?"":`${pos+1} / ${order.length}`;
@@ -4251,8 +4286,79 @@ function drawWordReveals(){
 }
 $("negBtn").onclick=()=>variation("negate");
 $("conjBtn").onclick=()=>variation("conjugate");
+/* ---------- a topic's end ----------
+   Every sentence of the topic practised: a dialog says so. All passed → confetti and on to the next topic. Some under
+   TD_FAIL → a short round of just those (`retry`), after which the dialog comes back with what got better. */
+const TD_FAIL=60;
+const tdSaid=id=>best[id]!=null||!!silent[id];
+const topicComplete=()=>!daily&&!bubbleCat()&&topic.length>0&&topic.every(tdSaid);
+function nextTopicAfter(c){   // the lesson's next topic, or the first one of the next lesson
+  const its=lessonItems(c.lesson).filter(it=>it.c).map(it=>it.c), i=its.indexOf(c);
+  if(i>=0&&i+1<its.length) return its[i+1];
+  for(const l of LESSONS.slice(LESSONS.findIndex(l=>l.id===c.lesson)+1)){ const it=lessonItems(l.id).find(it=>it.c); if(it) return it.c; }
+  return null;
+}
+function confetti(n){
+  if(matchMedia("(prefers-reduced-motion:reduce)").matches) return;
+  const colors=["var(--olive)","var(--orange)","var(--amber)","var(--sumac)","var(--ok)","#e4b83e"];
+  for(let k=0;k<n;k++){
+    const c=mark("td-confetti",""), x=Math.random()*innerWidth, drift=(Math.random()-.5)*240, spin=(Math.random()-.5)*1080;
+    Object.assign(c.style,{left:x+"px",background:colors[k%colors.length],width:6+Math.random()*6+"px"});
+    $("topicDoneDlg").append(c);   // inside the modal: anything outside it is under its backdrop
+    c.animate([{transform:"translate(0,0) rotate(0)",opacity:1},{transform:`translate(${drift}px,${innerHeight+40}px) rotate(${spin}deg)`,opacity:.9}],
+      {duration:1800+Math.random()*1600,delay:Math.random()*400,easing:"cubic-bezier(.25,.6,.4,1)",fill:"forwards"}).finished.then(()=>c.remove(),()=>c.remove());
+  }
+}
+function chime(happy){   // three rising notes, or two softer ones
+  const ctx=unlockPlayback(); if(!ctx) return;
+  (happy?[523.25,659.25,783.99,1046.5]:[440,523.25]).forEach((f,k)=>{
+    const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime+k*.12;
+    o.type="triangle"; o.frequency.value=f; g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.12,t+.02); g.gain.exponentialRampToValueAtTime(.001,t+.35);
+    o.connect(g).connect(ctx.destination); o.start(t); o.stop(t+.4);
+  });
+}
+function showTopicDone(was){   // was: the retry round that just ended, if it was one
+  const c=categoryOf(cat);
+  const scored=topic.filter(id=>best[id]!=null), weak=scored.filter(id=>best[id]<TD_FAIL), gold=scored.filter(id=>best[id]>=EXCELLENT);
+  const fixed=was?was.ids.filter(id=>best[id]>=TD_FAIL):[], better=was?was.ids.filter(id=>best[id]>(was.was[id]??-1)):[];
+  const next=nextTopicAfter(c), all=!weak.length, stars=!all||!scored.length?0:gold.length===scored.length?3:gold.length*2>=scored.length?2:1;
+  const word=c.story?(c.voices?"השיחה":"הסיפור"):"הנושא", n=weak.length;
+  $("tdMedal").textContent=all?(stars===3?"🏆":"🎉"):was&&better.length?"🚀":"💪";
+  $("tdTitle").textContent=all?(was?"תיקנתם הכול!":stars===3?"מושלם!":`סיימתם את ${word}!`):was?(better.length?"יש שיפור!":"כמעט שם!"):"עברתם על הכול!";
+  $("tdStars").replaceChildren(...[1,2,3].map(k=>mark(k<=stars?"on":"","⭐")));
+  $("tdStars").hidden=!stars; $("tdStars").setAttribute("aria-label",`${stars} כוכבים מתוך 3`);
+  $("tdText").textContent=!scored.length?"עברתם על כל המשפטים בלי מיקרופון. כדי לאסוף כוכבים, נסו אותם גם בקול."
+    :all?(was?`כל ${was.ids.length} המשפטים שחזרתם עליהם עברו. `:"")+(gold.length===scored.length?`כל ${scored.length} המשפטים בזהב. יאללה, ממשיכים!`:`${gold.length} מתוך ${scored.length} משפטים בזהב. אפשר להמשיך!`)
+    :(was?(better.length?`שיפרתם ${better.length===1?"משפט אחד":`${better.length} משפטים`}${fixed.length?`, ו־${fixed.length} כבר עברו`:""}. `:"")
+          :"")+(n===1?"משפט אחד עוד מחכה לכם":`${n} משפטים עוד מחכים לכם`)+" (האדומים). סיבוב קצר עליהם, ונמשיך הלאה.";
+  const beads=$("tdBeads"); beads.replaceChildren();
+  topic.forEach((id,k)=>{
+    const b=best[id], kind=b==null?"none":b>=EXCELLENT?"gold":b<TD_FAIL?"weak":"", p=phraseOf(id);
+    const bead=mark(`td-bead ${kind}${was&&fixed.includes(id)?" fixed":""}`,"","button");
+    bead.style.animationDelay=`${.25+k*.04}s${kind==="weak"?`,${.8+k*.04}s`:""}`;
+    bead.setAttribute("role","listitem"); bead.title=`${p.read?p.tr:p.he} · ${b==null?"בלי מיקרופון":b}`;
+    bead.setAttribute("aria-label",bead.title);
+    bead.onclick=()=>{ $("topicDoneDlg").close(); goTo(id); };
+    beads.append(bead);
+  });
+  const main=$("tdMain"), alt=$("tdAlt"), go=n2=>{ $("topicDoneDlg").close(); openCat(n2); };
+  if(all){
+    main.textContent=next?`יאללה, לנושא הבא: ${next.name} ←`:"חזרה למסלול 🏁"; main.onclick=next?()=>go(next):()=>{ $("topicDoneDlg").close(); showPath(); };
+    alt.textContent=`עוד סבב על ${word}`; alt.onclick=()=>{ $("topicDoneDlg").close(); showDone=true; store.set("ihki.showDone",true); startCat(); };
+  }else{
+    main.textContent=n===1?"🔁 לתרגל את המשפט הזה":`🔁 לתרגל את ${n} המשפטים`;
+    main.onclick=()=>{ $("topicDoneDlg").close(); retry={cat,ids:weak,was:Object.fromEntries(weak.map(id=>[id,best[id]]))}; startCat(); };
+    alt.textContent=next?`להמשיך בכל זאת: ${next.name}`:"להמשיך בכל זאת"; alt.onclick=next?()=>go(next):()=>{ $("topicDoneDlg").close(); showPath(); };
+  }
+  $("tdPath").hidden=!next&&all;
+  $("topicDoneDlg").showModal(); main.focus();
+  if(stars){ confetti(stars===3?110:70); chime(true); } else if(was&&better.length){ confetti(30); chime(false); }
+}
+$("tdPath").onclick=()=>{ $("topicDoneDlg").close(); showPath(); };
 function roundEnd(){   // a story stops at its end and waits for the microphone button; other topics go straight on
   if(bubbleCat()){ showPath(); return; }
+  const was=retry&&retry.cat===cat?retry:null; retry=null;   // a retry round is over either way: the full topic is back
+  if(!driving&&topicComplete()){ startCat(true); showTopicDone(was); return; }   // every sentence practised: the topic's end
   const story=isStory()&&!driving;
   startCat(story);
   if(story) $("status").textContent=`הגעתם לסוף ${(CATS.find(c=>c.id===cat)||{}).voices?"השיחה":"הסיפור"}. לחצו על המיקרופון כדי להמשיך`;
@@ -4265,7 +4371,7 @@ const nextPhrase=()=>{
     if(k<0) roundEnd(); else{ pos=k; show(); }
     return;
   }
-  if(pos+1>=order.length&&(order!==topic||isStory()||bubbleCat())){ roundEnd(); return; }   // a round of unpractised sentences, a game, or a story ended
+  if(pos+1>=order.length&&(order!==topic||retry||isStory()||bubbleCat()||(!driving&&topicComplete()))){ roundEnd(); return; }   // a round of unpractised sentences, a game, or a story ended
   pos=(pos+1)%order.length; if(pos===0&&!ordered) shuffle(order); show();
 };
 $("nextBtn").onclick=nextPhrase;
@@ -4706,6 +4812,7 @@ function drawScoringRules(box){
 function drawFlags(){
   const box=$("mFlags"); box.innerHTML=""; for(const url of flagAudioUrls) URL.revokeObjectURL(url); flagAudioUrls=[];
   drawActivity(box);
+  drawStreakTeam(box);
   drawAdminSubjects(box);
   drawBackupControls(box);
   drawApiKeys(box);
@@ -4828,6 +4935,17 @@ function drawFlags(){
       confirm.onclick=()=>save("confirmed"); reject.onclick=()=>save("rejected"); actions.append(category,diagnose,confirm,reject,msg); card.append(note,actions); group.append(card);
     }
   }
+}
+
+function drawStreakTeam(box){
+  if(!CLASS) return;
+  const card=mark("card streak-team",""), rows=CLASS.students||[], hasStreakData=rows.some(s=>s.streak), students=rows.filter(s=>(s.streak?.current||0)>0).sort((a,b)=>(b.streak.current-a.streak.current)||(b.streak.best-a.streak.best)||(a.name||a.email).localeCompare(b.name||b.email)).slice(0,5);
+  card.append(mark("","🔥 הנבחרת","h2"),mark("meta","התלמידים עם רצף ימי התרגול הנוכחי הגבוה ביותר.","p"));
+  if(!hasStreakData){ card.append(mark("note","נתוני הרצף עדיין לא הגיעו מהשרת. יש להפעיל מחדש או לפרוס את גרסת השרת המעודכנת, ואז לרענן את הדף.","p")); box.append(card); return; }
+  if(!students.length){ card.append(mark("note","עדיין אין רצף פעיל. תרגול היום או אתמול מתחיל את הנבחרת.","p")); box.append(card); return; }
+  const list=mark("streak-list","");
+  students.forEach((student,index)=>{ const nick=Object.values(student.classes||{}).find(Boolean), name=student.name||nick||student.email, row=mark("streak-player",""); row.append(mark("streak-rank",index+1),mark("",name,"b"),mark("",`🔥 ${student.streak.current} ימים · שיא אישי ${student.streak.best}`,"small")); row.title=student.email; list.append(row); });
+  card.append(list); box.append(card);
 }
 
 let SAVED_BACKUPS=null, backupsLoading=false;
@@ -4957,8 +5075,8 @@ function drawTtsCacheControls(box){
     return ` · נותרו ${duration(left/rate)} (סיום משוער ${end})`;
   };
   const warmState=s=>{ if(!s) return; warm.disabled=button.disabled=!!s.running; halt.hidden=!s.running; const pct=s.total?Math.round(100*s.done/s.total):0,voice=s.voice_id?` · קול ${s.voice_id}`:""; progress.hidden=progressLabel.hidden=!s.total; progress.value=pct; progressLabel.textContent=`${pct}% · ${s.done} מתוך ${s.total} · נוצרו ${s.generated}`+(s.to_generate?` מתוך ${s.to_generate} חסרות`:"")+` · כבר היו ${s.skipped}`+(s.bucket?` · הועלו לדלי ${s.uploaded||0}`+(s.upload_failed?` · נכשלו בהעלאה ${s.upload_failed}`:""):" · אין דלי מוגדר (TTS_BUCKET)")+(s.upload_error?` · ${s.upload_error}`:"")+estimate(s); if(s.running) msg.textContent=s.waiting?`Sawtak לא ענה כרגע (הגבלת קצב או תקלת רשת); ניסיון נוסף בעוד ${s.waiting} שניות${voice}`:`מכין הקלטות מול Sawtak${voice}`; else if(s.stopped) msg.textContent=`ההכנה נעצרה לבקשתך אחרי ${s.done} הקלטות. הפעלה חוזרת תמשיך מאותה נקודה${voice}.`; else if(s.error) msg.textContent=`ההכנה נעצרה אחרי ${s.done} הקלטות: ${s.error}${voice}`; else if(s.total&&s.done===s.total) msg.textContent=`המאגר מוכן${voice}.`; if(s.running&&!polling){polling=true; setTimeout(poll,2000);} };
-  const show=data=>{ usage.replaceChildren(); const size=data.bytes==null?"…":data.bytes<1024?`${data.bytes} B`:data.bytes<1048576?`${(data.bytes/1024).toFixed(1)} KB`:`${(data.bytes/1048576).toFixed(1)} MB`, rate=data.hit_rate==null?"–":`${Math.round(data.hit_rate*100)}%`; for(const [n,label] of [[data.files??"…","קבצי שמע במטמון"],[size,"נפח בדיסק"],[data.hits,"פגיעות מאז ההפעלה"],[data.misses,"יצירות מאז ההפעלה"],[rate,"שיעור פגיעה"]]){ const stat=mark("activity-stat",""); stat.append(mark("",n,"b"),mark("",label,"small")); usage.append(stat); } if(!data.available) msg.textContent="Sawtak אינו מוגדר בשרת."; };
-  const poll=()=>api("/api/tts-cache").then(async res=>{const data=await res.json().catch(()=>({}));if(!res.ok) throw new Error(data.detail||res.status);show(data);polling=false;warmState(data.warm);}).catch(err=>{msg.textContent="נתוני המטמון לא זמינים כרגע ("+err.message+"), מנסה שוב…";if(card.isConnected) setTimeout(poll,5000); else polling=false;});
+  const show=data=>{ usage.replaceChildren(); const size=data.bytes==null?"סופר…":data.bytes<1024?`${data.bytes} B`:data.bytes<1048576?`${(data.bytes/1024).toFixed(1)} KB`:`${(data.bytes/1048576).toFixed(1)} MB`, rate=data.hit_rate==null?"–":`${Math.round(data.hit_rate*100)}%`; for(const [n,label] of [[data.files??"סופר…","קבצי שמע במטמון"],[size,"נפח בדיסק"],[data.hits,"פגיעות מאז ההפעלה"],[data.misses,"יצירות מאז ההפעלה"],[rate,"שיעור פגיעה"]]){ const stat=mark("activity-stat",""); stat.append(mark("",n,"b"),mark("",label,"small")); usage.append(stat); } if(!data.available) msg.textContent="Sawtak אינו מוגדר בשרת."; };
+  const poll=()=>api("/api/tts-cache").then(async res=>{const data=await res.json().catch(()=>({}));if(!res.ok) throw new Error(data.detail||res.status);show(data);polling=false;warmState(data.warm);if((data.files==null||data.bytes==null)&&!polling&&card.isConnected){polling=true;setTimeout(poll,2000);}}).catch(err=>{msg.textContent="נתוני המטמון לא זמינים כרגע ("+err.message+"), מנסה שוב…";if(card.isConnected) setTimeout(poll,5000); else polling=false;});
   poll();
   warm.onclick=async()=>{ const voice=(prompt("מזהה הקול של Sawtak:","273d81b2-991b-5b76-8525-eeacc6a3d759")||"").trim(); if(!voice) return; if(!confirm(`להכין עכשיו את כל הקלטות Sawtak החסרות לקול ${voice}? התהליך משתמש ביתרה בחשבון וממשיך ברקע.`)) return; warm.disabled=true; msg.textContent="מתחיל…"; try{const res=await api("/api/tts-cache/warm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({voice_id:voice})}),data=await res.json().catch(()=>({}));if(!res.ok) throw new Error(data.detail||res.status);warmState(data);}catch(err){warm.disabled=false;msg.textContent="ההכנה לא התחילה: "+err.message;} };
   halt.hidden=true;
