@@ -28,6 +28,7 @@ import urllib.parse
 import uuid
 import zipfile
 from contextlib import asynccontextmanager
+from dataclasses import replace as dc_replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from queue import Queue
@@ -54,7 +55,7 @@ from .rules import TOGGLES, check_detectable
 from .scorer import SAMPLE_RATE, Scorer, decode_audio, decode_audio_with_timing, frame_energy, load_scorer
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
-from .tts import LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts
+from .tts import BASELINE_VOICES, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts, voice_name
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
                     DEFAULT_MODEL as DEFAULT_TUTOR_MODEL, TutorUnavailable, load_tutor, tutor_client)
 from .verb_game import VerbExerciseGenerator
@@ -490,7 +491,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         app.state.tts_warm_stop = threading.Event()  # set by POST /api/tts-cache/warm/stop
         app.state.tutor = tutor or load_tutor(app.state.keys.get("ANTHROPIC_API_KEY"), app.state.keys.get("TUTOR_MODEL"))
         # the playback voices double as the native baseline of the scores (see reference.py)
-        app.state.refs = References(app.state.scorer, app.state.tts, list(VOICES.values())) if app.state.tts else None
+        app.state.refs = References(app.state.scorer, app.state.tts, list(BASELINE_VOICES.values())) if app.state.tts else None
         if app.state.auth and hasattr(app.state.auth, "calibrations"):
             try:
                 rows = app.state.auth.calibrations("applied")
@@ -1572,7 +1573,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             try:
                 if not refs.tts.cached(text, voice):
                     continue
-                data, _ = refs.tts.wav(text, voice)
+                data, _ = refs.tts.wav_for_voice(text, voice, source="baseline")
             except Exception as e:   # provider down: score without this voice, as References does
                 log.warning("sweep: no %s voice for %r: %s", voice, text, e)
                 continue
@@ -1586,7 +1587,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             key = (*emitted, phrase["key"], setting, scorer.disabled)
             if key not in sweep_refs:
                 logp, energy = sweep_emits[emitted]
-                sweep_refs[key] = scorer.reference_logp(logp, phrase, energy)
+                ref = scorer.reference_logp(logp, phrase, energy)
+                sweep_refs[key] = dc_replace(ref, voice=voice_name(voice)) if ref is not None else None
             if sweep_refs[key] is not None:
                 out.append(sweep_refs[key])
         return out
@@ -2869,7 +2871,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 app.state.tts.api_key = value
             else:
                 app.state.tts = load_tts(value)
-                app.state.refs = References(app.state.scorer, app.state.tts, list(VOICES.values())) if app.state.tts else None
+                app.state.refs = References(app.state.scorer, app.state.tts, list(BASELINE_VOICES.values())) if app.state.tts else None
         elif app.state.tutor is not None and value:
             app.state.tutor.client = tutor_client(value)
         else:

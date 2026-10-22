@@ -1,12 +1,12 @@
 {
- "score": 94,
+ "score": 96,
  "variant": {
   "ar": "وين سيدك؟ سيدي قعد في بيته.",
   "tr": "וֵין סִידַכּ סִידִי קַעַד פִי בֵּיתוֹ",
   "ipa": "w eː n | s iː d a k | s iː d i | ʔ a ʕ a d | f i | b eː t o"
  },
  "heard_ipa": "w e n s i d a h k s i d i ʔ a ʔ a d f i b e t o",
- "heard_tr": "וֵין סִידַהְכּ סִידִי קַקַד פִי בֵּיתוֹ",
+ "heard_tr": "וֵין סִידַכּ סִידִי קַקַד פִי בֵּיתוֹ",
  "unrelated": false,
  "words": [
   {
@@ -51,8 +51,8 @@
   {
    "ar": "سيدك؟",
    "tr": "סִידַכּ",
-   "heard_tr": "סִידַהְכּ",
-   "score": 81.1,
+   "heard_tr": "סִידַכּ",
+   "score": 100.0,
    "letters": [
     {
      "t": "סִי",
@@ -60,8 +60,7 @@
     },
     {
      "t": "דַ",
-     "score": 68.5,
-     "why": "תנועת אַ נשמעה כמו ה (ه)"
+     "score": 100.0
     },
     {
      "t": "כּ",
@@ -93,7 +92,7 @@
     {
      "ipa": "a",
      "word": 1,
-     "score": 68.5,
+     "score": 100.0,
      "flagged": false,
      "heard": null
     },
@@ -158,7 +157,7 @@
    "ar": "قعد",
    "tr": "קַעַד",
    "heard_tr": "קַקַד",
-   "score": 67.0,
+   "score": 73.6,
    "letters": [
     {
      "t": "קַ",
@@ -301,22 +300,14 @@
    "score": 45
   }
  ],
- "issues": [
-  {
-   "sound": "תנועת אַ",
-   "word_tr": "סִידַכּ",
-   "score": 68,
-   "missing": false,
-   "heard": "ה (ه)"
-  }
- ],
- "references": 1,
+ "issues": [],
+ "references": 2,
  "dialect": "urban",
  "calibrated": [
   {
    "expected": "ʕ",
    "heard": "ʔ",
-   "from": 2,
+   "from": 4,
    "to": 45
   }
  ],
@@ -2899,14 +2890,16 @@
  },
  "trace": {
   "config": {
-   "leniency": 0.5,
+   "leniency": 0.35,
    "confident_peak": 0.3,
+   "consonant_window": 4,
    "deleted_peak": 0.05,
    "deleted_comp": 0.2,
    "flag_below": 50.0,
+   "flag_below_sound": {},
    "issue_below": 90.0,
    "near_vowel_floor": 90.0,
-   "word_min_weight": 0.5,
+   "word_min_weight": 0.35,
    "vowel_weight": 0.5,
    "unrelated_ratio": 0.65,
    "unrelated_cap": 30.0,
@@ -2916,6 +2909,7 @@
    "ref_min_mean": 60.0,
    "margin_default": 0.0,
    "ayin_deleted_floor": 60.0,
+   "onset_transient_floor": 90.0,
    "margins": [
     {
      "target": "dˤ",
@@ -3055,8 +3049,12 @@
    ],
    "exemptions": [
     "glottal_dropped",
+    "onset_transient",
     "article_vowel_elided",
-    "near_vowel"
+    "near_vowel",
+    "final_b_devoicing",
+    "word_final_vowel_linking",
+    "unmarked_short_vowel"
    ],
    "insertion": {
     "score_cap": 60,
@@ -3727,7 +3725,13 @@
   },
   "references": [
    {
+    "voice": "ראאף",
     "mean": 98.0,
+    "sounds": 23
+   },
+   {
+    "voice": "פדוא",
+    "mean": 97.8,
     "sounds": 23
    }
   ],
@@ -3811,6 +3815,7 @@
     "competitor": "i",
     "competitor_other": false,
     "p_competitor": 0.0107,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -3835,6 +3840,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -3969,6 +3978,7 @@
     "competitor": "i",
     "competitor_other": false,
     "p_competitor": 0.0071,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -3993,6 +4003,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -4032,7 +4046,7 @@
     ],
     "window": [
      12,
-     22
+     20
     ],
     "curves": {
      "start": 8,
@@ -4052,9 +4066,7 @@
       0.001,
       0.001,
       0.004,
-      0.004,
-      0.004,
-      0.002
+      0.004
      ],
      "competitor": [
       0.007,
@@ -4072,9 +4084,7 @@
       0.002,
       0.002,
       0.007,
-      0.007,
-      0.007,
-      0.004
+      0.007
      ],
      "prev": [
       0.904,
@@ -4092,9 +4102,7 @@
       0.002,
       0.002,
       0.007,
-      0.007,
-      0.007,
-      0.004
+      0.007
      ],
      "next": [
       0.004,
@@ -4112,9 +4120,7 @@
       0.001,
       0.001,
       0.9,
-      0.9,
-      0.9,
-      0.002
+      0.9
      ],
      "blank": [
       0.004,
@@ -4132,15 +4138,14 @@
       0.97,
       0.97,
       0.004,
-      0.004,
-      0.004,
-      0.95
+      0.004
      ]
     },
     "p_target": 0.8001,
     "competitor": "i",
     "competitor_other": false,
     "p_competitor": 0.0143,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -4165,6 +4170,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -4199,14 +4208,12 @@
      25
     ],
     "window": [
-     16,
+     18,
      27
     ],
     "curves": {
-     "start": 12,
+     "start": 14,
      "target": [
-      0.002,
-      0.002,
       0.007,
       0.007,
       0.001,
@@ -4226,8 +4233,6 @@
       0.004
      ],
      "competitor": [
-      0.004,
-      0.004,
       0.014,
       0.014,
       0.002,
@@ -4247,8 +4252,6 @@
       0.009
      ],
      "prev": [
-      0.002,
-      0.002,
       0.8,
       0.8,
       0.001,
@@ -4268,8 +4271,6 @@
       0.004
      ],
      "next": [
-      0.004,
-      0.004,
       0.014,
       0.014,
       0.002,
@@ -4289,8 +4290,6 @@
       0.884
      ],
      "blank": [
-      0.95,
-      0.95,
       0.007,
       0.007,
       0.97,
@@ -4314,6 +4313,7 @@
     "competitor": "e",
     "competitor_other": false,
     "p_competitor": 0.0071,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -4338,6 +4338,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -4472,6 +4476,7 @@
     "competitor": "e",
     "competitor_other": false,
     "p_competitor": 0.0086,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -4496,6 +4501,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -4620,6 +4629,7 @@
     "competitor": "e",
     "competitor_other": false,
     "p_competitor": 0.0143,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -4644,6 +4654,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -4700,20 +4714,20 @@
       0.001
      ],
      "competitor": [
-      0.002,
-      0.002,
-      0.007,
-      0.007,
-      0.002,
-      0.002,
-      0.02,
       0.004,
-      0.96,
       0.004,
-      0.025,
-      0.025,
+      0.014,
+      0.014,
+      0.004,
+      0.004,
+      0.039,
       0.007,
-      0.001
+      0.003,
+      0.007,
+      0.05,
+      0.05,
+      0.014,
+      0.002
      ],
      "prev": [
       0.002,
@@ -4765,46 +4779,51 @@
      ]
     },
     "p_target": 0.4498,
-    "competitor": "h",
+    "competitor": "i",
     "competitor_other": false,
-    "p_competitor": 0.9598,
-    "gop": -0.758,
+    "p_competitor": 0.0393,
+    "competitor_frames": 0,
+    "gop": 0.0,
     "confidence": 1.0,
-    "gop_factor": 0.685,
+    "gop_factor": 1.0,
     "confidence_factor": 1.0,
     "deleted": false,
     "stages": [
      {
       "stage": "gop",
-      "score": 68.5
+      "score": 100.0
      },
      {
       "stage": "exemption",
-      "score": 68.5,
-      "applied": null
+      "score": 100.0,
+      "applied": "unmarked_short_vowel"
      },
      {
       "stage": "insertion",
-      "score": 68.5,
+      "score": 100.0,
       "applied": null
      },
      {
       "stage": "baseline",
-      "score": 68.5,
+      "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
       "stage": "calibration",
-      "score": 68.5,
+      "score": 100.0,
       "floor": null,
       "applied": false
      }
     ],
-    "final": 68.5,
+    "final": 100.0,
     "margin": {
      "needed": 0.0,
-     "got": 0.758,
+     "got": -0.0,
      "beyond": true
     },
     "vowel": true,
@@ -4812,7 +4831,7 @@
     "flagged": false,
     "rule": null,
     "tip": false,
-    "issue": true
+    "issue": false
    },
    {
     "i": 7,
@@ -4830,7 +4849,7 @@
     ],
     "window": [
      38,
-     50
+     47
     ],
     "curves": {
      "start": 34,
@@ -4851,10 +4870,7 @@
       0.002,
       0.002,
       0.002,
-      0.007,
-      0.007,
-      0.007,
-      0.004
+      0.007
      ],
      "competitor": [
       0.007,
@@ -4873,10 +4889,7 @@
       0.001,
       0.001,
       0.001,
-      0.004,
-      0.004,
-      0.004,
-      0.002
+      0.004
      ],
      "prev": [
       0.007,
@@ -4895,10 +4908,7 @@
       0.001,
       0.001,
       0.001,
-      0.004,
-      0.004,
-      0.004,
-      0.002
+      0.004
      ],
      "next": [
       0.007,
@@ -4917,10 +4927,7 @@
       0.001,
       0.001,
       0.001,
-      0.9,
-      0.9,
-      0.9,
-      0.002
+      0.9
      ],
      "blank": [
       0.007,
@@ -4939,40 +4946,42 @@
       0.97,
       0.97,
       0.97,
-      0.004,
-      0.004,
-      0.004,
-      0.95
+      0.004
      ]
     },
     "p_target": 0.325,
     "competitor": "h",
     "competitor_other": false,
     "p_competitor": 0.9598,
+    "competitor_frames": 1,
     "gop": -1.083,
     "confidence": 1.0,
-    "gop_factor": 0.582,
+    "gop_factor": 0.685,
     "confidence_factor": 1.0,
     "deleted": false,
     "stages": [
      {
       "stage": "gop",
-      "score": 58.2
+      "score": 68.4
      },
      {
       "stage": "exemption",
-      "score": 58.2,
+      "score": 68.4,
       "applied": null
      },
      {
       "stage": "insertion",
-      "score": 58.2,
+      "score": 68.4,
       "applied": null
      },
      {
       "stage": "baseline",
       "score": 100.0,
       "ref": 55.0,
+      "refs": [
+       55.0,
+       70.0
+      ],
       "applied": true
      },
      {
@@ -5007,15 +5016,12 @@
      53
     ],
     "window": [
-     43,
+     46,
      55
     ],
     "curves": {
-     "start": 39,
+     "start": 42,
      "target": [
-      0.001,
-      0.004,
-      0.025,
       0.025,
       0.007,
       0.001,
@@ -5035,9 +5041,6 @@
       0.004
      ],
      "competitor": [
-      0.003,
-      0.007,
-      0.05,
       0.05,
       0.014,
       0.002,
@@ -5057,9 +5060,6 @@
       0.007
      ],
      "prev": [
-      0.003,
-      0.007,
-      0.325,
       0.325,
       0.014,
       0.002,
@@ -5079,9 +5079,6 @@
       0.007
      ],
      "next": [
-      0.003,
-      0.007,
-      0.05,
       0.05,
       0.014,
       0.002,
@@ -5101,9 +5098,6 @@
       0.904
      ],
      "blank": [
-      0.001,
-      0.9,
-      0.025,
       0.025,
       0.8,
       0.97,
@@ -5126,7 +5120,8 @@
     "p_target": 0.9003,
     "competitor": "e",
     "competitor_other": false,
-    "p_competitor": 0.0143,
+    "p_competitor": 0.0071,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -5151,6 +5146,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -5285,6 +5284,7 @@
     "competitor": "e",
     "competitor_other": false,
     "p_competitor": 0.0071,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -5309,6 +5309,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -5433,6 +5437,7 @@
     "competitor": "e",
     "competitor_other": false,
     "p_competitor": 0.0107,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -5457,6 +5462,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -5601,6 +5610,7 @@
     "competitor": "e",
     "competitor_other": false,
     "p_competitor": 0.0143,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -5625,6 +5635,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -5663,14 +5677,12 @@
      75
     ],
     "window": [
-     67,
+     69,
      77
     ],
     "curves": {
-     "start": 63,
+     "start": 65,
      "target": [
-      0.005,
-      0.005,
       0.021,
       0.021,
       0.003,
@@ -5689,8 +5701,6 @@
       0.005
      ],
      "competitor": [
-      0.004,
-      0.004,
       0.014,
       0.014,
       0.002,
@@ -5709,8 +5719,6 @@
       0.004
      ],
      "prev": [
-      0.004,
-      0.004,
       0.807,
       0.807,
       0.002,
@@ -5729,8 +5737,6 @@
       0.004
      ],
      "next": [
-      0.002,
-      0.002,
       0.007,
       0.007,
       0.001,
@@ -5749,8 +5755,6 @@
       0.002
      ],
      "blank": [
-      0.95,
-      0.95,
       0.007,
       0.007,
       0.97,
@@ -5773,6 +5777,7 @@
     "competitor": "e",
     "competitor_other": false,
     "p_competitor": 0.0129,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -5797,6 +5802,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -5921,6 +5930,7 @@
     "competitor": "i",
     "competitor_other": false,
     "p_competitor": 0.0107,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -5934,7 +5944,7 @@
      {
       "stage": "exemption",
       "score": 100.0,
-      "applied": null
+      "applied": "unmarked_short_vowel"
      },
      {
       "stage": "insertion",
@@ -5945,6 +5955,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -6069,31 +6083,36 @@
     "competitor": "ʔ",
     "competitor_other": false,
     "p_competitor": 0.8001,
+    "competitor_frames": 2,
     "gop": -4.718,
     "confidence": 0.024,
-    "gop_factor": 0.095,
+    "gop_factor": 0.192,
     "confidence_factor": 0.154,
     "deleted": false,
     "stages": [
      {
       "stage": "gop",
-      "score": 1.5
+      "score": 3.0
      },
      {
       "stage": "exemption",
-      "score": 1.5,
+      "score": 3.0,
       "applied": null
      },
      {
       "stage": "insertion",
-      "score": 1.5,
+      "score": 3.0,
       "applied": null
      },
      {
       "stage": "baseline",
-      "score": 1.5,
-      "ref": 100.0,
-      "applied": false
+      "score": 3.8,
+      "ref": 80.0,
+      "refs": [
+       100.0,
+       80.0
+      ],
+      "applied": true
      },
      {
       "stage": "calibration",
@@ -6226,6 +6245,7 @@
     "competitor": "ʔ",
     "competitor_other": false,
     "p_competitor": 0.8001,
+    "competitor_frames": 1,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -6239,7 +6259,7 @@
      {
       "stage": "exemption",
       "score": 100.0,
-      "applied": null
+      "applied": "unmarked_short_vowel"
      },
      {
       "stage": "insertion",
@@ -6250,6 +6270,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -6285,7 +6309,7 @@
     ],
     "window": [
      87,
-     97
+     95
     ],
     "curves": {
      "start": 83,
@@ -6305,9 +6329,7 @@
       0.001,
       0.001,
       0.005,
-      0.005,
-      0.005,
-      0.002
+      0.005
      ],
      "competitor": [
       0.004,
@@ -6325,9 +6347,7 @@
       0.002,
       0.002,
       0.011,
-      0.011,
-      0.011,
-      0.004
+      0.011
      ],
      "prev": [
       0.002,
@@ -6345,9 +6365,7 @@
       0.001,
       0.001,
       0.005,
-      0.005,
-      0.005,
-      0.002
+      0.005
      ],
      "next": [
       0.002,
@@ -6365,9 +6383,7 @@
       0.001,
       0.001,
       0.85,
-      0.85,
-      0.85,
-      0.002
+      0.85
      ],
      "blank": [
       0.95,
@@ -6385,15 +6401,14 @@
       0.97,
       0.97,
       0.005,
-      0.005,
-      0.005,
-      0.95
+      0.005
      ]
     },
     "p_target": 0.8496,
     "competitor": "i",
     "competitor_other": false,
     "p_competitor": 0.0107,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -6418,6 +6433,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -6452,14 +6471,12 @@
      100
     ],
     "window": [
-     91,
+     93,
      102
     ],
     "curves": {
-     "start": 87,
+     "start": 89,
      "target": [
-      0.002,
-      0.002,
       0.005,
       0.005,
       0.001,
@@ -6479,8 +6496,6 @@
       0.001
      ],
      "competitor": [
-      0.004,
-      0.004,
       0.011,
       0.011,
       0.002,
@@ -6500,8 +6515,6 @@
       0.002
      ],
      "prev": [
-      0.002,
-      0.002,
       0.85,
       0.85,
       0.001,
@@ -6521,8 +6534,6 @@
       0.001
      ],
      "next": [
-      0.004,
-      0.004,
       0.011,
       0.011,
       0.002,
@@ -6542,8 +6553,6 @@
       0.002
      ],
      "blank": [
-      0.95,
-      0.95,
       0.005,
       0.005,
       0.97,
@@ -6567,6 +6576,7 @@
     "competitor": "e",
     "competitor_other": false,
     "p_competitor": 0.0107,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -6591,6 +6601,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -6735,6 +6749,7 @@
     "competitor": "e",
     "competitor_other": false,
     "p_competitor": 0.0107,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -6759,6 +6774,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -6793,14 +6812,12 @@
      112
     ],
     "window": [
-     104,
+     106,
      114
     ],
     "curves": {
-     "start": 100,
+     "start": 102,
      "target": [
-      0.002,
-      0.002,
       0.005,
       0.005,
       0.001,
@@ -6819,8 +6836,6 @@
       0.004
      ],
      "competitor": [
-      0.002,
-      0.002,
       0.005,
       0.005,
       0.001,
@@ -6839,8 +6854,6 @@
       0.004
      ],
      "prev": [
-      0.004,
-      0.004,
       0.855,
       0.855,
       0.002,
@@ -6859,8 +6872,6 @@
       0.007
      ],
      "next": [
-      0.004,
-      0.004,
       0.011,
       0.011,
       0.002,
@@ -6879,8 +6890,6 @@
       0.904
      ],
      "blank": [
-      0.95,
-      0.95,
       0.005,
       0.005,
       0.97,
@@ -6903,6 +6912,7 @@
     "competitor": "w",
     "competitor_other": false,
     "p_competitor": 0.0054,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -6927,6 +6937,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -7061,6 +7075,7 @@
     "competitor": "i",
     "competitor_other": false,
     "p_competitor": 0.0071,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -7085,6 +7100,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -7213,6 +7232,7 @@
     "competitor": "i",
     "competitor_other": false,
     "p_competitor": 0.0107,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -7237,6 +7257,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -7342,6 +7366,7 @@
     "competitor": "i",
     "competitor_other": false,
     "p_competitor": 0.0107,
+    "competitor_frames": 0,
     "gop": 0.0,
     "confidence": 1.0,
     "gop_factor": 1.0,
@@ -7355,7 +7380,7 @@
      {
       "stage": "exemption",
       "score": 100.0,
-      "applied": null
+      "applied": "unmarked_short_vowel"
      },
      {
       "stage": "insertion",
@@ -7366,6 +7391,10 @@
       "stage": "baseline",
       "score": 100.0,
       "ref": 100.0,
+      "refs": [
+       100.0,
+       100.0
+      ],
       "applied": false
      },
      {
@@ -7407,12 +7436,12 @@
      100.0,
      100.0,
      100.0,
-     68.5,
+     100.0,
      100.0
     ],
-    "min": 68.5,
-    "mean": 93.7,
-    "score": 81.1
+    "min": 100.0,
+    "mean": 100.0,
+    "score": 100.0
    },
    {
     "tr": "סִידִי",
@@ -7437,7 +7466,7 @@
     ],
     "min": 45.0,
     "mean": 89.0,
-    "score": 67.0
+    "score": 73.6
    },
    {
     "tr": "פִי",
@@ -7463,12 +7492,12 @@
    }
   ],
   "sentence": {
-   "phone_mean": 96.1,
-   "word_mean": 91.4,
+   "phone_mean": 96.9,
+   "word_mean": 95.6,
    "phone_weight": 0.5,
    "word_weight": 0.5,
-   "before_cap": 93.7,
-   "final": 94,
+   "before_cap": 96.3,
+   "final": 96,
    "capped": false
   },
   "tips": [

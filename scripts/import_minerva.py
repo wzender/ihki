@@ -29,7 +29,7 @@ from app.auth import AuthUnavailable, load_auth  # noqa: E402
 from app.main import MODEL_ID, build_version  # noqa: E402
 from app.reference import References  # noqa: E402
 from app.scorer import decode_audio, load_scorer  # noqa: E402
-from app.tts import VOICES, load_tts  # noqa: E402
+from app.tts import BASELINE_VOICES, load_tts  # noqa: E402
 
 SPEAKER = "מינרווה"
 
@@ -117,7 +117,7 @@ def main() -> int:
     model = os.environ.get("MODEL_ID", MODEL_ID)
     scorer = load_scorer(model)
     tts = None if args.no_baseline else load_tts()
-    refs = References(scorer, tts, list(VOICES.values())) if tts else None
+    refs = References(scorer, tts, list(BASELINE_VOICES.values())) if tts else None
     saved = skipped = 0
     for n, (video, segment, phrase) in enumerate(entries, 1):
         item, start, end = phrase["key"], segment["start"], segment["end"]

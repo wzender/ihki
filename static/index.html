@@ -4990,7 +4990,7 @@ function drawTtsActivity(card){
   const details=document.createElement("details"), summary=mark("","מה קורה עכשיו","summary"), pace=mark("msg","","div"), stats=mark("msg","","div"), active=mark("","","div"), wrap=mark("","","div"), table=document.createElement("table");
   wrap.style.cssText="overflow-x:auto;max-height:340px;overflow-y:auto"; table.style.cssText="width:100%;border-collapse:collapse;font-size:.85em";
   details.style.marginTop="12px"; summary.style.cssText="cursor:pointer;font-weight:600"; wrap.append(table); details.append(summary,pace,stats,active,wrap);
-  const SOURCE={sweep:"הכנה",playback:"השמעה",import:"טעינה"}, secs=ms=>ms==null?"–":ms<1000?`${ms} ms`:`${(ms/1000).toFixed(1)} שנ׳`;
+  const SOURCE={sweep:"הכנה",playback:"השמעה",baseline:"קו בסיס",import:"טעינה"}, secs=ms=>ms==null?"–":ms<1000?`${ms} ms`:`${(ms/1000).toFixed(1)} שנ׳`;
   const result=e=>e.status===200||e.status==="ok"?"✓":e.status===429?"429 · הגבלת קצב":typeof e.status==="number"&&e.status>=500?`${e.status} · תקלה אצל Sawtak`:typeof e.status==="number"?`${e.status} · נדחה`:"שגיאה";
   const what=e=>e.kind==="upload"?(e.files>1?`${e.files} קבצים · ${(e.bytes/1048576).toFixed(1)} MB`:(e.text||"קובץ אחד")):(e.text||"");
   const cell=(tr,text,head)=>{ const c=document.createElement(head?"th":"td"); c.textContent=text; c.dir="auto"; c.style.cssText="padding:4px 6px;border-bottom:1px solid #8884;text-align:start;white-space:nowrap"; tr.append(c); return c; };

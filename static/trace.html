@@ -14,7 +14,8 @@
        (the end of the sound before to the start of the one after, where a substitution peaks)
     2. its score stage by stage (GOP → exemption → cluster cap → native baseline → teacher floor)
     3. the readings the audio was aligned to, and the different-sentence gauge
-    4. the sentence by word and sound, and how sounds add up to words and words to the sentence
+    4. the sentence by word and sound, and how sounds add up to words and words to the sentence; under each sound,
+       one row per native baseline (TTS voice), the voice it was measured against (the lowest) in bold
 -->
 <style>
 :root{
@@ -110,6 +111,19 @@ svg .strong{fill:var(--ink);font-weight:700}
 .ph.good{box-shadow:inset 0 -3px 0 var(--good)} .ph.warn{box-shadow:inset 0 -3px 0 var(--warn)} .ph.crit{box-shadow:inset 0 -3px 0 var(--crit)}
 .ph.flag::after{content:"!";color:var(--crit-ink);margin-inline-start:2px}
 .ph.sel{outline:2px solid var(--s1);outline-offset:1px}
+/* the native baselines under each sound: one row per voice, the one the score was measured against in bold */
+.phcol{display:flex;flex-direction:column;align-items:stretch;gap:2px}
+.phcol.lab{justify-content:flex-end}
+.phcol.lab .ph{visibility:hidden}
+.reflab{font:10.5px var(--font);color:var(--muted);line-height:16px;white-space:nowrap;text-align:start}
+.refcell{font:10.5px var(--font);font-variant-numeric:tabular-nums;line-height:16px;text-align:center;color:var(--ink-2);background:var(--raise);border-radius:4px;padding:0 2px;cursor:default}
+.refcell.good{box-shadow:inset 0 -2px 0 var(--good)} .refcell.warn{box-shadow:inset 0 -2px 0 var(--warn)} .refcell.crit{box-shadow:inset 0 -2px 0 var(--crit)}
+.refcell.used{color:var(--ink);font-weight:700;outline:1px solid var(--ink-2)}
+.refcell.none{color:var(--muted);background:none}
+.refbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:12px;color:var(--ink-2)}
+.refbar .chip{background:var(--raise);border-radius:8px;padding:3px 8px}
+.refbar .chip b{color:var(--ink)}
+.refbar label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
 .tree{display:flex;flex-direction:column;gap:8px}
 .tree .node{background:var(--raise);border-radius:10px;padding:6px 10px;font-size:13px}
 .tree .node b{font-size:15px}
@@ -159,6 +173,7 @@ details summary{cursor:pointer;color:var(--ink-2);font-size:12px}
 
   <section class="panel" id="p4" aria-labelledby="p4h">
     <div class="head"><h2 id="p4h">המשפט, מילה אחר מילה</h2><span class="sub" id="wordHint">▶ לחצו על מילה כדי לשמוע אותה · מעבר עם העכבר על הגה מציג אותו בכל הלוחות; לחיצה מקבעת</span></div>
+    <div class="refbar" id="refbar"></div>
     <div class="sentence" id="sentence"></div>
     <div class="legend"><span><span class="dot good"></span>75 ומעלה</span><span><span class="dot warn"></span>50–74</span><span><span class="dot crit"></span>מתחת ל־50</span><span>! סומן כטעות</span></div>
     <details><summary>עץ הצבירה: הגאים ← מילים ← משפט</summary><div class="tree" id="tree"></div></details>
@@ -230,6 +245,39 @@ const PHONE_HEBREW={
 };
 const phoneHebrew=p=>PHONE_HEBREW[p]||p;
 
+/* ---------- native baselines: one or more TTS voices scored by the same model ---------- */
+let showRefs=true; try{ showRefs=localStorage.getItem("ihki.trace.refs")!=="0"; }catch{}
+const refList=()=>(T&&T.references)||[];
+const refName=k=>(refList()[k]||{}).voice||`קול ${k+1}`;
+const refTag=k=>{ const n=refName(k); return n.length<=5?n:n.slice(0,4)+"…"; };
+/* each voice's score on sound t (null: that voice has no such sound); older traces carry only the lowest, as `ref` */
+function refScores(t){
+  const b=t.stages.find(s=>s.stage==="baseline")||{};
+  if(Array.isArray(b.refs)) return b.refs;
+  return refList().length===1?[b.ref??null]:[];
+}
+/* the voice the sound was measured against: the lowest score, as Scorer._baseline takes it */
+function refUsed(t){
+  const xs=refScores(t); let best=-1;
+  xs.forEach((x,k)=>{ if(x!=null&&(best<0||x<xs[best])) best=k; });
+  return best>=0&&xs[best]<100?best:-1;   // at 100 the baseline changes nothing: no voice was measured against
+}
+function drawRefBar(){
+  const box=$("refbar"), n=refList().length; box.replaceChildren();
+  if(!n){ box.append(el("span",{text:"קו בסיס ילידי: אין. הציון לא נמדד מול קול יליד (אין מפתח TTS, הקול לא היה מוכן בזמן, או מבחן TTS שבו הבסיס כבוי)."})); return; }
+  box.append(el("span",{text:n===1?"קו בסיס ילידי:":`${n} קווי בסיס ילידיים (ההגה נמדד מול הנמוך שבהם):`}));
+  refList().forEach((r,k)=>box.append(el("span",{class:"chip"},el("b",{text:refName(k)}),` · ממוצע ${fmt(r.mean,0)} · ${r.sounds} הגאים`)));
+  const cb=el("input",{type:"checkbox"}); cb.checked=showRefs;
+  cb.onchange=()=>{ showRefs=cb.checked; try{ localStorage.setItem("ihki.trace.refs",showRefs?"1":"0"); }catch{} drawSentence(); drawSelected(); };
+  box.append(el("label",{},cb,"הצגה מתחת לכל הגה"));
+}
+function refTip(i){
+  const t=T.tokens[i], xs=refScores(t), used=refUsed(t);
+  return [el("div",{class:"t",text:`קו בסיס ילידי · ${t.ipa}`}),
+    ...xs.map((x,k)=>trow(refName(k),x==null?"אין הגה כזה בקריאה שלו":`${fmt(x,0)}`+(k===used?" · נמדד מולו":""))),
+    trow("הלומד: לפני → אחרי",(()=>{ const st=Object.fromEntries(t.stages.map(s=>[s.stage,s.score])); return `${fmt(st.insertion)} → ${fmt(st.baseline)}`; })())];
+}
+
 let R=null, T=null, PH=[], sel=0, pinned=false, traceSource="";
 let wordAudio=null, wordAudioEnd=0, wordAudioNode=null;
 let frameAudio=null, frameRaf=0, frameAudioTimer=0, frameCursor=null, frameX=null, frameCurve=null;
@@ -287,7 +335,7 @@ function step(d){ if(!T) return; sel=(sel+d+T.tokens.length)%T.tokens.length; pi
 /* ---------- selection: one sound everywhere ---------- */
 function hover(i){ if(pinned||i===sel) return; sel=i; drawSelected(); }
 function pick(i){ pinned=!(pinned&&sel===i); sel=i; drawSelected(); }
-function drawAll(){ drawSentence(); drawTree(); drawPaths(); drawGauge(); drawTable(); drawSelected(); }
+function drawAll(){ drawRefBar(); drawSentence(); drawTree(); drawPaths(); drawGauge(); drawTable(); drawSelected(); }
 function drawSelected(){
   $("pos").textContent=`${sel+1}/${T.tokens.length}`+(pinned?" 📌":"");
   for(const b of document.querySelectorAll(".ph")) b.classList.toggle("sel",+b.dataset.i===sel);
@@ -310,6 +358,8 @@ function soundTip(i){
   out.push(trow("צפוי",el("span",{class:"ipa",text:`${t.ipa} (${pct(t.p_target)})`})));
   out.push(trow("המתחרה החזק",el("span",{class:"ipa",text:heard})));
   out.push(trow("ציון",`${fmt(t.final)} · ${BAND_NAME[band(t.final)]}`+(t.flagged?" · סומן כטעות":"")));
+  const rx=refScores(t), ru=refUsed(t);
+  if(rx.length) out.push(trow("קו בסיס",rx.map((x,k)=>`${refName(k)} ${x==null?"—":fmt(x,0)}${k===ru&&rx.length>1?"*":""}`).join(" · ")));
   out.push(trow("מרווח (נדרש / בפועל)",el("span",{class:"ltr",text:`${fmt(t.margin.needed,2)} / ${fmt(t.margin.got,2)}`+(t.margin.beyond?" ✓ עבר":" ✗ לא עבר")})));
   out.push(trow("חלון",el("span",{class:"ltr",text:`${t.window[0]}–${t.window[1]}`})));
   if(t.rule) out.push(trow("כלל",`${t.rule.title} · חומרה ${t.rule.severity}`));
@@ -331,13 +381,24 @@ function drawSentence(){
       word.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); playWord(wi,word); } };
     }
     word.append(el("span",{class:"tr",text:w.tr}),el("span",{class:"ar",text:w.ar}),el("span",{class:"ws",text:`${fmt(w.score,0)} · ${BAND_NAME[b]}`}));
-    const phones=el("div",{class:"phones"});
+    const phones=el("div",{class:"phones"}), nref=showRefs?refList().length:0;
+    if(nref){ const lab=el("div",{class:"phcol lab"},el("span",{class:"ph",text:"·"}));
+      for(let k=0;k<nref;k++) lab.append(el("span",{class:"reflab",title:refName(k),text:refTag(k)}));
+      phones.append(lab); }
     T.tokens.forEach(t=>{ if(t.word!==wi) return;
       const c=el("button",{class:`ph ${band(t.final)}${t.flagged?" flag":""}`,"data-i":t.i,
         "aria-label":`${phoneHebrew(t.ipa)}, IPA ${t.ipa}, ציון ${fmt(t.final,0)}`,title:`IPA: ${t.ipa}`,text:phoneHebrew(t.ipa)});
       c.onmouseenter=e=>{ hover(t.i); tipShow(e,soundTip(t.i)); }; c.onmousemove=tipMove; c.onmouseleave=tipHide;
       c.onfocus=()=>hover(t.i); c.onclick=e=>{ e.stopPropagation(); pick(t.i); };
-      phones.append(c); });
+      if(!nref){ phones.append(c); return; }
+      const col=el("div",{class:"phcol"},c), xs=refScores(t), used=refUsed(t);
+      for(let k=0;k<nref;k++){ const x=xs[k];
+        const cell=el("span",{class:`refcell ${x==null?"none":band(x)}${k===used?" used":""}`,text:x==null?"—":fmt(x,0),
+          "aria-label":`${refName(k)}: ${x==null?"אין":fmt(x,0)}`});
+        cell.onmouseenter=e=>{ hover(t.i); tipShow(e,refTip(t.i)); }; cell.onmousemove=tipMove; cell.onmouseleave=tipHide;
+        cell.onclick=e=>{ e.stopPropagation(); pick(t.i); };
+        col.append(cell); }
+      phones.append(col); });
     word.append(phones);
     if(traceContext.sample!=null){
       const toggle=el("button",{class:"word-exclude",text:excluded?"החזרה לציון":"לא תקינה · החרגה"});
@@ -554,7 +615,10 @@ function drawWaterfall(){
     let note="";
     if(s.stage==="exemption"&&s.applied) note=EXEMPT_NAME[s.applied]||s.applied;
     if(s.stage==="insertion"&&s.applied) note=`תנועה ${s.applied} בצרור`;
-    if(s.stage==="baseline") note=s.ref==null?"אין קול ילידי":`הקול הילידי: ${fmt(s.ref,0)}`;
+    if(s.stage==="baseline"){ const xs=refScores(t), u=refUsed(t);
+      note=s.ref==null?(refList().length?"לאף קול ילידי אין את ההגה הזה":"אין קול ילידי")
+        :xs.length>1?xs.map((x,k)=>`${refName(k)} ${x==null?"—":fmt(x,0)}`).join(" · ")+(u>=0?` → נמדד מול ${refName(u)} (${fmt(s.ref,0)}): 100·s/${fmt(s.ref,0)}`:" (100: לא משנה)")
+        :`${refName(0)}: ${fmt(s.ref,0)}`+(s.ref<100?` → 100·s/${fmt(s.ref,0)}`:" (100: לא משנה)"); }
     if(s.stage==="calibration") note=s.floor==null?"אין רצפה":`רצפה ${fmt(s.floor,0)}`;
     steps.push({name:s.stage,from:cur,to:s.score,note}); cur=s.score;
   }
@@ -575,13 +639,19 @@ function drawWaterfall(){
     if(k&&!total) svg.append(sv("line",{x1:x(s.from),x2:x(s.from),y1:y-rowH+7,y2:y+7,stroke:"var(--axis)"}));
     const d=s.to-s.from, label=total?fmt(s.to):d?`${d>0?"+":""}${fmt(d)} → ${fmt(s.to)}`:"±0";
     svg.append(sv("text",{x:Math.min(W-2,x(hi)+5),y:y+rowH/2+4,class:total?"strong":"lbl"},label));
+    if(s.name==="baseline"){ const at=new Map(), u=refUsed(t);   // voices with the same score share one marker
+      refScores(t).forEach((r,k)=>{ if(r!=null) at.set(r,[...(at.get(r)||[]),k]); });
+      for(const [r,ks] of at){ const cx=x(r), cy=y+rowH/2, d=5;
+        svg.append(sv("path",{d:`M${cx} ${cy-d}L${cx+d} ${cy}L${cx} ${cy+d}L${cx-d} ${cy}Z`,fill:ks.includes(u)?"var(--ink)":"var(--surface)",stroke:"var(--ink)","stroke-width":1.3}));
+        svg.append(sv("text",{x:cx,y:y+4,"text-anchor":"middle",style:"font-size:9.5px"},ks.map(refTag).join(" · "))); } }
     const hit=sv("rect",{x:0,y,width:W,height:rowH,fill:"transparent"});
     hit.onmouseenter=ev=>tipShow(ev,[el("div",{class:"t",text:STAGE_NAME[s.name]}),trow("לפני",fmt(s.from)),trow("אחרי",fmt(s.to)),s.note?el("div",{class:"tiptext ltr",text:s.note}):null].filter(Boolean));
     hit.onmousemove=tipMove; hit.onmouseleave=tipHide; svg.append(hit);
   });
   box.replaceChildren(svg);
   $("p2sub").replaceChildren(el("span",{class:"ipa",text:t.ipa})," · ",el("span",{class:"dot "+band(t.final)}),`${fmt(t.final,0)} · ${BAND_NAME[band(t.final)]}`);
-  $("p2facts").replaceChildren(...[fact("סומן",t.flagged?"כן":"לא"),fact("מרווח נדרש",fmt(t.margin.needed,2)),fact("בפועל",fmt(t.margin.got,2)),
+  const rx=refScores(t), ru=refUsed(t);
+  $("p2facts").replaceChildren(...[...rx.map((x,k)=>fact(`בסיס ${refName(k)}`,(x==null?"—":fmt(x,0))+(k===ru&&rx.length>1?" ◆":""))),fact("סומן",t.flagged?"כן":"לא"),fact("מרווח נדרש",fmt(t.margin.needed,2)),fact("בפועל",fmt(t.margin.got,2)),
     t.rule?fact("כלל",`${t.rule.title} (${t.rule.severity})`):null, fact("טיפ",t.tip?"כן":"לא")].filter(Boolean));
 }
 
@@ -631,11 +701,12 @@ function drawGauge(){
 /* ---------- the table: every number ---------- */
 function drawTable(){
   const tb=$("table"); tb.replaceChildren();
-  const head=["#","הגה","מילה","span","חלון","p_target","מתחרה","p_comp","GOP","gop","פטור","צרור","בסיס","כיול","סופי","סומן"];
+  const nref=refList().length;
+  const head=["#","הגה","מילה","span","חלון","p_target","מתחרה","p_comp","GOP","gop","פטור","צרור",...Array.from({length:nref},(_,k)=>`בסיס ${refName(k)}`),"בסיס","כיול","סופי","סומן"];
   tb.append(el("tr",{},...head.map(h=>el("th",{text:h}))));
   for(const t of T.tokens){
     const st=Object.fromEntries(t.stages.map(s=>[s.stage,s.score]));
-    const cells=[t.i,t.ipa,t.word,t.span.join("–"),t.window.join("–"),pct(t.p_target),t.competitor||"—",pct(t.p_competitor),fmt(t.gop,3),fmt(st.gop),fmt(st.exemption),fmt(st.insertion),fmt(st.baseline),fmt(st.calibration),fmt(t.final),t.flagged?"כן":""];
+    const cells=[t.i,t.ipa,t.word,t.span.join("–"),t.window.join("–"),pct(t.p_target),t.competitor||"—",pct(t.p_competitor),fmt(t.gop,3),fmt(st.gop),fmt(st.exemption),fmt(st.insertion),...Array.from({length:nref},(_,k)=>{ const x=refScores(t)[k]; return x==null?"—":fmt(x,0); }),fmt(st.baseline),fmt(st.calibration),fmt(t.final),t.flagged?"כן":""];
     const tr=el("tr",{},...cells.map((v,k)=>el("td",{class:[1,3,4,6].includes(k)?"ipa":"",text:String(v)})));
     tr.onmouseenter=()=>hover(t.i); tr.onclick=()=>pick(t.i); tb.append(tr);
   }

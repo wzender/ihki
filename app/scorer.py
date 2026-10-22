@@ -192,6 +192,7 @@ class Reference:
     """How the model scored a native voice saying a phrase: the baseline a learner is measured against."""
     sounds: list[tuple[int, str]]  # (word, sound) of each sound of the variant the voice said (Q, not ʔ / k)
     scores: list[float]            # their scores, same order
+    voice: str = ""                # who said it (the TTS voice's name), for the trace dashboard
 
 
 @dataclass
@@ -361,12 +362,22 @@ class Scorer:
         References may have said another accepted variant: only the sounds the two variants share are matched.
         Sounds are compared by symbol, so a voice that said ق as q is a baseline for a learner who says ʔ.
         """
-        sounds = [(t.word, t.sound) for t in toks]
         out: list[float | None] = [None] * len(toks)
+        for per_ref in Scorer._ref_scores(toks, refs):
+            out = [x if y is None else y if x is None else min(x, y) for x, y in zip(out, per_ref)]
+        return out
+
+    @staticmethod
+    def _ref_scores(toks: list[TargetToken], refs: list[Reference]) -> list[list[float | None]]:
+        """Per reference, per target token, the score that reference got on the same sound (None: it does not have it)."""
+        sounds = [(t.word, t.sound) for t in toks]
+        out = []
         for ref in refs:
+            row: list[float | None] = [None] * len(toks)
             for a, b, n in SequenceMatcher(None, ref.sounds, sounds, autojunk=False).get_matching_blocks():
                 for k in range(n):
-                    out[b + k] = ref.scores[a + k] if out[b + k] is None else min(out[b + k], ref.scores[a + k])
+                    row[b + k] = ref.scores[a + k]
+            out.append(row)
         return out
 
     def _carriers(self, ipa: str) -> list[list[list[int]]]:
@@ -736,6 +747,7 @@ class Scorer:
         """Every stage of the classification with its numbers, weights and thresholds, for the teacher's view
         (the 'stages' part of the phoneme analysis). Nothing here changes the result."""
         cfg, g, i2t = self.cfg, self.cfg.gop, self.vocab.i2t
+        per_ref = self._ref_scores(fit.toks, refs)
         p = lambda lp: round(float(np.exp(lp)), 4) if lp > -1e20 else 0.0
         max_tips = self._max_tips()
         n, T = len(fit.toks), len(fit.logp)
@@ -759,7 +771,7 @@ class Scorer:
                 {"stage": "exemption", "score": fit.exempt_scores[i].score, "applied": fit.exempted[i]},
                 {"stage": "insertion", "score": fit.scores[i].score, "applied": fit.inserted.get(i)},
                 {"stage": "baseline", "score": after_baseline[i].score, "ref": b,
-                 "applied": b is not None and b < 100},
+                 "refs": [row[i] for row in per_ref], "applied": b is not None and b < 100},
                 {"stage": "calibration", "score": sc.score, "floor": floors[i],
                  "applied": floors[i] is not None and after_baseline[i].score < floors[i]},
             ]
@@ -812,7 +824,8 @@ class Scorer:
             "unrelated": {"heard": heard, "distance": fit.distance, "tokens": n,
                           "ratio": round(fit.distance / max(1, n), 3), "threshold": cfg.unrelated_ratio,
                           "unrelated": fit.unrelated},
-            "references": [{"mean": round(float(np.mean(r.scores)), 1), "sounds": len(r.sounds)} for r in refs],
+            "references": [{"voice": r.voice or f"קול {k + 1}", "mean": round(float(np.mean(r.scores)), 1),
+                            "sounds": len(r.sounds)} for k, r in enumerate(refs)],
             "tokens": tokens,
             "words": [{"tr": w["tr"], "scores": [ph["score"] for ph in w["phonemes"]],
                        "min": min((ph["score"] for ph in w["phonemes"]), default=0.0),

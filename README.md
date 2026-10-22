@@ -361,7 +361,7 @@ insert into storage.buckets (id, name) values ('lab', 'lab') on conflict (id) do
 1. the frames around the sound: target, competitor and neighbour posteriors, frame energy, and the window it was read from (the end of the sound before to the start of the one after)
 2. its score stage by stage: raw GOP → exemptions → cluster cap → native baseline → teacher floor → final
 3. the readings the audio was aligned to, with the winning CTC path, and the edit-distance gauge for a different sentence
-4. the sentence by word and sound, coloured by score, with how sounds add up to words and words to the sentence
+4. the sentence by word and sound, coloured by score, with how sounds add up to words and words to the sentence. When the recording was scored against native baselines, each TTS voice gets a row of its own scores under the sounds; the voice a sound was measured against (the lowest) is in bold. The waterfall marks every voice on the baseline step, and the table has a column per voice
 
 The data's schema is [docs/trace-schema.ts](docs/trace-schema.ts). `python scripts/mock_trace.py` regenerates the example (`static/assets/trace-mock.json`, the "דוגמה" button) by running the real scorer on synthetic posteriors, with a substitution, a teacher floor, a native baseline and a noise spike beside a short vowel planted in it (the spike shows how a sound's window takes in its neighbours' blank frames). `?src=mock` opens the example, `?i=6` pins a sound.
 

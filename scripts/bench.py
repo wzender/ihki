@@ -30,7 +30,7 @@ from app import lab  # noqa: E402
 from app.auth import AuthUnavailable, load_auth  # noqa: E402
 from app.reference import References  # noqa: E402
 from app.scorer import decode_audio, load_scorer  # noqa: E402
-from app.tts import VOICES, load_tts  # noqa: E402
+from app.tts import BASELINE_VOICES, load_tts  # noqa: E402
 
 
 def pct(x: float | None) -> str:
@@ -68,7 +68,7 @@ def main() -> int:
     model = os.environ.get("MODEL_ID", "facebook/wav2vec2-xlsr-53-espeak-cv-ft")
     scorer = load_scorer(model)
     tts = None if args.no_baseline else load_tts()
-    refs = References(scorer, tts, list(VOICES.values())) if tts else None
+    refs = References(scorer, tts, list(BASELINE_VOICES.values())) if tts else None
 
     def score(audio: bytes, phrase: dict, key) -> dict:
         return scorer.score(decode_audio(audio), phrase, refs.get(key, phrase) if refs else [])

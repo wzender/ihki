@@ -10,7 +10,9 @@ readings: سيدي / جدّي, بيت / بيت with the diphthong), with what th
   - ع of قعد said as a glottal stop (ء): flagged, with a severity-3 tip, and raised by a teacher's calibration floor
   - a spike of h in a near-silent frame two frames after the short a of سيدك, inside the a's window and the k's
     (the window runs from the end of the sound before to the start of the one after)
-  - k at the end of سيدك weak, as the native TTS voice's is too: the native baseline raises it
+  - k at the end of سيدك weak, as the native TTS voices' is too: the native baseline raises it. Two voices: the
+    male one (ראאף) weaker on that k (55) than the female one (פדוא, 70), so the score is measured against the lower; the female
+    voice also has a weak ع (80), which the calibration floor then still decides
 """
 from __future__ import annotations
 
@@ -67,11 +69,12 @@ def main() -> int:
     logp, energy = emissions()
     scorer = Scorer(lambda wav: logp, Vocab(VOCAB))
     scorer.set_calibrations([{"expected": "ʕ", "heard": "ʔ", "floor": 45, "scope": "global"}])
-    # the native voice: everything right but its own weak k at the end of سيدك
+    # the native voices: everything right but their own weak k at the end of سيدك (and the female voice's ع)
     toks = scorer._variants(PHRASE)[0][3]
-    ref = Reference([(t.word, t.sound) for t in toks],
-                    [55.0 if (t.word, t.sound) == (1, "K") else 100.0 for t in toks])
-    result = scorer.score_logp(logp, PHRASE, [ref], diagnostics=True, duration_s=len(logp) * 0.02, energy=energy)
+    weak = {"ראאף": {(1, "K"): 55.0}, "פדוא": {(1, "K"): 70.0, (3, "ʕ"): 80.0}}
+    refs = [Reference([(t.word, t.sound) for t in toks], [w.get((t.word, t.sound), 100.0) for t in toks], voice)
+            for voice, w in weak.items()]
+    result = scorer.score_logp(logp, PHRASE, refs, diagnostics=True, duration_s=len(logp) * 0.02, energy=energy)
     result["phrase"] = {"he": PHRASE["he"], "ar": PHRASE["variants"][0][0]}
     args.out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"{args.out}: score {result['score']}, {len(result['trace']['tokens'])} sounds, "

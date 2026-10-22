@@ -774,6 +774,27 @@ def test_native_reference_keeps_real_errors():
     assert scorer_for(emissions(["ʕ", "χ", "l", "χ", "i", "l", "χ", "a", "χ", "aː", "χ"])).reference(None, ALA) is None
 
 
+def test_baseline_voices_are_raef_then_fadwa_by_name():
+    from app.tts import BASELINE_VOICES, FADWA_VOICE_ID, RAEF_VOICE_ID, voice_name
+    assert list(BASELINE_VOICES.values()) == [RAEF_VOICE_ID, FADWA_VOICE_ID]   # Raef first: the one generated
+    assert voice_name(RAEF_VOICE_ID) == "ראאף" and voice_name(FADWA_VOICE_ID) == "פדוא" and voice_name("x") == "x"
+
+
+def test_trace_keeps_every_voices_score_and_measures_against_the_lowest():
+    from app.scorer import Reference
+    s = scorer_for(emissions(MISHEARD))
+    toks = s._variants(ALA)[0][3]
+    weak = lambda score_on: Reference([(t.word, t.sound) for t in toks], [score_on.get(t.sound, 100.0) for t in toks])
+    a, b = replace(weak({"l": 40.0}), voice="A"), replace(weak({"l": 60.0, "ʕ": 70.0}), voice="B")
+    r = s.score_logp(s.emit(None), ALA, [a, b], diagnostics=True)
+    assert [x["voice"] for x in r["trace"]["references"]] == ["A", "B"]
+    for t in r["trace"]["tokens"]:
+        st = next(x for x in t["stages"] if x["stage"] == "baseline")
+        assert len(st["refs"]) == 2 and st["ref"] == min(x for x in st["refs"] if x is not None)
+        if t["sound"] == "ʕ":
+            assert st["refs"] == [100.0, 70.0]
+
+
 def test_references_use_one_generated_voice_and_any_cached_one():
     from app.reference import References
     from app.tts import TTSUnavailable
@@ -786,7 +807,7 @@ def test_references_use_one_generated_voice_and_any_cached_one():
         def cached(self, text, voice):
             return voice == "played"
 
-        def wav(self, text, voice=""):
+        def wav_for_voice(self, text, voice, source="", upload=False):   # keeps the voice id (wav() would not)
             calls.append(voice)
             if self.down:
                 raise TTSUnavailable("down")
@@ -798,6 +819,7 @@ def test_references_use_one_generated_voice_and_any_cached_one():
     try:
         refs = References(s, tts, ["first", "never-played", "played"])
         assert len(refs.get(7, ALA)) == 2 and calls == ["first", "played"]
+        assert [r.voice for r in refs.get(7, ALA)] == ["first", "played"]   # named for the trace dashboard
         assert len(refs.get(7, ALA)) == 2 and len(calls) == 2            # kept in memory
         assert refs.invalidate(7, "first") == 1
         assert len(refs.get(7, ALA)) == 2 and calls == ["first", "played", "first"]

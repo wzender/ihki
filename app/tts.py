@@ -45,6 +45,16 @@ RAEF_VOICE_ID = "273d81b2-991b-5b76-8525-eeacc6a3d759"
 VOICES = {"רַאאִף": RAEF_VOICE_ID}
 # A female voice, only for the lines a dialogue gives her (workbook.LINE_VOICES); never offered on the page.
 LINE_VOICES = {"חנאן": "e41781f5-127c-5eb0-b83c-50bf52a64caf"}
+FADWA_VOICE_ID = "39a7e0e0-087e-52b3-afff-5203e430fc39"   # فدوى: Palestinian, female, conversational
+# The native voices the scores are measured against (reference.py), first one first: only it is generated for
+# the baseline; the others count when their recording is already cached (the cache-warm sweep made them).
+BASELINE_VOICES = {"ראאף": RAEF_VOICE_ID, "פדוא": FADWA_VOICE_ID}
+
+
+def voice_name(voice_id: str) -> str:
+    """A voice id's display name, without vowel points (ראאף, חנאן); the id itself when it is not one of ours."""
+    names = {v: k for k, v in {**VOICES, **LINE_VOICES, **BASELINE_VOICES}.items()}
+    return names.get(voice_id, voice_id).translate({c: None for c in range(0x591, 0x5c8)})
 
 class TTSUnavailable(Exception):
     """No key configured, or the provider refused / failed. The message is safe to show."""
@@ -424,9 +434,10 @@ class SawtakTTS:
         voice = voice if voice in LINE_VOICES.values() else RAEF_VOICE_ID
         return self._wav(text, voice, upload=True, source="playback")
 
-    def wav_for_voice(self, text: str, voice: str, source: str = "sweep") -> tuple[bytes, str]:
-        """(WAV, voice id) for a teacher-selected, validated Sawtak voice."""
-        return self._wav(text, voice, source=source)
+    def wav_for_voice(self, text: str, voice: str, source: str = "sweep", upload: bool = False) -> tuple[bytes, str]:
+        """(WAV, voice id) for a teacher-selected, validated Sawtak voice. Unlike wav(), any voice id is kept.
+        `upload`: a new recording also goes to the bucket in the background."""
+        return self._wav(text, voice, upload=upload, source=source)
 
 
 def load_tts(key: str | None = None) -> SawtakTTS | None:

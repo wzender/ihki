@@ -75,7 +75,8 @@ export interface Trace {
   frames: TraceFrames;
   aipa: string;                   // the chosen reading with archi symbols
   unrelated: TraceUnrelated;
-  references: { mean: number; sounds: number }[];
+  /** The native baselines, one per TTS voice; each sound is measured against the lowest of them (Stage "baseline"). */
+  references: { voice: string; mean: number; sounds: number }[];
   /** Stages 1–5 per sound, in order: gop → exemption → insertion → baseline → calibration → final. */
   tokens: TraceToken[];
   words: TraceWord[];
@@ -137,7 +138,9 @@ export type Stage =
   | { stage: "gop"; score: number }
   | { stage: "exemption"; score: number; applied: TraceConfig["exemptions"][number] | null }
   | { stage: "insertion"; score: number; applied: Ipa | null }   // the vowel heard inside the cluster
-  | { stage: "baseline"; score: number; ref: number | null; applied: boolean }   // ref: the native voice's score
+  | { stage: "baseline"; score: number; ref: number | null; refs: (number | null)[]; applied: boolean }
+    // ref: the lowest native score on this sound (what it is measured against); refs: each voice's, in
+    // Trace.references order (null: that voice's reading has no such sound)
   | { stage: "calibration"; score: number; floor: number | null; applied: boolean };
 
 export interface TraceToken {
