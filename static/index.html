@@ -765,10 +765,12 @@ body.manage #manage{width:100%;max-width:none}
 .rule-warn{padding:8px 10px;border-radius:10px;background:var(--amber-bg);color:var(--amber);font-size:13px}
 .rule-warn code{display:block;margin-top:4px;white-space:pre-wrap;word-break:break-all}.flag-patterns{width:100%;border-collapse:collapse;text-align:start}.flag-patterns :is(th,td){padding:6px;border-bottom:1px solid var(--line)}
 .activity{display:flex;flex-direction:column;gap:12px}.activity-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.activity-head h2{margin:0}.activity-head p{margin:3px 0 0;color:var(--muted);font-size:13px}
+.activity-ranges{display:flex;flex-wrap:wrap;gap:5px}.activity-ranges button{padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:700 13px/1 var(--f-body);cursor:pointer}.activity-ranges button[aria-pressed=true]{border-color:var(--olive);background:var(--olive);color:var(--on-olive)}
 .activity-head select{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}
 .activity-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.activity-stat{padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}.activity-stat b{display:block;font:400 28px/1 var(--f-display);font-variant-numeric:tabular-nums}.activity-stat small{color:var(--muted);font-size:12px}
 .activity-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.activity-tools span{margin-inline-end:auto;color:var(--muted);font-size:12px}.activity-tools button{width:32px;height:30px;padding:0;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:700 18px/1 var(--f-body);cursor:pointer}.activity-tools button:last-child{width:auto;padding-inline:10px;font-size:13px}.activity-tools button:disabled{opacity:.45;cursor:default}
-.activity-chart{width:100%;height:190px;overflow:visible;cursor:grab;touch-action:none;user-select:none}.activity-chart.dragging{cursor:grabbing}.activity-chart .grid{stroke:var(--line);stroke-width:1}.activity-chart .bar{fill:var(--olive);opacity:.82}.activity-chart .bar:hover{opacity:1}.activity-chart text{fill:var(--muted);font:11px var(--f-body)}
+.activity-legend{display:flex;gap:16px;align-items:center;color:var(--muted);font-size:12px}.activity-legend span{display:flex;align-items:center;gap:5px}.activity-legend i{display:inline-block;width:16px;height:8px;border-radius:2px;background:var(--olive)}.activity-legend .students i{height:3px;background:var(--orange);box-shadow:7px 0 0 -1px var(--orange)}
+.activity-chart{width:100%;height:190px;overflow:visible;cursor:grab;touch-action:none;user-select:none}.activity-chart.dragging{cursor:grabbing}.activity-chart .grid{stroke:var(--line);stroke-width:1}.activity-chart .bar{fill:var(--olive);opacity:.82}.activity-chart .bar:hover{opacity:1}.activity-chart .active-line{fill:none;stroke:var(--orange);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;pointer-events:none}.activity-chart .active-dot{fill:var(--surface);stroke:var(--orange);stroke-width:2}.activity-chart text{fill:var(--muted);font:11px var(--f-body)}.activity-chart .active-axis{fill:var(--orange)}
 .flag-group{display:flex;flex-direction:column;gap:10px}.flag-group>summary{cursor:pointer;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:16px}.flag-group>summary .meta{color:var(--muted);font-size:14px}.flag-group[open]>summary{margin-bottom:2px}.flag-group>.card{margin-inline-start:12px}
 .system-activity summary{cursor:pointer}.system-activity summary h2{display:inline;margin:0}.system-activity details[open]>summary{margin-bottom:8px}
 .system-hard{margin:2px 0 4px;padding:10px;border-radius:10px;background:var(--bg)}.system-hard h3{margin:0 0 6px;font:700 15px/1.3 var(--f-body)}.system-hard-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}.system-hard-row:last-child{border-bottom:0}.system-hard-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.system-hard-row small{color:var(--muted);white-space:nowrap}.system-feed{display:flex;flex-direction:column;gap:14px}.system-topic{border-top:1px solid var(--line);padding-top:10px}.system-topic:first-child{border-top:0;padding-top:0}.system-topic h3{margin:0 0 3px;font:700 15px/1.3 var(--f-body)}.system-topic h3 small{color:var(--muted);font-weight:600}.system-event{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}.system-event:last-child{border-bottom:0}.system-event i{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--olive-soft);font-style:normal}.system-event b,.system-event small{display:block}.system-event small,.system-event time{color:var(--muted);font-size:12px}.system-event time{direction:ltr;white-space:nowrap}
@@ -4440,8 +4442,8 @@ let SCORING_RULES=null, scoringRulesError="";   // the rules of pronunciation-ru
 let ACTIVITY=null, activityError="";
 let SYSTEM_ACTIVITY=null, systemActivityError="";
 let ADMIN_SUBJECTS=null;
-const FIVE_MINUTES=1/12;
-let activityHours=+store.get("ihki.activityHours","24"); if(![FIVE_MINUTES,24,168].includes(activityHours)) activityHours=24;
+const ACTIVITY_RANGES={"5m":{label:"5 דקות",title:"5 הדקות האחרונות",bucket:"דקה",legacy:"&hours=1&bucket_minutes=1&window_minutes=5"},hour:{label:"שעה",title:"השעה האחרונה",bucket:"5 דקות",legacy:"&hours=1&bucket_minutes=5"},day:{label:"יום",title:"24 השעות האחרונות",bucket:"15 דקות",legacy:"&hours=24&bucket_minutes=15"},week:{label:"שבוע",title:"7 הימים האחרונים",bucket:"שעה",legacy:"&hours=168&bucket_minutes=60"},month:{label:"חודש",title:"30 הימים האחרונים",bucket:"שעה",legacy:""},all:{label:"הכל",title:"כל התקופה",bucket:"שעה",legacy:""}};
+let activityRange=store.get("ihki.activityRange","day"); if(!ACTIVITY_RANGES[activityRange]) activityRange="day";
 const activityViews=new Map();
 let shownStudent="", classScroll=0;   // the student whose screen is on show (an email; "" for the class's), and where the class's was left
 let CLASS_LESSONS=[], CLASS_SOON=[];   // the ready lessons of the class on show, and those still to come (every lesson before the first class)
@@ -4610,8 +4612,7 @@ const PHONE_NAMES={"ħ":"ח (ح)","ʕ":"ע (ع)","x":"ח׳ (خ)","χ":"ח׳ (خ)
 const phoneName=p=>PHONE_NAMES[p]||({a:"אַ",i:"אִ",u:"אֻ",e:"אֶ",o:"אוֹ","aː":"אַא","iː":"אִי","uː":"אוּ","eː":"אֵי","oː":"אוֹ"}[p])||p;
 async function loadActivity(){
   activityError="";
-  const short=activityHours===FIVE_MINUTES, mins=short?1:activityHours===168?60:15;
-  try{ const res=await api(`/api/activity?hours=${short?1:activityHours}&bucket_minutes=${mins}${short?"&window_minutes=5":""}`), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); ACTIVITY=data; }
+  try{ const config=ACTIVITY_RANGES[activityRange], res=await api(`/api/activity?period=${activityRange}${config.legacy}`), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); if(["month","all"].includes(activityRange)&&data.period!==activityRange) throw new Error("יש להפעיל מחדש את השרת כדי להשתמש בטווח הזה"); ACTIVITY=data; }
   catch(err){ ACTIVITY=null; activityError=err.message; }
 }
 async function loadSystemActivity(){
@@ -4641,6 +4642,19 @@ function flagIssues(f){
   for(const [word,w] of ((f.result||{}).words||[]).entries()) for(const p of w.phonemes||[]) if(p.flagged)
     out.push({word,expected:p.ipa,heard:p.heard||"_",label:`${w.tr||w.ar}: ${p.ipa} ← ${p.heard||"חסר"}`});
   return out;
+}
+const relativeTime=new Intl.RelativeTimeFormat("he",{numeric:"always"});
+function flagAge(stamp){
+  const when=new Date(stamp), seconds=Math.max(0,(Date.now()-when.getTime())/1000);
+  if(!stamp||Number.isNaN(when.getTime())) return null;
+  let value,unit;
+  if(seconds<60){ value=Math.max(1,Math.floor(seconds)); unit="second"; }
+  else if(seconds<3600){ value=Math.floor(seconds/60); unit="minute"; }
+  else if(seconds<86400){ value=Math.floor(seconds/3600); unit="hour"; }
+  else if(seconds<2592000){ value=Math.floor(seconds/86400); unit="day"; }
+  else if(seconds<31536000){ value=Math.floor(seconds/2592000); unit="month"; }
+  else{ value=Math.floor(seconds/31536000); unit="year"; }
+  const time=document.createElement("time"); time.dateTime=when.toISOString(); time.textContent=relativeTime.format(-value,unit); time.title=when.toLocaleString("he-IL",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Jerusalem"}); return time;
 }
 // The rules taken from pronunciation-rules.md, each with a switch. All are on by default; switching one off brings back
 // the behaviour from before the document, for every student, from the next recording on.
@@ -4748,19 +4762,21 @@ function drawFlags(){
   const pending=FLAG_REVIEWS.pending, head=mark("card flag-head",""); box.append(head);
   head.append(mark("","דיווחים שממתינים לבדיקה","h2"));
   if(!pending.length){ head.append(mark("meta","אין כרגע דיווחים שממתינים לבדיקה.","p")); return; }
-  const byUser=new Map; for(const f of pending){ const who=f.email||""; if(!byUser.has(who)) byUser.set(who,[]); byUser.get(who).push(f); }
-  head.append(mark("meta",`${pending.length} ${pending.length===1?"דיווח":"דיווחים"} מ־${byUser.size} ${byUser.size===1?"מדווח/ת":"מדווחים"}, מקובצים לפי המדווח/ת.`,"p"));
   const flagScore=f=>Number.isFinite(Number(f.score))?Number(f.score):101;
-  const groupPriority=flags=>Math.min(...flags.map(flagScore));
-  for(const [who,flags] of [...byUser].sort((a,b)=>groupPriority(a[1])-groupPriority(b[1])||b[1].length-a[1].length||a[0].localeCompare(b[0]))){
+  const gradeBin=f=>{ const score=flagScore(f); return score>100?"unknown":Math.min(90,Math.max(0,Math.floor(score/10)*10)); };
+  const byGrade=new Map; for(const f of pending){ const bin=gradeBin(f); if(!byGrade.has(bin)) byGrade.set(bin,[]); byGrade.get(bin).push(f); }
+  const reporters=new Set(pending.map(f=>f.email||"")).size;
+  head.append(mark("meta",`${pending.length} ${pending.length===1?"דיווח":"דיווחים"} מ־${reporters} ${reporters===1?"מדווח/ת":"מדווחים"}, מקובצים לפי טווחי ציונים של 10 נקודות.`,"p"));
+  for(const [bin,flags] of [...byGrade].sort((a,b)=>(a[0]==="unknown"?101:a[0])-(b[0]==="unknown"?101:b[0]))){
     const group=document.createElement("details"), summary=document.createElement("summary");
-    group.className="flag-group"; group.open=flagGroupOpen[who]===true; group.ontoggle=()=>{ flagGroupOpen[who]=group.open; };
-    const urgent=flags.filter(f=>flagScore(f)<75).length;
-    summary.append(mark("",who||"ללא משתמש","b"),mark("meta",` · ${flags.length} ${flags.length===1?"דיווח":"דיווחים"}${urgent?` · ${urgent} מתחת ל־75`:" · כולם בחומרה נמוכה"}`)); group.append(summary); box.append(group);
-    for(const f of [...flags].sort((a,b)=>flagScore(a)-flagScore(b))){
+    const key=`grade-${bin}`, label=bin==="unknown"?"ציון לא ידוע":`ציונים ${bin}–${bin===90?100:bin+9}`, people=new Set(flags.map(f=>f.email||"")).size;
+    group.className="flag-group"; group.open=flagGroupOpen[key]===true; group.ontoggle=()=>{ flagGroupOpen[key]=group.open; };
+    summary.append(mark("",label,"b"),mark("meta",` · ${flags.length} ${flags.length===1?"דיווח":"דיווחים"} · ${people} ${people===1?"מדווח/ת":"מדווחים"}`)); group.append(summary); box.append(group);
+    for(const f of [...flags].sort((a,b)=>flagScore(a)-flagScore(b)||(a.email||"").localeCompare(b.email||""))){
       const lower=flagScore(f)>=75, card=mark(`card flag-review ${lower?"flag-lower":"flag-urgent"}`,""), title=mark("",f.he||f.phrase,"h2"), result=f.result||{}, issues=flagIssues(f);
       const ar=mark("",f.ar||"","p"); ar.dir="rtl";
-      const scoreLine=mark("meta",`ציון ${f.score} · המודל שמע: ${f.heard_ipa||"–"}`,"p");
+      const scoreLine=mark("meta",`ציון ${f.score} · ${f.email||"ללא משתמש"} · המודל שמע: ${result.heard_tr||"תעתיק לא זמין"}`,"p");
+      const age=flagAge(f.created_at); if(age) scoreLine.append(" · ",age);
       scoreLine.append(mark(`flag-priority ${lower?"lower":"urgent"}`,lower?"חומרה נמוכה":"עדיפות לבדיקה"));
       card.append(title,ar,scoreLine);
       if(f.note) card.append(mark("",`הערת המדווח/ת: ${f.note}`,"p"));
@@ -4884,7 +4900,7 @@ function drawAdminSubjects(box){
   if(ADMIN_SUBJECTS){ show(ADMIN_SUBJECTS); return; }
   list.append(mark("sub","טוען…","p")); api("/api/admin-subjects").then(async res=>{ const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); show(data); }).catch(err=>list.replaceChildren(mark("note","לא ניתן לטעון את מקצועות המנהלים: "+err.message,"p")));
 }
-const flagGroupOpen={};   // reporter -> whether their group of reports is open; closed until the teacher opens it
+const flagGroupOpen={};   // score band -> whether its pending-report group is open
 let systemActivityOpen=false;   // the recent activity starts closed; a redraw keeps it as the teacher left it
 function drawSystemActivity(box){
   const outer=mark("card system-activity",""), card=document.createElement("details"), summary=document.createElement("summary");
@@ -5133,31 +5149,35 @@ function drawApiKeys(box){
     .catch(err=>{ list.innerHTML=""; list.append(mark("note","לא ניתן לטעון את המפתחות: "+err.message,"p")); });
 }
 function drawActivity(box){
-  const short=activityHours===FIVE_MINUTES, days=activityHours===168, range=short?"5 הדקות האחרונות":days?"7 הימים האחרונים":"24 השעות האחרונות", bucket=short?"דקה":days?"שעה":"15 דקות";
+  const config=ACTIVITY_RANGES[activityRange], range=config.title, bucket=config.bucket, days=["week","month","all"].includes(activityRange);
   const card=mark("card activity",""), head=mark("activity-head",""), title=mark("",`פעילות ב־${range}`,"h2"), sub=mark("",`כל עמודה מייצגת ${bucket} · מתעדכן פעם בדקה`,"p");
-  const heading=document.createElement("div"), select=document.createElement("select"); heading.append(title,sub);
-  for(const [value,label] of [[FIVE_MINUTES,"5 דקות"],[24,"24 שעות"],[168,"7 ימים"]]){ const option=document.createElement("option"); option.value=value; option.textContent=label; option.selected=activityHours===value; select.append(option); }
-  select.setAttribute("aria-label","טווח גרף הפעילות"); select.onchange=async()=>{ activityHours=+select.value; store.set("ihki.activityHours",activityHours); ACTIVITY=null; drawActivityOnly(); await loadActivity(); drawActivityOnly(); };
-  head.append(heading,select); card.append(head);
+  const heading=document.createElement("div"), ranges=mark("activity-ranges",""); heading.append(title,sub);
+  for(const [value,item] of Object.entries(ACTIVITY_RANGES)){ const button=mark("",item.label,"button"); button.type="button"; if(value==="5m") button.dir="ltr"; button.setAttribute("aria-pressed",String(value===activityRange)); button.onclick=async()=>{ activityRange=value; store.set("ihki.activityRange",value); ACTIVITY=null; drawActivityOnly(); await loadActivity(); drawActivityOnly(); }; ranges.append(button); }
+  head.append(heading,ranges); card.append(head);
   if(activityError){ card.append(mark("note",`גרף הפעילות אינו זמין. יש ליצור את פונקציית activity_buckets ב־Supabase (${activityError}).`,"p")); box.append(card); return; }
   if(!ACTIVITY){ card.append(mark("note","טוען את נתוני הפעילות…","p")); box.append(card); return; }
-  const mins=ACTIVITY.bucket_minutes||15, count=Math.ceil((ACTIVITY.hours||24)*60/mins), now=Date.now(), end=Math.floor(now/(mins*60000))*mins*60000, by=new Map((ACTIVITY.buckets||[]).map(x=>[new Date(x.bucket).getTime(),x]));
-  const rows=Array.from({length:count},(_,i)=>{ const time=end-(count-1-i)*mins*60000, r=by.get(time)||{}; return {time,attempts:+r.attempts||0,active:+r.active_students||0}; });
+  const mins=ACTIVITY.bucket_minutes||15, now=Date.now(), end=Math.floor(now/(mins*60000))*mins*60000, by=new Map((ACTIVITY.buckets||[]).map(x=>[new Date(x.bucket).getTime(),x]));
+  const first=activityRange==="all"&&by.size?Math.min(...by.keys()):end-(Math.ceil((ACTIVITY.hours||24)*60/mins)-1)*mins*60000, count=Math.max(1,Math.round((end-first)/(mins*60000))+1);
+  const rows=Array.from({length:count},(_,i)=>{ const time=first+i*mins*60000, r=by.get(time)||{}; return {time,attempts:+r.attempts||0,active:+r.active_students||0}; });
   const totalAttempts=ACTIVITY.summary?.attempts??rows.reduce((n,r)=>n+r.attempts,0), activeStudents=ACTIVITY.summary?.active_students;
   const returning=ACTIVITY.summary?.returning_students, activeDays=ACTIVITY.summary?.active_days, average=activeStudents?Math.round(totalAttempts/activeStudents*10)/10:"–";
   const stats=mark("activity-stats",""), figures=[[activeStudents??"–",`תלמידים פעילים ב־${range}`],[totalAttempts,`תרגולים ב־${range}`],[average,"תרגולים לתלמיד/ה"],[returning??"–","חזרו ביום נוסף"],[activeDays??"–","ימים עם פעילות"]];
   for(const [n,label] of figures){ const s=mark("activity-stat",""); s.append(mark("",n,"b"),mark("",label,"small")); stats.append(s); } card.append(stats);
   if(activeStudents==null) card.append(mark("note","כדי להציג את מדדי המעורבות לכל הטווח, יש להתקין את פונקציית activity_summary שמופיעה ב־README.","p"));
+  const legend=mark("activity-legend",""); legend.innerHTML='<span><i></i>תרגולים</span><span class="students"><i></i>תלמידים פעילים</span>'; card.append(legend);
   const tools=mark("activity-tools",""), help=mark("","גרירה לאורך ציר הזמן · גלילה לזום אופקי","span"), zoomIn=mark("","+","button"), zoomOut=mark("","−","button"), reset=mark("","איפוס","button");
   zoomIn.type=zoomOut.type=reset.type="button"; zoomIn.title="זום זמן פנימה"; zoomOut.title="זום זמן החוצה"; reset.title="איפוס תצוגת הגרף"; zoomIn.setAttribute("aria-label",zoomIn.title); zoomOut.setAttribute("aria-label",zoomOut.title); tools.append(help,zoomIn,zoomOut,reset); card.append(tools);
   const ns="http://www.w3.org/2000/svg", svg=document.createElementNS(ns,"svg"); svg.classList.add("activity-chart"); svg.setAttribute("viewBox","0 0 720 190"); svg.setAttribute("role","img"); svg.setAttribute("aria-label",`גרף פעילות: ${totalAttempts} תרגולים ב־${range}`);
-  const left=32, top=10, width=678, height=145, gap=.7, view=activityViews.get(activityHours)||{zoom:1,offset:0}; activityViews.set(activityHours,view);
-  const clip=document.createElementNS(ns,"clipPath"), clipRect=document.createElementNS(ns,"rect"), plot=document.createElementNS(ns,"g"); clip.id=`activity-clip-${String(activityHours).replace(".","-")}`; clipRect.setAttribute("x",left); clipRect.setAttribute("y",top); clipRect.setAttribute("width",width); clipRect.setAttribute("height",height); clip.append(clipRect); svg.append(clip); plot.setAttribute("clip-path",`url(#${clip.id})`); svg.append(plot);
+  const left=32, top=10, width=678, height=145, gap=.7, view=activityViews.get(activityRange)||{zoom:1,offset:0}; activityViews.set(activityRange,view);
+  const clip=document.createElementNS(ns,"clipPath"), clipRect=document.createElementNS(ns,"rect"), plot=document.createElementNS(ns,"g"); clip.id=`activity-clip-${activityRange}`; clipRect.setAttribute("x",left); clipRect.setAttribute("y",top); clipRect.setAttribute("width",width); clipRect.setAttribute("height",height); clip.append(clipRect); svg.append(clip); plot.setAttribute("clip-path",`url(#${clip.id})`); svg.append(plot);
   const grid=[0,.5,1].map(()=>{ const line=document.createElementNS(ns,"line"), label=document.createElementNS(ns,"text"); line.setAttribute("class","grid"); line.setAttribute("x1",left); line.setAttribute("x2",left+width); label.setAttribute("x",0); svg.append(line,label); return {line,label}; });
   const bars=rows.map(r=>{ const rect=document.createElementNS(ns,"rect"); rect.setAttribute("class","bar"); const tip=document.createElementNS(ns,"title"), time=new Date(r.time).toLocaleString("he-IL",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}); tip.textContent=`${time}: ${r.attempts} תרגולים, ${r.active} תלמידים`; rect.append(tip); plot.append(rect); return rect; });
+  const activeLine=document.createElementNS(ns,"path"); activeLine.setAttribute("class","active-line"); plot.append(activeLine);
+  const activeDots=rows.map(r=>{ const dot=document.createElementNS(ns,"circle"), tip=document.createElementNS(ns,"title"), time=new Date(r.time).toLocaleString("he-IL",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}); dot.setAttribute("class","active-dot"); dot.setAttribute("r",3); tip.textContent=`${time}: ${r.active} תלמידים פעילים`; dot.append(tip); plot.append(dot); return dot; });
+  const activeLabels=[0,.5,1].map(()=>{ const label=document.createElementNS(ns,"text"); label.setAttribute("class","active-axis"); label.setAttribute("x",718); label.setAttribute("text-anchor","end"); svg.append(label); return label; });
   const timeLabels=[0,.5,1].map((_,i)=>{ const label=document.createElementNS(ns,"text"); label.setAttribute("y",180); label.setAttribute("text-anchor",i?i===2?"end":"middle":"start"); svg.append(label); return label; });
   const maxZoom=Math.max(1,rows.length/4), formatTime=(time,span)=>new Date(time).toLocaleString("he-IL",span*mins<=24*60&&days?{day:"numeric",month:"numeric",hour:"2-digit",timeZone:"Asia/Jerusalem"}:days?{day:"numeric",month:"numeric",timeZone:"Asia/Jerusalem"}:{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"});
-  const renderView=()=>{ view.zoom=Math.max(1,Math.min(maxZoom,view.zoom)); const span=rows.length/view.zoom; view.offset=Math.max(0,Math.min(rows.length-span,view.offset)); const first=Math.max(0,Math.floor(view.offset)), last=Math.min(rows.length,Math.ceil(view.offset+span)), max=Math.max(1,...rows.slice(first,last).map(r=>r.attempts)), bw=width/span; grid.forEach(({line,label},i)=>{ const frac=i/2, y=top+height*(1-frac); line.setAttribute("y1",y); line.setAttribute("y2",y); label.setAttribute("y",y+4); label.textContent=Math.round(max*frac); }); rows.forEach((r,i)=>{ const h=r.attempts/max*height; bars[i].setAttribute("x",left+(i-view.offset)*bw); bars[i].setAttribute("y",top+height-h); bars[i].setAttribute("width",Math.max(.5,bw-gap)); bars[i].setAttribute("height",h); }); timeLabels.forEach((label,i)=>{ const frac=i/2, index=Math.max(0,Math.min(rows.length-1,Math.round(view.offset+(span-1)*frac))); label.setAttribute("x",left+width*frac); label.textContent=formatTime(rows[index].time,span); }); zoomIn.disabled=view.zoom>=maxZoom; zoomOut.disabled=view.zoom<=1; reset.disabled=view.zoom===1&&view.offset===0; };
+  const renderView=()=>{ view.zoom=Math.max(1,Math.min(maxZoom,view.zoom)); const span=rows.length/view.zoom; view.offset=Math.max(0,Math.min(rows.length-span,view.offset)); const first=Math.max(0,Math.floor(view.offset)), last=Math.min(rows.length,Math.ceil(view.offset+span)), max=Math.max(1,...rows.slice(first,last).map(r=>r.attempts)), maxActive=Math.max(1,...rows.slice(first,last).map(r=>r.active)), bw=width/span; grid.forEach(({line,label},i)=>{ const frac=i/2, y=top+height*(1-frac); line.setAttribute("y1",y); line.setAttribute("y2",y); label.setAttribute("y",y+4); label.textContent=Math.round(max*frac); activeLabels[i].setAttribute("y",y+4); activeLabels[i].textContent=Math.round(maxActive*frac); }); const points=[]; rows.forEach((r,i)=>{ const x=left+(i-view.offset+.5)*bw, h=r.attempts/max*height, ay=top+height-r.active/maxActive*height; bars[i].setAttribute("x",x-bw/2); bars[i].setAttribute("y",top+height-h); bars[i].setAttribute("width",Math.max(.5,bw-gap)); bars[i].setAttribute("height",h); activeDots[i].setAttribute("cx",x); activeDots[i].setAttribute("cy",ay); points.push(`${x},${ay}`); }); activeLine.setAttribute("d",points.length?`M${points.join("L")}`:""); timeLabels.forEach((label,i)=>{ const frac=i/2, index=Math.max(0,Math.min(rows.length-1,Math.round(view.offset+(span-1)*frac))); label.setAttribute("x",left+width*frac); label.textContent=formatTime(rows[index].time,span); }); zoomIn.disabled=view.zoom>=maxZoom; zoomOut.disabled=view.zoom<=1; reset.disabled=view.zoom===1&&view.offset===0; };
   const zoomBy=(factor,anchor=.5)=>{ const oldSpan=rows.length/view.zoom, point=view.offset+oldSpan*anchor; view.zoom=Math.max(1,Math.min(maxZoom,view.zoom*factor)); const span=rows.length/view.zoom; view.offset=point-span*anchor; renderView(); };
   zoomIn.onclick=()=>zoomBy(1.6); zoomOut.onclick=()=>zoomBy(1/1.6); reset.onclick=()=>{ view.zoom=1; view.offset=0; renderView(); };
   svg.onwheel=e=>{ e.preventDefault(); const bounds=svg.getBoundingClientRect(), plotLeft=bounds.left+bounds.width*left/720, plotWidth=bounds.width*width/720, anchor=Math.max(0,Math.min(1,(e.clientX-plotLeft)/plotWidth)); zoomBy(e.deltaY<0?1.25:1/1.25,anchor); };

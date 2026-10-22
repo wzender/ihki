@@ -910,12 +910,33 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.get("/api/activity")
     def activity(hours: int = Query(24, ge=1, le=168), bucket_minutes: int = Query(15, ge=1, le=60),
                  window_minutes: int | None = Query(None, ge=1, le=60),
+                 period: str | None = Query(None, pattern="^(5m|hour|day|week|month|all)$"),
                  a: SupabaseAuth = Depends(teacher_only), actor: dict | None = Depends(signed_in)):
         """Anonymous, aggregated practice activity for the teacher's monitoring graph."""
         try:
             scoped = bool(actor and "developer" not in actor.get("roles", ()) and hasattr(a, "access_for"))
+            if period:
+                slots, bucket_minutes = {"5m": (5, 1), "hour": (12, 5), "day": (96, 15),
+                                         "week": (168, 60), "month": (720, 60),
+                                         "all": (None, 60)}[period]
+                now = datetime.now(timezone.utc)
+                if slots is None:
+                    start, hours = now - timedelta(days=365 * 30), 365 * 30 * 24
+                else:
+                    seconds = bucket_minutes * 60
+                    end = datetime.fromtimestamp(int(now.timestamp()) // seconds * seconds, timezone.utc)
+                    start, hours = end - timedelta(seconds=(slots - 1) * seconds), slots * bucket_minutes / 60
+                users = a.users()
+                if scoped:
+                    classes = managed_classes(a, actor, fresh=True)
+                    emails = {email for c in classes for email in c.get("emails", ())}
+                    ids = {u["id"] for u in users if u["email"].lower() in emails}
+                else:
+                    ids = {u["id"] for u in users}
+                data = a.scoped_activity(ids, start, bucket_minutes)
+                return {"period": period, "hours": hours,
+                        "bucket_minutes": bucket_minutes, **data}
             if scoped:
-                ids = None
                 classes, users = managed_classes(a, actor, fresh=True), a.users()
                 emails = {email for c in classes for email in c.get("emails", ())}
                 ids = {u["id"] for u in users if u["email"].lower() in emails}
