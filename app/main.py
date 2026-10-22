@@ -861,8 +861,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         """The teacher's panel: the classes (with their lessons and homework), and every student's summary (see `summary`) with
         "written", their written homework ({topic id: its lines}), with
         "tutor" (the teacher gave them the tutor's rank, see `set_tutor`; "tutor_fixed" when TEACHER_EMAILS or TUTORS_EMAIL gives it, which the panel cannot change),
-        their classes ({name: nickname}) and, as "since", the same summary for each class ({name: summary}) of the attempts
-        made since the class was opened: a new class starts clean, whatever its students practised before. The students are the classes' accounts, or every account that signed in
+        and their classes ({name: nickname}). The summary is the student's whole history, so what they practised in one class
+        still counts in another class with the same lessons (moving class keeps progress). The students are the classes' accounts, or every account that signed in
         when there is no class yet; one that never signed in has joined = false."""
         try:
             classes, users, rows, wrote = managed_classes(a, actor, fresh=True), a.users(), a.all_attempts(), a.all_writings()
@@ -880,14 +880,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         for c in classes:
             for e in c["emails"]:
                 member.setdefault(e, {})[c["name"]] = c["nicknames"].get(e, "")
-        opened = {c["name"]: utc(c["created_at"]) for c in classes if c.get("created_at")}
         bank, lesson_of = text_bank(text_rows()), topics()
 
         def student(email: str, name: str, joined: bool, mine: list[dict], wrote: dict | None = None) -> dict:
             into = member.get(email.lower(), {})
-            since = {n: summary([r for r in mine if n not in opened or utc(r["created_at"]) >= opened[n]], bank) for n in into}
             fixed = email.lower() in a.teachers | a.tutors
-            return {"email": email, "name": name, "joined": joined, "classes": into, "since": since, "written": wrote or {},
+            return {"email": email, "name": name, "joined": joined, "classes": into, "written": wrote or {},
                     "tutor": fixed or email.lower() in (ranked or ()), **({"tutor_fixed": True} if fixed else {}),
                     "streak": practice_streak(mine), **summary(mine, bank)}
 

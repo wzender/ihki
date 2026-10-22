@@ -1,8 +1,8 @@
 # Students' feature video
 
-A 97-second vertical (1080×1920) walkthrough for Reels/TikTok/WhatsApp status, with Hebrew captions:
-the path → new words → a spoken answer with a ח mistake, its tip, the retry → a story → streak and beads →
-daily practice → verbs → games (a round of the memory game) → the logo.
+An 83-second vertical (1080×1920) silent walkthrough for Reels/TikTok/WhatsApp status, with Hebrew captions:
+the opening logo → collecting beads → practicing "פתח, יפתח" (a ח mistake, its tip, the retry, a gold bead) →
+a story → "הערבית שכבר שלכם" → daily practice → the digital library → a round of "הפועל זכרון" → the logo.
 
 ```bash
 # 1. the app, with sign-in off so nothing reaches the real database
@@ -18,5 +18,8 @@ D=scripts/demo_video; .venv/bin/python $D/record.py --takes $D/takes --out $D/ih
 - **Sound (off by default):** `--sound` adds the app's own sounds; `--voice <dir>` a Hebrew voiceover from
   make_voice.py (edge-tts >= 7.3); `--music 0.22` music.py's track, or `--music-file song.mp3` your own.
 - **Look:** captions and tap ripples are drawn by `overlay.js`.
-- The scores in the video are the model's real scores of the takes. The app listens by itself after "next";
-  the recorder plays the take into the fake mic either way.
+- The digital library shows the real list, read (read-only) from Supabase with the keys in .env; the local app
+  has none with sign-in off.
+- The scores in the video are the model's real scores of the takes. The mistake take has to score under 75, or the
+  app says "מצוין" and shows no letters to tap; if a scoring change moves it, pick another take in make_takes.py.
+- The app listens by itself after "next"; the recorder plays the take into the fake mic either way.

@@ -78,7 +78,7 @@ CACHE_MAX = 2000
 PAGE = 1000  # rows per request: Supabase's default ceiling
 MAX_ATTEMPTS = 20_000  # of one student, read for their progress
 MAX_CLASS_ATTEMPTS = 200_000  # of all students, read for the teacher's panel
-MAX_MONITOR_ATTEMPTS = 500  # newest attempts sampled for pronunciation patterns in monitoring
+MAX_MONITOR_ATTEMPTS = 5_000  # newest compact attempts sampled for pronunciation patterns; never audio
 CLASSES_TTL = 60  # seconds the class list is trusted without reading it again (each sign-in check uses it)
 
 # Application-owned data. Supabase's auth users and managed schemas are deliberately not copied.

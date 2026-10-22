@@ -2,7 +2,10 @@
 
     python scripts/demo_video/make_takes.py <out_dir>
 
-m446.wav: احنا said with خ instead of ح (the Hebrew ח mistake); c446.wav: said right. Phrase 446 is "אנחנו".
+m449.wav: فتح، يفتح said with ه instead of ح (the ח swallowed into a soft ה); c449.wav: said right.
+Phrase 449 is "פתח (עבר, עתיד)" (topic "פעלים", lesson 1). The voice is Raef's, the app's default.
+The mistake has to score under 75: from 75 up the app says "מצוין" and shows no letters to tap.
+TTS_BUCKET is cleared, so these takes don't go into the app's TTS cache bucket.
 Each take gets 1 s of silence before (the recorder is listening) and 2.5 s after (so it stops by itself).
 """
 import subprocess, sys
@@ -11,9 +14,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+import os
+os.environ["TTS_BUCKET"] = ""
 from app.tts import load_tts
 
-TAKES = {"m446": "اِخْنَا", "c446": "اِحْنَا"}
+TAKES = {"m449": "فَتَه، يِفْتَه", "c449": "فَتَح، يِفْتَح"}
 
 out = Path(sys.argv[1]); out.mkdir(parents=True, exist_ok=True)
 tts = load_tts()

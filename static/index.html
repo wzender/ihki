@@ -969,7 +969,7 @@ body.manage #manage{width:100%;max-width:none}
 .wiz dt,.facts dt{font-weight:700} .wiz dd,.facts dd{margin:0;overflow-wrap:anywhere}
 .wiz .after{margin:0;font-size:14px;line-height:1.5}
 .wiz .after b{display:block}
-#logoutBtn{position:fixed;bottom:4px;right:6px;z-index:9;font:500 11px/1 var(--f-body);padding:3px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
+#logoutBtn{position:fixed;bottom:6px;right:8px;z-index:9;min-height:44px;font:600 15px/1 var(--f-body);padding:10px 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
 .drive{margin-inline-start:auto;font:700 15px var(--f-body);border-radius:999px;padding:6px 14px;cursor:pointer;border:1px solid var(--olive);background:transparent;color:var(--olive)}
 body.driving .drive{background:var(--sumac);border-color:var(--sumac);color:#fff}
 /* driving mode: nothing to read or press but the stop button */
@@ -1143,6 +1143,11 @@ body.driving .card.storymode .prompt{display:block}
 .bubble-score b{min-width:1.5ch;font:800 30px/1 var(--f-display);text-align:center}
 .bubble-score.tick b{animation:score-pop .38s cubic-bezier(.2,1.8,.4,1)}
 .bubble-score small{display:block;margin-top:3px;color:#527254;font:700 12px/1 var(--f-body)}
+.bubble-best{display:flex;position:absolute;top:16px;right:64px;z-index:3;align-items:center;gap:7px;padding:7px 11px;border:2px solid #72500d;border-radius:14px;background:linear-gradient(180deg,#fff6ba,#ffe27a);color:#4c3100;box-shadow:0 4px 0 #72500d,0 8px 18px rgb(0 0 0/.2);font:800 12px/1.15 var(--f-body);font-variant-numeric:tabular-nums}
+.bubble-best b{font:800 25px/1 var(--f-display)}
+.bubble-help{position:absolute;top:66px;right:64px;z-index:3;width:34px;height:34px;padding:0;border:2px solid #72500d;border-radius:50%;background:#fff6ba;color:#4c3100;box-shadow:0 3px 0 #72500d;font:900 18px/1 var(--f-body);cursor:pointer}
+.bubble-help:active{transform:translateY(2px);box-shadow:0 1px 0 #72500d}
+.game-best{display:inline-flex!important;align-items:center;gap:4px;width:max-content;margin-top:3px;padding:3px 8px;border-radius:999px;background:#fff3bd;color:#704708!important;font-size:11px!important;font-weight:800!important}
 .bubble-beads{display:grid;position:absolute;top:10px;left:145px;z-index:3;width:150px;height:88px;box-sizing:border-box;grid-template-columns:repeat(5,18px);grid-template-rows:repeat(2,22px);align-items:center;justify-items:center;padding:3px 0 0 36px;direction:ltr;pointer-events:none}
 .bubble-beads[hidden]{display:none}
 .misbaha-cord{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
@@ -1192,7 +1197,7 @@ body.driving .card.storymode .prompt{display:block}
 .bubble-hint .past em{display:block;margin-top:2px;color:#527254;font:700 17px/1.2 sans-serif;font-style:normal;direction:rtl}
 .card.bubblemode .task{font-weight:700;color:var(--olive)}
 .card.bubblemode .donehint,.card.bubblemode .progress{position:relative;z-index:2}
-.card.bubblemode>:not(.prompt):not(.bubble-score):not(.bubble-beads):not(.bubble-foot){display:none!important}
+.card.bubblemode>:not(.prompt):not(.bubble-score):not(.bubble-best):not(.bubble-help):not(.bubble-beads):not(.bubble-foot){display:none!important}
 body.bubble-game #wrap>header,body.bubble-game #practice>.roundbar{display:none}
 #gameBack{display:none}
 body.bubble-game #gameBack{display:flex;position:fixed;top:max(12px,env(safe-area-inset-top));right:12px;z-index:12;width:40px;height:40px;align-items:center;justify-content:center;border:2px solid #111;border-radius:50%;background:#63bd4d;color:#111;padding:0;cursor:pointer;box-shadow:0 3px 0 #111}
@@ -1384,6 +1389,8 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
 
   <main class="card" id="card" aria-live="polite">
     <div class="bubble-score" id="bubbleScore" hidden><span>ניקוד<small id="bubbleCount"></small></span><b id="bubblePoints">0</b></div>
+    <div class="bubble-best" id="bubbleBest" hidden><span>🏆 שיא</span><b id="bubbleBestPoints">—</b></div>
+    <button class="bubble-help" id="bubbleHelp" type="button" aria-label="הנחיות המשחק" title="הנחיות המשחק" hidden>?</button>
     <div class="bubble-beads" id="bubbleBeads" hidden aria-label="תוצאות במסבחה: ירוק ללא רמז, צהוב אחרי רמז ראשון, כתום אחרי רמז שני ואדום בכישלון"><svg class="misbaha-cord" viewBox="0 0 150 88" aria-hidden="true"><defs><linearGradient id="imamGold" x1="0" x2="1"><stop stop-color="#845308"/><stop offset=".28" stop-color="#f5ce57"/><stop offset=".58" stop-color="#b8790d"/><stop offset=".82" stop-color="#ffe68a"/><stop offset="1" stop-color="#744607"/></linearGradient></defs><path class="cord-shadow" d="M36 14H120Q134 14 134 25T120 36H36"/><path class="cord-base" d="M36 14H120Q134 14 134 25T120 36H36"/><path class="cord-weave-a" d="M36 14H120Q134 14 134 25T120 36H36"/><path class="cord-weave-b" d="M36 14H120Q134 14 134 25T120 36H36"/><path class="cord-glint" d="M36 14H120Q134 14 134 25T120 36H36"/><path class="cord-base" d="M36 36H27"/><rect class="imam" x="9" y="31" width="21" height="10" rx="5"/><rect class="tassel-cap" x="4" y="30" width="7" height="12" rx="2"/><path class="tassel-thread" d="M7 42Q8 55 2 75M7 42Q12 57 8 80M7 42Q16 58 15 82M7 42Q20 56 22 78M7 42Q24 53 29 73M7 42Q18 48 35 67M7 42Q13 62 3 84M7 42Q21 61 18 85"/></svg></div>
     <div class="bubble-foot" id="bubbleFoot"><div class="bubble-hint" id="bubbleHint" hidden><small>רמז</small><span class="binyan" id="bubbleBinyan"></span><strong class="gizra" id="bubbleGizra"></strong><span class="past" id="bubblePast" hidden><small>עבר · הוא</small><b id="bubblePastText"></b><em id="bubblePastAr" lang="ar"></em></span></div></div>
     <div class="meta"><span id="counter"></span></div>
@@ -1668,6 +1675,13 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
   <p class="dlg-text">תרגול בלי לגעת במסך: האפליקציה מקריאה כל משפט, מקשיבה לתשובה שלכם ואומרת את ההערכה בקול. לסיום לוחצים על "סיום נסיעה".</p>
   <div class="row"><button class="btn primary" id="driveGo">התחילו</button><button class="btn" id="driveNo">לא עכשיו</button></div>
 </dialog>
+<dialog id="bubbleGuideDlg" aria-labelledby="bubbleGuideTitle">
+  <div class="dlg-head"><h2 id="bubbleGuideTitle">איך משחקים בפועל זמני?</h2><button class="btn" id="bubbleGuideClose">סגירה</button></div>
+  <p class="dlg-text">בכל סיבוב מופיע פועל בעברית בתוך חרוז. אמרו אותו בערבית מדוברת — בעבר ואז בעתיד — לפני שטבעת הזמן נעלמת.</p>
+  <p class="dlg-text">אחרי 3 שניות יופיע רמז של בניין וגזרה, ואחרי 6 שניות תופיע גם צורת העבר. תשובה נכונה לפני הרמזים מזכה בחרוז ירוק.</p>
+  <p class="dlg-text">בסבב יש 10 פעלים. הניקוד הוא מספר התשובות הנכונות, והשיא נשמר במכשיר הזה.</p>
+  <div class="row"><button class="btn primary" id="bubbleGuideGo">יאללה, מתחילים</button></div>
+</dialog>
 <dialog id="setDlg" aria-labelledby="setTitle">
   <div class="dlg-head"><h2 id="setTitle">הגדרות השמעה</h2><button class="btn" id="setClose">סגירה</button></div>
   <div class="voicebox">
@@ -1828,7 +1842,7 @@ let TEACHER_DAILIES=[];   // for a teacher: the daily videos of every class, {id
 let ME_EMAIL="", ME_SUBJECT="";   // ME_SUBJECT: the account's subject as /api/me gives it ("math"), "" for none   // the signed-in account: in the lab, who records
 let MY_CLASSES=[], MY_CLASS=null;   // a student's classes ({name, lessons, homeworks, dailies}), and the one they practise in now
 let daily=null, dailySaid=new Set(), dailyWas={};   // the daily session on the card: its sentence ids, those said in it, and their best scores before it
-let ALL_LEVELS=[], ALL_LESSONS=[], ALL_CATS=[], GAMES=[], MY_LESSONS=null, LESSONS=[], CATS=[], PHRASES=[], cat=store.get("ihki.cat",""), best=store.get("ihki.best2",{}), order=[], pos=0, cur=null;
+let ALL_LEVELS=[], ALL_LESSONS=[], ALL_CATS=[], GAMES=[], MY_LESSONS=null, LESSONS=[], CATS=[], PHRASES=[], cat=store.get("ihki.cat",""), best=store.get("ihki.best2",{}), gameBest=store.get("ihki.gameBest",{}), order=[], pos=0, cur=null;
 let serverWeekDays=0, serverStreak={current:0,best:0,last:null}, rewardTimer=null;
 let myAudioUrl=null;
 let TUTOR=false, lastRec=null;   // a teacher, or an account of TUTORS_EMAIL, flags a score that is wrong; the latest recording sent to be scored, {id, blob}
@@ -1953,6 +1967,7 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     }
     const memo=mark("now","","button"), upto=vtLessonNow();   // the memory game, on the verb table's lesson
     memo.append(mark("","📿","i"),mark("","הפועל זכרון","b"),mark("",`הפכו חרוזים ומצאו זוגות של פעלים · עד ${(ALL_LESSONS.find(l=>l.id===upto)||{}).name||""}`,"small"));
+    if(gameBest.memory) memo.append(mark("game-best",`🏆 שיא: ${gameBest.memory.moves} ניסיונות · ${Math.floor(gameBest.memory.seconds/60)}:${String(gameBest.memory.seconds%60).padStart(2,"0")}`,"small"));
     memo.onclick=openMemoryGame; if(can("games.use")&&upto) box.append(memo);
     const talk=can("tutor.use")&&TUTOR_INFO&&TUTOR_INFO.available;   // יאללה נדבר: it opens the list of its scenarios
     if(talk){
@@ -1964,6 +1979,7 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     for(const game of games){
       const b=mark("now","","button"), done=PHRASES.filter(p=>p.cat===game.id&&best[p.id]!=null).length;
       b.append(mark("","●","i"),mark("",game.name,"b"),mark("",done?`תורגלו ${done} פעלים`:"אמרו עבר ועתיד לפני שהבועה נעלמת","small"));
+      if(gameBest[game.id]!=null){ const record=typeof gameBest[game.id]==="object"?gameBest[game.id]:{score:gameBest[game.id],total:BUBBLE_ROUND}; b.append(mark("game-best",`🏆 הציון הטוב ביותר: ${record.score}/${record.total}`,"small")); }
       b.onclick=()=>pickCat(game.id); box.append(b);
     }
   }else if(view==="verbs"){
@@ -2381,6 +2397,7 @@ function openMemoryGame(){
   const root=mark("mg","","section"); root.setAttribute("role","dialog"); root.setAttribute("aria-label","הפועל זכרון");
   root.innerHTML=`<div class="mg-hud"><button class="mg-close" type="button" aria-label="יציאה מהמשחק">✕</button>
     <div class="mg-title"><h2>הפועל זכרון</h2><small></small></div>
+    <div class="mg-stat mg-best"><b>${gameBest.memory?gameBest.memory.moves:"—"}</b>שיא</div>
     <div class="mg-stat mg-pairs"><b>0</b>זוגות</div><div class="mg-stat mg-moves"><b>0</b>ניסיונות</div></div>
     <div class="mg-field"><svg class="mg-cord" aria-hidden="true"><defs><linearGradient id="mgGold" x1="0" x2="1"><stop stop-color="#845308"/><stop offset=".28" stop-color="#f5ce57"/><stop offset=".58" stop-color="#b8790d"/><stop offset=".82" stop-color="#ffe68a"/><stop offset="1" stop-color="#744607"/></linearGradient></defs>
     <path class="c-shadow"/><path class="c-base"/><path class="c-a"/><path class="c-b"/><path class="c-glint"/><g class="mg-tassel"></g></svg></div>`;
@@ -2507,6 +2524,8 @@ function mgWin(){   // every pair found: the misbaha dances, beads rain, and the
   if(!mg) return;
   mg.party=1; mgTone([[523,.14],[659,.14],[784,.14],[1047,.32],[784,.12],[1047,.4]],"sine",.09);
   const secs=Math.round((Date.now()-mg.start)/1000), stars=mg.moves<=mg.n*1.4?3:mg.moves<=mg.n*2?2:1;
+  const old=gameBest.memory, record=!old||mg.moves<old.moves||(mg.moves===old.moves&&secs<old.seconds);
+  if(record){ gameBest.memory={moves:mg.moves,seconds:secs}; store.set("ihki.gameBest",gameBest); mg.root.querySelector(".mg-best b").textContent=mg.moves; }
   const tones=[["#e2ead8","#aabd98","#4a5941"],["#fff1a0","#ffe27a","#8e5b08"],["#ffe0ad","#ffbd72","#a94716"],["#ffe1da","#efaaa0","#9b4f48"]];
   for(let i=0;i<46;i++){
     const drop=mark("mg-drop","","i"), [c1,c2,c3]=tones[i%tones.length];
@@ -2516,7 +2535,7 @@ function mgWin(){   // every pair found: the misbaha dances, beads rain, and the
   const win=mark("mg-win","","div"), card=document.createElement("div");
   card.innerHTML=`<div class="big">📿</div><h3>${MG_PRAISE[Math.random()*3|0]}</h3>
     <div class="stars">${[0,1,2].map(i=>`<span class="${i<stars?"":"off"}">★</span>`).join("")}</div>
-    <p>${mg.n} זוגות ב־${mg.moves} ניסיונות · ${Math.floor(secs/60)}:${String(secs%60).padStart(2,"0")}</p>
+    <p>${mg.n} זוגות ב־${mg.moves} ניסיונות · ${Math.floor(secs/60)}:${String(secs%60).padStart(2,"0")}${record?" · שיא חדש! 🏆":""}</p>
     <div class="acts"><button type="button" class="again">עוד סיבוב 🔄</button><button type="button" class="out">סיום</button></div>`;
   win.append(card); mg.root.append(win);
   card.querySelector(".again").onclick=()=>mgDeal(); card.querySelector(".out").onclick=closeMemoryGame;
@@ -3130,7 +3149,8 @@ addEventListener("resize",()=>{ if(home&&$("path").clientWidth!==drawnW) drawPat
 function pickCat(id){
   daily=null; retry=null; cat=id; store.set("ihki.cat",cat);
   home=false; document.body.classList.remove("home"); scrollTo(0,0);
-  startCat();
+  if((categoryOf(id)||{}).bubble&&!store.get("ihki.bubbleGuideSeen",false)) openBubbleGuide(true);
+  else startCat();
 }
 function showPath(){   // back to the path: whatever the card was reading, playing or recording stops
   const backToGames=bubbleCat();
@@ -3174,11 +3194,30 @@ let retry=null;   // {cat, ids, was: {id: best before}}: a round of just the top
 const BUBBLE_MS=9000, BUBBLE_HINT_MS=3000, BUBBLE_PAST_MS=6000, BUBBLE_PASS=70, BUBBLE_ROUND=10;
 let bubbleTimer=null, bubbleHintTimer=null, bubblePastTimer=null, bubbleDeadline=0, bubbleFor=null, bubbleResolving=false, bubbleHintShown=false, bubblePastShown=false;
 let bubbleGame={answered:0,correct:0,total:0};
+let bubbleGuideStart=false, bubbleGuideOpened=0;
 const bubbleCat=()=>!daily&&(categoryOf(cat)||{}).bubble;
+function openBubbleGuide(first=false){
+  const dlg=$("bubbleGuideDlg");
+  bubbleGuideStart=first; bubbleGuideOpened=Date.now(); pauseBubble();
+  $("bubbleGuideGo").textContent=first?"יאללה, מתחילים":"חזרה למשחק";
+  if(!dlg.open) dlg.showModal();
+}
+function closeBubbleGuide(){
+  const dlg=$("bubbleGuideDlg"); if(dlg.open) dlg.close();
+}
+$("bubbleGuideClose").onclick=closeBubbleGuide;
+$("bubbleGuideGo").onclick=closeBubbleGuide;
+$("bubbleGuideDlg").addEventListener("close",()=>{
+  store.set("ihki.bubbleGuideSeen",true);
+  if(bubbleGuideStart){ bubbleGuideStart=false; startCat(); }
+  else if(bubbleCat()&&!home){ if(bubbleDeadline) bubbleDeadline+=Date.now()-bubbleGuideOpened; armBubble(); }
+});
+$("bubbleHelp").onclick=()=>openBubbleGuide(false);
 function drawBubbleScore(tick=false){
   const box=$("bubbleScore");
   $("bubblePoints").textContent=bubbleGame.correct;
   $("bubbleCount").textContent=`${bubbleGame.answered} מתוך ${bubbleGame.total}`;
+  const record=gameBest[cat]; $("bubbleBestPoints").textContent=record==null?"—":typeof record==="object"?record.score:record;
   if(tick){ box.classList.remove("tick"); void box.offsetWidth; box.classList.add("tick"); }
 }
 function countBubble(correct){
@@ -3620,6 +3659,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   $("card").classList.toggle("bubblemode",!!c.bubble);
   document.body.classList.toggle("bubble-game",!!c.bubble);
   $("bubbleScore").hidden=!c.bubble; $("bubbleBeads").hidden=!c.bubble; $("bubbleHint").hidden=true; if(c.bubble) drawBubbleScore();
+  $("bubbleBest").hidden=$("bubbleHelp").hidden=!c.bubble;
   $("prompt").classList.remove("collected"); setBubbleTone();
   if(c.bubble){ $("prompt").style.animation="none"; void $("prompt").offsetWidth; $("prompt").style.animation=""; }
   heStop(); $("heCheck").hidden=true; micZone.classList.toggle("two",heOk&&!!cur.read&&!story);   // a phrase to read can be answered in Hebrew too
@@ -4356,7 +4396,11 @@ function showTopicDone(was){   // was: the retry round that just ended, if it wa
 }
 $("tdPath").onclick=()=>{ $("topicDoneDlg").close(); showPath(); };
 function roundEnd(){   // a story stops at its end and waits for the microphone button; other topics go straight on
-  if(bubbleCat()){ showPath(); return; }
+  if(bubbleCat()){
+    const old=gameBest[cat], oldScore=old==null?-1:typeof old==="object"?old.score:old;
+    if(bubbleGame.correct>oldScore){ gameBest[cat]={score:bubbleGame.correct,total:bubbleGame.total}; store.set("ihki.gameBest",gameBest); }
+    showPath(); return;
+  }
   const was=retry&&retry.cat===cat?retry:null; retry=null;   // a retry round is over either way: the full topic is back
   if(!driving&&topicComplete()){ startCat(true); showTopicDone(was); return; }   // every sentence practised: the topic's end
   const story=isStory()&&!driving;
@@ -4544,6 +4588,7 @@ function sentence(p,under){   // a sentence as the student sees it, and a small 
 let CLASS=null, ACCESS=null, accessError="", shownClass=store.get("ihki.mstudentClass","*");   // "*" is every student; otherwise the class on show
 let mMode=store.get("ihki.mmode","");   // the panel's part on show: "classes" or "students" (the classes, before the first one)
 let FLAG_REVIEWS={pending:[],confirmed:[]}, CALIBRATIONS=[], ATTEMPT_PATTERNS=[], flagsError="", flagsLoaded=false, flagAudioUrls=[];
+let patternsLoaded=false, patternsLoading=false, patternsError="";
 let SCORING_RULES=null, scoringRulesError="";   // the rules of pronunciation-rules.md and whether each is on (see drawScoringRules)
 let ACTIVITY=null, activityError="";
 let SYSTEM_ACTIVITY=null, systemActivityError="";
@@ -4686,9 +4731,9 @@ function drawManage(){
   const mine=ALL_LESSONS.filter(l=>!klass||klass.lessons.includes(l.id));
   CLASS_LESSONS=mine.filter(l=>!l.soon); CLASS_SOON=mine.filter(l=>l.soon);
   const listed=CLASS_LESSONS.flatMap(l=>lessonPhrases(l,listedPhrases()));   // the class's sentences: its figures count these only
-  // a student of the class, with its nickname in it and what they practised since it was opened (a new class starts
-  // clean); the totals beside their own fields (`tries` stays the per-sentence one)
-  const students=CLASS.students.filter(s=>!klass||klass.name in s.classes).map(s=>{ if(klass&&s.since) s={...s,...s.since[klass.name]}; const t=stuTally(s,listed);
+  // a student of the class, with its nickname in it and everything they practised, in any class (moving class keeps
+  // progress; only the class's own lessons count); the totals beside their own fields (`tries` stays the per-sentence one)
+  const students=CLASS.students.filter(s=>!klass||klass.name in s.classes).map(s=>{ const t=stuTally(s,listed);
     return {...s,nick:klass?s.classes[klass.name]:s.name?"":Object.values(s.classes).find(Boolean)||"",classNames:Object.keys(s.classes),done:t.done,n:t.n,avg:t.avg}; });
   if(!["classes","students","content","flags","access"].includes(mMode)) mMode=classes.length?"students":"classes";
   $("mModes").hidden=false; for(const mode of ["classes","content","flags","access"]) $("manage").classList.toggle(mode,mMode===mode);
@@ -4731,17 +4776,25 @@ async function loadFlags(){
   const activity=Promise.all([loadActivity(),loadSystemActivity()]);
   try{
     const get=async(url,field)=>{ const res=await api(url), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); return data[field]||[]; };
-    const [pending,confirmed,calibrations,attemptPatterns]=await Promise.all([
+    const [pending,confirmed,calibrations]=await Promise.all([
       get("/api/flags?status=pending","flags"),get("/api/flags?status=confirmed","flags"),
-      get("/api/calibrations","calibrations"),get("/api/attempt-patterns","patterns")]);
-    FLAG_REVIEWS={pending,confirmed}; CALIBRATIONS=calibrations; ATTEMPT_PATTERNS=attemptPatterns; flagsLoaded=true;
+      get("/api/calibrations","calibrations")]);
+    FLAG_REVIEWS={pending,confirmed}; CALIBRATIONS=calibrations; flagsLoaded=true;
   }catch(err){ flagsError=err.message; flagsLoaded=true; }
+  loadAttemptPatterns();   // deliberately not awaited: the larger sample must not hold up reports or other panels
   try{   // apart from the reports: a missing table here must not hide them
     const res=await api("/api/scoring-rules"), data=await res.json().catch(()=>({}));
     if(!res.ok) throw new Error(data.detail||res.status);
     SCORING_RULES=data; scoringRulesError="";
   }catch(err){ SCORING_RULES=null; scoringRulesError=err.message; }
   await activity;
+}
+async function loadAttemptPatterns(){
+  if(patternsLoading) return;
+  patternsLoading=true; patternsError="";
+  try{ const res=await api("/api/attempt-patterns"), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); ATTEMPT_PATTERNS=data.patterns||[]; patternsLoaded=true; }
+  catch(err){ ATTEMPT_PATTERNS=[]; patternsError=err.message; patternsLoaded=true; }
+  finally{ patternsLoading=false; if(CLASS&&mMode==="flags"&&document.body.classList.contains("manage")) drawManage(); }
 }
 function flagIssues(f){
   const out=[];
@@ -4837,7 +4890,9 @@ function drawFlags(){
     }
     box.append(list);
   }
-  const frequent=ATTEMPT_PATTERNS.filter(p=>p.students>=3&&p.attempts>=5&&p.student_rate>=.3);
+  if(!patternsLoaded){ const card=mark("card",""); card.append(mark("","דפוסים אצל תלמידים","h2"),mark("meta","מנתח ברקע את 5,000 הניסיונות האחרונים… שאר הניטור זמין בינתיים.","p")); box.append(card); }
+  else if(patternsError){ const card=mark("card",""); card.append(mark("","דפוסים אצל תלמידים","h2"),mark("note","ניתוח הדפוסים לא זמין כרגע: "+patternsError,"p")); box.append(card); }
+  const frequent=patternsLoaded&&!patternsError?ATTEMPT_PATTERNS.filter(p=>p.students>=3&&p.attempts>=5&&p.student_rate>=.3):[];
   if(frequent.length){
     const card=mark("card",""); card.append(mark("","דפוסים אצל תלמידים","h2"),mark("meta","מועמדים לבדיקה בלבד: שכיחות אינה מוכיחה שהמערכת טעתה.","p"));
     const table=mark("flag-patterns","","table"), head=document.createElement("tr"); for(const x of ["משפט וצמד","תלמידים","ניסיונות","שיעור מהמתרגלים","פעולה"]) head.append(mark("",x,"th")); table.append(head);
@@ -5546,7 +5601,7 @@ function drawTabs(classes){
   tabs.append(all);
   const classTabs=mark("class-tabs","");
   for(const c of classes){
-    const active=CLASS.students.some(s=>{ const last=((s.since||{})[c.name]||{}).last, time=last&&Date.parse(last); return time&&Date.now()-time<15*60*1000; });
+    const active=CLASS.students.some(s=>{ const last=c.name in s.classes&&s.last, time=last&&Date.parse(last); return time&&Date.now()-time<15*60*1000; });
     const t=mark("tab"+(active?" live":""),"","button"), name=document.createElement("bdi"); t.setAttribute("role","tab");
     name.textContent=c.name; t.append(name);   // isolated, so the count does not join a year in the name
     t.setAttribute("aria-selected",c.name===shownClass);

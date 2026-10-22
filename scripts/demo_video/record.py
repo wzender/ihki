@@ -5,8 +5,8 @@
 --sound (optional): the app's own sounds (the student's takes, the native answer, the word cards, the story).
 
 The app should run with sign-in off (empty SUPABASE_* variables) so no demo progress reaches the real database.
---takes: m446.wav / c446.wav from make_takes.py. The "student" is the TTS voice: m446 says احنا with خ
-(the Hebrew ח mistake), c446 says it right. The scores in the video are the real model's.
+--takes: m449.wav / c449.wav from make_takes.py. The "student" is the TTS voice: m449 says فتح، يفتح with ه
+for ح (the ח swallowed into a soft ה), c449 says it right. The scores in the video are the real model's.
 --voice (optional): a voiceover from make_voice.py (one WAV per line of script.py, and durations.json); each scene
 then waits for its line. Without it, each caption stays up long enough to read.
 --music / --music-file (optional): music.py's loop at that level, or your own track, ducked under speech.
@@ -26,6 +26,22 @@ W, H, DPR, FPS = 432, 768, 2.5, 30          # 9:16 viewport -> 1080x1920 frames
 LOGO_SECONDS = 7.4                          # static/logo-intro.svg's animation, to the dots' last bounce
 
 
+def real_library():
+    """The real library's list (titles and players), read from Supabase with the keys in .env, so the video shows
+    what students see; the local app, with sign-in off, has none. None when it can't be read."""
+    try:
+        sys.path.insert(0, str(HERE.parents[1]))
+        from dotenv import load_dotenv
+        load_dotenv(HERE.parents[1] / ".env")
+        from app.auth import load_auth
+        from app.main import video_embed
+        rows = load_auth().level_videos("library")
+        return [{"id": v["id"], "title": v["title"], "embed": video_embed(v["url"])} for v in rows]
+    except Exception as e:
+        print("library: not read:", e)
+        return None
+
+
 def hold(text, sub):
     """How long a caption stays up without a voice: enough to read it."""
     return max(1.8, 0.5 + 0.045 * len(text + sub)) if text else 1.0
@@ -37,6 +53,7 @@ class Recorder:
         self.frames = []                # (path, chrome timestamp, cut_before)
         self.cues = []                  # (wall time, wav path, gain): sounds to lay on the video
         self.paused, self.cut = False, False
+        self.paused_at = {}             # frame index after a pause -> when the pause began (wall clock)
 
     async def start(self):
         self.cdp.on("Page.screencastFrame", lambda f: asyncio.ensure_future(self._frame(f)))
@@ -53,11 +70,13 @@ class Recorder:
             return
         p = self.dir / f"{len(self.frames):06d}.jpg"
         p.write_bytes(base64.b64decode(f["data"]))
+        if self.cut:
+            self.paused_at[len(self.frames)] = self.pause_began
         self.frames.append((p, f["metadata"]["timestamp"], self.cut))
         self.cut = False
 
     def pause(self):
-        self.paused = True
+        self.paused, self.pause_began = True, time.time()
 
     def resume(self):
         self.paused, self.cut = False, True
@@ -69,9 +88,9 @@ class Recorder:
         """A wall-clock moment on the video's timeline: from the first frame, minus the paused stretches."""
         v = t - self.frames[0][1]
         for i, (_, ts, cut) in enumerate(self.frames):
-            before = self.frames[i - 1][1] if i else ts
-            if cut and i and t > before:         # a sound just after the resume lands at the cut, not in the gap
-                v -= max(0.0, min(t, ts) - before - 1 / FPS)
+            began = self.paused_at.get(i, ts)
+            if cut and i and t > began:          # a sound just after the resume lands at the cut, not in the gap
+                v -= max(0.0, min(t, ts) - began)
         return max(0.0, v)
 
     def encode(self, out):
@@ -80,7 +99,9 @@ class Recorder:
         lines = ["ffconcat version 1.0"]
         for i, (p, ts, _) in enumerate(self.frames):
             nxt = self.frames[i + 1] if i + 1 < len(self.frames) else None
-            dur = 1.5 if nxt is None else (1 / FPS if nxt[2] else max(nxt[1] - ts, 0.001))
+            # before a pause, the frame lasts until the pause began (a still screen sends no new frames)
+            end = None if nxt is None else (self.paused_at[i + 1] if nxt[2] else nxt[1])
+            dur = 1.5 if end is None else max(end - ts, 0.001)
             lines += [f"file '{p}'", f"duration {dur:.4f}"]
         lines.append(f"file '{self.frames[-1][0]}'")
         lst = self.dir / "list.txt"
@@ -206,65 +227,56 @@ async def run(url, takes, voice, out, music_gain, music_file, sound, keep_frames
                 await pg.screenshot(path=str(frames_dir / "stuck.png"))
                 sys.exit(f"no score for {take}; status: {await pg.inner_text('#status')!r}; see {frames_dir / 'stuck.png'}")
 
+        PERMS = "ME_PERMISSIONS=new Set(['practice.use','exercises.use','path.use','games.use','tutor.use','library.view'])"
+        library = real_library()                 # the page loads it only when signed in, so it is handed over below
+
         await pg.goto(url, wait_until="networkidle")
         await rec.start()
 
-        # 1 · opening: the logo animation, held until its dots have bounced off the lameds and settled (~7.2s)
-        logo_start = time.monotonic()
+        # 1 · the opening logo
         await wait(1200)
         await line("intro"); await spoken(0.5)
-        await asyncio.sleep(max(0.0, logo_start + LOGO_SECONDS - time.monotonic()))
+        await pg.evaluate(PERMS)                 # a student's permissions (the page loads them only on sign-in)
         await tap("#practiceBtn", 700)
-        await pg.evaluate("ME_PERMISSIONS=new Set(['practice.use','exercises.use','path.use','games.use','tutor.use'])")
         if await pg.locator("#guideTipClose").is_visible():
             await pg.click("#guideTipClose")
 
-        # 2 · the path
-        await line("path")
-        await wait(900)
-        await pg.evaluate("scrollTo({top:520,behavior:'smooth'})"); await wait(1800)
-        await pg.evaluate("scrollTo({top:0,behavior:'smooth'})")
+        # 2 · beads: what they are
+        await line("beads")
+        await wait(600); await point("#rewardShelf"); await wait(1200); await point("#rewardShelf")
         await spoken()
 
-        # 3 · new words (each revealed word is spoken by the app)
-        await line("words")
-        await tap(pg.locator("button.sat", has_text="מילים חדשות").first, 300)
-        await spoken()
-        for _ in range(2):
-            await tap("#learnShow", 1600)
-            await tap("#learnKnow", 600)
-        await tap("#learnClose", 500)
-
-        # 4 · speaking practice: the mistake, its tip, then the retry
+        # 3 · practicing a topic: a sentence, the mistake and its tip, the retry, a gold bead
         rec.pause()
         await pg.evaluate("__demo.caption('')")
-        await pg.locator("button.sat", has_text="הגופים").first.click()
+        await pg.locator("button.sat", has_text="פעלים").first.click()
         await wait(800)
-        for _ in range(8):
-            if (await pg.inner_text("#prompt")).strip() == "אנחנו":
+        for _ in range(40):
+            if (await pg.inner_text("#prompt")).strip().startswith("פתח"):
                 break
             await pg.click("#nextBtn"); await wait(300)
         await pg.evaluate("scrollTo(0,0)"); await wait(500)
         rec.resume()
         await line("say"); await spoken(0.2)
-        await say("m446")
+        await say("m449")
+        print("  score:", await pg.inner_text("#score"), "|", (await pg.inner_text("#wordReveals"))[:80].replace("\n", " "))
         await wait(400)
         await line("colors"); await spoken(0.2)
         await line("tip")
-        await wait(1500)
-        await tap("#wordReveals .bad.why", 0)
+        await wait(1200)
+        await tap(pg.locator("#wordReveals .bad.why", has_text="ח").first, 0)
         await spoken()
-        await wait(2600)                         # time to read the tip
+        await wait(2400)                         # time to read the tip
         await pg.mouse.click(5, 5)               # closes the letter's bubble
         await line("listen"); await spoken(0.1)
         await tap("#speakBtn", 1900)             # the native answer
         await line("again"); await spoken(0.1)
-        await say("c446")
-        await pg.evaluate("cancelAutoNext()")      # keeps the 100 on screen while the voice speaks over it
+        await say("c449")
+        await pg.evaluate("cancelAutoNext()")    # keeps the 100 and its gold bead on screen
         await wait(300)
-        await line("great"); await spoken(0.6)
+        await line("gold"); await spoken(0.6)
 
-        # 5 · a story: the whole text, read aloud line by line
+        # 4 · a story: the whole text, read aloud line by line
         rec.pause()
         await pg.evaluate("__demo.caption('')")
         await pg.locator("button", has_text="חזרה למסלול").first.click(); await wait(600)
@@ -274,41 +286,41 @@ async def run(url, takes, voice, out, music_gain, music_file, sound, keep_frames
         await line("story")
         await wait(700)
         await tap("#hearBtn", 0)
-        await spoken(); await wait(1200)
+        await spoken(); await wait(1500)
         await tap("#hearBtn", 300)               # pauses the reading
 
-        # 6 · back on the path: streak and beads
+        # 5 · "the Arabic that's already yours": streak, weekly goal, the beads collected
         rec.pause()
         await pg.evaluate("__demo.caption('')")
         await pg.locator("button", has_text="חזרה למסלול").first.click(); await wait(600)
         await pg.evaluate("scrollTo({top:0})"); await wait(300)
         rec.resume()
-        await line("streak")
-        await wait(500); await point("#rewardShelf"); await wait(1200); await point("#rewardShelf")
-        await spoken()
+        await line("shelf")
+        await tap("#rewardShelf", 0)
+        await spoken(); await wait(1500)
+        await tap(pg.locator("dialog[open] button", has_text="סגירה").first, 500)
 
-        # 7 · daily practice
+        # 6 · daily practice: a round of ten sentences
         await line("daily")
-        await wait(300); await point("#today button:nth-child(2)"); await wait(1100); await point("#today button:nth-child(2)")
-        await spoken()
+        await tap(pg.locator("#today button", has_text="תרגול יומי").first, 0)
+        await spoken(); await wait(800)
 
-        # 8 · verbs
-        await line("verbs")
-        await tap(pg.locator("#nav button", has_text="פעלים").first, 500)
-        await point("#vtLesson"); await wait(300)
-        for v in range(1, 8):                    # slides the lesson bar forward: more verbs appear
-            await pg.evaluate("v=>{const i=document.getElementById('vtLesson'); i.value=v; i.oninput()}", v)
-            await wait(220)
-        await pg.evaluate("scrollTo({top:420,behavior:'smooth'})"); await wait(1000)
-        await spoken()
+        # 7 · the digital library (its own door on the opening screen)
+        rec.pause()
+        await pg.evaluate("__demo.caption('')")
+        await pg.goto(url, wait_until="networkidle"); await wait(1500)
+        await pg.evaluate(PERMS)
+        if library:
+            await pg.evaluate("l=>{LIBRARY=l}", library)
+        await pg.click("#libraryBtn"); await wait(2500)
+        rec.resume()
+        await line("library")
+        await spoken(); await wait(1500)
 
-        # 9 · games: the list, then a round of the memory game (on lesson 1's four verbs)
-        await pg.evaluate("scrollTo({top:0})")
-        await pg.evaluate("(()=>{const i=document.getElementById('vtLesson'); i.value=0; i.oninput()})()")
-        await line("games")
-        await tap(pg.locator("#nav button", has_text="משחקים").first, 500)
-        await spoken()
+        # 8 · games: a round of the memory game (on lesson 1's four verbs)
         await line("memory")
+        await pg.evaluate(PERMS)
+        await tap(pg.locator("#nav button", has_text="משחקים").first, 500)
         await tap(pg.locator("#vids button", has_text="הפועל זכרון").first, 900)
         pairs = [("פתח", "פַתַח"), ("אכל", "אַכַּל"), ("שאל", "סַאַל"), ("ישב", "קַעַד")]
         await tap(pg.locator(".mg-bead.he", has_text=pairs[0][0]).first, 350)      # a wrong pair first
@@ -316,17 +328,15 @@ async def run(url, takes, voice, out, music_gain, music_file, sound, keep_frames
         for he, ar in pairs:
             await tap(pg.locator(".mg-bead.he", has_text=he).first, 300)
             await tap(pg.locator(".mg-bead.ar", has_text=ar).first, 650)
-        await spoken(); await wait(1200)
+        await spoken(); await wait(1500)
 
-        # 10 · closing card
+        # 9 · closing card
         await pg.evaluate("__demo.caption('')")
         await pg.evaluate("""__demo.card(`<img src="/static/logo-intro.svg?v=${Date.now()}" alt="">
             <h2>יאללה, מתחילים!</h2><p>פותחים את האפליקציה<br>ומתרגלים כמה דקות ביום</p>`)""")
-        card_start = time.monotonic()
         await wait(700)
         await line("outro"); await spoken()
-        await asyncio.sleep(max(0.0, card_start + LOGO_SECONDS - time.monotonic()))
-        await wait(1200)
+        await wait(2400)
 
         await rec.stop()
         await wait(500)                          # the last sounds' data
