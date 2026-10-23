@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import csv
 import io
+import asyncio
 import json
 import logging
 import os
@@ -48,6 +49,7 @@ from .live import LiveConflict, LiveStore
 from .math_photo import (DAILY_PHOTOS, MAX_PHOTO, MEDIA_TYPES as PHOTO_TYPES, PhotoSolver, PhotoUnavailable, math_model,
                          photo_client)
 from .math_skills import algebra9
+from . import push as pushes
 from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .reference import References
@@ -503,7 +505,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 reload_scoring_rules(app.state.auth)
             except AuthUnavailable as e:   # no table yet: every rule stays on
                 log.warning("scoring rule switches not loaded: %s", e)
+        app.state.push = pushes.load_push(app.state.auth)
+        reminders = (asyncio.create_task(pushes.loop(app.state.push, daily_today, lambda: datetime.now(LOCAL_TZ)))
+                     if app.state.push and app.state.push.on else None)
         yield
+        if reminders:
+            reminders.cancel()
 
     app = FastAPI(title="ihki", lifespan=lifespan)
     app.state.verb_game = VerbExerciseGenerator()
@@ -610,6 +617,19 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except AuthUnavailable as e:
             log.warning("daily videos not read: %s", e)
             return []
+
+    def daily_today(email: str, every_class: bool) -> list[dict]:
+        """The daily videos an account has today: its classes' (as a student or as their teacher), or every class's."""
+        a: SupabaseAuth | None = app.state.auth
+        if a is None:
+            return []
+        day, email, library, found = datetime.now(LOCAL_TZ).date().isoformat(), email.lower(), daily_rows(), {}
+        for c in a.classes():
+            if every_class or email in c["emails"] or email in (c.get("teachers") or []):
+                for v in dailies_of(c, library):
+                    if v["date"] == day:
+                        found.setdefault(v["id"], v)
+        return list(found.values())
 
     def phrase_of(phrase_id: int) -> dict:
         """A phrase of the bank, or a line of a teacher's text; 404 for any other id."""
@@ -2184,6 +2204,52 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"dailies": [{"id": v["id"], "level": v["level"], "title": v["title"], "url": v["url"],
                              "embed": video_embed(v["url"])} for v in rows if v["level"] in LEVEL_IDS]}
 
+    def push_on():
+        p = getattr(app.state, "push", None)
+        if not p or not p.on:
+            raise HTTPException(503, f"push reminders are off: {p.why if p else 'no sign-in'}")
+        return p
+
+    @app.get("/api/push", dependencies=members)
+    def push_info():
+        """The server's push key, for the page to subscribe with; empty when the reminders are off."""
+        p = getattr(app.state, "push", None)
+        return {"key": p.public if p and p.on else "", "hour": p.hour if p else None}
+
+    @app.post("/api/push/subscribe")
+    def push_subscribe(body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        """Keeps this browser's subscription ({"endpoint", "keys": {"p256dh", "auth"}}) for the daily video's reminder."""
+        p = push_on()
+        try:
+            p.save(user["email"], body, bool(user.get("teacher")))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        except AuthUnavailable as e:
+            raise HTTPException(503, str(e))
+        return {"ok": True}
+
+    @app.post("/api/push/unsubscribe")
+    def push_unsubscribe(body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        p = push_on()
+        try:
+            p.delete(str(body.get("endpoint") or ""), user["email"])
+        except AuthUnavailable as e:
+            raise HTTPException(503, str(e))
+        return {"ok": True}
+
+    @app.post("/api/push/test")
+    def push_test(user: dict | None = Depends(signed_in)):
+        """Sends the caller's devices a notification now: today's daily video, or a sample when there is none."""
+        p = push_on()
+        try:
+            rows = p.mine(user["email"])
+            videos = daily_today(user["email"], bool(user.get("teacher")))
+        except AuthUnavailable as e:
+            raise HTTPException(503, str(e))
+        message = pushes.payload(videos) if videos else {**pushes.payload([{"title": "ככה תיראה התזכורת לסרטון היומי"}]),
+                                                       "title": "🔔 התזכורות פועלות"}
+        return {"devices": len(rows), "sent": sum(p.send(r, message) for r in rows)}
+
     @app.get("/api/library", dependencies=[Depends(require("library.view"))])
     def library(user: dict | None = Depends(signed_in)):
         """The video library, which stands outside the path and is one for every level and class: id, title, url
@@ -2345,7 +2411,10 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.get("/api/verb-game", dependencies=[Depends(require("games.use"))])
     def verb_game(user: dict | None = Depends(signed_in)):
         """Configuration for "פועל יוצא" and the complete paradigms currently unlocked."""
-        return app.state.verb_game.metadata(verb_lessons(user))
+        meta = app.state.verb_game.metadata(verb_lessons(user))
+        if not (user and user["teacher"]):   # draft verbs are teachers' only
+            meta["eitan_verbs"] = [v for v in meta["eitan_verbs"] if not v["draft"]]
+        return meta
 
     @app.post("/api/verb-game/question", dependencies=[Depends(require("games.use"))])
     def verb_question(body: dict = Body(...), user: dict | None = Depends(signed_in)):
@@ -2354,7 +2423,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             level = int(body.get("level", 1))
             mastery = body.get("mastery") if isinstance(body.get("mastery"), dict) else {}
             recent = body.get("recent") if isinstance(body.get("recent"), list) else []
-            return app.state.verb_game.question(level, verb_lessons(user), mastery, list(map(str, recent[-10:])))
+            return app.state.verb_game.question(level, verb_lessons(user), mastery, list(map(str, recent[-10:])),
+                                                drafts=bool(user and user["teacher"]))
         except (TypeError, ValueError) as e:
             raise HTTPException(400, str(e))
         except LookupError as e:

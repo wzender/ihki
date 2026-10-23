@@ -1,4 +1,4 @@
-const CACHE = "ihki-shell-v21";
+const CACHE = "ihki-shell-v22";
 const SHELL = [
   "/static/manifest.webmanifest",
   "/static/icons/icon-192.png?v=2",
@@ -35,4 +35,24 @@ self.addEventListener("fetch", event => {
       return response;
     }))
   );
+});
+
+// the daily video's morning reminder (app/push.py)
+self.addEventListener("push", event => {
+  let msg = {};
+  try { msg = event.data ? event.data.json() : {}; } catch { msg = { body: event.data && event.data.text() }; }
+  event.waitUntil(self.registration.showNotification(msg.title || "אהלא וסהלא", {
+    body: msg.body || "", tag: msg.tag || "ihki", lang: "he", dir: "rtl",
+    icon: "/static/icons/icon-192.png?v=2", badge: "/static/icons/icon-192.png?v=2",
+    data: { url: msg.url || "/" }
+  }));
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const url = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin).href;
+  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(wins => {
+    const open = wins.find(w => new URL(w.url).origin === self.location.origin);
+    return open ? open.navigate(url).then(w => (w || open).focus()) : self.clients.openWindow(url);
+  }));
 });

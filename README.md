@@ -518,6 +518,28 @@ create table public.dailies (
 alter table public.dailies enable row level security;
 ```
 
+### The daily video's morning reminder
+
+On the "סרטון יומי" screen a student taps "🔔 הזכירו לי כל בוקר" to get a push notification on that device each morning that one of their classes has a daily video (a teacher's account: any class's). It goes at `PUSH_HOUR` (default 8) Jerusalem time, once a day per device, and opens the daily videos' screen. On an iPhone it works only from the app added to the home screen (iOS 16.4+). See `app/push.py`.
+
+Set the Space secret `VAPID_PRIVATE_KEY` (make one with `python -m app.push`; changing it drops every device's subscription), and create the table once:
+
+```sql
+create table public.push_subs (
+  endpoint    text primary key,                   -- the browser's push address
+  email       text not null,
+  p256dh      text not null,
+  auth        text not null,
+  every_class boolean not null default false,     -- a teacher's: every class's daily videos
+  last_daily  date,                               -- the day it was last reminded
+  created_at  timestamptz not null default now()
+);
+alter table public.push_subs enable row level security;
+revoke all on public.push_subs from anon, authenticated;
+```
+
+The Space must be awake at that hour for the reminder to go.
+
 ### Video library
 
 Apart from those there is one library of videos for the whole course: they are not part of the path, need no date, and are the same for every level and class. In **תוכן** the card "ספריה דיגיטלית" comes first, above the levels; the teacher adds a video (a name and a link), renames one, moves one up or down the list with its arrows, and deletes one there. A permitted student enters it from the "ספרייה דיגיטלית" button on the opening screen: a list appears, and a video plays in the same box as the path's videos. The ones opened are marked (on that device). Create the table once (its `level` column stays empty):

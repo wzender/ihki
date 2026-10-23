@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>ihki promo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&display=block" rel="stylesheet">
+<style>
+/* The promo's one frame, 1080x1920: headlines above, a 3D iPhone playing the recorded screen, a closing card.
+   Nothing moves by itself: promo.py calls seek(t) for every frame, and everything is placed from t. */
+:root{ --navy:#1F2156; --teal:#1E8C8C; --orange:#E8902E; --red:#C8344A; --cream:#FBF7EE; --ink:#1C241D; --muted:#5E685C; }
+*{box-sizing:border-box}
+html,body{margin:0;width:1080px;height:1920px;overflow:hidden;background:var(--cream)}
+body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
+#bg{position:absolute;inset:0;
+  background:
+    radial-gradient(900px 700px at 85% 8%, rgba(30,140,140,.16), transparent 70%),
+    radial-gradient(800px 800px at 10% 70%, rgba(232,144,46,.14), transparent 70%),
+    radial-gradient(700px 500px at 60% 105%, rgba(31,33,86,.12), transparent 70%),
+    linear-gradient(180deg,#FDFBF5,#F3ECDD)}
+/* captions */
+#band{position:absolute;left:0;right:0;top:0;height:560px;z-index:4;pointer-events:none;
+  background:linear-gradient(180deg,#FCF8F0 0%,#FCF8F0 62%,rgba(252,248,240,0) 100%)}
+.cap{position:absolute;left:70px;right:70px;top:110px;text-align:center;z-index:5}
+.cap h1{margin:0;font:400 76px/1.12 "Secular One","Assistant",sans-serif;color:var(--navy);letter-spacing:-.5px}
+.cap h1 em{font-style:normal;color:var(--red)}
+.cap p{margin:22px 0 0;font:600 38px/1.35 "Assistant",sans-serif;color:var(--muted)}
+.cap p b{color:var(--teal);font-weight:800}
+/* the phone */
+#stage{position:absolute;inset:0;perspective:2600px;perspective-origin:50% 45%}
+#phone{position:absolute;left:220px;top:504px;width:641px;height:1353px;transform-style:preserve-3d;will-change:transform}
+.slab{position:absolute;inset:0;border-radius:74px;background:#2B2C33}
+#body{position:absolute;inset:0;border-radius:74px;padding:16px;background:#0D0D10;
+  box-shadow:inset 0 0 0 3px #A9AEB6, inset 0 0 0 5px #4B4E55, inset 0 0 0 7px #0D0D10}
+#screen{position:relative;width:609px;height:1321px;border-radius:58px;overflow:hidden;background:#EEF0E8}
+#scr{display:block;width:100%;height:100%}
+#island{position:absolute;top:22px;left:50%;width:190px;height:54px;margin-left:-95px;border-radius:30px;background:#000}
+#gloss{position:absolute;inset:0;border-radius:58px;pointer-events:none;
+  background:linear-gradient(115deg,rgba(255,255,255,.22) 0%,rgba(255,255,255,0) 32%,rgba(255,255,255,0) 70%,rgba(255,255,255,.08) 100%)}
+.btn-side{position:absolute;width:8px;border-radius:4px;background:#8E939B}
+#shadow{position:absolute;left:250px;top:1790px;width:580px;height:90px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(31,33,86,.38),rgba(31,33,86,0));filter:blur(6px)}
+/* a ring around the red letter, drawn outside the phone's screen so it reads at a glance */
+#ring{position:absolute;border:7px solid var(--red);border-radius:22px;box-shadow:0 0 0 10px rgba(200,52,74,.18);opacity:0}
+/* the opening and closing */
+#logo{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:90px;opacity:0}
+#logo svg{width:920px;height:auto}
+#logo .cta{font:400 60px/1 "Secular One","Assistant",sans-serif;color:#fff;background:var(--navy);padding:28px 64px;border-radius:999px}
+#outro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:46px;text-align:center;padding:0 70px}
+#outro h2{margin:0;font:400 70px/1.15 "Secular One","Assistant",sans-serif;color:var(--navy)}
+#outro p{margin:0;font:600 38px/1.4 "Assistant",sans-serif;color:var(--muted)}
+#chips{display:grid;grid-template-columns:repeat(3,200px);gap:26px;justify-content:center;direction:rtl}
+.chip{height:190px;border-radius:36px;background:#fff;box-shadow:0 10px 30px rgba(31,33,86,.12),inset 0 0 0 3px rgba(31,33,86,.08);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.chip b{font:700 92px/1 "Noto Naskh Arabic","Amiri",serif;color:var(--teal)}
+.chip span{font:700 40px/1 "Assistant",sans-serif;color:var(--navy)}
+.chip.hot{background:var(--red)} .chip.hot b,.chip.hot span{color:#fff}
+#outro img{width:560px}
+#outro .cta{font:400 54px/1 "Secular One","Assistant",sans-serif;color:#fff;background:var(--navy);padding:26px 56px;border-radius:999px}
+</style>
+</head>
+<body>
+<div id="bg"></div>
+
+<div id="band"></div>
+<div class="cap" id="c1"><h1>אומרים בקול</h1><p>רואים פועל בעברית,<br>ואומרים אותו <b>בערבית מדוברת</b></p></div>
+<div class="cap" id="c2"><h1>האפליקציה מקשיבה<br>ל<em>כל עיצור</em></h1><p>ומסמנת באדום את מה<br>שלא נשמע נכון</p></div>
+<div class="cap" id="c3"><h1>ח׳ במקום <em>ח</em>?</h1><p>טיפ שנכתב <b>לדוברי עברית</b>:<br>מה נשמע, ואיך מתקנים</p></div>
+<div class="cap" id="c4"><h1>מנסים שוב — <em style="color:var(--teal)">100!</em></h1><p>ח נקייה, <b>בדיוק כמו שצריך</b></p></div>
+<div class="cap" id="c5"><h1>כל משפט — <em style="color:var(--orange)">חרוז</em> 📿</h1><p>מ־75 ומעלה הוא מזהיב ★<br>ואוספים אותם לאורך כל הדרך</p></div>
+<div class="cap" id="c6"><h1>ומשחקים: <em style="color:var(--teal)">הפועל זכרון</em></h1><p>הופכים חרוזים ומוצאים זוגות<br>של פעלים בעברית ובערבית</p></div>
+
+<div id="stage">
+  <div id="shadow"></div>
+  <div id="phone">
+    <div id="slabs"></div>
+    <div id="body">
+      <div id="screen"><img id="scr" alt=""><div id="island"></div><div id="gloss"></div></div>
+    </div>
+  </div>
+</div>
+<div id="ring"></div>
+
+<div id="outro">
+  <h2>הערבית של דוברי עברית<br>נשמעת אחרת</h2>
+  <div id="chips">
+    <div class="chip hot"><b>ح</b><span>ח</span></div><div class="chip"><b>ع</b><span>ע</span></div><div class="chip"><b>خ</b><span>ח׳</span></div>
+    <div class="chip"><b>ق</b><span>ק</span></div><div class="chip"><b>ص</b><span>צ</span></div><div class="chip"><b>ط</b><span>ט</span></div>
+  </div>
+  <p>אהלא וסהלא שומעת בדיוק את העיצורים האלה,<br>ומלמדת להגות אותם נכון</p>
+</div>
+<div id="logo"><div id="logoSvg"></div><div class="cta">יאללה, מתחילים!</div></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const INTRO=0.8, CHIPS=3.6, LOGO=8.4;       // before the screen starts; the consonants' card; the animated logo
+const SCREEN={w:609,h:1321,pad:16}, PHONE={w:641,h:1353,cx:220+641/2,cy:504+1353/2};
+let F=[], M={}, END=0, KEYS=[], shown=null, LOGO_ANIMS=[];
+
+for(let i=1;i<=16;i++){ const s=document.createElement("div"); s.className="slab";   // the phone's thickness
+  s.style.transform=`translateZ(${-i}px)`; s.style.background=i<3?"#9AA0A8":i>14?"#9AA0A8":"#3A3C44"; $("slabs").append(s); }
+for(const [top,h,side] of [[300,110,"left"],[460,170,"left"],[380,200,"right"]]){
+  const b=document.createElement("div"); b.className="btn-side"; b.style.top=top+"px"; b.style.height=h+"px";
+  b.style[side]="-6px"; b.style.transform="translateZ(-8px)"; $("phone").append(b); }
+
+const ease=x=>x<0?0:x>1?1:x*x*(3-2*x);
+const lerp=(a,b,x)=>a+(b-a)*x;
+const win=(t,a,b,fade=.35)=>Math.min(a<=0?1:ease((t-a)/fade),ease((b-t)/fade));   // 0..1 inside [a,b], with fades
+
+// where a point of the screen (0..1) is on the phone, from its center, before scaling
+const onPhone=(u,v)=>({x:SCREEN.pad+u*SCREEN.w-PHONE.w/2, y:SCREEN.pad+v*SCREEN.h-PHONE.h/2});
+// the phone's state that brings a screen point to (fx,fy) on the frame at scale k
+function focus(u,v,k,fx=540,fy=1120,extra={}){
+  const p=onPhone(u,v); return {tx:fx-PHONE.cx-k*p.x, ty:fy-PHONE.cy-k*p.y, k, rx:0, ry:0, rz:0, ...extra};
+}
+const center=b=>[b[0]+b[2]/2,b[1]+b[3]/2];
+
+async function setup(d){
+  F=d.frames; M=d.marks; END=M.end.t;
+  // the logo inline, so its own CSS animations can be stepped to each frame's time
+  $("logoSvg").innerHTML=await (await fetch("logo-intro.svg")).text();
+  LOGO_ANIMS=$("logoSvg").getAnimations({subtree:true}); LOGO_ANIMS.forEach(a=>a.pause());
+  const S=t=>INTRO+t;
+  const rest={tx:0,ty:0,k:1,rx:4,ry:-16,rz:0}, away={tx:0,ty:1500,k:.9,rx:20,ry:-30,rz:-6};
+  const [lu,lv]=center(M.letter.box), [tu,tv]=M.tip&&M.tip.box&&M.tip.box[3]>0?center(M.tip.box):[.5,.85];
+  const [gu,gv]=center(M.great.box);
+  KEYS=[
+    [0,away],[INTRO+.4,rest],
+    [S(M.mic.t),{...rest,ry:-8}],
+    [S(M.score.t),{...rest,ry:-5,rx:2}],
+    [S(M.score.t)+.9,focus(lu,lv,1.5,540,1150,{ry:-4,rx:2})],
+    [S(M.tap.t)+.3,focus(lu,lv,1.5,540,1150,{ry:-3,rx:2})],
+    [S(M.tap.t)+1.2,focus((lu+tu)/2,(lv+tv)/2,1.22,540,1250,{ry:3,rx:2})],
+    [S(M.retry.t)-.2,focus((lu+tu)/2,(lv+tv)/2,1.22,540,1250,{ry:4,rx:2})],
+    [S(M.retry.t)+.7,{...rest,ry:10,rx:3}],
+    [S(M.great.t),{...rest,ry:8,rx:3}],
+    [S(M.great.t)+.8,focus(gu,gv,1.3,540,1250,{ry:4,rx:2})],
+    [S(M.great.t)+1.6,focus(gu,gv,1.3,540,1250,{ry:2,rx:2})],
+    [S(M.great.t)+2.4,focus(.5,.3,1.18,540,1150,{ry:-3,rx:2})],
+    [S(M.memory.t)-.1,focus(.5,.3,1.18,540,1150,{ry:-4,rx:2})],
+    [S(M.memory.t)+.5,{...rest,ry:12,rx:3}],
+    [S(END)-.2,{...rest,ry:6,rx:3}],
+    [S(END)+.7,away],
+  ];
+}
+const duration=()=>INTRO+END+CHIPS+LOGO;
+
+function stateAt(t){
+  let i=KEYS.findIndex(k=>k[0]>t); if(i<0) return KEYS[KEYS.length-1][1]; if(i===0) return KEYS[0][1];
+  const [t0,a]=KEYS[i-1], [t1,b]=KEYS[i], x=ease((t-t0)/(t1-t0)), s={};
+  for(const k in a) s[k]=lerp(a[k],b[k],x); return s;
+}
+function frameAt(s){   // the last screen frame at or before s
+  let lo=0, hi=F.length-1; while(lo<hi){ const m=(lo+hi+1)>>1; if(F[m].t<=s) lo=m; else hi=m-1; } return F[lo].file;
+}
+async function seek(t){
+  const s=Math.max(0,Math.min(END,t-INTRO)), file=frameAt(s);
+  if(file!==shown){ $("scr").src=file; await $("scr").decode().catch(()=>{}); shown=file; }
+  const p=stateAt(t);
+  $("phone").style.transform=`translate3d(${p.tx}px,${p.ty}px,0) rotateX(${p.rx}deg) rotateY(${p.ry}deg) rotateZ(${p.rz}deg) scale(${p.k})`;
+  $("shadow").style.transform=`translate(${p.tx}px,${Math.min(p.ty,300)*.2}px) scale(${p.k*(1-Math.abs(p.ry)/90)},1)`;
+  $("shadow").style.opacity=Math.max(0,1-Math.max(0,p.ty)/600);
+  $("gloss").style.backgroundPosition=`${p.ry*4}px 0`;
+  // the opening logo, then the headlines, each on its stretch
+  const S=x=>INTRO+x;
+  const caps=[["c1",0,S(M.score.t)+.2],["c2",S(M.score.t)+.2,S(M.tap.t)+.6],["c3",S(M.tap.t)+.6,S(M.retry.t)+.4],
+    ["c4",S(M.retry.t)+.4,S(M.great.t)+1.5],["c5",S(M.great.t)+1.5,S(M.memory.t)],["c6",S(M.memory.t),S(END)+.3]];
+  for(const [id,a,b] of caps){ const o=win(t,a,b); $(id).style.opacity=o; $(id).style.transform=`translateY(${(1-o)*30}px)`; }
+  // the ring on the red letter: after the camera has moved in, until the tip opens
+  const r=win(t,S(M.score.t)+.9,S(M.tap.t)+.25,.25);
+  if(r>0){ const b=M.letter.box, p0=onPhone(b[0],b[1]), w=b[2]*SCREEN.w*p.k, h=b[3]*SCREEN.h*p.k, pad=14;
+    const x=PHONE.cx+p.tx+p.k*p0.x, y=PHONE.cy+p.ty+p.k*p0.y;
+    Object.assign($("ring").style,{left:x-pad+"px",top:y-pad+"px",width:w+2*pad+"px",height:h+2*pad+"px",opacity:r,
+      transform:`scale(${1+.06*Math.sin((t-S(M.score.t))*7)})`}); }
+  else $("ring").style.opacity=0;
+  // the consonants, one by one; then the logo, its whole animation
+  const o=Math.min(ease((t-S(END)-.3)/.5),1-ease((t-S(END)-CHIPS+.3)/.4)); $("outro").style.opacity=o;
+  const L=S(END)+CHIPS;
+  $("logo").style.opacity=ease((t-L+.2)/.4);
+  LOGO_ANIMS.forEach(a=>{ a.currentTime=Math.max(0,t-L)*1000; });
+  $("logo").querySelector(".cta").style.opacity=ease((t-L-7.0)/.5);
+  $("logo").querySelector(".cta").style.transform=`translateY(${(1-ease((t-L-7.0)/.5))*24}px)`;
+  [...document.querySelectorAll(".chip")].forEach((c,i)=>{ const x=ease((t-S(END)-.6-i*.12)/.35);
+    c.style.opacity=x; c.style.transform=`scale(${lerp(.6,1,x)})`; });
+}
+</script>
+</body>
+</html>

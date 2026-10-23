@@ -112,6 +112,10 @@ body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bot
 #vids button small{font:600 13px/1.2 var(--f-body);color:var(--muted)}
 #vids button .when{grid-column:2}
 #vids button .seen{grid-row:1;grid-column:3}
+#vids .push-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 6px}
+#vids .push-row button{display:inline-flex;padding:7px 12px;border-radius:999px;font-size:14px}
+#vids .push-row button.on{border-color:var(--olive);color:var(--olive)}
+#vids .push-row small{color:var(--muted);font:600 13px/1.3 var(--f-body)}
 /* The verb table: every verb taught up to the lesson the slider is on, a card per גזרה, coloured by its בניין. Dense, so a
    lesson's verbs fit on a screen; on a wide screen the cards flow into as many columns as fit. Tapping the Arabic says it. */
 body[data-view=verbs] .wrap{max-width:none}
@@ -435,6 +439,49 @@ body:not(.home) .reward-shelf,body.manage .reward-shelf,body[data-view] .reward-
 .verb-speak{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}.verb-mic{display:grid;place-items:center;width:86px;height:86px;border:0;border-radius:50%;background:var(--olive);color:var(--on-olive);font-size:34px;box-shadow:0 5px 0 var(--olive-deep);cursor:pointer}.verb-mic.live{background:var(--sumac);box-shadow:0 5px 0 color-mix(in srgb,var(--sumac) 70%,#000)}.verb-mic:disabled{opacity:.5}.verb-record-actions{display:flex;gap:8px}.verb-conversation{padding:14px;border-radius:16px;background:var(--olive-soft)}.verb-conversation .ar{font:700 27px/1.6 var(--f-ar)}.verb-answer{font:700 25px/1.7 var(--f-tr);letter-spacing:.035em}
 .verb-record-actions{flex-wrap:wrap;justify-content:center}.verb-report{border-color:var(--sumac);color:var(--sumac)}.verb-report:disabled{opacity:.65}
 @media (max-width:410px){.verb-choices{grid-template-columns:1fr}.verb-shell{padding:12px}.verb-choice{min-height:62px}}
+/* "בונים עם איתן" (levels 6–8): each of אותיות איתן keeps one colour, in the Arabic and in the Hebrew beside it */
+:root{--e-a:#7A4BB0;--e-t:#1D6BB0;--e-y:#0B7A85;--e-n:#B25400;--e-s:#B0306E}
+@media (prefers-color-scheme: dark){:root{--e-a:#B898E8;--e-t:#74B4EE;--e-y:#5CCBD3;--e-n:#F2A04A;--e-s:#EE8CC0}}
+html.a11y-contrast{--e-a:#d8b4ff;--e-t:#8fd0ff;--e-y:#70ff9b;--e-n:#ffb45b;--e-s:#ff9ad5}
+.e-a{--e:var(--e-a)}.e-t{--e:var(--e-t)}.e-y{--e:var(--e-y)}.e-n{--e:var(--e-n)}
+.eitan-p{color:var(--e);font-weight:800}.eitan-s{color:var(--e-s);font-weight:800}
+.eitan{display:flex;flex:1;flex-direction:column;gap:10px}
+.eitan-who{display:flex;align-items:baseline;justify-content:center;flex-wrap:wrap;gap:4px 10px;text-align:center}
+.eitan-who b{font:400 clamp(30px,9vw,42px)/1.2 var(--f-display)}.eitan-who .tr{font:22px/1.6 var(--f-tr);color:var(--muted)}.eitan-who small{flex-basis:100%;color:var(--muted);font-weight:700}
+.eitan-legend{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.eitan-legend span{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3px 4px;overflow-wrap:anywhere;border:1.5px solid var(--e);border-radius:10px;color:var(--muted);font:600 11px/1.3 var(--f-body);text-align:center}
+.eitan-legend b{color:var(--e);font:700 19px/1.3 var(--f-tr)}
+.eitan-row{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:4px 10px;padding:8px 12px;border:2px solid var(--line);border-radius:16px;background:var(--surface)}
+.eitan-row.active{border-color:var(--amber)}.eitan-row.good{border-color:var(--ok);background:var(--ok-bg)}.eitan-row.bad{border-color:var(--sumac);background:var(--sumac-bg)}
+.eitan-tense{color:var(--muted);font-weight:800;font-size:14px}
+.eitan-build{display:flex;align-items:center;justify-content:center;gap:4px;direction:rtl}
+.eitan-body{padding:0 2px;font:700 28px/1.7 var(--f-tr);letter-spacing:.03em}
+.eitan-slot{unicode-bidi:isolate;min-width:52px;min-height:52px;padding:0 6px;border:2px dashed var(--line);border-radius:12px;background:var(--bg);color:var(--muted);font:700 24px/1.6 var(--f-tr);cursor:pointer;touch-action:manipulation}
+.eitan-slot.on{border-style:solid;border-color:var(--amber);box-shadow:0 0 0 3px var(--amber-bg)}
+.eitan-slot.full{border-style:solid;border-color:var(--e,var(--e-s));color:var(--e,var(--e-s))}
+.eitan-slot:disabled{cursor:default}
+.eitan-preview{grid-column:1/-1;min-height:1.7em;text-align:center;font:700 23px/1.7 var(--f-tr);letter-spacing:.03em}
+.eitan-mirror,.eitan-result{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:4px 10px}
+.eitan-mirror{color:var(--muted);font:700 22px/1.4 var(--f-tr)}.eitan-mirror::before{content:"בעברית:";font:600 13px var(--f-body)}
+.eitan-result .tr{font:700 25px/1.7 var(--f-tr);letter-spacing:.03em}
+.eitan-tray{position:sticky;bottom:0;z-index:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(58px,1fr));gap:8px;margin-top:auto;padding:10px 0 4px;background:var(--bg)}
+.eitan-tray>p{grid-column:1/-1;margin:0;color:var(--muted);font-weight:700;text-align:center}
+.eitan-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:62px;padding:2px;border:2px solid var(--e,var(--e-s));border-radius:14px;background:var(--surface);color:var(--e,var(--e-s));cursor:pointer;touch-action:manipulation}
+.eitan-tile b{font:700 25px/1.6 var(--f-tr)}.eitan-tile small{color:var(--muted);font:700 15px/1.2 var(--f-tr)}.eitan-tile:active{transform:scale(.96)}
+.eitan-go{grid-column:1/-1;min-height:52px;font-size:18px}
+.eitan-form{padding:10px;border-radius:16px;background:var(--olive-soft);text-align:center}.eitan-form .tr{display:block;font:700 clamp(32px,10vw,44px)/1.6 var(--f-tr);letter-spacing:.03em}
+.eitan-chips{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.eitan-chips button{min-height:58px;padding:4px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:700 18px/1.2 var(--f-body);touch-action:manipulation}.eitan-chips button small{display:block;color:var(--muted);font:500 13px/1.6 var(--f-tr)}
+.eitan-chips button.on{border-color:var(--amber);background:var(--amber-bg)}.eitan-chips .good{border-color:var(--ok);background:var(--ok-bg)}.eitan-chips .bad{border-color:var(--sumac);background:var(--sumac-bg)}.eitan-chips .missed{border-style:dashed;border-color:var(--ok)}
+.eitan-table{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 14px}.eitan-table div{display:flex;align-items:baseline;justify-content:space-between;gap:6px;border-bottom:1px solid var(--line)}.eitan-table .tr{font:19px/1.7 var(--f-tr)}.eitan-table div.hit{background:var(--amber-bg)}
+.verb-badge{display:inline-block;padding:1px 8px;border-radius:9px;background:var(--amber-bg);color:var(--amber);font:700 12px var(--f-body);vertical-align:middle}
+/* on a phone the game takes the whole screen, and the tiles sit at the bottom, under the thumb */
+@media (max-width:600px){
+  .verb-dlg{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border-radius:0}
+  .verb-shell{min-height:100dvh;box-sizing:border-box;gap:10px;padding:12px 16px max(12px,env(safe-area-inset-bottom))}
+  .verb-head h2{font-size:22px}
+}
+@media (max-width:360px){.eitan-chips{grid-template-columns:repeat(2,minmax(0,1fr))}.eitan-legend span{font-size:10px}.eitan-body{font-size:24px}}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
 .meta{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;letter-spacing:.04em;font-variant-numeric:tabular-nums}
 .meta .idx{background:var(--olive-soft);color:var(--olive);font-weight:700;padding:1px 10px;border-radius:999px}
@@ -1672,7 +1719,7 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
 <div class="reward-pop" id="rewardPop" role="status" aria-live="polite"><b></b><small></small></div>
 <dialog id="driveDlg" aria-labelledby="driveTitle">
   <div class="dlg-head"><h2 id="driveTitle">מצב נסיעה</h2></div>
-  <p class="dlg-text">תרגול בלי לגעת במסך: האפליקציה מקריאה כל משפט, מקשיבה לתשובה שלכם ואומרת את ההערכה בקול. לסיום לוחצים על "סיום נסיעה".</p>
+  <p class="dlg-text">תרגול בלי לגעת במסך: האפליקציה מקריאה כל משפט, מצפצפת כשתורכם לדבר, ואומרת בקול אם הצלחתם. כשלא הצלחתם שומעים את התשובה ומנסים פעם אחת נוספת. בסוף הנושא שואלת אם לעבור לנושא הבא. אם לא עונים פעמיים ברצף, המצב נעצר לבד. לסיום לוחצים על "סיום נסיעה".</p>
   <div class="row"><button class="btn primary" id="driveGo">התחילו</button><button class="btn" id="driveNo">לא עכשיו</button></div>
 </dialog>
 <dialog id="bubbleGuideDlg" aria-labelledby="bubbleGuideTitle">
@@ -1699,6 +1746,8 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
       <button class="verb-path" data-path="learn">ללמוד פעלים חדשים<small>זיהוי והתאמת גופים, בקצב נוח</small></button>
       <button class="verb-path" data-path="daily">אימון הפעלים היומי<small>שליפה מהירה וחזרה על מה שכבר נלמד</small></button>
       <div class="verb-levels" id="verbLevels"></div>
+      <button class="verb-path" data-path="eitan">בונים פועל עם איתן<small>עבר ועתיד יחד, מאותיות איתן ומהסיומות, כמו בעברית</small></button>
+      <div class="verb-levels" id="eitanLevels"></div>
     </div>
     <div class="verb-board" id="verbBoard" hidden></div>
     <div class="verb-feedback" id="verbFeedback" role="status"></div>
@@ -1942,7 +1991,51 @@ function endDaily(){   // past the session's last sentence: back to the path, an
    The library: videos that are not on the path, the same ones for every level and class. */
 const dailyVideos=()=>{ const d=today(), seen=new Set(); return (FREE?TEACHER_DAILIES:(MY_CLASS?[MY_CLASS]:MY_CLASSES).flatMap(k=>k.dailies||[])).filter(v=>v.date<=d&&!seen.has(v.id)&&seen.add(v.id)).sort((a,b)=>b.date.localeCompare(a.date)); };
 const libVideos=()=>LIBRARY;
+/* The daily video's morning reminder: a push notification the server sends (app/push.py), turned on here, on this device.
+   On an iPhone only the app added to the home screen may get them. */
+function pushRow(){
+  const row=mark("push-row",""), btn=mark("","","button"), note=mark("","","small"); row.append(btn,note);
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent), standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+  const set=(text,on,why="")=>{ btn.textContent=text; btn.classList.toggle("on",!!on); note.textContent=why; };
+  if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window)){
+    if(ios&&!standalone){ btn.hidden=true; note.textContent="📱 כדי לקבל תזכורת כל בוקר: שיתוף ← „הוספה למסך הבית”, ופתחו את האפליקציה משם."; }
+    else row.hidden=true;
+    return row;
+  }
+  let key="", sub=null, hour=8;
+  const draw=()=>{
+    if(!key) return set("",false),btn.hidden=true,row.hidden=true;
+    btn.hidden=row.hidden=false;
+    if(Notification.permission==="denied") return set("🔕 ההתראות חסומות",false,"אפשר לאשר אותן בהגדרות האתר בדפדפן.");
+    if(sub) set("🔔 תזכורת כל בוקר פעילה",true,`בשעה ${hour}:00, ביום שיש סרטון · לחצו לביטול`);
+    else set("🔔 הזכירו לי כל בוקר",false,"התראה כשיש סרטון חדש");
+  };
+  row.hidden=true;
+  Promise.all([api("/api/push").then(r=>r.ok?r.json():{}).catch(()=>({})),navigator.serviceWorker.ready.then(reg=>reg.pushManager.getSubscription()).catch(()=>null)])
+    .then(([info,s])=>{ key=info.key||""; hour=info.hour??8; sub=s; draw(); });
+  btn.onclick=async()=>{
+    btn.disabled=true;
+    try{
+      const reg=await navigator.serviceWorker.ready;
+      if(sub){
+        await api("/api/push/unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:sub.endpoint})}).catch(()=>{});
+        await sub.unsubscribe().catch(()=>{}); sub=null;
+      }else{
+        if(await Notification.requestPermission()!=="granted") return draw();
+        const raw=atob(key.replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-key.length%4)%4));
+        sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:Uint8Array.from(raw,c=>c.charCodeAt(0))});
+        const res=await api("/api/push/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(sub.toJSON())});
+        if(!res.ok){ await sub.unsubscribe().catch(()=>{}); sub=null; draw(); note.textContent="לא הצלחנו להפעיל את התזכורת. נסו שוב מאוחר יותר."; return; }
+        api("/api/push/test",{method:"POST"}).catch(()=>{});   // one now, so the student sees what it looks like
+      }
+      draw();
+    }catch(e){ draw(); note.textContent="לא הצלחנו להפעיל את התזכורת בדפדפן הזה."; }
+    finally{ btn.disabled=false; }
+  };
+  return row;
+}
 const VERB_GAME_VISIBLE=false;   // "פועל יוצא" is still under development; flip to true to publish it again.
+const EITAN_GAME_VISIBLE=false;  // "בונים פועל עם איתן" (פועל יוצא's levels 6–8, on their own): teachers see it; true shows it to students.
 function drawNav(){   // the tabs, and the screen of videos when one is on show
   const view=document.body.dataset.view||"", box=$("vids"), d=today();
   if(view!=="games") tutorList=false;   // another tab: the games tab opens on its games again
@@ -1963,7 +2056,12 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     if(can("games.use")&&VERB_GAME_VISIBLE){
       const switcher=mark("now","","button");
       switcher.append(mark("","↻","i"),mark("","פועל יוצא","b"),mark("","מהבנה לשליפה מהירה של הטיית הפועל","small"));
-      switcher.onclick=openVerbGame; box.append(switcher);
+      switcher.onclick=()=>openVerbGame(); box.append(switcher);
+    }
+    if(can("games.use")&&(EITAN_GAME_VISIBLE||FREE)){
+      const eitan=mark("now","","button");
+      eitan.append(mark("","🧩","i"),mark("","בונים פועל עם איתן","b"),mark("","עבר ועתיד יחד, מאותיות איתן ומהסיומות, כמו בעברית","small"));
+      eitan.onclick=()=>openVerbGame(true); box.append(eitan);
     }
     const memo=mark("now","","button"), upto=vtLessonNow();   // the memory game, on the verb table's lesson
     memo.append(mark("","📿","i"),mark("","הפועל זכרון","b"),mark("",`הפכו חרוזים ומצאו זוגות של פעלים · עד ${(ALL_LESSONS.find(l=>l.id===upto)||{}).name||""}`,"small"));
@@ -1987,7 +2085,7 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
   }else if(view==="daily"){
     const mine=dailyVideos(), now=mine.filter(v=>v.date===d), was=mine.filter(v=>v.date<d), back=mark("back","","button");
     back.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> חזרה למסלול'; back.onclick=()=>showView("");
-    box.append(back,mark("","סרטון יומי","h2"));
+    box.append(back,mark("","סרטון יומי","h2"),pushRow());
     if(now.length) for(const v of now) row(v,dailyWatched,"ihki.dailyWatched","הסרטון של היום",true);
     else box.append(mark("",was.length?"להיום אין סרטון חדש. אפשר לחזור לסרטונים הקודמים.":"עוד אין סרטונים יומיים. כשנקבע לסרטון תאריך (בעריכת הכיתה), הוא מופיע כאן מאותו יום.","p"));
     if(was.length) box.append(mark("","הסרטונים הקודמים","h3"));
@@ -2962,7 +3060,7 @@ async function runLearnDrive(){
 $("learnDrive").onclick=async()=>{
   if(learnDriving){ stopLearnDrive(); $("learnDriveStatus").textContent="מצב הנסיעה נעצר"; return; }
   if(!learnDriveQueue().length) return;
-  unlockPlayback(); learnDriving=true;
+  primeAudio(); learnDriving=true;
   $("learnDlg").classList.add("learn-driving");
   $("learnDrive").classList.add("on"); $("learnDrive").setAttribute("aria-pressed","true");
   $("learnDrive").querySelector("use").setAttribute("href","#i-stop"); $("learnDrive").querySelector("span").textContent="עצירה";
@@ -4487,10 +4585,26 @@ $("speakBtn").onclick=async()=>{
    three attempts at most. */
 let driveRun=0, driveAudio=null, driveAudioDone=null, wakeLock=null;
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
-function playUrl(url,answer){   // answer: the Arabic answer, played at the chosen speed
+/* Phones block sound that does not start from a tap, and a drive plays everything after waits (the network, the
+   microphone). So the tap that starts it unlocks one player (a moment of silence) and every sound of the drive
+   goes through it: the first sentence too. */
+const SILENCE="data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";
+let drivePlayer=null;
+function primeAudio(){   // call from the tap itself, before any await
+  unlockPlayback();
+  try{ drivePlayer=drivePlayer||new Audio(); drivePlayer.src=SILENCE; drivePlayer.play().catch(()=>{}); }catch{}
+}
+function playUrl(url,answer){   // answer: the Arabic answer, played at the chosen speed. Resolves true once played to the end
   return new Promise(res=>{
-    const a=answer?answerPlayer(url):new Audio(url); driveAudio=a; driveAudioDone=res;
-    a.onended=a.onerror=()=>res(); a.play().catch(()=>res());
+    if(driveAudioDone){ const f=driveAudioDone; driveAudioDone=null; f(false); }   // a sound still waiting: it is over
+    const done=ok=>{ if(driveAudioDone!==done) return; driveAudioDone=null; res(ok); };
+    let a;
+    if(drivePlayer){
+      a=drivePlayer; a.onended=a.onerror=null; a.pause(); a.src=url;
+      const rate=answer?answerRate():1; a.preservesPitch=true; a.defaultPlaybackRate=a.playbackRate=rate;
+    }else a=answer?answerPlayer(url):new Audio(url);
+    driveAudio=a; driveAudioDone=done;
+    a.onended=()=>done(true); a.onerror=()=>done(false); a.play().catch(()=>done(false));
   });
 }
 function speakLocal(text,lang){   // device voice, when the server could not speak
@@ -4506,42 +4620,125 @@ function speakLocal(text,lang){   // device voice, when the server could not spe
     speechSynthesis.cancel(); speechSynthesis.speak(u);
   });
 }
-async function sayHe(text){
+// The spoken lines, written with niqqud so the voice reads them right. Each is fetched once and kept.
+const DRIVE_SAY={
+  great:"מְצֻיָּן!", good:"נָכוֹן.",
+  almost:"כִּמְעַט. הַקְשִׁיבוּ לַתְּשׁוּבָה:", yourTurn:"עַכְשָׁו אַתֶּם.",
+  answer:"לֹא הִצְלַחְנוּ הַפַּעַם. הַתְּשׁוּבָה הַנְּכוֹנָה:",
+  unheard:"לֹא שָׁמַעְתִּי. עוֹד פַּעַם:", unheardNext:"לֹא שָׁמַעְתִּי. מַמְשִׁיכִים.",
+  paused:"לֹא שָׁמַעְתִּי תְּשׁוּבָה. מַצַּב נְסִיעָה נֶעֱצַר. אֶפְשָׁר לְהַמְשִׁיךְ כְּשֶׁנּוֹחַ.",
+  nomic:"אֵין גִּישָׁה לַמִּיקְרוֹפוֹן. מַצַּב נְסִיעָה נֶעֱצַר.",
+  topicDone:"סִיַּמְנוּ אֶת הַנּוֹשֵׂא!", roundDone:"סִיַּמְנוּ סִבּוּב.", last:"זֶה הָיָה הַנּוֹשֵׂא הָאַחֲרוֹן. כׇּל הַכָּבוֹד!",
+  yesNo:"כֵּן אוֹ לֹא?", stay:"נִשְׁאָרִים בַּנּוֹשֵׂא.", going:"עוֹבְרִים לַנּוֹשֵׂא הַבָּא.",
+};
+// The answer to "on to the next topic?", by the browser's Hebrew recognition: "yes", "no", "" (not understood),
+// or null when this browser cannot hear Hebrew
+const YES=/^(כן|בטח|יאללה|אוקיי|אוקי|בסדר|נעבור|לעבור|עוברים|הבא|כמובן|ברור)$/, NO=/^(לא|נשאר|נישאר|להישאר|נשארים|עוד)$/;
+const yesNo=s=>{ const w=heWords(s); return w.includes("לא")?"no":w.some(x=>YES.test(x))?"yes":w.some(x=>NO.test(x))?"no":""; };
+let driveRec=null;
+function hearYesNo(){
+  return new Promise(res=>{
+    if(!SR||!heOk) return res(null);
+    const r=driveRec=new SR(); let said="", over=false, timer=null;
+    const end=v=>{ if(over) return; over=true; clearTimeout(timer); if(driveRec===r) driveRec=null; try{ r.abort(); }catch{} res(v); };
+    r.lang="he-IL"; r.continuous=false; r.interimResults=true;
+    r.onresult=e=>{ said=[...e.results].map(x=>x[0].transcript).join(" "); const v=yesNo(said); if(v) end(v); };
+    r.onerror=e=>{ if(["not-allowed","service-not-allowed","language-not-supported","audio-capture"].includes(e.error)) end(null); };
+    r.onend=()=>end(yesNo(said));
+    timer=setTimeout(()=>end(yesNo(said)),7000);
+    try{ r.start(); }catch{ end(null); }
+  });
+}
+function nextDrivable(c){   // the next topic that can be practised by ear: not one to write, to learn word by word, or a game
+  for(let n=c&&nextTopicAfter(c);n;n=nextTopicAfter(n)) if(!n.write&&!n.learn&&!n.match&&!n.bubble) return n;
+  return null;
+}
+const sayUrls=new Map();   // text -> object URL of its audio
+async function sayUrl(text){
+  if(sayUrls.has(text)) return sayUrls.get(text);
   try{
     const res=await api(`/api/say?engine=${heEngine}&text=${encodeURIComponent(text)}`);
-    if(res.ok){ const url=URL.createObjectURL(await res.blob()); await playUrl(url); URL.revokeObjectURL(url); return; }
+    if(res.ok){ const url=URL.createObjectURL(await res.blob()); sayUrls.set(text,url); return url; }
   }catch{}
-  await speakLocal(text,"he-IL");
+  return null;
+}
+async function sayHe(text,live){   // live: when given, nothing is played once it says false (stopped meanwhile)
+  const url=await sayUrl(text);
+  if(live&&!live()) return;
+  if(url) await playUrl(url); else await speakLocal(text,"he-IL");
 }
 const speakable=s=>s.replace(/\s*\([^)]*\)/g,"").replace(/[\u0600-\u06FF]/g,"").replace(/\s+/g," ").trim();
 function recordOnce(){ return new Promise(res=>{ recDone=res; mic.onclick(); }); }
-const DRIVE={pass:80, tries:3};   // a grade of `pass` moves on; below it the sentence is tried again, `tries` times at most
+const listenCue=()=>{ mgTone([[880,.14]],"sine",.09); return pause(260); };   // one short beep: your turn to speak (over before the recording starts)
+// pass: a grade that moves on. Below it the Arabic answer is heard and the sentence tried once more (`tries` in all).
+// quiet: unheard attempts in a row after which the mode stops by itself: the driver is busy, the app should not insist.
+const DRIVE={pass:80, great:90, tries:2, quiet:2};
 async function drive(){
-  const run=++driveRun, on=()=>driving&&run===driveRun, st=t=>{ $("status").textContent=t; };
-  let tries=0;   // attempts at the current sentence, unheard ones included
+  const run=++driveRun, on=()=>driving&&run===driveRun, st=t=>{ $("status").textContent=t; }, say=t=>sayHe(t,on);
+  for(const t of Object.values(DRIVE_SAY)) sayUrl(t);   // fetched ahead: no wait between the beep and the verdict
+  let tries=0, quiet=0, hear=true;   // attempts at the current sentence; unheard attempts in a row; play the Hebrew first
+  const answer=async id=>{ const a=await answerAudio(id); if(!on()) return; if(a) await playUrl(a.url,true); else await speakLocal(phraseOf(id).ar,"ar"); };
+  const topicEnd=async()=>{   // the round is over: on to the next topic, if the driver says so
+    const next=nextDrivable(categoryOf(cat)), done=topicComplete();
+    await pause(300); if(!on()) return;
+    if(!next){ await say(DRIVE_SAY.topicDone); if(on()) await say(DRIVE_SAY.last); if(on()) stopDrive(); return; }
+    await say(done?DRIVE_SAY.topicDone:DRIVE_SAY.roundDone); if(!on()) return;
+    const go=async()=>{ await say(DRIVE_SAY.going); if(on()) pickCat(next.id); };
+    if(!SR||!heOk){ await go(); return; }   // no Hebrew recognition here: no question it cannot hear answered
+    await say(`לַעֲבֹר לַנּוֹשֵׂא הַבָּא, ${next.name}? אִמְרוּ כֵּן אוֹ לֹא.`);
+    for(let k=0;k<2&&on();k++){
+      st(`לעבור לנושא הבא, ${next.name}? אמרו כן או לא`); await listenCue(); if(!on()) return;
+      const v=await hearYesNo(); if(!on()) return;
+      if(v===null||v==="yes"){ await go(); return; }
+      if(v==="no"){ await say(DRIVE_SAY.stay); if(on()) nextPhrase(); return; }
+      if(k===0) await say(DRIVE_SAY.yesNo);
+    }
+    if(on()){ await say(DRIVE_SAY.paused); stopDrive(); }   // no answer: the driver is busy
+  };
+  const advance=async()=>{   // on to another sentence; past the round's last one, the question about the next topic
+    tries=0; hear=true;
+    if(!daily&&!bubbleCat()&&pos+1>=order.length&&order.includes(cur.id)){ await topicEnd(); return; }
+    const was=cur.id; nextPhrase();
+    if(on()&&cur&&cur.id===was) nextPhrase();
+    if(on()&&(!cur||cur.id===was)) await topicEnd();
+  };
   while(on()){
     const id=cur.id;
-    st("הקשיבו למשפט");
-    const url=await promptUrl(id); if(!on()) break;
-    if(url) await playUrl(url); else await speakLocal(speakable(cur.he),"he-IL");
-    if(!on()) break;
-    await pause(250);                       // let the loudspeaker go quiet before listening
-    const out=await recordOnce(); if(!on()) break;
-    if(out.kind==="nomic"){ await sayHe("אין גישה למיקרופון. מצב נסיעה הופסק."); stopDrive(); break; }
-    tries++;
-    let passed=false;
-    if(out.kind!=="result"){
-      st("לא שמעתי"); await sayHe(tries<DRIVE.tries?"לא שמעתי. ננסה שוב.":"לא שמעתי. נעבור למשפט הבא.");
-    }else if(out.r.score>=DRIVE.pass){
-      passed=true; st(`ציון ${out.r.score} ✓`);
-    }else{                                  // not there yet: the only feedback is the correct answer, in Arabic
-      st(`ציון ${out.r.score} · התשובה הנכונה`);
-      const a=await answerAudio(id); if(!on()) break;
-      if(a) await playUrl(a.url,true); else await speakLocal(phraseOf(id).ar,"ar");   // device voice when Sawtak is unavailable
+    if(hear){
+      st("הקשיבו למשפט");
+      const url=await promptUrl(id); if(!on()) break;
+      const played=!!url&&await playUrl(url); if(!on()) break;
+      if(!played){ await speakLocal(speakable(cur.he),"he-IL"); if(!on()) break; }   // never skipped in silence
     }
-    if(!on()) break;
-    await pause(700); if(!on()) break;
-    if(passed||tries>=DRIVE.tries){ tries=0; nextPhrase(); }
+    st("תורכם"); await listenCue(); if(!on()) break;
+    const out=await recordOnce(); if(!on()) break;
+    if(out.kind==="nomic"){ await say(DRIVE_SAY.nomic); stopDrive(); break; }
+    if(out.kind==="cancel") continue;
+    tries++;
+    if(out.kind!=="result"){   // nothing heard: once more, then on; twice in a row, stop altogether
+      st("לא שמעתי");
+      if(++quiet>=DRIVE.quiet){ chime(false); await say(DRIVE_SAY.paused); if(on()) stopDrive(); break; }
+      if(tries<DRIVE.tries){ await say(DRIVE_SAY.unheard); hear=true; continue; }
+      await say(DRIVE_SAY.unheardNext); if(!on()) break; await advance(); continue;
+    }
+    quiet=0;
+    const score=out.r.score;
+    if(score>=DRIVE.pass){
+      st(`ציון ${score} ✓`); chime(true); await pause(450); if(!on()) break;
+      await sayHe(score>=DRIVE.great?DRIVE_SAY.great:DRIVE_SAY.good); if(!on()) break;
+      await pause(300); await advance(); continue;
+    }
+    chime(false); await pause(350); if(!on()) break;
+    if(tries<DRIVE.tries){   // the answer, then straight back to the student: the Hebrew is not read again
+      st(`ציון ${score} · הקשיבו לתשובה`);
+      await say(DRIVE_SAY.almost); if(!on()) break;
+      await answer(id); if(!on()) break;
+      await say(DRIVE_SAY.yourTurn); hear=false; continue;
+    }
+    st(`ציון ${score} · התשובה הנכונה`);
+    await say(DRIVE_SAY.answer); if(!on()) break;
+    await answer(id); if(!on()) break;
+    await pause(500); await advance();
   }
 }
 const DRIVE_ON=$("driveBtn").innerHTML, DRIVE_OFF=DRIVE_ON.replace("i-car","i-stop").replace("עבור למצב נסיעה","סיום נסיעה");
@@ -4552,6 +4749,7 @@ function stopDrive(){
   if(driveAudio) driveAudio.pause(); if(driveAudioDone) driveAudioDone();
   if("speechSynthesis" in window) speechSynthesis.cancel();
   if(rec&&rec.state==="recording"){ recCancel=true; rec.stop(); }
+  if(driveRec){ try{ driveRec.abort(); }catch{} driveRec=null; }
   if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock=null; }
   $("status").textContent="לחצו ודברו. ההקלטה נעצרת לבד כשמסיימים";
 }
@@ -4560,6 +4758,7 @@ $("driveBtn").onclick=async()=>{
   if(!cur||mic.disabled) return;
   quizOff();
   if(!store.get("ihki.driveSeen",false)){ $("driveDlg").showModal(); return; }   // the first time: what the mode does, and then it starts
+  primeAudio();   // still inside the tap: the first sentence is heard too
   stopListen();
   if(rec&&rec.state==="recording"){ recCancel=true; rec.stop(); }   // the recording that started by itself
   driving=true; document.body.classList.add("driving"); $("driveBtn").innerHTML=DRIVE_OFF; seatMic();
@@ -6031,18 +6230,29 @@ function drawVerbLevels(){
   for(const l of verbMeta?.levels||[]){
     const locked=!verbUnlocked(l.id), b=mark(l.id===verbLevel?"on":"",`${l.id} · ${l.name}`,"button");
     b.disabled=locked; if(locked){const why=reason(l.id);b.append(mark("",why,"small"));b.title=why;b.setAttribute("aria-label",`${l.name}, נעול: ${why}`)}
-    b.onclick=()=>{verbLevel=l.id; drawVerbLevels(); startVerbRound();}; box.append(b);
+    b.onclick=()=>{verbPath=verbPath==="eitan"?"learn":verbPath; verbLevel=l.id; drawVerbLevels(); startVerbRound();}; box.append(b);
+  }
+  const ebox=$("eitanLevels"), none=!(verbMeta?.eitan_verbs||[]).length; ebox.replaceChildren();
+  document.querySelector('[data-path="eitan"]').disabled=none;
+  for(const l of verbMeta?.eitan_levels||[]){
+    const locked=none||!eitanUnlocked(l.id), b=mark(l.id===verbLevel?"on":"",l.name,"button");
+    b.disabled=locked; if(locked){const why=none?"ייפתח עם פעלי שלב א'":`${verbSummary[6]?.attempts||0}/8 · ${Math.round(verbRatio(6)*100)}%/80% ברמה הראשונה`;b.append(mark("",why,"small"));b.setAttribute("aria-label",`${l.name}, נעול: ${why}`)}
+    b.onclick=()=>{verbPath="eitan"; verbLevel=l.id; drawVerbLevels(); startVerbRound();}; ebox.append(b);
   }
 }
-async function openVerbGame(){
+async function openVerbGame(eitanOnly=false){   // eitanOnly: "בונים פועל עם איתן" alone, without פועל יוצא's own levels
   const dlg=$("verbDlg"); $("verbBoard").hidden=true; $("verbMenu").hidden=false; $("verbFeedback").textContent="";
+  $("verbTitle").textContent=eitanOnly?"בונים פועל עם איתן":"פועל יוצא";
+  for(const el of [$("verbLevels"),...document.querySelectorAll('[data-path="learn"],[data-path="daily"]')]) el.hidden=eitanOnly;
   dlg.showModal();
   if(!verbMeta){ const r=await api("/api/verb-game").catch(()=>null); if(!r||!r.ok){$("verbFeedback").textContent="המשחק לא זמין כרגע.";return} verbMeta=await r.json(); }
   drawVerbLevels();
+  if(eitanOnly&&!verbMeta.eitan_levels){ verbMeta=null; $("verbFeedback").textContent="השרת עדיין לא מכיר את המשחק הזה. הפעילו אותו מחדש ונסו שוב."; }
+  else if(eitanOnly&&!verbMeta.eitan_verbs.length) $("verbFeedback").textContent="המשחק ייפתח אחרי שיעור הפעלים הראשון של שלב א'.";
 }
 $("verbClose").onclick=()=>$("verbDlg").close();
 $("verbDlg").addEventListener("close",()=>{verbQuestion=null});
-for(const b of document.querySelectorAll("[data-path]")) b.onclick=()=>{verbPath=b.dataset.path; verbLevel=verbPath==="daily"?[5,4,3,2,1].find(verbUnlocked):(verbUnlocked(2)?2:1); drawVerbLevels(); startVerbRound();};
+for(const b of document.querySelectorAll("[data-path]")) b.onclick=()=>{verbPath=b.dataset.path; verbLevel=verbPath==="eitan"?(eitanUnlocked(7)?7:6):verbPath==="daily"?[5,4,3,2,1].find(verbUnlocked):(verbUnlocked(2)?2:1); drawVerbLevels(); startVerbRound();};
 function startVerbRound(){ verbN=0; verbStreak=0; verbRecent=[]; $("verbMenu").hidden=true; $("verbBoard").hidden=false; nextVerb(); }
 async function nextVerb(){
   if(verbN>=VERB_ROUND){
@@ -6055,13 +6265,15 @@ async function nextVerb(){
   if(!r||!r.ok){$("verbBoard").textContent="לא הצלחנו לטעון שאלה.";return}
   verbQuestion=await r.json(); verbStarted=performance.now(); verbPairs={}; verbPicked=null;
   verbRecent.push(verbQuestion.mastery_key); if(verbRecent.length>6) verbRecent.shift();
-  $("verbProgress").textContent=`שאלה ${verbN+1} מתוך ${VERB_ROUND} · רמה ${verbLevel}`; $("verbStreak").textContent=`רצף ${verbStreak} 🔥`; $("verbBar").style.width=`${verbN/VERB_ROUND*100}%`;
+  const levelName=verbLevel>=6?(verbMeta.eitan_levels.find(l=>l.id===verbLevel)||{}).name:`רמה ${verbLevel}`;
+  $("verbProgress").textContent=`שאלה ${verbN+1} מתוך ${VERB_ROUND} · ${levelName}`; $("verbStreak").textContent=`רצף ${verbStreak} 🔥`; $("verbBar").style.width=`${verbN/VERB_ROUND*100}%`;
   drawVerbQuestion();
 }
 function cue(q){
   const top=mark("verb-cue","","div"); top.append(mark("",`${q.verb.name} · ${q.tense.name}`,"h3"),mark("ar",q.verb.arabic,"div")); return top;
 }
 function drawVerbQuestion(){
+  if(verbQuestion.level>=6) return drawEitan(verbQuestion);
   const q=verbQuestion, board=$("verbBoard"); board.replaceChildren(cue(q));
   if(q.level>=4){
     if(q.conversation){const c=mark("verb-conversation","","div"); c.append(mark("ar",q.conversation.arabic,"div"),mark("",q.conversation.transliteration,"div"),mark("",q.conversation.hebrew,"small")); const hear=mark("btn","🔊 השמעת השאלה","button"); hear.onclick=()=>{const u=new SpeechSynthesisUtterance(q.conversation.arabic);u.lang="ar-PS";speechSynthesis.cancel();speechSynthesis.speak(u)}; c.append(hear); board.append(c)}
@@ -6093,10 +6305,13 @@ async function submitVerb(answer,button){
   if(button){button.classList.add(ok?"good":"bad"); if(!ok){const right=$("verbBoard").querySelectorAll(".verb-choice"); q.choices.forEach((c,i)=>{if(c.id===result.correct_choice_id)right[i].classList.add("good")})}}
   if(q.level===2) for(const [pid,good] of Object.entries(result.pair_results||{})){const p=$("verbBoard").querySelector(`[data-id="${pid}"]`), f=$("verbBoard").querySelector(`[data-id="${verbPairs[pid]}"]`); for(const el of [p,f])if(el)el.classList.add(good?"good":"bad")}
   feedback.className="verb-feedback "+(ok?"good":"bad"); feedback.textContent=ok?`נכון! ${elapsed<2000?"שליפה מהירה ⚡":""}`:`עוד לא. ${result.explanation||"נסו שוב."}`;
+  verbTally(q,ok,elapsed);
+  setTimeout(nextVerb,ok?650:1500);
+}
+function verbTally(q,ok,elapsed){   // the streak, the progress bar, and what is kept of the answer: per form and per level
   verbStreak=ok?verbStreak+1:0; verbN++; $("verbStreak").textContent=`רצף ${verbStreak} 🔥`; $("verbBar").style.width=`${verbN/VERB_ROUND*100}%`;
   const key=q.mastery_key, m=verbMastery[key]||{attempts:0,correct:0,times:[],streak:0}; m.attempts++; if(ok)m.correct++; m.streak=ok?(m.streak||0)+1:0; m.times=[...(m.times||[]),elapsed].slice(-20); m.median_ms=[...m.times].sort((a,b)=>a-b)[m.times.length>>1]; m.last=new Date().toISOString(); verbMastery[key]=m;
   const s=verbSummary[q.level]||{attempts:0,correct:0,times:[]}; s.attempts++; if(ok)s.correct++; s.times=[...(s.times||[]),elapsed].slice(-30); s.median_ms=[...s.times].sort((a,b)=>a-b)[s.times.length>>1]; verbSummary[q.level]=s; store.set("ihki.verbMastery",verbMastery); store.set("ihki.verbSummary",verbSummary); drawVerbLevels();
-  setTimeout(nextVerb,ok?650:1500);
 }
 let verbRecorder=null, verbChunks=[], verbRecordingUrl=null;
 async function verbRecord(btn,status,actions){
@@ -6124,6 +6339,114 @@ async function reportVerbScore(questionId,blob,button,status){
   const r=await api("/api/verb-game/flag",{method:"POST",body:fd}).catch(()=>null);
   if(r?.ok){button.textContent="✓ הדיווח נשלח";status.textContent="הדיווח נשמר בטאב ניטור. תודה!";return}
   const detail=r?(await r.json().catch(()=>({}))).detail:"";button.disabled=false;button.textContent="🚩 נסו לשלוח שוב";status.textContent=`הדיווח לא נשמר${detail?`: ${detail}`:"."}`;
+}
+
+/* "בונים עם איתן" (levels 6–8, app/conjugation.py): stage A's verbs, past and future together, all in Hebrew
+   transliteration. The future is built from one of אותיות איתן (with the verb's own vowel: תֻ, תִ), the body and an
+   ending, the past from the body and its ending; each of א ת י נ has one colour, in the transliteration and in the
+   Hebrew beside it. Tiles carry their Arabic, which the server grades. 6 shows the Hebrew while building, 7 after; 8 shows one form
+   and asks for every pronoun it can be (تقعد: אתה and היא). A tap puts a tile in the open slot: no dragging on a phone. */
+const EITAN_COLOR={"א":"a","ת":"t","י":"y","נ":"n"};
+const eitanUnlocked=n=>FREE||n===6||((verbSummary[6]?.attempts||0)>=8&&verbRatio(6)>=.8);
+const TR_MARK=/[\u0591-\u05C7'\u0651]/, TR_FINAL={"כ":"ך","מ":"ם","נ":"ן","פ":"ף","צ":"ץ"}, TR_REGULAR=Object.fromEntries(Object.entries(TR_FINAL).map(([a,b])=>[b,a]));
+function eitanCompose(pre,body,suf){   // as compose_tr in conjugation.py: a final letter only at the end, חִ'י before a geresh
+  let i=body.length; while(i&&TR_MARK.test(body[i-1])) i--;
+  const l=body[i-1]||"";
+  if(suf&&TR_REGULAR[l]) body=body.slice(0,i-1)+TR_REGULAR[l]+body.slice(i);
+  else if(!suf&&TR_FINAL[l]&&i===body.length) body=body.slice(0,i-1)+TR_FINAL[l];
+  if(suf.startsWith("\u05B4")&&body.endsWith("'")) return pre+body.slice(0,-1)+"\u05B4'"+suf.slice(1);
+  return pre+body+suf;
+}
+const eitanTileText=(label,kind)=>!label?"—":kind==="prefix"?label+"\u2026":"\u2026"+label.replace(/^\u05B4/,"");   // תִ… and …י, read right to left
+const eitanRtl=el=>{el.dir="rtl"; return el};
+function eitanWord(parts,cls){   // a form with its prefix and ending coloured
+  const w=mark(cls,"","span");
+  if(parts.pre) w.append(mark("eitan-p e-"+(EITAN_COLOR[parts.pre[0]]||"a"),parts.pre));
+  w.append(mark("",parts.body)); if(parts.suf) w.append(mark("eitan-s",parts.suf)); return w;
+}
+function eitanHead(q,board){
+  const who=mark("eitan-who","","div"), name=mark("",`${q.verb.name} · ${q.verb.transliteration}`,"small");
+  if(q.verb.draft) name.append(" ",mark("verb-badge","טיוטה"));
+  if(q.pronoun) who.append(mark("",q.pronoun.hebrew,"b"),mark("tr",q.pronoun.transliteration),name); else who.append(name);
+  board.append(who);
+  if(q.level===6){
+    const legend=mark("eitan-legend","","div");
+    for(const [he,who] of [["א","אני"],["ת","אתה · את · היא · אתם"],["י","הוא · הם"],["נ","אנחנו"]]){
+      const s=mark("e-"+EITAN_COLOR[he],"","span"); s.append(mark("",he,"b"),who); legend.append(s);
+    }
+    board.append(legend);
+  }
+}
+function drawEitan(q){
+  const board=$("verbBoard"), box=mark("eitan","","div"); board.replaceChildren(box); eitanHead(q,box);
+  if(q.level===8) return drawEitanWho(q,box);
+  const st={past:null,prefix:null,suffix:null}, shown={}, order=["past","prefix","suffix"], slots={}, rows={}, previews={};   // st: the tiles' Arabic; shown: their transliteration
+  let active="past";
+  const row=(tense,label)=>{
+    const r=mark("eitan-row","","div"), build=mark("eitan-build","","div"), prev=mark("eitan-preview","","div");
+    r.append(mark("eitan-tense",label),build,prev); rows[tense]=r; previews[tense]=prev;
+    const h=q[tense].hebrew; if(h){const m=mark("eitan-mirror","","div"); m.append(eitanWord(h,"")); r.append(m)}
+    return build;
+  };
+  const slot=name=>{const b=eitanRtl(mark("eitan-slot","?","button")); b.type="button"; b.setAttribute("aria-label",name==="prefix"?"תחילית":"סיומת"); b.onclick=()=>{active=name; draw()}; slots[name]=b; return b};
+  row("past","עבר").append(mark("eitan-body",q.past.body),slot("past"));
+  row("future","עתיד").append(slot("prefix"),mark("eitan-body",q.future.body),slot("suffix"));
+  const tray=mark("eitan-tray","","div"); box.append(rows.past,rows.future,tray);
+  const tiles={past:q.past.tiles,prefix:q.future.prefix_tiles,suffix:q.future.suffix_tiles};
+  function draw(){
+    for(const name of order){
+      const b=slots[name], v=shown[name]; b.className="eitan-slot"+(name===active?" on":"")+(v!=null?" full":"")+(name==="prefix"&&v?" e-"+EITAN_COLOR[v[0]]:"");
+      b.textContent=v==null?"?":v?(name==="prefix"?v:eitanTileText(v,name)):"—";
+    }
+    for(const t of ["past","future"]) rows[t].classList.toggle("active",t==="past"?active==="past":active!=="past");
+    previews.past.textContent=shown.past==null?"":eitanCompose("",q.past.body,shown.past);
+    previews.future.textContent=shown.prefix==null&&shown.suffix==null?"":eitanCompose(shown.prefix||"",q.future.body,shown.suffix||"");
+    tray.replaceChildren(mark("",active==="past"?"איזו סיומת בעבר?":active==="prefix"?"איזו אות מאיתן בהתחלה?":"איזו סיומת בעתיד?","p"));
+    for(const t of tiles[active]){
+      const b=eitanRtl(mark("eitan-tile"+(active==="prefix"?" e-"+EITAN_COLOR[t.label[0]]:""),"","button")); b.type="button";
+      b.append(mark("",eitanTileText(t.label,active),"b")); if(!t.label) b.append(mark("","בלי סיומת","small"));
+      b.onclick=()=>{st[active]=t.arabic; shown[active]=t.label; active=order.find(n=>st[n]===null)||active; draw()}; tray.append(b);
+    }
+    if(order.every(n=>st[n]!==null)){const go=mark("btn primary eitan-go","בדיקה ✓","button"); go.onclick=()=>submitEitan({past:st.past,prefix:st.prefix,suffix:st.suffix},{rows,slots,tray}); tray.append(go)}
+  }
+  draw();
+}
+function drawEitanWho(q,box){
+  const form=mark("eitan-form","","div"); form.append(mark("",q.tense.name,"small"),eitanWord(q.form.parts,"tr"));
+  const chips=mark("eitan-chips","","div"), picked=new Set(), tray=mark("eitan-tray","","div");
+  tray.append(mark("","מי יכול להגיד את זה? סמנו את כל הגופים","p"));
+  const go=mark("btn primary eitan-go","בדיקה ✓","button"); go.disabled=true;
+  for(const p of q.pronouns){
+    const b=mark("",p.hebrew,"button"); b.type="button"; b.dataset.id=p.id; b.append(mark("",p.transliteration,"small")); b.setAttribute("aria-pressed","false");
+    b.onclick=()=>{picked.has(p.id)?picked.delete(p.id):picked.add(p.id); b.classList.toggle("on"); b.setAttribute("aria-pressed",String(picked.has(p.id))); go.disabled=!picked.size};
+    chips.append(b);
+  }
+  go.onclick=()=>submitEitan({who:[...picked]},{chips,tray,picked}); tray.append(go); box.append(form,chips,tray);
+}
+async function submitEitan(answer,ui){
+  const q=verbQuestion; if(!q) return; verbQuestion=null;
+  ui.tray.querySelectorAll("button").forEach(b=>b.disabled=true);
+  const elapsed=Math.round(performance.now()-verbStarted), r=await api("/api/verb-game/answer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question_id:q.question_id,answer,response_ms:elapsed})}).catch(()=>null);
+  if(!r||!r.ok){$("verbFeedback").textContent="התשובה לא נבדקה. נסו שאלה חדשה."; setTimeout(nextVerb,900);return}
+  const result=await r.json(), ok=result.correct, feedback=$("verbFeedback");
+  if(q.level===8){
+    for(const b of ui.chips.children){const right=result.who.includes(b.dataset.id), mine=ui.picked.has(b.dataset.id); b.disabled=true; b.classList.remove("on"); if(right) b.classList.add(mine?"good":"missed"); else if(mine) b.classList.add("bad")}
+    const table=mark("eitan-table","","div"), names=Object.fromEntries(q.pronouns.map(p=>[p.id,p.hebrew]));
+    for(const f of result.forms){const d=mark(result.who.includes(f.pronoun)?"hit":"","","div"); d.append(mark("",names[f.pronoun],"b"),eitanWord(f.parts,"tr")); table.append(d)}
+    ui.chips.after(table);
+  }else{
+    for(const t of ["past","future"]){
+      const row=ui.rows[t], good=result[t+"_correct"], f=result[t]; row.classList.remove("active"); row.classList.add(good?"good":"bad");
+      const res=mark("eitan-result","","div"); row.querySelector(".eitan-preview").replaceWith(res); res.append(eitanWord(f.parts,"tr"));
+      if(f.draft) res.append(mark("verb-badge","טיוטה"));
+      if(!row.querySelector(".eitan-mirror")){const m=mark("eitan-mirror","","div"); m.append(eitanWord(f.hebrew,"")); row.append(m)}
+    }
+    Object.values(ui.slots).forEach(b=>b.disabled=true);
+  }
+  feedback.className="verb-feedback "+(ok?"good":"bad"); feedback.textContent=ok?`נכון! ${elapsed<4000?"שליפה מהירה ⚡":""}`:`עוד לא. ${result.explanation||""}`;
+  verbTally(q,ok,elapsed);
+  ui.tray.replaceChildren(); const next=mark("btn primary eitan-go",verbN>=VERB_ROUND?"סיום הסבב":"הבא ←","button"); next.onclick=nextVerb; ui.tray.append(next); next.focus();
+  if(ok) setTimeout(()=>{if(next.isConnected&&!verbQuestion) nextVerb()},1600);
 }
 
 /* ---------- the lab (מעבדה, teachers only) ----------
@@ -7042,6 +7365,7 @@ function enter(){
   $("wrap").inert=false; splash.classList.add("done"); setTimeout(()=>splash.remove(),700);
   if(MY_CLASSES.length>1&&!MY_CLASS) askClass();   // in several classes and none practised in before: which one?
   if(AUTH_URL&&!can("path.use")){ if(can("games.use")||can("tutor.use")) showView("games"); else if(can("library.view")) showView("library"); }
+  if(new URLSearchParams(location.search).get("view")==="daily"){ history.replaceState(null,"",location.pathname); showView("daily"); }   // from the morning reminder
 }
 $("startBtn").onclick=$("practiceBtn").onclick=enter;
 $("libraryBtn").onclick=()=>{ enter(); showView("library"); };

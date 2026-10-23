@@ -23,3 +23,17 @@ D=scripts/demo_video; .venv/bin/python $D/record.py --takes $D/takes --out $D/ih
 - The scores in the video are the model's real scores of the takes. The mistake take has to score under 75, or the
   app says "מצוין" and shows no letters to tap; if a scoring change moves it, pick another take in make_takes.py.
 - The app listens by itself after "next"; the recorder plays the take into the fake mic either way.
+
+## The short promo (42 s, a 3D iPhone)
+
+The app's core: a verb said with a Hebrew speaker's mistake (ح said as a "dirty" ח', خ), the red consonant and its
+tip, the retry at 100; collecting beads; a round of "הפועל זכרון"; the consonants Hebrew speakers struggle with (ح ع خ ق ص ط);
+the full animated logo. Silent.
+
+```bash
+D=scripts/demo_video; .venv/bin/python $D/promo.py --takes $D/takes --out $D/ihki-promo.mp4 --keep
+# design changes in promo.html (headlines, camera, closing card) re-render without recording again:
+.venv/bin/python $D/promo.py --again <the kept work dir> --out $D/ihki-promo.mp4
+```
+
+`promo.py` records the practice screen at an iPhone's size (393x852), then renders `promo.html` frame by frame.

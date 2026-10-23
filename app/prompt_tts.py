@@ -1,6 +1,8 @@
 """Reads the Hebrew prompt aloud with a free TTS engine: edge-tts (Microsoft Edge's online voices)
 or gTTS (Google Translate's voice). The page asks for edge-tts in Edge and gTTS elsewhere.
 
+Before it is read, the text gets niqqud (nakdan.py): unpointed Hebrew is often misread.
+
 No API key. Both engines call an unofficial public endpoint, so either can fail or be rate limited:
 the other one is tried before giving up. Each prompt is generated once per engine and cached on disk.
 
@@ -17,6 +19,8 @@ import os
 import re
 import threading
 from pathlib import Path
+
+from .nakdan import point
 
 log = logging.getLogger("ihki.prompt_tts")
 ENGINES = ("edge", "gtts")
@@ -58,12 +62,19 @@ def spoken(he: str) -> str:
     return re.sub(r"\s*\([^)]*\)", "", he).strip()
 
 
+def gender_of(he: str) -> str | None:
+    """"m" or "f" when the note says who the sentence is said to: "(לגבר)", "(לאישה)"."""
+    return "m" if "(לגבר)" in he else "f" if "(לאישה)" in he else None
+
+
 def hebrew_mp3(he: str, engine: str, cache_it: bool = True) -> tuple[bytes, str]:
     """(MP3, engine that produced it) for a Hebrew text; `engine` is tried first, then the other.
 
     Prompts are cached; one-off texts (the spoken assessment of driving mode) pass cache_it=False.
+    A text that could not get niqqud is read as it is and not cached, so it is pointed next time.
     """
-    text = spoken(he)
+    text, final = point(spoken(he), gender_of(he))
+    cache_it = cache_it and final
     cache = Path(os.environ.get("TTS_CACHE_DIR", "").strip() or Path.home() / ".cache" / "ihki-tts") / "he"
     order = [engine] + [e for e in ENGINES if e != engine]
     with _lock:

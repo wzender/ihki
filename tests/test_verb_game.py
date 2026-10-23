@@ -90,3 +90,59 @@ def test_spoken_questions_keep_expected_forms_server_side(game, level):
     assert all(ar and ipa for ar, ipa in phrase["variants"])
     if level == 5:
         assert q["conversation"]["arabic"]
+
+
+# ---- "בונים עם איתן" (levels 6-8) ----
+from app.conjugation import (FUTURE_PREFIX, FUTURE_SUFFIX, PAST_SUFFIX, STAGE_A_VERBS, compose, plain)
+from app.future_draft import FUTURE_DRAFT
+from app.workbook import LEX
+
+STAGE_A = [str(n) for n in range(1, 11)]
+
+
+def test_every_stage_a_form_is_built_by_its_own_tiles():
+    for verb in STAGE_A_VERBS.values():
+        for p in range(len(PRONOUNS)):
+            past, future = verb["past"][p], verb["future"][p]
+            assert plain(past["body"] + PAST_SUFFIX[p]) == plain(past["ar"]), (verb["id"], p)
+            assert plain(compose(FUTURE_PREFIX[p], future["body"], FUTURE_SUFFIX[p])) == plain(future["ar"]), (verb["id"], p)
+            assert future["he"]["pre"] == "אתתיתנתי"[p]
+
+
+def test_drafts_never_shadow_lex_and_only_teachers_get_draft_verbs(game):
+    assert not set(FUTURE_DRAFT) & {k.partition("#")[0] for k in LEX if not k.endswith("#imp")}   # an imperative is spelt as "I"
+    students, teachers = game.eitan_available(STAGE_A), game.eitan_available(STAGE_A, drafts=True)
+    assert set(students) < set(teachers)
+    assert all(not STAGE_A_VERBS[v]["draft"] for v in students)
+    assert "يقعد" in students and "يفتح" not in students   # يفتح's future is mostly draft
+    assert game.eitan_available(["1"]) == ["يسأل", "يقعد"]
+
+
+def test_build_question_grades_past_and_future_together(game):
+    q = game.question(6, STAGE_A)
+    p = [x[0] for x in PRONOUNS].index(q["pronoun"]["id"])
+    assert "hebrew" in q["future"] and "hebrew" not in game.question(7, STAGE_A)["future"]
+    result = game.answer(q["question_id"], {"past": PAST_SUFFIX[p], "prefix": FUTURE_PREFIX[p],
+                                            "suffix": FUTURE_SUFFIX[p]}, 1500)
+    assert result["correct"] and result["past_correct"] and result["future_correct"]
+    q = game.question(6, STAGE_A)
+    wrong = "ن" if q["pronoun"]["id"] != "ihna" else "ا"
+    result = game.answer(q["question_id"], {"past": "", "prefix": wrong, "suffix": ""}, 1500)
+    assert not result["future_correct"] and "explanation" in result
+
+
+def test_irregular_forms_build_from_tiles():
+    assert compose("ا", "اكل", "") == "آكل"
+    assert compose("ت", "حكي", "و") == "تحكو" and compose("ت", "حكي", "ي") == "تحكي"
+    assert STAGE_A_VERBS["يجي"]["future"][1]["ar"] == "تيجي"
+
+
+def test_who_said_it_wants_every_pronoun_of_an_identical_form(game):
+    for _ in range(20):
+        q = game.question(8, STAGE_A)
+        result = game.answer(q["question_id"], {"who": ["ana"]}, 1000)
+        verb = STAGE_A_VERBS[q["verb"]["id"]]
+        same = [PRONOUNS[i][0] for i, f in enumerate(verb[q["tense"]["id"]])
+                if f["ar"] == q["form"]["arabic"] and f["tr"] == q["form"]["transliteration"]]
+        assert sorted(result["who"]) == sorted(same)
+        assert result["correct"] == (same == ["ana"])
