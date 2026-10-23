@@ -710,6 +710,27 @@ def test_rule_28_exempts_final_b_heard_as_p_only_before_a_voiceless_onset():
     assert no_exemption["words"][0]["phonemes"][-1]["score"] < 50
 
 
+def test_rule_32_exempts_t_heard_as_d_and_d_heard_as_t():
+    phrase = {"variants": [("انتي فتحتي", "i n t i | f a t a ħ t i")]}
+    scorer = custom_scorer(["d", "f", "t", "ħ"], ["i", "n", "d", "i", "f", "a", "t", "a", "ħ", "t", "i"])
+    result = scorer.score(None, phrase, diagnostics=True)
+    t = next(tok for tok in result["trace"]["tokens"] if tok["ipa"] == "t")
+    assert t["competitor"] == "d"
+    assert next(s for s in t["stages"] if s["stage"] == "exemption")["applied"] == "t_d_voicing"
+    assert result["words"][0]["phonemes"][2]["score"] == 100 and not result["tips"]
+
+    scorer.set_disabled({"t_d_voicing"})
+    assert scorer.score(None, phrase)["words"][0]["phonemes"][2]["score"] < 50
+
+    # d heard as t is covered too
+    dar = custom_scorer(["d", "t", "aː", "r"], ["t", "aː", "r"]).score(None, {"variants": [("دار", "d aː r")]})
+    assert dar["words"][0]["phonemes"][0]["score"] == 100
+
+    # ... but not an emphatic: ط heard as plain d is still judged
+    emph = custom_scorer(["d", "tˤ", "aː", "r"], ["d", "aː", "r"]).score(None, {"variants": [("طار", "tˤ aː r")]})
+    assert emph["words"][0]["phonemes"][0]["score"] < 50
+
+
 def test_rule_29_floors_a_deleted_final_short_vowel_before_a_vowel_initial_word():
     phrase = {"variants": [("على إيدك", "ʕ a l a | ʔ iː d e k")]}
     scorer = custom_scorer(["iː"], ["ʕ", "a", "l", "ʔ", "iː", "d", "e", "k"])
@@ -1077,6 +1098,7 @@ def test_workbook_lesson_7():
     assert all(p["read"] == (p["cat"] == "l7-read") and "#" not in p["ar"] for p in pub if p["cat"].startswith("l7-"))
     by = {(p["cat"], p["he"]): p for p in PHRASES}
     assert by["l7-fem", "רווק, רווקה"]["tr"] == "עַזַّאבִּי, עַזַّאבִּיֵّה" and by["l7-dual", "מיטה, שתי מיטות"]["tr"] == "תַחְ'ת, תַחְ'תֵין"
+    assert by["l7-fem", "רווק, רווקה"]["he_say"].startswith("רַוָּק")
     assert by["l7-nums", "מאה שבעים וחמש (175)"]["tr"] == "מִיֵّה חַ'מְסֵה וּסַבְּעִין"   # units before tens
     # 3-10: the noun in the plural and the number without its ة; from 11: the noun in the singular, and 11-19 with a ר
     assert by["l7-count", "שבעה ילדים"]["tr"] == "סַבְּע אַוְלַאד" and by["l7-count", "שתים עשרה בנות"]["tr"] == "תְנַעְשַר בִּנְת"

@@ -1,0 +1,34 @@
+schema: spec-driven
+
+context: |
+  ihki is a mobile-first Hebrew/RTL learning application for spoken Palestinian
+  Arabic and 9th-grade mathematics. The production service is a FastAPI app
+  deployed as a Docker-based Hugging Face Space. Supabase authentication and
+  persistence are optional; when they are not configured, practice remains open.
+  Student-facing copy is primarily Hebrew, Arabic answers may use Arabic script
+  or Hebrew transliteration, and a practice day uses Asia/Jerusalem time.
+  Never expose Supabase secret keys, third-party API keys, private recordings, or
+  one student's identifiable data to another student.
+
+rules:
+  proposal:
+    - State the learner or teacher outcome and what is explicitly out of scope
+    - Identify privacy, authorization, persistence, and paid-API impact
+  specs:
+    - Use observable behavior and concrete Given/When/Then scenarios
+    - Cover degraded behavior when optional Supabase, TTS, model, or browser capabilities are unavailable
+  design:
+    - Identify affected API endpoints, browser state, Supabase schema, and deployment configuration
+    - Preserve RTL, touch, keyboard, and no-mouse interaction where relevant
+  tasks:
+    - Include focused automated tests for server-side behavior
+    - Include a manual browser check for user-interface changes
+
+operations:
+  apply:
+    guidance:
+      - Preserve unrelated working-tree changes
+      - Run focused tests before the full test suite
+  archive:
+    guidance:
+      - Confirm the implementation and migrations are reflected in the main specs

@@ -276,6 +276,16 @@ def _final_b_devoicing(toks, i, sc, heard, ar_words):
     return following.word == toks[i].word + 1 and base(following.phoneme) in _VOICELESS_ONSETS
 
 
+# Rule 32: plain t heard as d, or d heard as t. Hebrew has the same contrast (ת / ד), so a learner hardly ever swaps
+# them, while the multilingual model often does: a t after n (انتي) or between vowels (فتح) gets some voicing in
+# natural speech and is labelled d. Emphatics (tˤ, dˤ) are not covered: their plain counterparts are rule 3.3.
+_VOICING_PAIR = {("t", "d"), ("d", "t")}
+
+
+def _t_d_voicing(toks, i, sc, heard, ar_words):
+    return not sc.deleted and (base(toks[i].phoneme), base(heard or "")) in _VOICING_PAIR
+
+
 # Rule 29: in connected speech, a word-final short vowel flows into a vowel-initial next word.  The next word is
 # commonly represented with an initial ʔ token, so accept either V or ʔ+V as the hiatus context.  CTC may assign the
 # transition to only one side and call the final vowel deleted even in native speech (على إيدك).
@@ -300,6 +310,7 @@ EXEMPTIONS = [
     ("article_vowel_elided", _article_vowel_elided, None),
     ("near_vowel", _near_vowel, "near_vowel_floor"),
     ("final_b_devoicing", _final_b_devoicing, None),
+    ("t_d_voicing", _t_d_voicing, None),
     ("word_final_vowel_linking", _word_final_vowel_linking, "near_vowel_floor"),
     ("unmarked_short_vowel", _unmarked_short_vowel, "near_vowel_floor"),
 ]
@@ -348,6 +359,9 @@ def _toggles() -> list[Toggle]:
         Toggle("final_b_devoicing", "judge", "6.3 #28", "b סופית לפני עיצור אטום",
                "b בסוף מילה שהמודל שמע כ־p לפני עיצור אטום במילה הבאה מקבלת ציון מלא; "
                "באמצע מילה או לפני עיצור קולי אין פטור."),
+        Toggle("t_d_voicing", "judge", "6.3 #32", "t ו־d לא מתחלפות",
+               "t שהמודל שמע כ־d, או d שנשמעה כ־t, מקבלת ציון מלא: דוברי עברית מבחינים בין ת ל־ד, "
+               "והמודל טועה בזוג הזה (אחרי n, בין תנועות). עיצורים מודגשים (ط, ض) נבדקים כרגיל."),
         Toggle("word_final_vowel_linking", "judge", "6.3 #29", "תנועה סופית שמתחברת לתנועה הבאה",
                "תנועה קצרה בסוף מילה שהמודל רואה כמחוקה לפני מילה שמתחילה בתנועה מקבלת לפחות 90; "
                "באמצע מילה או לפני עיצור אין פטור."),

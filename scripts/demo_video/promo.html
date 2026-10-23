@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="he" dir="rtl">
+<html lang="he" dir="ltr">
 <head>
 <meta charset="utf-8">
 <title>ihki promo</title>
@@ -10,8 +10,11 @@
    Nothing moves by itself: promo.py calls seek(t) for every frame, and everything is placed from t. */
 :root{ --navy:#1F2156; --teal:#1E8C8C; --orange:#E8902E; --red:#C8344A; --cream:#FBF7EE; --ink:#1C241D; --muted:#5E685C; }
 *{box-sizing:border-box}
-html,body{margin:0;width:1080px;height:1920px;overflow:hidden;background:var(--cream)}
+html,body{margin:0;width:1080px;height:1920px;overflow:hidden;background:var(--cream);overflow:clip}
 body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
+/* the page is laid out left to right (an RTL page scrolls sideways when something pokes past its left edge);
+   the Hebrew text is right to left */
+.cap,#outro,#logo,.bub,#announce{direction:rtl}
 #bg{position:absolute;inset:0;
   background:
     radial-gradient(900px 700px at 85% 8%, rgba(30,140,140,.16), transparent 70%),
@@ -43,6 +46,37 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
 /* a ring around the red letter, drawn outside the phone's screen so it reads at a glance */
 #ring{position:absolute;border:7px solid var(--red);border-radius:22px;box-shadow:0 0 0 10px rgba(200,52,74,.18);opacity:0}
 /* the opening and closing */
+/* the announcement, and the booklet the app follows */
+#announce{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;padding-top:440px;
+  text-align:center;opacity:0;visibility:hidden}
+#announce .new{font:800 40px/1 "Assistant",sans-serif;color:#fff;background:var(--red);padding:16px 34px;border-radius:999px}
+#announce h1{margin:0;font:400 92px/1.1 "Secular One","Assistant",sans-serif;color:var(--navy)}
+#announce p{margin:0;font:600 42px/1.4 "Assistant",sans-serif;color:var(--muted)}
+#bookStage{position:absolute;inset:0;perspective:2400px;perspective-origin:50% 40%;visibility:hidden}
+#book{position:absolute;left:0;top:0;width:0;height:0;transform-style:preserve-3d}
+.leaf,.base{position:absolute;left:-520px;top:-358px;width:520px;height:716px;transform-style:preserve-3d;transform-origin:100% 50%}
+.face{position:absolute;inset:0;background:#FBF9F4 center/100% 100% no-repeat;backface-visibility:hidden;border-radius:4px 0 0 4px;
+  box-shadow:inset -18px 0 24px -14px rgba(0,0,0,.25)}
+.face.back{transform:rotateY(180deg);border-radius:0 4px 4px 0;box-shadow:inset 18px 0 24px -14px rgba(0,0,0,.25)}
+.face .shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.28),rgba(0,0,0,0));opacity:0}
+#bookShadow{position:absolute;width:1150px;height:200px;border-radius:50%;background:radial-gradient(closest-side,rgba(31,33,86,.30),rgba(31,33,86,0));filter:blur(8px)}
+#bookRing{position:absolute;border:7px solid var(--red);border-radius:18px;box-shadow:0 0 0 10px rgba(200,52,74,.18);opacity:0}
+/* the summary: what the app is, beside its "הערבית שכבר שלכם" */
+#pills{position:absolute;left:60px;right:60px;top:300px;display:grid;grid-template-columns:1fr 1fr;gap:20px;z-index:6;opacity:0;direction:rtl}
+#pills div{background:#fff;border-radius:28px;padding:22px 20px;text-align:center;font:700 36px/1.2 "Assistant",sans-serif;color:var(--navy);
+  box-shadow:0 8px 24px rgba(31,33,86,.10),inset 0 0 0 3px rgba(31,33,86,.06)}
+/* the grid of other ways to practice: four small phones, each zooming in for its example */
+#grid{position:absolute;inset:0;perspective:2200px;visibility:hidden}
+.tile{position:absolute;width:350px;height:740px;transform-style:preserve-3d;transform-origin:50% 50%}
+.tile .ph{position:absolute;inset:0;border-radius:46px;background:#0D0D10;padding:10px;
+  box-shadow:inset 0 0 0 2px #A9AEB6,inset 0 0 0 4px #4B4E55, 18px 30px 50px rgba(31,33,86,.22)}
+.tile .scr{width:330px;height:714px;border-radius:38px;overflow:hidden;position:relative;background:#EEF0E8}
+.tile .scr img{width:100%;height:100%;display:block}
+.tile .isl{position:absolute;top:12px;left:50%;width:100px;height:30px;margin-left:-50px;border-radius:16px;background:#000}
+.tile .lab{position:absolute;left:50%;bottom:-34px;transform:translateX(-50%) translateZ(30px);white-space:nowrap;direction:rtl;
+  font:800 36px/1 "Assistant",sans-serif;color:#fff;background:var(--navy);padding:18px 30px;border-radius:999px;box-shadow:0 10px 24px rgba(31,33,86,.25)}
+#open{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;direction:rtl}
+#open svg{width:900px;height:auto}
 #logo{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:90px;opacity:0}
 #logo svg{width:920px;height:auto}
 #logo .cta{font:400 60px/1 "Secular One","Assistant",sans-serif;color:#fff;background:var(--navy);padding:28px 64px;border-radius:999px}
@@ -58,7 +92,7 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
 #outro img{width:560px}
 #outro .cta{font:400 54px/1 "Secular One","Assistant",sans-serif;color:#fff;background:var(--navy);padding:26px 56px;border-radius:999px}
 /* driving mode: the phone in a car's mount, drawn flat in the logo's colors */
-#car{position:absolute;inset:0;opacity:0}
+#car{position:absolute;inset:0;opacity:0;overflow:hidden}   /* clipped: past the left edge, an RTL page would shift */
 #shield{position:absolute;left:-20px;right:-20px;top:330px;height:760px;border-radius:120px 120px 0 0;overflow:hidden;
   box-shadow:inset 0 0 0 34px #1B1D2E}
 #shield svg{display:block}
@@ -66,12 +100,12 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
   background:linear-gradient(180deg,#2B2E4A 0%,#1F2138 30%,#171829 100%);box-shadow:0 -6px 0 #3A3E62 inset}
 #dash .vent{position:absolute;top:120px;width:170px;height:46px;border-radius:23px;background:repeating-linear-gradient(90deg,#111222 0 14px,#25283F 14px 22px)}
 #mount{position:absolute;left:676px;top:1170px;width:48px;height:240px;border-radius:24px;background:#3D405C;opacity:0}
-#wheel{position:absolute;left:0;top:0;width:1080px;height:1920px;pointer-events:none;opacity:0}
+#wheel{position:absolute;left:0;top:0;width:1080px;height:1920px;pointer-events:none;opacity:0;overflow:hidden}
 .bub{position:absolute;padding:26px 40px;border-radius:44px;font:700 46px/1.25 "Assistant",sans-serif;opacity:0;
   box-shadow:0 14px 34px rgba(0,0,0,.25);white-space:nowrap;direction:rtl}
 .bub.app{background:#fff;color:var(--navy)} .bub.me{background:var(--teal);color:#fff}
 .bub.ok{background:#2F7A4A;color:#fff}
-.bub .ar{font:700 58px/1.2 "Noto Naskh Arabic","Amiri",serif}
+.bub .tr{font:800 56px/1.2 "Assistant",sans-serif}
 .bub::after{content:"";position:absolute;width:44px;height:44px;background:inherit;transform:rotate(45deg);border-radius:8px;z-index:-1}
 .bub.app::after,.bub.ok::after{right:-14px;top:50%;margin-top:-22px}
 .bub.me::after{left:60px;bottom:-14px}
@@ -81,6 +115,10 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
 <body>
 <div id="bg"></div>
 
+<div id="open"><div id="openSvg"></div></div>
+<div id="announce"><div class="new">חדש!</div><h1>האפליקציה של<br>אהלא וסהלא</h1><p>מתרגלים ערבית מדוברת,<br>בכל מקום ובכל זמן</p></div>
+<div id="bookStage"><div id="bookShadow"></div><div id="book"></div></div>
+<div id="bookRing"></div>
 <div id="car">
   <div id="shield"><svg width="1120" height="760" viewBox="0 0 1120 760">
     <defs><linearGradient id="sky" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#9FD6D2"/><stop offset=".55" stop-color="#F6E3C4"/><stop offset="1" stop-color="#F3C99A"/></linearGradient></defs>
@@ -92,17 +130,30 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
     <path d="M520 400 L0 760 M600 400 L1120 760" stroke="#E8E2D0" stroke-width="8" fill="none"/>
     <g id="dashes"></g>
   </svg></div>
+  <svg id="mirror" width="1080" height="1920" viewBox="0 0 1080 1920" style="position:absolute;left:0;top:0">
+    <rect x="532" y="362" width="16" height="62" rx="6" fill="#1B1D2E"/>
+    <rect x="400" y="418" width="280" height="80" rx="38" fill="#1B1D2E"/>
+    <rect x="414" y="430" width="252" height="56" rx="28" fill="#9CC4CB" opacity=".55"/>
+    <g id="mis"></g>
+  </svg>
   <div id="dash"><div class="vent" style="right:120px"></div><div class="vent" style="right:330px"></div></div>
   <div id="mount"></div>
 </div>
 <div id="band"></div>
+<div class="cap" id="cb"><h1>בנויה בדיוק <em style="color:var(--teal)">לפי החוברת</em> 📖</h1><p>כל שיעור בחוברת הוא נושא באפליקציה,<br>עם אותם פעלים ואותם משפטים</p></div>
+<div class="cap" id="c8"><h1>כל הערבית שלכם, <em style="color:var(--teal)">במקום אחד</em></h1></div>
+<div id="pills"><div>🎙️ שומעת כל עיצור</div><div>📖 לפי החוברת</div><div>🚗 מצב נסיעה</div><div>📿 חרוזים ומשחקים</div></div>
 <div class="cap" id="c1"><h1>אומרים בקול</h1><p>רואים פועל בעברית,<br>ואומרים אותו <b>בערבית מדוברת</b></p></div>
 <div class="cap" id="c2"><h1>האפליקציה מקשיבה<br>ל<em>כל עיצור</em></h1><p>ומסמנת באדום את מה<br>שלא נשמע נכון</p></div>
 <div class="cap" id="c3"><h1>ח׳ במקום <em>ח</em>?</h1><p>טיפ שנכתב <b>לדוברי עברית</b>:<br>מה נשמע, ואיך מתקנים</p></div>
 <div class="cap" id="c4"><h1>מנסים שוב — <em style="color:var(--teal)">100!</em></h1><p>ח נקייה, <b>בדיוק כמו שצריך</b></p></div>
 <div class="cap" id="c5"><h1>כל משפט — <em style="color:var(--orange)">חרוז</em> 📿</h1><p>מ־75 ומעלה הוא מזהיב ★<br>ואוספים אותם לאורך כל הדרך</p></div>
 <div class="cap" id="c7"><h1>מצב נסיעה 🚗</h1><p>מתרגלים <b>בלי ידיים</b>: האפליקציה מקריאה,<br>מקשיבה ואומרת את הציון בקול</p></div>
-<div class="cap" id="c6"><h1>ומשחקים: <em style="color:var(--teal)">הפועל זכרון</em></h1><p>הופכים חרוזים ומוצאים זוגות<br>של פעלים בעברית ובערבית</p></div>
+<div class="cap" id="cg"><h1>ועוד דרכים לתרגל</h1></div>
+<div class="cap" id="cw"><h1>📖 מילים חדשות</h1><p>נזכרים, ואז חושפים את המילה</p></div>
+<div class="cap" id="cp"><h1>🧩 זוגות מילים</h1><p>מחברים כל מילה לתעתיק שלה</p></div>
+<div class="cap" id="cs"><h1>💬 סיפור</h1><p>שומעים את כל הסיפור,<br>ואומרים שורה אחרי שורה</p></div>
+<div class="cap" id="cm"><h1>📿 הפועל זכרון</h1><p>הופכים חרוזים ומוצאים זוגות<br>של פעלים בעברית ובערבית</p></div>
 
 <div id="stage">
   <div id="shadow"></div>
@@ -114,15 +165,21 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
   </div>
 </div>
 <div id="ring"></div>
+<div id="grid">
+  <div class="tile" id="tw"><div class="ph"><div class="scr"><img alt=""><div class="isl"></div></div></div><div class="lab">📖 מילים חדשות</div></div>
+  <div class="tile" id="tp"><div class="ph"><div class="scr"><img alt=""><div class="isl"></div></div></div><div class="lab">🧩 זוגות מילים</div></div>
+  <div class="tile" id="ts"><div class="ph"><div class="scr"><img alt=""><div class="isl"></div></div></div><div class="lab">💬 סיפור</div></div>
+  <div class="tile" id="tm"><div class="ph"><div class="scr"><img alt=""><div class="isl"></div></div></div><div class="lab">📿 הפועל זכרון</div></div>
+</div>
 <svg id="wheel" viewBox="0 0 1080 1920"><g id="wheelG">
   <circle cx="170" cy="1930" r="440" fill="none" stroke="#14151F" stroke-width="84"/>
   <circle cx="170" cy="1930" r="440" fill="none" stroke="#2C2F45" stroke-width="10" stroke-dasharray="40 26" opacity=".7"/>
   <path d="M170 1930 L560 1760" stroke="#14151F" stroke-width="70" stroke-linecap="round"/>
 </g></svg>
 <div class="bub app" id="b1">🔊 דיבר — עבר ועתיד</div>
-<div class="bub me" id="b2">🎙️ <span class="ar">حَكَى، يِحْكِي</span></div>
+<div class="bub me" id="b2">🎙️ <span class="tr">חַכַא, יִחְכִּי</span></div>
 <div class="bub ok" id="b3">🔊 מצוין! · 100 ✓</div>
-<div class="wave" id="w1"></div><div class="wave" id="w2"></div>
+
 
 <div id="outro">
   <h2>הערבית של דוברי עברית<br>נשמעת אחרת</h2>
@@ -136,7 +193,15 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
 
 <script>
 const $=id=>document.getElementById(id);
-const INTRO=0.8, CHIPS=3.6, LOGO=8.4;       // before the screen starts; the consonants' card; the animated logo
+// the opening logo, the announcement and the booklet come before the screen; the animated logo closes
+// the logo stays up while the description rises under it
+const OPEN_END=4.2, ANN=[1.0,4.2], BOOK0=4.0, BOOK_LEN=7.0, INTRO=BOOK0+BOOK_LEN, CHIPS=0.5, LOGO=6.8, LOGO_SPEED=1.2;
+const PW=520, PH=716;                         // a booklet page on the frame
+const LEAVES=[["cover.jpg",null],["p53.jpg","p54.jpg"],["p55.jpg","p56.jpg"],["p57.jpg","p58.jpg"],["p59.jpg","p60.jpg"]];
+const ROW={u:.13,v:.293,w:.67,h:.034};         // "דיבר · חכא · יחכי" on page 60 (the last leaf's back), as page fractions
+// the grid: each tile's place, and the example it plays (its marks)
+const TILES=[["tw","w",600,250,-9],["tp","p",130,250,9],["ts","s",600,1060,-9],["tm","m",130,1060,9]];   // id, mark, left, top, rotateY
+const MIS={n:13, gold:4};                     // the misbaha's beads, and how many are gold before the verdict
 const SCREEN={w:609,h:1321,pad:16}, PHONE={w:641,h:1353,cx:220+641/2,cy:504+1353/2};
 let F=[], M={}, END=0, KEYS=[], shown=null, LOGO_ANIMS=[];
 
@@ -161,15 +226,36 @@ const center=b=>[b[0]+b[2]/2,b[1]+b[3]/2];
 async function setup(d){
   F=d.frames; M=d.marks; END=M.end.t;
   // the logo inline, so its own CSS animations can be stepped to each frame's time
-  $("logoSvg").innerHTML=await (await fetch("logo-intro.svg")).text();
+  const svg=await (await fetch("logo-intro.svg")).text();
+  $("logoSvg").innerHTML=svg;
   LOGO_ANIMS=$("logoSvg").getAnimations({subtree:true}); LOGO_ANIMS.forEach(a=>a.pause());
+  // the opening: a second copy (its ids renamed, so the two don't share them), at the animation's end
+  $("openSvg").innerHTML=svg.replace(/id="([\w-]+)"/g,'id="o_$1"').replace(/href="#([\w-]+)"/g,'href="#o_$1"').replace(/url\(#([\w-]+)\)/g,"url(#o_$1)");
+  $("openSvg").getAnimations({subtree:true}).forEach(a=>{ a.pause(); a.currentTime=60000; });
+  const base=document.createElement("div"); base.className="base";        // the left page under every leaf
+  base.innerHTML=`<div class="face" style="background-image:url(assets/p61.jpg)"></div>`; $("book").append(base);
+  LEAVES.forEach(([front,back],i)=>{ const l=document.createElement("div"); l.className="leaf"; l.dataset.z=LEAVES.length-i;
+    l.innerHTML=`<div class="face" style="background-image:url(assets/${front})"><div class="shade"></div></div>`+
+      `<div class="face back" style="${back?`background-image:url(assets/${back})`:"background:#F4F1EA"}"><div class="shade"></div></div>`;
+    $("book").append(l); });
+  await Promise.all([...document.querySelectorAll("#book .face")].map(f=>{ const m=/url\("?([^")]+)/.exec(f.style.backgroundImage);
+    if(!m) return null; const im=new Image(); im.src=m[1]; return im.decode().catch(()=>{}); }));
+  let mis=`<path id="misCord" fill="none" stroke="#B88A3A" stroke-width="4"/>`;
+  for(let i=0;i<MIS.n;i++){ const a=(-70+320*i/(MIS.n-1))*Math.PI/180, x=540+62*Math.cos(a), y=600+95*Math.sin(a);
+    mis+=`<circle class="bead" cx="${x}" cy="${y}" r="14" fill="${i<MIS.gold?"#E2A93B":"#2E9C9C"}" stroke="rgba(0,0,0,.25)" stroke-width="2"/>`+
+         `<circle cx="${x-4}" cy="${y-5}" r="4" fill="#fff" opacity=".6"/>`; }
+  mis+=`<circle id="sparkle" cx="0" cy="0" r="14" fill="none" stroke="#FFD86B" stroke-width="5" opacity="0"/>`+
+       `<circle cx="540" cy="716" r="18" fill="#2E9C9C" stroke="rgba(0,0,0,.25)" stroke-width="2"/>`+
+       `<path d="M540 732 L522 790 M540 732 L534 794 M540 732 L546 794 M540 732 L558 790" stroke="#B88A3A" stroke-width="5" stroke-linecap="round"/>`;
+  $("mis").innerHTML=mis;
   const S=t=>INTRO+t;
   const rest={tx:0,ty:0,k:1,rx:4,ry:-16,rz:0}, away={tx:0,ty:1500,k:.9,rx:20,ry:-30,rz:-6};
+  const SUM={tx:0, ty:150, k:.88, rx:3, ry:-9, rz:0};                         // beside the summary's pills
   const MOUNT={tx:700-PHONE.cx, ty:1290-PHONE.cy, k:.6, rx:0, ry:-6, rz:-3};   // in the car's mount, on the dashboard
   const [lu,lv]=center(M.letter.box), [tu,tv]=M.tip&&M.tip.box&&M.tip.box[3]>0?center(M.tip.box):[.5,.85];
   const [gu,gv]=center(M.great.box);
   KEYS=[
-    [0,away],[INTRO+.4,rest],
+    [0,away],[INTRO-.9,away],[INTRO+.4,rest],
     [S(M.mic.t),{...rest,ry:-8}],
     [S(M.score.t),{...rest,ry:-5,rx:2}],
     [S(M.score.t)+.9,focus(lu,lv,1.5,540,1150,{ry:-4,rx:2})],
@@ -184,8 +270,10 @@ async function setup(d){
     [S(M.drive.t)-.6,focus(.5,.3,1.18,540,1150,{ry:-4,rx:2})],
     [S(M.drive.t)+.5,MOUNT],
     [S(M.driveEnd.t)-.1,{...MOUNT,ry:-2}],
-    [S(M.memory.t)+.8,{...rest,ry:12,rx:3}],
-    [S(END)-.2,{...rest,ry:6,rx:3}],
+    [S(M.w0.t)+.5,{tx:600+175-PHONE.cx, ty:250+370-PHONE.cy, k:350/641, rx:3, ry:-9, rz:0}],   // shrinks into the grid's first tile
+    [S(M.shelf.t)-.3,{...rest,ry:6,rx:3}],
+    [S(M.shelf.t)+.6,SUM],
+    [S(END),{...SUM,ry:-4}],
     [S(END)+.7,away],
   ];
 }
@@ -199,7 +287,29 @@ function stateAt(t){
 function frameAt(s){   // the last screen frame at or before s
   let lo=0, hi=F.length-1; while(lo<hi){ const m=(lo+hi+1)>>1; if(F[m].t<=s) lo=m; else hi=m-1; } return F[lo].file;
 }
+function drawBook(t){
+  const b=t-BOOK0, on=t>BOOK0-.1&&t<INTRO+.3;
+  $("bookStage").style.visibility=on?"visible":"hidden"; $("bookRing").style.opacity=0; if(!on) return;
+  // the booklet: face on and closed (its spine on the right), then lying down, open, flat for a close look at the verb
+  const lay=ease((b-.9)/1.0), flat=ease((b-4.3)/.9), k0=lerp(lerp(1.16,1.22,ease(b/.9)),.92,lay);
+  const k=lerp(k0,1.55,flat), rx=lerp(lerp(0,54,lay),4,flat), rz=lerp(lerp(0,-7,lay),0,flat);
+  const fu=ROW.u+ROW.w/2, fv=ROW.v+ROW.h/2;      // the row comes to the frame's middle
+  const sx=lerp(lerp(540+PW*k0/2,540,lay),540-k*fu*PW,flat), sy=lerp(lerp(1040,1110,lay),1060-k*(fv-.5)*PH,flat);
+  $("book").style.transform=`translate(${sx}px,${sy}px) rotateX(${rx}deg) rotateZ(${rz}deg) scale(${k})`;
+  Object.assign($("bookShadow").style,{left:sx-575+"px",top:sy+PH*k*.32+"px",opacity:lay*(1-flat)});
+  const out=1-ease((t-(INTRO-.45))/.4); $("bookStage").style.opacity=Math.min(ease(b/.4),out);
+  const flips=[[1.7,.8],[2.5,.55],[2.92,.55],[3.34,.55],[3.76,.55]];   // the cover, then the four leaves: start, length
+  [...document.querySelectorAll("#book .leaf")].forEach((l,i)=>{ const [a,d]=flips[i], x=ease((b-a)/d), ang=180*x;
+    l.style.transform=`rotateY(${ang}deg) translateZ(${l.dataset.z*1.2}px)`;
+    l.querySelectorAll(".shade").forEach(s=>s.style.opacity=Math.sin(Math.PI*x)*.9); });
+  // the ring on the row, once the booklet lies flat
+  const r=win(b,5.1,BOOK_LEN-.1,.25);
+  if(r>0){ const x=sx+k*ROW.u*PW, y=sy+k*(ROW.v-.5)*PH, pad=12;
+    Object.assign($("bookRing").style,{left:x-pad+"px",top:y-pad+"px",width:k*ROW.w*PW+2*pad+"px",height:k*ROW.h*PH+2*pad+"px",
+      opacity:Math.min(r,out),transform:`scale(${1+.05*Math.sin(b*7)})`}); }
+}
 async function seek(t){
+  if(scrollX||scrollY) scrollTo(0,0);
   const s=Math.max(0,Math.min(END,t-INTRO)), file=frameAt(s);
   if(file!==shown){ $("scr").src=file; await $("scr").decode().catch(()=>{}); shown=file; }
   const p=stateAt(t);
@@ -209,10 +319,23 @@ async function seek(t){
   $("gloss").style.backgroundPosition=`${p.ry*4}px 0`;
   // the opening logo, then the headlines, each on its stretch
   const S=x=>INTRO+x;
-  const caps=[["c1",0,S(M.score.t)+.2],["c2",S(M.score.t)+.2,S(M.tap.t)+.6],["c3",S(M.tap.t)+.6,S(M.retry.t)+.4],
+  // the opening logo: in, a slow push, out for the announcement
+  const op=Math.min(ease(t/.5),1-ease((t-(OPEN_END-.4))/.5)), up=ease((t-1.0)/.8);   // up: the logo's way to the top
+  $("open").style.opacity=op; $("open").style.visibility=op>0?"visible":"hidden";   // drawn only while shown: the logo is heavy (visibility keeps its animations, display would drop them)
+  $("open").style.transform=`translateY(${-420*up}px) scale(${lerp(.94,1,ease(t/1.0))*lerp(1,.82,up)})`;
+  // the description rises from the bottom to the middle, under the logo, and leaves with it
+  const rise=ease((t-ANN[0]-.2)/.8), an=Math.min(ease((t-ANN[0]-.2)/.4),1-ease((t-(ANN[1]-.4))/.5));
+  $("announce").style.opacity=an; $("announce").style.visibility=an>0?"visible":"hidden";
+  $("announce").style.transform=`translateY(${(1-rise)*820}px)`;
+  drawBook(t);
+  const caps=[["cb",BOOK0+.9,INTRO-.5],["c1",INTRO-.5,S(M.score.t)+.2],["c8",S(M.shelf.t)-.1,S(END)+.4],["c2",S(M.score.t)+.2,S(M.tap.t)+.6],["c3",S(M.tap.t)+.6,S(M.retry.t)+.4],
     ["c4",S(M.retry.t)+.4,S(M.great.t)+1.5],["c5",S(M.great.t)+1.5,S(M.drive.t)-.2],
-    ["c7",S(M.drive.t)-.2,S(M.driveEnd.t)+.2],["c6",S(M.memory.t)+.2,S(END)+.3]];
+    ["c7",S(M.drive.t)-.2,S(M.driveEnd.t)+.2],
+    ["cg",S(M.w0.t)-.1,S(M.w0.t)+1.6],["cw",S(M.w0.t)+1.6,S(M.w1.t)-.2],["cp",S(M.p0.t)+.1,S(M.p1.t)-.2],
+    ["cs",S(M.s0.t)+.1,S(M.s1.t)-.2],["cm",S(M.m0.t)+.1,S(M.m1.t)-.3]];
   for(const [id,a,b] of caps){ const o=win(t,a,b); $(id).style.opacity=o; $(id).style.transform=`translateY(${(1-o)*30}px)`; }
+  const pl=win(t,S(M.shelf.t)+.2,S(END)+.4,.4); $("pills").style.opacity=pl;
+  [...$("pills").children].forEach((d,i)=>{ const x=ease((t-S(M.shelf.t)-.3-i*.15)/.35); d.style.opacity=x; d.style.transform=`scale(${lerp(.7,1,x)})`; });
   // the car: in while the phone flies to the mount, out as it flies back
   const car=win(t,S(M.drive.t)-.5,S(M.driveEnd.t)+.5,.7);
   $("car").style.opacity=car; $("mount").style.opacity=ease((car-.6)/.4);
@@ -227,9 +350,37 @@ async function seek(t){
   const bubs=[["b1",S(M.drive.t)+.5,S(M.turn.t)+.2,60,820],["b2",S(M.turn.t)+.3,S(M.verdict.t)+.1,80,1240],["b3",S(M.verdict.t)+.1,S(M.driveEnd.t)+.3,90,820]];
   for(const [id,a,b,x,y] of bubs){ const o=win(t,a,b,.25);
     Object.assign($(id).style,{left:x+"px",top:y+"px",opacity:o,transform:`scale(${lerp(.7,1,o)})`,transformOrigin:id==="b2"?"20% 100%":"100% 50%"}); }
-  const talk=win(t,S(M.turn.t)+.3,S(M.verdict.t),.2);         // sound waves while the driver speaks
-  ["w1","w2"].forEach((id,i)=>{ const ph=((t*1.4+i*.5)%1), r=60+ph*120;
-    Object.assign($(id).style,{left:150-r+"px",top:1440-r+"px",width:2*r+"px",height:2*r+"px",opacity:talk*(1-ph)}); });
+  // the misbaha swings; on the verdict its next bead turns gold, with a sparkle
+  if(car>0){ $("mis").setAttribute("transform",`rotate(${5*Math.sin(t*2.4)} 540 500)`);
+    const beads=$("mis").querySelectorAll(".bead"), v=S(M.verdict.t), lit=ease((t-v)/.3), b=beads[MIS.gold];
+    b.setAttribute("fill",lit>0?`rgb(${Math.round(lerp(46,226,lit))},${Math.round(lerp(156,169,lit))},${Math.round(lerp(156,59,lit))})`:"#2E9C9C");
+    const sp=ease((t-v)/.7); Object.assign($("sparkle").style,{}); $("sparkle").setAttribute("cx",b.getAttribute("cx")); $("sparkle").setAttribute("cy",b.getAttribute("cy"));
+    $("sparkle").setAttribute("r",14+40*sp); $("sparkle").setAttribute("opacity",t>v?(1-sp):0);
+    let cord=""; beads.forEach((c,i)=>{ cord+=(i?"L":"M")+c.getAttribute("cx")+" "+c.getAttribute("cy"); }); $("misCord").setAttribute("d","M540 498 "+cord.replace(/^M/,"L")+" L540 498 M540 695 L540 716"); }
+  // the grid: it takes over from the phone, then each tile in turn comes forward and plays its example
+  const gv=win(t,S(M.w0.t)+.3,S(M.m1.t)+.15,.3);
+  $("grid").style.visibility=gv>0?"visible":"hidden";
+  let zmax=0;
+  if(gv>0){
+    const zs=TILES.map(([id,k])=>{ const a=S(M[k+"0"].t), b=S(M[k+"1"].t), i0=k==="w"?a+1.5:a;          // the first: after the whole grid has been seen
+      return Math.max(0,Math.min(ease((t-i0)/.5),1-ease((t-(b-.5))/.5))); });
+    zmax=Math.max(...zs);
+    for(let i=0;i<TILES.length;i++){ const [id,k,x,y,ry]=TILES[i], z=zs[i], el=$(id);
+      const a=M[k+"0"].t, b=M[k+"1"].t, img=el.querySelector("img"), f=frameAt(Math.max(a+.5,Math.min(b,s)));   // from inside: the first frames after a cut can still be the scene before
+      if(img.dataset.f!==f){ img.src=f; await img.decode().catch(()=>{}); img.dataset.f=f; }
+      const intro=ease((t-S(M.w0.t)-.25-i*.12)/.35);              // the tiles come in one by one
+      const dx=lerp(0,540-(x+175),z), dy=lerp(0,1160-(y+370),z), k2=lerp(1,1.75,z);
+      el.style.transform=`translate3d(${dx}px,${dy}px,${z*50}px) rotateY(${lerp(ry,0,z)}deg) scale(${k2*lerp(.85,1,intro)})`;
+      el.style.left=x+"px"; el.style.top=y+"px"; el.style.zIndex=z>0?10:1;
+      el.style.opacity=Math.min(intro, 1-.95*Math.max(0,zmax-z)) * gv;
+      el.querySelector(".lab").style.opacity=1-z; }
+  }
+  // the phone goes into the grid's first tile and comes back for the summary
+  const ph=1-win(t,S(M.w0.t)+.45,S(M.m1.t)-.05,.15);
+  $("phone").style.opacity=ph; $("shadow").style.opacity=parseFloat($("shadow").style.opacity||1)*ph;
+  // the band behind the headlines: up a little in the car (the mirror shows), away over the grid's overview
+  $("band").style.transform=`translateY(${-120*car}px)`;
+  $("band").style.opacity=(gv>0?zmax:1)*ease((t-BOOK0-.5)/.4);   // none in the opening: it would fade the top of the logo
   // the ring on the red letter: after the camera has moved in, until the tip opens
   const r=win(t,S(M.score.t)+.9,S(M.tap.t)+.25,.25);
   if(r>0){ const b=M.letter.box, p0=onPhone(b[0],b[1]), w=b[2]*SCREEN.w*p.k, h=b[3]*SCREEN.h*p.k, pad=14;
@@ -238,14 +389,14 @@ async function seek(t){
       transform:`scale(${1+.06*Math.sin((t-S(M.score.t))*7)})`}); }
   else $("ring").style.opacity=0;
   // the consonants, one by one; then the logo, its whole animation
-  const o=Math.min(ease((t-S(END)-.3)/.5),1-ease((t-S(END)-CHIPS+.3)/.4)); $("outro").style.opacity=o;
+  $("outro").style.display="none";   // the consonants' card is out: the summary sums up
+  $("car").style.display=car>0?"block":"none"; $("wheel").style.display=car>0?"block":"none";
   const L=S(END)+CHIPS;
-  $("logo").style.opacity=ease((t-L+.2)/.4);
-  LOGO_ANIMS.forEach(a=>{ a.currentTime=Math.max(0,t-L)*1000; });
-  $("logo").querySelector(".cta").style.opacity=ease((t-L-7.0)/.5);
-  $("logo").querySelector(".cta").style.transform=`translateY(${(1-ease((t-L-7.0)/.5))*24}px)`;
-  [...document.querySelectorAll(".chip")].forEach((c,i)=>{ const x=ease((t-S(END)-.6-i*.12)/.35);
-    c.style.opacity=x; c.style.transform=`scale(${lerp(.6,1,x)})`; });
+  $("logo").style.opacity=ease((t-L+.2)/.4); $("logo").style.visibility=t>L-.2?"visible":"hidden";
+  LOGO_ANIMS.forEach(a=>{ a.currentTime=Math.max(0,t-L)*1000*LOGO_SPEED; });   // the whole animation, a little quicker
+  $("logo").querySelector(".cta").style.opacity=ease((t-L-5.6)/.5);
+  $("logo").querySelector(".cta").style.transform=`translateY(${(1-ease((t-L-5.6)/.5))*24}px)`;
+
 }
 </script>
 </body>

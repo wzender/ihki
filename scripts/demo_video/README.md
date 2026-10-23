@@ -24,11 +24,20 @@ D=scripts/demo_video; .venv/bin/python $D/record.py --takes $D/takes --out $D/ih
   app says "מצוין" and shows no letters to tap; if a scoring change moves it, pick another take in make_takes.py.
 - The app listens by itself after "next"; the recorder plays the take into the fake mic either way.
 
-## The short promo (42 s, a 3D iPhone)
+## The short promo (66 s, a 3D iPhone)
 
-The app's core: a verb said with a Hebrew speaker's mistake (ح said as a "dirty" ח', خ), the red consonant and its
-tip, the retry at 100; collecting beads; a round of "הפועל זכרון"; the consonants Hebrew speakers struggle with (ح ع خ ق ص ط);
-the full animated logo. Silent.
+The opening logo; "חדש! האפליקציה של אהלא וסהלא"; the booklet (its cover face on, then lying open, pages flipping to
+lesson 4's new verbs, the row "דיבר · חכא · יחכי" circled); the app's core: that verb said with a Hebrew speaker's
+mistake (ح said as a "dirty" ח', خ), the red consonant and its tip, the retry at 100; collecting beads; driving mode
+(the phone flies into a car's mount, the conversation in bubbles, a misbaha on the mirror whose next bead turns gold
+on the verdict); a grid of the other ways to practice (lesson 4's new words, pairs, story, and "הפועל זכרון"), each
+coming forward for a short example; the summary beside "הערבית שכבר שלכם"; the animated logo. Silent.
+
+The booklet's images are made once (cover from a photo, pages from the PDF), into `assets/`:
+
+```bash
+python scripts/demo_video/make_book.py <cover photo> "שלב א אוקטובר 2026.pdf" scripts/demo_video/assets   # needs Pillow, pdftoppm
+```
 
 ```bash
 D=scripts/demo_video; .venv/bin/python $D/promo.py --takes $D/takes --out $D/ihki-promo.mp4 --keep

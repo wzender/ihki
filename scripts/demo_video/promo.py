@@ -122,12 +122,9 @@ async def record_screen(url, takes, work):
         # and listens, then says the verdict
         pause()
         await pg.evaluate("store.set('ihki.driveSeen',true)")      # past the first-time explanation
-        await pg.evaluate("pickCat('l4-verbs')"); await wait(600)
-        for _ in range(8):
-            if (await pg.inner_text("#prompt")).strip().startswith("דיבר"):
-                break
-            await pg.click("#nextBtn"); await wait(300)
-        await pg.evaluate("scrollTo(0,0)")
+        # still on "דיבר" (re-opening the topic would start a round without it: it was just passed)
+        await pg.evaluate("cancelAutoNext(); show(cur,true); scrollTo(0,0)")   # fresh: no old score, no countdown to the next verb
+        await wait(400)
         await pg.click("#driveBtn"); await wait(150)
         resume()
         await mark("drive")
@@ -138,32 +135,80 @@ async def record_screen(url, takes, work):
             if (await status()).startswith("תורכם"):
                 break
             await wait(50)
+        for _ in range(200):                     # after its beep the app starts recording: only then the answer
+            if await pg.evaluate("typeof rec!=='undefined'&&rec&&rec.state==='recording'"):
+                break
+            await wait(50)
         resume()
         await mark("turn")
-        await wait(400)
+        await wait(250)
         await pg.evaluate("t=>__demo.play(t)", "c876")
         for _ in range(400):
             if (await status()).startswith("ציון"):
                 break
             await wait(50)
         await mark("verdict")
-        print("  driving:", await status())
+        print("  driving:", await status(), "·", await pg.inner_text("#prompt"))
         await wait(1500)
         await mark("driveEnd")
         pause()
         await pg.evaluate("stopDrive()")
 
-        # off camera: to the games, into "הפועל זכרון" (lesson 1's four verbs)
+        # the grid of other ways to practice, lesson 4: four short examples, each with a still half second at its
+        # start and end (the camera moves in and out on those)
+        async def path():
+            await pg.locator("#nav button", has_text="מסלול").first.click(); await wait(500)
+
+        pause()                                                    # new words: a card, revealed, "ידעתי"
         await pg.locator("button", has_text="חזרה למסלול").first.click(); await wait(600)
-        await pg.locator("#nav button", has_text="משחקים").first.click(); await wait(600)
-        await pg.locator("#vids button", has_text="הפועל זכרון").first.click(); await wait(1200)
-        resume()
-        await mark("memory")
+        sat = pg.locator("button.sat", has_text="מילים חדשות").nth(3)
+        await sat.scroll_into_view_if_needed(); await sat.click(); await wait(1200)
+        resume(); await mark("w0")
+        await wait(2000)                                           # the whole grid first, then the camera moves in
+        await tap("#learnShow", 1000)
+        await tap("#learnKnow", 300)
+        await wait(300); await mark("w1")
+        pause(); await pg.click("#learnClose"); await wait(500)
+
+        sat = pg.locator("button.sat", has_text="התאימו זוגות").nth(3)        # pairs: two matched
+        await sat.scroll_into_view_if_needed(); await sat.click(); await wait(1300)
+        resume(); await mark("p0")
+        await wait(350)
+        ids = await pg.evaluate("[...document.querySelectorAll('.mtile[data-side=he]')].map(t=>t.dataset.id)")
+        for i in ids[:2]:
+            await tap(f'.mtile[data-side="he"][data-id="{i}"]', 180)
+            await tap(f'.mtile[data-side="tr"][data-id="{i}"]', 500)
+        await wait(300); await mark("p1")
+        pause(); await pg.click("#matchClose"); await wait(500)
+
+        sat = pg.locator("button.sat", has_text="סיפור: שכני החדש").first      # a story, read aloud line by line
+        await sat.scroll_into_view_if_needed(); await sat.click(); await wait(1100)
+        await pg.evaluate("scrollTo(0,0)"); await wait(300)
+        resume(); await mark("s0")
         await wait(400)
-        for he, ar in [("פתח", "פַתַח"), ("אכל", "אַכַּל")]:   # two pairs: a glimpse, not the whole game
+        await tap("#hearBtn", 0)
+        await wait(2200); await mark("s1")
+        pause(); await pg.click("#hearBtn"); await wait(300)
+        await pg.locator("button", has_text="חזרה למסלול").first.click(); await wait(600)
+
+        await pg.locator("#nav button", has_text="משחקים").first.click(); await wait(600)   # "הפועל זכרון": two pairs
+        await pg.locator("#vids button", has_text="הפועל זכרון").first.click(); await wait(1200)
+        resume(); await mark("m0")
+        await wait(350)
+        for he, ar in [("פתח", "פַתַח"), ("אכל", "אַכַּל")]:
             await tap(f'.mg-bead.he:has-text("{he}")', 200)
             await tap(f'.mg-bead.ar:has-text("{ar}")', 480)
-        await wait(900)
+        await wait(750); await mark("m1")                        # the camera moves back out to the grid
+
+        # the summary: "the Arabic that's already yours", what this session collected
+        pause()
+        await pg.locator(".mg-close").first.click(); await wait(500)
+        await pg.locator("#nav button", has_text="מסלול").first.click(); await wait(600)
+        await pg.evaluate("scrollTo(0,0)"); await wait(300)
+        await pg.click("#rewardShelf"); await wait(900)
+        resume()
+        await mark("shelf")
+        await wait(4600)
         await mark("end")
         await cdp.send("Page.stopScreencast")
         await asyncio.sleep(0.3)
@@ -180,7 +225,7 @@ async def render(frames, marks, work, out):
 
         async def serve(route):
             path = route.request.url.split("promo.local/", 1)[1].split("?")[0]
-            f = HERE / path if path in ("promo.html", "logo-intro.svg") else work / path
+            f = HERE / path if path == "promo.html" or path.startswith("assets/") else work / path
             if path == "logo-intro.svg":
                 f = HERE.parents[1] / "static" / "logo-intro.svg"
             await route.fulfill(path=str(f))
