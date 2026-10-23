@@ -118,19 +118,29 @@ async def record_screen(url, takes, work):
         print("  retry:", await pg.inner_text("#score"))
         await wait(5200)                         # the 100, then the beads headline over the gold bead
 
-        # driving mode on the same verb: the app reads it out, says "תורכם" and listens, then says the verdict
+        # driving mode on the same verb, fresh: the app reads it out (most of that wait is skipped), says "תורכם"
+        # and listens, then says the verdict
         pause()
         await pg.evaluate("store.set('ihki.driveSeen',true)")      # past the first-time explanation
+        await pg.evaluate("pickCat('l4-verbs')"); await wait(600)
+        for _ in range(8):
+            if (await pg.inner_text("#prompt")).strip().startswith("דיבר"):
+                break
+            await pg.click("#nextBtn"); await wait(300)
+        await pg.evaluate("scrollTo(0,0)")
         await pg.click("#driveBtn"); await wait(150)
         resume()
-        await mark("drive", "#driveBtn")
+        await mark("drive")
+        await wait(1800)
+        pause()
         status = lambda: pg.inner_text("#status")
-        for _ in range(200):
+        for _ in range(300):
             if (await status()).startswith("תורכם"):
                 break
             await wait(50)
+        resume()
         await mark("turn")
-        await wait(500)
+        await wait(400)
         await pg.evaluate("t=>__demo.play(t)", "c876")
         for _ in range(400):
             if (await status()).startswith("ציון"):
@@ -138,7 +148,7 @@ async def record_screen(url, takes, work):
             await wait(50)
         await mark("verdict")
         print("  driving:", await status())
-        await wait(2300)
+        await wait(1500)
         await mark("driveEnd")
         pause()
         await pg.evaluate("stopDrive()")

@@ -40,7 +40,7 @@ from fastapi import BackgroundTasks, Body, Depends, FastAPI, File, Form, HTTPExc
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from .arabic_diacritics import point_arabic
+from .arabic_diacritics import point_arabic, tts_arabic
 from . import lab
 from .auth import AuthUnavailable, ClassConflict, MAX_MONITOR_ATTEMPTS, SupabaseAuth, load_auth
 from .keystore import (CREATE_APP_SECRETS, MAX_LEN as MAX_KEY_LEN, MIGRATE_APP_SECRETS, NAMES as KEY_NAMES, KeyRefused,
@@ -1397,7 +1397,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if app.state.tts is None:
             raise HTTPException(503, "אין TTS בשרת הזה (SAWTAK_API_KEY לא מוגדר)")
         try:
-            data, _ = app.state.tts.wav(point_arabic(*found["variants"][0]), LAB_TTS_VOICES[voice])
+            data, _ = app.state.tts.wav(tts_arabic(*found["variants"][0]), LAB_TTS_VOICES[voice])
         except TTSUnavailable as e:
             raise HTTPException(503, f"ה-TTS לא זמין: {e}")
         return found, data
@@ -1610,7 +1610,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if refs is None:
             return []
         refs.get(phrase["key"], phrase)
-        text, out = point_arabic(*phrase["variants"][0]), []
+        text, out = tts_arabic(*phrase["variants"][0]), []
         for voice in refs.voices:
             try:
                 if not refs.tts.cached(text, voice):
@@ -2578,7 +2578,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         """The model answer spoken by Raef, or by a dialogue line's own voice. 503 tells the page to use the device voice."""
         names = {i: n for n, i in {**VOICES, **LINE_VOICES}.items()}
         phrase = phrase_of(phrase_id)
-        text = point_arabic(*phrase["variants"][0])
+        text = tts_arabic(*phrase["variants"][0])
         if app.state.tts is None:
             raise HTTPException(503, "tts not configured")
         try:
@@ -2702,7 +2702,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         names = {i: n for n, i in {**VOICES, **LINE_VOICES}.items()}
         known: dict[str, dict] = {}  # file name (sha1 of version, voice and text) -> what it says
         for phrase_id, phrase in enumerate(PHRASES):
-            text = point_arabic(*phrase["variants"][0])
+            text = tts_arabic(*phrase["variants"][0])
             for voice in names:
                 info = known.setdefault(Path(tts.cache_key(text, voice)).name,
                                         {"voice_id": voice, "voice": names[voice], "text": text,
@@ -2757,7 +2757,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 return dict(app.state.tts_warm)
             jobs, seen = [], set()
             for phrase in PHRASES:
-                text = point_arabic(*phrase["variants"][0])
+                text = tts_arabic(*phrase["variants"][0])
                 if text not in seen:
                     seen.add(text); jobs.append(text)
             mirror = getattr(tts, "mirror", None)

@@ -168,3 +168,15 @@ def test_an_endless_audio_stream_is_abandoned_and_retryable(tmp_path, monkeypatc
     with pytest.raises(TTSUnavailable) as e:
         tts.wav("مرحبا")
     assert e.value.transient and not list(tmp_path.rglob("*.wav"))
+
+
+def test_the_voice_gets_huwwe_and_hiyye_respelled_but_the_page_does_not():
+    from app.arabic_diacritics import point_arabic, tts_arabic
+
+    ar, ipa = "هوّ اكل وهيّ اكلت", "h u w w e | ʔ a k a l | u h i j j e | ʔ a k l a t"
+    shown, said = point_arabic(ar, ipa), tts_arabic(ar, ipa)
+    assert said.split()[0] == "هوّة" and shown.split()[0] != "هوّة"
+    assert said.split()[1:] == shown.split()[1:2] + ["وُهِيِّي"] + shown.split()[3:]   # "and she" too
+    assert tts_arabic("هوّ؟", "h u w w e") == "هوّة؟"
+    assert tts_arabic("هيّ", "h i j j e") == "هِيِّي"
+    assert tts_arabic("هوّ", "h u") == point_arabic("هوّ", "h u")   # another reading: untouched

@@ -57,17 +57,51 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
 .chip.hot{background:var(--red)} .chip.hot b,.chip.hot span{color:#fff}
 #outro img{width:560px}
 #outro .cta{font:400 54px/1 "Secular One","Assistant",sans-serif;color:#fff;background:var(--navy);padding:26px 56px;border-radius:999px}
+/* driving mode: the phone in a car's mount, drawn flat in the logo's colors */
+#car{position:absolute;inset:0;opacity:0}
+#shield{position:absolute;left:-20px;right:-20px;top:330px;height:760px;border-radius:120px 120px 0 0;overflow:hidden;
+  box-shadow:inset 0 0 0 34px #1B1D2E}
+#shield svg{display:block}
+#dash{position:absolute;left:-60px;right:-60px;top:1040px;bottom:-40px;border-radius:50% 50% 0 0/150px 150px 0 0;
+  background:linear-gradient(180deg,#2B2E4A 0%,#1F2138 30%,#171829 100%);box-shadow:0 -6px 0 #3A3E62 inset}
+#dash .vent{position:absolute;top:120px;width:170px;height:46px;border-radius:23px;background:repeating-linear-gradient(90deg,#111222 0 14px,#25283F 14px 22px)}
+#mount{position:absolute;left:676px;top:1170px;width:48px;height:240px;border-radius:24px;background:#3D405C;opacity:0}
+#wheel{position:absolute;left:0;top:0;width:1080px;height:1920px;pointer-events:none;opacity:0}
+.bub{position:absolute;padding:26px 40px;border-radius:44px;font:700 46px/1.25 "Assistant",sans-serif;opacity:0;
+  box-shadow:0 14px 34px rgba(0,0,0,.25);white-space:nowrap;direction:rtl}
+.bub.app{background:#fff;color:var(--navy)} .bub.me{background:var(--teal);color:#fff}
+.bub.ok{background:#2F7A4A;color:#fff}
+.bub .ar{font:700 58px/1.2 "Noto Naskh Arabic","Amiri",serif}
+.bub::after{content:"";position:absolute;width:44px;height:44px;background:inherit;transform:rotate(45deg);border-radius:8px;z-index:-1}
+.bub.app::after,.bub.ok::after{right:-14px;top:50%;margin-top:-22px}
+.bub.me::after{left:60px;bottom:-14px}
+.wave{position:absolute;border:6px solid rgba(255,255,255,.9);border-radius:50%;opacity:0}
 </style>
 </head>
 <body>
 <div id="bg"></div>
 
+<div id="car">
+  <div id="shield"><svg width="1120" height="760" viewBox="0 0 1120 760">
+    <defs><linearGradient id="sky" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#9FD6D2"/><stop offset=".55" stop-color="#F6E3C4"/><stop offset="1" stop-color="#F3C99A"/></linearGradient></defs>
+    <rect width="1120" height="760" fill="url(#sky)"/>
+    <circle cx="820" cy="300" r="74" fill="#F2A33A" opacity=".9"/>
+    <path d="M0 360 Q160 250 330 330 T700 320 T1120 300 V420 H0Z" fill="#6E8F7A"/>
+    <path d="M0 400 Q220 330 460 390 T1120 370 V440 H0Z" fill="#4F6E5E"/>
+    <path id="road" d="M520 400 H600 L1120 760 H0 Z" fill="#4A4F5C"/>
+    <path d="M520 400 L0 760 M600 400 L1120 760" stroke="#E8E2D0" stroke-width="8" fill="none"/>
+    <g id="dashes"></g>
+  </svg></div>
+  <div id="dash"><div class="vent" style="right:120px"></div><div class="vent" style="right:330px"></div></div>
+  <div id="mount"></div>
+</div>
 <div id="band"></div>
 <div class="cap" id="c1"><h1>אומרים בקול</h1><p>רואים פועל בעברית,<br>ואומרים אותו <b>בערבית מדוברת</b></p></div>
 <div class="cap" id="c2"><h1>האפליקציה מקשיבה<br>ל<em>כל עיצור</em></h1><p>ומסמנת באדום את מה<br>שלא נשמע נכון</p></div>
 <div class="cap" id="c3"><h1>ח׳ במקום <em>ח</em>?</h1><p>טיפ שנכתב <b>לדוברי עברית</b>:<br>מה נשמע, ואיך מתקנים</p></div>
 <div class="cap" id="c4"><h1>מנסים שוב — <em style="color:var(--teal)">100!</em></h1><p>ח נקייה, <b>בדיוק כמו שצריך</b></p></div>
 <div class="cap" id="c5"><h1>כל משפט — <em style="color:var(--orange)">חרוז</em> 📿</h1><p>מ־75 ומעלה הוא מזהיב ★<br>ואוספים אותם לאורך כל הדרך</p></div>
+<div class="cap" id="c7"><h1>מצב נסיעה 🚗</h1><p>מתרגלים <b>בלי ידיים</b>: האפליקציה מקריאה,<br>מקשיבה ואומרת את הציון בקול</p></div>
 <div class="cap" id="c6"><h1>ומשחקים: <em style="color:var(--teal)">הפועל זכרון</em></h1><p>הופכים חרוזים ומוצאים זוגות<br>של פעלים בעברית ובערבית</p></div>
 
 <div id="stage">
@@ -80,6 +114,15 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
   </div>
 </div>
 <div id="ring"></div>
+<svg id="wheel" viewBox="0 0 1080 1920"><g id="wheelG">
+  <circle cx="170" cy="1930" r="440" fill="none" stroke="#14151F" stroke-width="84"/>
+  <circle cx="170" cy="1930" r="440" fill="none" stroke="#2C2F45" stroke-width="10" stroke-dasharray="40 26" opacity=".7"/>
+  <path d="M170 1930 L560 1760" stroke="#14151F" stroke-width="70" stroke-linecap="round"/>
+</g></svg>
+<div class="bub app" id="b1">🔊 דיבר — עבר ועתיד</div>
+<div class="bub me" id="b2">🎙️ <span class="ar">حَكَى، يِحْكِي</span></div>
+<div class="bub ok" id="b3">🔊 מצוין! · 100 ✓</div>
+<div class="wave" id="w1"></div><div class="wave" id="w2"></div>
 
 <div id="outro">
   <h2>הערבית של דוברי עברית<br>נשמעת אחרת</h2>
@@ -122,6 +165,7 @@ async function setup(d){
   LOGO_ANIMS=$("logoSvg").getAnimations({subtree:true}); LOGO_ANIMS.forEach(a=>a.pause());
   const S=t=>INTRO+t;
   const rest={tx:0,ty:0,k:1,rx:4,ry:-16,rz:0}, away={tx:0,ty:1500,k:.9,rx:20,ry:-30,rz:-6};
+  const MOUNT={tx:700-PHONE.cx, ty:1290-PHONE.cy, k:.6, rx:0, ry:-6, rz:-3};   // in the car's mount, on the dashboard
   const [lu,lv]=center(M.letter.box), [tu,tv]=M.tip&&M.tip.box&&M.tip.box[3]>0?center(M.tip.box):[.5,.85];
   const [gu,gv]=center(M.great.box);
   KEYS=[
@@ -137,8 +181,10 @@ async function setup(d){
     [S(M.great.t)+.8,focus(gu,gv,1.3,540,1250,{ry:4,rx:2})],
     [S(M.great.t)+1.6,focus(gu,gv,1.3,540,1250,{ry:2,rx:2})],
     [S(M.great.t)+2.4,focus(.5,.3,1.18,540,1150,{ry:-3,rx:2})],
-    [S(M.memory.t)-.1,focus(.5,.3,1.18,540,1150,{ry:-4,rx:2})],
-    [S(M.memory.t)+.5,{...rest,ry:12,rx:3}],
+    [S(M.drive.t)-.6,focus(.5,.3,1.18,540,1150,{ry:-4,rx:2})],
+    [S(M.drive.t)+.5,MOUNT],
+    [S(M.driveEnd.t)-.1,{...MOUNT,ry:-2}],
+    [S(M.memory.t)+.8,{...rest,ry:12,rx:3}],
     [S(END)-.2,{...rest,ry:6,rx:3}],
     [S(END)+.7,away],
   ];
@@ -164,8 +210,26 @@ async function seek(t){
   // the opening logo, then the headlines, each on its stretch
   const S=x=>INTRO+x;
   const caps=[["c1",0,S(M.score.t)+.2],["c2",S(M.score.t)+.2,S(M.tap.t)+.6],["c3",S(M.tap.t)+.6,S(M.retry.t)+.4],
-    ["c4",S(M.retry.t)+.4,S(M.great.t)+1.5],["c5",S(M.great.t)+1.5,S(M.memory.t)],["c6",S(M.memory.t),S(END)+.3]];
+    ["c4",S(M.retry.t)+.4,S(M.great.t)+1.5],["c5",S(M.great.t)+1.5,S(M.drive.t)-.2],
+    ["c7",S(M.drive.t)-.2,S(M.driveEnd.t)+.2],["c6",S(M.memory.t)+.2,S(END)+.3]];
   for(const [id,a,b] of caps){ const o=win(t,a,b); $(id).style.opacity=o; $(id).style.transform=`translateY(${(1-o)*30}px)`; }
+  // the car: in while the phone flies to the mount, out as it flies back
+  const car=win(t,S(M.drive.t)-.5,S(M.driveEnd.t)+.5,.7);
+  $("car").style.opacity=car; $("mount").style.opacity=ease((car-.6)/.4);
+  $("dash").style.transform=`translateY(${(1-car)*600}px)`;
+  $("wheel").style.opacity=car; $("wheel").style.transform=`translate(${-(1-car)*500}px,${(1-car)*600}px)`;
+  $("shadow").style.opacity=Math.max(0,1-Math.max(0,p.ty)/600)*(1-car);
+  let dashes=""; const speed=1.6, N=7;                       // lane dashes rushing at the viewer
+  for(let i=0;i<N;i++){ const d=((i/N+t*speed/N)%1), z=d*d, y=400+360*z, h=6+70*z, w=4+34*z;
+    dashes+=`<rect x="${560-w/2}" y="${y}" width="${w}" height="${h}" fill="#F4EFE2" opacity="${.4+.6*d}"/>`; }
+  $("dashes").innerHTML=car>0?dashes:"";
+  // the conversation, in bubbles: the app reads out the verb, the driver answers, the app says the verdict
+  const bubs=[["b1",S(M.drive.t)+.5,S(M.turn.t)+.2,60,820],["b2",S(M.turn.t)+.3,S(M.verdict.t)+.1,80,1240],["b3",S(M.verdict.t)+.1,S(M.driveEnd.t)+.3,90,820]];
+  for(const [id,a,b,x,y] of bubs){ const o=win(t,a,b,.25);
+    Object.assign($(id).style,{left:x+"px",top:y+"px",opacity:o,transform:`scale(${lerp(.7,1,o)})`,transformOrigin:id==="b2"?"20% 100%":"100% 50%"}); }
+  const talk=win(t,S(M.turn.t)+.3,S(M.verdict.t),.2);         // sound waves while the driver speaks
+  ["w1","w2"].forEach((id,i)=>{ const ph=((t*1.4+i*.5)%1), r=60+ph*120;
+    Object.assign($(id).style,{left:150-r+"px",top:1440-r+"px",width:2*r+"px",height:2*r+"px",opacity:talk*(1-ph)}); });
   // the ring on the red letter: after the camera has moved in, until the tip opens
   const r=win(t,S(M.score.t)+.9,S(M.tap.t)+.25,.25);
   if(r>0){ const b=M.letter.box, p0=onPhone(b[0],b[1]), w=b[2]*SCREEN.w*p.k, h=b[3]*SCREEN.h*p.k, pad=14;

@@ -17,7 +17,7 @@ import time
 from dataclasses import replace
 from concurrent.futures import Future, ThreadPoolExecutor, wait
 
-from .arabic_diacritics import point_arabic
+from .arabic_diacritics import tts_arabic
 from .scorer import Reference, Scorer, decode_audio
 from .tts import voice_name
 
@@ -44,7 +44,7 @@ class References:
 
     def get(self, phrase_id: int, phrase: dict) -> list[Reference]:
         """The references of a phrase that are ready within the wait."""
-        text = point_arabic(*phrase["variants"][0])
+        text = tts_arabic(*phrase["variants"][0])
         jobs: list[tuple[tuple[int, str], Future]] = []
         with self._lock:
             for n, voice in enumerate(self.voices):

@@ -104,3 +104,31 @@ def point_arabic(arabic: str, ipa: str) -> str:
         return result
 
     return re.sub(r"[^\s]+", point, arabic) if len(arabic.split()) == len(ipa_words) else arabic
+
+
+# Spellings for the voice only, never shown: Sawtak reads the pointed هُوِّ / هِيِّ as "hu" / "hi". It reads these as
+# huwwe / hiyye: هوّة like the -e of قهوة, هِيِّي with the -e as a written yā'. Checked with the phoneme model
+# (the pronoun alone: 58 -> 95 and 65 -> 95).
+_TTS_RESPELL = {("هو", "h u w w e"): "هوّة", ("هي", "h i j j e"): "هِيِّي"}
+
+
+def tts_arabic(arabic: str, ipa: str) -> str:
+    """The text sent to the Arabic voice: point_arabic, with the words it misreads respelled."""
+    ipa_words = [part.strip() for part in ipa.split("|")]
+    if len(arabic.split()) != len(ipa_words):
+        return point_arabic(arabic, ipa)
+    words = iter(ipa_words)
+
+    def say(match: re.Match[str]) -> str:
+        word, ipa_word = match.group(0), next(words)
+        bare = _MARKS.sub("", word)
+        tail = re.search(r"[؟?!.,،]*$", bare).group(0)   # punctuation stuck to the word stays after it
+        core = bare[:len(bare) - len(tail)] if tail else bare
+        if core.startswith("و") and ipa_word.startswith("u "):   # وهيّ "and she": the و, then the pronoun
+            respelled = _TTS_RESPELL.get((core[1:], ipa_word[2:]))
+            if respelled:
+                return "وُ" + respelled + tail
+        respelled = _TTS_RESPELL.get((core, ipa_word))
+        return respelled + tail if respelled else _point_word(word, ipa_word)
+
+    return re.sub(r"[^\s]+", say, arabic)

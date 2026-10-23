@@ -68,12 +68,12 @@ def phones(result: dict) -> list[dict]:
 
 def cached_refs(scorer, tts):
     """phrase -> [Reference] from the TTS cache only; never calls the provider."""
-    from app.arabic_diacritics import point_arabic
+    from app.arabic_diacritics import tts_arabic
     from app.tts import RAEF_VOICE_ID
     memo = {}
 
     def get(phrase: dict) -> list:
-        text = point_arabic(*phrase["variants"][0])
+        text = tts_arabic(*phrase["variants"][0])
         if text not in memo:
             memo[text] = []
             if tts is not None and tts.cached(text, RAEF_VOICE_ID):
