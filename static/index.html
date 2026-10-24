@@ -3653,7 +3653,7 @@ function drawPath(stay){
   for(let k=0;k<LESSONS.length;k++){
     const l=LESSONS[k];
     if(l.level!==level){   // a level opens with its name and how many of its lessons are ready
-      level=l.level; const of=LESSONS.filter(x=>x.level===level), h=mark("level",levelOf(l).name,"h2");
+      level=l.level; const of=LESSONS.filter(x=>x.level===level), h=mark("level","","h2"); setTr(h,levelOf(l).name);
       h.style.top=y+"px"; h.append(mark("",`${of.filter(x=>!x.soon).length} מתוך ${of.length} שיעורים מוכנים`,"small")); box.append(h); y+=60;
     }
     if(l.soon){   // the lessons still to come, a run of them in one banner
@@ -3669,7 +3669,8 @@ function drawPath(stay){
     const head=document.createElement("button");
     const foldable=whole.over&&l.id!==pin, folded=foldable&&!unfolded.has(l.id);   // a finished lesson is one line, until it is opened
     head.className="chapter"+(whole.gold?" gold":""); head.dataset.lesson=l.id; head.style.top=y+"px"; head.style.setProperty("--p",`${whole.n?whole.done/whole.n*100:0}%`);
-    head.append(mark("",l.name),count(whole),document.createElement("i")); head.title=`${l.name}: תורגלו ${whole.done} מתוך ${whole.n}`;
+    const lessonName=mark(""); setTr(lessonName,l.name);
+    head.append(lessonName,count(whole),document.createElement("i")); head.title=`${l.name}: תורגלו ${whole.done} מתוך ${whole.n}`;
     if(foldable){
       head.classList.add("foldable"); if(folded) head.classList.add("folded");
       head.append(mark("fold",folded?"הצגה ▾":"הסתרה ▴","small")); head.setAttribute("aria-expanded",String(!folded));
@@ -3704,7 +3705,7 @@ function drawPath(stay){
         dot.before(tag); if(cur) b.setAttribute("aria-current","step");   // the page opens on the topic to do now
       }
       const way=c.name.match(WAY);   // "משפטים: עברית ← ערבית א'" is drawn as "משפטים א'" and a chip with the direction
-      label.append(mark("",way?way[1]+way[4]:c.name,"b"));
+      const topicName=mark("","","b"); setTr(topicName,way?way[1]+way[4]:c.name); label.append(topicName);
       if(way) label.append(mark("way"+(way[2]==="ערבית"?" read":""),`${SHORT[way[2]]||way[2]}\u00a0←\u00a0${SHORT[way[3]]||way[3]}`));
       const did=c.write?"נכתבו":c.learn?"נלמדו":c.match?"הותאמו":"תורגלו";
       label.append(mine&&t.over?mark("","✓ שיעורי הבית הושלמו 🎉","small"):count(t,did)); b.append(label);
