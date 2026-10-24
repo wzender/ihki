@@ -93,3 +93,64 @@ def test_gone_subscription_is_deleted(monkeypatch):
     monkeypatch.setattr("pywebpush.webpush", boom)
     assert p.send(rows[0], {"title": "t"}) is False
     assert p.auth.rows == []
+
+
+def test_message_is_checked_and_tagged_apart():
+    m = pushes.message("  אין   שיעור מחר ", "נתראה ביום ראשון")
+    assert m["title"] == "אין שיעור מחר" and m["tag"].startswith("msg-") and m["url"] == "/"
+    for title, body in (("", "x"), ("x" * 61, ""), ("ok", "x" * 241)):
+        with pytest.raises(ValueError):
+            pushes.message(title, body)
+
+
+# the admin's message, through the app
+from test_lab import FakeAuth as LabAuth   # noqa: E402
+
+
+class BroadcastAuth(LabAuth):
+    secret = "sb_secret_x"
+
+    def __init__(self):
+        super().__init__()
+        self.events = []
+        self.subs = [{"endpoint": f"https://p/{e}", "email": e, "p256dh": "k", "auth": "a"}
+                     for e in ("s@b.c", "s2@b.c", "other@b.c", "t@b.c")]
+
+    def classes(self, fresh=False):
+        return [{"id": 1, "name": "א1", "emails": ["s@b.c", "s2@b.c"], "teachers": ["t@b.c"], "lessons": []},
+                {"id": 2, "name": "ב2", "emails": ["nobody@b.c"], "lessons": []}]
+
+    def _admin(self, path, method="GET", body=None, prefer=""):
+        return self.subs if method == "GET" else None
+
+    def log_event(self, kind, user, label="", details=None):
+        self.events.append((kind, label, details))
+
+
+def test_admin_sends_to_everyone_or_to_a_class(monkeypatch, tmp_path):
+    from fastapi.testclient import TestClient
+    from test_scoring import emissions, scorer_for
+    from app.main import create_app
+    from app.tts import SawtakTTS
+    from app.tutor import Tutor
+
+    async def no_loop(*a, **k):
+        return None
+    monkeypatch.setenv("VAPID_PRIVATE_KEY", pushes.new_private_key())
+    monkeypatch.setattr(pushes, "loop", no_loop)
+    sent = []
+    monkeypatch.setattr(pushes.Push, "send", lambda self, row, msg: sent.append((row["email"], msg["title"])) or True)
+    auth = BroadcastAuth()
+    teacher, student = {"Authorization": "Bearer teacher"}, {"Authorization": "Bearer student"}
+    with TestClient(create_app(scorer_for(emissions(["ħ"])), SawtakTTS("k", cache_dir=tmp_path), auth=auth,
+                               tutor=Tutor(object()))) as c:
+        assert c.get("/api/push/audience", headers=teacher).json() == {"all": 4, "classes": {"א1": 3, "ב2": 0}}
+        r = c.post("/api/push/broadcast", headers=teacher, json={"title": "שלום", "body": "", "class": "א1"})
+        assert r.json() == {"devices": 3, "sent": 3}
+        assert sorted(e for e, _ in sent) == ["s2@b.c", "s@b.c", "t@b.c"]
+        sent.clear()
+        assert c.post("/api/push/broadcast", headers=teacher, json={"title": "לכולם"}).json() == {"devices": 4, "sent": 4}
+        assert c.post("/api/push/broadcast", headers=teacher, json={"title": "x", "class": "אין"}).status_code == 404
+        assert c.post("/api/push/broadcast", headers=teacher, json={"title": ""}).status_code == 400
+        assert c.post("/api/push/broadcast", headers=student, json={"title": "x"}).status_code == 403
+    assert [e[0] for e in auth.events] == ["push", "push"]

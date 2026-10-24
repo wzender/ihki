@@ -127,6 +127,18 @@ class Push:
             log.warning("push to %s failed: %s", row.get("email"), e)
         return False
 
+    def every(self) -> list[dict]:
+        """Every subscription (an admin's message goes to some of them)."""
+        return self._rows()
+
+    def send_many(self, rows: list[dict], message: dict) -> int:
+        """One notification to each, a few at a time; how many went."""
+        from concurrent.futures import ThreadPoolExecutor
+        if not rows:
+            return 0
+        with ThreadPoolExecutor(max_workers=min(8, len(rows))) as pool:
+            return sum(pool.map(lambda r: self.send(r, message), rows))
+
     def mine(self, email: str) -> list[dict]:
         return self._rows("&" + urllib.parse.urlencode({"email": f"eq.{email.lower()}"}))
 
@@ -142,6 +154,17 @@ class Push:
                 sent += 1
                 self._sent(row["endpoint"], day)
         return sent
+
+
+MAX_TITLE, MAX_BODY = 60, 240
+
+
+def message(title: str, body: str) -> dict:
+    """An admin's notification; ValueError when it is empty or too long. Each has its own tag, so one does not replace another."""
+    title, body = " ".join(title.split()), body.strip()
+    if not title or len(title) > MAX_TITLE or len(body) > MAX_BODY:
+        raise ValueError(f"a title of 1-{MAX_TITLE} characters, and a message of up to {MAX_BODY}")
+    return {"title": title, "body": body, "url": "/", "tag": f"msg-{datetime.now().timestamp():.0f}"}
 
 
 def payload(videos: list[dict]) -> dict:

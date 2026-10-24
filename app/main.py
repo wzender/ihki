@@ -2250,6 +2250,47 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                                                        "title": "🔔 התזכורות פועלות"}
         return {"devices": len(rows), "sent": sum(p.send(r, message) for r in rows)}
 
+    def push_audience(a: SupabaseAuth, actor: dict | None, rows: list[dict]) -> tuple[dict[str, list[dict]], list[dict]]:
+        """An admin's reach: the subscriptions of each class they manage (its students and teachers), and those of
+        "everyone": every subscription for a developer, else those of their classes together."""
+        by_class = {}
+        for c in managed_classes(a, actor, fresh=True):
+            people = set(c["emails"]) | {e.lower() for e in c.get("teachers") or []}
+            by_class[c["name"]] = [r for r in rows if r["email"] in people]
+        developer = not actor or "developer" in actor.get("roles", ()) or not hasattr(a, "access_for")
+        everyone = rows if developer else list({r["endpoint"]: r for v in by_class.values() for r in v}.values())
+        return by_class, everyone
+
+    @app.get("/api/push/audience")
+    def push_audience_counts(a: SupabaseAuth = Depends(admin_only), actor: dict | None = Depends(signed_in)):
+        """How many devices get an admin's message: {"all": n, "classes": {name: n}}."""
+        p = push_on()
+        try:
+            by_class, everyone = push_audience(a, actor, p.every())
+        except AuthUnavailable as e:
+            raise HTTPException(503, str(e))
+        return {"all": len(everyone), "classes": {name: len(v) for name, v in by_class.items()}}
+
+    @app.post("/api/push/broadcast")
+    def push_broadcast(body: dict = Body(...), a: SupabaseAuth = Depends(admin_only), actor: dict | None = Depends(signed_in)):
+        """An admin's notification ({"title", "body", "class": a class's name, or "" for everyone}) sent now."""
+        p = push_on()
+        try:
+            msg = pushes.message(str(body.get("title") or ""), str(body.get("body") or ""))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        target = str(body.get("class") or "")
+        try:
+            by_class, everyone = push_audience(a, actor, p.every())
+        except AuthUnavailable as e:
+            raise HTTPException(503, str(e))
+        if target and target not in by_class:
+            raise HTTPException(404, "no such class")
+        rows = by_class[target] if target else everyone
+        sent = p.send_many(rows, msg)
+        a.log_event("push", actor, f"{msg['title']} → {target or 'כולם'}", {"class": target, "devices": len(rows), "sent": sent})
+        return {"devices": len(rows), "sent": sent}
+
     @app.get("/api/library", dependencies=[Depends(require("library.view"))])
     def library(user: dict | None = Depends(signed_in)):
         """The video library, which stands outside the path and is one for every level and class: id, title, url

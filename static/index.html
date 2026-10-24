@@ -326,6 +326,13 @@ body.memory-game{overflow:hidden}
 #vids button.back{display:inline-flex;align-self:flex-start;gap:6px;padding:6px 12px;border-radius:10px;background:var(--olive);border-color:var(--olive);color:var(--on-olive);font:700 15px var(--f-body)}
 #dailyDlg{width:min(92vw,380px)}
 #pushDlg{width:min(92vw,380px);text-align:center}
+#notifyDlg{width:min(92vw,440px)}
+.notify-form{display:flex;flex-direction:column;gap:12px}
+.notify-form label{display:flex;flex-direction:column;gap:4px;font:700 14px var(--f-body)}
+.notify-form :is(select,input,textarea){padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:500 16px/1.4 var(--f-body);resize:vertical}
+.notify-form :is(select,input,textarea):focus{outline:2px solid var(--olive);outline-offset:1px}
+.notify-note{margin:0;min-height:1.3em;color:var(--muted);font:600 14px/1.4 var(--f-body)}
+.notify-note.ok{color:var(--olive)}
 #pushDlg .push-bell{font-size:44px;line-height:1;margin:4px 0 8px}
 #pushDlg h2{font:400 24px/1.2 var(--f-display);margin:0 0 6px}
 #pushDlg .row{justify-content:center}
@@ -955,6 +962,7 @@ body.manage #manage{width:100%;max-width:none}
 .wrote{margin:0;padding:0 16px 8px;padding-inline-start:3em;color:var(--muted);font-size:15px}
 #mClasses{display:flex;flex-direction:column;gap:inherit}
 #mClasses>.btn{align-self:flex-start}
+#mClasses>.mbar{display:flex;flex-wrap:wrap;gap:8px}
 #mClasses .card>.btn{align-self:flex-start}
 /* a student's own screen takes the class's place in the panel: the way back, their figures, their lessons, their sentences */
 #manage.student :is(#mTabs,#mHead,#mLessons,#mRoster),#manage:not(.student) #mStudent{display:none}
@@ -1721,6 +1729,16 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
   <div class="picks" id="picks"></div>
   <button class="btn" id="pickMates" hidden>התלמידים בכיתה</button>
 </dialog>
+<dialog id="notifyDlg" aria-labelledby="notifyTitle">
+  <div class="dlg-head"><h2 id="notifyTitle">שליחת התראה<small>מגיעה לטלפון או למחשב של מי שהפעיל תזכורות</small></h2><button class="btn" id="notifyClose">סגירה</button></div>
+  <form id="notifyForm" class="notify-form">
+    <label>למי<select id="notifyTo"></select></label>
+    <label>כותרת<input id="notifyHead" maxlength="60" required placeholder="למשל: אין שיעור מחר"></label>
+    <label>הודעה<textarea id="notifyBody" maxlength="240" rows="3" placeholder="לא חובה"></textarea></label>
+    <p class="notify-note" id="notifyNote" aria-live="polite"></p>
+    <div class="row"><button class="btn primary" id="notifySend">שליחה</button></div>
+  </form>
+</dialog>
 <dialog id="pushDlg" aria-labelledby="pushTitle" aria-describedby="pushText">
   <div class="push-bell" aria-hidden="true">🔔</div>
   <h2 id="pushTitle">תזכורת לסרטון היומי</h2>
@@ -2079,6 +2097,40 @@ function pushRow(){
     finally{ btn.disabled=false; }
   };
   return row;
+}
+/* An admin's notification, to everyone they manage or to one class (POST /api/push/broadcast). The counts are of the
+   devices that turned the reminders on. */
+async function openNotify(classes){
+  const dlg=$("notifyDlg"), to=$("notifyTo"), note=$("notifyNote"), send=$("notifySend"), head=$("notifyHead"), body=$("notifyBody");
+  let counts={all:0,classes:{}};
+  const draw=()=>{
+    const keep=to.value; to.replaceChildren();
+    const opt=(value,label)=>{ const o=document.createElement("option"); o.value=value; o.textContent=label; to.append(o); };
+    opt("",`כל המשתמשים · ${counts.all} מכשירים`);
+    for(const c of classes) opt(c.name,`כיתת ${c.name} · ${counts.classes[c.name]??0} מכשירים`);
+    to.value=[...to.options].some(o=>o.value===keep)?keep:"";
+  };
+  note.className="notify-note"; note.textContent="טוען…"; send.disabled=true; draw(); dlg.showModal(); head.focus();
+  try{
+    const res=await api("/api/push/audience"), d=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(d.detail||res.status);
+    counts=d; draw(); note.textContent=""; send.disabled=false;
+  }catch(e){ note.textContent="לא ניתן לשלוח כרגע: "+e.message; }
+  $("notifyClose").onclick=()=>dlg.close();
+  $("notifyForm").onsubmit=async ev=>{
+    ev.preventDefault(); if(!head.value.trim()) return head.focus();
+    const n=to.value?counts.classes[to.value]??0:counts.all, who=to.value?`כיתת ${to.value}`:"כל המשתמשים";
+    if(!n){ note.textContent=`ב${who} עוד אף אחד לא הפעיל התראות.`; return; }
+    if(!confirm(`לשלוח את ההתראה ל${who} (${n} מכשירים)?`)) return;
+    send.disabled=true; note.className="notify-note"; note.textContent="שולח…";
+    try{
+      const res=await api("/api/push/broadcast",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:head.value,body:body.value,class:to.value})}), d=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(d.detail||res.status);
+      note.className="notify-note ok"; note.textContent=`נשלח ל-${d.sent} מתוך ${d.devices} מכשירים ✓`+(d.sent<d.devices?" (מכשירים שלא קיבלו כנראה ביטלו את ההתראות)":"");
+      head.value=body.value="";
+    }catch(e){ note.textContent="השליחה נכשלה: "+e.message; }
+    finally{ send.disabled=false; }
+  };
 }
 /* On entering, once: a prompt to turn the reminder on. "Not now" asks again after PUSH_AGAIN days; it waits for any
    dialog already open (choosing a class) to close. */
@@ -5460,7 +5512,7 @@ function drawSystemActivity(box){
   if(systemActivityError){ card.append(mark("note","לא ניתן לטעון פעילות אחרונה: "+systemActivityError,"p")); return; }
   if(!SYSTEM_ACTIVITY){ card.append(mark("note","טוען פעילות…","p")); return; }
   if(SYSTEM_ACTIVITY.setup){ const code=mark("",SYSTEM_ACTIVITY.setup,"code"); code.dir="ltr"; card.append(mark("setup","כדי להתחיל לשמור פעילות, יש ליצור את הטבלה system_events ב־Supabase:","p"),code); return; }
-  const events=SYSTEM_ACTIVITY.events||[], labels={exercise:["🎙️","הכנת תרגילים"],game:["🎮","משחקים"],permission:["🔐","שינוי הרשאות"],content:["➕","הוספת תכנים"]}, feed=mark("system-feed","");
+  const events=SYSTEM_ACTIVITY.events||[], labels={exercise:["🎙️","הכנת תרגילים"],game:["🎮","משחקים"],permission:["🔐","שינוי הרשאות"],content:["➕","הוספת תכנים"],push:["🔔","שליחת התראה"]}, feed=mark("system-feed","");
   if(!events.length){ card.append(mark("note","עדיין לא נרשמה פעילות.","p")); return; }
   const difficult=new Map;
   for(const event of events){
@@ -5759,7 +5811,8 @@ function drawClasses(classes){
     top.append(mark("","עוד אין כיתות","h2"),mark("","עד שנפתחת כיתה, כל חשבון יכול להיכנס, ותחת „תלמידים” מופיע כל מי שנכנס. מהכיתה הראשונה נכנסים רק התלמידים שבכיתות והמורים.","p"));
     none.append(top); box.append(none);
   }
-  const add=mark("btn primary","+ כיתה חדשה","button"); add.onclick=newClass; box.append(add);
+  const add=mark("btn primary","+ כיתה חדשה","button"), notify=mark("btn","🔔 שליחת התראה","button"), bar=mark("mbar","");
+  add.onclick=newClass; notify.onclick=()=>openNotify(classes); bar.append(add,notify); box.append(bar);
   for(const c of classes){
     const card=mark("card",""), top=mark("chead",""), name=mark("","","h2"), n=document.createElement("bdi"), edit=mark("btn","עריכה","button"), del=mark("btn danger","מחיקה","button");
     n.textContent=c.name; name.append(n); edit.onclick=()=>editClass(c); del.onclick=()=>deleteClass(c); top.append(name,edit,del);
