@@ -15,8 +15,9 @@ SYMS = ["<pad>", "w", "eː", "n", "i", "l", "ħ", "a", "m", "aː", "χ", "h", "k
 VOCAB = {s: i for i, s in enumerate(SYMS)}
 
 
-def emissions(phones, frames=3, gap=2, peak=0.9):
-    """Log-posteriors where each phone peaks for `frames` frames, separated by blanks."""
+def emissions(phones, frames=3, gap=2, peak=0.9, long_by=2):
+    """Log-posteriors where each phone peaks for `frames` frames (a long vowel `long_by` times as many), separated
+    by blanks."""
     V = len(SYMS)
     rows = []
 
@@ -28,7 +29,7 @@ def emissions(phones, frames=3, gap=2, peak=0.9):
     for _ in range(gap):
         rows.append(row("<pad>", 0.95))
     for ph in phones:
-        for _ in range(frames):
+        for _ in range(frames * long_by if "ː" in ph else frames):   # a long vowel is held longer (3.8)
             rows.append(row(ph, peak))
         for _ in range(gap):
             rows.append(row("<pad>", 0.95))
@@ -150,8 +151,8 @@ def test_k_for_qaf_is_rural_and_correct():
 
 # ---------- dialects and Hebrew-speaker rules (docs/scoring-dialects-plan.md) ----------
 
-def custom_scorer(extra, phones, frames=3, gap=2, peak=0.9):
-    """A scorer over SYMS plus `extra`, hearing `phones` cleanly."""
+def custom_scorer(extra, phones, frames=3, gap=2, peak=0.9, long_by=2):
+    """A scorer over SYMS plus `extra`, hearing `phones` cleanly (a long vowel held `long_by` times as long)."""
     syms = SYMS + [s for s in extra if s not in SYMS]
     vocab = {s: i for i, s in enumerate(syms)}
 
@@ -162,7 +163,7 @@ def custom_scorer(extra, phones, frames=3, gap=2, peak=0.9):
 
     rows = [row("<pad>", 0.95)] * gap
     for ph in phones:
-        rows += [row(ph, peak)] * frames + [row("<pad>", 0.95)] * gap
+        rows += [row(ph, peak)] * (frames * long_by if "ː" in ph else frames) + [row("<pad>", 0.95)] * gap
     return Scorer(lambda wav: np.log(np.array(rows)), Vocab(vocab))
 
 
@@ -464,7 +465,7 @@ def onset_logp(lead, competitor_frames=1, target_peak=.10, competitor="j"):
         rows += [row(ph, .9)] * 3 + [row("<pad>", .95)] * 2
     rows += [row(competitor, .23)] * competitor_frames + [row("tˤ", target_peak), row("<pad>", .95)]
     for ph in ["aː", "w", "l", "i", "t", "n", "a"]:
-        rows += [row(ph, .9)] * 3 + [row("<pad>", .95)] * 2
+        rows += [row(ph, .9)] * (6 if ph == "aː" else 3) + [row("<pad>", .95)] * 2
     logp = np.log(np.array(rows))
     return Scorer(lambda wav: logp, Vocab(vocab)), logp
 
@@ -2236,8 +2237,8 @@ def test_teacher_trace_follows_every_stage():
     assert t["config"]["flag_below"] == 50 and t["config"]["leniency"] == 0.35 and t["variants"][0]["chosen"]
     assert t["config"]["word_min_weight"] == 0.35
     h = next(x for x in t["tokens"] if x["ipa"] == "ħ")
-    assert [s["stage"] for s in h["stages"]] == ["gop", "exemption", "insertion", "baseline", "calibration"]
-    assert h["stages"][0]["score"] < 50 and h["stages"][4]["applied"] and h["final"] == 60
+    assert [s["stage"] for s in h["stages"]] == ["gop", "exemption", "insertion", "length", "baseline", "calibration"]
+    assert h["stages"][0]["score"] < 50 and h["stages"][5]["applied"] and h["final"] == 60
     assert h["competitor"] == "χ" and h["rule"]["severity"] == 3 and not h["flagged"]
     assert t["sentence"]["final"] == round(0.5 * t["sentence"]["phone_mean"] + 0.5 * t["sentence"]["word_mean"])
 
@@ -2650,3 +2651,65 @@ def test_a_slow_cache_count_does_not_hold_up_generation(monkeypatch, tmp_path):
     stats = tts.cache_stats()                                        # meanwhile a panel refresh gets the last count
     assert time.monotonic() - t0 < .5 and stats["files"] == 7 and stats["misses"] == 1
     counter.join()
+
+
+# ---------- 3.8: a long vowel said short, measured by its duration ----------
+
+ZAMAN = {"variants": [("زمان", "z a m aː n")]}
+
+
+def timed_scorer(extra, timed, gap=2, peak=0.9):
+    """A scorer over SYMS plus `extra`, hearing each (phone, frames) of `timed` cleanly, `gap` blanks apart."""
+    syms = SYMS + [s for s in extra if s not in SYMS]
+    vocab = {s: i for i, s in enumerate(syms)}
+
+    def row(sym, p):
+        r = np.full(len(syms), (1 - p) / (len(syms) - 1))
+        r[vocab[sym]] = p
+        return r
+
+    rows = [row("<pad>", 0.95)] * gap
+    for ph, n in timed:
+        rows += [row(ph, peak)] * n + [row("<pad>", 0.95)] * gap
+    return Scorer(lambda wav: np.log(np.array(rows)), Vocab(vocab))
+
+
+def zaman(long_frames):
+    return timed_scorer(["z"], [("z", 3), ("a", 3), ("m", 3), ("aː", long_frames), ("n", 3)])
+
+
+def test_long_vowel_said_short_is_a_mistake():
+    held = zaman(8).score(None, ZAMAN)
+    assert not held["tips"] and held["score"] >= 95
+    r = zaman(2).score(None, ZAMAN)                   # zaman: the alef no longer than the short a
+    p = r["words"][0]["phonemes"][3]
+    assert p["ipa"] == "aː" and p["flagged"] and p["score"] <= 60 and p["heard"] == "a" and p["shortened"] < 1
+    assert [t["key"] for t in r["tips"]] == ["vowel_length"] and r["tips"][0]["severity"] == 1
+    assert "החזיקו" in r["tips"][0]["text"] and r["score"] < held["score"] - 10
+    letter = next(l for l in r["words"][0]["letters"] if "א" in l["t"])
+    assert letter["score"] <= 60 and "החזיקו" in letter["tip"]
+
+
+def test_vowel_length_check_spares_short_vowels_edges_and_can_be_switched_off():
+    # a short vowel is never judged by length, however short; nor a long vowel that ends the recording
+    assert not timed_scorer(["z"], [("z", 3), ("a", 1), ("m", 3), ("aː", 8), ("n", 3)]).score(None, ZAMAN)["tips"]
+    r = timed_scorer([], [("l", 3), ("a", 3), ("aː", 1)]).score(None, {"variants": [("لا", "l a aː")]})
+    assert not any(t["key"] == "vowel_length" for t in r["tips"])
+    s = zaman(2)
+    s.set_disabled({"rule_vowel_length"})
+    r = s.score(None, ZAMAN)
+    assert not r["tips"] and r["words"][0]["phonemes"][3]["score"] >= 90
+
+
+def test_vowel_length_stage_is_in_the_trace():
+    tr = zaman(2).score(None, ZAMAN, diagnostics=True)["trace"]
+    stage = next(s for s in tr["tokens"][3]["stages"] if s["stage"] == "length")
+    assert stage["applied"]["ratio"] < stage["applied"]["min_ratio"] and stage["score"] <= 60
+    assert tr["config"]["vowel_length"]["score_cap"] == 60
+
+
+def test_long_vowel_as_short_in_the_native_reference_is_forgiven():
+    ref = zaman(2).reference(None, ZAMAN)                 # the native voice says it as short
+    r = zaman(2).score(None, ZAMAN, [ref])
+    assert not r["tips"] and r["words"][0]["phonemes"][3]["score"] == 100
+    assert "shortened" not in r["words"][0]["phonemes"][3]

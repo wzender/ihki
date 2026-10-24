@@ -307,7 +307,7 @@ create table public.tutors (
 alter table public.tutors enable row level security;   -- no policy: only the secret key reads and writes it
 ```
 
-Under each score a teacher or a tutor gets an optional note and the button "🚩 אמרתי נכון, המערכת טעתה". Pressing it sends the recording to `POST /api/flags` (teachers and tutors only), which keeps the recording in the private `flags` Storage bucket and the structured diagnosis in the table `flags`, written with `SUPABASE_SECRET_KEY`. The row holds:
+Under each score a teacher or a tutor gets an optional note and the button "🚩 אמרתי נכון, המערכת טעתה". Pressing it sends the recording to `POST /api/flags` (teachers and tutors only), which keeps the structured diagnosis in the table `flags`, written with `SUPABASE_SECRET_KEY`. By default the recording is kept in the private Supabase `flags` Storage bucket. When `AUDIO_BUCKET` names a private Hugging Face Storage Bucket (and the `HF_TOKEN` Space secret can write it), new recordings go only below `AUDIO_BUCKET_PREFIX/flags`. Reads fall back to Supabase for existing recordings. Once, recordings older than the fixed `AUDIO_MIGRATE_BEFORE` boundary are copied to HF and only successfully copied objects are deleted from Supabase; a completion marker prevents later startup scans. Its default is `2026-10-17T00:00:00+03:00`, preserving the seven days that were current when this migration was introduced; that boundary does not move. The row holds:
 
 - who and what: `email`, `cat`, `phrase`, `he`, `note`;
 - the answer the scorer matched (`ar`, `ipa`), its free decode (`heard_ipa`), `score` and `unrelated`;
@@ -380,7 +380,7 @@ The lab opens on **מבחן**, a test that walks one speaker through the whole l
 
 The lab has two more tabs. **דיווחים** runs the confirmed score reports through the current scorer, and shows for each sound a teacher marked in ניטור as wrongly flagged whether it is still flagged. **תוצאות** is the benchmark of the lab's recordings as they were scored, per sound: how often a sound said right was flagged (false rejections), how often a planted mistake was caught (detection), the mean score, what was heard instead, and how many confirmed reports name the sound. To rescore everything with the current model and rules and compare against the stored numbers, run `python scripts/bench.py` (`--flags` adds the confirmed reports, `--no-baseline` scores without the TTS baseline, `--speaker` keeps one speaker). Run it before shipping a scoring or model change: false rejections should go down without detection going down with them.
 
-Recordings go to the table `lab_samples` and the private storage bucket `lab`, written with `SUPABASE_SECRET_KEY`. Until the table exists, the lab still scores but keeps nothing, and shows this SQL to run once:
+Recordings go to the table `lab_samples` and, by default, the private Supabase storage bucket `lab`, written with `SUPABASE_SECRET_KEY`. With `AUDIO_BUCKET`, new recordings go only below `AUDIO_BUCKET_PREFIX/lab`; the optional fixed-cutoff migration first copies older recordings to Hugging Face and only then removes their Supabase copies. Until the table exists, the lab still scores but keeps nothing, and shows this SQL to run once:
 
 ```sql
 create table public.lab_samples (

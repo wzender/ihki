@@ -520,6 +520,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     async def lifespan(app: FastAPI):
         app.state.scorer = scorer or load_scorer(MODEL_ID)
         app.state.auth = auth or load_auth()
+        if app.state.auth and hasattr(app.state.auth, "migrate_legacy_audio"):
+            app.state.auth.migrate_legacy_audio()
         app.state.keys = load_keys(app.state.auth)   # the API keys a developer set in the panel, else the environment's
         app.state.tts = tts or load_tts(app.state.keys.get("SAWTAK_API_KEY"))
         app.state.tts_warm = {"running": False, "voice_id": "", "total": 0, "done": 0, "generated": 0,

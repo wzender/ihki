@@ -60,6 +60,8 @@ class Rules:
     insertion: dict | None = None
     # short vowels a rule flags although short vowels are not flagged (6.3 #7): vowel -> rule id (3.11: u)
     flag_vowels: dict[str, str] = field(default_factory=dict)
+    # a long vowel said short, judged by its duration (3.8): rule, severity, min_ratio, prior_frames, ..., feedback
+    length: dict | None = None
 
     def members(self, symbol: str, written: str | None = None) -> list[str]:
         """The correct realisations of an abstract symbol, in base() names, first the dialects' own.
@@ -128,8 +130,10 @@ def parse(text: str) -> Rules:
     archi, dialects, optional, scoring, labels = {}, ["urban", "rural"], False, {}, {}
     checks: dict[tuple[str, str], Check] = {}
     titles: dict[str, str] = {}
-    insertion, flag_vowels = None, {}
+    insertion, flag_vowels, length = None, {}, None
     for doc in _blocks(text):
+        if "duration" in doc:
+            length = {"rule": doc["id"], **doc["duration"]}
         if "insertion" in doc:
             titles[doc["id"]] = doc.get("title", doc["id"])
             insertion = {"rule": doc["id"], **doc["insertion"]}
@@ -151,7 +155,8 @@ def parse(text: str) -> Rules:
                     key = (norm(str(c["target"])), norm(str(heard)))
                     # two spellings of one sound (ʁ and ɣ) meet here: the first rule written wins
                     checks.setdefault(key, Check(doc["id"], key[0], key[1], int(c["severity"]), str(c["feedback"])))
-    rules = Rules(archi, dialects, optional, scoring, checks, titles, labels, insertion=insertion, flag_vowels=flag_vowels)
+    rules = Rules(archi, dialects, optional, scoring, checks, titles, labels, insertion=insertion, flag_vowels=flag_vowels,
+                  length=length)
     for m in scoring.get("margins", []):
         # base() drops vowel length, so a margin for long vowels would land on quality pairs (a / i) it was not meant for
         for t in (t for t in m["target"] if "ː" not in str(t)):
@@ -173,6 +178,8 @@ def undetectable(check: Check, rules: Rules, in_model: Callable[[str], bool],
     as the same symbol cannot be told apart."""
     same = (lambda a, b: a == b or (heard_as(a) is not None and heard_as(a) == heard_as(b))) if heard_as \
         else (lambda a, b: a == b)
+    if rules.length and check.rule == rules.length["rule"]:
+        return None                         # a long vowel said short is measured by its duration, not its symbol
     if same(check.target, check.heard):
         return "same_sound"                 # the two collapse to one sound (aː / a: length is not modelled)
     accepted = rules.members(check.target) if check.target.isupper() else [check.target]
@@ -375,6 +382,9 @@ def _toggles() -> list[Toggle]:
                "טעות שמשנה משמעות (ח, ע) מוצגת לפני מבטא, ואחריה הציון הנמוך. כבוי: לפי הציון בלבד, עד 4."),
     ]
     own = {
+        "vowel_length": "המודל לא מבחין בין a ל־aː, ולכן האורך נמדד בזמן: תנועה ארוכה בין שני עיצורים שקצרה בבירור "
+                        "ביחס לתנועות הקצרות של אותו דובר יורדת לכל היותר ל־60, עם טיפ בחומרה 1. "
+                        "כבוי: אורך התנועה לא נבדק.",
         "cluster": "תנועה שהמודל שומע בבירור בין שני עיצורים של אותה מילה (katiir במקום ktiir) מורידה את העיצור השני "
                    "לכל היותר ל־60, עם טיפ בחומרה 1. לא בצרור שפותח את המשפט, ולא ליד w או j. כבוי: תנועה שנוספה לא נבדקת.",
         "kubutz": "u אחרי עיצור היא התנועה הקצרה היחידה שמסומנת: כשנשמטה, או נשמעה כ־e, i או שווא. "

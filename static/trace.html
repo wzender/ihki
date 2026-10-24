@@ -275,7 +275,7 @@ function refTip(i){
   const t=T.tokens[i], xs=refScores(t), used=refUsed(t);
   return [el("div",{class:"t",text:`קו בסיס ילידי · ${t.ipa}`}),
     ...xs.map((x,k)=>trow(refName(k),x==null?"אין הגה כזה בקריאה שלו":`${fmt(x,0)}`+(k===used?" · נמדד מולו":""))),
-    trow("הלומד: לפני → אחרי",(()=>{ const st=Object.fromEntries(t.stages.map(s=>[s.stage,s.score])); return `${fmt(st.insertion)} → ${fmt(st.baseline)}`; })())];
+    trow("הלומד: לפני → אחרי",(()=>{ const st=Object.fromEntries(t.stages.map(s=>[s.stage,s.score])); return `${fmt(st.length??st.insertion)} → ${fmt(st.baseline)}`; })())];
 }
 
 let R=null, T=null, PH=[], sel=0, pinned=false, traceSource="";
@@ -615,6 +615,7 @@ function drawWaterfall(){
     let note="";
     if(s.stage==="exemption"&&s.applied) note=EXEMPT_NAME[s.applied]||s.applied;
     if(s.stage==="insertion"&&s.applied) note=`תנועה ${s.applied} בצרור`;
+    if(s.stage==="length"&&s.applied) note=`תנועה ארוכה קצרה: ${fmt(s.applied.ratio,2)}× מתנועה קצרה (סף ${fmt(s.applied.min_ratio,2)})`;
     if(s.stage==="baseline"){ const xs=refScores(t), u=refUsed(t);
       note=s.ref==null?(refList().length?"לאף קול ילידי אין את ההגה הזה":"אין קול ילידי")
         :xs.length>1?xs.map((x,k)=>`${refName(k)} ${x==null?"—":fmt(x,0)}`).join(" · ")+(u>=0?` → נמדד מול ${refName(u)} (${fmt(s.ref,0)}): 100·s/${fmt(s.ref,0)}`:" (100: לא משנה)")
@@ -702,11 +703,11 @@ function drawGauge(){
 function drawTable(){
   const tb=$("table"); tb.replaceChildren();
   const nref=refList().length;
-  const head=["#","הגה","מילה","span","חלון","p_target","מתחרה","p_comp","GOP","gop","פטור","צרור",...Array.from({length:nref},(_,k)=>`בסיס ${refName(k)}`),"בסיס","כיול","סופי","סומן"];
+  const head=["#","הגה","מילה","span","חלון","p_target","מתחרה","p_comp","GOP","gop","פטור","צרור","אורך",...Array.from({length:nref},(_,k)=>`בסיס ${refName(k)}`),"בסיס","כיול","סופי","סומן"];
   tb.append(el("tr",{},...head.map(h=>el("th",{text:h}))));
   for(const t of T.tokens){
     const st=Object.fromEntries(t.stages.map(s=>[s.stage,s.score]));
-    const cells=[t.i,t.ipa,t.word,t.span.join("–"),t.window.join("–"),pct(t.p_target),t.competitor||"—",pct(t.p_competitor),fmt(t.gop,3),fmt(st.gop),fmt(st.exemption),fmt(st.insertion),...Array.from({length:nref},(_,k)=>{ const x=refScores(t)[k]; return x==null?"—":fmt(x,0); }),fmt(st.baseline),fmt(st.calibration),fmt(t.final),t.flagged?"כן":""];
+    const cells=[t.i,t.ipa,t.word,t.span.join("–"),t.window.join("–"),pct(t.p_target),t.competitor||"—",pct(t.p_competitor),fmt(t.gop,3),fmt(st.gop),fmt(st.exemption),fmt(st.insertion),fmt(st.length),...Array.from({length:nref},(_,k)=>{ const x=refScores(t)[k]; return x==null?"—":fmt(x,0); }),fmt(st.baseline),fmt(st.calibration),fmt(t.final),t.flagged?"כן":""];
     const tr=el("tr",{},...cells.map((v,k)=>el("td",{class:[1,3,4,6].includes(k)?"ipa":"",text:String(v)})));
     tr.onmouseenter=()=>hover(t.i); tr.onclick=()=>pick(t.i); tb.append(tr);
   }

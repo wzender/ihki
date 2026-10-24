@@ -250,6 +250,8 @@ class Fit:
     exempted: list[str | None] = field(default_factory=list)     # per token, the exemption that applied
     exempt_scores: list[TokenScore] = field(default_factory=list)  # after the exemptions, before the inserted vowels
     inserted: dict[int, str] = field(default_factory=dict)        # token -> the vowel heard before it (rules 3.10)
+    insert_scores: list[TokenScore] = field(default_factory=list)  # after the inserted vowels, before vowel length
+    shortened: dict[int, dict] = field(default_factory=dict)      # token -> how short its long vowel was (rules 3.8)
     distance: float = 0.0    # weighted edit distance of the greedy decode from the chosen variant (_distance)
     raw_distance: int = 0    # the same, every edit costing 1
     distance_weight: float = 1.0  # what `distance` is divided by: the weight of the sounds that can be wrong
@@ -334,6 +336,44 @@ class Scorer:
                       if int(greedy[t]) in vowels and real[t, greedy[t]] >= min_peak]
             if len(frames) >= min_frames:
                 out[j] = vowels[int(greedy[frames[0]])]
+        return out
+
+    _SHORT = {"a", "i", "u", "e", "o"}
+
+    def _shortened(self, toks: list[TargetToken], al: Alignment, scores: list[TokenScore],
+                   energy: np.ndarray | None = None) -> dict[int, dict]:
+        """Rules 3.8: token -> how short its long vowel was, for each long vowel said short.
+
+        The model pools a and aː (base() drops length), so length is read from time: the frames between the
+        sounds on either side of the vowel, against the same span around this speaker's short vowels (with a
+        prior for sentences that have few). With the audio, only the frames at least half as loud as the loudest
+        of the span count, so a held nasal or a pause after the vowel does not make it long. Only between two
+        consonants: at the edges of the recording, or beside another vowel, the span says nothing about this one."""
+        spec = self.rules.length
+        if not spec or not self._on(f"rule_{spec['rule']}"):
+            return {}
+
+        def span(k: int) -> int | None:
+            if not 0 < k < len(toks) - 1 or toks[k - 1].phoneme in VOWELS or toks[k + 1].phoneme in VOWELS \
+                    or scores[k].deleted:
+                return None
+            a, b = al.spans[k - 1][1], al.spans[k + 1][0]
+            if energy is None:
+                return b - a
+            seg = energy[a:b]
+            return int((seg >= 0.5 * seg.max()).sum()) if seg.size and seg.max() > 0 else 0
+
+        shorts = [g for k, t in enumerate(toks) if t.phoneme in self._SHORT and (g := span(k)) is not None]
+        prior = float(spec["prior_frames"] if energy is not None else spec["prior_frames_plain"])
+        weight = float(spec["prior_weight"])
+        ref = (sum(shorts) + prior * weight) / (len(shorts) + weight)
+        targets = {str(t): float(r) for t, r in spec["min_ratio"].items()}
+        out: dict[int, dict] = {}
+        for k, t in enumerate(toks):
+            g = span(k) if t.phoneme in targets else None
+            if g is not None and g / ref < targets[t.phoneme]:
+                out[k] = {"frames": g, "short_frames": round(ref, 2), "ratio": round(g / ref, 2),
+                          "min_ratio": targets[t.phoneme]}
         return out
 
     def set_calibrations(self, rows: list[dict]) -> None:
@@ -520,13 +560,19 @@ class Scorer:
         cap = float((self.rules.insertion or {}).get("score_cap", 60))
         for j in inserted:
             scores[j] = replace(scores[j], score=min(scores[j].score, cap))
+        insert_scores = list(scores)
+        shortened = self._shortened(toks, al, scores, energy)
+        cap = float((self.rules.length or {}).get("score_cap", 60))
+        for j in shortened:
+            scores[j] = replace(scores[j], score=min(scores[j].score, cap))
         same = lambda h, t: h == t or h in vocab.members.get(t, ())
         raw = edit_distance(heard_ids, ids, same)
         distance, weight = self._distance(heard_ids, toks, gop_scores, exempted, same)
         veto = self._veto(toks, gop_scores)
         unrelated = bool(distance / weight > self.cfg.unrelated_ratio) and not veto
         return Fit(ar, ipa, aipa, toks, al, scores, heard_ids, unrelated, ext, candidates=tried, gop_scores=gop_scores,
-                   exempted=exempted, exempt_scores=exempt_scores, inserted=inserted, distance=distance, energy=energy,
+                   exempted=exempted, exempt_scores=exempt_scores, inserted=inserted, insert_scores=insert_scores,
+                   shortened=shortened, distance=distance, energy=energy,
                    paths=paths, raw_distance=raw, distance_weight=weight, veto=veto)
 
     # heard at the very start or end of the recording, these are usually breath or noise, not a sound of another word
@@ -701,6 +747,12 @@ class Scorer:
             beyond.append(self._beyond_margin(tok, sc, heard_ph))
             flagged = (bool(sc.score < self.cfg.flag_below_sound.get(tok.sound, self.cfg.flag_below)) and beyond[-1]
                        and (tok.phoneme not in VOWELS or self._flag_vowel(toks, idx)))
+            # a long vowel said short (3.8): heard as its short vowel, with the rule's tip, unless the native
+            # reference was as short (the baseline gave the score back)
+            short = idx in fit.shortened and sc.score < self.cfg.issue_below
+            if short:
+                spec, heard_ph, flagged, beyond[-1] = self.rules.length, tok.phoneme.rstrip("ː"), True, True
+                check = Check(spec["rule"], tok.phoneme, heard_ph, int(spec["severity"]), str(spec["feedback"]))
             if idx in fit.inserted:   # a vowel before this consonant (3.10): the reason its letter gives
                 spec = self.rules.insertion
                 heard_as.append("+" + fit.inserted[idx])
@@ -712,12 +764,21 @@ class Scorer:
                  "flagged": flagged, "heard": heard_ph if flagged else None}
             if idx in fit.inserted:
                 p["inserted"] = fit.inserted[idx]
+            if short:
+                p["shortened"] = fit.shortened[idx]["ratio"]
             if tok.sound != tok.phoneme:
                 p["sound"] = tok.sound
             if sc.realised is not None:
                 p["realised"] = base(i2t[sc.realised])
             phonemes.append(p)
-            if flagged and not unrelated:
+            if short and not unrelated:
+                if check.rule not in seen:
+                    seen.add(check.rule)
+                    tips.append({"title": self.rules.titles.get(check.rule, check.rule), "text": check.feedback,
+                                 "key": check.rule, "severity": check.severity,
+                                 "word": ar_words[tok.word] if tok.word < len(ar_words) else "",
+                                 "word_tr": tr_words[tok.word], "idx": idx, "score": round(sc.score)})
+            elif flagged and not unrelated:
                 tip = tip_for(tok.sound, heard_ph, check)
                 if tip and tip["key"] not in seen:
                     seen.add(tip["key"])
@@ -789,6 +850,11 @@ class Scorer:
                                    "word_tr": tr_words[tok.word], "score": round(sc.score), "missing": False,
                                    "heard": sound_name(fit.inserted[i])})
                     continue
+                if phonemes[i].get("shortened") is not None:
+                    issues.append({"sound": sound_name(tok.phoneme) or tok.phoneme, "word_tr": tr_words[tok.word],
+                                   "score": round(sc.score), "missing": False,
+                                   "heard": sound_name(tok.phoneme.rstrip("ː"))})
+                    continue
                 issues.append({"sound": sound_name(tok.sound) or sound_name(tok.phoneme) or tok.phoneme,
                                "word_tr": tr_words[tok.word], "score": round(sc.score), "missing": bool(sc.deleted),
                                "heard": None if sc.deleted else sound_name(comp)})
@@ -835,7 +901,8 @@ class Scorer:
             stages = [
                 {"stage": "gop", "score": gsc.score},
                 {"stage": "exemption", "score": fit.exempt_scores[i].score, "applied": fit.exempted[i]},
-                {"stage": "insertion", "score": fit.scores[i].score, "applied": fit.inserted.get(i)},
+                {"stage": "insertion", "score": fit.insert_scores[i].score, "applied": fit.inserted.get(i)},
+                {"stage": "length", "score": fit.scores[i].score, "applied": fit.shortened.get(i)},
                 {"stage": "baseline", "score": after_baseline[i].score, "ref": b,
                  "refs": [row[i] for row in per_ref], "applied": b is not None and b < 100},
                 {"stage": "calibration", "score": sc.score, "floor": floors[i],
@@ -880,6 +947,8 @@ class Scorer:
                 "exemptions": [name for name, _, _ in EXEMPTIONS if self._on(name)],
                 "insertion": ({k: self.rules.insertion[k] for k in ("score_cap", "min_peak", "min_frames")}
                               if self.rules.insertion and self._on(f"rule_{self.rules.insertion['rule']}") else None),
+                "vowel_length": ({k: v for k, v in self.rules.length.items() if k not in ("rule", "feedback")}
+                                 if self.rules.length and self._on(f"rule_{self.rules.length['rule']}") else None),
                 "disabled": sorted(self.disabled),
             },
             "variants": [{"ar": ar, "ipa": ipa, "logp": lp, "chosen": ar == fit.ar and ipa == fit.ipa,

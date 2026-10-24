@@ -196,6 +196,8 @@ checks:
 
 הכלל משנה משמעות, אבל מקבל חומרה 1 כי מודל ההגאים מבחין באורך תנועה פחות טוב. ראו חלק 7.
 
+המודל לא מבחין בין a ל־aː, ולכן ה־scorer מודד זמן: כמה פריימים רועשים יש בין העיצור שלפני התנועה לעיצור שאחריה, ביחס לאותו מרווח סביב התנועות הקצרות של אותו דובר. aː, iː ו־uː בלבד, ורק בין שני עיצורים. תנועה ארוכה שקצרה בבירור מקבלת לכל היותר 60 וטיפ. הפטור של 6.3 #7 (תנועות קרובות) עדיין חל על שאר הבלבולים באורך.
+
 ```yaml
 id: vowel_length
 title: תנועה קצרה ותנועה ארוכה
@@ -205,6 +207,17 @@ checks:
   - {target: uː, heard: [u], severity: 1, feedback: "התנועה הארוכה נהגתה קצרה. החזיקו אותה בערך כפול."}
   - {target: eː, heard: [e, i], severity: 1, feedback: "התנועה הארוכה נהגתה קצרה. החזיקו אותה בערך כפול."}
   - {target: oː, heard: [o, u], severity: 1, feedback: "התנועה הארוכה נהגתה קצרה. החזיקו אותה בערך כפול."}
+duration:            # the model pools a and aː, so the scorer times the vowel instead (scorer.Scorer._shortened)
+  severity: 1
+  # a long vowel whose span is under this share of the speaker's short-vowel span is said short. Set on the native
+  # minerva train clips so that about 10% of native long vowels fall under it (dev: 10% aː, 9% iː, 13% uː);
+  # about half of short vowels do. eː and oː are not timed: natives often say them no longer than e and o.
+  min_ratio: {aː: 1.0, iː: 0.8, uː: 1.0}
+  prior_frames: 4        # a short vowel's span in loud frames (native median), for sentences with few of their own
+  prior_frames_plain: 6  # the same counting every frame, when there is no audio energy
+  prior_weight: 2        # worth this many of the sentence's own short vowels
+  score_cap: 60          # the long vowel scores at most this
+  feedback: "התנועה הארוכה נהגתה קצרה. החזיקו אותה בערך כפול."
 ```
 
 ### 3.9 ג' ולא g · דיוק
