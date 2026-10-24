@@ -103,6 +103,8 @@ body:not(.home) #nav,body.manage #nav,body:not(.home) #vids,body.manage #vids,bo
 body:not([data-view=live]) #liveView{display:none}.live-page{display:flex;flex-direction:column;gap:12px;padding-bottom:90px}.live-page>.card{padding:18px}.live-page h1,.live-page h2{margin:0;font-family:var(--f-display);font-weight:400}.live-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}.live-class{display:flex;flex-direction:column;gap:7px;padding:14px;border:1px solid var(--line);border-radius:13px;background:var(--surface)}.live-class .acts{display:flex;gap:7px;margin-top:auto}.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-inline-end:6px}.live-code{font:700 24px/1 var(--f-body);letter-spacing:.12em;direction:ltr}.live-question{text-align:center;padding:24px!important}.live-question .prompt{font-size:30px;margin:14px 0}.live-question .waiting-ring{width:64px;height:64px;margin:16px auto;border:6px solid var(--olive-soft);border-top-color:var(--olive);border-radius:50%;animation:live-turn 1.4s linear infinite}@keyframes live-turn{to{transform:rotate(360deg)}}.live-mic{display:grid;place-items:center;width:86px;height:86px;margin:20px auto;border:0;border-radius:50%;background:var(--sumac);color:white;font-size:28px;box-shadow:0 7px 0 color-mix(in srgb,var(--sumac) 75%,#000)}.live-mic.recording{animation:live-pulse 1s infinite}@keyframes live-pulse{50%{transform:scale(.94)}}.live-result{max-width:560px;margin:14px auto 0;padding:14px;border-radius:12px;background:var(--bg);text-align:start}.live-result .score{font-size:38px}.live-people{display:flex;flex-direction:column}.live-person{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:9px 0;border-top:1px solid var(--line)}.live-person small{display:block;color:var(--muted)}.live-person .online{color:var(--ok)}.live-person .offline{color:var(--muted)}.live-ask{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.live-ask select,.live-ask input{grid-column:1}.live-ask button{grid-column:2;grid-row:1/3}.live-join{display:flex;gap:8px}.live-join input{direction:ltr;text-align:center;letter-spacing:.15em;max-width:180px}.teacher-picks{display:flex;flex-direction:column;gap:6px;margin-top:8px}.teacher-picks label{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:9px}.teacher-picks small{display:block;color:var(--muted)}
 body.home:not(.manage){padding-bottom:84px}
 body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bottom:62px}
+body.home:not(.manage).class-exit #logoutBtn{display:none}   /* on the path the exit is in the class dialogs: floating, it covers the nav on a phone */
+.dlg-exit:not([hidden]){display:block;margin:14px auto 0;color:var(--muted)}
 #vids{display:flex;flex-direction:column;gap:6px;width:100%;max-width:460px;margin:8px auto 0}
 #vids h2{margin:0 0 4px;font:400 26px/1.2 var(--f-display)}
 #vids h3{margin:10px 0 0;font:400 19px/1.2 var(--f-display)}
@@ -331,6 +333,13 @@ body.memory-game{overflow:hidden}
 .notify-form label{display:flex;flex-direction:column;gap:4px;font:700 14px var(--f-body)}
 .notify-form :is(select,input,textarea){padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:500 16px/1.4 var(--f-body);resize:vertical}
 .notify-form :is(select,input,textarea):focus{outline:2px solid var(--olive);outline-offset:1px}
+.notify-people{margin:0;padding:0;list-style:none;max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.notify-people li{display:flex;gap:8px;align-items:baseline;padding:7px 12px;border-top:1px solid var(--line);font:500 15px/1.3 var(--f-body)}
+.notify-people li:first-child{border-top:0}
+.notify-people small{margin-inline-start:auto;color:var(--muted);white-space:nowrap}
+.notify-people .none{color:var(--muted)}
+.notify-people small+small{margin-inline-start:0}
+.notify-who{display:flex;flex-direction:column;gap:4px;font:700 14px var(--f-body)}
 .notify-note{margin:0;min-height:1.3em;color:var(--muted);font:600 14px/1.4 var(--f-body)}
 .notify-note.ok{color:var(--olive)}
 #pushDlg .push-bell{font-size:44px;line-height:1;margin:4px 0 8px}
@@ -1440,7 +1449,7 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
     </span>
   </button>
   <section id="vids" aria-live="polite"></section>
-  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="live">שיעור חי</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="refer">חבר מביא חבר</button></nav>
+  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="live" hidden>שיעור חי</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="refer">חבר מביא חבר</button></nav>
   <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
   <section class="live-page" id="liveView" aria-live="polite"></section>
   <button id="toNow" hidden></button>
@@ -1723,16 +1732,19 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
   <div class="dlg-head"><h2 id="classTitle"></h2><button class="btn" id="classClose">סגירה</button></div>
   <div id="mates"></div>
   <p class="sub" id="matesNote"></p>
+  <button class="btn dlg-exit" id="classExit" hidden>יציאה מהחשבון</button>
 </dialog>
 <dialog id="pickDlg" aria-labelledby="pickTitle">
   <div class="dlg-head"><h2 id="pickTitle">באיזו כיתה מתרגלים עכשיו?<small>אפשר להחליף אחר כך, בלחיצה על שם הכיתה</small></h2></div>
   <div class="picks" id="picks"></div>
   <button class="btn" id="pickMates" hidden>התלמידים בכיתה</button>
+  <button class="btn dlg-exit" id="pickExit" hidden>יציאה מהחשבון</button>
 </dialog>
 <dialog id="notifyDlg" aria-labelledby="notifyTitle">
   <div class="dlg-head"><h2 id="notifyTitle">שליחת התראה<small>מגיעה לטלפון או למחשב של מי שהפעיל תזכורות</small></h2><button class="btn" id="notifyClose">סגירה</button></div>
   <form id="notifyForm" class="notify-form">
     <label>למי<select id="notifyTo"></select></label>
+    <div class="notify-who"><b id="notifyWhoTitle">מי הפעיל התראות</b><ul class="notify-people" id="notifyPeople"></ul></div>
     <label>כותרת<input id="notifyHead" maxlength="60" required placeholder="למשל: אין שיעור מחר"></label>
     <label>הודעה<textarea id="notifyBody" maxlength="240" rows="3" placeholder="לא חובה"></textarea></label>
     <p class="notify-note" id="notifyNote" aria-live="polite"></p>
@@ -2060,14 +2072,27 @@ async function pushState(){   // {key, hour, sub}: key is empty when the server 
   const sub=await navigator.serviceWorker.ready.then(reg=>reg.pushManager.getSubscription()).catch(()=>null);
   return {key:pushInfo.key||"",hour:pushInfo.hour??8,sub};
 }
-async function pushOn(key){   // asks the permission (call it from a tap) and subscribes; the subscription, or null
+async function pushOn(key,quiet=false){   // asks the permission (call it from a tap) and subscribes; the subscription, or null
   if(await Notification.requestPermission()!=="granted") return null;
+  store.set("ihki.pushOff",false);
   const reg=await navigator.serviceWorker.ready, raw=atob(key.replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-key.length%4)%4));
   const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:Uint8Array.from(raw,c=>c.charCodeAt(0))});
   const res=await api("/api/push/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(sub.toJSON())});
   if(!res.ok){ await sub.unsubscribe().catch(()=>{}); throw new Error("not kept"); }
-  api("/api/push/test",{method:"POST"}).catch(()=>{});   // one now, so the student sees what it looks like
+  if(!quiet) api("/api/push/test",{method:"POST"}).catch(()=>{});   // one now, so the student sees what it looks like
   return sub;
+}
+/* A device's subscription is the account's signed in on it: on sign-in it moves to that account (or, the notifications
+   being allowed already, is made again after a sign-out), unless it was turned off from the button. */
+async function pushSync(){
+  try{
+    const st=await pushState(); if(!st.key) return;
+    if(st.sub) await api("/api/push/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(st.sub.toJSON())});
+    else if(Notification.permission==="granted"&&!store.get("ihki.pushOff",false)) await pushOn(st.key,true);
+  }catch(e){}
+}
+async function pushSignOut(){   // the next account on this device does not get this one's reminders
+  try{ const st=await pushState(); if(st.sub) await pushOff(st.sub); }catch(e){}
 }
 async function pushOff(sub){
   await api("/api/push/unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:sub.endpoint})}).catch(()=>{});
@@ -2092,7 +2117,7 @@ function pushRow(){
   pushState().then(st=>{ ({key,hour,sub}=st); draw(); });
   btn.onclick=async()=>{
     btn.disabled=true;
-    try{ if(sub){ await pushOff(sub); sub=null; } else sub=await pushOn(key); draw(); }
+    try{ if(sub){ await pushOff(sub); sub=null; store.set("ihki.pushOff",true); } else sub=await pushOn(key); draw(); }
     catch(e){ draw(); note.textContent="לא הצלחנו להפעיל את התזכורת. נסו שוב מאוחר יותר."; }
     finally{ btn.disabled=false; }
   };
@@ -2102,20 +2127,35 @@ function pushRow(){
    devices that turned the reminders on. */
 async function openNotify(classes){
   const dlg=$("notifyDlg"), to=$("notifyTo"), note=$("notifyNote"), send=$("notifySend"), head=$("notifyHead"), body=$("notifyBody");
-  let counts={all:0,classes:{}};
+  let counts={all:0,classes:{},people:null};
+  const drawPeople=()=>{   // who gets it: the people who turned the notifications on, of the class chosen
+    const list=$("notifyPeople"), people=(counts.people||[]).filter(p=>!to.value||p.classes.includes(to.value));
+    list.replaceChildren(); $("notifyWhoTitle").textContent=counts.people?`מי הפעיל התראות (${people.length})`:"מי הפעיל התראות";
+    if(!counts.people) return list.append(mark("none","טוען…","li"));
+    if(!people.length) list.append(mark("none",counts.old?"לא זמין":"עוד אף אחד לא הפעיל התראות.","li"));
+    for(const p of people){
+      const li=document.createElement("li"), who=document.createElement("bdi");
+      who.textContent=p.name||p.email; li.append(who);
+      if(p.name){ const e=mark("","","small"); e.dir="ltr"; e.textContent=p.email; li.append(e); }
+      li.append(mark("",[p.classes.length?p.classes.join(" · "):"לא בכיתה",p.devices>1?`${p.devices} מכשירים`:""].filter(Boolean).join(" · "),"small"));
+      li.title=p.email; list.append(li);
+    }
+  };
+  to.onchange=drawPeople;
   const draw=()=>{
     const keep=to.value; to.replaceChildren();
     const opt=(value,label)=>{ const o=document.createElement("option"); o.value=value; o.textContent=label; to.append(o); };
-    opt("",`כל המשתמשים · ${counts.all} מכשירים`);
+    opt("",`כל המשתמשים · ${counts.all} מכשירים`+(counts.outside?` (${counts.outside} מחוץ לכיתות)`:""));   // so the classes need not add up to it
     for(const c of classes) opt(c.name,`כיתת ${c.name} · ${counts.classes[c.name]??0} מכשירים`);
     to.value=[...to.options].some(o=>o.value===keep)?keep:"";
+    drawPeople();
   };
   note.className="notify-note"; note.textContent="טוען…"; send.disabled=true; draw(); dlg.showModal(); head.focus();
   try{
     const res=await api("/api/push/audience"), d=await res.json().catch(()=>({}));
     if(!res.ok) throw new Error(d.detail||res.status);
-    counts=d; draw(); note.textContent=""; send.disabled=false;
-  }catch(e){ note.textContent="לא ניתן לשלוח כרגע: "+e.message; }
+    counts={...d,people:d.people||[],old:!d.people}; draw(); note.textContent=counts.old?"רשימת המפעילים לא זמינה בשרת הזה (צריך לעדכן אותו).":""; send.disabled=false;
+  }catch(e){ note.textContent="לא ניתן לשלוח כרגע: "+e.message; counts.people=[]; drawPeople(); }
   $("notifyClose").onclick=()=>dlg.close();
   $("notifyForm").onsubmit=async ev=>{
     ev.preventDefault(); if(!head.value.trim()) return head.focus();
@@ -2775,7 +2815,7 @@ function showView(view){   // "" is the path, which is laid out again: it was no
   if(view) document.body.dataset.view=view; else delete document.body.dataset.view;
   scrollTo(0,0); drawPath(true); if(view==="live") loadLive();
 }
-const LIVE_TAB_ENABLED=true;
+const LIVE_TAB_ENABLED=false;
 let LIVE={sessions:[],teaches:[],code:"",timer:null,rec:null,busy:false};
 const liveEsc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const livePhrase=p=>`${liveEsc(p.he)} · ${liveEsc((ALL_CATS.find(c=>c.id===p.cat)||{}).name||"")}`;
@@ -7637,9 +7677,11 @@ if(AUTH_URL){
     login.onclick=()=>sb.auth.signInWithOAuth({provider:"google",
       options:{redirectTo:here,queryParams:{prompt:"select_account"}}});
     logout.onclick=$("switchBtn").onclick=async()=>{   // the best scores kept on the device belong to this student
+      await Promise.race([pushSignOut(),new Promise(r=>setTimeout(r,3000))]);
       await sb.auth.signOut(); store.set("ihki.best2",{}); store.set("ihki.silent",{}); store.set("ihki.written",{}); store.set("ihki.unsent",{}); location.reload(); };
+    $("classExit").onclick=$("pickExit").onclick=()=>logout.click();   // the same exit, from the class pill's dialogs
     sb.auth.onAuthStateChange((_e,session)=>{
-      login.hidden=mail.hidden=!!session; logout.hidden=!session;
+      login.hidden=mail.hidden=!!session; logout.hidden=$("classExit").hidden=$("pickExit").hidden=!session;
       logout.title=session?session.user.email||"":"";
       if(!session){ asked=""; start.hidden=roles.hidden=true; denied.hidden=true; login.focus({preventScroll:true}); return; }
       if(asked===session.user.id) return;
@@ -7652,12 +7694,14 @@ if(AUTH_URL){
         if(me.subject&&me.subject!==document.documentElement.dataset.subject){ location.replace(me.subject===document.documentElement.dataset.home?"/":"/"+me.subject); return; }
         ME_SUBJECT=me.subject||"";
         ME_PERMISSIONS=new Set(me.permissions||[]); ME_ROLES=me.roles||[]; ME_ENTITLEMENTS=me.entitlements||[];
+        if(res&&res.ok) pushSync();   // this device's reminders go to the account now signed in
         $("nav").querySelector('[data-view=""]').hidden=!can("path.use");
         $("nav").querySelector('[data-view="verbs"]').hidden=!can("games.use");
         $("nav").querySelector('[data-view="games"]').hidden=!can("games.use")&&!can("tutor.use");
         const mine=me.classes||[];   // a teacher practises every lesson and is not asked for a class
         MY_CLASSES=teacher?[]:mine; MY_CLASS=null; FREE=teacher; TUTOR=!!me.tutor; TEACHER_DAILIES=me.dailies||[];
         $("myClass").textContent=mine.length>1?(teacher?`כיתות: ${mine.map(c=>c.name).join(" · ")}`:"בחירת כיתה"):mine.length?`כיתת ${mine[0].name}`:"";
+        document.body.classList.toggle("class-exit",!!$("myClass").textContent);   // the pill shows: the exit moves into its dialogs
         $("myClass").classList.toggle("many",MY_CLASSES.length>1); $("myClass").title=MY_CLASSES.length>1?"מעבר לכיתה אחרת":"התלמידים בכיתה שלי";
         MY_LESSONS=me.lessons||null; if(ALL_LESSONS.length) useLessons(MY_LESSONS);
         if(MY_CLASSES.length===1) MY_CLASS=mine[0];

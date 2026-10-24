@@ -63,21 +63,11 @@ pip install -r requirements-dev.txt && pytest -q
 
 ### Browse OpenSpec requirements locally
 
-From the project root, select the Node version from `.nvmrc` and start the read-only viewer:
+Run [OpenSpec WebUI](https://github.com/oioi555/openspec-webui) from the project root (needs Node 20.19+), then open http://127.0.0.1:3001:
 
 ```bash
-nvm use && .venv/bin/python scripts/requirements_browser.py
+openspec-webui
 ```
-
-Open http://localhost:8765. The page shows the durable specifications and active-change artifacts, supports filtering and keyboard navigation, and reloads the files when **Refresh files** is selected. It binds only to `127.0.0.1`, does not modify the specifications, and makes no external requests.
-
-If port 8765 is occupied, choose another local port:
-
-```bash
-nvm use && .venv/bin/python scripts/requirements_browser.py --port 8766
-```
-
-If startup says `openspec` is missing, install or expose the OpenSpec CLI for the Node version selected by `nvm use`, then confirm `openspec --version` works. If no OpenSpec root is found, run the command from this repository's root. A bind error identifies the occupied port and can be resolved with `--port` as shown above.
 
 ## פועל יוצא (Switch & Speak)
 

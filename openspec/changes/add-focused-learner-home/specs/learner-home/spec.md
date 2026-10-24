@@ -4,6 +4,12 @@
 
 Define how a learner establishes their current class lesson and receives a small, accessible set of relevant next actions instead of navigating the complete course path first.
 
+**Behavior map (non-normative):**
+
+- A student entering a class goes straight to the focused home when a valid lesson is saved; otherwise they first choose a lesson from the class's level.
+- From the focused home: homework, today's daily video, continue, short review, the full path at the current lesson, or change the current lesson.
+- A morning reminder tap opens the daily videos screen. Going back to the home runs the same saved-lesson check.
+
 ## ADDED Requirements
 
 ### Requirement: Per-class current-lesson onboarding
@@ -52,7 +58,7 @@ The application SHALL associate the selected current lesson with the authenticat
 - **AND** does not expose one student's selection to another student using the device
 
 ### Requirement: Focused learner home
-The application SHALL make a focused home the student's primary post-onboarding view and SHALL show no more than three recommended actions derived from the selected class, current lesson, homework, and progress.
+The application SHALL make a focused home the student's primary post-onboarding view and SHALL show no more than three recommended actions derived from the selected class, current lesson, homework, today's daily videos, and progress. When more than three actions apply, the application SHALL keep the first three in this order: nearest-due incomplete homework, today's unwatched daily video, unfinished work in the current lesson, and a short review.
 
 #### Scenario: Incomplete homework exists
 - **GIVEN** the selected class has incomplete homework
@@ -63,8 +69,21 @@ The application SHALL make a focused home the student's primary post-onboarding 
 #### Scenario: Current lesson has unfinished work
 - **GIVEN** the current lesson contains unfinished activities
 - **WHEN** the focused home is shown
-- **THEN** the primary non-homework action continues unfinished work in that lesson
+- **THEN** an action continues unfinished work in that lesson
 - **AND** the learner does not need to scroll through earlier lessons
+
+#### Scenario: Today's daily video has not been watched
+- **GIVEN** the selected class has a daily video dated today
+- **AND** the video has not been opened on this device
+- **WHEN** the focused home is shown
+- **THEN** an action that opens today's daily video is included
+- **AND** it is placed after any homework action and before the continue-lesson action
+
+#### Scenario: No daily video to recommend
+- **GIVEN** the selected class has no daily video dated today, or today's video has already been opened on this device
+- **WHEN** the focused home is shown
+- **THEN** no daily-video action is shown
+- **AND** the remaining actions keep their priority order
 
 #### Scenario: Current lesson is complete
 - **GIVEN** the learner has completed the selected current lesson
@@ -73,7 +92,13 @@ The application SHALL make a focused home the student's primary post-onboarding 
 - **AND** does not silently advance the class's current lesson
 
 ### Requirement: Short recommended activity
-At least one focused-home action SHALL describe a bounded activity of no more than five items and SHALL show its workload before the learner starts it.
+When the focused home shows a short activity, it SHALL be bounded to no more than five items and SHALL show its workload before the learner starts it. The short activity MAY be omitted when three higher-priority actions apply.
+
+#### Scenario: Three higher-priority actions apply
+- **GIVEN** incomplete homework, an unwatched daily video for today, and unfinished work in the current lesson all exist
+- **WHEN** the focused home is shown
+- **THEN** those three actions are shown
+- **AND** the short activity is not shown
 
 #### Scenario: Learner starts a short activity
 - **WHEN** the learner activates the short recommendation
@@ -94,6 +119,27 @@ The focused home SHALL provide access to the complete learning path, and the pat
 - **WHEN** the learner chooses the complete path
 - **THEN** the path positions lesson 5 in view
 - **AND** earlier and later lessons assigned to the class remain accessible
+
+### Requirement: Reminder coordination
+Current-lesson onboarding and the focused home SHALL work with the existing daily-video push reminders without stacking prompts or blocking a reminder's destination.
+
+#### Scenario: Onboarding visit shows no reminder prompt
+- **GIVEN** the student completes current-lesson onboarding during this visit
+- **WHEN** the focused home appears
+- **THEN** the prompt to turn on daily-video reminders is not shown during this visit
+- **AND** on a later entry the existing reminder-prompt rules apply
+
+#### Scenario: Reminder opened before a lesson is chosen
+- **GIVEN** the student has no saved current lesson for the active class
+- **WHEN** the student opens the application from a daily-video reminder
+- **THEN** the daily videos screen opens directly without onboarding first
+- **AND** onboarding is shown when the student goes to the home
+
+#### Scenario: Reminder opened with a saved lesson
+- **GIVEN** the student has a saved current lesson for the active class
+- **WHEN** the student opens the application from a daily-video reminder
+- **THEN** the daily videos screen opens directly
+- **AND** returning from it shows the focused home
 
 ### Requirement: Accessible focused navigation
 Current-lesson onboarding and focused-home actions SHALL support RTL layout, touch, keyboard-only operation, visible focus, and meaningful accessible names.

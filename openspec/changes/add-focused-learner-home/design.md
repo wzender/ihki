@@ -6,6 +6,114 @@ See `proposal.md` for motivation. The browser currently chooses one active class
 
 Homework and ten-item daily practice already exist. The focused home should compose those capabilities rather than create a second progress system. Supabase is optional, so loss of server persistence must not make practice unavailable.
 
+Daily-video push reminders also already exist (`app/push.py`). On entry, the browser shows a "turn on reminders?" prompt (`askPushSoon`) once any open dialog closes, re-asking after seven days when declined. A reminder tap opens `/?view=daily`, which the entry code turns into the daily videos screen. Whether a daily video was watched is kept only in that device's browser storage (`ihki.dailyWatched`). Math classes have no daily videos.
+
+## Visual overview
+
+### System flow
+
+- **Browser** (active class, focused home, local fallback) calls `GET /api/me`. The server answers with each class and the learner's saved lesson.
+- **FastAPI server** checks class membership and validates the lesson. It is the only part that reads or writes Supabase, using the server-only key.
+- **Supabase** keeps the `learner_class_state` table: one row per email and `class_id`.
+- **Browser storage** keeps the choice when the server is unavailable, under a key made of the subject, the signed-in email and the class.
+
+### Entry-state flow
+
+1. **Not signed in, or not allowed to use the path:** the existing entry behavior, unchanged.
+2. **Opened from a daily-video reminder:** the daily videos screen opens first. When the student goes back to the home, continue from step 3.
+3. **In more than one class:** the student chooses the active class.
+4. **The class doesn't resolve to exactly one level:** show the message asking to fix the class configuration, and stop here.
+5. **No valid saved current lesson:** lesson onboarding.
+6. **Focused learner home.** From here the student can launch a recommended action, change the current lesson, or open the complete path at the current lesson.
+
+### Mobile wireframe: lesson onboarding
+
+```text
++----------------------------------+
+|             אהלא וסהלא           |
+|                                  |
+|  באיזה שיעור הכיתה עכשיו?        |
+|  כיתת מתחילים · שלב א            |
+|                                  |
+|  ( ) שיעור 1                     |
+|  ( ) שיעור 2                     |
+|  ( ) שיעור 3                     |
+|  ( ) שיעור 4                     |
+|  (*) שיעור 5                     |
+|                                  |
+|  +----------------------------+  |
+|  |          ממשיכים           |  |
+|  +----------------------------+  |
++----------------------------------+
+```
+
+### Mobile wireframe: focused home
+
+```text
++----------------------------------+
+|             אהלא וסהלא           |
+|                                  |
+|  כיתת מתחילים · שיעור 5   שינוי  |
+|                                  |
+|  +----------------------------+  |
+|  | שיעורי בית                 |  |
+|  | 3 משפטים · עד מחר          |  |
+|  |                 התחילו  --> |  |
+|  +----------------------------+  |
+|                                  |
+|  +----------------------------+  |
+|  | הסרטון של היום             |  |
+|  | סרטון יומי חדש             |  |
+|  |                  צפו    --> |  |
+|  +----------------------------+  |
+|                                  |
+|  +----------------------------+  |
+|  | ממשיכים בשיעור 5           |  |
+|  | משפטים: עברית -> ערבית     |  |
+|  |                 המשיכו  --> |  |
+|  +----------------------------+  |
+|                                  |
+|       צפייה במסלול המלא          |
++----------------------------------+
+```
+
+### Semantic HTML mock (non-functional)
+
+This mock communicates hierarchy and accessible structure. It is documentation, not implementation-ready markup, and spec viewers must display it as inert source rather than execute it.
+
+```html
+<main dir="rtl" aria-labelledby="learner-home-title">
+  <header>
+    <p>כיתת מתחילים · שיעור 5</p>
+    <h1 id="learner-home-title">מה עושים עכשיו?</h1>
+    <button type="button">שינוי השיעור הנוכחי</button>
+  </header>
+
+  <ol aria-label="הפעילויות המומלצות">
+    <li>
+      <button type="button">
+        <strong>שיעורי בית</strong>
+        <span>3 משפטים · עד מחר</span>
+      </button>
+    </li>
+    <li>
+      <button type="button">
+        <strong>הסרטון של היום</strong>
+        <span>סרטון יומי חדש</span>
+      </button>
+    </li>
+    <li>
+      <button type="button">
+        <strong>ממשיכים בשיעור 5</strong>
+        <span>משפטים: עברית לערבית</span>
+      </button>
+    </li>
+  </ol>
+
+  <button type="button">צפייה במסלול המלא</button>
+</main>
+```
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -21,6 +129,7 @@ Homework and ten-item daily practice already exist. The focused home should comp
 - Letting a teacher set or override every student's current lesson.
 - Automatically advancing the class lesson when one student completes it.
 - Adding notification categories, schedules, or permission prompts.
+- Changing push delivery, the reminder hour, admin broadcasts, the service worker, or the `push_subs` table.
 - Replacing the existing path, homework model, completion rules, scoring, or paid tutor behavior.
 
 ## Decisions
@@ -51,11 +160,14 @@ Do not use the current unscoped `ihki.class` pattern for lesson state: another a
 
 ### Build recommendations with a deterministic priority
 
-Render no more than three distinct actions:
+Render no more than three distinct actions: the first three that apply, in this order:
 
 1. the nearest-due incomplete homework, when one exists;
-2. the first unfinished activity in the selected current lesson;
-3. a short review of up to five weak, previously practiced items, or another valid short activity from the current lesson.
+2. today's daily video for the active class, when one is dated today and has not been opened on this device;
+3. the first unfinished activity in the selected current lesson;
+4. a short review of up to five weak, previously practiced items, or another valid short activity from the current lesson.
+
+The daily-video action reuses the existing daily-video list and watched state (`dailyVideos()`, `ihki.dailyWatched`) and opens the same player as the daily videos screen. Placing it second matches what the morning reminder promises the learner, while homework keeps priority because it has a due date.
 
 Omit an action when its target cannot be opened. Do not silently fill the home with arbitrary later lessons. If the current lesson is complete, offer review plus a clear action to change the selected lesson. Existing topic and homework entry functions remain the execution paths, preventing recommendation state from becoming a second completion ledger.
 
@@ -67,7 +179,11 @@ The focused home becomes the default student view after class selection and onbo
 
 ### Keep onboarding separate from notification consent
 
-Do not request browser notification permission during first-use onboarding. Reminder types and preferences need their own product and delivery rules; combining them with the required lesson question would add pressure and complexity to the learner's first task.
+Do not request browser notification permission during first-use onboarding, and do not show the existing reminder prompt at all on the visit where onboarding happens. The current prompt waits only for open dialogs to close, so without this rule it would appear immediately after the lesson question. Skip `askPushSoon` for that visit; from the next entry on, its existing once-and-again-after-seven-days rule applies unchanged. Reminder types and preferences need their own product and delivery rules; combining them with the required lesson question would add pressure and complexity to the learner's first task.
+
+### Let a reminder's link take priority over the home
+
+When the page opens with `?view=daily` (a reminder tap), open the daily videos screen directly, as today, even if the student has no saved current lesson. Onboarding and the focused home run when the student goes back to the home. The reminder promises a video, so putting a required question in front of it would break that promise. Admin broadcast notifications open `/` and follow the normal entry flow.
 
 ### Accessibility and interaction
 
@@ -80,6 +196,8 @@ Use native buttons or radios with Hebrew labels, an explicit confirmation action
 - **[Server persistence may fail after a local selection]** -> Keep account-scoped local state, continue learning, and retry only after validating it against current class data.
 - **[Recommendations could duplicate the same homework/topic]** -> Deduplicate by target and apply the fixed priority order before rendering.
 - **[A focused home can hide the learner's broader progress]** -> Keep the full path one explicit action away and preserve all existing progress visualization there.
+- **[Daily-video watched state is per device]** -> A video opened on a phone may still be recommended on a laptop. Accept this for now: the cost is one extra card, and moving watched state to the server is outside this change.
+- **[Prompts could stack on first entry]** -> Class choice, lesson onboarding, and the reminder prompt are all dialogs; skip the reminder prompt on the onboarding visit so a new student sees at most the two required questions.
 - **[Email changes would orphan preference rows]** -> Accept this limitation because membership currently uses email; a future stable-user-ID migration should migrate this table with other learner-owned records.
 
 ## Migration Plan

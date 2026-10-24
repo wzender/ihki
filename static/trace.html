@@ -695,7 +695,7 @@ function drawGauge(){
   svg.append(sv("text",{x:cx-r,y:cy+16,"text-anchor":"middle"},"0"),sv("text",{x:cx+r,y:cy+16,"text-anchor":"middle"},"1"));
   box.replaceChildren(svg);
   $("p3facts").replaceChildren(el("span",{},el("span",{class:"dot "+(u.unrelated?"crit":"good")}),el("b",{text:u.unrelated?"משפט אחר: הציון מוגבל ל־"+T.config.unrelated_cap:"אותו משפט"})),
-    fact("מרחק עריכה",`${u.distance} / ${u.tokens}`), el("span",{},"נשמע: ",el("b",{class:"ipa",text:u.heard})));
+    fact("מרחק עריכה",`${u.distance} / ${u.weight ?? u.tokens}${u.veto ? " · וטו יישור" : ""}`), el("span",{},"נשמע: ",el("b",{class:"ipa",text:u.heard})));
 }
 
 /* ---------- the table: every number ---------- */

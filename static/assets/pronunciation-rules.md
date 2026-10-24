@@ -325,7 +325,7 @@ optional_realisations_enabled: false   # true -> Bedouin g for Q
 ```yaml
 scoring:
   flag_below: 50            # phoneme score 0..100
-  unrelated_ratio: 0.65     # normalised edit distance of greedy decode vs target -> "different sentence?"
+  unrelated_ratio: 0.5      # weighted edit distance of greedy decode vs target (grading-pipeline §8) -> "different sentence?"
   accept_alt_min_post: 0.20 # an accepted realisation counts if its peak posterior >= this
   accepted_score_floor: 90  # score given to a phoneme realised as an accepted alternative
   deletion: {target_peak_max: 0.05, competitor_peak_max: 0.20}

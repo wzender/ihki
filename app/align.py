@@ -300,3 +300,17 @@ def edit_distance(a: list, b: list, same=None) -> int:
         for j, y in enumerate(b, 1):
             prev, d[j] = d[j], min(d[j] + 1, d[j - 1] + 1, prev + (not same(x, y)))
     return d[len(b)]
+
+
+def weighted_edit_distance(a: list, b: list, sub, dele, ins) -> float:
+    """Edit distance of `a` (heard) from `b` (target) with a cost per edit: sub(x, j) for x heard in place of b[j],
+    dele(j) for b[j] not heard, ins(x, j) for x heard after b[:j] (j == 0 or len(b): at an edge)."""
+    n = len(b)
+    d = [0.0] * (n + 1)
+    for j in range(1, n + 1):
+        d[j] = d[j - 1] + dele(j - 1)
+    for x in a:
+        prev, d[0] = d[0], d[0] + ins(x, 0)
+        for j in range(1, n + 1):
+            prev, d[j] = d[j], min(d[j] + ins(x, j), d[j - 1] + dele(j - 1), prev + sub(x, j - 1))
+    return d[n]

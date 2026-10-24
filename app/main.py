@@ -536,7 +536,10 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, f"class list not available: {e}")
         mine = [c for c in classes if email in c["emails"]]   # a student may be in several classes
         teaches = [c for c in classes if email in (c.get("teachers") or [])]
-        roles, entitlements, assigned = {"student"}, set(DEFAULT_ENTITLEMENTS), None
+        # the default entitlements are a class member's (or anyone's, before the first class): an account in no class
+        # gets in only with a row of its own in user_access, or a role
+        member = bool(mine or teaches or not classes)
+        roles, entitlements, assigned = {"student"}, set(DEFAULT_ENTITLEMENTS) if member else set(), None
         if hasattr(a, "access_for"):
             try:
                 assigned = a.access_for(user["id"])
@@ -552,15 +555,15 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             roles.add("flagger")
         if email in getattr(a, "developers", ()):
             roles.add("developer")
+        privileged = roles - {"student"}   # before the panel's rank, which lets nobody in by itself
+        if classes and not mine and not privileged and not entitlements:
+            raise HTTPException(403, "this account is not on the list")
         if "flagger" not in roles:
             try:
                 if email in (a.ranked() or ()):
                     roles.add("flagger")
             except AuthUnavailable as e:
                 log.warning("tutors not read: %s", e)
-        privileged = roles - {"student"}
-        if classes and not mine and not privileged and not entitlements:
-            raise HTTPException(403, "this account is not on the list")
         permissions = set().union(*(ROLE_PERMISSIONS[r] for r in roles))
         permissions.update(*[ENTITLEMENT_PERMISSIONS[e] for e in entitlements])
         return {**user, "token": token.strip(), "roles": sorted(roles), "entitlements": sorted(entitlements),
@@ -2263,13 +2266,36 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/push/audience")
     def push_audience_counts(a: SupabaseAuth = Depends(admin_only), actor: dict | None = Depends(signed_in)):
-        """How many devices get an admin's message: {"all": n, "classes": {name: n}}."""
+        """How many devices get an admin's message: {"all": n, "classes": {name: n}, "outside": the devices of "all" whose
+        account is in none of the classes (a developer's "all" has every subscription, also of teachers and accounts in no class)}."""
         p = push_on()
         try:
             by_class, everyone = push_audience(a, actor, p.every())
         except AuthUnavailable as e:
             raise HTTPException(503, str(e))
-        return {"all": len(everyone), "classes": {name: len(v) for name, v in by_class.items()}}
+        inside = {r["endpoint"] for v in by_class.values() for r in v}
+        return {"all": len(everyone), "classes": {name: len(v) for name, v in by_class.items()},
+                "outside": sum(r["endpoint"] not in inside for r in everyone),
+                "people": push_people(a, actor, everyone)}
+
+    def push_people(a: SupabaseAuth, actor: dict | None, rows: list[dict]) -> list[dict]:
+        """Who turned the notifications on: [{"email", "name" (a class's nickname, else the Google name), "devices",
+        "classes": the names of the admin's classes they are in}], by name."""
+        classes = managed_classes(a, actor, fresh=True)
+        try:
+            google = {u["email"].lower(): u["name"] for u in a.users()}
+        except (AuthUnavailable, AttributeError):
+            google = {}
+        devices: dict[str, int] = {}
+        for r in rows:
+            devices[r["email"]] = devices.get(r["email"], 0) + 1
+        people = []
+        for email, n in devices.items():
+            mine = [c for c in classes if email in c["emails"] or email in (c.get("teachers") or [])]
+            nick = next((c.get("nicknames", {}).get(email) for c in mine if c.get("nicknames", {}).get(email)), "")
+            people.append({"email": email, "name": nick or google.get(email, ""), "devices": n,
+                           "classes": [c["name"] for c in mine]})
+        return sorted(people, key=lambda x: ((x["name"] or x["email"]).lower(), x["email"]))
 
     @app.post("/api/push/broadcast")
     def push_broadcast(body: dict = Body(...), a: SupabaseAuth = Depends(admin_only), actor: dict | None = Depends(signed_in)):

@@ -38,8 +38,8 @@ flowchart TD
     K --> L["Flags, tips, issues<br/>margins + rules"]
     L --> W["Word score<br/>0.5·min + 0.5·mean"]
     W --> S["Sentence score<br/>0.5·phone mean + 0.5·word mean"]
-    F --> U["Greedy decode vs best variant<br/>edit distance ratio"]
-    U -->|"over 0.65"| C["unrelated: cap at 30, no tips"]
+    F --> U["Greedy decode vs best variant<br/>weighted edit distance ratio"]
+    U -->|"over 0.5, no veto"| C["unrelated: cap at 30, no tips"]
     C --> S
     S --> O["JSON result 0–100"]
     O --> P["Exercise grades<br/>band, best score, topic, quiz, verb game"]
@@ -379,11 +379,27 @@ With phoneme averaging alone, the same recording would score 87 and be called ex
 
 ## 8. "Different sentence?" detection
 
-Forced alignment always produces a path, even for the wrong sentence. To catch this, the scorer greedy-decodes the posteriors (argmax per frame, collapse repeats, drop blanks; real columns only). It then computes the Levenshtein distance to the chosen variant's token ids, with class members counting as equal.
+Forced alignment always produces a path, even for the wrong sentence. To catch this, the scorer greedy-decodes the posteriors (argmax per frame, collapse repeats, drop blanks; real columns only). It then computes a weighted Levenshtein distance to the chosen variant's token ids (`Scorer._distance`), with class members counting as equal. The weights forgive only what the exemptions already forgive:
+
+| Edit | Cost |
+|---|---|
+| a vowel heard as the competitor its exemption forgave (i→e near_vowel, i→ə unmarked_short_vowel) | 0 |
+| another vowel for a vowel | 0.25 |
+| a consonant heard as its exempted competitor (b→p, t→d); not for `glottal_dropped`, which forgives a drop only | 0 |
+| a dropped ʔ (`glottal_dropped`) or article vowel (`article_vowel_elided`) | 0 |
+| a dropped exempted short vowel | 0.25 |
+| h θ f s x χ before the first sound or after the last (breath, noise) | 0.25 |
+| anything else | 1 |
+
+The distance is divided by $W$, the sum of the deletion costs: the weight of the sounds that can be wrong at all. $W$ is at least $N/2$ and at least 1, so a short word does not turn unrelated over one stray sound.
 
 $$
-\text{unrelated} = \frac{\text{edit\_distance}}{N_{\text{tokens}}} > 0.65
+\text{unrelated} = \frac{\text{weighted\_distance}}{W} > 0.5 \;\wedge\; \neg\,\text{veto}
 $$
+
+**Veto.** It is never called unrelated when the forced alignment clearly found the sentence: at least 2 consonants, and 60% of them, peak at p ≥ 0.5, and the mean GOP score before exemptions is ≥ 60.
+
+The trace reports `distance` (weighted), `raw_distance` (every edit 1), `weight`, `ratio` and `veto`. Before the weights, plain edit distance over $N$ above 0.65 capped correct attempts: ابننا heard as `e b ə n a θ` was 4/6 and scored 30 instead of 97. Weighted, it is 0.25/3.
 
 If unrelated, the sentence score is capped at 30, no tips or issues are produced, letters get no reasons, and the page shows "משפט אחר?". It also covers hesitations and restarts (§6.3 #14). The greedy decode is returned as `heard_ipa`. The Hebrew-letter rendering of what was heard (`heard_tr`) is built by cutting the greedy sequence at the aligned word starts.
 
@@ -483,7 +499,8 @@ The values live in code, not in the rules document. The `scoring:` block of `pro
 | `ScorerConfig.issue_below` | 90 | max score to be listed as an issue |
 | `ScorerConfig.near_vowel_floor` | 90 | floor for neighbouring vowel qualities |
 | `ScorerConfig.word_min_weight` | 0.5 | weight of the weakest phoneme in a word |
-| `ScorerConfig.unrelated_ratio` | 0.65 | edit-distance ratio for "different sentence" |
+| `ScorerConfig.unrelated_ratio` | 0.5 | weighted edit-distance ratio for "different sentence" (§8) |
+| `ScorerConfig.unrelated_veto_share` · `_peak` · `_mean` | 0.6 · 0.5 · 60 | the alignment veto of §8 |
 | `ScorerConfig.ref_min_mean` | 60 | minimum mean for a TTS reference to be trusted |
 | vowel weight | 0.5 | in the sentence phone mean (hard-coded) |
 | unrelated cap | 30 | hard-coded |

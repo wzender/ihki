@@ -12,7 +12,8 @@ from typing import Callable, Protocol
 
 import numpy as np
 
-from .align import Alignment, GopConfig, TokenScore, ctc_viterbi, edit_distance, greedy_decode, score_tokens
+from .align import (Alignment, GopConfig, TokenScore, ctc_viterbi, edit_distance, greedy_decode, score_tokens,
+                    weighted_edit_distance)
 from .archi import archify, diphthong_variants, split_token, written
 from .phones import base
 from .rules import EXEMPTIONS, TOGGLE_IDS, Check, Rules, elided_article, near_vowels, load as load_rules  # noqa: F401 (re-exported)
@@ -200,7 +201,14 @@ class ScorerConfig:
     flag_below: float = 50.0        # phoneme score under which a consonant gets a tip
     flag_below_sound: dict[str, float] = field(default_factory=dict)   # per sound, in place of flag_below (see
                                                                        # FLAG_BELOW_BY_MODEL: it depends on the model)
-    unrelated_ratio: float = 0.65   # normalised edit distance above which we say "different sentence"
+    # weighted edit distance (Scorer._distance) over the weight of the sounds that can be wrong, above which we say
+    # "different sentence". 0.65 with plain edit distance over all sounds; the weighted ratio runs lower
+    unrelated_ratio: float = 0.5
+    # ... unless the forced alignment clearly found the sentence: this share of its consonants (at least 2) peak
+    # at unrelated_veto_peak or more, and the mean GOP score (before the exemptions) is at least unrelated_veto_mean
+    unrelated_veto_share: float = 0.6
+    unrelated_veto_peak: float = 0.5
+    unrelated_veto_mean: float = 60.0
     issue_below: float = 90.0       # phoneme score under which it is listed as imprecise
     max_issues: int = 8
     max_tips: int | None = None     # None: as many as the rules document says (scoring.max_tips)
@@ -242,7 +250,10 @@ class Fit:
     exempted: list[str | None] = field(default_factory=list)     # per token, the exemption that applied
     exempt_scores: list[TokenScore] = field(default_factory=list)  # after the exemptions, before the inserted vowels
     inserted: dict[int, str] = field(default_factory=dict)        # token -> the vowel heard before it (rules 3.10)
-    distance: int = 0        # edit distance of the greedy decode from the chosen variant
+    distance: float = 0.0    # weighted edit distance of the greedy decode from the chosen variant (_distance)
+    raw_distance: int = 0    # the same, every edit costing 1
+    distance_weight: float = 1.0  # what `distance` is divided by: the weight of the sounds that can be wrong
+    veto: bool = False       # the alignment found the sentence, so it is not called unrelated (_veto)
     energy: np.ndarray | None = None   # per frame RMS (frame_energy), when the audio was given
     paths: list[list[str]] = field(default_factory=list)   # each candidate's tokens (archi symbols), as `candidates`
 
@@ -510,11 +521,66 @@ class Scorer:
         for j in inserted:
             scores[j] = replace(scores[j], score=min(scores[j].score, cap))
         same = lambda h, t: h == t or h in vocab.members.get(t, ())
-        distance = edit_distance(heard_ids, ids, same)
-        unrelated = bool(distance / max(1, len(ids)) > self.cfg.unrelated_ratio)
+        raw = edit_distance(heard_ids, ids, same)
+        distance, weight = self._distance(heard_ids, toks, gop_scores, exempted, same)
+        veto = self._veto(toks, gop_scores)
+        unrelated = bool(distance / weight > self.cfg.unrelated_ratio) and not veto
         return Fit(ar, ipa, aipa, toks, al, scores, heard_ids, unrelated, ext, candidates=tried, gop_scores=gop_scores,
                    exempted=exempted, exempt_scores=exempt_scores, inserted=inserted, distance=distance, energy=energy,
-                   paths=paths)
+                   paths=paths, raw_distance=raw, distance_weight=weight, veto=veto)
+
+    # heard at the very start or end of the recording, these are usually breath or noise, not a sound of another word
+    _EDGE_NOISE = {"h", "θ", "f", "s", "x", "χ"}
+    _ANY_VOWEL = {"a", "e", "i", "o", "u", "ə", "ɪ", "ʊ", "ɛ", "ɔ", "æ", "ɐ", "ɑ"}
+    _FREE_DROPS = {"glottal_dropped", "article_vowel_elided"}
+    _SHORT_VOWELS = {"a", "e", "i", "o", "u"}
+
+    def _distance(self, heard_ids: list[int], toks: list[TargetToken], gop_scores: list[TokenScore],
+                  exempted: list[str | None], same) -> float:
+        """How far the free decode is from the chosen variant, forgiving only what the exemptions mean:
+        - a vowel heard as another vowel: 0 when it is the competitor an exemption forgave, else 0.25 (a consonant
+          for a vowel: 1);
+        - a consonant heard as the competitor its exemption forgave (b/p, t/d): 0. The exemptions that forgive a
+          dropped sound (_FREE_DROPS) do not forgive a replaced one;
+        - a deletion: 0 for _FREE_DROPS, 0.25 for another exempted short vowel, else 1;
+        - edge noise (_EDGE_NOISE before the first or after the last sound): 0.25.
+        Returns (distance, weight): weight is the sum of the deletion costs, the sounds that can be wrong at all, and
+        at least half the sounds, so a short word does not turn unrelated on one stray sound."""
+        i2t, n = self.vocab.i2t, len(toks)
+        name = lambda h: base(i2t.get(h, ""))
+        comp = [name(sc.competitor) if sc.competitor is not None else None for sc in gop_scores]
+
+        def sub(h, j):
+            if same(h, toks[j].id):
+                return 0.0
+            heard = name(h)
+            if toks[j].phoneme in VOWELS:
+                return (0.0 if exempted[j] and comp[j] == heard else 0.25) if heard in self._ANY_VOWEL else 1.0
+            if (exempted[j] and exempted[j] not in self._FREE_DROPS and comp[j] == heard
+                    and heard not in self._ANY_VOWEL):
+                return 0.0
+            return 1.0
+
+        def dele(j):
+            if exempted[j] in self._FREE_DROPS:
+                return 0.0
+            return 0.25 if exempted[j] and toks[j].phoneme in self._SHORT_VOWELS else 1.0
+
+        def ins(h, j):
+            return 0.25 if j in (0, n) and name(h) in self._EDGE_NOISE else 1.0
+
+        weight = max(1.0, n / 2, sum(dele(j) for j in range(n)))
+        return weighted_edit_distance(heard_ids, [t.id for t in toks], sub, dele, ins), weight
+
+    def _veto(self, toks: list[TargetToken], gop_scores: list[TokenScore]) -> bool:
+        """The forced alignment clearly found the sentence's consonants (ScorerConfig.unrelated_veto_*)."""
+        cfg = self.cfg
+        cons = [sc for t, sc in zip(toks, gop_scores) if t.phoneme not in VOWELS]
+        if not cons or not gop_scores:
+            return False
+        sure = sum(float(np.exp(sc.peak)) >= cfg.unrelated_veto_peak for sc in cons)
+        return (sure >= 2 and sure / len(cons) >= cfg.unrelated_veto_share
+                and float(np.mean([sc.score for sc in gop_scores])) >= cfg.unrelated_veto_mean)
 
     def _heatmap(self, logp: np.ndarray, toks: list[TargetToken], alignment, scores,
                  duration_s: float | None) -> dict:
@@ -804,6 +870,8 @@ class Scorer:
                 "deleted_comp": round(float(np.exp(g.deleted_comp)), 3),
                 "flag_below": cfg.flag_below, "flag_below_sound": dict(cfg.flag_below_sound), "issue_below": cfg.issue_below, "near_vowel_floor": cfg.near_vowel_floor,
                 "word_min_weight": cfg.word_min_weight, "vowel_weight": 0.5, "unrelated_ratio": cfg.unrelated_ratio,
+                "unrelated_veto": {"share": cfg.unrelated_veto_share, "peak": cfg.unrelated_veto_peak,
+                                   "mean": cfg.unrelated_veto_mean},
                 "unrelated_cap": 30.0, "letter_good": LETTER_GOOD, "max_tips": max_tips, "max_issues": cfg.max_issues,
                 "ref_min_mean": cfg.ref_min_mean, "margin_default": float(self.rules.scoring.get("margin_default", 0.0)),
                 "ayin_deleted_floor": cfg.ayin_deleted_floor, "onset_transient_floor": cfg.onset_transient_floor,
@@ -821,9 +889,10 @@ class Scorer:
                        "energy": ([round(float(e), 3) for e in fit.energy / max(float(fit.energy.max()), 1e-9)]
                                   if fit.energy is not None else None)},
             "aipa": fit.aipa,
-            "unrelated": {"heard": heard, "distance": fit.distance, "tokens": n,
-                          "ratio": round(fit.distance / max(1, n), 3), "threshold": cfg.unrelated_ratio,
-                          "unrelated": fit.unrelated},
+            "unrelated": {"heard": heard, "distance": round(fit.distance, 2), "raw_distance": fit.raw_distance,
+                          "tokens": n, "weight": round(fit.distance_weight, 2),
+                          "ratio": round(fit.distance / fit.distance_weight, 3), "threshold": cfg.unrelated_ratio,
+                          "veto": fit.veto, "unrelated": fit.unrelated},
             "references": [{"voice": r.voice or f"קול {k + 1}", "mean": round(float(np.mean(r.scores)), 1),
                             "sounds": len(r.sounds)} for k, r in enumerate(refs)],
             "tokens": tokens,

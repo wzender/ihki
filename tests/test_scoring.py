@@ -312,6 +312,54 @@ def test_unrelated_sentence():
     assert r["unrelated"] and r["score"] <= 30
 
 
+SON = {"variants": [("ابننا", "ʔ i b i n n a")]}   # הבן שלנו
+SON_SYMS = ["b", "ə", "θ", "u"]
+
+
+def test_weighted_edit_distance_costs():
+    from app.align import weighted_edit_distance
+    one = lambda *_: 1.0
+    assert weighted_edit_distance(list("kitten"), list("sitting"), lambda x, j: float(x != "sitting"[j]), one, one) == 3
+    # an insertion after the last target sound gets the edge cost
+    edge = lambda x, j: 0.25 if j in (0, 3) else 1.0
+    assert weighted_edit_distance(list("abcz"), list("abc"), lambda x, j: float(x != "abc"[j]), one, edge) == 0.25
+
+
+def test_exempted_differences_do_not_make_a_word_unrelated():
+    # the reported attempt: ʔ dropped, i heard as e and as ə, a breath (θ) at the end. All four are forgiven sounds,
+    # plain edit distance was 4/6 > 0.65 and capped a 97 at 30
+    r = custom_scorer(SON_SYMS, ["e", "b", "ə", "n", "a", "θ"]).score(None, SON, diagnostics=True)
+    u = r["trace"]["unrelated"]
+    assert u["raw_distance"] == 4 and u["distance"] <= 1
+    assert not r["unrelated"] and r["score"] >= 85
+
+
+def test_trailing_breath_costs_little():
+    clean = custom_scorer(SON_SYMS, ["ʔ", "i", "b", "i", "n", "a"]).score(None, SON, diagnostics=True)
+    noisy = custom_scorer(SON_SYMS, ["ʔ", "i", "b", "i", "n", "a", "θ"]).score(None, SON, diagnostics=True)
+    assert noisy["trace"]["unrelated"]["distance"] == 0.25
+    assert not noisy["unrelated"] and abs(noisy["score"] - clean["score"]) <= 5
+
+
+@pytest.mark.parametrize("phones", [["ʃ", "a", "l", "a", "m"], ["d", "a", "ʃ", "u", "m", "a"]])
+def test_another_word_with_forgivable_vowels_is_still_unrelated(phones):
+    # ابننا has three short vowels and a ʔ the scorer forgives: the gate must still look at its consonants
+    r = custom_scorer(SON_SYMS, phones).score(None, SON)
+    assert r["unrelated"] and r["score"] <= 30
+
+
+def test_confident_consonants_veto_the_unrelated_gate():
+    # every vowel replaced by ʃ, the consonants clean. A strict gate calls it unrelated unless the alignment veto,
+    # which sees the consonants peaking where the sentence has them, overrules it
+    logp = emissions(["w", "ʃ", "n", "ʃ", "l", "ħ", "ʃ", "m", "ʃ", "m"])
+    strict = scorer_for(logp)
+    strict.cfg = replace(strict.cfg, unrelated_ratio=0.1)
+    r = strict.score(None, TOILET, diagnostics=True)
+    assert r["trace"]["unrelated"]["veto"] and not r["unrelated"]
+    strict.cfg = replace(strict.cfg, unrelated_veto_share=1.01)
+    assert strict.score(None, TOILET)["unrelated"]
+
+
 @pytest.mark.parametrize("p", PHRASES, ids=lambda p: p["he"])
 def test_phrase_bank_word_counts_match(p):
     for ar, ipa in p["variants"]:

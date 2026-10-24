@@ -21,15 +21,16 @@
 ## 4. Focused learner home
 
 - [ ] 4.1 Add the focused home as the default authenticated student entry view and reuse existing topic and homework launch paths; verify automated UI logic tests show no more than three distinct, startable actions.
-- [ ] 4.2 Implement deterministic recommendation priority for nearest-due incomplete homework, unfinished work in the selected lesson, and a review or short activity; verify tests cover incomplete homework, no homework, completed current lesson, insufficient material, and duplicate-target removal.
+- [ ] 4.2 Implement deterministic recommendation priority for nearest-due incomplete homework, today's unwatched daily video, unfinished work in the selected lesson, and a review or short activity, keeping the first three that apply; verify tests cover incomplete homework, no homework, an unwatched/watched/absent daily video, a math class without daily videos, all three higher-priority actions dropping the short activity, completed current lesson, insufficient material, and duplicate-target removal.
 - [ ] 4.3 Implement a short recommended session capped at five items with its workload shown before start and a clear completion state; verify tests cover item limits and empty/insufficient pools.
-- [ ] 4.4 Manually exercise the focused home in Hebrew RTL on a phone-sized viewport with complete and incomplete lessons; verify homework status, primary action, short-task size, touch targets, keyboard order, and screen-reader labels.
+- [ ] 4.4 Manually exercise the focused home in Hebrew RTL on a phone-sized viewport with complete and incomplete lessons; verify homework status, the daily-video card opening today's video, primary action, short-task size, touch targets, keyboard order, and screen-reader labels.
 
 ## 5. Path and daily-practice integration
 
 - [ ] 5.1 Add explicit full-path navigation that positions the selected current lesson or its first unfinished topic in view while retaining every assigned class lesson; verify tests cover lesson 5 with unfinished earlier lessons and manual reduced-motion navigation.
 - [ ] 5.2 Update daily-practice new-item selection to prefer homework and then the selected current lesson before other unfinished lessons; verify focused tests retain the existing ten-item balance and fallback behavior.
-- [ ] 5.3 Preserve the existing path-first behavior for teachers and open mode, and avoid requesting notification permission during lesson onboarding; verify browser tests cover both entry modes and confirm no notification prompt is triggered by onboarding.
+- [ ] 5.3 Preserve the existing path-first behavior for teachers and open mode, and skip the daily-video reminder prompt (`askPushSoon`) on the visit where lesson onboarding happens; verify browser tests cover both entry modes, confirm no reminder prompt or permission request follows onboarding on that visit, and confirm the prompt's existing rules apply on the next entry.
+- [ ] 5.4 Keep a reminder tap's `?view=daily` link opening the daily videos screen before onboarding or the focused home; verify browser tests cover a student without a saved lesson (onboarding shown on returning home) and with one (focused home shown on returning), and that an admin broadcast's `/` link follows the normal entry flow.
 
 ## 6. Integration verification
 

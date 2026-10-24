@@ -144,7 +144,10 @@ def test_admin_sends_to_everyone_or_to_a_class(monkeypatch, tmp_path):
     teacher, student = {"Authorization": "Bearer teacher"}, {"Authorization": "Bearer student"}
     with TestClient(create_app(scorer_for(emissions(["ħ"])), SawtakTTS("k", cache_dir=tmp_path), auth=auth,
                                tutor=Tutor(object()))) as c:
-        assert c.get("/api/push/audience", headers=teacher).json() == {"all": 4, "classes": {"א1": 3, "ב2": 0}}
+        aud = c.get("/api/push/audience", headers=teacher).json()
+        assert {k: aud[k] for k in ("all", "classes", "outside")} == {"all": 4, "classes": {"א1": 3, "ב2": 0}, "outside": 1}
+        assert [(p["email"], p["devices"], p["classes"]) for p in aud["people"]] == [
+            ("other@b.c", 1, []), ("s2@b.c", 1, ["א1"]), ("s@b.c", 1, ["א1"]), ("t@b.c", 1, ["א1"])]
         r = c.post("/api/push/broadcast", headers=teacher, json={"title": "שלום", "body": "", "class": "א1"})
         assert r.json() == {"devices": 3, "sent": 3}
         assert sorted(e for e, _ in sent) == ["s2@b.c", "s@b.c", "t@b.c"]
