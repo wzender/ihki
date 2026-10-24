@@ -57,6 +57,9 @@ function shortPlan(practised,lesson,best,excellent){
   return fresh.length?{kind:"new",ids:fresh.slice(0,SHORT).map(p=>p.id)}:null;
 }
 
+/* About how long `n` items take (a sentence, a word, a pair): some 25 seconds each, at least a minute. */
+const minutesFor=n=>Math.max(1,Math.round(n*25/60));
+
 function el(tag,cls,text){
   const e=document.createElement(tag);
   if(cls) e.className=cls;
@@ -75,12 +78,15 @@ function renderHome(box,o,focus){
   head.append(where,title); page.append(head);
   if(o.done) page.append(el("p","focus-note",`סיימתם את ${o.lessonName}. אפשר לחזור על משפטים, או לבחור את השיעור שהכיתה לומדת עכשיו.`));
   const list=el("ol","focus-actions"); list.setAttribute("aria-label","הפעילויות המומלצות");
-  for(const a of o.actions){
-    const li=el("li"), b=el("button","focus-action"+(a.state?" "+a.state:"")); b.type="button";
-    b.append(el("strong","",a.title)); if(a.detail) b.append(el("span","focus-detail",a.detail)); b.append(el("span","focus-go",a.go||"התחילו"));
-    b.setAttribute("aria-label",[a.title,a.detail,a.go||"התחילו"].filter(Boolean).join(", "));
+  o.actions.forEach((a,k)=>{   // the first is the one to do now: big and filled, with about how long it takes
+    const li=el("li"), b=el("button","focus-action"+(k===0?" hero":"")+(a.state?" "+a.state:"")); b.type="button";
+    const time=a.minutes?`כ-${a.minutes} דק׳`:"";
+    b.append(el("strong","",a.title)); if(a.detail) b.append(el("span","focus-detail",a.detail));
+    if(time) b.append(el("span","focus-time","⏱ "+time));
+    b.append(el("span","focus-go",(a.go||"התחילו")+(k===0?" ←":"")));
+    b.setAttribute("aria-label",[a.title,a.detail,time,a.go||"התחילו"].filter(Boolean).join(", "));
     b.onclick=a.run; li.append(b); list.append(li);
-  }
+  });
   if(o.actions.length) page.append(list);
   else page.append(el("p","focus-note","אין כרגע פעילות מומלצת. אפשר להמשיך מהמסלול המלא."));
   const more=el("div","focus-more"), refer=el("button","focus-refer","חבר מביא חבר"), path=el("button","focus-path","צפייה במסלול המלא");
@@ -135,6 +141,6 @@ function openLessonDialog(dlg,o){
   dlg.showModal(); (first||ok).focus();
 }
 
-root.LearnerHome=Object.freeze({KEY,MAX_ACTIONS,SHORT,storageKey,resolveLesson,classState,lessonOrder,pickActions,
+root.LearnerHome=Object.freeze({KEY,MAX_ACTIONS,SHORT,minutesFor,storageKey,resolveLesson,classState,lessonOrder,pickActions,
   shortPlan,renderHome,openLessonDialog});
 })(typeof globalThis!=="undefined"?globalThis:this);

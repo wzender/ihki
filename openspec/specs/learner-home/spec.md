@@ -130,7 +130,13 @@ Current-lesson onboarding and the focused home SHALL work with the existing dail
 - **GIVEN** the student completes current-lesson onboarding during this visit
 - **WHEN** the focused home appears
 - **THEN** the prompt to turn on daily-video reminders is not shown during this visit
-- **AND** on a later entry the existing reminder-prompt rules apply
+- **AND** on a later visit the prompt follows the good-moment rule below
+
+#### Scenario: Reminder offered after a good moment
+- **GIVEN** the learner did not decline the reminder in the last seven days and has not turned it on
+- **WHEN** the learner finishes a topic or lesson, gets a first gold bead, or reaches the daily goal, and then returns to the home
+- **THEN** the prompt to turn on daily-video reminders is shown
+- **AND** it is not shown on entering the application or in the middle of practice
 
 #### Scenario: Reminder opened before a lesson is chosen
 - **GIVEN** the student has no saved current lesson for the active class

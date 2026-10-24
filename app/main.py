@@ -70,9 +70,11 @@ load_dotenv(STATIC.parent / ".env")
 SUBJECTS = {
     "arabic": {"__TITLE__": "אהלא וסהלא", "__SPLASH_LOGO__": "/static/logo-intro.svg",
                "__SPLASH_ALT__": "אהלא וסהלא, בית הספר ללימוד השפה הערבית", "__START_LABEL__": "יאללה נבלש",
+               "__TAGLINE__": "מדברים ערבית, ומקבלים משוב על כל צליל",
                "__APP_NAME__": "אהלא  וסהלא", "__THEME_COLOR__": "#4B6A2C", "__MANIFEST__": "/static/manifest.webmanifest"},
     "math": {"__TITLE__": "מתמטיקה בכיף", "__SPLASH_LOGO__": "/static/logo-math.svg",
              "__SPLASH_ALT__": "מתמטיקה בכיף, המורה הפרטי למתמטיקה", "__START_LABEL__": "יאללה נתחיל",
+             "__TAGLINE__": "מתרגלים מתמטיקה, ומקבלים עזרה בכל צעד",
              "__APP_NAME__": "מתמטיקה בכיף", "__THEME_COLOR__": "#000000", "__MANIFEST__": "/math/manifest.webmanifest"},
 }
 # A subject as an admin and a class keep it (in Hebrew, as the panel shows it), by the path its pages are served at.
@@ -471,28 +473,45 @@ def weekly_practice_days(rows: list[dict]) -> int:
                 if monday <= utc(r["created_at"]).astimezone(LOCAL_TZ).date() <= today})
 
 
+CLASS_WEEK_GOAL = 25   # sentences a student, for the class's shared goal of the week
+CLASS_WEEK_TTL = 300   # seconds a class's week totals are kept before they are read again
+FREEZE_DAYS = 7   # a missed day is forgiven once in this many days (the streak's "יום חופש")
+
+
 def practice_streak(rows: list[dict]) -> dict:
     """Current and longest runs of consecutive Jerusalem calendar days.
 
     Yesterday may anchor the current run: a student does not lose the visible streak
-    before they have had a chance to practise today.
+    before they have had a chance to practise today. One missed day between two practice
+    days is forgiven once every FREEZE_DAYS days (a streak freeze), so a single slip does
+    not wipe out weeks of practice. `frozen` is the last forgiven day; `freeze_ready` says
+    whether a missed yesterday would be forgiven now.
     """
     days = sorted({utc(r["created_at"]).astimezone(LOCAL_TZ).date() for r in rows})
-    if not days:
-        return {"current": 0, "best": 0, "last": None}
-    longest = run = 1
-    for previous, day in zip(days, days[1:]):
-        run = run + 1 if day == previous + timedelta(days=1) else 1
-        longest = max(longest, run)
     today = datetime.now(LOCAL_TZ).date()
-    current = 0
-    if days[-1] >= today - timedelta(days=1):
-        current = 1
-        for i in range(len(days) - 1, 0, -1):
-            if days[i - 1] != days[i] - timedelta(days=1):
-                break
-            current += 1
-    return {"current": current, "best": longest, "last": days[-1].isoformat()}
+    if not days:
+        return {"current": 0, "best": 0, "last": None, "frozen": None, "freeze_ready": True}
+    longest = run = 1
+    frozen = None
+
+    def can_forgive(missed):
+        return frozen is None or (missed - frozen).days >= FREEZE_DAYS
+
+    for previous, day in zip(days, days[1:]):
+        gap = (day - previous).days
+        if gap == 1:
+            run += 1
+        elif gap == 2 and can_forgive(day - timedelta(days=1)):
+            run += 1
+            frozen = day - timedelta(days=1)
+        else:
+            run = 1
+        longest = max(longest, run)
+    ready = can_forgive(today - timedelta(days=1))
+    since = (today - days[-1]).days
+    alive = since <= 1 or (since == 2 and ready)
+    return {"current": run if alive else 0, "best": longest, "last": days[-1].isoformat(),
+            "frozen": frozen.isoformat() if frozen else None, "freeze_ready": ready}
 
 
 def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
@@ -2474,6 +2493,47 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             named = [{"name": c["nicknames"].get(e) or google.get(e, ""), "me": e == me} for e in c["emails"]]
             students = sorted((s for s in named if s["name"]), key=lambda s: s["name"])
             out.append({"name": c["name"], "students": students, "unnamed": len(named) - len(students)})
+        return {"classes": out}
+
+    class_weeks: dict[tuple, tuple[float, dict]] = {}   # (class id, week) -> (when read, totals): a few minutes old at most
+
+    @app.get("/api/class/week")
+    def class_week(user: dict | None = Depends(signed_in)):
+        """This week (from Monday, Jerusalem time) in each of the signed-in student's classes, as totals only: how many
+        sentences its students said, how many of them practised, a goal for the class (CLASS_WEEK_GOAL a student),
+        and how many the student said. Nobody else's own numbers, and no names."""
+        if not user or not user["classes"]:
+            return {"classes": []}
+        a = app.state.auth
+        today = datetime.now(LOCAL_TZ).date()
+        monday = today - timedelta(days=today.weekday())
+        since = datetime(monday.year, monday.month, monday.day, tzinfo=LOCAL_TZ)
+        try:
+            ids = {u["email"].lower(): u["id"] for u in a.users()}
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"class week not available: {e}")
+        me = user["email"].lower()
+        out = []
+        for c in user["classes"]:
+            teachers = {e.lower() for e in c.get("teachers") or []}
+            students = [e.lower() for e in c["emails"] if e.lower() not in teachers]
+            key, now = (c["id"], monday.isoformat()), datetime.now().timestamp()
+            cached = class_weeks.get(key)
+            if cached and now - cached[0] < CLASS_WEEK_TTL:
+                totals = cached[1]
+            else:
+                try:
+                    summary = a.scoped_activity({ids[e] for e in students if e in ids}, since)["summary"] or {}
+                except AuthUnavailable as e:
+                    raise HTTPException(503, f"class week not available: {e}")
+                totals = {"said": int(summary.get("attempts") or 0), "active": int(summary.get("active_students") or 0)}
+                class_weeks[key] = (now, totals)
+            try:
+                mine = (a.scoped_activity({ids[me]}, since)["summary"] or {}).get("attempts", 0) if me in ids else 0
+            except AuthUnavailable:
+                mine = 0
+            out.append({"name": c["name"], "students": len(students), **totals, "mine": int(mine or 0),
+                        "goal": CLASS_WEEK_GOAL * max(1, len(students))})
         return {"classes": out}
 
     @app.get("/api/math/skills")

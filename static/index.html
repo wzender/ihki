@@ -150,7 +150,12 @@ body[data-view=verbs] #vids{max-width:none;gap:6px;margin-top:0}
 .vt-ticks i{position:absolute;inset-inline-start:var(--at);top:5px;width:1px;height:4px;background:var(--line)}
 .vt-cards{columns:14em;column-gap:8px}
 .vt-cards.bare .vt-note{display:none}   /* the explanations put away: the card's heading tells it on hover */
-#vids .vt-tips{margin-inline-start:6px;padding:2px 9px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--muted);font:700 12px/1.4 var(--f-body);display:inline-block}
+#vids .vt-tools :is(.vt-tips,.vt-play-mg){display:inline-block;min-height:0;padding:3px 10px;border-radius:999px;font:700 12px/1.4 var(--f-body)}   /* pills, not the tab's big buttons */
+.vt-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:0 0 8px}
+.vt-legend{display:inline-flex;align-items:center;gap:5px;margin-inline-end:auto;color:var(--muted);font:600 12px/1.3 var(--f-body)}
+.vt-dot{display:inline-block;width:14px;height:10px;border-radius:999px;background:var(--olive)}
+.vt-slide label{flex-wrap:wrap;white-space:nowrap}
+#vids .vt-tips{white-space:nowrap;margin-inline-start:6px;padding:2px 9px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--muted);font:700 12px/1.4 var(--f-body);display:inline-block}
 #vids .vt-tips[aria-pressed=true]{background:var(--olive-soft);border-color:var(--olive);color:var(--olive-deep)}
 .vt-gizra{--c:var(--olive);--c-bg:var(--olive-soft);margin:0 0 8px;box-decoration-break:clone;-webkit-box-decoration-break:clone;padding:4px 7px 2px;border:1px solid var(--line);border-top:3px solid var(--c);border-radius:9px;background:var(--surface)}
 .vt-gizra[data-b="2"]{--c:var(--amber);--c-bg:var(--amber-bg)}.vt-gizra[data-b="3"]{--c:var(--sumac);--c-bg:var(--sumac-bg)}
@@ -168,7 +173,7 @@ body[data-view=verbs] #vids{max-width:none;gap:6px;margin-top:0}
 .vt-note+.vt-row,h3+.vt-row{border-top:0}
 .vt-he{display:flex;align-items:baseline;gap:4px;min-width:0;font-weight:700;font-size:14px;line-height:1.2}
 .vt-he span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vt-he sub{flex:none;min-width:1.6em;color:var(--muted);font-size:10.5px;font-weight:600;vertical-align:baseline;font-variant-numeric:tabular-nums}
+.vt-he sub{flex:none;min-width:1.6em;color:var(--muted);font-size:10.5px;font-weight:600;vertical-align:baseline;font-variant-numeric:tabular-nums;border:1px solid var(--line);border-radius:999px;text-align:center;line-height:1.5}   /* every verb's lesson in the same pill; the new ones filled */
 .vt-row.new .vt-he sub{color:var(--surface);background:var(--c);border-radius:999px;text-align:center}
 #vids .vt-say{display:flex;align-items:baseline;gap:8px;min-width:0;overflow:hidden;padding:0 6px;border:0;border-radius:7px;background:none;color:var(--ink);text-align:start;font:inherit;cursor:pointer}
 #vids .vt-say:hover,#vids .vt-say:focus-visible{background:var(--c-bg)}
@@ -177,7 +182,7 @@ body[data-view=verbs] #vids{max-width:none;gap:6px;margin-top:0}
 .vt-say .tr i{font-style:normal;opacity:.5;margin-inline:3px}
 @media (max-width:600px){.vt-row{grid-template-columns:minmax(0,6.6em) minmax(0,1fr);min-height:30px}.vt-say .tr{font-size:18.5px;line-height:1.6;letter-spacing:.04em;-webkit-text-stroke:.02em currentColor}}
 .vt-empty{display:none}.vt-none .vt-empty{display:block}
-#vids .vt-play-mg{margin-inline-start:4px;padding:2px 9px;border:1px solid #b67d10;border-radius:999px;background:linear-gradient(180deg,#ffe27a,#d7a423);color:#3c2800;font:800 12px/1.4 var(--f-body);display:inline-block}
+#vids .vt-play-mg{white-space:nowrap;margin-inline-start:4px;padding:2px 9px;border:1px solid #b67d10;border-radius:999px;background:linear-gradient(180deg,#ffe27a,#d7a423);color:#3c2800;font:800 12px/1.4 var(--f-body);display:inline-block}
 /* "הפועל זכרון": the verbs of the verb table's lesson as a memory game on a misbaha that snakes over the whole screen.
    A bead shows gold, turning on its cord; open, a verb: the Hebrew, or the Arabic (said aloud) in transliteration. A found
    pair turns green and stays open. The cord, the imam and the tassel are those of "פועל זמני", grown to the screen. */
@@ -237,7 +242,7 @@ body.memory-game{overflow:hidden}
 .mg-hud{position:relative;z-index:3;display:flex;align-items:center;gap:8px;padding:max(10px,env(safe-area-inset-top)) 12px 4px}
 .mg-hud .mg-title{flex:1;min-width:0}
 .mg-hud h2{margin:0;font:400 clamp(20px,5.4vw,30px)/1.1 var(--f-display);color:#ffe27a;text-shadow:0 2px 0 #714507,0 4px 10px rgb(0 0 0/.5)}
-.mg-hud .mg-title small{display:block;color:#c9d6bb;font:700 12px/1.3 var(--f-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mg-hud .mg-title small{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;color:#c9d6bb;font:700 12px/1.3 var(--f-body);overflow:hidden}
 .mg-close{flex:none;display:grid;place-items:center;width:40px;height:40px;padding:0;border:2px solid #111;border-radius:50%;background:#63bd4d;color:#111;font:800 18px/1 var(--f-body);box-shadow:0 3px 0 #111;cursor:pointer}
 .mg-close:active{transform:translateY(2px);box-shadow:0 1px 0 #111}
 .mg-stat{flex:none;min-width:58px;padding:5px 9px;border:2px solid #205f20;border-radius:12px;background:rgb(255 255 255/.92);color:#174f18;box-shadow:0 3px 0 #205f20;text-align:center;font:800 11px/1 var(--f-body)}
@@ -351,8 +356,22 @@ body.memory-game{overflow:hidden}
 #vids .focus-action strong{grid-column:1;font:700 17px/1.3 var(--f-body)}
 #vids .focus-action .focus-detail{grid-column:1;color:var(--muted);font:600 14px/1.35 var(--f-body);overflow-wrap:anywhere}
 #vids .focus-action .focus-go{grid-column:2;grid-row:1/span 2;align-self:center;color:var(--olive);font:700 15px/1.2 var(--f-body);white-space:nowrap}
+#vids .focus-action .focus-time{grid-column:1;color:var(--muted);font:700 12px/1.2 var(--f-body)}
+#vids .focus-action .focus-go{grid-row:1/span 3}
+/* the action to do now: filled, bigger, its "go" a real button */
+#vids .focus-action.hero{min-height:96px;padding:18px;background:var(--olive);border-color:var(--olive);color:var(--on-olive);box-shadow:0 4px 0 var(--olive-deep)}
+#vids .focus-action.hero strong{font-size:20px}
+#vids .focus-action.hero :is(.focus-detail,.focus-time){color:color-mix(in srgb,var(--on-olive) 82%,transparent)}
+#vids .focus-action.hero .focus-go{padding:10px 16px;border-radius:999px;background:var(--on-olive);color:var(--olive-deep);font-size:16px}
+#vids .focus-action.hero:active{transform:translateY(3px);box-shadow:0 1px 0 var(--olive-deep)}
 #vids .focus-action.soon{border-color:var(--orange)}
 #vids .focus-action.late{border-color:var(--sumac)}
+#vids .class-week{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+#vids .cw-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:15px}
+#vids .cw-head span{color:var(--olive);font-weight:700;font-variant-numeric:tabular-nums}
+#vids .cw-bar{height:10px;border-radius:999px;background:var(--olive-soft);overflow:hidden}
+#vids .cw-bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--olive),var(--ok));background:linear-gradient(to left,var(--orange) var(--mine,0%),var(--olive) 0)}   /* the student's own part, in their colour, at the start */
+#vids .cw-note{color:var(--muted);font:600 13px/1.3 var(--f-body)}
 #vids .focus-more{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 #vids .focus :is(.focus-refer,.focus-path){display:flex;justify-content:center;min-height:48px;color:var(--olive)}
 #vids .focus button:focus-visible{outline:2px solid var(--olive);outline-offset:2px}
@@ -401,12 +420,43 @@ body.memory-game{overflow:hidden}
 .reward-copy{display:flex;min-width:0;flex-direction:column;line-height:1.25}.reward-copy b{font-size:17px}.reward-copy small{color:var(--orange);font-weight:700}.reward-totals{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;width:100%;font:700 13px/1.15 var(--f-body)}.reward-count{display:flex;align-items:center;justify-content:center;gap:5px;min-height:34px;padding:6px;border:1px solid var(--line);border-radius:11px;background:color-mix(in srgb,var(--surface) 88%,transparent);white-space:nowrap}.reward-count::before{content:"";width:17px;height:17px;box-sizing:border-box;border:2px solid #52624b;border-radius:50%;background:radial-gradient(circle at 32% 27%,#dce7d4 0 9%,#769064 23%,#405136 72%);box-shadow:inset -1px -2px 2px rgb(0 0 0/.25)}.reward-count.gold{color:#865b08}.reward-count.gold::before{border-color:#9b690b;background:radial-gradient(circle at 32% 27%,#fff3a7 0 9%,#e4b83e 27%,#9d6509 75%)}.reward-count.misbaha{color:var(--sumac)}.reward-count.misbaha::before{content:"📿";width:auto;height:auto;border:0;background:none;box-shadow:none;font-size:18px}.reward-week{grid-column:1/-1;color:var(--olive);text-align:center;font-size:12px}
 /* The complete progress panel belongs to the focused learner home, not to the full path or the other views. */
 body:not(.home) .reward-shelf,body.manage .reward-shelf,body:not([data-view=home]) .reward-shelf{display:none}
-#rewardsDlg{width:min(94vw,520px);max-height:88vh}.reward-summary{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:4px 0 12px}.reward-summary div{padding:10px 6px;border-radius:12px;background:var(--olive-soft);text-align:center}.reward-summary div:first-child{background:var(--amber-bg);box-shadow:inset 0 0 0 1px var(--orange)}.reward-summary div:first-child b{color:var(--orange)}.reward-summary div.misbaha{background:color-mix(in srgb,var(--sumac-bg) 72%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--sumac) 40%,var(--line))}.reward-summary div.misbaha b{color:var(--sumac)}.reward-summary b{display:block;color:var(--olive);font:400 25px/1.1 var(--f-display)}.reward-summary small{font-size:12px;color:var(--muted)}
-.reward-lesson{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:18px 0 0;padding:8px 0 5px;border-bottom:1px solid var(--line);color:var(--olive);font:400 20px/1.2 var(--f-display)}.reward-lesson:first-child{margin-top:8px}.lesson-misbaha{padding:5px 8px;border:1px solid color-mix(in srgb,var(--sumac) 45%,var(--line));border-radius:999px;background:var(--sumac-bg);color:var(--sumac);font:700 12px/1 var(--f-body);white-space:nowrap;animation:td-pop .55s cubic-bezier(.2,1.6,.4,1) both}.reward-topic{margin:10px 0 5px;font:700 15px/1.2 var(--f-body)}.reward-topic small{margin-inline-start:6px;color:var(--muted)}.reward-beads{display:flex;flex-wrap:wrap;gap:7px;direction:rtl}.phrase-bead{width:31px;height:31px;border-radius:50%;border:3px solid #52624b;background:radial-gradient(circle at 32% 27%,#dce7d4 0 9%,#769064 23%,#405136 72%);box-shadow:inset -2px -3px 3px rgb(0 0 0/.3),0 2px 2px rgb(0 0 0/.2);cursor:pointer}.phrase-bead.gold{border-color:#9b690b;background:radial-gradient(circle at 32% 27%,#fff3a7 0 9%,#e4b83e 27%,#9d6509 75%)}
+#rewardsDlg{width:min(94vw,520px);max-height:88vh}.celebrate{text-align:center;max-width:380px;overflow:hidden}
+.celebrate h2{margin:6px 0 4px;font:400 28px/1.2 var(--f-display);color:var(--amber)}
+.celebrate .row{justify-content:center}
+.celebrate-emoji{font-size:76px;line-height:1;animation:celebrate-pop .7s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes celebrate-pop{from{transform:scale(.2) rotate(-20deg);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.celebrate-emoji{animation:none}}
+/* the regular bead's colours; a misbaha opens another (BEAD_SKINS) */
+:root{--bead-rim:#52624b;--bead-hi:#dce7d4;--bead-mid:#769064;--bead-lo:#405136}
+:root[data-skin=turquoise],.skin-turquoise{--bead-rim:#1f6f73;--bead-hi:#d4f4f2;--bead-mid:#3fb1ae;--bead-lo:#1d5f62}
+:root[data-skin=lapis],.skin-lapis{--bead-rim:#2b3f86;--bead-hi:#dbe4ff;--bead-mid:#5b7be0;--bead-lo:#24357a}
+:root[data-skin=coral],.skin-coral{--bead-rim:#8a3b2c;--bead-hi:#ffe0d6;--bead-mid:#e07b62;--bead-lo:#8a3424}
+:root[data-skin=amethyst],.skin-amethyst{--bead-rim:#5b2f78;--bead-hi:#f0ddff;--bead-mid:#a46fd0;--bead-lo:#4e2468}
+.skin-olive{--bead-rim:#52624b;--bead-hi:#dce7d4;--bead-mid:#769064;--bead-lo:#405136}
+.reward-skins{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px;padding:10px;border-radius:12px;background:var(--bg)}
+.reward-skins>b{flex-basis:100%;font-size:14px}
+.skin{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 8px;border:2px solid transparent;border-radius:12px;background:var(--surface);cursor:pointer}
+.skin[aria-pressed=true]{border-color:var(--olive)}
+.skin:disabled{cursor:default;opacity:.55}
+.skin .phrase-bead{pointer-events:none}
+.skin small{font-size:11px;color:var(--muted)}
+.reward-summary div.freeze{background:color-mix(in srgb,#5aa9dc 18%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,#5aa9dc 55%,var(--line))}.reward-summary div.freeze b{color:#2d7fb5}
+.reward-summary div.freeze.used{background:var(--bg);box-shadow:none}.reward-summary div.freeze.used b{opacity:.5}
+/* home: the day's goal as a ring around the streak; a first visit's shelf with one goal; the string of beads */
+.reward-shelf .streak-ring{border:0;background:radial-gradient(closest-side,var(--amber-bg) 78%,transparent 80% 100%),conic-gradient(var(--ok) var(--day,0%),color-mix(in srgb,var(--orange) 25%,transparent) 0)}
+.reward-shelf.day-done .streak-ring{box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 35%,transparent)}
+.reward-shelf.fresh .reward-totals>:not(.reward-week){display:none}
+.reward-shelf.fresh #rewardCopy{color:var(--olive);font-size:15px}
+.reward-string{display:flex;gap:0;margin-top:5px}
+.reward-string i{width:12px;height:12px;margin-inline-start:-2px;border:2px solid var(--bead-rim);border-radius:50%;background:radial-gradient(circle at 32% 27%,var(--bead-hi) 0 9%,var(--bead-mid) 23%,var(--bead-lo) 72%)}
+.reward-string i.gold{border-color:#9b690b;background:radial-gradient(circle at 32% 27%,#fff3a7 0 9%,#e4b83e 27%,#9d6509 75%)}
+.reward-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:4px 0 12px}
+.reward-summary div:first-child{grid-column:span 2}   /* the streak leads; the counts fill two rows of four (two by two on a phone) */.reward-summary div{padding:10px 6px;border-radius:12px;background:var(--olive-soft);text-align:center}.reward-summary div:first-child{background:var(--amber-bg);box-shadow:inset 0 0 0 1px var(--orange)}.reward-summary div:first-child b{color:var(--orange)}.reward-summary div.misbaha{background:color-mix(in srgb,var(--sumac-bg) 72%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--sumac) 40%,var(--line))}.reward-summary div.misbaha b{color:var(--sumac)}.reward-summary b{display:block;color:var(--olive);font:400 25px/1.1 var(--f-display)}.reward-summary small{font-size:12px;color:var(--muted)}
+.reward-lesson{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:18px 0 0;padding:8px 0 5px;border-bottom:1px solid var(--line);color:var(--olive);font:400 20px/1.2 var(--f-display)}.reward-lesson:first-child{margin-top:8px}.lesson-misbaha{padding:5px 8px;border:1px solid color-mix(in srgb,var(--sumac) 45%,var(--line));border-radius:999px;background:var(--sumac-bg);color:var(--sumac);font:700 12px/1 var(--f-body);white-space:nowrap;animation:td-pop .55s cubic-bezier(.2,1.6,.4,1) both}.reward-topic{margin:10px 0 5px;font:700 15px/1.2 var(--f-body)}.reward-topic small{margin-inline-start:6px;color:var(--muted)}.reward-beads{display:flex;flex-wrap:wrap;gap:7px;direction:rtl}.phrase-bead{width:31px;height:31px;border-radius:50%;border:3px solid var(--bead-rim);background:radial-gradient(circle at 32% 27%,var(--bead-hi) 0 9%,var(--bead-mid) 23%,var(--bead-lo) 72%);box-shadow:inset -2px -3px 3px rgb(0 0 0/.3),0 2px 2px rgb(0 0 0/.2);cursor:pointer}.phrase-bead.gold{border-color:#9b690b;background:radial-gradient(circle at 32% 27%,#fff3a7 0 9%,#e4b83e 27%,#9d6509 75%)}
 .reward-empty{padding:20px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);text-align:center}
 .reward-pop{position:fixed;z-index:60;left:50%;top:18%;width:min(88vw,360px);transform:translate(-50%,-12px) scale(.96);padding:14px 18px;border:1px solid var(--olive);border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 12px 38px rgb(0 0 0/.28);text-align:center;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}.reward-pop.show{opacity:1;transform:translate(-50%,0) scale(1)}.reward-pop b{display:block;color:var(--olive);font:400 22px/1.25 var(--f-display)}.reward-pop.gold b{color:var(--amber)}.reward-pop.misbaha{border-color:var(--sumac);background:linear-gradient(145deg,var(--surface),var(--sumac-bg))}.reward-pop.misbaha b{color:var(--sumac)}.reward-pop small{color:var(--muted);font-weight:600}
 @media (prefers-reduced-motion:reduce){.reward-pop{transition:none}}
-@media (max-width:430px){.reward-summary{grid-template-columns:repeat(2,1fr)}.reward-summary div.misbaha{grid-column:span 2}}
+@media (max-width:430px){.reward-summary{grid-template-columns:repeat(2,1fr)}.reward-summary div:first-child{grid-column:span 2}}
 .path{--track:color-mix(in srgb,var(--muted) 75%,var(--bg));position:relative;width:100%;max-width:460px;margin:4px auto 72px;background:#101510 url("/static/assets/arabic-calligraphy-path.webp?v=7") top center/100% auto repeat-y}
 .road{position:absolute;left:50%;top:0;width:1px;height:100%;overflow:visible;pointer-events:none}
 .road path{fill:none;stroke-linecap:round}
@@ -426,6 +476,10 @@ body:not(.home) .reward-shelf,body.manage .reward-shelf,body:not([data-view=home
 @keyframes march{to{stroke-dashoffset:-18}}
 .chapter{position:absolute;left:0;right:0;height:64px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 12px;padding:10px 16px 12px;border:0;border-radius:16px;background:var(--olive);color:var(--on-olive);box-shadow:0 4px 0 var(--olive-deep);font:400 20px/1.1 var(--f-display);text-align:start;cursor:pointer;transition:transform .08s,box-shadow .08s}
 .chapter small{font:700 13px/1 var(--f-body)}
+.chapter.foldable{grid-template-columns:1fr auto auto}
+.chapter .fold{grid-row:1;grid-column:3;padding:4px 9px;border-radius:999px;background:color-mix(in srgb,var(--on-olive) 18%,transparent);font:700 12px/1 var(--f-body)}
+.chapter.folded{background:color-mix(in srgb,var(--olive) 78%,#000);box-shadow:0 3px 0 var(--olive-deep)}
+.chapter.folded i{display:none}
 .chapter i{grid-column:1/-1;height:6px;border-radius:999px;background:color-mix(in srgb,var(--on-olive) 28%,transparent);overflow:hidden}
 .chapter i::after{content:"";display:block;width:var(--p,0%);height:100%;border-radius:999px;background:var(--on-olive)}
 .chapter.gold{background:var(--amber-bg);color:var(--amber);box-shadow:0 4px 0 var(--amber)}
@@ -445,11 +499,11 @@ body:not(.home) .reward-shelf,body.manage .reward-shelf,body:not([data-view=home
 .sat.gold .dot{background:var(--amber-bg);color:var(--amber);box-shadow:0 var(--s) 0 var(--amber)}
 .badge{position:absolute;top:-2px;inset-inline-end:-2px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--bg);color:var(--c);border:2px solid var(--c);font:700 12px/1 var(--f-body)}
 /* The label stands beside its button, on the side the road leaves free. */
-.label{position:absolute;top:50%;width:var(--w);transform:translateY(-50%);display:flex;flex-direction:column;gap:2px}
+.label{position:absolute;top:50%;width:max-content;max-width:var(--w);transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;padding:5px 10px;border-radius:10px;background:rgb(250 250 244/.94);box-shadow:0 2px 8px rgb(0 0 0/.35)}   /* a light chip: the labels stay readable on the dark patterned road */
 .sat.R .label{left:calc(100% + 10px);text-align:left;align-items:flex-end}
 .sat.L .label{right:calc(100% + 10px);text-align:right;align-items:flex-start}
-.label b{color:#F7FAEF;text-shadow:0 1px 2px #000,0 0 5px rgb(0 0 0/.8)}
-.label small{font:600 12px/1.2 var(--f-body);color:#D5DDCE;text-shadow:0 1px 2px #000,0 0 5px rgb(0 0 0/.8)}
+.label b{color:#1C241D}
+.label small{font:600 13px/1.25 var(--f-body);color:#4f5a4d}
 .way{padding:1px 7px;border-radius:999px;background:var(--olive-soft);color:var(--olive);font:700 11px/1.3 var(--f-body);white-space:nowrap}
 .way.read{background:var(--surface);color:var(--ink);box-shadow:inset 0 0 0 1px var(--track)}
 .sat.now .label b{font-weight:700}
@@ -533,8 +587,8 @@ html.a11y-contrast{--e-a:#d8b4ff;--e-t:#8fd0ff;--e-y:#70ff9b;--e-n:#ffb45b;--e-s
 }
 @media (max-width:360px){.eitan-chips{grid-template-columns:repeat(2,minmax(0,1fr))}.eitan-legend span{font-size:10px}.eitan-body{font-size:24px}}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
-.exercise-collector{align-self:flex-end;display:flex;align-items:center;gap:8px;margin:-4px -5px 0 0;padding:6px 9px;border:1px solid var(--line);border-radius:999px;background:linear-gradient(135deg,var(--olive-soft),var(--surface));color:var(--olive);box-shadow:0 2px 0 var(--line);font:700 12px/1.15 var(--f-body);cursor:pointer}.exercise-collector small{display:block;color:var(--muted);font-weight:600}.collector-beads{position:relative;display:flex;align-items:center;padding:0 5px}.collector-beads::before{content:"";position:absolute;left:0;right:0;height:2px;background:#8b6c3e}.collector-beads i{position:relative;width:14px;height:14px;margin-inline-start:-2px;border:2px solid #52624b;border-radius:50%;background:radial-gradient(circle at 32% 27%,#dce7d4 0 9%,#769064 23%,#405136 72%);box-shadow:inset -1px -2px 2px rgb(0 0 0/.25)}.collector-beads i:last-child{border-color:#9b690b;background:radial-gradient(circle at 32% 27%,#fff3a7 0 9%,#e4b83e 27%,#9d6509 75%)}.exercise-collector.catch{animation:collector-catch .55s cubic-bezier(.2,1.7,.4,1)}
-.flying-reward-bead{position:fixed;z-index:100;width:28px;height:28px;box-sizing:border-box;border:3px solid #52624b;border-radius:50%;background:radial-gradient(circle at 32% 27%,#dce7d4 0 9%,#769064 23%,#405136 72%);box-shadow:inset -2px -3px 3px rgb(0 0 0/.3),0 5px 10px rgb(0 0 0/.28);pointer-events:none;animation:reward-bead-flight .85s cubic-bezier(.2,.75,.25,1) forwards}.flying-reward-bead.gold{border-color:#9b690b;background:radial-gradient(circle at 32% 27%,#fff3a7 0 9%,#e4b83e 27%,#9d6509 75%)}
+.exercise-collector{align-self:flex-end;display:flex;align-items:center;gap:8px;margin:-4px -5px 0 0;padding:6px 9px;border:1px solid var(--line);border-radius:999px;background:linear-gradient(135deg,var(--olive-soft),var(--surface));color:var(--olive);box-shadow:0 2px 0 var(--line);font:700 12px/1.15 var(--f-body);cursor:pointer}.exercise-collector small{display:block;color:var(--muted);font-weight:600}.collector-beads{position:relative;display:flex;align-items:center;padding:0 5px}.collector-beads::before{content:"";position:absolute;left:0;right:0;height:2px;background:#8b6c3e}.collector-beads i{position:relative;width:14px;height:14px;margin-inline-start:-2px;border:2px solid var(--bead-rim);border-radius:50%;background:radial-gradient(circle at 32% 27%,var(--bead-hi) 0 9%,var(--bead-mid) 23%,var(--bead-lo) 72%);box-shadow:inset -1px -2px 2px rgb(0 0 0/.25)}.collector-beads i:last-child{border-color:#9b690b;background:radial-gradient(circle at 32% 27%,#fff3a7 0 9%,#e4b83e 27%,#9d6509 75%)}.exercise-collector.catch{animation:collector-catch .55s cubic-bezier(.2,1.7,.4,1)}
+.flying-reward-bead{position:fixed;z-index:100;width:28px;height:28px;box-sizing:border-box;border:3px solid var(--bead-rim);border-radius:50%;background:radial-gradient(circle at 32% 27%,var(--bead-hi) 0 9%,var(--bead-mid) 23%,var(--bead-lo) 72%);box-shadow:inset -2px -3px 3px rgb(0 0 0/.3),0 5px 10px rgb(0 0 0/.28);pointer-events:none;animation:reward-bead-flight .85s cubic-bezier(.2,.75,.25,1) forwards}.flying-reward-bead.gold{border-color:#9b690b;background:radial-gradient(circle at 32% 27%,#fff3a7 0 9%,#e4b83e 27%,#9d6509 75%)}
 @keyframes reward-bead-flight{0%{transform:translate(0,0) scale(.65) rotate(0);opacity:0}15%{opacity:1;transform:translate(0,-22px) scale(1.18) rotate(80deg)}65%{opacity:1;transform:translate(var(--fly-mid-x),var(--fly-mid-y)) scale(1) rotate(300deg)}100%{transform:translate(var(--fly-x),var(--fly-y)) scale(.35) rotate(540deg);opacity:.15}}
 @keyframes collector-catch{0%,100%{transform:none}45%{transform:scale(1.12) rotate(-2deg)}}
 .meta{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;letter-spacing:.04em;font-variant-numeric:tabular-nums}
@@ -599,6 +653,7 @@ html.a11y-contrast{--e-a:#d8b4ff;--e-t:#8fd0ff;--e-y:#70ff9b;--e-n:#ffb45b;--e-s
 .mic-zone.two #mic{grid-area:1/1} .mic-zone.two #arLab{grid-area:2/1} .mic-zone.two #heBtn{grid-area:1/2} .mic-zone.two #heLab{grid-area:2/2}
 .mic-zone.two :is(.status,#quietBtn){grid-column:1/-1}
 .mic.he{background:var(--surface);color:var(--olive);box-shadow:inset 0 0 0 2px var(--olive)}
+.mic-zone.two #mic{width:84px;height:84px;box-shadow:0 5px 0 var(--olive-deep)}.mic-zone.two #heBtn{width:56px;height:56px;margin-top:14px}   /* saying it in Arabic is the main thing; the translation is the side door */
 .mic.he.live{background:var(--sumac);color:#fff;box-shadow:none}
 .mic-zone.two .mic::before{content:attr(data-lang);position:absolute;top:-5px;inset-inline-start:-5px;width:26px;height:26px;border-radius:50%;background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line);font:700 15px/26px var(--f-body);text-align:center}
 .mic-zone.two #mic::before{font-family:var(--f-ar)}
@@ -610,6 +665,8 @@ body.driving .mic::before{display:none} body.driving .mic-zone.two{display:flex}
 .verdict{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
 .score{font:400 28px/1 var(--f-display);font-variant-numeric:tabular-nums}
 .pill{font:700 13px var(--f-body);padding:4px 10px;border-radius:999px}
+.cheer{display:inline-flex;flex-direction:column;align-items:flex-start;animation:celebrate-pop .5s cubic-bezier(.2,1.6,.4,1) both}
+.cheer b{font:700 24px/1.1 var(--f-ar);color:var(--olive)}.cheer small{font:700 12px/1.2 var(--f-tr);color:var(--muted)}
 #result .score{font-size:46px}#result .pill{font-size:16px;padding:6px 14px}   /* the grade first and big, right under the mic */
 .good{background:var(--ok-bg);color:var(--ok)} .mid{background:var(--amber-bg);color:var(--amber)} .bad{background:var(--sumac-bg);color:var(--sumac)}
 .words{display:flex;flex-wrap:wrap;gap:6px 14px;direction:rtl;align-items:flex-start}
@@ -956,7 +1013,7 @@ body.manage #manage{width:100%;max-width:none}
 /* a lesson's new words, before anything is said: a card a word, the Hebrew first and the Arabic on a tap */
 #learnDlg{width:min(92vw,440px)}
 .learn-head-actions{display:flex;align-items:center;gap:6px}
-.learn-drive{display:flex;align-items:center;gap:5px;color:var(--olive)}
+.learn-drive{display:flex;align-items:center;gap:5px;color:var(--muted);border-color:transparent;background:transparent;font-size:13px;padding-inline:8px}
 .learn-drive.on{background:var(--sumac);border-color:var(--sumac);color:#fff}
 #learnDriveStatus{display:block;min-height:1.4em;margin:8px 0 0;text-align:center;color:var(--olive);font:600 14px/1.4 var(--f-body)}
 #learnDlg.learn-driving :is(#learnReveal,#learnActs1,#learnActs2){display:none}
@@ -1230,7 +1287,7 @@ body.driving .card.storymode .prompt{display:block}
 .card.storymode.quizdone .verdict{display:flex}
 .tips li .sub{display:block}
 /* "פועל זמני": every prompt is a bead; correct answers join the misbaha above. */
-.card.bubblemode{min-height:min(610px,72vh);overflow:hidden;position:relative;background:#101510 url("/static/assets/arabic-calligraphy-path.webp?v=7") top center/100% auto repeat-y}
+.card.bubblemode{min-height:max(min(610px,72vh),calc(100dvh - 24px));overflow:hidden;position:relative;background:#101510 url("/static/assets/arabic-calligraphy-path.webp?v=7") top center/100% auto repeat-y}
 @property --bead-hole{syntax:"<color>";inherits:true;initial-value:#151a13}
 @property --bead-neck{syntax:"<color>";inherits:true;initial-value:#899b79}
 @property --bead-light{syntax:"<color>";inherits:true;initial-value:#fff}
@@ -1259,6 +1316,16 @@ body.driving .card.storymode .prompt{display:block}
 .bubble-best b{font:800 25px/1 var(--f-display)}
 .bubble-help{position:absolute;top:66px;right:64px;z-index:3;width:34px;height:34px;padding:0;border:2px solid #72500d;border-radius:50%;background:#fff6ba;color:#4c3100;box-shadow:0 3px 0 #72500d;font:900 18px/1 var(--f-body);cursor:pointer}
 .bubble-help:active{transform:translateY(2px);box-shadow:0 1px 0 #72500d}
+#vids button.game-tile{grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"i b m" "i s s" "i r r";padding:14px 14px;column-gap:12px}
+#vids button.game-tile>i{grid-area:i;font-size:34px;line-height:1;align-self:center}
+#vids button.game-tile>b{grid-area:b;font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#vids button.game-tile>small{grid-area:s;opacity:.92}
+#vids button.game-tile>.game-best{grid-area:r}
+.game-meta{grid-area:m;display:flex;gap:6px;align-items:center;justify-self:end}
+.game-time{font:700 12px/1 var(--f-body);opacity:.85;white-space:nowrap}
+.game-new{padding:3px 8px;border-radius:999px;background:#ffd54a;color:#3c2800;font:800 12px/1 var(--f-body);white-space:nowrap;animation:game-new 1.6s ease-in-out infinite}
+@keyframes game-new{50%{transform:scale(1.08)}}
+@media (prefers-reduced-motion:reduce){.game-new{animation:none}}
 .game-best{display:inline-flex!important;align-items:center;gap:4px;width:max-content;margin-top:3px;padding:3px 8px;border-radius:999px;background:#fff3bd;color:#704708!important;font-size:11px!important;font-weight:800!important}
 .bubble-beads{display:grid;position:absolute;top:10px;left:145px;z-index:3;width:150px;height:88px;box-sizing:border-box;grid-template-columns:repeat(5,18px);grid-template-rows:repeat(2,22px);align-items:center;justify-items:center;padding:3px 0 0 36px;direction:ltr;pointer-events:none}
 .bubble-beads[hidden]{display:none}
@@ -1308,6 +1375,10 @@ body.driving .card.storymode .prompt{display:block}
 .bubble-hint .past b{display:block;margin-top:2px;color:#103f13;font:800 25px/1.2 var(--f-display);direction:rtl}
 .bubble-hint .past em{display:block;margin-top:2px;color:#527254;font:700 17px/1.2 sans-serif;font-style:normal;direction:rtl}
 .card.bubblemode .task{font-weight:700;color:var(--olive)}
+/* the game hides the microphone: while it listens, this says so */
+.bubble-listen{display:none;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:rgb(16 24 16/.8);color:#fff;font:700 14px/1.2 var(--f-body);box-shadow:0 0 0 2px var(--sumac)}
+.bubble-listen i{width:10px;height:10px;border-radius:50%;background:var(--sumac);animation:live-pulse 1s infinite}
+body.bubble-game:has(#mic.live) .bubble-listen{display:flex}
 .card.bubblemode .donehint,.card.bubblemode .progress{position:relative;z-index:2}
 .card.bubblemode>:not(.prompt):not(.bubble-score):not(.bubble-best):not(.bubble-help):not(.bubble-beads):not(.bubble-foot){display:none!important}
 body.bubble-game #wrap>header,body.bubble-game #practice>.roundbar{display:none}
@@ -1350,6 +1421,8 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 /* Under the Google button: sign-in by a link sent to the email, for a student without a Google account. */
 #mailForm{display:flex;flex-direction:column;align-items:center;gap:10px;width:min(82vw,340px);margin-top:-8px;opacity:0;animation:start-in .45s ease-out .15s forwards}
 #mailForm span{font:400 14px/1 var(--f-body);color:#5B665C}
+#tagline{margin:-10px 0 0;max-width:min(86vw,420px);text-align:center;font:400 19px/1.4 var(--f-display);color:#2F3B30;animation:start-in .45s ease-out .15s both}   /* what the app is, for one who has not signed in yet */
+html[data-subject="math"] #tagline{color:#F4F2EC}
 #mailForm input{width:100%;box-sizing:border-box;font:400 17px/1 var(--f-body);padding:11px 14px;border-radius:10px;border:1px solid #B9C2B4;background:#fff;color:#1C241D;text-align:center}
 #mailForm button{font:600 16px/1 var(--f-body);padding:10px 22px;border-radius:10px;border:1px solid #4B6A2C;background:#fff;color:#4B6A2C;cursor:pointer}
 #mailForm button:disabled{opacity:.6;cursor:default}
@@ -1448,7 +1521,7 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
   <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></symbol>
   <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
 </defs></svg>
-<div id="logo-splash"><img src="__SPLASH_LOGO__" alt="__SPLASH_ALT__" width="489" height="225"><button id="startBtn">__START_LABEL__</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="libraryBtn">ספרייה דיגיטלית</button><button id="manageBtn">ניהול</button><button id="labBtn">מעבדה</button></div><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="denied" hidden>הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
+<div id="logo-splash"><img src="__SPLASH_LOGO__" alt="__SPLASH_ALT__" width="489" height="225"><button id="startBtn">__START_LABEL__</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="libraryBtn">ספרייה דיגיטלית</button><button id="manageBtn">ניהול</button><button id="labBtn">מעבדה</button></div><p id="tagline" hidden>__TAGLINE__</p><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="denied" hidden>הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
 <script>
 /* While the opening screen is up, an error that stops the page's start shows under the logo: a phone has no console to read it in. */
 (()=>{
@@ -1468,18 +1541,18 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
     <div class="sub maphint">בחרו נושא במסלול ותרגלו אותו בקול</div>
     <div class="guidetip" id="guideTip" hidden><a href="/static/guide.html">חדשים כאן? מדריך של דקה ←</a><button type="button" id="guideTipClose" aria-label="סגירה" title="סגירה">✕</button></div>
     <button class="drive" id="toManage" hidden>ניהול</button>
-    <button class="drive" id="driveBtn" title="מצב נסיעה: האפליקציה מקריאה, מקשיבה ואומרת את ההערכה בקול"><svg class="ic" aria-hidden="true"><use href="#i-car"/></svg> עבור למצב נסיעה</button>
+    <button class="drive" id="driveBtn" title="מצב נסיעה: האפליקציה מקריאה, מקשיבה ואומרת את ההערכה בקול"><svg class="ic" aria-hidden="true"><use href="#i-car"/></svg> עברו למצב נסיעה</button>
   </header>
 
   <div id="today" hidden></div>
   <button class="reward-shelf" id="rewardShelf" type="button" hidden>
     <span class="streak-ring" id="rewardStreak">🔥 0</span>
-    <span class="reward-copy"><b>הערבית שכבר שלכם</b><small id="rewardCopy">עוד לא נאספו משפטים</small></span>
+    <span class="reward-copy"><b>הערבית שכבר שלכם</b><small id="rewardCopy">עוד לא נאספו משפטים</small><span class="reward-string" id="rewardString" aria-hidden="true" hidden></span></span>
     <span class="reward-totals">
       <span class="reward-count" id="rewardRegular">0 רגילים</span>
       <span class="reward-count gold" id="rewardGold">0 זהב</span>
       <span class="reward-count misbaha" id="rewardMisbaha">0 מסבחות</span>
-      <span class="reward-week" id="rewardWeek">0/4 ימי תרגול השבוע</span>
+      <span class="reward-week" id="rewardWeek">🎯 היום: 0/5 משפטים</span>
     </span>
   </button>
   <section id="vids" aria-live="polite"></section>
@@ -1511,7 +1584,7 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
     <div class="bubble-best" id="bubbleBest" hidden><span>🏆 שיא</span><b id="bubbleBestPoints">—</b></div>
     <button class="bubble-help" id="bubbleHelp" type="button" aria-label="הנחיות המשחק" title="הנחיות המשחק" hidden>?</button>
     <div class="bubble-beads" id="bubbleBeads" hidden aria-label="תוצאות במסבחה: ירוק ללא רמז, צהוב אחרי רמז ראשון, כתום אחרי רמז שני ואדום בכישלון"><svg class="misbaha-cord" viewBox="0 0 150 88" aria-hidden="true"><defs><linearGradient id="imamGold" x1="0" x2="1"><stop stop-color="#845308"/><stop offset=".28" stop-color="#f5ce57"/><stop offset=".58" stop-color="#b8790d"/><stop offset=".82" stop-color="#ffe68a"/><stop offset="1" stop-color="#744607"/></linearGradient></defs><path class="cord-shadow" d="M36 14H120Q134 14 134 25T120 36H36"/><path class="cord-base" d="M36 14H120Q134 14 134 25T120 36H36"/><path class="cord-weave-a" d="M36 14H120Q134 14 134 25T120 36H36"/><path class="cord-weave-b" d="M36 14H120Q134 14 134 25T120 36H36"/><path class="cord-glint" d="M36 14H120Q134 14 134 25T120 36H36"/><path class="cord-base" d="M36 36H27"/><rect class="imam" x="9" y="31" width="21" height="10" rx="5"/><rect class="tassel-cap" x="4" y="30" width="7" height="12" rx="2"/><path class="tassel-thread" d="M7 42Q8 55 2 75M7 42Q12 57 8 80M7 42Q16 58 15 82M7 42Q20 56 22 78M7 42Q24 53 29 73M7 42Q18 48 35 67M7 42Q13 62 3 84M7 42Q21 61 18 85"/></svg></div>
-    <div class="bubble-foot" id="bubbleFoot"><div class="bubble-hint" id="bubbleHint" hidden><small>רמז</small><span class="binyan" id="bubbleBinyan"></span><strong class="gizra" id="bubbleGizra"></strong><span class="past" id="bubblePast" hidden><small>עבר · הוא</small><b id="bubblePastText"></b><em id="bubblePastAr" lang="ar"></em></span></div></div>
+    <div class="bubble-foot" id="bubbleFoot"><div class="bubble-listen" id="bubbleListen" aria-hidden="true"><i></i>מקשיב… אמרו עבר ואז עתיד</div><div class="bubble-hint" id="bubbleHint" hidden><small>רמז</small><span class="binyan" id="bubbleBinyan"></span><strong class="gizra" id="bubbleGizra"></strong><span class="past" id="bubblePast" hidden><small>עבר · הוא</small><b id="bubblePastText"></b><em id="bubblePastAr" lang="ar"></em></span></div></div>
     <div class="meta"><span id="counter"></span></div>
     <div class="progress" id="progress" hidden><i id="progressBar"></i></div>
     <div class="donehint" id="doneHint" hidden></div>
@@ -1539,7 +1612,7 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
     <div class="donehint" id="heCheck" hidden></div>
 
     <section class="result" id="result" hidden>
-      <div class="verdict"><span class="score" id="score"></span><span class="pill" id="pill"></span><div class="words" id="words" hidden></div></div>
+      <div class="verdict"><span class="score" id="score"></span><span class="pill" id="pill"></span><span class="cheer" id="cheer" hidden></span><div class="words" id="words" hidden></div></div>
       <p class="sub" id="whyHint" hidden></p>
       <ul class="tips" id="tips"></ul>
       <details class="flag-box" id="flagBox" hidden>
@@ -1791,7 +1864,7 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
 </dialog>
 <dialog id="pushDlg" aria-labelledby="pushTitle" aria-describedby="pushText">
   <div class="push-bell" aria-hidden="true">🔔</div>
-  <h2 id="pushTitle">תזכורת לסרטון היומי</h2>
+  <h2 id="pushTitle">כל הכבוד! רוצים תזכורת כל בוקר?</h2>
   <p class="dlg-text" id="pushText"></p>
   <div class="row"><button class="btn primary" id="pushYes">כן, הזכירו לי</button><button class="btn" id="pushNo">לא עכשיו</button></div>
 </dialog>
@@ -1808,10 +1881,17 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
   <div class="td-beads" id="tdBeads" role="list" aria-label="המשפטים בנושא"></div>
   <div class="lacts"><button class="btn primary" id="tdMain"></button><button class="btn" id="tdAlt"></button><button class="btn link" id="tdPath">חזרה למסלול</button></div>
 </dialog>
+<dialog id="celebrateDlg" class="celebrate" aria-labelledby="celebrateTitle">
+  <div class="celebrate-emoji" id="celebrateEmoji" aria-hidden="true"></div>
+  <h2 id="celebrateTitle"></h2>
+  <p class="dlg-text" id="celebrateText"></p>
+  <div class="row"><button class="btn primary" id="celebrateGo">יאללה, ממשיכים</button></div>
+</dialog>
 <dialog id="rewardsDlg" aria-labelledby="rewardsTitle">
   <div class="dlg-head"><h2 id="rewardsTitle">הערבית שכבר שלכם</h2><button class="btn" id="rewardsClose">סגירה</button></div>
-    <p class="dlg-text">כל תרגיל שהשלמתם מעניק חרוז, וציון 75 ומעלה הופך אותו לזהב. השלמתם שיעור שלם? הרווחתם מסבחה! סיפור או שיחה שלמים הם חרוז אחד, שמזהיב כשכל שורותיו בזהב.</p>
+    <p class="dlg-text">כל תרגיל שהשלמתם מעניק חרוז, וציון 75 ומעלה הופך אותו לזהב. השלמתם שיעור שלם? הרווחתם מסבחה, וגם צבע חרוזים חדש! פספסתם יום? 🧊 יום חופש אחד בשבוע שומר על הרצף. סיפור או שיחה שלמים הם חרוז אחד, שמזהיב כשכל שורותיו בזהב.</p>
   <div class="reward-summary" id="rewardSummary"></div>
+  <div class="reward-skins" id="rewardSkins"></div>
   <div id="rewardCollection"></div>
 </dialog>
 <div class="reward-pop" id="rewardPop" role="status" aria-live="polite"><b></b><small></small></div>
@@ -1832,7 +1912,7 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
   <div class="dlg-head"><h2 id="bubbleGuideTitle">איך משחקים בפועל זמני?</h2><button class="btn" id="bubbleGuideClose">סגירה</button></div>
   <p class="dlg-text">בכל סיבוב מופיע פועל בעברית בתוך חרוז. אמרו אותו בערבית מדוברת — בעבר ואז בעתיד — לפני שטבעת הזמן נעלמת.</p>
   <p class="dlg-text">אחרי 3 שניות יופיע רמז של בניין וגזרה, ואחרי 6 שניות תופיע גם צורת העבר. תשובה נכונה לפני הרמזים מזכה בחרוז ירוק.</p>
-  <p class="dlg-text">בסבב יש 10 פעלים. הניקוד הוא מספר התשובות הנכונות, והשיא נשמר במכשיר הזה.</p>
+  <p class="dlg-text"><span id="bubbleGuideRound">בסבב יש 10 פעלים.</span> הניקוד הוא מספר התשובות הנכונות, והשיא נשמר במכשיר הזה.</p>
   <div class="row"><button class="btn primary" id="bubbleGuideGo">יאללה, מתחילים</button></div>
 </dialog>
 <dialog id="setDlg" aria-labelledby="setTitle">
@@ -2183,14 +2263,15 @@ function homeActions(){   // in this order, the first three that can start: home
   const vids=dailyVideos().filter(v=>v.date===d&&!dailyWatched[v.id]), next=cats.find(c=>!topicT(c).over);
   const listed=PHRASES.filter(p=>p.listed!==false), said=CATS.filter(c=>!c.story), mine=cats.filter(c=>!c.story);
   const plan=LH.shortPlan(listed.filter(p=>said.some(c=>c.id===p.cat)),listed.filter(p=>mine.some(c=>c.id===p.cat)),best,EXCELLENT);
+  const left=c=>{ const t=topicT(c); return Math.max(1,(t.n||0)-(t.done||0)); };   // what is left of a topic, for its time
   return LH.pickActions([
-    hw&&{kind:"homework",target:"topic:"+hw.c.id,ready:true,title:"שיעורי בית",state:hw.state,go:hw.t.done?"המשיכו":"התחילו",
+    hw&&{kind:"homework",target:"topic:"+hw.c.id,ready:true,title:"שיעורי בית",state:hw.state,go:hw.t.done?"המשיכו":"התחילו",minutes:LH.minutesFor(left(hw.c)),
          detail:hw.left==null?hw.c.name:`${hw.c.name} · ${hw.msg}`,run:()=>openCat(hw.c)},
     vids.length>0&&{kind:"video",target:"video:"+vids[0].id,ready:true,title:"הסרטון של היום",go:"צפו",
          detail:vids.length===1?vids[0].title:`${vids.length} סרטונים חדשים`,
          run:()=>{ if(vids.length!==1) return showView("daily"); dailyWatched[vids[0].id]=1; store.set("ihki.dailyWatched",dailyWatched); playVideo(vids[0],true); }},
-    next&&{kind:"continue",target:"topic:"+next.id,ready:true,title:`ממשיכים ב${l.name}`,detail:next.name,go:"המשיכו",run:()=>openCat(next)},
-    plan&&{kind:"short",target:"short",ready:true,title:"תרגול קצר",
+    next&&{kind:"continue",target:"topic:"+next.id,ready:true,title:`ממשיכים ב${l.name}`,detail:next.name,go:"המשיכו",minutes:LH.minutesFor(left(next)),run:()=>openCat(next)},
+    plan&&{kind:"short",target:"short",ready:true,title:"תרגול קצר",minutes:LH.minutesFor(plan.ids.length),
          detail:`${plan.ids.length} משפטים ${plan.kind==="review"?"לשיפור":"חדשים מהשיעור"}`,run:()=>startShort(plan.ids)},
     done&&{kind:"change",target:"change",ready:true,title:"בחירת שיעור אחר",detail:"הכיתה עברה לשיעור הבא?",go:"בחירה",run:()=>askLesson(false)},
   ]);
@@ -2199,9 +2280,30 @@ function drawHome(box){
   if(!focusOn()){ delete document.body.dataset.view; return; }
   const {l,done}=homeLesson();
   drawRewardShelf();
-  LH.renderHome(box,{className:MY_CLASS.name,lessonName:l?l.name:currentLesson(),done,actions:homeActions(),
+  const page=LH.renderHome(box,{className:MY_CLASS.name,lessonName:l?l.name:currentLesson(),done,actions:homeActions(),
     onChange:()=>askLesson(false),onPath:openFullPath,onRefer:openRefer},FOCUS_HEADING);
   FOCUS_HEADING=false;
+  drawClassWeek(page);
+}
+/* The class's week on the home: what its students said together against a shared goal, and the student's own part.
+   Totals only (GET /api/class/week): nobody else's numbers, no ranking. Read again at most every CLASS_WEEK_MS. */
+const CLASS_WEEK_MS=5*60e3;
+let classWeek=null, classWeekAt=0;
+async function drawClassWeek(page){
+  if(!AUTH_URL||!MY_CLASS) return;
+  if(!classWeek||Date.now()-classWeekAt>CLASS_WEEK_MS){
+    try{ const res=await api("/api/class/week"); if(!res.ok) return; classWeek=await res.json(); classWeekAt=Date.now(); }catch(e){ return; }
+  }
+  const c=(classWeek.classes||[]).find(x=>x.name===MY_CLASS.name); if(!c||!page.isConnected) return;
+  const card=mark("class-week","","section"), pct=Math.min(100,Math.round(c.said/Math.max(1,c.goal)*100)), met=c.said>=c.goal;
+  card.setAttribute("aria-label",`כיתת ${c.name} השבוע: ${c.said} מתוך ${c.goal} משפטים`);
+  const head=mark("cw-head","","div"); head.append(mark("",`👥 כיתת ${c.name} השבוע`,"b"),mark("",met?"🎉 היעד הושג!":`${c.said}/${c.goal}`,"span"));
+  const bar=mark("cw-bar","","div"), fill=document.createElement("i"); fill.style.width=pct+"%"; if(c.said&&c.mine) fill.style.setProperty("--mine",Math.min(100,c.mine/c.said*100)+"%");   // the student's part, of the filled part
+  bar.append(fill);
+  const note=mark("cw-note",[c.active?`${c.active} ${c.active===1?"תלמיד התאמן":"תלמידים התאמנו"}`:"",c.mine?`אתם תרמתם ${c.mine} 💪`:"אמרו משפט ותוסיפו לכיתה"].filter(Boolean).join(" · "),"small");
+  card.append(head,bar,note);
+  page.querySelector(".class-week")?.remove();
+  const more=page.querySelector(".focus-more"); if(more) more.before(card); else page.append(card);
 }
 function syncHomeLabels(){   // the ways back say where they lead
   const to=document.body.dataset.view==="home"&&focusOn()?"חזרה לדף הבית":"חזרה למסלול", btn=$("homeBtn");
@@ -2321,8 +2423,9 @@ async function openNotify(classes){
     finally{ send.disabled=false; }
   };
 }
-/* On entering, once: a prompt to turn the reminder on. "Not now" asks again after PUSH_AGAIN days; it waits for any
-   dialog already open (choosing a class) to close. */
+/* After a good moment (a finished topic or lesson, the first gold, the day's goal), back on the home: a prompt to turn the
+   reminder on. "Not now" asks again after PUSH_AGAIN days; it waits for any dialog already open to close, and stays
+   quiet on a visit that asked for the class's lesson. */
 const PUSH_AGAIN=7;
 function askPushSoon(){
   if(!AUTH_URL) return;
@@ -2358,6 +2461,12 @@ async function askPush(){
 }
 const VERB_GAME_VISIBLE=false;   // "פועל יוצא" is still under development; flip to true to publish it again.
 const EITAN_GAME_VISIBLE=false;  // "בונים פועל עם איתן" (פועל יוצא's levels 6–8, on their own): teachers see it; true shows it to students.
+/* A game tile's corner: "חדש!" for a game not played yet, and about how long a round takes. */
+function gameMeta(fresh,minutes){
+  const m=mark("game-meta","","span");
+  if(fresh) m.append(mark("game-new","חדש!"));
+  m.append(mark("game-time",`⏱ כ-${minutes} דק׳`)); return m;
+}
 function drawNav(){   // the tabs, and the screen of videos when one is on show
   const view=document.body.dataset.view||"", box=$("vids"), d=today();
   if(view!=="games") tutorList=false;   // another tab: the games tab opens on its games again
@@ -2390,7 +2499,8 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
       eitan.onclick=()=>openVerbGame(true); box.append(eitan);
     }
     const memo=mark("now","","button"), upto=vtLessonNow();   // the memory game, on the verb table's lesson
-    memo.append(mark("","📿","i"),mark("","הפועל זכרון","b"),mark("",`הפכו חרוזים ומצאו זוגות של פעלים · עד ${(ALL_LESSONS.find(l=>l.id===upto)||{}).name||""}`,"small"));
+    memo.classList.add("game-tile");
+    memo.append(mark("","📿","i"),mark("","הפועל זכרון","b"),gameMeta(!gameBest.memory,3),mark("",`הפכו חרוזים ומצאו זוגות של פעלים · עד ${(ALL_LESSONS.find(l=>l.id===upto)||{}).name||""}`,"small"));
     if(gameBest.memory) memo.append(mark("game-best",`🏆 שיא: ${gameBest.memory.moves} ניסיונות · ${Math.floor(gameBest.memory.seconds/60)}:${String(gameBest.memory.seconds%60).padStart(2,"0")}`,"small"));
     memo.onclick=openMemoryGame; if(can("games.use")&&upto) box.append(memo);
     const talk=can("tutor.use")&&TUTOR_INFO&&TUTOR_INFO.available;   // יאללה נדבר: it opens the list of its scenarios
@@ -2401,8 +2511,8 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     }
     if(!games.length&&!upto&&!talk) box.append(mark("","המשחקים הראשונים יגיעו בקרוב.","p"));
     for(const game of games){
-      const b=mark("now","","button"), done=PHRASES.filter(p=>p.cat===game.id&&best[p.id]!=null).length;
-      b.append(mark("","●","i"),mark("",game.name,"b"),mark("",done?`תורגלו ${done} פעלים`:"אמרו עבר ועתיד לפני שהבועה נעלמת","small"));
+      const b=mark("now game-tile","","button"), done=PHRASES.filter(p=>p.cat===game.id&&best[p.id]!=null).length;
+      b.append(mark("",game.bubble?"🫧":"🎯","i"),mark("",game.name,"b"),gameMeta(!done&&gameBest[game.id]==null,2),mark("",done?`תורגלו ${done} פעלים`:"אמרו עבר ועתיד לפני שהבועה נעלמת","small"));
       if(gameBest[game.id]!=null){ const record=typeof gameBest[game.id]==="object"?gameBest[game.id]:{score:gameBest[game.id],total:BUBBLE_ROUND}; b.append(mark("game-best",`🏆 הציון הטוב ביותר: ${record.score}/${record.total}`,"small")); }
       b.onclick=()=>pickCat(game.id); box.append(b);
     }
@@ -2507,7 +2617,7 @@ function drawVerbTable(box){
   const slide=mark("vt-slide","","div"), label=document.createElement("label"), out=document.createElement("output"), count=mark("","","small");
   const range=mark("vt-range","","div"), input=document.createElement("input"), ticks=mark("vt-ticks","","div");
   input.type="range"; input.min=0; input.max=end; input.step=1; input.value=lessons.findIndex(l=>l.id===vtAt); input.id="vtLesson";
-  input.setAttribute("aria-label","הפעלים עד השיעור"); label.htmlFor="vtLesson"; label.append("הפעלים עד",out,count);
+  input.setAttribute("aria-label","הפעלים עד השיעור"); input.title="גררו כדי לראות את הפעלים של שיעורים אחרים"; label.htmlFor="vtLesson"; label.append("פעלים עד",out,count);
   const at=i=>end?i/end:0;
   for(let i=0;i<=end;i++){ const t=document.createElement("i"); t.style.setProperty("--at",`${at(i)*100}%`); ticks.append(t); }
   const anchor=(i,text,cls)=>{
@@ -2526,7 +2636,9 @@ function drawVerbTable(box){
   const chosen=store.get("ihki.vtTips",null);
   tips.onclick=()=>setTips(tips.getAttribute("aria-pressed")!=="true",true); setTips(chosen??true);
   const play=mark("vt-play-mg","📿 הפועל זכרון","button"); play.type="button"; play.title="הפועל זכרון: משחק זיכרון על הפעלים עד השיעור שבסרגל"; play.onclick=openMemoryGame;
-  label.append(tips,play);
+  const tools=mark("vt-tools","","div"), legend=mark("vt-legend","","small");
+  legend.append(mark("vt-dot",""),"חדשים בשיעור שבסרגל");
+  tools.append(legend,tips,play); slide.append(tools);
   bar.append(top,slide); box.append(bar,mark("vt-empty","לא נמצא פועל כזה.","p"),cards);
   const filter=()=>{   // rows, then the cards left with none, are hidden
     const q=vtPlain(vtQuery.trim());
@@ -2846,7 +2958,7 @@ function mgDeal(){   // a new round: as many pairs as fill the screen (or as the
   const pool=mgPool(mg.upto), box=mg.field.getBoundingClientRect(), n=Math.min(Math.floor(mgRoom(box.width,box.height)/2),pool.length);
   mg.root.querySelector(".mg-win")?.remove(); mg.beads.forEach(b=>b.el.remove());
   Object.assign(mg,{beads:[],first:null,lock:false,pairs:0,moves:0,streak:0,start:0,party:0,n});
-  mg.root.querySelector(".mg-title small").textContent=`${n} זוגות · הפעלים עד ${mg.name} · פתחו שני חרוזים: עברית וערבית`;
+  mg.root.querySelector(".mg-title small").textContent=`${n} זוגות · עד ${mg.name} · מצאו עברית + ערבית`;
   mgCount();
   if(n<2){ mg.field.append(mark("mg-none","עוד אין מספיק פעלים למשחק. הם יגיעו עם השיעורים הבאים 💛","p")); return; }
   const fresh=shuffle(pool.filter(p=>p.unlock===mg.upto)), rest=shuffle(pool.filter(p=>p.unlock!==mg.upto)), half=Math.ceil(n/2);
@@ -3068,28 +3180,39 @@ function currentWeekDays(){
   const local=localPracticeDays().filter(d=>new Date(d+"T12:00:00")>=start&&new Date(d+"T12:00:00")<=now).length;
   return Math.max(serverWeekDays,local);
 }
+const FREEZE_DAYS=7;   // as app/main.py: one missed day is forgiven once in a week (the streak's "יום חופש")
 function streakOf(values){
-  const days=[...new Set(values)].sort(); if(!days.length) return {current:0,best:0,last:null};
-  let run=1, bestRun=1; for(let i=1;i<days.length;i++){
-    const previous=new Date(days[i-1]+"T12:00:00"), expected=new Date(previous); expected.setDate(previous.getDate()+1);
-    run=todayOf(expected)===days[i]?run+1:1; bestRun=Math.max(bestRun,run);
+  const days=[...new Set(values)].sort(), n=d=>Math.round(new Date(d+"T12:00:00")/864e5), now=n(today());
+  if(!days.length) return {current:0,best:0,last:null,frozen:null,freezeReady:true};
+  let run=1, bestRun=1, frozen=null;   // frozen: the last forgiven day, as a day number
+  const forgive=missed=>frozen==null||missed-frozen>=FREEZE_DAYS;
+  for(let i=1;i<days.length;i++){
+    const gap=n(days[i])-n(days[i-1]);
+    if(gap===1) run++; else if(gap===2&&forgive(n(days[i])-1)){ run++; frozen=n(days[i])-1; } else run=1;
+    bestRun=Math.max(bestRun,run);
   }
-  const now=today(), yesterday=new Date(); yesterday.setDate(yesterday.getDate()-1);
-  let current=days.at(-1)===now||days.at(-1)===todayOf(yesterday)?1:0;
-  for(let i=days.length-1;current&&i>0;i--){ const d=new Date(days[i]+"T12:00:00"); d.setDate(d.getDate()-1); if(todayOf(d)!==days[i-1]) break; current++; }
-  return {current,best:bestRun,last:days.at(-1)};
+  const ready=forgive(now-1), since=now-n(days.at(-1)), alive=since<=1||(since===2&&ready);
+  return {current:alive?run:0,best:bestRun,last:days.at(-1),frozen:frozen==null?null:todayOf(new Date(frozen*864e5)),freezeReady:ready};
 }
 const todayOf=d=>d.toLocaleDateString("sv");
 function combinedStreak(){
-  const local=streakOf(localPracticeDays()), yesterday=new Date(); yesterday.setDate(yesterday.getDate()-1);
+  const local=streakOf(localPracticeDays());
   let current=Math.max(serverStreak.current||0,local.current);
-  if(local.last===today()&&serverStreak.last===todayOf(yesterday)) current=Math.max(current,(serverStreak.current||0)+1);
-  return {current,best:Math.max(serverStreak.best||0,local.best,current)};
+  if(local.last===today()&&serverStreak.current&&serverStreak.last!==today()) current=Math.max(current,serverStreak.current+1);   // today on this device carries the server's run on
+  const frozen=[serverStreak.frozen,local.frozen].filter(Boolean).sort().at(-1)||null;
+  const freezeReady=(serverStreak.freeze_ready??true)&&local.freezeReady;
+  return {current,best:Math.max(serverStreak.best||0,local.best,current),frozen,freezeReady};
 }
 function notePracticeDay(){
   const before=combinedStreak(), day=today(), existing=localPracticeDays(), fresh=!existing.includes(day);
   const days=[...new Set([...existing,day])].sort().slice(-60); store.set("ihki.practiceDays",days);
   const after=combinedStreak(); return fresh&&after.current>before.current?{...after,newBest:after.best>before.best}:null;
+}
+const BEAD_SKINS=[["olive","זית"],["turquoise","טורקיז"],["lapis","לפיס"],["coral","אלמוג"],["amethyst","אמטיסט"]];
+const skinsOpen=()=>Math.min(BEAD_SKINS.length,1+lessonRewards().length);   // the first is everyone's; each misbaha opens the next
+function applySkin(){
+  const k=store.get("ihki.skin","olive"), i=BEAD_SKINS.findIndex(s=>s[0]===k);
+  document.documentElement.dataset.skin=i>=0&&i<skinsOpen()?k:"olive";
 }
 function rewardPhrases(){
   const cats=new Set(CATS.map(c=>c.id));
@@ -3109,6 +3232,7 @@ function lessonRewards(){
   return LESSONS.filter(l=>!l.soon&&tally(lessonList(l)).over);
 }
 function drawExerciseCollector(){
+  applySkin();
   const got=rewardItems(), gold=got.filter(x=>x.gold).length;
   $("exerciseCollectorCount").textContent=`${got.length} חרוזים · ${gold} זהב`;
   $("exerciseCollector").setAttribute("aria-label",`פתיחת האוסף: ${got.length} חרוזים, מהם ${gold} זהב`);
@@ -3130,9 +3254,14 @@ function flyRewardBead(gold){
 function drawRewardShelf(){
   const shelf=$("rewardShelf"); if(!PHRASES.length){ shelf.hidden=true; return; }
   const got=rewardItems(), gold=got.filter(x=>x.gold).length, regular=got.length-gold, misbahas=lessonRewards().length, wd=currentWeekDays(), streak=combinedStreak(), goal=4;
-  $("rewardStreak").textContent=`🔥 ${streak.current}`; $("rewardStreak").title=`רצף נוכחי: ${streak.current} ימים · שיא אישי: ${streak.best}`;
-  $("rewardCopy").textContent=misbahas?`${misbahas} ${misbahas===1?"מסבחה נאספה":"מסבחות נאספו"} · ממשיכים לשיעור הבא!`:streak.current?`רצף של ${streak.current} ימים · שיא ${streak.best}`:got.length?`${got.length} חרוזים כבר נאספו`:`אמרו משפט ראשון והתחילו לאסוף`;
-  $("rewardWeek").textContent=`${Math.min(wd,goal)}/${goal} השבוע`;
+  applySkin();
+  const said=todaySaid().length, fresh=!got.length&&!streak.current;
+  shelf.classList.toggle("fresh",fresh);   // nothing collected yet: one goal instead of a row of zeros
+  shelf.style.setProperty("--day",`${Math.min(100,said/DAILY_GOAL*100)}%`); shelf.classList.toggle("day-done",said>=DAILY_GOAL);
+  $("rewardStreak").textContent=`🔥 ${streak.current}`; $("rewardStreak").title=`רצף נוכחי: ${streak.current} ימים · שיא אישי: ${streak.best} · היום ${Math.min(said,DAILY_GOAL)}/${DAILY_GOAL} משפטים`;
+  const string=$("rewardString"); string.replaceChildren(...got.slice(-14).map(x=>mark("mini"+(x.gold?" gold":""),"","i"))); string.hidden=!got.length;
+  $("rewardCopy").textContent=fresh?"אמרו משפט ראשון ← החרוז הראשון שלכם":misbahas?`${misbahas} ${misbahas===1?"מסבחה נאספה":"מסבחות נאספו"} · ממשיכים לשיעור הבא!`:streak.current?`רצף של ${streak.current} ימים · שיא ${streak.best}`:got.length?`${got.length} חרוזים כבר נאספו`:`אמרו משפט ראשון והתחילו לאסוף`;
+  $("rewardWeek").textContent=said>=DAILY_GOAL?`🎯 היעד היומי הושג · ${said} משפטים היום`:`🎯 היום: ${said}/${DAILY_GOAL} משפטים`;
   $("rewardRegular").textContent=`${regular} רגילים`;
   $("rewardGold").textContent=`${gold} זהב`;
   $("rewardMisbaha").textContent=`${misbahas} מסבחות`;
@@ -3143,9 +3272,11 @@ function drawRewardShelf(){
 function drawRewards(){
   const got=rewardItems(), gold=got.filter(x=>x.gold).length, regular=got.length-gold, earned=new Set(lessonRewards().map(l=>l.id)), week=currentWeekDays(), streak=combinedStreak(), summary=$("rewardSummary"), box=$("rewardCollection");
   summary.replaceChildren();
-  for(const [n,label,cls] of [[`🔥 ${streak.current}`,`רצף נוכחי · שיא ${streak.best}`,""],[regular,"חרוזים רגילים",""] ,[gold,"חרוזי זהב",""] ,[earned.size,"מסבחות משיעורים","misbaha"],[week,"ימי תרגול השבוע",""]]){
+  const said=todaySaid().length, freeze=streak.freezeReady?["🧊","יום חופש מוכן"]:["🧊","יום החופש נוצל השבוע"];
+  for(const [n,label,cls] of [[`🔥 ${streak.current}`,`רצף נוכחי · שיא ${streak.best}`,""],[regular,"חרוזים רגילים",""] ,[gold,"חרוזי זהב",""] ,[earned.size,"מסבחות משיעורים","misbaha"],[week,"ימי תרגול השבוע",""],[`${Math.min(said,DAILY_GOAL)}/${DAILY_GOAL}`,"היעד היומי: משפטים היום",""],[freeze[0],freeze[1],"freeze"+(streak.freezeReady?"":" used")]]){
     const tile=mark(cls,"","div"); tile.append(mark("",String(n),"b"),mark("",label,"small")); summary.append(tile);
   }
+  drawSkins();
   box.replaceChildren();
   if(!got.length){ box.append(mark("reward-empty","החרוז הראשון יחכה כאן אחרי שתאמרו משפט.","div")); return; }
   for(const lesson of LESSONS){
@@ -3167,6 +3298,18 @@ function drawRewards(){
     }
   }
 }
+function drawSkins(){   // the colour of the beads: one more opens with each misbaha
+  const box=$("rewardSkins"), open=skinsOpen(), now=document.documentElement.dataset.skin||"olive";
+  box.replaceChildren(mark("","צבע החרוזים שלי","b"));
+  BEAD_SKINS.forEach(([k,name],i)=>{
+    const b=mark("skin","","button"), locked=i>=open; b.type="button"; b.dataset.skin=k; b.disabled=locked;
+    b.append(mark("phrase-bead skin-"+k,"","i"),mark("",locked?"🔒":name,"small"));
+    b.title=locked?"נפתח אחרי שתשלימו עוד שיעור (מסבחה)":name; b.setAttribute("aria-label",locked?`${name}: נעול`:name);
+    b.setAttribute("aria-pressed",String(k===now));
+    b.onclick=()=>{ store.set("ihki.skin",k); applySkin(); drawSkins(); drawRewardShelf(); };
+    box.append(b);
+  });
+}
 function rewardPop(title,detail,kind=false){
   const pop=$("rewardPop"); clearTimeout(rewardTimer); pop.className="reward-pop"+(kind===true?" gold":kind?` ${kind}`:"");
   pop.querySelector("b").textContent=title; pop.querySelector("small").textContent=detail;
@@ -3175,6 +3318,7 @@ function rewardPop(title,detail,kind=false){
 $("rewardShelf").onclick=()=>{ drawRewards(); $("rewardsDlg").showModal(); };
 $("exerciseCollector").onclick=()=>{ drawRewards(); $("rewardsDlg").showModal(); };
 $("rewardsClose").onclick=()=>$("rewardsDlg").close();
+$("celebrateGo").onclick=()=>$("celebrateDlg").close();
 function ball(t,now){   // a topic's button and the disc inside its ring
   const b=document.createElement("button"), ring=document.createElement("span"), dot=document.createElement("span");
   b.className="sat"+(t.gold?" gold":t.over?" done":now?" now":t.done?" started":"");
@@ -3197,6 +3341,7 @@ function lessonsWord(ls){   // lessons of one level by their numbers: "שיעו�
   return (ls.length>1?"שיעורים ":"שיעור ")+runs.map(([a,b])=>a===b?a:`\u2066${a}–${b}\u2069`).join(", ");
 }
 const byLevel=ls=>ALL_LEVELS.map(level=>({level,lessons:ls.filter(l=>l.level===level.id)})).filter(g=>g.lessons.length);
+const unfolded=new Set();   // the finished lessons opened on the path in this visit
 const STEP=108, SWAY=[0,.7,1,.7,0,-.7,-1,-.7];   // the road: the way down from one topic to the next, and how far aside each one stands
 let drawnW=0, nowWatch=null;
 /* A lesson's videos (the teacher adds them in the panel's content part) stand on the path among its topics, where the
@@ -3322,7 +3467,8 @@ function learnDriveQueue(){
 function updateLearnDriveButton(){
   if(learnDriving) return;
   const n=learnDriveQueue().length, b=$("learnDrive");
-  b.disabled=!n; b.querySelector("span").textContent=n?`מצב נסיעה · ${n===1?"מילה אחת":`${n} מילים`}`:"מצב נסיעה";
+  b.disabled=!n; b.querySelector("span").textContent="נסיעה";   // short: the card is what this screen is about
+  b.title=n?`מצב נסיעה: האפליקציה מקריאה ${n===1?"מילה אחת":`${n} מילים`}, בלי ידיים`:"מצב נסיעה"; b.setAttribute("aria-label",b.title);
 }
 function learnCard(){
   const L=learning, n=L.words.length, left=L.queue.length;
@@ -3521,10 +3667,16 @@ function drawPath(stay){
     if(now) next=false;
     const go=cats[parts.findIndex(t=>!t.over)]||cats[0];   // the topic the banner opens: the first unfinished one
     const head=document.createElement("button");
+    const foldable=whole.over&&l.id!==pin, folded=foldable&&!unfolded.has(l.id);   // a finished lesson is one line, until it is opened
     head.className="chapter"+(whole.gold?" gold":""); head.dataset.lesson=l.id; head.style.top=y+"px"; head.style.setProperty("--p",`${whole.n?whole.done/whole.n*100:0}%`);
     head.append(mark("",l.name),count(whole),document.createElement("i")); head.title=`${l.name}: תורגלו ${whole.done} מתוך ${whole.n}`;
-    if(go) head.onclick=()=>openCat(go);
+    if(foldable){
+      head.classList.add("foldable"); if(folded) head.classList.add("folded");
+      head.append(mark("fold",folded?"הצגה ▾":"הסתרה ▴","small")); head.setAttribute("aria-expanded",String(!folded));
+      head.onclick=()=>{ if(unfolded.has(l.id)) unfolded.delete(l.id); else unfolded.add(l.id); drawPath(true); };
+    }else if(go) head.onclick=()=>openCat(go);
     box.append(head);
+    if(folded){ y+=64+20; continue; }
     y+=64+86;   // the banner, room for the bubble, half a button
     const seat=(b,i)=>{   // a button's place on the road, and its label
       const label=document.createElement("span"), x=-SWAY[i%8]*amp, right=x<0||(!x&&i%8===0);   // the first turn is to the left; the label stands on the other side
@@ -3543,7 +3695,7 @@ function drawPath(stay){
       }
       const i=cats.indexOf(c), t=parts[i], cur=now&&i===todo, [b,dot]=ball(t,cur), [x,label]=seat(b,at);
       const hw=hws.find(h=>h.c===c), mine=!!hw;   // a homework topic: its bubble counts the days left
-      dot.textContent=c.story?"💬":c.write?"✎\uFE0E":c.learn?"📖":c.match?"🧩":n;   // the number stays; a finished topic gets a badge, the one to do now and the homework a bubble
+      dot.textContent=c.story?"💬":c.write?"✎\uFE0E":c.learn?"📖":c.match?"🧩":"🗣️";   // an icon of what is done in it (a number read like a lesson's); a finished topic gets a badge, the one to do now and the homework a bubble
       if(t.over) dot.before(mark("badge",t.gold?"★":"✓"));
       // a homework keeps its bubble until its day, done or not: it can still be changed, and the day stays in sight
       if(t.over?mine&&hw.left!=null&&hw.left>=0:cur||mine){
@@ -3603,6 +3755,7 @@ function showPath(){   // back to the path: whatever the card was reading, playi
   home=true; document.body.classList.add("home"); document.body.classList.remove("bubble-game"); if(backToGames) document.body.dataset.view="games"; else if(document.body.dataset.view==="home"&&focusOn()){} else delete document.body.dataset.view; quizOff();   // back to the home it was opened from
   if(daily){ daily=null; shortRun=false; startCat(); }   // a daily session that was left: the card is the last topic's again
   else drawPath();
+  if(pushMoment){ pushMoment=false; askPushSoon(); }   // back home after a win: the moment to offer the morning reminder
 }
 $("homeBtn").onclick=showPath;
 $("gameBack").onclick=showPath;
@@ -3639,6 +3792,8 @@ function openBubbleGuide(first=false){
   const dlg=$("bubbleGuideDlg");
   bubbleGuideStart=first; bubbleGuideOpened=Date.now(); pauseBubble();
   $("bubbleGuideGo").textContent=first?"יאללה, מתחילים":"חזרה למשחק";
+  const n=Math.min(BUBBLE_ROUND,bubbleCat()?bubbleVerbs().length:BUBBLE_ROUND);   // the round as it will be: fewer when fewer verbs are unlocked
+  $("bubbleGuideRound").textContent=`בסבב יש ${n} פעלים.`;
   if(!dlg.open) dlg.showModal();
 }
 function closeBubbleGuide(){
@@ -3721,13 +3876,16 @@ function armBubble(){
     bubbleOutcome({unrelated:true,score:0},true);
   },left);
 }
+function bubbleVerbs(){   // the bubble game's verbs: the ones of the lessons the student reached
+  const rank=reachedRank();
+  return PHRASES.filter(p=>p.cat===cat&&p.listed!==false&&(!p.unlock||ALL_LESSONS.findIndex(l=>l.id===p.unlock)<=rank));
+}
 function setRound(){
   quizOff();
   if(daily){ ordered=true; topic=order=[...daily]; pos=0; marks(); return; }   // the session's sentences, in its own order
   let list=PHRASES.filter(p=>p.cat===cat&&p.listed!==false);
   if(bubbleCat()){
-    const rank=reachedRank();
-    list=list.filter(p=>!p.unlock||ALL_LESSONS.findIndex(l=>l.id===p.unlock)<=rank);
+    list=bubbleVerbs();
     ordered=false; topic=order=shuffle(list).slice(0,BUBBLE_ROUND).map(p=>p.id); pos=0;
     bubbleGame={answered:0,correct:0,total:order.length}; $("bubbleBeads").querySelectorAll(".mini-bead").forEach(b=>b.remove()); drawBubbleScore(); marks(); return;
   }
@@ -4248,8 +4406,33 @@ $("heBtn").onclick=async()=>{
   btn.classList.add("live"); $("result").hidden=true; $("heCheck").hidden=true;
   $("status").textContent="מקשיב… אמרו את התרגום בעברית (או לחצו לסיום)";
 };
+/* What keeps a student coming back: a small goal for the day, gold in a row, the first gold ever, a sound and a buzz on
+   each gold, and a cheer in spoken Arabic. The reminder prompt waits for one of these good moments (pushMoment). */
+const DAILY_GOAL=5, COMBO_AT=[3,5,10,15,20,30];
+let goldRun=0, pushMoment=false;
+const CHEERS=[["برافو!","בראבו!"],["يا سلام!","יא סלאם!"],["ممتاز!","מומתאז!"],["عاش!","עאש!"],["ولا أحلى!","ולא אחלא!"],["زي العسل!","זי אל-עסל!"]];
+const cheer=()=>CHEERS[Math.floor(Math.random()*CHEERS.length)];
+function todaySaid(){ const d=store.get("ihki.todaySaid",null); return d&&d.day===today()&&Array.isArray(d.ids)?d.ids:[]; }
+function noteToday(id){   // the different sentences said today; hit: this one reached the day's goal
+  const ids=todaySaid(); if(ids.includes(id)) return {n:ids.length,hit:false};
+  ids.push(id); store.set("ihki.todaySaid",{day:today(),ids}); return {n:ids.length,hit:ids.length===DAILY_GOAL};
+}
+function buzz(pattern){ try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){} }
+function ding(){   // one bright note for a gold sentence
+  const ctx=unlockPlayback(); if(!ctx) return;
+  [1318.5,1975.5].forEach((f,k)=>{ const o=ctx.createOscillator(), g=ctx.createGain(), at=ctx.currentTime+k*.07;
+    o.type="sine"; o.frequency.value=f; g.gain.setValueAtTime(0,at); g.gain.linearRampToValueAtTime(.08,at+.01); g.gain.exponentialRampToValueAtTime(.001,at+.28);
+    o.connect(g).connect(ctx.destination); o.start(at); o.stop(at+.3); });
+}
+function celebrate(emoji,title,text){   // a moment big enough for the whole screen
+  const dlg=$("celebrateDlg");
+  $("celebrateEmoji").textContent=emoji; $("celebrateTitle").textContent=title; $("celebrateText").textContent=text;
+  cancelAutoNext(); cancelRecCountdown();
+  if(!dlg.open) dlg.showModal(); chime(true); buzz([40,60,40,60,80]); confetti(90,dlg);
+}
 function keepScore(id,s){   // a sentence's best score, on the device and for this visit
   const old=best[id], phrase=phraseOf(id), c=phrase&&CATS.find(x=>x.id===phrase.cat), before=c&&topicT(c);
+  const hadGold=Object.keys(best).some(k=>best[k]>=GOLD);   // before this one: is a gold now the very first?
   const lesson=c&&LESSONS.find(l=>l.id===c.lesson), lessonBefore=lesson&&tally(lessonList(lesson));
   const improved=old==null||s>old;
   if(improved){best[id]=s; store.set("ihki.best2",best);}
@@ -4260,8 +4443,17 @@ function keepScore(id,s){   // a sentence's best score, on the device and for th
   const after=c&&topicT(c), lessonAfter=lesson&&tally(lessonList(lesson)), becameGold=s>=GOLD&&(old==null||old<GOLD);
   const newBead=old==null&&(!c?.story||before.done===0);
   if(newBead) flyRewardBead(s>=GOLD);
-  if(improved&&lessonBefore&&!lessonBefore.over&&lessonAfter.over) rewardPop("📿 מסבחה חדשה!",`${lessonName(lesson)} הושלם`,"misbaha");
-  else if(improved&&before&&!before.over&&after.over) rewardPop(after.gold?"הנושא כולו בזהב!":"הנושא הושלם!",c.name,after.gold);
+  const gold=s>=GOLD, day=noteToday(id), firstGold=gold&&!hadGold&&!store.get("ihki.firstGold",false)&&!bubbleCat();
+  goldRun=gold?goldRun+1:0;
+  if(gold){ ding(); buzz(becameGold?[30,50,30]:25); }   // every gold is heard and felt, not only seen
+  if(firstGold) store.set("ihki.firstGold",true);
+  const lessonDone=improved&&lessonBefore&&!lessonBefore.over&&lessonAfter.over, topicDone=improved&&before&&!before.over&&after.over;
+  if(lessonDone||topicDone||firstGold||day.hit) pushMoment=true;   // a good moment: the reminder is offered back on the home
+  if(lessonDone){ rewardPop("📿 מסבחה חדשה!",`${lessonName(lesson)} הושלם`,"misbaha"); if(lessonRewards().length<=BEAD_SKINS.length-1) setTimeout(()=>rewardPop("🎨 צבע חרוזים חדש נפתח!","בחרו אותו באוסף שלכם","misbaha"),2800); }
+  else if(topicDone) rewardPop(after.gold?"הנושא כולו בזהב!":"הנושא הושלם!",c.name,after.gold);
+  else if(firstGold) celebrate("✨","החרוז הזהב הראשון שלכם!","ציון 75 ומעלה הופך חרוז לזהב. כל זהב נאסף לאוסף שלכם, ומשיעור שלם יוצאת מסבחה.");
+  else if(day.hit){ rewardPop("🎯 היעד היומי הושג!",`${DAILY_GOAL} משפטים היום · כל הכבוד`,true); chime(true); confetti(45,document.body); }
+  else if(COMBO_AT.includes(goldRun)){ const [ar,he]=cheer(); rewardPop(`🔥 ${goldRun} זהב ברצף!`,`${ar} · ${he}`,true); }
   else if(becameGold&&old!=null&&!c?.story) rewardPop("המשפט הפך לזהב ★",phrase.he,true);
   else if(streakReward&&streakReward.current>=2) rewardPop(`🔥 רצף של ${streakReward.current} ימים`,streakReward.newBest?"שיא אישי חדש":"ממשיכים מחר");
   else if(improved&&old!=null&&s-old>=8) rewardPop(`שיא חדש: ${Math.round(old)} ← ${Math.round(s)}`,phrase.he);
@@ -4564,6 +4756,8 @@ function render(r){
   const pill=$("pill"); const s=r.score;
   pill.className="pill "+(s>=EXCELLENT?"good":s>=60?"mid":"bad");
   pill.textContent= r.unrelated ? "משפט אחר?" : s>=EXCELLENT?"מצוין": s>=60?"כמעט":"נסו שוב";
+  const ch=$("cheer"); ch.replaceChildren(); ch.hidden=!(s>=EXCELLENT&&!r.unrelated);
+  if(!ch.hidden){ const [ar,he]=cheer(); ch.append(mark("",ar,"b"),mark("",he,"small")); ch.querySelector("b").lang="ar"; }
 
   $("words").hidden=true;
   drawAnalyzedAnswer(r);
@@ -4801,13 +4995,14 @@ function nextTopicAfter(c){   // the lesson's next topic, or the first one of th
   for(const l of LESSONS.slice(LESSONS.findIndex(l=>l.id===c.lesson)+1)){ const it=lessonItems(l.id).find(it=>it.c); if(it) return it.c; }
   return null;
 }
-function confetti(n){
+function confetti(n,into=$("topicDoneDlg")){
   if(matchMedia("(prefers-reduced-motion:reduce)").matches) return;
   const colors=["var(--olive)","var(--orange)","var(--amber)","var(--sumac)","var(--ok)","#e4b83e"];
   for(let k=0;k<n;k++){
     const c=mark("td-confetti",""), x=Math.random()*innerWidth, drift=(Math.random()-.5)*240, spin=(Math.random()-.5)*1080;
     Object.assign(c.style,{left:x+"px",background:colors[k%colors.length],width:6+Math.random()*6+"px"});
-    $("topicDoneDlg").append(c);   // inside the modal: anything outside it is under its backdrop
+    if(into===document.body) c.style.zIndex="200";   // over the page, when no dialog holds it
+    into.append(c);   // inside a modal: anything outside it is under its backdrop
     c.animate([{transform:"translate(0,0) rotate(0)",opacity:1},{transform:`translate(${drift}px,${innerHeight+40}px) rotate(${spin}deg)`,opacity:.9}],
       {duration:1800+Math.random()*1600,delay:Math.random()*400,easing:"cubic-bezier(.25,.6,.4,1)",fill:"forwards"}).finished.then(()=>c.remove(),()=>c.remove());
   }
@@ -5160,7 +5355,7 @@ async function driveStory(mode){
     $("status").textContent="השיחה הסתיימה ✓";
   }
 }
-const DRIVE_ON=$("driveBtn").innerHTML, DRIVE_OFF=DRIVE_ON.replace("i-car","i-stop").replace("עבור למצב נסיעה","סיום נסיעה");
+const DRIVE_ON=$("driveBtn").innerHTML, DRIVE_OFF=DRIVE_ON.replace("i-car","i-stop").replace("עברו למצב נסיעה","סיום נסיעה");
 $("driveGo").onclick=()=>{ store.set("ihki.driveSeen",true); $("driveDlg").close(); $("driveBtn").onclick(); };
 $("driveNo").onclick=()=>$("driveDlg").close();
 $("storyDriveNo").onclick=()=>$("storyDriveDlg").close();
@@ -7840,7 +8035,7 @@ function enter(){
   if(choosing) askClass();   // in several classes and none practised in before: which one? (its lesson question follows, from useClass)
   if(AUTH_URL&&!can("path.use")){ if(can("games.use")||can("tutor.use")) showView("games"); else if(can("library.view")) showView("library"); }
   if(new URLSearchParams(location.search).get("view")==="daily"){ history.replaceState(null,"",location.pathname); showView("daily"); }   // from the morning reminder: its videos before the lesson question or the home
-  (choosing?Promise.resolve(false):lessonFlow()).catch(()=>false).then(()=>askPushSoon());   // askPush stays quiet on a visit that asked for the lesson
+  (choosing?Promise.resolve(false):lessonFlow()).catch(()=>false);   // the reminder is offered after a good moment, not on entering (see pushMoment)
 }
 $("startBtn").onclick=$("practiceBtn").onclick=enter;
 $("libraryBtn").onclick=()=>{ enter(); showView("library"); };
@@ -7880,7 +8075,7 @@ if(AUTH_URL){
       await sb.auth.signOut(); store.set("ihki.best2",{}); store.set("ihki.silent",{}); store.set("ihki.written",{}); store.set("ihki.unsent",{}); location.reload(); };
     $("classExit").onclick=$("pickExit").onclick=()=>logout.click();   // the same exit, from the class pill's dialogs
     sb.auth.onAuthStateChange((_e,session)=>{
-      login.hidden=mail.hidden=!!session; logout.hidden=$("classExit").hidden=$("pickExit").hidden=!session;
+      login.hidden=mail.hidden=$("tagline").hidden=!!session; logout.hidden=$("classExit").hidden=$("pickExit").hidden=!session;
       logout.title=session?session.user.email||"":"";
       if(!session){ asked=""; start.hidden=roles.hidden=true; denied.hidden=true; login.focus({preventScroll:true}); return; }
       if(asked===session.user.id) return;

@@ -213,7 +213,29 @@ def test_a_later_visit_opens_the_home_and_the_path_at_the_current_lesson(site):
     assert r["rewardOnPath"] is False
     assert r["pathShortcuts"] == []   # daily practice and homework are no longer path shortcuts
     assert r["inLesson5"] and r["inView"]   # lessons 3 and 4 are unfinished too, yet the path opens at lesson 5
-    assert r["pushPrompt"] is True          # the reminder prompt's own rules apply again
+    assert r["pushPrompt"] is False         # not on entering: the prompt waits for a good moment
+
+
+GOOD_MOMENT = """
+await sleep(1500);
+out.before=open("pushDlg");
+const p=PHRASES.find(p=>p.listed!==false&&CATS.some(c=>c.id===p.cat&&!c.story));
+pickCat(p.cat); await sleep(200);
+keepScore(p.id,92);                     // the first gold ever: a celebration, and a good moment for the prompt
+out.celebrated=open("celebrateDlg");
+document.getElementById("celebrateGo").click();
+out.duringPractice=open("pushDlg");     // not in the middle of practice
+showPath(); await sleep(2500);
+out.pushPrompt=open("pushDlg");
+out.title=document.getElementById("pushTitle").textContent;
+"""
+
+
+def test_the_reminder_is_offered_back_home_after_a_good_moment(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", GOOD_MOMENT)
+    assert r["before"] is False and r["celebrated"] is True and r["duringPractice"] is False
+    assert r["pushPrompt"] is True and "כל הכבוד" in r["title"]
 
 
 REFER = """

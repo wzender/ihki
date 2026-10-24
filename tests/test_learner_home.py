@@ -220,3 +220,26 @@ def test_daily_practice_takes_homework_then_current_lesson_then_first_unfinished
     assert js('LH.lessonOrder("hw","5",null,["1","2","5","hw","6"])') == ["hw", "5", "1", "2", "6"]
     assert js('LH.lessonOrder(null,"5","2",["1","2","5","6"])') == ["5", "2", "1", "6"]
     assert js('LH.lessonOrder(null,null,"2",["1","2","5"])') == ["2", "1", "5"]   # no current lesson: as before
+
+
+def test_the_class_week_is_totals_only_without_teachers(client):
+    """GET /api/class/week: the class's sentences this week against its goal, and the student's own count; no names."""
+    asked = []
+
+    def users():
+        return [{"id": f"id-{n}", "email": f"{n}@x.com", "name": n} for n in ("dana", "rina", "t", "other")]
+
+    def scoped_activity(ids, since, bucket_minutes=15):
+        asked.append(set(ids))
+        said = {"id-dana": 4, "id-rina": 6, "id-t": 100}
+        return {"buckets": [], "summary": {"attempts": sum(said.get(i, 0) for i in ids),
+                                           "active_students": sum(1 for i in ids if said.get(i))}}
+
+    client.fake.users, client.fake.scoped_activity = users, scoped_activity
+    client.fake.classes = lambda fresh=False: [dict(CLASSES[0], emails=["dana@x.com", "rina@x.com", "t@x.com"],
+                                                    nicknames={}, homeworks=[], dailies=[], homework="", due=None)]
+    week = client.get("/api/class/week", headers=as_("dana")).json()["classes"]
+    from app.main import CLASS_WEEK_GOAL
+    assert week == [{"name": "א1", "students": 2, "said": 10, "active": 2, "mine": 4, "goal": 2 * CLASS_WEEK_GOAL}]
+    assert {"id-dana", "id-rina"} in asked and not any("id-t" in ids for ids in asked)   # the teacher is not counted
+    assert client.get("/api/class/week").status_code == 401

@@ -1914,7 +1914,7 @@ def test_sign_in_guards_the_practice_endpoints():
         assert {k: progress[k] for k in ("best", "tries", "recordings", "days")} == {
             "best": {str(PHRASES.index(VERB)): 88}, "tries": {str(PHRASES.index(VERB)): 2}, "recordings": 3, "days": 2}
         assert 0 <= progress["week_days"] <= 7
-        assert set(progress["streak"]) == {"current", "best", "last"}
+        assert set(progress["streak"]) == {"current", "best", "last", "frozen", "freeze_ready"}
     with TestClient(create_app(scorer_for(emissions(["w"])))) as c:   # no sign-in: nothing to show
         assert c.get("/api/progress").json() == {"best": {}, "tries": {}, "recordings": 0, "days": 0,
                                                   "week_days": 0, "streak": {"current": 0, "best": 0, "last": None}}
