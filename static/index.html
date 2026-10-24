@@ -325,6 +325,10 @@ body.memory-game{overflow:hidden}
 /* the way back to the path, at the head of the daily videos' screen (no tab of the foot's bar is lit there) */
 #vids button.back{display:inline-flex;align-self:flex-start;gap:6px;padding:6px 12px;border-radius:10px;background:var(--olive);border-color:var(--olive);color:var(--on-olive);font:700 15px var(--f-body)}
 #dailyDlg{width:min(92vw,380px)}
+#pushDlg{width:min(92vw,380px);text-align:center}
+#pushDlg .push-bell{font-size:44px;line-height:1;margin:4px 0 8px}
+#pushDlg h2{font:400 24px/1.2 var(--f-display);margin:0 0 6px}
+#pushDlg .row{justify-content:center}
 /* A topic's end: every sentence practised. A medal pops, confetti falls when it all went well, and a bead a sentence
    shows how each one went (gold 75+, green 60+, red under 60 and wobbling: those are offered for one more round). */
 #topicDoneDlg{width:min(92vw,400px);text-align:center;overflow:hidden}
@@ -1717,6 +1721,12 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
   <div class="picks" id="picks"></div>
   <button class="btn" id="pickMates" hidden>התלמידים בכיתה</button>
 </dialog>
+<dialog id="pushDlg" aria-labelledby="pushTitle" aria-describedby="pushText">
+  <div class="push-bell" aria-hidden="true">🔔</div>
+  <h2 id="pushTitle">תזכורת לסרטון היומי</h2>
+  <p class="dlg-text" id="pushText"></p>
+  <div class="row"><button class="btn primary" id="pushYes">כן, הזכירו לי</button><button class="btn" id="pushNo">לא עכשיו</button></div>
+</dialog>
 <dialog id="dailyDlg" aria-labelledby="dailyTitle">
   <div class="dlg-head"><h2 id="dailyTitle"></h2></div>
   <p class="dlg-text" id="dailyText"></p>
@@ -2019,48 +2029,90 @@ function endDaily(){   // past the session's last sentence: back to the path, an
    The library: videos that are not on the path, the same ones for every level and class. */
 const dailyVideos=()=>{ const d=today(), seen=new Set(); return (FREE?TEACHER_DAILIES:(MY_CLASS?[MY_CLASS]:MY_CLASSES).flatMap(k=>k.dailies||[])).filter(v=>v.date<=d&&!seen.has(v.id)&&seen.add(v.id)).sort((a,b)=>b.date.localeCompare(a.date)); };
 const libVideos=()=>LIBRARY;
-/* The daily video's morning reminder: a push notification the server sends (app/push.py), turned on here, on this device.
+/* The daily video's morning reminder: a push notification the server sends (app/push.py), turned on on this device,
+   from the prompt shown on entering (askPush) or from the button on the daily videos' screen (pushRow).
    On an iPhone only the app added to the home screen may get them. */
+const PUSH_IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const PUSH_STANDALONE=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+const PUSH_CAN="serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
+let pushInfo=null;   // the server's {key, hour}, read once
+async function pushState(){   // {key, hour, sub}: key is empty when the server sends no reminders
+  if(!PUSH_CAN) return {key:"",hour:8,sub:null};
+  pushInfo=pushInfo||await api("/api/push").then(r=>r.ok?r.json():{}).catch(()=>({}));
+  const sub=await navigator.serviceWorker.ready.then(reg=>reg.pushManager.getSubscription()).catch(()=>null);
+  return {key:pushInfo.key||"",hour:pushInfo.hour??8,sub};
+}
+async function pushOn(key){   // asks the permission (call it from a tap) and subscribes; the subscription, or null
+  if(await Notification.requestPermission()!=="granted") return null;
+  const reg=await navigator.serviceWorker.ready, raw=atob(key.replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-key.length%4)%4));
+  const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:Uint8Array.from(raw,c=>c.charCodeAt(0))});
+  const res=await api("/api/push/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(sub.toJSON())});
+  if(!res.ok){ await sub.unsubscribe().catch(()=>{}); throw new Error("not kept"); }
+  api("/api/push/test",{method:"POST"}).catch(()=>{});   // one now, so the student sees what it looks like
+  return sub;
+}
+async function pushOff(sub){
+  await api("/api/push/unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:sub.endpoint})}).catch(()=>{});
+  await sub.unsubscribe().catch(()=>{});
+}
 function pushRow(){
   const row=mark("push-row",""), btn=mark("","","button"), note=mark("","","small"); row.append(btn,note);
-  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent), standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
   const set=(text,on,why="")=>{ btn.textContent=text; btn.classList.toggle("on",!!on); note.textContent=why; };
-  if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window)){
-    if(ios&&!standalone){ btn.hidden=true; note.textContent="📱 כדי לקבל תזכורת כל בוקר: שיתוף ← „הוספה למסך הבית”, ופתחו את האפליקציה משם."; }
+  if(!PUSH_CAN){
+    if(PUSH_IOS&&!PUSH_STANDALONE){ btn.hidden=true; note.textContent="📱 כדי לקבל תזכורת כל בוקר: שיתוף ← „הוספה למסך הבית”, ופתחו את האפליקציה משם."; }
     else row.hidden=true;
     return row;
   }
   let key="", sub=null, hour=8;
   const draw=()=>{
-    if(!key) return set("",false),btn.hidden=true,row.hidden=true;
-    btn.hidden=row.hidden=false;
+    row.hidden=!key; if(!key) return;
     if(Notification.permission==="denied") return set("🔕 ההתראות חסומות",false,"אפשר לאשר אותן בהגדרות האתר בדפדפן.");
     if(sub) set("🔔 תזכורת כל בוקר פעילה",true,`בשעה ${hour}:00, ביום שיש סרטון · לחצו לביטול`);
     else set("🔔 הזכירו לי כל בוקר",false,"התראה כשיש סרטון חדש");
   };
   row.hidden=true;
-  Promise.all([api("/api/push").then(r=>r.ok?r.json():{}).catch(()=>({})),navigator.serviceWorker.ready.then(reg=>reg.pushManager.getSubscription()).catch(()=>null)])
-    .then(([info,s])=>{ key=info.key||""; hour=info.hour??8; sub=s; draw(); });
+  pushState().then(st=>{ ({key,hour,sub}=st); draw(); });
   btn.onclick=async()=>{
     btn.disabled=true;
-    try{
-      const reg=await navigator.serviceWorker.ready;
-      if(sub){
-        await api("/api/push/unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:sub.endpoint})}).catch(()=>{});
-        await sub.unsubscribe().catch(()=>{}); sub=null;
-      }else{
-        if(await Notification.requestPermission()!=="granted") return draw();
-        const raw=atob(key.replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-key.length%4)%4));
-        sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:Uint8Array.from(raw,c=>c.charCodeAt(0))});
-        const res=await api("/api/push/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(sub.toJSON())});
-        if(!res.ok){ await sub.unsubscribe().catch(()=>{}); sub=null; draw(); note.textContent="לא הצלחנו להפעיל את התזכורת. נסו שוב מאוחר יותר."; return; }
-        api("/api/push/test",{method:"POST"}).catch(()=>{});   // one now, so the student sees what it looks like
-      }
-      draw();
-    }catch(e){ draw(); note.textContent="לא הצלחנו להפעיל את התזכורת בדפדפן הזה."; }
+    try{ if(sub){ await pushOff(sub); sub=null; } else sub=await pushOn(key); draw(); }
+    catch(e){ draw(); note.textContent="לא הצלחנו להפעיל את התזכורת. נסו שוב מאוחר יותר."; }
     finally{ btn.disabled=false; }
   };
   return row;
+}
+/* On entering, once: a prompt to turn the reminder on. "Not now" asks again after PUSH_AGAIN days; it waits for any
+   dialog already open (choosing a class) to close. */
+const PUSH_AGAIN=7;
+function askPushSoon(){
+  if(!AUTH_URL) return;
+  setTimeout(function again(){
+    const open=document.querySelector("dialog[open]");
+    if(open) open.addEventListener("close",()=>setTimeout(again,500),{once:true}); else askPush();
+  },900);
+}
+async function askPush(){
+  const last=store.get("ihki.pushAsked",""), dlg=$("pushDlg"), yes=$("pushYes"), no=$("pushNo"), text=$("pushText");
+  if(last&&(last==="never"||(Date.now()-new Date(last))/864e5<PUSH_AGAIN)) return;
+  const later=()=>{ store.set("ihki.pushAsked",new Date().toISOString().slice(0,10)); dlg.close(); };
+  no.onclick=later; dlg.oncancel=later;
+  if(!PUSH_CAN){   // an iPhone's browser: only the app on the home screen gets them
+    if(!PUSH_IOS||PUSH_STANDALONE) return;
+    text.innerHTML="באייפון ההתראות מגיעות רק מהאפליקציה שעל מסך הבית:<br>לחצו על <b>שיתוף</b> ⬆️ ← <b>„הוספה למסך הבית”</b>, ופתחו את האפליקציה משם.";
+    yes.hidden=true; no.textContent="הבנתי"; dlg.showModal(); return;
+  }
+  const st=await pushState();
+  if(!st.key||st.sub||Notification.permission!=="default"||document.querySelector("dialog[open]")) return;
+  text.textContent=`בכל בוקר שיש סרטון יומי חדש, נשלח לכם התראה בשעה ${st.hour}:00, גם כשהאפליקציה סגורה.`;
+  yes.hidden=false; no.textContent="לא עכשיו";
+  yes.onclick=async()=>{
+    yes.disabled=true;
+    try{
+      const sub=await pushOn(st.key);
+      store.set("ihki.pushAsked",sub?"never":new Date().toISOString().slice(0,10)); dlg.close();
+    }catch(e){ text.textContent="לא הצלחנו להפעיל את התזכורת. אפשר לנסות שוב ממסך „סרטון יומי”."; yes.hidden=true; no.textContent="סגירה"; }
+    finally{ yes.disabled=false; }
+  };
+  dlg.showModal(); yes.focus();
 }
 const VERB_GAME_VISIBLE=false;   // "פועל יוצא" is still under development; flip to true to publish it again.
 const EITAN_GAME_VISIBLE=false;  // "בונים פועל עם איתן" (פועל יוצא's levels 6–8, on their own): teachers see it; true shows it to students.
@@ -7496,6 +7548,7 @@ function enter(){
   if(MY_CLASSES.length>1&&!MY_CLASS) askClass();   // in several classes and none practised in before: which one?
   if(AUTH_URL&&!can("path.use")){ if(can("games.use")||can("tutor.use")) showView("games"); else if(can("library.view")) showView("library"); }
   if(new URLSearchParams(location.search).get("view")==="daily"){ history.replaceState(null,"",location.pathname); showView("daily"); }   // from the morning reminder
+  askPushSoon();
 }
 $("startBtn").onclick=$("practiceBtn").onclick=enter;
 $("libraryBtn").onclick=()=>{ enter(); showView("library"); };
