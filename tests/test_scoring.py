@@ -964,10 +964,10 @@ def test_levels_plan_every_lesson():
     from app.workbook import LESSONS as WRITTEN, LEVELS as PLAN, lesson_id
 
     # every lesson names its level, and each level lists all of its planned lessons, the unwritten ones as soon
-    assert [v["id"] for v in LEVELS] == ["1", "2"] and len(LESSONS) == 20
+    assert [v["id"] for v in LEVELS] == ["1", "2"] and len(LESSONS) == 19   # level 2 ends at שיעור 18
     assert all(isinstance(key, tuple) and key[0] in PLAN for key in WRITTEN)
     # level 2's workbook goes on counting from level 1's: its first lesson is shown as the tenth, and keeps the id "2.1"
-    assert [(l["level"], l["n"]) for l in LESSONS] == [("1", n) for n in range(1, 11)] + [("2", n) for n in range(10, 20)]
+    assert [(l["level"], l["n"]) for l in LESSONS] == [("1", n) for n in range(1, 11)] + [("2", n) for n in range(10, 19)]
     assert [l["name"] for l in LESSONS if l["level"] == "2"][:2] == ["שיעור 10", "שיעור 11"] and LESSONS[0]["name"] == "שיעור 1"
     assert [l["id"] for l in LESSONS if l["level"] == "2"][:2] == ["2.1", "2.2"]   # level 1 keeps "1", "2": attempts name them
     assert {l["id"] for l in LESSONS if not l.get("soon")} == {lesson_id(*k) for k in WRITTEN} == {c["lesson"] for c in CATEGORIES}
@@ -2046,9 +2046,12 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
     with TestClient(create_app(scorer_for(emissions(["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"])), auth=FakeAuth())) as c:
         a = c.app.state.auth
         assert c.get("/api/me", headers={"Authorization": "Bearer t"}).json()["tutor"] is True
+        assert c.get("/api/me", headers={"Authorization": "Bearer s"}).json()["tutor"] is True   # everyone reports by default
+        a.access_for = {"u2": {"roles": ["student"], "entitlements": ["practice"]}}.get   # unless a manager took it away
         assert "tutor" not in c.get("/api/me", headers={"Authorization": "Bearer s"}).json()
         assert c.post("/api/flags", data={"phrase_id": pid}, files={"audio": ("rec", b"x", "audio/wav")}).status_code == 401
         assert send(c, "s").status_code == 403 and not a.flags   # tutors only
+        del a.access_for
         r = send(c, "t", note="  אמרתי  ח נכונה ")
         row, = a.flags
         assert r.status_code == 200 and r.json() == {"ok": True, "audio": True, "flag": row}, r.text
@@ -2117,13 +2120,19 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         a.users, a.all_attempts, a.all_writings = lambda: [{"id": "u2", "email": "s@b.c", "name": ""}], lambda: [], lambda: []
         assert rank("s", email="s@b.c", tutor=True).status_code == 403   # teachers only (s is not in a class either)
         a.cls[0]["emails"].append("s@b.c"); a.teachers = frozenset({"t@b.c"})
+        no_report = lambda: setattr(a, "access_for", {"u2": {"roles": ["student"], "entitlements": ["practice"]}}.get)
+        no_report()   # the rank matters once a manager removed the default
         assert rank("s", email="s@b.c", tutor=True).status_code == 403 and "tutor" not in c.get("/api/me", headers=tok("s")).json()
+        del a.access_for
         assert rank("t", email="nobody", tutor=True).status_code == 400 and rank("t", email="s@b.c", tutor="yes").status_code == 400
         assert rank("t", email=" S@b.c ", tutor=True).status_code == 200 and a.rank == {"s@b.c"} and a.by == "t@b.c"
+        no_report()
         assert c.get("/api/me", headers=tok("s")).json()["tutor"] is True and send(c, "s").status_code == 503   # may flag (the table is still missing)
+        del a.access_for
         panel = c.get("/api/class", headers=tok("t")).json()
         assert [(s["email"], s["tutor"], s.get("tutor_fixed")) for s in panel["students"]] == [("s@b.c", True, None), ("other@b.c", False, None)]
-        assert rank("t", email="s@b.c", tutor=False).status_code == 200 and "tutor" not in c.get("/api/me", headers=tok("s")).json()
+        assert rank("t", email="s@b.c", tutor=False).status_code == 200
+        no_report(); assert "tutor" not in c.get("/api/me", headers=tok("s")).json(); del a.access_for
         a.rank = frozenset({"out@b.c"})   # ranked, but in no class: not let in
         known = a.user
         a.user = lambda token: {"id": "u3", "email": "out@b.c"} if token == "x" else known(token)

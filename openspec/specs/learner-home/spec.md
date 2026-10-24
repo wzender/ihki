@@ -1,16 +1,10 @@
-# Spec Delta
+# learner-home Specification
 
 ## Purpose
 
 Define how a learner establishes their current class lesson and receives a small, accessible set of relevant next actions instead of navigating the complete course path first.
 
-**Behavior map (non-normative):**
-
-- A student entering a class goes straight to the focused home when a valid lesson is saved; otherwise they first choose a lesson from the class's level.
-- From the focused home: homework, today's daily video, continue, short review, the full path at the current lesson, or change the current lesson.
-- A morning reminder tap opens the daily videos screen. Going back to the home runs the same saved-lesson check.
-
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Per-class current-lesson onboarding
 The application SHALL require an authenticated student to select the current lesson the first time they enter a class for which they have no saved selection, and SHALL restrict the choices to lessons in that class's single level.
@@ -92,7 +86,7 @@ The application SHALL make a focused home the student's primary post-onboarding 
 - **AND** does not silently advance the class's current lesson
 
 ### Requirement: Short recommended activity
-When the focused home shows a short activity, it SHALL be bounded to no more than five items and SHALL show its workload before the learner starts it. The short activity MAY be omitted when three higher-priority actions apply.
+When the focused home shows a short activity, it SHALL be bounded to no more than ten items and SHALL show its workload before the learner starts it. The short activity MAY be omitted when three higher-priority actions apply.
 
 #### Scenario: Three higher-priority actions apply
 - **GIVEN** incomplete homework, an unwatched daily video for today, and unfinished work in the current lesson all exist
@@ -102,7 +96,7 @@ When the focused home shows a short activity, it SHALL be bounded to no more tha
 
 #### Scenario: Learner starts a short activity
 - **WHEN** the learner activates the short recommendation
-- **THEN** the session contains no more than five items
+- **THEN** the session contains no more than ten items
 - **AND** completion is clearly announced when the session ends
 
 #### Scenario: Recommended material is unavailable
@@ -119,6 +113,15 @@ The focused home SHALL provide access to the complete learning path, and the pat
 - **WHEN** the learner chooses the complete path
 - **THEN** the path positions lesson 5 in view
 - **AND** earlier and later lessons assigned to the class remain accessible
+- **AND** the path does not show daily-practice or homework shortcut buttons above it
+
+### Requirement: Referral access from home
+The focused home SHALL provide access to the existing refer-a-friend screen without counting that access as one of the three recommended learning actions, and SHALL remove the duplicate referral tab from the focused learner's bottom navigation.
+
+#### Scenario: Learner opens refer a friend
+- **WHEN** the learner activates “חבר מביא חבר” on the focused home
+- **THEN** the existing referral screen opens
+- **AND** the referral action is not duplicated in the bottom navigation
 
 ### Requirement: Reminder coordination
 Current-lesson onboarding and the focused home SHALL work with the existing daily-video push reminders without stacking prompts or blocking a reminder's destination.
@@ -148,4 +151,3 @@ Current-lesson onboarding and focused-home actions SHALL support RTL layout, tou
 - **WHEN** a learner completes onboarding without a pointing device
 - **THEN** every lesson option and confirmation action is reachable and operable by keyboard
 - **AND** focus moves predictably into the focused home after selection
-

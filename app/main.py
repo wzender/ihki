@@ -198,7 +198,7 @@ CREATE_SCORING_RULES = ("create table public.scoring_rules (id text primary key,
 CREATE_TUTORS = ("create table public.tutors (email text primary key, granted_by text not null default '', "
                  "created_at timestamptz not null default now()); alter table public.tutors enable row level security;")
 CREATE_USER_ACCESS = ("create table public.user_access (user_id uuid primary key references auth.users(id) on delete cascade, "
-                      "email text not null, roles text[] not null default array['student']::text[], "
+                      "email text not null, roles text[] not null default array['student','flagger']::text[], "
                       "entitlements text[] not null default '{}'::text[], subject text not null default '', "
                       "updated_at timestamptz not null default now(), "
                       "updated_by uuid references auth.users(id), "
@@ -211,6 +211,7 @@ CREATE_USER_ACCESS = ("create table public.user_access (user_id uuid primary key
                       "new_access jsonb not null, created_at timestamptz not null default now()); "
                       "alter table public.access_audit enable row level security;")
 ROLES = frozenset({"student", "teacher", "flagger", "admin", "developer"})
+DEFAULT_ROLES = ("student", "flagger")   # everyone may report a wrong score unless a manager removes it
 CREATE_SYSTEM_EVENTS = ("create table public.system_events (id bigint generated always as identity primary key, "
                         "kind text not null check (kind in ('exercise','game','permission','content')), "
                         "actor_id uuid references auth.users(id) on delete set null, actor_email text not null default '', "
@@ -220,6 +221,7 @@ CREATE_SYSTEM_EVENTS = ("create table public.system_events (id bigint generated 
                         "alter table public.system_events enable row level security;")
 MIGRATE_USER_ACCESS = ("alter table public.user_access add column if not exists subject text not null default ''; "
                        "alter table public.user_access drop constraint if exists valid_entitlements; "
+                       "alter table public.user_access alter column roles set default array['student','flagger']::text[]; "
                        "update public.user_access set entitlements = array_append(entitlements, 'practice') "
                        "where 'path' = any(entitlements) and not ('practice' = any(entitlements)); "
                        "alter table public.user_access add constraint valid_entitlements check "
@@ -288,6 +290,22 @@ def units_of(c: dict) -> list[str]:
 def class_lessons(c: dict) -> list[str]:
     """What a class studies, as the page gets it: math units for a math class, Arabic lessons for any other."""
     return units_of(c) if is_math(c) else lessons_of(c)
+
+
+def class_level(c: dict) -> str | None:
+    """The one course level an Arabic class studies, which its current lesson is chosen from. None for a math class
+    (its path has no lessons to choose) and for a class whose lessons span several levels, or that names none and so
+    studies every lesson: that class's configuration has to be corrected before a current lesson can be chosen."""
+    if is_math(c):
+        return None
+    levels = {LESSON_LEVEL[l] for l in c.get("lessons") or [] if l in LESSON_LEVEL}
+    return next(iter(levels)) if len(levels) == 1 else None
+
+
+def saved_lesson(c: dict, saved: dict[int, str]) -> str | None:
+    """The current lesson the student keeps for this class, when it is still one of the class's lessons."""
+    lesson = saved.get(c.get("id"))
+    return lesson if lesson and class_level(c) and lesson in lessons_of(c) else None
 
 
 def homework_of(c: dict, topics: dict[str, str] = TOPIC_LESSON) -> dict:
@@ -558,6 +576,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         privileged = roles - {"student"}   # before the panel's rank, which lets nobody in by itself
         if classes and not mine and not privileged and not entitlements:
             raise HTTPException(403, "this account is not on the list")
+        if not assigned:   # after the gate above: the default report permission lets nobody in by itself
+            roles.update(DEFAULT_ROLES)
         if "flagger" not in roles:
             try:
                 if email in (a.ranked() or ()):
@@ -685,7 +705,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def me(user: dict | None = Depends(signed_in)):
         """Who is signed in, their classes (each with its lessons, its homework, see `homework_of`, and its daily
         videos with their days, see `dailies_of`: a student in
-        several chooses one to practise in), for a teacher "dailies" (the daily videos of every class), and the lessons of all of them together (every lesson for a teacher, and for an account in no class). The page
+        several chooses one to practise in; each also has its "id", its one "level" (None when its lessons span several,
+        see `class_level`), the "current_lesson" the student chose in it (None before they choose), and "teacher" when
+        the account teaches it), for a teacher "dailies" (the daily videos of every class), and the lessons of all of them together (every lesson for a teacher, and for an account in no class). The page
         asks this right after sign-in to learn whether the account is let in."""
         mine = user["classes"] if user else []
         can_all = bool(user and ({"*", "exercises.use_all"} & set(user.get("permissions", ()))))
@@ -700,18 +722,50 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         # the subject whose pages the account belongs on: an admin's own, else their class's (a student has one)
         subject = subject_code(user.get("subject")) if user else ""
         subject = subject or next((s for c in mine if (s := subject_code(c.get("subject")))), "")
+        # the current lesson the student chose in each class; unreadable, the page keeps its own choice on the device
+        email, saved = (user["email"].lower() if user else ""), {}
+        if user and mine and hasattr(app.state.auth, "current_lessons"):
+            try:
+                got = app.state.auth.current_lessons(email)
+                saved = got if isinstance(got, dict) else {}
+            except AuthUnavailable as e:
+                log.warning("current lessons not read: %s", e)
         return {"email": user["email"] if user else "", "teacher": bool(user and user["teacher"]),
                 **({"subject": subject} if subject else {}),
                 **({"tutor": True} if user and user["tutor"] else {}),   # the page shows them the flag under a score
                 "roles": user.get("roles", []) if user else [], "entitlements": user.get("entitlements", []) if user else [],
                 "permissions": user.get("permissions", []) if user else ["*"],
                 **({"dailies": sorted(every.values(), key=lambda d: (d["date"], d["id"]))} if can_all else {}),
-                "classes": [{"name": c["name"], "lessons": class_lessons(c), **homework_of(c, topics()),
-                             "dailies": dailies_of(c, daily_rows()),
+                "classes": [{"id": c.get("id"), "name": c["name"], "lessons": class_lessons(c), **homework_of(c, topics()),
+                             "dailies": dailies_of(c, daily_rows()), "level": class_level(c),
+                             "current_lesson": saved_lesson(c, saved),
+                             **({"teacher": True} if email in (c.get("teachers") or []) else {}),
                              **({"subject": s} if (s := subject_code(c.get("subject"))) else {})} for c in mine],
                 **({"teaches": [{"id": c["id"], "name": c["name"], "lessons": class_lessons(c)}
                                   for c in user.get("teaches", [])]} if user and user.get("teaches") else {}),
                 "lessons": lessons}
+
+    @app.put("/api/me/classes/{class_id}/current-lesson")
+    def set_current_lesson(class_id: int, body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        """The lesson a student's class is on now ({"lesson": a lesson id}), kept for that student and class only. The
+        class must be one the caller studies in (not one they teach), of one level, and the lesson one of its lessons."""
+        a: SupabaseAuth | None = app.state.auth
+        if a is None or user is None:
+            raise HTTPException(401, "sign in required")
+        email = user["email"].lower()
+        course = next((c for c in user["classes"] if c.get("id") == class_id), None)
+        if course is None or email in (course.get("teachers") or []):
+            raise HTTPException(403, "רק תלמיד/ה בכיתה יכול/ה לבחור את השיעור הנוכחי שלה")
+        if class_level(course) is None:
+            raise HTTPException(409, "בכיתה הזאת אין שלב אחד, ולכן אי אפשר לבחור שיעור. צריך לתקן את הגדרות הכיתה.")
+        lesson = str(body.get("lesson") or "").strip()
+        if lesson not in lessons_of(course):
+            raise HTTPException(400, "השיעור הזה אינו מהשיעורים של הכיתה")
+        try:
+            a.set_current_lesson(email, class_id, lesson)
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"current lesson not saved: {e}")
+        return {"class_id": class_id, "current_lesson": lesson}
 
     def live_course(class_id: int) -> dict:
         course = next((c for c in app.state.auth.classes() if c["id"] == class_id), None)
@@ -1040,7 +1094,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         for account in users:
             row = assigned.get(account["id"], {})
             email = account["email"].lower()
-            roles = set(row.get("roles") or ["student"])
+            roles = set(row.get("roles") or ["student"]) if row else set(DEFAULT_ROLES)
             fixed = []
             if email in getattr(a, "teachers", ()):
                 roles.update({"teacher", "admin", "flagger"}); fixed += ["teacher", "admin", "flagger"]

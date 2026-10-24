@@ -30,6 +30,10 @@ students get a reminder above the path to watch it.
 Library: other videos (a title and a link each), in the Supabase table `library`, one for every level. Every student
 browses them from the tab at the screen's foot, whatever their level and class.
 
+Current lessons: a student tells, once for each class, which lesson the class is on now; the focused home of the page
+starts from it. It is the student's own, kept by email and class id in the Supabase table `learner_class_state`,
+read and written with the secret key only (the server takes the email from the session, never from the request).
+
 Tutors: the teacher gives a student the tutor's rank in the panel, in the list of all the students above the classes' tabs. It is the student's,
 whatever classes they are in, so it is kept by email in the Supabase table `tutors`.
 
@@ -80,6 +84,13 @@ MAX_ATTEMPTS = 20_000  # of one student, read for their progress
 MAX_CLASS_ATTEMPTS = 200_000  # of all students, read for the teacher's panel
 MAX_MONITOR_ATTEMPTS = 5_000  # newest compact attempts sampled for pronunciation patterns; never audio
 CLASSES_TTL = 60  # seconds the class list is trusted without reading it again (each sign-in check uses it)
+CREATE_LEARNER_CLASS_STATE = (
+    "create table public.learner_class_state (email text not null, "
+    "class_id bigint not null references public.classes (id) on delete cascade, current_lesson text not null, "
+    "created_at timestamptz not null default now(), updated_at timestamptz not null default now(), "
+    "primary key (email, class_id)); "
+    "alter table public.learner_class_state enable row level security; "
+    "revoke all on public.learner_class_state from anon, authenticated;")
 
 # Application-owned data. Supabase's auth users and managed schemas are deliberately not copied.
 BACKUP_TABLES = (
@@ -576,6 +587,35 @@ class SupabaseAuth:
         finally:
             self._ranked = None
 
+    def current_lessons(self, email: str) -> dict[int, str]:
+        """The current lesson this account chose in each of its classes: {class id: lesson id}. Empty without the
+        secret key or before the table is created (the page then keeps the choice on the device); other failures raise."""
+        if not self.secret:
+            return {}
+        q = urllib.parse.urlencode({"select": "class_id,current_lesson", "email": f"eq.{email.strip().lower()}"})
+        try:
+            rows = self._admin(f"/rest/v1/learner_class_state?{q}") or []
+        except AuthUnavailable as e:
+            if "answered 404" not in str(e):
+                raise
+            log.warning("the table `learner_class_state` is missing (see the README): current lessons stay on the device")
+            return {}
+        return {int(r["class_id"]): str(r["current_lesson"]) for r in rows if r.get("current_lesson")}
+
+    def set_current_lesson(self, email: str, class_id: int, lesson: str) -> None:
+        """Keeps this account's current lesson in one class, replacing the one it had there. Only the account's own row:
+        the caller passes the session's email. A missing table raises with the command that creates it."""
+        row = {"email": email.strip().lower(), "class_id": int(class_id), "current_lesson": str(lesson).strip(),
+               "updated_at": datetime.now(timezone.utc).isoformat()}
+        try:
+            self._admin("/rest/v1/learner_class_state?on_conflict=email,class_id", "POST", row,
+                        prefer="resolution=merge-duplicates,return=minimal")
+        except AuthUnavailable as e:
+            if "answered 404" in str(e):
+                raise AuthUnavailable("the table learner_class_state is missing; run in Supabase's SQL editor: "
+                                      f"{CREATE_LEARNER_CLASS_STATE}") from e
+            raise
+
     def _put_object(self, bucket: str, name: str, data: bytes, mime: str) -> bool:
         """Stores a recording in a private storage bucket; False (logged) when it cannot be stored."""
         if not self.secret:
@@ -833,7 +873,7 @@ class SupabaseAuth:
         """Set an admin's subject without changing their access assignment."""
         old = self.access_for(target["id"]) or {}
         row = {"user_id": target["id"], "email": target["email"].lower(),
-               "roles": old.get("roles") or ["student"], "entitlements": old.get("entitlements") or [],
+               "roles": old.get("roles") or ["student", "flagger"], "entitlements": old.get("entitlements") or [],
                "subject": subject, "updated_at": datetime.now(timezone.utc).isoformat(),
                "updated_by": actor["id"]}
         self._admin("/rest/v1/user_access?on_conflict=user_id", "POST", row,

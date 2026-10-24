@@ -673,6 +673,34 @@ A subject is one of a fixed list, `SUBJECT_LABELS` in `app/main.py`: ערבית 
 
 The server keeps the list for a minute, so a change in the SQL editor (rather than the panel) applies within that time.
 
+### Current lesson and the focused home
+
+The first time a student enters an Arabic class, the page asks which lesson the class is on now, offering only that class's lessons. A class must study lessons of exactly one level for this: a class whose lessons span several levels, or that names no lessons (and so studies every one), shows a message asking to correct the class instead. Math classes keep their own path and are not asked. After the choice the student lands on a focused home of at most three actions, the first three that apply of: the nearest-due homework, today's daily video when not yet watched on that device, continuing the current lesson, and a short review of up to five sentences. The full path is one button away and opens at the current lesson. "שינוי" next to the lesson changes it; no progress is lost. Teachers, and the open service without sign-in, keep the path as their first screen.
+
+Each student's choice is kept for each class in the table `learner_class_state`, read and written with `SUPABASE_SECRET_KEY` only. Create it once:
+
+```sql
+create table public.learner_class_state (
+  email          text   not null,                  -- the student's sign-in email, lower-case
+  class_id       bigint not null references public.classes (id) on delete cascade,
+  current_lesson text   not null,                  -- a lesson id of the class, e.g. 5 or 2.3
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now(),
+  primary key (email, class_id)                    -- one current lesson per student and class
+);
+alter table public.learner_class_state enable row level security;
+revoke all on public.learner_class_state from anon, authenticated;
+```
+
+`/api/me` gives each of the student's classes its `id`, its `level` (`null` when it is not one level), the `current_lesson` the student chose (`null` before a choice, or when the class no longer has that lesson) and `teacher: true` for a class the account teaches. The page saves a choice with:
+
+```
+PUT /api/me/classes/{class_id}/current-lesson
+{"lesson": "5"}
+```
+
+The server takes the email from the session, never from the body. It answers 401 without sign-in, 403 for a class the caller does not study in (or teaches), 409 for a class that is not one level, 400 for a lesson that is not the class's, and 503 when Supabase cannot save it. Until the table exists, or while Supabase is unreachable, the page keeps the choice on the device under `ihki.lesson.v1:<subject>:<email>:<class id>`, so another account on the same device does not get it, and sends it again on a later sign-in. A choice the server has wins over the device's.
+
 ### Live lessons
 
 An admin can choose several class teachers from the class's own student list. The assignment is scoped to that class:

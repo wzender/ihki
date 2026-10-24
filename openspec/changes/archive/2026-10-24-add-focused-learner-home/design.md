@@ -110,7 +110,10 @@ This mock communicates hierarchy and accessible structure. It is documentation, 
     </li>
   </ol>
 
-  <button type="button">צפייה במסלול המלא</button>
+  <nav aria-label="פעולות נוספות">
+    <button type="button">חבר מביא חבר</button>
+    <button type="button">צפייה במסלול המלא</button>
+  </nav>
 </main>
 ```
 
@@ -150,6 +153,8 @@ The update endpoint must verify that the caller is a student member of the class
 
 The existing class model stores lesson IDs rather than a level field. Determine the class level from those lessons. If there are no resolvable lessons or they span multiple levels, onboarding shows a corrective message instead of guessing or exposing unrelated lessons. Existing classes are not rewritten automatically.
 
+Math classes are left out: their `lessons` column holds math units, and they use their own path (`/math`), so they are never asked for a current lesson and keep that path as their entry view. A class's own teachers (listed in its `teachers`) are also not asked, since they keep the path for that class.
+
 Adding a new `level` column to `classes` was considered, but it would duplicate information already encoded by the class lesson set and require a broader class migration. Enforcing a single-level invariant throughout class administration can be a follow-up if legacy data reveals ambiguity.
 
 ### Use account-scoped local fallback state
@@ -165,17 +170,19 @@ Render no more than three distinct actions: the first three that apply, in this 
 1. the nearest-due incomplete homework, when one exists;
 2. today's daily video for the active class, when one is dated today and has not been opened on this device;
 3. the first unfinished activity in the selected current lesson;
-4. a short review of up to five weak, previously practiced items, or another valid short activity from the current lesson.
+4. a short review of up to ten weak, previously practiced items, or another valid short activity from the current lesson.
 
 The daily-video action reuses the existing daily-video list and watched state (`dailyVideos()`, `ihki.dailyWatched`) and opens the same player as the daily videos screen. Placing it second matches what the morning reminder promises the learner, while homework keeps priority because it has a due date.
 
 Omit an action when its target cannot be opened. Do not silently fill the home with arbitrary later lessons. If the current lesson is complete, offer review plus a clear action to change the selected lesson. Existing topic and homework entry functions remain the execution paths, preventing recommendation state from becoming a second completion ledger.
 
-The existing ten-sentence daily session remains available, but its new-material source prefers the selected current lesson after homework. The focused home's short activity is separately capped at five items so its displayed workload is truthful.
+The focused home's short activity is capped at ten items so its displayed workload is truthful. It uses the existing session execution path, while the separate daily-practice shortcut is no longer shown on the complete path.
 
 ### Make the full path secondary and position by lesson
 
 The focused home becomes the default student view after class selection and onboarding. A visible full-path action calls the existing path renderer with a lesson anchor. Position the selected lesson heading or its first unfinished topic in the viewport, even if an earlier lesson remains unfinished. Preserve navigation to all lessons assigned to the class.
+
+Keep the complete “הערבית שכבר שלכם” progress panel on the focused home. Keep the daily-video and homework actions there as well, without duplicating them above the full path. Do not show the daily-practice shortcut on either the focused home or the full path. Move “חבר מביא חבר” from the focused learner's bottom navigation to a secondary home action beside full-path access; retain its existing screen and keep its navigation tab for modes that have no focused home.
 
 ### Keep onboarding separate from notification consent
 

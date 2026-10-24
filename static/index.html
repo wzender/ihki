@@ -80,9 +80,9 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 .guidetip button{flex:none;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:15px;cursor:pointer}
 body:not(.home) .help,body.manage .help,body:not(.home) .guidetip,body.manage .guidetip,body[data-view] .guidetip{display:none}
 .sethelp{display:block;margin-top:12px;color:var(--olive);font-weight:700}
-/* Above the path, and staying in sight as it scrolls, three in a row: the day's video, the daily session and the nearest
-   homework. (The homework is on the path itself too: the bubble over its topic counts the days left.) */
-#today{position:sticky;top:0;z-index:7;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:stretch;width:100%;max-width:460px;margin:0 auto;padding:6px 0;background:var(--bg)}
+/* Legacy container for the former path shortcuts. The focused home now owns homework and daily video, and daily
+   practice is no longer offered from the full path. */
+#today{position:sticky;top:0;z-index:7;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:stretch;width:100%;max-width:460px;margin:0 auto;padding:6px 0;background:var(--bg)}
 #today button{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;min-width:0;padding:8px 6px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 15px/1.2 var(--f-body);text-align:start;cursor:pointer}
 #today button{text-align:center} #today button:disabled{cursor:default;color:var(--muted)}
 #today small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px/1.25 var(--f-body);color:var(--muted)}
@@ -327,6 +327,34 @@ body.memory-game{overflow:hidden}
 /* the way back to the path, at the head of the daily videos' screen (no tab of the foot's bar is lit there) */
 #vids button.back{display:inline-flex;align-self:flex-start;gap:6px;padding:6px 12px;border-radius:10px;background:var(--olive);border-color:var(--olive);color:var(--on-olive);font:700 15px var(--f-body)}
 #dailyDlg{width:min(92vw,380px)}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+/* the lesson question, and the focused home (static/learner_home.js) */
+#lessonDlg{width:min(92vw,420px)}
+#lessonDlg h2{margin:0 0 4px;font:400 24px/1.2 var(--f-display)}
+#lessonDlg h2:focus,#vids .focus h2:focus{outline:none}
+.lesson-where{margin:0 0 12px;color:var(--muted);font:600 14px/1.4 var(--f-body)}
+.lesson-form fieldset{display:flex;flex-direction:column;gap:6px;max-height:52vh;margin:0;padding:2px;overflow:auto;border:0}
+.lesson-option{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:700 16px/1.3 var(--f-body);cursor:pointer}
+.lesson-option:has(input:checked){border-color:var(--olive);background:var(--olive-soft)}
+.lesson-option:focus-within{outline:2px solid var(--olive);outline-offset:1px}
+.lesson-option input{width:20px;height:20px;margin:0;accent-color:var(--olive)}
+.lesson-status{min-height:1.3em;margin:8px 0;color:var(--sumac);font:600 14px/1.4 var(--f-body)}
+.lesson-error{margin:0 0 14px;font:600 15px/1.5 var(--f-body)}
+#vids .focus{display:flex;flex-direction:column;gap:12px}
+#vids .focus header{display:flex;flex-direction:column;gap:2px}
+#vids .focus h2{margin:0}
+#vids .focus-where{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0;padding:0;border:0;color:var(--muted);font:600 14px/1.4 var(--f-body)}
+#vids .focus .focus-change{display:inline-flex;min-height:44px;padding:6px 16px;border-radius:999px;color:var(--olive);font-size:14px}
+#vids .focus-actions{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+#vids .focus-action{width:100%;min-height:72px;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:14px 16px}
+#vids .focus-action strong{grid-column:1;font:700 17px/1.3 var(--f-body)}
+#vids .focus-action .focus-detail{grid-column:1;color:var(--muted);font:600 14px/1.35 var(--f-body);overflow-wrap:anywhere}
+#vids .focus-action .focus-go{grid-column:2;grid-row:1/span 2;align-self:center;color:var(--olive);font:700 15px/1.2 var(--f-body);white-space:nowrap}
+#vids .focus-action.soon{border-color:var(--orange)}
+#vids .focus-action.late{border-color:var(--sumac)}
+#vids .focus-more{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#vids .focus :is(.focus-refer,.focus-path){display:flex;justify-content:center;min-height:48px;color:var(--olive)}
+#vids .focus button:focus-visible{outline:2px solid var(--olive);outline-offset:2px}
 #pushDlg{width:min(92vw,380px);text-align:center}
 #notifyDlg{width:min(92vw,440px)}
 .notify-form{display:flex;flex-direction:column;gap:12px}
@@ -370,7 +398,8 @@ body.memory-game{overflow:hidden}
 .reward-shelf:hover{transform:translateY(-2px);box-shadow:0 7px 0 color-mix(in srgb,var(--olive) 32%,var(--line)),0 13px 26px rgb(35 46 31/.16)}
 .streak-ring{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;background:var(--amber-bg);border:2px solid var(--orange);color:var(--orange);font:700 16px/1 var(--f-body);box-shadow:0 2px 0 color-mix(in srgb,var(--orange) 55%,var(--line))}
 .reward-copy{display:flex;min-width:0;flex-direction:column;line-height:1.25}.reward-copy b{font-size:17px}.reward-copy small{color:var(--orange);font-weight:700}.reward-totals{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;width:100%;font:700 13px/1.15 var(--f-body)}.reward-count{display:flex;align-items:center;justify-content:center;gap:5px;min-height:34px;padding:6px;border:1px solid var(--line);border-radius:11px;background:color-mix(in srgb,var(--surface) 88%,transparent);white-space:nowrap}.reward-count::before{content:"";width:17px;height:17px;box-sizing:border-box;border:2px solid #52624b;border-radius:50%;background:radial-gradient(circle at 32% 27%,#dce7d4 0 9%,#769064 23%,#405136 72%);box-shadow:inset -1px -2px 2px rgb(0 0 0/.25)}.reward-count.gold{color:#865b08}.reward-count.gold::before{border-color:#9b690b;background:radial-gradient(circle at 32% 27%,#fff3a7 0 9%,#e4b83e 27%,#9d6509 75%)}.reward-count.misbaha{color:var(--sumac)}.reward-count.misbaha::before{content:"📿";width:auto;height:auto;border:0;background:none;box-shadow:none;font-size:18px}.reward-week{grid-column:1/-1;color:var(--olive);text-align:center;font-size:12px}
-body:not(.home) .reward-shelf,body.manage .reward-shelf,body[data-view] .reward-shelf{display:none}
+/* The complete progress panel belongs to the focused learner home, not to the full path or the other views. */
+body:not(.home) .reward-shelf,body.manage .reward-shelf,body:not([data-view=home]) .reward-shelf{display:none}
 #rewardsDlg{width:min(94vw,520px);max-height:88vh}.reward-summary{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:4px 0 12px}.reward-summary div{padding:10px 6px;border-radius:12px;background:var(--olive-soft);text-align:center}.reward-summary div:first-child{background:var(--amber-bg);box-shadow:inset 0 0 0 1px var(--orange)}.reward-summary div:first-child b{color:var(--orange)}.reward-summary div.misbaha{background:color-mix(in srgb,var(--sumac-bg) 72%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--sumac) 40%,var(--line))}.reward-summary div.misbaha b{color:var(--sumac)}.reward-summary b{display:block;color:var(--olive);font:400 25px/1.1 var(--f-display)}.reward-summary small{font-size:12px;color:var(--muted)}
 .reward-lesson{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:18px 0 0;padding:8px 0 5px;border-bottom:1px solid var(--line);color:var(--olive);font:400 20px/1.2 var(--f-display)}.reward-lesson:first-child{margin-top:8px}.lesson-misbaha{padding:5px 8px;border:1px solid color-mix(in srgb,var(--sumac) 45%,var(--line));border-radius:999px;background:var(--sumac-bg);color:var(--sumac);font:700 12px/1 var(--f-body);white-space:nowrap;animation:td-pop .55s cubic-bezier(.2,1.6,.4,1) both}.reward-topic{margin:10px 0 5px;font:700 15px/1.2 var(--f-body)}.reward-topic small{margin-inline-start:6px;color:var(--muted)}.reward-beads{display:flex;flex-wrap:wrap;gap:7px;direction:rtl}.phrase-bead{width:31px;height:31px;border-radius:50%;border:3px solid #52624b;background:radial-gradient(circle at 32% 27%,#dce7d4 0 9%,#769064 23%,#405136 72%);box-shadow:inset -2px -3px 3px rgb(0 0 0/.3),0 2px 2px rgb(0 0 0/.2);cursor:pointer}.phrase-bead.gold{border-color:#9b690b;background:radial-gradient(circle at 32% 27%,#fff3a7 0 9%,#e4b83e 27%,#9d6509 75%)}
 .reward-empty{padding:20px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);text-align:center}
@@ -855,7 +884,7 @@ body.manage #manage{width:100%;max-width:none}
 .rule-desc{flex-basis:100%;font-size:13px;color:var(--muted)}
 .rule-note{flex-basis:100%;font-size:12px;color:var(--amber)}
 .rule-warn{padding:8px 10px;border-radius:10px;background:var(--amber-bg);color:var(--amber);font-size:13px}
-.rule-warn code{display:block;margin-top:4px;white-space:pre-wrap;word-break:break-all}.flag-patterns{width:100%;border-collapse:collapse;text-align:start}.flag-patterns :is(th,td){padding:6px;border-bottom:1px solid var(--line)}
+.rule-warn code{display:block;margin-top:4px;white-space:pre-wrap;word-break:break-all}.flag-patterns{width:100%;border-collapse:collapse;text-align:start}.flag-patterns :is(th,td){padding:6px;border-bottom:1px solid var(--line)}.flag-pending td{vertical-align:middle}.flag-pending tr.flag-detail>td{background:var(--surface);padding:10px 12px}.flag-detail p{margin:0 0 8px}.flag-detail .meta{color:var(--muted);font-size:13px}.flag-detail fieldset{border:0;margin:0 0 8px;padding:0;display:flex;flex-wrap:wrap;gap:7px}.flag-detail fieldset label{display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid var(--line);border-radius:9px}.flag-detail :is(select,textarea){font:inherit;border:1px solid var(--line);border-radius:9px;padding:7px;background:var(--surface);color:var(--ink)}.flag-detail textarea{width:100%;resize:vertical;margin-top:8px}.flag-pending .flag-said{font:inherit;font-size:17px;background:none;border:0;padding:0;color:var(--ink);text-align:start}.flag-pending button.flag-said{cursor:pointer;text-decoration:underline dotted;text-underline-offset:4px}.flag-group>.flag-pending{margin-inline-start:12px;width:calc(100% - 12px)}
 .activity{display:flex;flex-direction:column;gap:12px}.activity-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.activity-head h2{margin:0}.activity-head p{margin:3px 0 0;color:var(--muted);font-size:13px}
 .activity-ranges{display:flex;flex-wrap:wrap;gap:5px}.activity-ranges button{padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:700 13px/1 var(--f-body);cursor:pointer}.activity-ranges button[aria-pressed=true]{border-color:var(--olive);background:var(--olive);color:var(--on-olive)}
 .activity-head select{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}
@@ -1449,7 +1478,7 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
     </span>
   </button>
   <section id="vids" aria-live="polite"></section>
-  <nav id="nav" aria-label="ניווט"><button data-view="">מסלול</button><button data-view="live" hidden>שיעור חי</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="refer">חבר מביא חבר</button></nav>
+  <nav id="nav" aria-label="ניווט"><button data-view="home" hidden>בית</button><button data-view="">מסלול</button><button data-view="live" hidden>שיעור חי</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="refer">חבר מביא חבר</button></nav>
   <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
   <section class="live-page" id="liveView" aria-live="polite"></section>
   <button id="toNow" hidden></button>
@@ -1740,6 +1769,7 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
   <button class="btn" id="pickMates" hidden>התלמידים בכיתה</button>
   <button class="btn dlg-exit" id="pickExit" hidden>יציאה מהחשבון</button>
 </dialog>
+<dialog id="lessonDlg" aria-labelledby="lessonTitle"></dialog>
 <dialog id="notifyDlg" aria-labelledby="notifyTitle">
   <div class="dlg-head"><h2 id="notifyTitle">שליחת התראה<small>מגיעה לטלפון או למחשב של מי שהפעיל תזכורות</small></h2><button class="btn" id="notifyClose">סגירה</button></div>
   <form id="notifyForm" class="notify-form">
@@ -1940,6 +1970,7 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
 <button id="logoutBtn" hidden>יציאה</button>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3"></script>
+<script src="/static/learner_home.js?v=__ASSET_V__"></script>
 <script>
 const $=id=>document.getElementById(id);
 /* Sign-in: Google through Supabase. The server fills the two values in; when they are empty (no project configured) the app is open. */
@@ -2018,15 +2049,17 @@ function homeworks(){
 }
 /* The daily session: DAILY.n sentences in one go, so the student does not have to choose what to practise. Half are
    sentences they already said and can say better, drawn from their weakest DAILY.from (so the same ones do not come back
-   every day); the rest are new, in the course's order, from the homework topic and its lesson, or else the first unfinished lesson.
+   every day); the rest are new, in the course's order, from the homework topic and its lesson, then the class's current lesson
+   (the focused home's), or else the first unfinished lesson.
    When one kind runs short the other fills in. Stories are left out: their lines are said in a conversation. */
 const DAILY={n:10, review:5, from:15};
 const today=()=>new Date().toLocaleDateString("sv");   // the device's date, as 2026-10-10
 function dailyPlan(){
   const cats=CATS.filter(c=>!c.story), pool=PHRASES.filter(p=>p.listed!==false&&cats.some(c=>c.id===p.cat));
   const got=pool.filter(p=>best[p.id]!=null).sort((a,b)=>best[a.id]-best[b.id]);   // the weakest first
-  const hw=homeworks().find(h=>!h.t.over), first=hw?hw.l:LESSONS.find(l=>!l.soon&&!tally(lessonList(l)).over), fresh=[];
-  const turn=[first,...LESSONS.filter(l=>l!==first)].filter(Boolean).flatMap(l=>cats.filter(c=>c.lesson===l.id));
+  const hw=homeworks().find(h=>!h.t.over), fresh=[], now=LESSONS.find(l=>l.id===currentLesson());
+  const unfinished=hw?null:LESSONS.find(l=>!l.soon&&!tally(lessonList(l)).over);   // with homework, the rest go in the course's order
+  const turn=LH.lessonOrder(hw&&hw.l,now,unfinished,LESSONS).flatMap(l=>cats.filter(c=>c.lesson===l.id));
   for(const c of hw?[...turn.filter(c=>c===hw.c),...turn.filter(c=>c!==hw.c)]:turn){   // the homework topic before the rest of its lesson
     const list=pool.filter(p=>p.cat===c.id&&best[p.id]==null);
     fresh.push(...(list.every(p=>p.seq!=null)?list.sort((a,b)=>a.seq-b.seq):list));
@@ -2036,21 +2069,25 @@ function dailyPlan(){
   for(let i=0;i<DAILY.n;i++){ if(old[i]) plan.push(old[i].id); if(news[i]) plan.push(news[i].id); }   // one to improve, one new, in turn
   return plan;
 }
-function startDaily(){
-  const plan=dailyPlan(); if(!plan.length) return;
+function startDaily(){ shortRun=false; runSession(dailyPlan()); }
+function startShort(ids){ shortRun=true; runSession(ids); }   // the home's short activity: its few sentences, not the day's session
+function runSession(plan){
+  if(!plan.length){ shortRun=false; return; }
   daily=plan; dailySaid=new Set(); dailyWas=Object.fromEntries(plan.map(id=>[id,best[id]]));
   home=false; document.body.classList.remove("home"); scrollTo(0,0);
   startCat();
 }
 function endDaily(){   // past the session's last sentence: back to the path, and what was done
   const n=daily.length, said=daily.filter(id=>dailySaid.has(id)).length, up=daily.filter(id=>dailyWas[id]!=null&&best[id]>dailyWas[id]).length;
-  const done=said*2>=n, spoken=driving;   // most of it was said: today's session counts
-  if(done) store.set("ihki.daily",today());
+  const done=said*2>=n, spoken=driving, short=shortRun;   // most of it was said: today's session counts (a short round does not)
+  shortRun=false;
+  if(done&&!short) store.set("ihki.daily",today());
   showPath();
-  $("dailyTitle").textContent=done?"כל הכבוד!":"התרגול היומי הסתיים";
+  $("dailyTitle").textContent=short?(said>=n?"כל הכבוד! סיימתם את התרגול הקצר":"התרגול הקצר הסתיים"):done?"כל הכבוד!":"התרגול היומי הסתיים";
+  $("dailyMore").hidden=short; syncHomeLabels();
   $("dailyText").textContent=`תרגלתם ${said} מתוך ${n} משפטים`+(up?`, ושיפרתם את הציון ב-${up} מהם`:"")+".";
   $("dailyDlg").showModal();
-  if(spoken) sayHe("התרגול היומי הסתיים.");
+  if(spoken) sayHe(short?"התרגול הקצר הסתיים.":"התרגול היומי הסתיים.");
 }
 /* The bar at the screen's foot has the path, games and the video library; the daily videos' screen opens from the button above the path.
    The daily videos (the teacher keeps them in the panel's content part, and gives each its day in a class): those of
@@ -2059,6 +2096,108 @@ function endDaily(){   // past the session's last sentence: back to the path, an
    The library: videos that are not on the path, the same ones for every level and class. */
 const dailyVideos=()=>{ const d=today(), seen=new Set(); return (FREE?TEACHER_DAILIES:(MY_CLASS?[MY_CLASS]:MY_CLASSES).flatMap(k=>k.dailies||[])).filter(v=>v.date<=d&&!seen.has(v.id)&&seen.add(v.id)).sort((a,b)=>b.date.localeCompare(a.date)); };
 const libVideos=()=>LIBRARY;
+/* The focused home (static/learner_home.js; openspec/changes/add-focused-learner-home). A signed-in student of an Arabic
+   class of one level tells, once for each class, which lesson the class is on now; the home then offers at most three
+   actions in the path's place, and the path opens at that lesson. Teachers, the open service, a class's own teachers and
+   math classes keep the path. The choice is kept on the server (PUT /api/me/classes/{id}/current-lesson) and, for when the
+   server cannot keep it, on the device under the account's own key, sent again on a later sign-in. */
+const LH=globalThis.LearnerHome;
+let ENTERED=false, LESSON_ASKED=false, FOCUS_HEADING=false;   // past the opening screen; the lesson question came up on this visit (no reminder prompt until the next one); the home's heading takes the focus
+let shortRun=false;   // the session running is the home's short activity, not the day's practice
+const sessionName=()=>shortRun?"תרגול קצר":"תרגול יומי";
+const lessonKey=k=>LH.storageKey(document.documentElement.dataset.subject,ME_EMAIL,k.id);
+function homeClass(){   // the class whose home this is, while the student can have one
+  return AUTH_URL&&sb&&!FREE&&ME_EMAIL&&MY_CLASS&&can("path.use")&&LH.classState(MY_CLASS)==="ok"?MY_CLASS:null;
+}
+const currentLesson=()=>{ const k=homeClass(); return k&&k.currentLesson||null; };
+const focusOn=()=>!!currentLesson();
+function restoreLessons(){   // on sign-in: each class's lesson, the server's, or else the device's (which is sent again)
+  for(const k of MY_CLASSES){
+    if(LH.classState(k)!=="ok") continue;
+    const r=LH.resolveLesson(k.current_lesson,store.get(lessonKey(k),null),k.lessons||[]);
+    k.currentLesson=r.lesson;
+    if(r.lesson&&r.lesson===k.current_lesson) store.set(lessonKey(k),{lesson:r.lesson,synced:true});
+    else if(r.retry) saveLesson(k,r.lesson).catch(()=>{});
+  }
+}
+async function saveLesson(k,id){   // throws when the server refuses the choice; when it cannot keep it, the device does
+  const key=lessonKey(k); k.currentLesson=id; store.set(key,{lesson:id,synced:false});
+  let res;
+  try{ res=await api(`/api/me/classes/${k.id}/current-lesson`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({lesson:id})}); }
+  catch(e){ return; }   // offline: the device keeps it
+  if(res.ok){ k.current_lesson=id; store.set(key,{lesson:id,synced:true}); return; }
+  if([400,403,409].includes(res.status)){   // not a choice this class takes
+    k.currentLesson=null; store.set(key,null);
+    const d=await res.json().catch(()=>({})); throw new Error(d.detail||"לא ניתן לבחור את השיעור הזה.");
+  }
+}
+const asideScreen=()=>{ const v=document.body.dataset.view||""; return document.body.classList.contains("manage")||(v!==""&&v!=="home"); };
+async function askLesson(required){   // the question; true when it came up
+  await ready;
+  const k=MY_CLASS; if(!k||!AUTH_URL||FREE||!can("path.use")) return false;
+  const state=LH.classState(k); if(state!=="ok"&&state!=="ambiguous") return false;
+  LESSON_ASKED=true;
+  const level=ALL_LEVELS.find(v=>v.id===k.level);
+  LH.openLessonDialog($("lessonDlg"),{className:k.name,levelName:level&&level.name,required,selected:k.currentLesson,
+    lessons:ALL_LESSONS.filter(l=>(k.lessons||[]).includes(l.id)).map(l=>({id:l.id,name:l.soon?`${l.name} (בקרוב)`:l.name})),
+    error:state==="ambiguous"?"בכיתה הזאת יש שיעורים מכמה שלבים, או שלא נבחרו לה שיעורים, ולכן אי אפשר לבחור את השיעור הנוכחי. בקשו מהמורה לתקן את הגדרות הכיתה. בינתיים אפשר ללמוד מהמסלול המלא.":"",
+    onConfirm:id=>saveLesson(k,id), after:()=>{ FOCUS_HEADING=true; goHome(); }, onPath:()=>showView("")});
+  return true;
+}
+async function lessonFlow(){   // past the opening screen, once the class is known: the question, or the home. True when it asked
+  await ready;
+  const k=MY_CLASS;
+  if(!ENTERED||!k||!AUTH_URL||FREE||!can("path.use")||asideScreen()) return false;   // e.g. a reminder's videos come first
+  const state=LH.classState(k);
+  if(state==="ambiguous"||(state==="ok"&&!k.currentLesson)) return askLesson(true);
+  if(state==="ok") goHome(); else if(document.body.dataset.view==="home") showView("");
+  return false;
+}
+function goHome(){ if(!focusOn()) return showView(""); if(!home) showPath(); showView("home"); }
+function backHome(){   // from the daily videos: the home, or first the lesson question a reminder put off
+  const k=homeClass(); if(k&&!k.currentLesson){ showView(""); askLesson(true); return; }
+  goHome();
+}
+function openFullPath(){   // the whole path, at the current lesson's topic to do now (or at its heading)
+  showView("");
+  const box=$("path"), at=box.querySelector("[aria-current]")||[...box.querySelectorAll(".chapter")].find(h=>h.dataset.lesson===currentLesson());
+  if(at) at.scrollIntoView({block:"center"});
+}
+function homeLesson(){   // the current lesson, its topics, and whether every one is finished
+  const l=LESSONS.find(x=>x.id===currentLesson()), cats=l?lessonItems(l.id).filter(it=>it.c).map(it=>it.c):[];
+  return {l,cats,done:cats.length>0&&cats.every(c=>topicT(c).over)};
+}
+function homeActions(){   // in this order, the first three that can start: homework, today's video, the lesson, a short round
+  const {l,cats,done}=homeLesson(), d=today();
+  const hw=homeworks().filter(h=>!h.t.over).sort((a,b)=>(a.left??1e9)-(b.left??1e9))[0];
+  const vids=dailyVideos().filter(v=>v.date===d&&!dailyWatched[v.id]), next=cats.find(c=>!topicT(c).over);
+  const listed=PHRASES.filter(p=>p.listed!==false), said=CATS.filter(c=>!c.story), mine=cats.filter(c=>!c.story);
+  const plan=LH.shortPlan(listed.filter(p=>said.some(c=>c.id===p.cat)),listed.filter(p=>mine.some(c=>c.id===p.cat)),best,EXCELLENT);
+  return LH.pickActions([
+    hw&&{kind:"homework",target:"topic:"+hw.c.id,ready:true,title:"שיעורי בית",state:hw.state,go:hw.t.done?"המשיכו":"התחילו",
+         detail:hw.left==null?hw.c.name:`${hw.c.name} · ${hw.msg}`,run:()=>openCat(hw.c)},
+    vids.length>0&&{kind:"video",target:"video:"+vids[0].id,ready:true,title:"הסרטון של היום",go:"צפו",
+         detail:vids.length===1?vids[0].title:`${vids.length} סרטונים חדשים`,
+         run:()=>{ if(vids.length!==1) return showView("daily"); dailyWatched[vids[0].id]=1; store.set("ihki.dailyWatched",dailyWatched); playVideo(vids[0],true); }},
+    next&&{kind:"continue",target:"topic:"+next.id,ready:true,title:`ממשיכים ב${l.name}`,detail:next.name,go:"המשיכו",run:()=>openCat(next)},
+    plan&&{kind:"short",target:"short",ready:true,title:"תרגול קצר",
+         detail:`${plan.ids.length} משפטים ${plan.kind==="review"?"לשיפור":"חדשים מהשיעור"}`,run:()=>startShort(plan.ids)},
+    done&&{kind:"change",target:"change",ready:true,title:"בחירת שיעור אחר",detail:"הכיתה עברה לשיעור הבא?",go:"בחירה",run:()=>askLesson(false)},
+  ]);
+}
+function drawHome(box){
+  if(!focusOn()){ delete document.body.dataset.view; return; }
+  const {l,done}=homeLesson();
+  drawRewardShelf();
+  LH.renderHome(box,{className:MY_CLASS.name,lessonName:l?l.name:currentLesson(),done,actions:homeActions(),
+    onChange:()=>askLesson(false),onPath:openFullPath,onRefer:openRefer},FOCUS_HEADING);
+  FOCUS_HEADING=false;
+}
+function syncHomeLabels(){   // the ways back say where they lead
+  const to=document.body.dataset.view==="home"&&focusOn()?"חזרה לדף הבית":"חזרה למסלול", btn=$("homeBtn");
+  if(btn.lastChild&&btn.lastChild.nodeType===3) btn.lastChild.textContent=" "+to;
+  $("dailyClose").textContent=focusOn()?"חזרה לדף הבית":"חזרה למסלול";
+}
 /* The daily video's morning reminder: a push notification the server sends (app/push.py), turned on on this device,
    from the prompt shown on entering (askPush) or from the button on the daily videos' screen (pushRow).
    On an iPhone only the app added to the home screen may get them. */
@@ -2183,6 +2322,7 @@ function askPushSoon(){
   },900);
 }
 async function askPush(){
+  if(LESSON_ASKED) return;   // this visit asked for the class's lesson: the reminder waits for the next one
   const last=store.get("ihki.pushAsked",""), dlg=$("pushDlg"), yes=$("pushYes"), no=$("pushNo"), text=$("pushText");
   if(last&&(last==="never"||(Date.now()-new Date(last))/864e5<PUSH_AGAIN)) return;
   const later=()=>{ store.set("ihki.pushAsked",new Date().toISOString().slice(0,10)); dlg.close(); };
@@ -2214,6 +2354,8 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
   for(const b of $("nav").children){
     if(b.dataset.view===view) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
   }
+  $("nav").querySelector('[data-view="home"]').hidden=!focusOn(); syncHomeLabels();
+  $("nav").querySelector('[data-view="refer"]').hidden=focusOn();
   box.replaceChildren(); if(!view) return;
   const row=(v,seen,key,when,now)=>{   // a video: its name, its day, and whether it was opened (on this device)
     const b=mark(now?"now":"","","button"), t=document.createElement("bdi"); t.textContent=v.title;
@@ -2221,7 +2363,9 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     b.onclick=()=>{ seen[v.id]=1; store.set(key,seen); playVideo(v,true); };   // the box closing draws this again
     box.append(b);
   };
-  if(view==="games"){
+  if(view==="home"){
+    drawHome(box);
+  }else if(view==="games"){
     if(tutorList&&TUTOR_INFO&&TUTOR_INFO.available){ drawTutorList(box); return; }   // יאללה נדבר's scenarios, in the tab's place
     const games=can("games.use")?GAMES.filter(game=>!game.hidden):[];
     box.append(mark("","משחקים","h2"));
@@ -2256,7 +2400,7 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     drawVerbTable(box);
   }else if(view==="daily"){
     const mine=dailyVideos(), now=mine.filter(v=>v.date===d), was=mine.filter(v=>v.date<d), back=mark("back","","button");
-    back.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> חזרה למסלול'; back.onclick=()=>showView("");
+    back.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> '+(homeClass()?"חזרה לדף הבית":"חזרה למסלול"); back.onclick=backHome;
     box.append(back,mark("","סרטון יומי","h2"),pushRow());
     if(now.length) for(const v of now) row(v,dailyWatched,"ihki.dailyWatched","הסרטון של היום",true);
     else box.append(mark("",was.length?"להיום אין סרטון חדש. אפשר לחזור לסרטונים הקודמים.":"עוד אין סרטונים יומיים. כשנקבע לסרטון תאריך (בעריכת הכיתה), הוא מופיע כאן מאותו יום.","p"));
@@ -2899,32 +3043,14 @@ async function liveRecord(){
 }
 const referTab=$("nav").querySelector('[data-view="refer"]'), referSeenKey="ihki.referSeen.2027";
 if(!store.get(referSeenKey,false)) referTab.classList.add("promo");
+function openRefer(){ store.set(referSeenKey,true); referTab.classList.remove("promo"); showView("refer"); }
 for(const b of $("nav").children) b.onclick=()=>{
-  if(b===referTab){ store.set(referSeenKey,true); b.classList.remove("promo"); }
-  showView(b.dataset.view);
+  if(b===referTab) return openRefer();
+  if(b.dataset.view===""&&focusOn()) openFullPath(); else showView(b.dataset.view);   // the path tab opens at the current lesson
 };
-function drawToday(){   // above the path: the daily session, and the homework to do
-  const box=$("today"), n=CATS.length?dailyPlan().length:0;
-  box.innerHTML=""; drawNav();
-  // three in a row: the day's video, the daily session, and the nearest homework still to do
-  const d=today(), vs=dailyVideos(), now=vs.filter(v=>v.date===d), left=now.filter(v=>!dailyWatched[v.id]);
-  const vid=mark("vidgo"+(left.length?" new":""),"","button");
-  vid.append(mark("","סרטון יומי"),mark("",left.length?left[0].title:now.length?"✓ צפיתם היום":vs.length?"הסרטונים הקודמים":"אין להיום","small"));
-  vid.title=left.length?left[0].title:"הסרטונים היומיים";
-  vid.onclick=()=>{   // today's one opens right here; with none to watch, or several, on to their screen
-    if(left.length!==1) return showView("daily");
-    dailyWatched[left[0].id]=1; store.set("ihki.dailyWatched",dailyWatched); playVideo(left[0],true);
-  };
-  const go=mark("daily","","button");
-  go.append(mark("","תרגול יומי"),mark("",!n?"אין עדיין":store.get("ihki.daily","")===d?"✓ תרגלתם היום":`${n} משפטים`,"small"));
-  go.title="סבב קצר: משפטים שכדאי לשפר, ומשפטים חדשים מהשיעור הנוכחי"; go.onclick=startDaily; go.disabled=!n;
-  // the homework due first (one with no day comes after those that have one)
-  const all=homeworks(), hw=all.filter(h=>!h.t.over).sort((a,b)=>(a.left??1e9)-(b.left??1e9))[0];
-  const work=mark("hwgo"+(hw&&hw.state?" "+hw.state:""),"","button");
-  work.append(mark("","שיעורי בית"),mark("",hw?(hw.left==null?hw.c.name:hw.msg):all.length?"✓ הושלמו":"אין כרגע","small"));
-  if(hw){ work.title=[hw.c.name,hw.l&&hw.l.name,hw.left==null?"":hw.msg].filter(Boolean).join(" · "); work.onclick=()=>openCat(hw.c); } else work.disabled=true;
-  box.append(vid,go,work); box.hidden=false;
-  drawRewardShelf();
+function drawToday(){   // path shortcuts moved to the focused home or were removed
+  const box=$("today");
+  box.replaceChildren(); box.hidden=true; drawNav();
 }
 const localPracticeDays=()=>store.get("ihki.practiceDays",[]).filter(d=>typeof d==="string");
 function currentWeekDays(){
@@ -3366,6 +3492,7 @@ function drawPath(stay){
   const road=document.createElementNS(NS,"svg"), stops=[];   // stops: the points the road goes through
   road.setAttribute("class","road"); road.setAttribute("aria-hidden","true"); box.innerHTML=""; box.append(road);
   let next=true, y=0;   // next: the first lesson that is not finished is the one to do now
+  const pin=focusOn()?currentLesson():null;   // with a focused home, the class's current lesson is, even after unfinished ones
   let level=null;
   for(let k=0;k<LESSONS.length;k++){
     const l=LESSONS[k];
@@ -3379,12 +3506,12 @@ function drawPath(stay){
       y+=52+28; continue;
     }
     const items=lessonItems(l.id), cats=items.filter(it=>it.c).map(it=>it.c), parts=cats.map(topicT);
-    const whole=tally(listed.filter(p=>cats.some(c=>c.id===p.cat))), now=!whole.over&&next;
+    const whole=tally(listed.filter(p=>cats.some(c=>c.id===p.cat))), now=pin?l.id===pin&&!whole.over:!whole.over&&next;
     const todo=Math.max(0,parts.findIndex(t=>!t.over));   // the topic to do now, when this is the lesson to do now
     if(now) next=false;
     const go=cats[parts.findIndex(t=>!t.over)]||cats[0];   // the topic the banner opens: the first unfinished one
     const head=document.createElement("button");
-    head.className="chapter"+(whole.gold?" gold":""); head.style.top=y+"px"; head.style.setProperty("--p",`${whole.n?whole.done/whole.n*100:0}%`);
+    head.className="chapter"+(whole.gold?" gold":""); head.dataset.lesson=l.id; head.style.top=y+"px"; head.style.setProperty("--p",`${whole.n?whole.done/whole.n*100:0}%`);
     head.append(mark("",l.name),count(whole),document.createElement("i")); head.title=`${l.name}: תורגלו ${whole.done} מתוך ${whole.n}`;
     if(go) head.onclick=()=>openCat(go);
     box.append(head);
@@ -3438,7 +3565,7 @@ function drawPath(stay){
     const layers=b.breakBefore?["lesson-thread","lesson-weave-a","lesson-weave-b","lesson-weave-glint"]:["thread","bead-shadow"+state,"beads"+state,"bead-light"+state,"bead-shine"+state];
     for(const cls of layers){ const p=document.createElementNS(NS,"path"); p.setAttribute("d",d); p.setAttribute("class",cls); road.append(p); }
   });
-  const at=box.querySelector("[aria-current]"), back=$("toNow");
+  const at=box.querySelector("[aria-current]")||(pin?[...box.querySelectorAll(".chapter")].find(h=>h.dataset.lesson===pin):null), back=$("toNow");
   if(home&&at&&!stay) at.scrollIntoView({block:"center"});
   if(nowWatch) nowWatch.disconnect();
   back.hidden=true; if(!at) return;
@@ -3463,8 +3590,8 @@ function showPath(){   // back to the path: whatever the card was reading, playi
   if(driveAudio){ driveAudio.pause(); if(driveAudioDone) driveAudioDone(); driveAudio=null; }
   if("speechSynthesis" in window) speechSynthesis.cancel();
   if(rec&&rec.state==="recording"){ recCancel=true; recRestart=false; rec.stop(); }
-  home=true; document.body.classList.add("home"); document.body.classList.remove("bubble-game"); if(backToGames) document.body.dataset.view="games"; else delete document.body.dataset.view; quizOff();
-  if(daily){ daily=null; startCat(); }   // a daily session that was left: the card is the last topic's again
+  home=true; document.body.classList.add("home"); document.body.classList.remove("bubble-game"); if(backToGames) document.body.dataset.view="games"; else if(document.body.dataset.view==="home"&&focusOn()){} else delete document.body.dataset.view; quizOff();   // back to the home it was opened from
+  if(daily){ daily=null; shortRun=false; startCat(); }   // a daily session that was left: the card is the last topic's again
   else drawPath();
 }
 $("homeBtn").onclick=showPath;
@@ -3621,7 +3748,7 @@ function goTo(id){
 }
 function drawList(){
   document.querySelector(".donebox").hidden=!!daily||!!retry;   // a daily session has its own sentences
-  const box=$("plist"); box.innerHTML=""; $("listTitle").textContent=daily?"תרגול יומי":retry?`${categoryOf(cat).name} · המשפטים שלא עברו`:categoryOf(cat).name; $("listTitle").append(mark("",`תורגלו ${topic.filter(id=>best[id]!=null).length} מתוך ${topic.length}`,"small"));
+  const box=$("plist"); box.innerHTML=""; $("listTitle").textContent=daily?sessionName():retry?`${categoryOf(cat).name} · המשפטים שלא עברו`:categoryOf(cat).name; $("listTitle").append(mark("",`תורגלו ${topic.filter(id=>best[id]!=null).length} מתוך ${topic.length}`,"small"));
   const ids=ordered?topic:[...topic].sort((a,b)=>a-b);   // a shuffled topic is listed in the bank's order
   ids.forEach((id,k)=>{
     const p=phraseOf(id), b=best[id], li=document.createElement("li"), row=document.createElement("button");
@@ -3650,6 +3777,7 @@ function useClass(c){
   $("myClass").textContent=`כיתת ${c.name}`;
   MY_LESSONS=c.lessons;
   if(ALL_LESSONS.length){ useLessons(MY_LESSONS); if(!home) showPath(); startCat(); }
+  if(ENTERED) lessonFlow();
 }
 async function askClass(){
   await ready;
@@ -3970,7 +4098,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   // the number and the bar are the sentence's place in the topic, whatever the round holds
   const b=best[cur.id], at=topic.indexOf(cur.id), hintBox=$("doneHint");
   $("counter").textContent=ordered?"":`${pos+1} / ${order.length}`;
-  if(ordered&&at>=0){ const idx=document.createElement("span"); idx.className="idx"; idx.textContent=`${daily?"תרגול יומי ·":c.unit||"משפט"} ${at+1} מתוך ${topic.length}`; $("counter").append(idx); }
+  if(ordered&&at>=0){ const idx=document.createElement("span"); idx.className="idx"; idx.textContent=`${daily?sessionName()+" ·":c.unit||"משפט"} ${at+1} מתוך ${topic.length}`; $("counter").append(idx); }
   $("progress").hidden=!ordered; $("progressBar").style.width=`${at>=0?(at+1)/topic.length*100:0}%`;
   hintBox.hidden=b==null&&!silent[cur.id];
   if(b==null&&silent[cur.id]){ hintBox.className="donehint quiet"; hintBox.textContent="✓ עניתם על המשפט הזה בלי מיקרופון · עוד לא נאמר בקול"; }
@@ -5395,49 +5523,68 @@ function drawFlags(){
   head.append(mark("","דיווחים שממתינים לבדיקה","h2"));
   if(!pending.length){ head.append(mark("meta","אין כרגע דיווחים שממתינים לבדיקה.","p")); return; }
   const flagScore=f=>Number.isFinite(Number(f.score))?Number(f.score):101;
-  const gradeBin=f=>{ const score=flagScore(f); return score>100?"unknown":Math.min(90,Math.max(0,Math.floor(score/10)*10)); };
-  const byGrade=new Map; for(const f of pending){ const bin=gradeBin(f); if(!byGrade.has(bin)) byGrade.set(bin,[]); byGrade.get(bin).push(f); }
+  const flagDay=f=>{ const d=new Date(f.created_at); return !f.created_at||Number.isNaN(d.getTime())?"unknown":`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+  const byDate=new Map; for(const f of pending){ const day=flagDay(f); if(!byDate.has(day)) byDate.set(day,[]); byDate.get(day).push(f); }
   const reporters=new Set(pending.map(f=>f.email||"")).size;
-  head.append(mark("meta",`${pending.length} ${pending.length===1?"דיווח":"דיווחים"} מ־${reporters} ${reporters===1?"מדווח/ת":"מדווחים"}, מקובצים לפי טווחי ציונים של 10 נקודות.`,"p"));
-  for(const [bin,flags] of [...byGrade].sort((a,b)=>(a[0]==="unknown"?101:a[0])-(b[0]==="unknown"?101:b[0]))){
+  head.append(mark("meta",`${pending.length} ${pending.length===1?"דיווח":"דיווחים"} מ־${reporters} ${reporters===1?"מדווח/ת":"מדווחים"}, מקובצים לפי תאריך הדיווח.`,"p"));
+  const today=flagDay({created_at:new Date().toISOString()}), yesterday=flagDay({created_at:new Date(Date.now()-86400000).toISOString()});
+  const dayLabel=day=>{ if(day==="unknown") return "תאריך לא ידוע"; const [y,m,d]=day.split("-").map(Number), text=new Date(y,m-1,d).toLocaleDateString("he-IL",{weekday:"long",day:"numeric",month:"long",year:"numeric"}); return day===today?`היום · ${text}`:day===yesterday?`אתמול · ${text}`:text; };
+  for(const [day,flags] of [...byDate].sort((a,b)=>a[0]==="unknown"?1:b[0]==="unknown"?-1:b[0].localeCompare(a[0]))){
     const group=document.createElement("details"), summary=document.createElement("summary");
-    const key=`grade-${bin}`, label=bin==="unknown"?"ציון לא ידוע":`ציונים ${bin}–${bin===90?100:bin+9}`, people=new Set(flags.map(f=>f.email||"")).size;
+    const key=`date-${day}`, label=dayLabel(day), people=new Set(flags.map(f=>f.email||"")).size;
     group.className="flag-group"; group.open=flagGroupOpen[key]===true; group.ontoggle=()=>{ flagGroupOpen[key]=group.open; };
     summary.append(mark("",label,"b"),mark("meta",` · ${flags.length} ${flags.length===1?"דיווח":"דיווחים"} · ${people} ${people===1?"מדווח/ת":"מדווחים"}`)); group.append(summary); box.append(group);
+    const table=mark("flag-patterns flag-pending","","table"), headRow=document.createElement("tr");
+    for(const x of ["ציון","מה התלמיד/ה אמר/ה","מה המודל שמע","אבחון ל־pipeline","","",""]) headRow.append(mark("",x,"th"));
+    table.append(headRow); group.append(table);
     for(const f of [...flags].sort((a,b)=>flagScore(a)-flagScore(b)||(a.email||"").localeCompare(b.email||""))){
-      const lower=flagScore(f)>=75, card=mark(`card flag-review ${lower?"flag-lower":"flag-urgent"}`,""), title=mark("",f.he||f.phrase,"h2"), result=f.result||{}, issues=flagIssues(f);
-      const ar=mark("",f.ar||"","p"); ar.dir="rtl";
-      const scoreLine=mark("meta",`ציון ${f.score} · ${f.email||"ללא משתמש"} · המודל שמע: ${result.heard_tr||"תעתיק לא זמין"}`,"p");
-      const age=flagAge(f.created_at); if(age) scoreLine.append(" · ",age);
-      scoreLine.append(mark(`flag-priority ${lower?"lower":"urgent"}`,lower?"חומרה נמוכה":"עדיפות לבדיקה"));
-      card.append(title,ar,scoreLine);
-      if(f.note) card.append(mark("",`הערת המדווח/ת: ${f.note}`,"p"));
+      const result=f.result||{}, row=document.createElement("tr"), msg=mark("msg","");
+      const saidTr=(result.variant||{}).tr||(result.words||[]).map(w=>w.tr).filter(Boolean).join(" ");
+      const said=document.createElement("td"), phrase=mark("flag-said",saidTr||f.ar||f.he||f.phrase||"—",f.audio?"button":"span"); phrase.dir="rtl";
+      phrase.title=[f.he,f.ar].filter(Boolean).join(" · ");
+      said.append(phrase);
       if(f.audio){
-        const audioRow=mark("row",""), play=mark("btn","▶ השמעת ההקלטה","button"), audio=document.createElement("audio"), audioMsg=mark("msg","");
-        audio.controls=true; audio.preload="none"; audio.hidden=true;
-        play.onclick=async()=>{
-          play.disabled=true; audioMsg.textContent="טוען…";
+        phrase.title=(phrase.title?phrase.title+" · ":"")+"לחיצה להשמעת ההקלטה";
+        let audio=null;
+        phrase.onclick=async()=>{
+          if(audio){ audio.currentTime=0; audio.play().catch(()=>{}); return; }
+          phrase.disabled=true; msg.textContent="טוען…";
           try{
-            const res=await api(`/api/flags/${f.id}/audio`), data=res.ok?await res.blob():null;
-            if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
-            const url=URL.createObjectURL(data); flagAudioUrls.push(url); audio.src=url; audio.hidden=false; play.hidden=true; audioMsg.textContent="";
-            audio.play().catch(()=>{});
-          }catch(err){ audioMsg.textContent="ההשמעה נכשלה: "+err.message; play.disabled=false; }
+            const res=await api(`/api/flags/${f.id}/audio`); if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
+            const url=URL.createObjectURL(await res.blob()); flagAudioUrls.push(url); audio=new Audio(url); msg.textContent=""; audio.play().catch(()=>{});
+          }catch(err){ msg.textContent="ההשמעה נכשלה: "+err.message; }
+          phrase.disabled=false;
         };
-        audioRow.append(play,audio,audioMsg); card.append(audioRow);
-      }else card.append(mark("meta","ההקלטה לא נשמרה עם הדיווח הזה.","p"));
+      }else said.append(mark("meta"," (אין הקלטה)"));
+      const heard=mark("",result.heard_tr||"—","td"); heard.dir="rtl";
+      const copyCell=document.createElement("td"), copy=mark("btn","העתקה","button");
+      copy.disabled=!result.trace; copy.title=result.trace?"אבחון מלא להעתקה לצ׳אט, ללא זהות המשתמש וללא קובץ קול":"הדיווח ישן ואינו כולל נתוני trace";
+      copy.onclick=async()=>{
+        const text=flagChatText(f);
+        try{ await navigator.clipboard.writeText(text); msg.textContent="הועתק."; }
+        catch{ msg.textContent="ההעתקה נכשלה."; }
+      };
+      copyCell.append(copy);
+      /* expandable detail row: reporter, issue checkboxes, category, reviewer note, full diagnostic */
+      const issues=flagIssues(f), detail=document.createElement("tr"), detailCell=document.createElement("td"), openKey=`flag-${f.id}`;
+      detail.className="flag-detail"; detail.hidden=flagGroupOpen[openKey]!==true; detailCell.colSpan=7; detail.append(detailCell);
+      const toggleCell=document.createElement("td"), toggle=mark("btn",detail.hidden?"פרטים ▾":"פרטים ▴","button");
+      toggle.onclick=()=>{ detail.hidden=!detail.hidden; flagGroupOpen[openKey]=!detail.hidden; toggle.textContent=detail.hidden?"פרטים ▾":"פרטים ▴"; };
+      toggleCell.append(toggle);
+      const reporter=mark("meta",`${f.email||"ללא משתמש"}`,"p"), age=flagAge(f.created_at); if(age) reporter.append(" · ",age);
+      detailCell.append(reporter);
+      if(f.note) detailCell.append(mark("",`הערת המדווח/ת: ${f.note}`,"p"));
       const field=document.createElement("fieldset"); field.append(mark("","אילו אבחנות של המערכת היו שגויות?","legend"));
       for(const issue of issues){ const label=document.createElement("label"), input=document.createElement("input"); input.type="checkbox"; input.checked=true; input._issue=issue; label.append(input,issue.label); field.append(label); }
-      if(issues.length) card.append(field); else card.append(mark("meta","בדיווח הזה אין פונמה שסומנה במפורש; עדיין אפשר לסווג ולאשר אותו.","p"));
+      if(issues.length) detailCell.append(field); else detailCell.append(mark("meta","בדיווח הזה אין פונמה שסומנה במפורש; עדיין אפשר לסווג ולאשר אותו.","p"));
       const category=document.createElement("select"); for(const [value,label] of Object.entries(FLAG_CATEGORIES)){ const o=document.createElement("option"); o.value=value; o.textContent=label; category.append(o); }
       const note=document.createElement("textarea"); note.maxLength=500; note.rows=2; note.placeholder="הערת בדיקה (לא חובה)";
-      const actions=mark("row",""), diagnose=mark("btn","לוח אבחון","button"), confirm=mark("btn primary","אישור הדיווח","button"), reject=mark("btn danger","דחייה","button"), msg=mark("msg","");
-      diagnose.disabled=!result.trace;
-      diagnose.title=result.trace?"פתיחת האבחון המלא, כולל טבלת ההגאים":"הדיווח ישן ואינו כולל נתוני trace";
+      const diagnose=mark("btn","לוח אבחון","button"), extras=mark("row","");
+      diagnose.disabled=!result.trace; diagnose.title=result.trace?"פתיחת האבחון המלא, כולל טבלת ההגאים":"הדיווח ישן ואינו כולל נתוני trace";
+      const selectedIssues=()=>[...field.querySelectorAll("input:checked")].map(x=>({word:x._issue.word,expected:x._issue.expected,heard:x._issue.heard}));
       diagnose.onclick=async()=>{
         const tab=window.open("about:blank","_blank");
         diagnose.disabled=true; msg.textContent=f.audio?"טוען אבחון וקול…":"פותח אבחון…";
-        const selected=[...field.querySelectorAll("input:checked")].map(x=>({word:x._issue.word,expected:x._issue.expected,heard:x._issue.heard}));
         let audioUrl="";
         if(f.audio) try{
           const res=await api(`/api/flags/${f.id}/audio`); if(!res.ok) throw new Error(res.status);
@@ -5445,21 +5592,43 @@ function drawFlags(){
         }catch(err){ msg.textContent="הקול לא נטען; לוח האבחון נפתח ללא קול."; }
         openTrace({...result,phrase:{he:f.he||f.phrase,ar:f.ar||""},_diagnostic:{prompt_he:f.he||f.phrase,answer_ar:f.ar,
           expected_ipa:f.ipa,model:f.model,version:f.version,report_note:f.note||"",review_category:category.value,
-          reviewer_marked_false_issues:selected}},audioUrl,tab);
+          reviewer_marked_false_issues:selectedIssues()}},audioUrl,tab);
         diagnose.disabled=false; if(!msg.textContent.includes("לא נטען")) msg.textContent="";
       };
+      extras.append(category,diagnose); detailCell.append(extras,note);
+      const confirmCell=document.createElement("td"), rejectCell=document.createElement("td");
+      const confirm=mark("btn primary","אישור","button"), reject=mark("btn danger","דחייה","button");
       const save=async status=>{
         confirm.disabled=reject.disabled=true; msg.textContent="שומר…";
-        const false_issues=[...field.querySelectorAll("input:checked")].map(x=>({word:x._issue.word,expected:x._issue.expected,heard:x._issue.heard}));
+        const false_issues=selectedIssues();
         try{
           const res=await api(`/api/flags/${f.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status,category:category.value,false_issues,review_note:note.value})});
           const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status);
           flagsLoaded=false; await loadFlags(); drawManage();
         }catch(err){ msg.textContent="השמירה נכשלה: "+err.message; confirm.disabled=reject.disabled=false; }
       };
-      confirm.onclick=()=>save("confirmed"); reject.onclick=()=>save("rejected"); actions.append(category,diagnose,confirm,reject,msg); card.append(note,actions); group.append(card);
+      confirm.onclick=()=>save("confirmed"); reject.onclick=()=>save("rejected");
+      confirmCell.append(confirm); rejectCell.append(reject,msg);
+      row.append(mark("",f.score??"—","td"),said,heard,copyCell,confirmCell,rejectCell,toggleCell); table.append(row,detail);
     }
   }
+}
+
+/* Same payload as the trace page's "מידע להתייעצות על ה־pipeline": no user identity, no audio. */
+function flagChatText(f){
+  const result=f.result||{}, t=result.trace||{};
+  const context={he:f.he||f.phrase,ar:f.ar||"",prompt_he:f.he||f.phrase,answer_ar:f.ar,expected_ipa:f.ipa,model:f.model,version:f.version,report_note:f.note||"",
+    reported_false_issues:flagIssues(f).map(i=>({word:i.word,expected:i.expected,heard:i.heard}))};
+  const trace={...t,tokens:(t.tokens||[]).map(({curves,...token})=>token),frames:t.frames?{count:t.frames.count,ms:t.frames.ms}:null};
+  const publicResult={...result,trace};
+  delete publicResult.email; delete publicResult.audio; delete publicResult.phoneme_heatmap; delete publicResult._diagnostic;
+  return [
+    "Please analyze this Palestinian-Arabic pronunciation-scoring diagnostic.",
+    "Identify the most likely failure point and distinguish between acoustic-model, segmentation/alignment, pronunciation-rule, threshold/calibration, and feedback-generation problems.",
+    "Propose prioritized, concrete pipeline changes and regression tests. Do not infer the speaker's identity.",
+    "",
+    JSON.stringify({context,result:publicResult},null,2)
+  ].join("\n");
 }
 
 function drawStreakTeam(box){
@@ -7638,10 +7807,12 @@ const ready=fetch("/api/phrases").then(r=>{ if(!r.ok) throw new Error(`phrases: 
 function enter(){
   const splash=$("logo-splash");
   $("wrap").inert=false; splash.classList.add("done"); setTimeout(()=>splash.remove(),700);
-  if(MY_CLASSES.length>1&&!MY_CLASS) askClass();   // in several classes and none practised in before: which one?
+  ENTERED=true;
+  const choosing=MY_CLASSES.length>1&&!MY_CLASS;
+  if(choosing) askClass();   // in several classes and none practised in before: which one? (its lesson question follows, from useClass)
   if(AUTH_URL&&!can("path.use")){ if(can("games.use")||can("tutor.use")) showView("games"); else if(can("library.view")) showView("library"); }
-  if(new URLSearchParams(location.search).get("view")==="daily"){ history.replaceState(null,"",location.pathname); showView("daily"); }   // from the morning reminder
-  askPushSoon();
+  if(new URLSearchParams(location.search).get("view")==="daily"){ history.replaceState(null,"",location.pathname); showView("daily"); }   // from the morning reminder: its videos before the lesson question or the home
+  (choosing?Promise.resolve(false):lessonFlow()).catch(()=>false).then(()=>askPushSoon());   // askPush stays quiet on a visit that asked for the lesson
 }
 $("startBtn").onclick=$("practiceBtn").onclick=enter;
 $("libraryBtn").onclick=()=>{ enter(); showView("library"); };
@@ -7700,6 +7871,7 @@ if(AUTH_URL){
         $("nav").querySelector('[data-view="games"]').hidden=!can("games.use")&&!can("tutor.use");
         const mine=me.classes||[];   // a teacher practises every lesson and is not asked for a class
         MY_CLASSES=teacher?[]:mine; MY_CLASS=null; FREE=teacher; TUTOR=!!me.tutor; TEACHER_DAILIES=me.dailies||[];
+        restoreLessons();   // the lesson each class is on now, for the focused home
         $("myClass").textContent=mine.length>1?(teacher?`כיתות: ${mine.map(c=>c.name).join(" · ")}`:"בחירת כיתה"):mine.length?`כיתת ${mine[0].name}`:"";
         document.body.classList.toggle("class-exit",!!$("myClass").textContent);   // the pill shows: the exit moves into its dialogs
         $("myClass").classList.toggle("many",MY_CLASSES.length>1); $("myClass").title=MY_CLASSES.length>1?"מעבר לכיתה אחרת":"התלמידים בכיתה שלי";
@@ -7708,7 +7880,7 @@ if(AUTH_URL){
         else{ const last=MY_CLASSES.find(c=>c.name===store.get("ihki.class","")); if(last) useClass(last); }   // the class practised in last
         const management=can("management.access"), laboratory=can("lab.access"), library=can("library.view"), practice=can("practice.use")||can("path.use")||can("games.use")||can("tutor.use");
         start.hidden=!ok||management||laboratory||library; roles.hidden=!management&&!laboratory&&!library; $("practiceBtn").hidden=!practice; $("libraryBtn").hidden=!library; $("manageBtn").hidden=$("toManage").hidden=!management; $("labBtn").hidden=!laboratory; $("mLab").hidden=!laboratory; denied.hidden=ok;
-        if(ok){ $("nav").querySelector('[data-view="live"]').hidden=!LIVE_TAB_ENABLED; loadLive(true); [...roles.querySelectorAll("button:not([hidden])"),start].find(x=>!x.hidden)?.focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); }); loadContent(); loadWriting(); loadTutor(); }
+        if(ok){ $("nav").querySelector('[data-view="live"]').hidden=!LIVE_TAB_ENABLED; loadLive(true); [...roles.querySelectorAll("button:not([hidden])"),start].find(x=>!x.hidden)?.focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); if(document.body.dataset.view==="home") drawNav(); }); loadContent(); loadWriting(); loadTutor(); }
       }catch(e){ start.hidden=false; throw e; } },0);   // a failure here still lets the student in, and shows under the logo
     });
   }
