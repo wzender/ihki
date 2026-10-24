@@ -1265,6 +1265,7 @@ def test_workbook_level_2_lesson_1():
     by = {(p["cat"], p["he"]): p for p in PHRASES}
     # a verb is said in the past and the future together
     assert by["l2.1-verbs", "רץ (עבר, עתיד)"]["tr"] == "רַכַּדֿ, יֻרְכֹּדֿ" and by["l2.1-verbs", "שלח (עבר, עתיד)"]["tr"] == "בַּעַת', יִבְּעַת'"
+    assert by["l2.1-verbs", "שלח (עבר, עתיד)"]["variants"] == [("بعث، يبعث", "b a ʕ a t | j i b ʕ a t")]
     assert by["l2.1-past", "אני רצתי"]["tr"] == "אַנַא רַכַּדֵֿת" and by["l2.1-past", "היא שילמה"]["tr"] == "הִיֵّ דַפְעַת"
     assert by["l2.1-past", "הם קשרו"]["variants"][0][1] == "h u m m e | r a b a tˤ u"
     # لازم and رح stay as they are; the verb after them is in the future

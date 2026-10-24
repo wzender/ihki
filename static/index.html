@@ -104,6 +104,7 @@ body:not([data-view=live]) #liveView{display:none}.live-page{display:flex;flex-d
 body.home:not(.manage){padding-bottom:84px}
 body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bottom:62px}
 body.home:not(.manage).class-exit #logoutBtn{display:none}   /* on the path the exit is in the class dialogs: floating, it covers the nav on a phone */
+body:not(.home):not(.manage) #logoutBtn{display:none}   /* in an exercise the one way out is the back button at the top; signing out is from the path */
 .dlg-exit:not([hidden]){display:block;margin:14px auto 0;color:var(--muted)}
 #vids{display:flex;flex-direction:column;gap:6px;width:100%;max-width:460px;margin:8px auto 0}
 #vids h2{margin:0 0 4px;font:400 26px/1.2 var(--f-display)}
@@ -609,6 +610,7 @@ body.driving .mic::before{display:none} body.driving .mic-zone.two{display:flex}
 .verdict{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
 .score{font:400 28px/1 var(--f-display);font-variant-numeric:tabular-nums}
 .pill{font:700 13px var(--f-body);padding:4px 10px;border-radius:999px}
+#result .score{font-size:46px}#result .pill{font-size:16px;padding:6px 14px}   /* the grade first and big, right under the mic */
 .good{background:var(--ok-bg);color:var(--ok)} .mid{background:var(--amber-bg);color:var(--amber)} .bad{background:var(--sumac-bg);color:var(--sumac)}
 .words{display:flex;flex-wrap:wrap;gap:6px 14px;direction:rtl;align-items:flex-start}
 .word{display:flex;flex-direction:column;align-items:center}
@@ -620,7 +622,12 @@ body.driving .mic::before{display:none} body.driving .mic-zone.two{display:flex}
 .word .n{font-size:12px;line-height:1.5;color:var(--muted);font-variant-numeric:tabular-nums}
 .word .n [lang=ar]{font-family:var(--f-ar);font-size:14px}
 .word .w.bad{background:none;color:var(--sumac)} .word .w.mid{background:none;color:var(--amber)} .word .w.good{background:none;color:var(--ink)}
-.flag-box{display:flex;flex-wrap:wrap;align-items:center;gap:8px;border-top:1px dashed var(--line);padding-top:10px}
+/* the report of a wrong score: a small link under the result, its form only when opened */
+.flag-box{align-self:flex-start}
+.flag-box>summary{cursor:pointer;color:var(--muted);font-size:13px;text-decoration:underline;text-underline-offset:3px;list-style:none}
+.flag-box>summary::-webkit-details-marker{display:none}
+.flag-box .flag-form{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
+.flag-box[open]{align-self:stretch}
 .flag-box input{flex:1 1 180px;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--surface);color:inherit}
 .flag-box .sub{flex-basis:100%;margin:0}
 .flag-facts{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:8px 0 0}
@@ -1339,11 +1346,9 @@ body.quiet :is(#mic,#playMine,#driveBtn,.phone-btn),body.driving :is(#quietBtn,#
 #logo-splash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:28px;box-sizing:border-box;padding:clamp(36px,14vh,120px) 16px 24px;overflow:auto;background:white;transition:opacity .65s ease,visibility .65s ease}
 #logo-splash.done{opacity:0;visibility:hidden;pointer-events:none}
 #logo-splash img{display:block;flex:none;width:min(82vw,620px);height:auto;aspect-ratio:489/225}
-#startBtn,#loginBtn,#roles button{font:400 24px/1 var(--f-display);padding:14px 34px;border-radius:14px;border:0;cursor:pointer;background:#4B6A2C;color:#fff;opacity:0;animation:start-in .65s ease-out 2.1s forwards}
-html[data-subject="arabic"] :is(#startBtn,#loginBtn,#roles button){animation-delay:6.55s}
+#startBtn,#loginBtn,#roles button{font:400 24px/1 var(--f-display);padding:14px 34px;border-radius:14px;border:0;cursor:pointer;background:#4B6A2C;color:#fff;opacity:0;animation:start-in .65s ease-out .15s forwards}   /* there from the start: the logo's animation plays on around it */
 /* Under the Google button: sign-in by a link sent to the email, for a student without a Google account. */
-#mailForm{display:flex;flex-direction:column;align-items:center;gap:10px;width:min(82vw,340px);margin-top:-8px;opacity:0;animation:start-in .45s ease-out 2.1s forwards}
-html[data-subject="arabic"] #mailForm{animation-delay:6.55s}
+#mailForm{display:flex;flex-direction:column;align-items:center;gap:10px;width:min(82vw,340px);margin-top:-8px;opacity:0;animation:start-in .45s ease-out .15s forwards}
 #mailForm span{font:400 14px/1 var(--f-body);color:#5B665C}
 #mailForm input{width:100%;box-sizing:border-box;font:400 17px/1 var(--f-body);padding:11px 14px;border-radius:10px;border:1px solid #B9C2B4;background:#fff;color:#1C241D;text-align:center}
 #mailForm button{font:600 16px/1 var(--f-body);padding:10px 22px;border-radius:10px;border:1px solid #4B6A2C;background:#fff;color:#4B6A2C;cursor:pointer}
@@ -1533,21 +1538,24 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
     </div>
     <div class="donehint" id="heCheck" hidden></div>
 
-    <div class="hint" id="hint">
-      <span class="hint-label" id="hintLabel">לחצו על הכרטיסייה כדי לגלות את התשובה</span>
-      <div class="word-reveals" id="wordReveals"></div>
-    </div>
-
     <section class="result" id="result" hidden>
       <div class="verdict"><span class="score" id="score"></span><span class="pill" id="pill"></span><div class="words" id="words" hidden></div></div>
       <p class="sub" id="whyHint" hidden></p>
       <ul class="tips" id="tips"></ul>
-      <div class="flag-box" id="flagBox" hidden>
+      <details class="flag-box" id="flagBox" hidden>
+        <summary>המערכת טעתה?</summary>
+        <div class="flag-form">
         <input id="flagNote" maxlength="500" placeholder="מה קרה? (לא חובה)" aria-label="הערה לדיווח">
         <button class="btn" id="flagBtn" title="ההקלטה, הציון ומה שהמודל שמע נשמרים למורה">🚩 אמרתי נכון, המערכת טעתה</button>
         <p class="sub" id="flagMsg" role="status"></p>
-      </div>
+        </div>
+      </details>
     </section>
+
+    <div class="hint" id="hint">
+      <span class="hint-label" id="hintLabel">לחצו על הכרטיסייה כדי לגלות את התשובה</span>
+      <div class="word-reveals" id="wordReveals"></div>
+    </div>
 
     <div class="row" id="varRow" hidden>
       <button class="btn" id="negBtn" title="אותו משפט בשלילה">שלילה</button>
@@ -1976,6 +1984,8 @@ const $=id=>document.getElementById(id);
 /* Sign-in: Google through Supabase. The server fills the two values in; when they are empty (no project configured) the app is open. */
 const AUTH_URL="__SUPABASE_URL__", AUTH_KEY="__SUPABASE_KEY__";
 const sb=AUTH_URL&&window.supabase?supabase.createClient(AUTH_URL,AUTH_KEY):null;
+/* A failure the student sees: in words, never a status code (that goes to the console). */
+const oops=(what="משהו השתבש")=>navigator.onLine===false?"אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב.":`${what}, נסו שוב בעוד רגע 🙏`;
 async function api(url,opts={}){   // fetch with the session token; a refused token goes back to the sign-in screen
   if(!sb) return fetch(url,opts);
   const {data}=await sb.auth.getSession();   // refreshes the token when it has expired
@@ -2992,7 +3002,7 @@ async function startLive(classId){
 }
 async function joinLive(code){
   code=String(code).replace(/\D/g,""); const res=await api("/api/live/join",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code})}), data=await res.json().catch(()=>({}));
-  if(!res.ok){ const msg=$("liveMsg"); if(msg) msg.textContent=data.detail||`ההצטרפות נכשלה (${res.status})`; return; }
+  if(!res.ok){ const msg=$("liveMsg"); console.warn("join failed:",res.status); if(msg) msg.textContent=data.detail||oops("ההצטרפות לא הצליחה"); return; }
   openLive(data.session.code,false);
 }
 function openLive(code,teacher){ LIVE.code=code; LIVE.teacher=teacher; loadLiveSession(); }
@@ -3852,9 +3862,24 @@ async function readPrompt(){   // resolves once the prompt has been read out, or
    the student only speaks. A topic's first sentence waits for the microphone button, and so does the next attempt
    after a grade that does not move on. */
 let autoRec=false, promptRead=Promise.resolve();   // autoRec: the sentence on screen is recorded without a press
+/* A recording the page starts by itself is counted down first ("מקליט בעוד 1…"), so the microphone never turns on
+   unannounced. A tap anywhere stops the count, and the microphone waits for its button. The timed bubble game
+   records at once: its clock is already running. */
+const REC_COUNTDOWN=1;
+let recCountdown=null;
+const recBlocked=()=>!autoRec||mute()||heRec||home||driving||mic.disabled||starting||(rec&&rec.state==="recording");
+function cancelRecCountdown(){ if(!recCountdown) return false; clearInterval(recCountdown); recCountdown=null; return true; }
 function autoRecord(){
-  if(!autoRec||mute()||heRec||home||driving||mic.disabled||starting||(rec&&rec.state==="recording")) return;
-  startRec(true);
+  cancelRecCountdown();
+  if(recBlocked()) return;
+  if(bubbleCat()){ startRec(true); return; }
+  const id=cur.id; let left=REC_COUNTDOWN;
+  const tick=()=>{
+    if(recBlocked()||!cur||cur.id!==id){ cancelRecCountdown(); return; }
+    if(left>0){ $("status").textContent=`מקליט בעוד ${left--}…`; return; }
+    cancelRecCountdown(); startRec(true);
+  };
+  tick(); recCountdown=setInterval(tick,1000);
 }
 function recordWhenReady(){
   const id=cur.id, read=promptRead;
@@ -3890,6 +3915,7 @@ addEventListener("scroll",hideWhy,true);
 for(const ev of ["pointerdown","keydown"]) addEventListener(ev,()=>{
   hideWhy();   // a tap on another letter then shows its own
   cancelAutoNext();   // any click or key keeps the sentence on screen
+  if(cancelRecCountdown()) $("status").textContent="לחצו על המיקרופון כשאתם מוכנים";   // and the microphone waits for its button
   if(hePending!=null){ const id=hePending; hePending=null; if(cur&&cur.id===id&&heAudio) heAudio.play().catch(()=>{}); }
 },true);
 // A grade at AUTO_NEXT.minimum or above moves on by itself after the grade has been seen for a moment; lower grades
@@ -4466,7 +4492,9 @@ function drawPhoneTrack(data){
   for(const part of [0,.25,.5,.75,1]) c.fillText(seconds?`${(seconds*part).toFixed(1)}s`:Math.round(part*100)+"%",label+part*plot,height-axis/2);
 }
 /* A tutor's flag under the score: the sentence was said right and the system got it wrong. The recording goes back to
-   the server, which scores it again and keeps it with what it made of it (the table `flags`), for the teacher. */
+   the server, which scores it again and keeps it with what it made of it (the table `flags`), for the teacher.
+   The form opens from the "המערכת טעתה?" link, ready to type in. */
+$("flagBox").addEventListener("toggle",()=>{ if($("flagBox").open&&!$("flagNote").disabled) $("flagNote").focus({preventScroll:true}); });
 $("flagBtn").onclick=async()=>{
   const rec=lastRec, btn=$("flagBtn"), msg=$("flagMsg");
   if(!rec) return;
@@ -4529,7 +4557,7 @@ function render(r){
     lastPhone=r; $("phoneBtn").hidden=false; $("phoneBtn").disabled=false;
   }
   $("flagBox").hidden=!(TUTOR&&lastRec&&lastRec.id===cur.id);
-  $("flagBtn").disabled=$("flagNote").disabled=false; $("flagNote").value=$("flagMsg").textContent="";
+  $("flagBox").open=false; $("flagBtn").disabled=$("flagNote").disabled=false; $("flagNote").value=$("flagMsg").textContent="";
   $("status").textContent=r.score<30?"רוצים לנסות שוב? לחצו על המיקרופון":"לחצו כדי לנסות שוב";
   $("nextBtn").classList.add("primary");
   $("score").textContent=r.score;
@@ -4717,7 +4745,7 @@ async function startRec(auto){   // auto: started by the page for the sentence o
       if(home&&!r.error) keepScore(id,r.score);   // graded after the student went back to the path: it still counts
       if(home||cur.id!==id){ mic.disabled=false; finishRec({kind:"cancel"}); recordWhenReady(); return; }   // moved on while it was analysed
       render(r); mic.disabled=false; finishRec(r.error?{kind:"nospeech"}:{kind:"result",r});
-    }catch(err){ $("status").textContent="הניתוח נכשל ("+err.message+"). נסו שוב."; mic.disabled=false; finishRec({kind:"fail"}); }
+    }catch(err){ console.warn("score failed:",err.message); $("status").textContent=oops(); mic.disabled=false; finishRec({kind:"fail"}); }
   };
   await listenCue();
   rec.start();
@@ -4739,10 +4767,10 @@ function drawAnalyzedAnswer(r){
     if(word.letters&&word.letters.length) litWord(expected,word);
     else{ expected.classList.add(band(word.score)); setTr(expected,word.tr); }
     pair.append(expected);
-    if(showHeard){ const heard=mark(`heard-word${word.heard_tr?"":" empty"}`,"","span"); setTr(heard,word.heard_tr||"לא זוהה"); pair.append(heard); }
+    if(showHeard&&(!word.heard_tr||(word.score??0)<EXCELLENT)){ const heard=mark(`heard-word${word.heard_tr?"":" empty"}`,"","span"); setTr(heard,word.heard_tr||"לא זוהה"); pair.append(heard); }   // only under a word that was off
     main.append(pair);
   });
-  card.replaceChildren(showHeard?mark("analysis-key","למעלה: התשובה · למטה: המערכת שמעה","small"):mark("analysis-key","התשובה","small"),main);
+  card.replaceChildren(showHeard?mark("analysis-key","מתחת למילה שלא נשמעה נכון: מה המערכת שמעה","small"):mark("analysis-key","התשובה","small"),main);
   card.append(mark("ar",cur.ar_pointed||cur.ar,"small"));
   if(cur.read) card.append(mark("he",cur.he,"small"));
   card.classList.add("revealed","scored"); card.removeAttribute("role"); card.removeAttribute("tabindex"); card.removeAttribute("aria-label"); card.onclick=null; card.onkeydown=null;

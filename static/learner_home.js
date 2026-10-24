@@ -85,7 +85,7 @@ function renderHome(box,o,focus){
   else page.append(el("p","focus-note","אין כרגע פעילות מומלצת. אפשר להמשיך מהמסלול המלא."));
   const more=el("div","focus-more"), refer=el("button","focus-refer","חבר מביא חבר"), path=el("button","focus-path","צפייה במסלול המלא");
   refer.type=path.type="button"; refer.onclick=o.onRefer; path.onclick=o.onPath;
-  more.append(refer,path); page.append(more);
+  more.append(path,refer); page.append(more);   // the full path first (on the right, in RTL)
   box.append(page);
   if(focus) title.focus({preventScroll:true});
   return page;
