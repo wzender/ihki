@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenSpec requirements</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">LOCAL REQUIREMENTS</p>
+      <h1>OpenSpec atlas</h1>
+      <p id="rootPath" class="root-path"></p>
+    </div>
+    <button id="refresh" class="refresh" type="button">Refresh files</button>
+  </header>
+
+  <section id="summary" class="summary" aria-label="Project summary"></section>
+
+  <div class="workspace">
+    <aside class="sidebar" aria-label="Requirements navigation">
+      <label class="search-label" for="search">Search requirements</label>
+      <input id="search" type="search" placeholder="Capability, requirement, scenario…" autocomplete="off">
+      <p id="searchStatus" class="search-status" aria-live="polite"></p>
+
+      <section aria-labelledby="specHeading">
+        <div class="section-title">
+          <h2 id="specHeading">Specifications</h2>
+          <span id="specCount" class="count"></span>
+        </div>
+        <nav id="specNav" class="nav-list" aria-label="Specifications"></nav>
+      </section>
+
+      <section aria-labelledby="changeHeading">
+        <div class="section-title">
+          <h2 id="changeHeading">Active changes</h2>
+          <span id="changeCount" class="count"></span>
+        </div>
+        <nav id="changeNav" class="nav-list" aria-label="Active changes"></nav>
+      </section>
+    </aside>
+
+    <main id="content" tabindex="-1">
+      <div class="empty-state">
+        <span aria-hidden="true">◇</span>
+        <p>Loading OpenSpec…</p>
+      </div>
+    </main>
+  </div>
+
+  <aside id="warnings" class="warnings" aria-live="polite" hidden></aside>
+</body>
+</html>
