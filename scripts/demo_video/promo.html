@@ -203,6 +203,7 @@ const $=id=>document.getElementById(id);
 // the opening logo, the announcement and the booklet come before the screen; the animated logo closes
 // the logo stays up while the description rises under it
 const OPEN_END=4.2, ANN=[1.0,4.2], BOOK0=4.0, BOOK_LEN=7.0, INTRO=BOOK0+BOOK_LEN, CHIPS=0.5, LOGO=6.8, LOGO_SPEED=1.2;
+const SLOW=1.15;                              // the app's screens play 15% slower than recorded, to be read
 const PW=520, PH=716;                         // a booklet page on the frame
 const LEAVES=[["cover.jpg",null],["p53.jpg","p54.jpg"],["p55.jpg","p56.jpg"],["p57.jpg","p58.jpg"],["p59.jpg","p60.jpg"]];
 const ROW={u:.13,v:.293,w:.67,h:.034};         // "דיבר · חכא · יחכי" on page 60 (the last leaf's back), as page fractions
@@ -255,7 +256,7 @@ async function setup(d){
        `<circle cx="540" cy="716" r="18" fill="#2E9C9C" stroke="rgba(0,0,0,.25)" stroke-width="2"/>`+
        `<path d="M540 732 L522 790 M540 732 L534 794 M540 732 L546 794 M540 732 L558 790" stroke="#B88A3A" stroke-width="5" stroke-linecap="round"/>`;
   $("mis").innerHTML=mis;
-  const S=t=>INTRO+t;
+  const S=t=>INTRO+t*SLOW;
   const rest={tx:0,ty:0,k:1,rx:4,ry:-16,rz:0}, away={tx:0,ty:1500,k:.9,rx:20,ry:-30,rz:-6};
   const SUM={tx:0, ty:150, k:.88, rx:3, ry:-9, rz:0};
   const HOMEV=focus(.5,.5,1.06,540,1200,{ry:-5,rx:2});                         // the home's cards, a little closer                         // beside the summary's pills
@@ -286,7 +287,7 @@ async function setup(d){
     [S(END)+.7,away],
   ];
 }
-const duration=()=>INTRO+END+CHIPS+LOGO;
+const duration=()=>INTRO+END*SLOW+CHIPS+LOGO;
 
 function stateAt(t){
   let i=KEYS.findIndex(k=>k[0]>t); if(i<0) return KEYS[KEYS.length-1][1]; if(i===0) return KEYS[0][1];
@@ -319,7 +320,7 @@ function drawBook(t){
 }
 async function seek(t){
   if(scrollX||scrollY) scrollTo(0,0);
-  const s=Math.max(0,Math.min(END,t-INTRO)), file=frameAt(s);
+  const s=Math.max(0,Math.min(END,(t-INTRO)/SLOW)), file=frameAt(s);   // the app's screens play SLOW times slower
   if(file!==shown){ $("scr").src=file; await $("scr").decode().catch(()=>{}); shown=file; }
   const p=stateAt(t);
   $("phone").style.transform=`translate3d(${p.tx}px,${p.ty}px,0) rotateX(${p.rx}deg) rotateY(${p.ry}deg) rotateZ(${p.rz}deg) scale(${p.k})`;
@@ -327,7 +328,7 @@ async function seek(t){
   $("shadow").style.opacity=Math.max(0,1-Math.max(0,p.ty)/600);
   $("gloss").style.backgroundPosition=`${p.ry*4}px 0`;
   // the opening logo, then the headlines, each on its stretch
-  const S=x=>INTRO+x;
+  const S=x=>INTRO+x*SLOW;
   // the opening logo: in, a slow push, out for the announcement
   const op=Math.min(ease(t/.5),1-ease((t-(OPEN_END-.4))/.5)), up=ease((t-1.0)/.8);   // up: the logo's way to the top
   $("open").style.opacity=op; $("open").style.visibility=op>0?"visible":"hidden";   // drawn only while shown: the logo is heavy (visibility keeps its animations, display would drop them)

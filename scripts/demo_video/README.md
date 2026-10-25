@@ -24,7 +24,7 @@ D=scripts/demo_video; .venv/bin/python $D/record.py --takes $D/takes --out $D/ih
   app says "מצוין" and shows no letters to tap; if a scoring change moves it, pick another take in make_takes.py.
 - The app listens by itself after "next"; the recorder plays the take into the fake mic either way.
 
-## The short promo (71 s, a 3D iPhone)
+## The short promo (76 s, a 3D iPhone)
 
 The opening logo, with "חדש! האפליקציה של אהלא וסהלא" rising under it; the booklet (its cover face on, then lying
 open, pages flipping to lesson 4's new verbs, the row "דיבר · חכא · יחכי" circled); the focused home ("מה עושים

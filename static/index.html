@@ -2385,7 +2385,10 @@ function homeLesson(){   // the current lesson, its topics, and whether every on
 function homeActions(){   // in this order, the first three that can start: homework, today's video, the lesson, a short round
   const {l,cats,done}=homeLesson(), d=today();
   const hw=homeworks().filter(h=>!h.t.over).sort((a,b)=>(a.left??1e9)-(b.left??1e9))[0];
-  const vids=dailyVideos().filter(v=>v.date===d&&!dailyWatched[v.id]), next=cats.find(c=>!topicT(c).over);
+  const vids=dailyVideos().filter(v=>v.date===d&&!dailyWatched[v.id]);
+  // Keep following the learner's intent: if they left a topic part-way through, resume it even when an earlier
+  // topic in the lesson is also unfinished. An untouched or completed remembered topic does not change the path.
+  const active=cats.find(c=>c.id===cat&&topicT(c).done>0&&!topicT(c).over), next=active||cats.find(c=>!topicT(c).over);
   const listed=PHRASES.filter(p=>p.listed!==false), said=CATS.filter(c=>!c.story), mine=cats.filter(c=>!c.story);
   const plan=LH.shortPlan(listed.filter(p=>said.some(c=>c.id===p.cat)),listed.filter(p=>mine.some(c=>c.id===p.cat)),best,EXCELLENT);
   const left=c=>{ const t=topicT(c); return Math.max(1,(t.n||0)-(t.done||0)); };   // what is left of a topic, for its time
@@ -4389,7 +4392,8 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   if(c.bubble){ $("prompt").style.animation="none"; void $("prompt").offsetWidth; $("prompt").style.animation=""; }
   heStop(); $("heCheck").hidden=true; micZone.classList.toggle("two",heOk&&!!cur.read&&!story);   // a phrase to read can be answered in Hebrew too
   $("task").textContent=cur.read?heOk?HE_TASK:"קראו בקול ותרגמו לעברית":mine&&c.task||"איך אומרים את זה בערבית מדוברת?";
-  $("catName").textContent=c.name+(retry&&!daily?" · 🔁 סבב חוזר":""); $("lessonName").textContent=lessonName(LESSONS.find(l=>l.id===c.lesson));
+  setTr($("catName"),c.name+(retry&&!daily?" · 🔁 סבב חוזר":""));
+  setTr($("lessonName"),lessonName(LESSONS.find(l=>l.id===c.lesson)));
   // the number and the bar are the sentence's place in the topic, whatever the round holds
   const b=best[cur.id], at=topic.indexOf(cur.id), hintBox=$("doneHint");
   $("counter").textContent=ordered?"":`${pos+1} / ${order.length}`;
@@ -8494,11 +8498,16 @@ if(AUTH_URL){
         :error.status===429?"נשלחו יותר מדי בקשות. נסו שוב בעוד כמה דקות.":"לא הצלחנו לשלוח את הקישור. בדקו את הכתובת ונסו שוב.");
     };
     let asked="";   // the account whose permission was already asked; token refreshes do not ask again
-    login.onclick=()=>sb.auth.signInWithOAuth({provider:"google",
+    const googleSignIn=()=>sb.auth.signInWithOAuth({provider:"google",
       options:{redirectTo:here,queryParams:{prompt:"select_account"}}});
+    login.onclick=googleSignIn;
     logout.onclick=$("switchBtn").onclick=async()=>{   // the best scores kept on the device belong to this student
       await Promise.race([pushSignOut(),new Promise(r=>setTimeout(r,3000))]);
-      await sb.auth.signOut(); store.set("ihki.best2",{}); store.set("ihki.silent",{}); store.set("ihki.written",{}); store.set("ihki.unsent",{}); location.reload(); };
+      const {error}=await sb.auth.signOut().catch(error=>({error}));
+      store.set("ihki.best2",{}); store.set("ihki.silent",{}); store.set("ihki.written",{}); store.set("ihki.unsent",{});
+      if(error) location.replace(here);   // at least return to the app's sign-in screen when sign-out or OAuth is unavailable
+      else{ const next=await googleSignIn().catch(error=>({error})); if(next&&next.error) location.replace(here); }
+    };
     $("classExit").onclick=$("pickExit").onclick=()=>logout.click();   // the same exit, from the class pill's dialogs
     sb.auth.onAuthStateChange((_e,session)=>{
       login.hidden=mail.hidden=$("tagline").hidden=!!session; logout.hidden=$("classExit").hidden=$("pickExit").hidden=!session;

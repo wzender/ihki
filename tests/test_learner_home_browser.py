@@ -256,6 +256,34 @@ def test_complete_path_renders_shadda_with_original_accessible_text_on_mobile(si
     assert r["noOverflow"] and r["fallback"] is True
 
 
+EXERCISE_HEADING_SHADDA = """
+await sleep(1500);
+const headingTopic=CATS.find(c=>!c.story&&!c.bubble&&PHRASES.some(p=>p.cat===c.id));
+const lesson=LESSONS.find(l=>l.id===headingTopic.lesson), phrase=PHRASES.find(p=>p.cat===headingTopic.id);
+headingTopic.name="כֻּלّ"; lesson.name="דַרّס";
+cat=headingTopic.id; home=false; document.body.classList.remove("home"); setRound(); show(phrase,true);
+await until(()=>document.getElementById("catName").querySelector(".sh"));
+const check=(id,original)=>{
+  const el=document.getElementById(id), sh=el.querySelector(".sh"), pseudo=getComputedStyle(sh,"::before");
+  return {wrappers:el.querySelectorAll(".sh").length, text:el.textContent, original,
+    visible:!!(el.offsetWidth&&el.offsetHeight), mark:{content:pseudo.content,mask:pseudo.maskImage||pseudo.webkitMaskImage}};
+};
+out.topic=check("catName",headingTopic.name); out.lesson=check("lessonName",lesson.name);
+out.noOverflow=document.documentElement.scrollWidth<=innerWidth;
+"""
+
+
+def test_exercise_heading_renders_shadda_on_mobile(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", EXERCISE_HEADING_SHADDA, mobile=True)
+    for name in ("topic", "lesson"):
+        item = r[name]
+        assert item["wrappers"] == 1 and item["visible"]
+        assert item["original"].replace("ّ", "") in item["text"]
+        assert item["mark"]["content"] != "none" and item["mark"]["mask"] != "none"
+    assert r["noOverflow"] is True
+
+
 GOOD_MOMENT = """
 await sleep(1500);
 out.before=open("pushDlg");
@@ -416,6 +444,25 @@ def test_changing_the_lesson_moves_the_home_and_keeps_progress(site):
     assert site.auth.rows[("dana@x.com", 7)]["current_lesson"] == "3"
 
 
+RESUME_STARTED_TOPIC = """
+await sleep(1500);
+const lesson=LESSONS.find(l=>l.id===currentLesson()), topics=CATS.filter(c=>c.lesson===lesson.id&&!c.story);
+const started=topics.slice(1).find(c=>PHRASES.some(p=>p.cat===c.id&&p.listed!==false));
+const phrase=started&&PHRASES.find(p=>p.cat===started.id&&p.listed!==false);
+if(!started||!phrase) throw new Error("the current lesson needs two practice topics");
+cat=started.id; store.set("ihki.cat",cat); best[phrase.id]=60; store.set("ihki.best2",best);
+drawNav();
+const action=[...document.querySelectorAll("#vids .focus-action")].find(b=>b.textContent.includes("ממשיכים ב"));
+out.started=started.name; out.proposed=action.querySelector(".focus-detail").textContent;
+"""
+
+
+def test_home_resumes_the_partly_started_topic_instead_of_the_first_unfinished_one(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", RESUME_STARTED_TOPIC)
+    assert r["proposed"] == r["started"]
+
+
 PRIORITY = """
 await sleep(1500);
 const titles=()=>[...document.querySelectorAll("#vids .focus-action strong")].map(s=>s.textContent);
@@ -474,6 +521,26 @@ def test_short_activity_shows_its_size_and_announces_its_end(site):
 def test_the_open_service_keeps_the_path(open_site):
     r = open_site("anyone@x.com", PATH_FIRST)
     assert r["view"] == "" and r["asked"] is False and r["homeTab"] is False
+
+
+LOG_OUT_TO_GOOGLE = """
+await sleep(200);
+const calls=[];
+pushSignOut=async()=>calls.push("push");
+sb.auth.signOut=async()=>{ calls.push("sign-out"); return {}; };
+sb.auth.signInWithOAuth=async options=>{ calls.push("google"); out.oauth=options; return {}; };
+document.getElementById("classExit").click();
+await until(()=>calls.includes("google"));
+out.calls=calls;
+"""
+
+
+def test_account_exit_signs_out_then_returns_to_google_authentication(site):
+    r = site("dana@x.com", LOG_OUT_TO_GOOGLE)
+    assert r["calls"] == ["push", "sign-out", "google"]
+    assert r["oauth"]["provider"] == "google"
+    assert r["oauth"]["options"]["queryParams"] == {"prompt": "select_account"}
+    assert r["oauth"]["options"]["redirectTo"].startswith("http")
 
 
 FINISHED = """
