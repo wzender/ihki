@@ -28,7 +28,7 @@ D=scripts/demo_video; .venv/bin/python $D/record.py --takes $D/takes --out $D/ih
 
 The opening logo, with "חדש! האפליקציה של אהלא וסהלא" rising under it; the booklet (its cover face on, then lying
 open, pages flipping to lesson 4's new verbs, the row "דיבר · חכא · יחכי" circled); the focused home ("מה עושים
-עכשיו?", its two actions numbered); "אנחנו דיברנו" said with a Hebrew speaker's mistake (ح said as a "dirty" ח', خ),
+עכשיו?", its two actions numbered); "דיבר (עבר, עתיד)" said with a Hebrew speaker's mistake (ح said as a "dirty" ח', خ),
 the red consonant and its tip, the retry at 100; collecting beads; driving mode (the phone flies into a car's mount,
 the conversation in bubbles, a misbaha on the mirror whose next bead turns gold on the verdict); a grid of the other
 ways to practice (lesson 4's new words, pairs, story, and "הפועל זכרון"), each coming forward for a short example;

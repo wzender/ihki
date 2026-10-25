@@ -12,6 +12,8 @@ _SAME = {"æ": "a", "ɐ": "a", "ɑ": "a", "ä": "a", "ʌ": "a", "ɪ": "i", "ʊ":
 
 
 def base(symbol: str) -> str:
-    """The sound a model symbol stands for, ignoring length and spelling variants. Emphatics stay distinct."""
-    s = "".join(c for c in symbol if c not in _STRIP)
+    """The sound a model symbol stands for, ignoring length and spelling variants. Emphatics stay distinct.
+    Mandarin tone numbers go too (i5, iː1, a2: 85 symbols in the espeak vocab): a correct ي heard as i5 otherwise
+    lost to its own tone variant (هيّ scored 36 on its vowel). A diphthong (ai5) stays a diphthong."""
+    s = "".join(c for c in symbol if c not in _STRIP).rstrip("0123456789")
     return _SAME.get(s, s) or symbol

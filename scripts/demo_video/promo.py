@@ -26,7 +26,7 @@ HOME = """(()=>{
   nav.querySelectorAll("button").forEach(b=>{ if(b.dataset.view==="home") b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
   drawRewardShelf();
   LH.renderHome(box,{className:"א1",lessonName:"שיעור 4",done:false,
-    actions:[{kind:"continue",title:"ממשיכים בשיעור 4",detail:"הטיות בעבר",go:"המשיכו",minutes:LH.minutesFor(32),run(){}},
+    actions:[{kind:"continue",title:"ממשיכים בשיעור 4",detail:"פעלים",go:"המשיכו",minutes:LH.minutesFor(5),run(){}},
              {kind:"short",title:"תרגול קצר",detail:"10 משפטים חדשים מהשיעור",minutes:LH.minutesFor(10),run(){}}],
     onChange(){},onPath(){},onRefer(){}});
   scrollTo(0,0);
@@ -134,11 +134,11 @@ async def record_screen(url, takes, work):
         await mark("homeTap", ".focus-action.hero")
         await tap(".focus-action.hero", 200)
 
-        # off camera: the hero card's topic, "הטיות בעבר" of lesson 4, on "אנחנו דיברנו"
+        # off camera: the hero card's topic, "פעלים" of lesson 4, on "דיבר (עבר, עתיד)"
         pause()
-        await pg.evaluate("pickCat('l4-past')"); await wait(800)
+        await pg.evaluate("pickCat('l4-verbs')"); await wait(800)
         for _ in range(40):
-            if (await pg.inner_text("#prompt")).strip() == "אנחנו דיברנו":
+            if (await pg.inner_text("#prompt")).strip().startswith("דיבר"):
                 break
             await pg.click("#nextBtn"); await wait(250)
         await pg.evaluate("scrollTo(0,0)"); await wait(200)
@@ -146,7 +146,7 @@ async def record_screen(url, takes, work):
         await mark("start")
         await wait(900)
         await mark("mic", "#mic")
-        await say("m892")
+        await say("m876")
         await mark("score", "#result")
         bad = '#wordReveals .bad.why[title^="ח (ح) נשמעה כמו ח\'"]'
         await mark("letter", bad)
@@ -160,7 +160,7 @@ async def record_screen(url, takes, work):
         await pg.mouse.click(5, 5)               # closes the tip
         await wait(400)
         await mark("retry", "#mic")
-        await say("c892", fresh=True)
+        await say("c876", fresh=True)
         await pg.evaluate("cancelAutoNext()")    # keeps the score on screen
         await mark("great", "#result")
         print("  retry:", await pg.inner_text("#score"))
@@ -170,7 +170,7 @@ async def record_screen(url, takes, work):
         # and listens, then says the verdict
         pause()
         await pg.evaluate("store.set('ihki.driveSeen',true)")      # past the first-time explanation
-        # still on "אנחנו דיברנו" (re-opening the topic would start a round without it: it was just passed)
+        # still on "דיבר" (re-opening the topic would start a round without it: it was just passed)
         await pg.evaluate("cancelAutoNext(); show(cur,true); scrollTo(0,0)")   # fresh: no old score, no countdown to the next verb
         await wait(400)
         await pg.click("#driveBtn"); await wait(150)
@@ -190,7 +190,7 @@ async def record_screen(url, takes, work):
         await resume()
         await mark("turn")
         await wait(250)
-        await pg.evaluate("t=>__demo.play(t)", "c892")
+        await pg.evaluate("t=>__demo.play(t)", "c876")
         for _ in range(400):
             if (await status()).startswith("ציון"):
                 break

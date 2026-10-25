@@ -218,6 +218,9 @@ class ScorerConfig:
     near_vowel_floor: float = 90.0  # a vowel heard as its neighbour (i/e, u/o, a/ə, short/long) scores at least this
     word_min_weight: float = 0.35   # one weak phoneme matters, without dominating half of the whole word
     ref_min_mean: float = 60.0      # a native reference whose mean phoneme score is under this is not trusted
+    # a sound the native reference scored under this, the model cannot measure in this phrase (ħ in رحنا: 0.2): the
+    # learner's score on it is noise too, so it is given back in full and the unrelated gate does not count it
+    ref_noise_floor: float = 10.0
     ayin_deleted_floor: float = 60.0 # the base model often drops a correctly pronounced pharyngeal ʕ
     onset_transient_floor: float = 90.0  # a first consonant outscored by a one-frame onset spike (rule 31)
     # The learner-facing pipeline is more encouraging than the generic GOP primitive: a competitor twice as likely
@@ -598,7 +601,7 @@ class Scorer:
         same = lambda h, t: h == t or h in vocab.members.get(t, ())
         raw = edit_distance(heard_ids, ids, same)
         distance, weight = self._distance(heard_ids, toks, gop_scores, exempted, same)
-        veto = self._veto(toks, gop_scores)
+        veto = self._veto(toks, gop_scores, exempted)
         unrelated = bool(distance / weight > self.cfg.unrelated_ratio) and not veto
         return Fit(ar, ipa, aipa, toks, al, scores, heard_ids, unrelated, ext, candidates=tried, gop_scores=gop_scores,
                    exempted=exempted, exempt_scores=exempt_scores, inserted=inserted, insert_scores=insert_scores,
@@ -612,14 +615,15 @@ class Scorer:
     _SHORT_VOWELS = {"a", "e", "i", "o", "u"}
 
     def _distance(self, heard_ids: list[int], toks: list[TargetToken], gop_scores: list[TokenScore],
-                  exempted: list[str | None], same) -> float:
+                  exempted: list[str | None], same, lost: frozenset[int] = frozenset()) -> float:
         """How far the free decode is from the chosen variant, forgiving only what the exemptions mean:
         - a vowel heard as another vowel: 0 when it is the competitor an exemption forgave, else 0.25 (a consonant
           for a vowel: 1);
         - a consonant heard as the competitor its exemption forgave (b/p, t/d): 0. The exemptions that forgive a
           dropped sound (_FREE_DROPS) do not forgive a replaced one;
         - a deletion: 0 for _FREE_DROPS, 0.25 for another exempted short vowel, else 1;
-        - edge noise (_EDGE_NOISE before the first or after the last sound): 0.25.
+        - edge noise (_EDGE_NOISE before the first or after the last sound): 0.25;
+        - a sound in `lost` (the native reference lost it too, under ref_noise_floor) replaced or dropped: 0.25.
         Returns (distance, weight): weight is the sum of the deletion costs, the sounds that can be wrong at all, and
         at least half the sounds, so a short word does not turn unrelated on one stray sound."""
         i2t, n = self.vocab.i2t, len(toks)
@@ -629,6 +633,8 @@ class Scorer:
         def sub(h, j):
             if same(h, toks[j].id):
                 return 0.0
+            if j in lost:
+                return 0.25
             heard = name(h)
             if toks[j].phoneme in VOWELS:
                 return (0.0 if exempted[j] and comp[j] == heard else 0.25) if heard in self._ANY_VOWEL else 1.0
@@ -642,21 +648,29 @@ class Scorer:
                 return 0.0
             return 0.25 if exempted[j] and toks[j].phoneme in self._SHORT_VOWELS else 1.0
 
+        def dele_cost(j):
+            return min(dele(j), 0.25) if j in lost else dele(j)
+
         def ins(h, j):
             return 0.25 if j in (0, n) and name(h) in self._EDGE_NOISE else 1.0
 
-        weight = max(1.0, n / 2, sum(dele(j) for j in range(n)))
-        return weighted_edit_distance(heard_ids, [t.id for t in toks], sub, dele, ins), weight
+        weight = max(1.0, n / 2, sum(dele(j) for j in range(n)))   # the same with or without `lost`
+        return weighted_edit_distance(heard_ids, [t.id for t in toks], sub, dele_cost, ins), weight
 
-    def _veto(self, toks: list[TargetToken], gop_scores: list[TokenScore]) -> bool:
-        """The forced alignment clearly found the sentence's consonants (ScorerConfig.unrelated_veto_*)."""
+    def _veto(self, toks: list[TargetToken], gop_scores: list[TokenScore], exempted: list[str | None],
+              lost: frozenset[int] = frozenset()) -> bool:
+        """The forced alignment clearly found the sentence's consonants (ScorerConfig.unrelated_veto_*).
+        A consonant that says nothing either way is left out: one an exemption lets drop (ʔ), and one the native
+        reference lost too (`lost`)."""
         cfg = self.cfg
-        cons = [sc for t, sc in zip(toks, gop_scores) if t.phoneme not in VOWELS]
-        if not cons or not gop_scores:
+        mute = lambda i: i in lost or exempted[i] in self._FREE_DROPS
+        cons = [sc for i, (t, sc) in enumerate(zip(toks, gop_scores)) if t.phoneme not in VOWELS and not mute(i)]
+        rest = [sc.score for i, sc in enumerate(gop_scores) if not mute(i)]
+        if not cons or not rest:
             return False
         sure = sum(float(np.exp(sc.peak)) >= cfg.unrelated_veto_peak for sc in cons)
         return (sure >= 2 and sure / len(cons) >= cfg.unrelated_veto_share
-                and float(np.mean([sc.score for sc in gop_scores])) >= cfg.unrelated_veto_mean)
+                and float(np.mean(rest)) >= cfg.unrelated_veto_mean)
 
     def _heatmap(self, logp: np.ndarray, toks: list[TargetToken], alignment, scores,
                  duration_s: float | None) -> dict:
@@ -758,9 +772,22 @@ class Scorer:
         # reference voice too (ʕ in على heard as dropped) is the model's weakness, not the learner's.
         heatmap = self._heatmap(fit.logp, toks, al, scores, duration_s) if diagnostics else None
         raw, (bases, refused) = scores, self._baseline(toks, scores, refs)
-        scores = [sc if b is None or b >= 100 else replace(sc, score=round(min(100.0, 100.0 * sc.score / max(b, 1.0)), 1))
+        floor_ = self.cfg.ref_noise_floor
+        # under the noise floor the ratio of two near-zero scores is noise (0.3 / 0.2 was capped to 30): give it back
+        scores = [sc if b is None or b >= 100
+                  else replace(sc, score=100.0) if b < floor_
+                  else replace(sc, score=round(min(100.0, 100.0 * sc.score / b), 1))
                   for sc, b in zip(raw, bases)]
         after_baseline = scores
+        # the unrelated gate ran before the references were known: a sound they lost too is the model's limitation
+        # in this phrase, not a sign of another sentence, so the gate is decided again without counting it
+        lost = frozenset(i for i, b in enumerate(bases) if b is not None and b < floor_)
+        if lost and unrelated:
+            same = lambda h, t: h == t or h in self.vocab.members.get(t, ())
+            distance, weight = self._distance(fit.heard_ids, toks, fit.gop_scores, fit.exempted, same, lost)
+            veto = self._veto(toks, fit.gop_scores, fit.exempted, lost)
+            unrelated = bool(distance / weight > self.cfg.unrelated_ratio) and not veto
+            fit = replace(fit, distance=distance, distance_weight=weight, veto=veto, unrelated=unrelated)
         # Teacher floors take priority. The base model has a recurring false negative for pharyngeal ʕ;
         # when it reports only silence there, keep a modest penalty instead of claiming it was certainly absent.
         phrase_key, calibrated = str(phrase.get("key", phrase.get("he", ""))), []
@@ -994,7 +1021,7 @@ class Scorer:
                 "unrelated_veto": {"share": cfg.unrelated_veto_share, "peak": cfg.unrelated_veto_peak,
                                    "mean": cfg.unrelated_veto_mean},
                 "unrelated_cap": 30.0, "letter_good": LETTER_GOOD, "max_tips": max_tips, "max_issues": cfg.max_issues,
-                "ref_min_mean": cfg.ref_min_mean, "margin_default": float(self.rules.scoring.get("margin_default", 0.0)),
+                "ref_min_mean": cfg.ref_min_mean, "ref_noise_floor": cfg.ref_noise_floor, "margin_default": float(self.rules.scoring.get("margin_default", 0.0)),
                 "ayin_deleted_floor": cfg.ayin_deleted_floor, "onset_transient_floor": cfg.onset_transient_floor,
                 "margins": [{"target": t, "heard": h, "margin": m} for (t, h), m in sorted(self.rules.margins.items())]
                 if self._on("margins") else [],

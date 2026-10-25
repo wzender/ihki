@@ -2805,3 +2805,92 @@ def test_long_vowel_as_short_in_the_native_reference_is_forgiven():
     r = zaman(2).score(None, ZAMAN, [ref])
     assert not r["tips"] and r["words"][0]["phonemes"][3]["score"] == 100
     assert "shortened" not in r["words"][0]["phonemes"][3]
+
+
+# احنا رحنا, the reported attempt: said right, but the model hears ح as ç and ʃ (in the native voices too), a
+# trilled r as "r a r" and a vowel after ح. The unrelated gate capped an 83 at 30 with no tip.
+WENT = {"variants": [("احنا رحنا", "ʔ i ħ n a | r u ħ n a")]}
+WENT_SYMS = ["ç", "r", "o", "u"]
+WENT_HEARD = ["i", "ç", "n", "a", "r", "a", "r", "o", "ʃ", "u", "n", "a"]
+WENT_VOICE = ["ʔ", "i", "ç", "n", "a", "r", "u", "ʃ", "n", "a"]   # the native voice: ح lost the same way
+
+
+def went_learner():
+    """The learner's attempt, its r as faint as in the recording (0.40): only the two n clearly peak."""
+    s = custom_scorer(WENT_SYMS, WENT_HEARD)
+    p = np.exp(s.emit(None))
+    r = s.vocab.sound_id("r")
+    for f in np.where(p.argmax(axis=1) == r)[0]:
+        p[f] = 0.6 / (p.shape[1] - 1)
+        p[f, r] = 0.4
+    logp = np.log(p)
+    return Scorer(lambda wav: logp, s.vocab)
+
+
+def test_a_sound_the_reference_lost_too_does_not_make_the_sentence_unrelated():
+    learner = went_learner()
+    assert learner.score(None, WENT)["unrelated"]                      # without a reference the gate still fires
+    ref = custom_scorer(WENT_SYMS, WENT_VOICE).reference(None, WENT)
+    assert ref is not None and ref.scores[2] < 10 and ref.scores[7] < 10
+    r = learner.score(None, WENT, [ref], diagnostics=True)
+    assert not r["unrelated"] and not r["trace"]["sentence"]["capped"] and r["score"] >= 75
+    assert [p["score"] for w in r["words"] for p in w["phonemes"] if p["ipa"] == "ħ"] == [100, 100]
+
+
+def test_another_sentence_is_unrelated_even_with_a_reference_that_lost_a_sound():
+    ref = custom_scorer(WENT_SYMS, WENT_VOICE).reference(None, WENT)
+    r = custom_scorer(WENT_SYMS, ["ʃ", "a", "l", "a", "m", "u", "k", "o", "m"]).score(None, WENT, [ref])
+    assert r["unrelated"] and r["score"] <= 30
+
+
+def test_reference_under_the_noise_floor_gives_the_score_back():
+    # learner 0.3 against a reference 0.2: the ratio was capped to 100 * 0.3 / 1 = 30
+    from app.scorer import Reference
+    s = scorer_for(emissions(h_as("ħ")))
+    toks = s._variants(ALA)[0][3]
+    weak = weakened(h_as("ħ"), 6, 0.01)
+    s = scorer_for(weak)
+    ref = Reference([(t.word, t.sound) for t in toks], [0.2 if t.sound == "ħ" else 100.0 for t in toks])
+    plain = s.score(None, ALA)["words"][1]["phonemes"][2]["score"]
+    r = s.score(None, ALA, [ref])
+    assert plain < 50 and r["words"][1]["phonemes"][2]["score"] == 100
+
+
+def test_tone_numbers_are_the_same_sound():
+    from app.phones import base
+    assert base("i5") == base("iː1") == base("i.5") == base("i̪2") == "i"
+    assert base("a5") == base("ɑ1") == "a" and base("u4") == "u"
+    assert base("ai5") == "ai" and base("1") == "1"
+
+
+HIYYE = {"variants": [("هيّ", "h iː")]}
+
+
+def split_vowel_scorer(vowel, toned, p_toned, p_vowel=0.10):
+    """هيّ with its vowel's posterior split: p_toned on `toned`, p_vowel on `vowel`, the rest blank."""
+    syms = SYMS + ["iː", "u", toned]
+    vocab = {s: i for i, s in enumerate(syms)}
+
+    def row(probs):
+        r = np.full(len(syms), 1e-4)
+        for sym, p in probs.items():
+            r[vocab[sym]] = p
+        return r / r.sum()
+
+    rows = [row({"<pad>": 0.95})] * 2 + [row({"h": 0.9})] * 3 + [row({"<pad>": 0.95})] * 2
+    rows += [row({toned: p_toned, vowel: p_vowel, "<pad>": 1 - p_toned - p_vowel})] * 8 + [row({"<pad>": 0.95})] * 2
+    return Scorer(lambda wav: np.log(np.array(rows)), Vocab(vocab))
+
+
+def test_a_vowel_heard_with_a_tone_number_is_the_vowel():
+    # the reported attempt: the model heard ي as i5 (0.39) and as iː only at 0.10; the vowel scored 36
+    r = split_vowel_scorer("iː", "i5", 0.45).score(None, HIYYE, diagnostics=True)
+    v = r["words"][0]["phonemes"][1]
+    assert v["score"] >= 90 and not r["issues"] and not r["unrelated"]
+    assert r["trace"]["unrelated"]["ratio"] < 0.5
+    assert "י" in r["words"][0]["heard_tr"] or r["words"][0]["heard_tr"] == r["words"][0]["tr"]
+
+
+def test_another_vowel_with_a_tone_number_is_still_wrong():
+    r = split_vowel_scorer("u", "u5", 0.45).score(None, HIYYE)
+    assert r["words"][0]["phonemes"][1]["score"] < 50

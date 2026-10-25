@@ -102,6 +102,7 @@ export interface TraceConfig {
   max_tips: number;
   max_issues: number;
   ref_min_mean: number;
+  ref_noise_floor: number;   // a reference under this on a sound: the model cannot measure it, the score is given back
   margin_default: number;
   ayin_deleted_floor: number;
   margins: { target: Ipa; heard: Heard; margin: number }[];   // the pairs that need a clearer win (rules 6.2)
