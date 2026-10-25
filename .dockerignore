@@ -10,3 +10,7 @@ checkpoints
 .git
 *.mp3
 *.pcm
+exports
+.zero-shot-deps
+book
+*.pdf

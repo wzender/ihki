@@ -5,7 +5,7 @@ import numpy as np
 from test_scoring import emissions, scorer_for
 
 from app.auth import AuthUnavailable
-from app.lab import ITEMS, benchmark, public_items, still_flagged
+from app.lab import ITEMS, QUICK_QUIZ, benchmark, public_items, public_quick_quiz, still_flagged
 from app.translit import to_hebrew
 
 
@@ -16,6 +16,15 @@ def tone_wav():
     with wave.open(buf, "wb") as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000); w.writeframes(pcm)
     return buf.getvalue()
+
+
+def test_quick_quiz_is_a_ten_word_hebrew_speaker_benchmark():
+    public = public_quick_quiz()
+    assert len(QUICK_QUIZ) == len(public) == 10
+    assert [item["number"] for item in public] == list(range(1, 11))
+    assert {"ħ", "ʕ", "x", "a", "aː"}.issubset({item["focus"] for item in public})
+    zaman = next(item for item in QUICK_QUIZ if item["id"] == "quick-zaman")
+    assert zaman["variants"][0] == ("زمن", "z a m a n")
 
 
 class NoTTS:

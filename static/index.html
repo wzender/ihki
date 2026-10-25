@@ -700,6 +700,7 @@ body.driving .mic::before{display:none} body.driving .mic-zone.two{display:flex}
 /* The teacher's panel (its parts are styled further down: the class tabs, the figures, the lessons, the students). */
 body:not(.manage) #manage,body.lab #manage,body:not(.lab) #lab,body.manage #wrap>header,body.manage #path,body.manage #today,body.manage #toNow,body.manage #practice,body:not(.home) #toManage{display:none}
 body.lab #wrap,body.manage #wrap:has(#manage.access){max-width:none}
+body.manage #wrap:has(#manage.models){max-width:1120px}
 body.manage #manage{width:100%;max-width:none}
 .mtitle{font:400 24px/1 var(--f-display);margin:0}
 #mState.setup{padding:10px 12px;border:1px solid var(--sumac);border-radius:10px;color:var(--ink)}
@@ -789,8 +790,8 @@ body.manage #manage{width:100%;max-width:none}
 .minerva-excluded{opacity:.65;text-decoration:line-through}
 .lab-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 #labModes{grid-template-columns:repeat(5,1fr)}
-#lab:not(.test) #labTest,#lab:not(.record) #labRecord,#lab:not(.flags) #labFlags,#lab:not(.minerva) #labMinerva,#lab:not(.results) #labResults{display:none}
-#labTest,#labRecord,#labFlags,#labMinerva,#labResults{display:flex;flex-direction:column;gap:12px;min-width:0}
+#lab:not(.quick) #labQuick,#lab:not(.test) #labTest,#lab:not(.record) #labRecord,#lab:not(.flags) #labFlags,#lab:not(.minerva) #labMinerva,#lab:not(.results) #labResults{display:none}
+#labQuick,#labTest,#labRecord,#labFlags,#labMinerva,#labResults{display:flex;flex-direction:column;gap:12px;min-width:0}
 #labList,#labFlagList,#wzList{display:flex;flex-direction:column;gap:10px}
 .wz-bar{flex-basis:100%;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
 .wz-bar i{display:block;height:100%;width:0;background:var(--ok);transition:width .3s}
@@ -926,8 +927,125 @@ body.manage #manage{width:100%;max-width:none}
 #manage.content :is(#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.content) #mContent{display:none}
 #manage.flags :is(#mClasses,#mContent,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.flags) #mFlags{display:none}
 #manage.access :is(#mClasses,#mContent,#mFlags,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.access) #mAccess{display:none}
+#manage.models :is(#mClasses,#mContent,#mFlags,#mAccess,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.models) #mModels{display:none}
 .access-actions{display:flex;justify-content:flex-end;margin:8px 0}.access-scroll{overflow:auto}.access-table{width:100%;border-collapse:collapse;min-width:1180px}.access-table :is(th,td){padding:9px 10px;border-bottom:1px solid var(--line);text-align:center}.access-table th{position:sticky;top:0;background:var(--surface);font-size:13px;white-space:nowrap;z-index:1}.access-table th>span{display:block;margin-bottom:4px}.access-table .access-all{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-weight:600;cursor:pointer}.access-table .access-all small{font-size:11px}.access-table :is(th,td):first-child{text-align:start;position:sticky;right:0;background:var(--surface);z-index:2;min-width:260px}.access-table td:first-child{font-weight:700}.access-table td:first-child small{display:block;color:var(--muted);font-weight:400;direction:ltr;overflow:hidden;text-overflow:ellipsis}.access-table input{width:18px;height:18px}.access-table .save-cell{min-width:96px}
-@media(max-width:700px){.modes{grid-template-columns:repeat(2,1fr)}}
+#mModes{grid-template-columns:repeat(6,1fr)}
+/* the developers' model comparison under a result: one column per model, the same recording */
+.cmp-box{margin-top:6px;border-top:1px dashed var(--line);padding-top:8px;display:flex;flex-direction:column;gap:8px}
+.cmp-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cmp-auto{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--muted);cursor:pointer}
+.cmp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
+.cmp-col{border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;background:var(--surface);min-width:0}
+.cmp-col.active{border-color:var(--olive);box-shadow:0 0 0 1px var(--olive) inset}
+.cmp-col h4{margin:0;font:700 14px/1.25 var(--f-body)}
+.cmp-col .cmp-meta{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cmp-verdict{display:flex;align-items:center;gap:8px}
+.cmp-verdict .num{font:700 26px/1 var(--f-body);font-variant-numeric:tabular-nums}
+.cmp-heard{font-size:13px;color:var(--muted)}
+.cmp-heard b{color:var(--ink);font-weight:600}
+.cmp-word{display:flex;flex-wrap:wrap;gap:3px;align-items:center;padding-top:4px;border-top:1px solid var(--line)}
+.cmp-word>.w{font:700 14px var(--f-tr);margin-inline-end:4px;width:100%}
+.cmp-ph{font:600 12px/1.3 var(--f-ipa);padding:1px 5px;border-radius:6px;background:var(--bg);border:1px solid var(--line);direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.cmp-ph.low{background:var(--amber-bg);color:var(--amber)}
+.cmp-ph.flag{background:var(--sumac-bg);color:var(--sumac);border-color:var(--sumac)}
+.cmp-ph.diff{outline:2px solid var(--ink);outline-offset:1px}
+.cmp-tips{margin:0;padding-inline-start:16px;font-size:12px;color:var(--muted)}
+.cmp-err{font-size:12px;color:var(--sumac);direction:ltr;unicode-bidi:isolate;word-break:break-word}
+/* the "מודלים" tab: one card per phoneme model, its accuracy as a ring and its sounds as bars */
+#mModels{display:flex;flex-direction:column;gap:12px}
+.mdl-now{flex-direction:row;align-items:center;gap:14px;flex-wrap:wrap}
+.mdl-now .mdl-icon{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--olive-soft);font-size:24px;flex:none}
+.mdl-now h2{margin:0;font:400 22px/1.2 var(--f-display)}
+.mdl-now code,.mdl-card code{font:13px var(--f-ipa);color:var(--muted);direction:ltr;unicode-bidi:isolate;word-break:break-all}
+.mdl-now .mdl-text{flex:1;min-width:220px;display:flex;flex-direction:column;gap:2px}
+.mdl-pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 10px;font:700 13px/1.6 var(--f-body);white-space:nowrap}
+.mdl-pill.on{background:var(--ok-bg);color:var(--ok)}
+.mdl-pill.wait{background:var(--amber-bg);color:var(--amber)}
+.mdl-pill.bad{background:var(--sumac-bg);color:var(--sumac)}
+.mdl-pill.off{background:var(--line);color:var(--muted)}
+.mdl-pill.best{background:var(--olive-soft);color:var(--olive-deep)}
+.mdl-cmp h2,.mdl-card h3{margin:0;font:400 19px/1.2 var(--f-display)}
+.mdl-cmp .mdl-row{display:grid;grid-template-columns:minmax(110px,170px) 1fr 52px;align-items:center;gap:10px;padding:3px 0}
+.mdl-cmp .mdl-row b{font-weight:700;font-size:15px}
+.mdl-track{display:block;height:10px;border-radius:999px;background:var(--line);overflow:hidden;position:relative}
+.mdl-fill{position:absolute;inset-block:0;inset-inline-start:0;border-radius:4px;background:var(--olive);min-width:2px;transition:width .5s ease}
+.mdl-val{font:700 15px var(--f-body);font-variant-numeric:tabular-nums;text-align:end}
+.mdl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.mdl-card{position:relative}
+.mdl-card.active{border-color:var(--olive);box-shadow:0 0 0 2px var(--olive) inset}
+.mdl-card.unavail{opacity:.75}
+.mdl-card .mdl-head{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.mdl-card .mdl-head h3{flex:1;min-width:140px}
+.mdl-card .mdl-sum{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
+.mdl-hero{display:flex;align-items:center;gap:14px}
+.mdl-ring{flex:none;width:96px;height:96px}
+.mdl-ring circle{fill:none;stroke-width:9}
+.mdl-ring .track{stroke:var(--line)}
+.mdl-ring .val{stroke:var(--olive);stroke-linecap:round;transition:stroke-dasharray .6s ease}
+.mdl-ring text{fill:var(--ink);font:700 22px var(--f-body);text-anchor:middle;dominant-baseline:central}
+.mdl-hero .mdl-hero-text{display:flex;flex-direction:column;gap:2px;font-size:14px;color:var(--muted)}
+.mdl-hero .mdl-hero-text b{color:var(--ink);font-size:16px}
+.mdl-bars{display:flex;flex-direction:column;gap:6px}
+.mdl-bars .mdl-row{display:grid;grid-template-columns:92px 1fr 44px;align-items:center;gap:8px;font-size:14px}
+.mdl-bars .mdl-row .none{grid-column:2/4;color:var(--muted);font-size:13px}
+.mdl-facts{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px}
+.mdl-facts span{display:inline-flex;gap:5px;align-items:center}
+.mdl-act{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mdl-act .why{font-size:13px;color:var(--sumac)}
+.mdl-note{margin:0;font-size:13px;color:var(--muted)}
+.mdl-spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-inline-end-color:transparent;border-radius:50%;animation:mdlspin .8s linear infinite}
+@keyframes mdlspin{to{transform:rotate(360deg)}}
+/* the tab's tuning: per-sound thresholds as sliders (red: flagged, green: passes) and the scorer's other settings */
+.ms-head{flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap}
+.ms-head h2{margin:0;font:400 22px/1.2 var(--f-display);flex:1;min-width:200px}
+.ms-head select{font:600 15px var(--f-body);padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.ms-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.ms-legend i{display:inline-block;width:14px;height:10px;border-radius:3px;vertical-align:middle;margin-inline-end:5px}
+.ms-legend .bad{background:var(--sumac)} .ms-legend .good{background:var(--ok)}
+.ms-sounds h3,.ms-group h3{margin:0;font:400 18px/1.2 var(--f-display)}
+/* the equalizer: vertical faders side by side, grouped; a dashed line across a bank marks the general threshold */
+.eq{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:thin;align-items:stretch}
+.eq-group{display:flex;flex-direction:column;gap:6px;flex:none}
+.eq-group>.eq-name{font:700 12px/1.2 var(--f-body);color:var(--muted);text-align:center;border-top:2px solid var(--line);padding-top:5px;letter-spacing:.02em}
+.eq-bands{display:flex;gap:4px;align-items:flex-end}
+.eq-band{width:58px;flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 2px 6px;border-radius:12px;border:1px solid transparent;position:relative}
+.eq-band:hover,.eq-band:focus-within{background:var(--bg);border-color:var(--line)}
+.eq-band.dirty{box-shadow:0 0 0 2px var(--amber) inset}
+.eq-band.wide{width:96px}
+.eq-val{font:700 15px/1.1 var(--f-body);font-variant-numeric:tabular-nums;min-height:18px;text-align:center}
+.eq-val.inherit{color:var(--muted);font-weight:600;font-size:12px}
+.eq-fader{position:relative;height:170px;width:34px;display:flex;justify-content:center}
+.eq-fader input{writing-mode:vertical-lr;direction:rtl;width:34px;height:170px;margin:0;appearance:none;-webkit-appearance:none;background:transparent;cursor:pointer}
+.eq-fader input::-webkit-slider-runnable-track{width:10px;border-radius:999px;background:linear-gradient(to top,var(--sumac) 0 var(--t),var(--ok) var(--t) 100%)}
+.eq-fader input::-moz-range-track{width:10px;border-radius:999px;background:linear-gradient(to top,var(--sumac) 0 var(--t),var(--ok) var(--t) 100%)}
+.eq-fader.plain input::-webkit-slider-runnable-track{background:linear-gradient(to top,var(--olive) 0 var(--t),var(--line) var(--t) 100%)}
+.eq-fader.plain input::-moz-range-track{background:linear-gradient(to top,var(--olive) 0 var(--t),var(--line) var(--t) 100%)}
+.eq-fader input::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:14px;border-radius:4px;background:var(--surface);border:2px solid var(--ink);box-shadow:inset 0 -3px 0 var(--line)}
+.eq-fader input::-moz-range-thumb{width:24px;height:10px;border-radius:4px;background:var(--surface);border:2px solid var(--ink)}
+.eq-fader input:disabled{opacity:.4;cursor:default}
+.eq-fader input:focus-visible{outline:2px solid var(--olive);outline-offset:2px;border-radius:6px}
+.eq-general{position:absolute;inset-inline:-4px;height:0;border-top:2px dashed var(--ink);opacity:.35;pointer-events:none}
+.eq-scale{width:26px;flex:none;position:relative;height:170px;margin-top:28px;font:600 11px var(--f-body);color:var(--muted);font-variant-numeric:tabular-nums}
+.eq-scale span{position:absolute;inset-inline-end:0;transform:translateY(50%)}
+.eq-letter{font:700 16px/1.1 var(--f-body);text-align:center;white-space:nowrap}
+.eq-letter small{display:block;font:600 11px/1.2 var(--f-body);color:var(--muted)}
+.eq-label{font:600 12px/1.25 var(--f-body);text-align:center;min-height:30px;display:flex;align-items:center}
+.eq-led{display:flex;align-items:center;gap:4px;border:0;background:transparent;color:var(--muted);font:600 11px var(--f-body);cursor:pointer;padding:2px 4px;border-radius:6px}
+.eq-led::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--line);box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.eq-led[aria-pressed=true]{color:var(--ink)}
+.eq-led[aria-pressed=true]::before{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+.eq-led:disabled{cursor:default}
+.eq-reset{position:absolute;top:2px;inset-inline-start:2px;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:12px;padding:0 3px;border-radius:5px}
+.eq-reset:hover{color:var(--ink);background:var(--line)}
+.eq-band select{font:600 13px var(--f-body);padding:4px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:100%;margin-top:auto}
+.eq-choice{height:170px;display:flex;flex-direction:column;justify-content:center;width:100%}
+.eq-info{min-height:40px;margin:0;padding:8px 12px;border-radius:10px;background:var(--bg);font-size:13px;color:var(--muted);line-height:1.45}
+.eq-info b{color:var(--ink)}
+.ms-bar{position:sticky;bottom:10px;z-index:5;flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 18px rgba(0,0,0,.18)}
+.ms-bar .count{flex:1;min-width:160px;font-weight:700}
+.ms-bar .count.clean{color:var(--muted);font-weight:400}
+@media (prefers-reduced-motion:reduce){.mdl-spin{animation:none}.mdl-fill,.mdl-ring .val{transition:none}}
+@media(max-width:700px){.modes,#mModes{grid-template-columns:repeat(2,1fr)}}
 .flag-review{gap:10px}.flag-review h2{margin:0}.flag-review .meta{color:var(--muted);font-size:13px}.flag-review fieldset{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:7px}
 .flag-review.flag-urgent{border-inline-start:4px solid var(--sumac)}.flag-review.flag-lower{border-inline-start:4px solid var(--line)}
 .flag-priority{display:inline-block;margin-inline-start:6px;padding:2px 7px;border-radius:999px;font-size:12px;font-weight:700}.flag-priority.urgent{background:var(--sumac-bg);color:var(--sumac)}.flag-priority.lower{background:var(--bg);color:var(--muted)}
@@ -1639,11 +1757,12 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
   <section class="wrap" id="manage" aria-labelledby="mTitle">
     <div class="roundbar"><h1 class="mtitle" id="mTitle">ניהול</h1><span class="sep"></span><button class="btn" id="mRefresh">רענון</button><button class="btn" id="mLab">מעבדה</button><button class="btn primary" id="mPractice">לתרגול</button></div>
     <div class="sub" id="mState" aria-live="polite"></div>
-    <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>רשימה ומסנן כיתות</small></button><button role="tab" data-mode="content">תוכן<small>נושאים, סרטונים וטקסטים</small></button><button role="tab" data-mode="flags">ניטור<small>פעילות ודיווחי ציונים</small></button><button role="tab" data-mode="access">הרשאות<small>תפקידים וגישה</small></button></div>
+    <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>רשימה ומסנן כיתות</small></button><button role="tab" data-mode="content">תוכן<small>נושאים, סרטונים וטקסטים</small></button><button role="tab" data-mode="flags">ניטור<small>פעילות ודיווחי ציונים</small></button><button role="tab" data-mode="access">הרשאות<small>תפקידים וגישה</small></button><button role="tab" data-mode="models">מודלים<small>בחירה והשוואה</small></button></div>
     <div id="mClasses"></div>
     <div id="mContent"></div>
     <div id="mFlags"></div>
     <div class="card" id="mAccess"></div>
+    <div id="mModels"></div>
     <div class="tabs" id="mTabs" role="tablist" aria-label="סינון תלמידים לפי כיתה" hidden></div>
     <div class="card" id="mHead" hidden></div>
     <div class="card hard" id="mLessons" hidden></div>
@@ -1655,7 +1774,21 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
     <div class="roundbar"><h1 class="mtitle" id="labTitle">מעבדה</h1><span class="sep"></span><button class="btn" id="labManage">ניהול</button><button class="btn primary" id="labPractice">לתרגול</button></div>
     <p class="sub">רשימה קבועה של הברות ומילים קצרות, שכל אחת בודקת הגה אחד. כל דובר מקריא אותה פעם אחת. אומרים נכון, או בוחרים מראש את ההגה שבו תיעשה טעות מכוונת. כל הקלטה נשמרת עם התווית שלה, ומהן נמדד זיהוי הפונמות: כמה פעמים הגה שנאמר נכון סומן כטעות, וכמה טעויות מכוונות לא נתפסו.</p>
     <div class="sub" id="labState" aria-live="polite"></div>
-    <div class="modes" id="labModes" role="tablist" aria-label="מעבדה"><button role="tab" data-mode="test">מבחן<small>הקלטת כל הרשימה</small></button><button role="tab" data-mode="record">הקלטה<small>פריט בודד, עם טעויות</small></button><button role="tab" data-mode="flags">דיווחים<small>הרצה מחדש של דיווחי ציון</small></button><button role="tab" data-mode="minerva">מינרווה<small>סרטונים ודיבור ילידי</small></button><button role="tab" data-mode="results">תוצאות<small>זיהוי לפי הגה</small></button></div>
+    <div class="modes" id="labModes" role="tablist" aria-label="מעבדה"><button role="tab" data-mode="quick">בדיקה<small>10 שאלות · 3 מודלים</small></button><button role="tab" data-mode="test">מבחן מלא<small>הקלטת כל הרשימה</small></button><button role="tab" data-mode="record">הקלטה<small>פריט בודד, עם טעויות</small></button><button role="tab" data-mode="flags">דיווחים<small>הרצה מחדש של דיווחי ציון</small></button><button role="tab" data-mode="minerva">מינרווה<small>סרטונים ודיבור ילידי</small></button><button role="tab" data-mode="results">תוצאות<small>זיהוי לפי הגה</small></button></div>
+    <div id="labQuick">
+      <div class="card wz-head">
+        <h2>בדיקה מהירה לדוברי עברית</h2>
+        <p class="sub">עשר מילים שבודקות ח ו־ע גרוניות, ח׳, ע׳, עיצורים נחציים והבדל בין תנועה קצרה לאליף ארוכה. הקליטו כל מילה פעם אחת; אותה הקלטה נבדקת ב־Facebook, ב־wav2vec2 המאומן וב־POWSM short-pad (ONNX). ההקלטות אינן נשמרות.</p>
+        <div class="lab-actions"><b id="quickProgress"></b><span class="sub" id="quickState" aria-live="polite">בחרו שאלה והקליטו</span><button class="btn" id="quickReset">התחלה מחדש</button></div>
+      </div>
+      <div class="card lab-item">
+        <div class="lab-head"><span class="ar" id="quickAr"></span><span class="lab-tr" id="quickTr"></span><span class="sub" id="quickHe"></span></div>
+        <div class="lab-rec"><button class="mic" id="quickMic" aria-label="הקלטת תשובה"><svg class="ic" aria-hidden="true"><use href="#i-mic"/></svg></button><span class="sub">לחצו, אמרו את המילה, ולחצו שוב לסיום</span></div>
+        <div class="cmp-grid" id="quickOut"></div>
+        <div class="lab-actions"><button class="btn" id="quickPrev">הקודם</button><button class="btn primary" id="quickNext">הבא ←</button></div>
+      </div>
+      <div class="card"><div class="stage-table-wrap"><table class="lab-table" id="quickSummary"></table></div></div>
+    </div>
     <div id="labTest">
       <div class="card wz-head">
         <p class="sub">כל שורה היא פריט לומר. השורה המסומנת היא הבאה בתור: לוחצים 🎤, אומרים את הפריט נכון ככל האפשר, וההקלטה מושמעת לבד. אחרי ההשמעה: ✓ שולח אותה ועובר לשורה הבאה, ✗ מוחק אותה ומקליטים שוב. מה שנשלח נשמר כ"נאמר נכון" של הדובר, והוא הבסיס לבדיקת זיהוי הפונמות.</p>
@@ -4924,6 +5057,38 @@ async function startRec(auto){   // auto: started by the page for the sentence o
   rec.start();
 }
 $("playMine").onclick=()=>{ if(myAudioUrl) new Audio(myAudioUrl).play(); };
+/* The lab's model comparison: one recording scored by each comparison model (POST /api/admin/compare-models).
+   A sound flagged by one model and not another is outlined when the models' sound lists line up. */
+function drawComparison(models,target="quickOut"){
+  const out=$(target); out.replaceChildren();
+  const ok=models.filter(m=>!m.error);
+  const sameShape=ok.length>1&&ok.every(m=>m.words.length===ok[0].words.length&&m.words.every((w,i)=>w.phonemes.length===ok[0].words[i].phonemes.length));
+  const disagree=(wi,pi)=>sameShape&&new Set(ok.map(m=>m.words[wi].phonemes[pi].flagged)).size>1;
+  for(const m of models){
+    const col=mark(`cmp-col${m.active?" active":""}`,""), title=mark("",m.name,"h4");
+    if(m.active) title.append(mark("meta"," · פעיל"));
+    col.append(title,mark("cmp-meta",m.model));
+    if(m.error){ col.append(mark("cmp-err",m.error)); out.append(col); continue; }
+    col.append(mark("cmp-meta",`${m.ms} ms${m.load_ms>500?` · נטען ב־${(m.load_ms/1000).toFixed(1)} ש׳`:""} · ${m.references} קולות ייחוס`));
+    const v=mark("cmp-verdict",""), s=m.score;
+    v.append(mark("num",s==null?"–":String(Math.round(s))),
+      mark(`pill ${m.unrelated?"bad":s>=EXCELLENT?"good":s>=60?"mid":"bad"}`,m.unrelated?"משפט אחר?":s>=EXCELLENT?"מצוין":s>=60?"כמעט":"נסו שוב"));
+    col.append(v);
+    const heard=mark("cmp-heard","נשמע: "), ht=mark("",m.heard_tr||"–","b"); setTr(ht,m.heard_tr||"–"); heard.append(ht); col.append(heard);
+    m.words.forEach((w,wi)=>{
+      const row=mark("cmp-word",""), wt=mark("w",""); setTr(wt,w.tr||""); row.append(wt);
+      w.phonemes.forEach((p,pi)=>{
+        const chip=mark(`cmp-ph${p.flagged?" flag":p.score<75?" low":""}${disagree(wi,pi)?" diff":""}`,`${p.ipa} ${p.score}${p.flagged&&p.heard?` →${p.heard==="_"?"∅":p.heard}`:""}`);
+        chip.title=`${p.ipa}: ${p.score}${p.flagged?" · מסומן כטעות":""}${p.heard?` · נשמע ${p.heard==="_"?"כלום":p.heard}`:""}${disagree(wi,pi)?" · המודלים לא מסכימים":""}`;
+        row.append(chip);
+      });
+      col.append(row);
+    });
+    if(m.tips.length){ const ul=mark("cmp-tips","","ul"); for(const t of m.tips) ul.append(mark("",t,"li")); col.append(ul); }
+    out.append(col);
+  }
+}
+
 
 /* ---------- word-by-word answer, TTS ---------- */
 function revealWord(button){
@@ -5417,7 +5582,7 @@ async function loadManage(){
   state.textContent="טוען…"; state.classList.remove("setup");
   try{
     const [res,healthRes]=await Promise.all([api("/api/class"),fetch("/api/health").catch(()=>null)]); await ready;
-    if(healthRes?.ok) drawBuild((await healthRes.json()).build);
+    if(healthRes?.ok){ const health=await healthRes.json(); drawBuild(health.build,health.model); }
     if(!res.ok){
       const detail=(await res.json().catch(()=>({}))).detail||res.status;
       state.textContent=res.status===403?"הפאנל פתוח למורים בלבד.":`נתוני התלמידים לא זמינים כרגע (${detail}).`; return;
@@ -5425,6 +5590,7 @@ async function loadManage(){
     CLASS=await res.json(); await Promise.all([loadContent(),loadMathUnits()]);
     if(mMode==="flags") await loadFlags();
     if(mMode==="access") await loadAccess();
+    if(mMode==="models"){ await loadModels(); if(MODELS) await loadModelSettings(MS_MODEL||MODELS.active); }
     TEACHER_DAILIES=CLASS.classes.flatMap(classDailies).map(d=>({...d.v,date:d.date})).sort((a,b)=>a.date.localeCompare(b.date));   // as just saved; the earliest day of each comes first
   }catch{ state.textContent="השרת לא זמין."; return; }
   state.textContent=""; state.classList.toggle("setup",!!(CLASS.setup||[]).length);
@@ -5432,14 +5598,14 @@ async function loadManage(){
     const code=mark("",x.sql,"code"); code.dir="ltr"; state.append(mark("",x.what,"b"),mark(""," הריצו ב-SQL Editor של Supabase:"),code); }
   drawManage();
 }
-function drawBuild(info){
+function drawBuild(info,model){
   const box=$("mBuild");
   if(!info) return;
   const updated=new Date(info.updated_at), date=Number.isNaN(updated.valueOf())?info.updated_at:
     new Intl.DateTimeFormat("he-IL",{dateStyle:"short",timeStyle:"short"}).format(updated);
   const list=document.createElement("dl");
   const item=(label,value,code=false)=>{ const row=document.createElement("div"), dt=document.createElement("dt"), dd=document.createElement("dd"), val=document.createElement(code?"code":"span"); dt.textContent=label; val.textContent=value||"לא זמין"; dd.append(val); row.append(dt,dd); return row; };
-  list.append(item("מספר גרסה",info.version),item("עדכון אחרון",date),item("Commit ID",info.commit,true),item("הודעת commit",info.commit_message));
+  list.append(item("מספר גרסה",info.version),item("עדכון אחרון",date),item("Commit ID",info.commit,true),item("הודעת commit",info.commit_message),item("מודל",model,true));
   const title=mark("","פרטי המערכת","h2"); title.id="mBuildTitle";
   box.replaceChildren(title,mark("","מידע טכני לזיהוי הגרסה שפועלת כעת.","p"),list);
   box.hidden=false;
@@ -5454,6 +5620,233 @@ const ACCESS_COLUMNS=[
   {label:"יאללה נדבר",kind:"entitlements",value:"tutor",permission:"tutor.use"},
   {label:"מסלול",kind:"entitlements",value:"path",permission:"path.use"},
 ];
+/* The "מודלים" tab: the phoneme models this server can score with (app/models.py), what each was measured to do
+   on the Minerva test lines, and a switch (developers only) that loads another one beside the running one. */
+let MODELS=null, modelsError="", modelsPoll=0;
+const MODEL_SOUNDS=[["ħ","ח (ح)"],["ʕ","ע (ع)"],["tˤ","ט (ط)"],["sˤ","צ (ص)"],["dˤ","ד׳ (ض)"],["long_vowels","תנועות ארוכות"]];
+async function loadModels(){
+  modelsError="";
+  try{ const res=await api("/api/admin/models"), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); MODELS=data; }
+  catch(err){ MODELS=null; modelsError=err.message; }
+  clearTimeout(modelsPoll);
+  if(MODELS?.switch?.state==="loading") modelsPoll=setTimeout(async()=>{ await loadModels(); if(mMode==="models"&&document.body.classList.contains("manage")) drawManage(); },2000);
+}
+function modelRing(acc){
+  const r=40, c=2*Math.PI*r, svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+  svg.setAttribute("viewBox","0 0 100 100"); svg.setAttribute("class","mdl-ring"); svg.setAttribute("role","img");
+  svg.setAttribute("aria-label",`דיוק פונמות ${Math.round(acc*100)}%`);
+  const circle=(cls,dash)=>{ const el=document.createElementNS("http://www.w3.org/2000/svg","circle"); el.setAttribute("cx",50); el.setAttribute("cy",50); el.setAttribute("r",r); el.setAttribute("class",cls); if(dash!=null){ el.setAttribute("stroke-dasharray",`${dash} ${c}`); el.setAttribute("transform","rotate(-90 50 50)"); } return el; };
+  const text=document.createElementNS("http://www.w3.org/2000/svg","text"); text.setAttribute("x",50); text.setAttribute("y",50); text.textContent=`${Math.round(acc*100)}%`;
+  svg.append(circle("track"),circle("val",Math.max(0,acc)*c),text);
+  const title=document.createElementNS("http://www.w3.org/2000/svg","title"); title.textContent=`נכון ב־${Math.round(acc*100)}% מהפונמות (שגיאה ${Math.round((1-acc)*100)}%)`; svg.prepend(title);
+  return svg;
+}
+function modelBar(label,value,tip){
+  const row=mark("mdl-row",""); row.append(mark("",label,"span"));
+  if(value==null){ row.append(mark("none","אין למודל סמל להגה הזה")); return row; }
+  const track=mark("mdl-track",""), fill=mark("mdl-fill",""); fill.style.width=`${Math.round(value*100)}%`; track.append(fill);
+  row.title=tip||`${label}: ${Math.round(value*100)}%`; row.append(track,mark("mdl-val",`${Math.round(value*100)}%`)); return row;
+}
+async function switchModel(id,button,msg){
+  button.disabled=true; msg.textContent="מתחיל לטעון…";
+  try{ const res=await api("/api/admin/models/active",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({model_id:id})}), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); MODELS=data; }
+  catch(err){ msg.textContent="ההחלפה לא התחילה: "+err.message; button.disabled=false; return; }
+  await loadModels(); drawManage();
+}
+/* The tuning section of the "מודלים" tab: one model's scorer settings (app/model_settings.py), changed locally
+   (MS_DRAFT) and saved together. For the model scoring now they apply at once; for another, when it is switched on. */
+let MS=null, MS_MODEL="", msError="", MS_DRAFT={fields:{},sounds:{}}, msMsg="";
+async function loadModelSettings(model){
+  msError=""; MS_MODEL=model||MS_MODEL;
+  try{ const res=await api(`/api/admin/model-settings?model=${encodeURIComponent(MS_MODEL)}`), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); MS=data; MS_MODEL=data.model; }
+  catch(err){ MS=null; msError=err.message; }
+  MS_DRAFT={fields:{},sounds:{}};
+}
+const msFieldValue=f=>f.key in MS_DRAFT.fields?MS_DRAFT.fields[f.key]:f.value;
+const msSoundValue=s=>s.sound in MS_DRAFT.sounds?MS_DRAFT.sounds[s.sound]:s.value;   // null: the general threshold
+const msGeneral=()=>{ const f=MS.fields.find(x=>x.key==="flag_below"); return msFieldValue(f); };
+const msDirtyCount=()=>Object.keys(MS_DRAFT.fields).length+Object.keys(MS_DRAFT.sounds).length;
+function msOverrides(){   // every setting that differs from the model's default, as the server stores it
+  const out={}, sounds={};
+  for(const f of MS.fields){ const v=msFieldValue(f); if(v!==f.default) out[f.key]=v; }
+  for(const g of MS.sounds) for(const s of g.sounds){ const v=msSoundValue(s); if(v!==s.default) sounds[s.sound]=v; }
+  if(Object.keys(sounds).length) out.flag_below_sound=sounds;
+  return out;
+}
+async function saveModelSettings(settings,msg){
+  msg.textContent="שומר…";
+  try{ const res=await api("/api/admin/model-settings",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:MS_MODEL,settings})}), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); MS=data; MS_DRAFT={fields:{},sounds:{}}; msMsg=data.active?"נשמר. ההקלטות מעכשיו נבדקות בהגדרות החדשות.":"נשמר. ההגדרות יחולו כשהמודל יופעל."; drawManage(); }
+  catch(err){ msg.textContent="השמירה נכשלה: "+err.message; }
+}
+const fmtSetting=(f,v)=>v==null?"רחב":f.kind==="choice"?v:f.kind==="int"||f.kind==="window"?String(v):(f.step<1?Number(v).toFixed(2):String(Math.round(v)));
+function eqScale(){   // 0..100 marks beside a bank of threshold faders
+  const scale=mark("eq-scale",""); for(const v of [0,25,50,75,100]){ const t=mark("",String(v)); t.style.bottom=`${v}%`; scale.append(t); } return scale;
+}
+function eqFader(min,max,step,label){
+  const wrap=mark("eq-fader",""), input=document.createElement("input");
+  input.type="range"; input.min=min; input.max=max; input.step=step; input.setAttribute("aria-label",label);
+  input.setAttribute("aria-orientation","vertical"); wrap.append(input); return [wrap,input];
+}
+function drawModelSettings(box){
+  const head=mark("card ms-head",""); head.append(mark("","🎚️ כוונון המודל","h2"));
+  const pick=document.createElement("select"); pick.setAttribute("aria-label","המודל שמכווננים");
+  for(const m of (MODELS?.models||[])){ const o=document.createElement("option"); o.value=m.id; o.textContent=m.name+(m.active?" · פעיל":""); pick.append(o); }
+  pick.value=MS_MODEL; pick.onchange=async()=>{ if(msDirtyCount()&&!confirm("יש שינויים שלא נשמרו. לעבור מודל בלי לשמור?")){ pick.value=MS_MODEL; return; } MS=null; msMsg=""; drawManage(); await loadModelSettings(pick.value); drawManage(); };
+  head.append(pick); box.append(head);
+  if(msError){ box.append(mark("card setup",`ההגדרות לא זמינות: ${msError}`)); return; }
+  if(!MS){ box.append(mark("card","טוען הגדרות…")); return; }
+  const ro=!MS.can_edit;
+  const intro=mark("card","");
+  intro.append(mark("",MS.active?"המודל הזה בודק עכשיו: שמירה חלה מיד, והקולות הילידיים נמדדים מחדש.":"המודל לא פעיל כרגע: ההגדרות יחולו כשיופעל.","p"));
+  if(!MS.stored){ intro.append(mark("setup","כדי לשמור הגדרות, צרו ב־Supabase את הטבלה model_settings (SQL Editor):","p")); const code=mark("",MS.create_sql,"code"); code.dir="ltr"; intro.append(code); }
+  else if(ro) intro.append(mark("meta","רק מפתח/ת יכול/ה לשנות את ההגדרות; כאן הן מוצגות לקריאה.","p"));
+  if(MS.error) intro.append(mark("setup",`ההגדרות השמורות לא תקינות ולכן לא חלות: ${MS.error}`,"p"));
+  if(MS.updated_by) intro.append(mark("meta",`עודכן לאחרונה על ידי ${MS.updated_by}${MS.updated_at?" · "+new Date(MS.updated_at).toLocaleString("he-IL"):""}`,"p"));
+  box.append(intro);
+  const bar=mark("card ms-bar",""), count=mark("count",""), save=mark("btn primary","שמירה","button"), undo=mark("btn","ביטול השינויים","button"), reset=mark("btn danger","איפוס לברירת המחדל","button"), msg=mark("msg",msMsg);
+  const refreshBar=()=>{ const n=msDirtyCount(); count.textContent=n?`${n} ${n===1?"שינוי שלא נשמר":"שינויים שלא נשמרו"}`:"אין שינויים שלא נשמרו"; count.className="count"+(n?"":" clean"); save.disabled=undo.disabled=ro||!n; reset.disabled=ro||(!Object.keys(msOverrides()).length&&!n); };
+  const touched=()=>{ refreshBar(); msMsg=""; msg.textContent=""; };
+
+  /* 1. the sound equalizer: one band per sound, its threshold as a fader */
+  const card=mark("card ms-sounds",""); card.append(mark("","ספי סימון לכל הגה","h3"));
+  const legend=mark("ms-legend",""), l1=mark("",""), l2=mark("",""), l3=mark("",""), l4=mark("","");
+  l1.append(mark("bad","","i"),"מתחת לסף: מסומן כטעות ומקבל טיפ"); l2.append(mark("good","","i"),"מעל הסף: עובר");
+  l3.textContent="- - - הסף הכללי"; l4.textContent="● נורית דולקת: להגה יש סף משלו";
+  legend.append(l1,l2,l3,l4); card.append(legend);
+  const eq=mark("eq",""), info=mark("eq-info","מעבר עם העכבר או המקלדת על פס מציג כאן את הפרטים שלו."), painters=[], generalLines=[];
+  eq.append(eqScale());
+  for(const g of MS.sounds){
+    const group=mark("eq-group",""), bands=mark("eq-bands","");
+    for(const s of g.sounds){
+      const band=mark("eq-band",""), val=mark("eq-val",""), [fader,input]=eqFader(0,100,1,`סף הסימון של ${s.label}`), line=mark("eq-general","");
+      fader.append(line); generalLines.push(line);
+      const [he,ar]=s.label.split(" "), letter=mark("eq-letter",he); letter.append(mark("",ar||"","small"));
+      const led=mark("eq-led","משלו","button"), resetBtn=mark("eq-reset","↺","button"); resetBtn.title=`ברירת המחדל: ${s.default==null?"הסף הכללי":s.default}`;
+      const describe=()=>{ const v=msSoundValue(s); info.replaceChildren(mark("",s.label,"b"),` · ${s.count?`${s.count.toLocaleString("he-IL")} מופעים במשפטים`:"לא מופיע במשפטים"} · ${v==null?`משתמש בסף הכללי (${Math.round(msGeneral())})`:`סף משלו: ${Math.round(v)}`} · ברירת מחדל: ${s.default==null?"הסף הכללי":s.default}`); };
+      const paint=()=>{ const v=msSoundValue(s), eff=v==null?msGeneral():v;
+        input.value=eff; input.style.setProperty("--t",`${eff}%`); input.disabled=ro||v==null; led.disabled=ro;
+        led.setAttribute("aria-pressed",v!=null); led.title=v!=null?"לחיצה: חזרה לסף הכללי":"לחיצה: סף משלו להגה הזה";
+        val.textContent=v==null?"כללי":String(Math.round(v)); val.className="eq-val"+(v==null?" inherit":"");
+        band.classList.toggle("dirty",s.sound in MS_DRAFT.sounds); resetBtn.hidden=ro||v===s.default; };
+      const set=v=>{ if(v===s.value) delete MS_DRAFT.sounds[s.sound]; else MS_DRAFT.sounds[s.sound]=v; paint(); describe(); touched(); };
+      input.oninput=()=>set(+input.value);
+      led.onclick=()=>set(msSoundValue(s)==null?Math.round(msGeneral()):null);
+      resetBtn.onclick=()=>set(s.default);
+      band.onmouseenter=describe; band.addEventListener("focusin",describe);
+      band.title=`${s.label} · ${s.count?s.count.toLocaleString("he-IL")+" מופעים":"לא מופיע במשפטים"}`;
+      band.append(resetBtn,val,fader,letter,led); bands.append(band); painters.push(paint); paint();
+    }
+    group.append(bands,mark("eq-name",g.group)); eq.append(group);
+  }
+  const placeGeneral=()=>{ const gv=msGeneral(); for(const l of generalLines) l.style.bottom=`calc(${gv}% - 1px)`; };
+  placeGeneral();
+  card.append(eq,info); box.append(card);
+
+  /* 2. the other settings: a fader bank per group; choices as short menus in the same row */
+  const groups=[...new Set(MS.fields.map(f=>f.group))];
+  for(const gid of groups){
+    const fields=MS.fields.filter(f=>f.group===gid), gcard=mark("card ms-group","");
+    gcard.append(mark("",fields[0].group_label,"h3"));
+    const geq=mark("eq",""), bands=mark("eq-bands",""), ginfo=mark("eq-info","מעבר על פס מציג כאן מה הוא עושה.");
+    for(const f of fields){
+      const band=mark("eq-band wide",""), val=mark("eq-val",""), label=mark("eq-label",f.label), resetBtn=mark("eq-reset","↺","button");
+      resetBtn.title=`חזרה לברירת המחדל (${fmtSetting(f,f.default)})`;
+      const describe=()=>ginfo.replaceChildren(mark("",f.label,"b"),` · ${f.help} · ברירת מחדל: ${fmtSetting(f,f.default)}`);
+      let paint;
+      const set=v=>{ if(v===f.value) delete MS_DRAFT.fields[f.key]; else MS_DRAFT.fields[f.key]=v; paint(); describe(); touched();
+        if(f.key==="flag_below"){ placeGeneral(); painters.forEach(p=>p()); } };
+      if(f.kind==="choice"||f.kind==="window"){
+        const holder=mark("eq-choice",""), sel=document.createElement("select"); sel.disabled=ro; sel.setAttribute("aria-label",f.label);
+        const opts=f.kind==="choice"?f.choices.map(c=>[c,c]):[["wide","רחב"],...Array.from({length:f.max-f.min+1},(_,i)=>[String(f.min+i),`${f.min+i} פריימים`])];
+        for(const [v,t] of opts){ const o=document.createElement("option"); o.value=v; o.textContent=t; sel.append(o); }
+        sel.onchange=()=>set(f.kind==="choice"?sel.value:sel.value==="wide"?null:+sel.value);
+        paint=()=>{ const v=msFieldValue(f); sel.value=f.kind==="choice"?v:v==null?"wide":String(v); val.textContent=fmtSetting(f,v); band.classList.toggle("dirty",f.key in MS_DRAFT.fields); resetBtn.hidden=ro||v===f.default; };
+        holder.append(sel); band.append(resetBtn,holder,label);   // the menu shows the value itself
+      }else{
+        const [fader,input]=eqFader(f.min,f.max,f.step,f.label); fader.classList.add("plain"); input.disabled=ro;
+        const read=()=>{ const v=Number(input.value); return Math.min(f.max,Math.max(f.min,f.kind==="int"?Math.round(v):Math.round(v/f.step)*f.step)); };
+        input.oninput=()=>set(+read().toFixed(4));
+        paint=()=>{ const v=msFieldValue(f); input.value=v; input.style.setProperty("--t",`${100*(v-f.min)/(f.max-f.min)}%`); val.textContent=fmtSetting(f,v); band.classList.toggle("dirty",f.key in MS_DRAFT.fields); resetBtn.hidden=ro||v===f.default; };
+        band.append(resetBtn,val,fader,label);
+      }
+      resetBtn.onclick=()=>set(f.default);
+      band.onmouseenter=describe; band.addEventListener("focusin",describe); band.title=f.help;
+      bands.append(band); paint();
+    }
+    geq.append(bands); gcard.append(geq,ginfo); box.append(gcard);
+  }
+
+  /* 3. save bar */
+  save.onclick=()=>saveModelSettings(msOverrides(),msg);
+  undo.onclick=()=>{ MS_DRAFT={fields:{},sounds:{}}; msMsg=""; drawManage(); };
+  reset.onclick=()=>{ if(confirm("להחזיר את כל ההגדרות של המודל הזה לברירת המחדל?")) saveModelSettings({},msg); };
+  bar.append(count,save,undo,reset,msg); box.append(bar); refreshBar();
+}
+function drawModels(){
+  const box=$("mModels"); box.replaceChildren();
+  if(mMode!=="models") return;
+  if(modelsError){ const card=mark("card",""); card.append(mark("","מודלים","h2"),mark("setup",`רשימת המודלים לא זמינה: ${modelsError}`,"p")); box.append(card); return; }
+  if(!MODELS){ box.append(mark("card","טוען את רשימת המודלים…")); return; }
+  const {models,active,switch:sw,can_switch,default:start}=MODELS, current=models.find(m=>m.active)||{name:active,id:active};
+  const measured=models.filter(m=>m.metrics), best=measured.reduce((a,m)=>!a||m.metrics.per<a.metrics.per?m:a,null);
+  /* 1. what is scoring now */
+  const now=mark("card mdl-now",""), icon=mark("mdl-icon","🎙️"), text=mark("mdl-text","");
+  text.append(mark("meta","המודל שבודק עכשיו את ההקלטות","span"),mark("",current.name,"h2"),mark("",current.id,"code"));
+  const state=sw.state==="loading"?(()=>{ const p=mark("mdl-pill wait",""); p.append(mark("mdl-spin",""),`טוען את ${(models.find(m=>m.id===sw.target)||{name:sw.target}).name}…`); return p; })()
+    :sw.state==="error"?mark("mdl-pill bad","⚠ הטעינה האחרונה נכשלה"):mark("mdl-pill on","✓ פעיל");
+  now.append(icon,text,state); box.append(now);
+  if(sw.state==="error"){ const err=mark("card",""); err.append(mark("","הטעינה נכשלה; המודל הקודם ממשיך לבדוק.","b"),mark("",sw.error,"code")); box.append(err); }
+  /* 2. the comparison: phoneme accuracy, one bar per measured model, best first */
+  if(measured.length>1){
+    const cmp=mark("card mdl-cmp","");
+    cmp.append(mark("","השוואה: דיוק פונמות","h2"),mark("mdl-note","כמה מהפונמות שדוברים ילידים אמרו המודל שמע נכון, ב־255 משפטי Minerva שהמודלים לא ראו באימון. גבוה יותר טוב יותר.","p"));
+    for(const m of [...measured].sort((a,b)=>a.metrics.per-b.metrics.per)){
+      const acc=1-m.metrics.per, row=mark("mdl-row",""), name=mark("",m.name,"b");
+      if(m.active) name.append(mark("meta"," · פעיל","span"));
+      const track=mark("mdl-track",""), fill=mark("mdl-fill",""); fill.style.width=`${Math.round(acc*100)}%`; track.append(fill);
+      row.title=`${m.name}: ${Math.round(acc*100)}% נכון · שגיאת פונמות ${Math.round(m.metrics.per*100)}% · שגיאת עיצורים ${Math.round(m.metrics.consonant_per*100)}%`;
+      row.append(name,track,mark("mdl-val",`${Math.round(acc*100)}%`)); cmp.append(row);
+    }
+    box.append(cmp);
+  }
+  /* 3. one card per model */
+  const grid=mark("mdl-grid","");
+  for(const m of models){
+    const card=mark(`card mdl-card${m.active?" active":""}${m.available?"":" unavail"}`,""), head=mark("mdl-head","");
+    head.append(mark("",m.name,"h3"));
+    if(m.active) head.append(mark("mdl-pill on","✓ פעיל"));
+    else if(sw.state==="loading"&&sw.target===m.id){ const p=mark("mdl-pill wait",""); p.append(mark("mdl-spin",""),"נטען…"); head.append(p); }
+    if(best&&m.id===best.id) head.append(mark("mdl-pill best","★ הכי מדויק"));
+    if(!m.available) head.append(mark("mdl-pill off","לא זמין בשרת הזה"));
+    card.append(head,mark("",m.id,"code"),mark("mdl-sum",m.summary,"p"));
+    if(m.metrics){
+      const hero=mark("mdl-hero",""), ht=mark("mdl-hero-text","");
+      ht.append(mark("","דיוק פונמות","b"),mark("",`שגיאת פונמות ${Math.round(m.metrics.per*100)}%`,"span"),mark("",`שגיאת עיצורים ${Math.round(m.metrics.consonant_per*100)}%`,"span"));
+      hero.append(modelRing(1-m.metrics.per),ht); card.append(hero);
+      const bars=mark("mdl-bars",""); bars.append(mark("meta","כמה פעמים שמע נכון את ההגים הקשים","span"));
+      for(const [key,label] of MODEL_SOUNDS) bars.append(modelBar(label,m.metrics[key]));
+      card.append(bars);
+    }
+    const facts=mark("mdl-facts","");
+    if(m.family) facts.append(mark("",`🧠 ${m.family}`,"span"));
+    if(m.trained!=null) facts.append(mark("",m.trained?"🎯 מאומן על ערבית פלסטינית":"📦 כפי שפורסם","span"));
+    if(m.speed) facts.append(mark("",`⚡ ${[m.speed.gpu!=null?`${m.speed.gpu} ש׳ להקלטה ב־GPU`:"",m.speed.cpu!=null?`${m.speed.cpu} ש׳ במעבד (2 ליבות)`:""].filter(Boolean).join(" · ")}`,"span"));
+    if(m.free_space!=null) facts.append(mark("",m.free_space?"✓ רץ על השרת החינמי":"✗ איטי מדי לשרת החינמי","span"));
+    if(m.id===start) facts.append(mark("","⏻ נטען בהפעלת השרת","span"));
+    if(facts.childElementCount) card.append(facts);
+    const act=mark("mdl-act",""), msg=mark("why","");
+    if(m.active) act.append(mark("meta","המודל הזה בודק עכשיו","span"));
+    else if(!m.available) act.append(mark("why",m.why,"span"));
+    else if(!can_switch) act.append(mark("meta","רק מפתח/ת יכול/ה להחליף מודל","span"));
+    else{ const b=mark("btn primary","הפעלת המודל","button"); b.disabled=sw.state==="loading"; b.onclick=()=>{ if(confirm(`להחליף את המודל ל־${m.name}? כל ההקלטות מעכשיו ייבדקו בו.`)) switchModel(m.id,b,msg); }; act.append(b,msg); }
+    const tune=mark("btn","🎚️ כוונון","button"); tune.onclick=async()=>{ if(msDirtyCount()&&!confirm("יש שינויים שלא נשמרו. לעבור מודל בלי לשמור?")) return; MS=null; msMsg=""; MS_MODEL=m.id; drawManage(); await loadModelSettings(m.id); drawManage(); document.querySelector(".ms-head")?.scrollIntoView({behavior:"smooth",block:"start"}); };
+    act.append(tune);
+    card.append(act); grid.append(card);
+  }
+  box.append(grid);
+  drawModelSettings(box);
+  box.append(mark("mdl-note",`ההחלפה נשמרת עד הפעלה מחדש של השרת, ואז נטען שוב ${start}. כדי לקבע מודל: MODEL_ID בקובץ ‎.env או במשתני ה־Space. ספי הסימון המובנים כוילו רק למודל Facebook; מודל אחר מתחיל מהסף הכללי 50, ואפשר לכוונן אותו ב־🎚️ כוונון המודל. ההגדרות נשמרות לכל מודל בנפרד ונשארות גם אחרי הפעלה מחדש.`,"p"));
+}
 async function loadAccess(){
   accessError="";
   try{
@@ -5535,10 +5928,10 @@ function drawManage(){
   // progress; only the class's own lessons count); the totals beside their own fields (`tries` stays the per-sentence one)
   const students=CLASS.students.filter(s=>!klass||klass.name in s.classes).map(s=>{ const t=stuTally(s,listed);
     return {...s,nick:klass?s.classes[klass.name]:s.name?"":Object.values(s.classes).find(Boolean)||"",classNames:Object.keys(s.classes),done:t.done,n:t.n,avg:t.avg}; });
-  if(!["classes","students","content","flags","access"].includes(mMode)) mMode=classes.length?"students":"classes";
-  $("mModes").hidden=false; for(const mode of ["classes","content","flags","access"]) $("manage").classList.toggle(mode,mMode===mode);
+  if(!["classes","students","content","flags","access","models"].includes(mMode)) mMode=classes.length?"students":"classes";
+  $("mModes").hidden=false; for(const mode of ["classes","content","flags","access","models"]) $("manage").classList.toggle(mode,mMode===mode);
   for(const b of $("mModes").children) b.setAttribute("aria-selected",b.dataset.mode===mMode);
-  drawClasses(classes); drawContent(); drawFlags(); drawAccess(); drawTabs(classes); drawHead(klass,students);
+  drawClasses(classes); drawContent(); drawFlags(); drawAccess(); drawModels(); drawTabs(classes); drawHead(klass,students);
   if(klass||!classes.length) drawLessons(students,listed); else{ $("mLessons").innerHTML=""; $("mLessons").hidden=true; }
   drawRoster(klass,students,listed);
   const one=students.find(s=>s.email===shownStudent);   // a student who left the class has no screen in it
@@ -5550,6 +5943,7 @@ async function showMode(mode){
   mMode=mode; store.set("ihki.mmode",mode); drawManage();
   if(mode==="flags"&&!flagsLoaded){ await loadFlags(); drawManage(); }
   if(mode==="access"){ await loadAccess(); drawManage(); }
+  if(mode==="models"){ await loadModels(); if(!MS&&MODELS) await loadModelSettings(MODELS.active); drawManage(); }
 }
 for(const b of $("mModes").children) b.onclick=()=>showMode(b.dataset.mode);
 setInterval(()=>{
@@ -5735,7 +6129,8 @@ function drawFlags(){
     const group=document.createElement("details"), summary=document.createElement("summary");
     const key=`date-${day}`, label=dayLabel(day), people=new Set(flags.map(f=>f.email||"")).size;
     group.className="flag-group"; group.open=flagGroupOpen[key]===true; group.ontoggle=()=>{ flagGroupOpen[key]=group.open; };
-    summary.append(mark("",label,"b"),mark("meta",` · ${flags.length} ${flags.length===1?"דיווח":"דיווחים"} · ${people} ${people===1?"מדווח/ת":"מדווחים"}`)); group.append(summary); box.append(group);
+    const models=[...new Set(flags.map(f=>f.model||"לא ידוע"))].join(", ");
+    summary.append(mark("",label,"b"),mark("meta",` · ${flags.length} ${flags.length===1?"דיווח":"דיווחים"} · ${people} ${people===1?"מדווח/ת":"מדווחים"} · מודל: ${models}`)); group.append(summary); box.append(group);
     const table=mark("flag-patterns flag-pending","","table"), headRow=document.createElement("tr");
     for(const x of ["ציון","מה התלמיד/ה אמר/ה","מה המודל שמע","אבחון ל־pipeline","","",""]) headRow.append(mark("",x,"th"));
     table.append(headRow); group.append(table);
@@ -5774,6 +6169,7 @@ function drawFlags(){
       toggle.onclick=()=>{ detail.hidden=!detail.hidden; flagGroupOpen[openKey]=!detail.hidden; toggle.textContent=detail.hidden?"פרטים ▾":"פרטים ▴"; };
       toggleCell.append(toggle);
       const reporter=mark("meta",`${f.email||"ללא משתמש"}`,"p"), age=flagAge(f.created_at); if(age) reporter.append(" · ",age);
+      reporter.append(" · ",`מודל: ${f.model||"לא ידוע"}`);
       detailCell.append(reporter);
       if(f.note) detailCell.append(mark("",`הערת המדווח/ת: ${f.note}`,"p"));
       const field=document.createElement("fieldset"); field.append(mark("","אילו אבחנות של המערכת היו שגויות?","legend"));
@@ -7117,16 +7513,67 @@ async function showLab(){
   labMode(store.get("ihki.labMode","test"));
 }
 function labMode(mode){
-  if(!["test","record","flags","minerva","results"].includes(mode)) mode="test";
+  if(!["quick","test","record","flags","minerva","results"].includes(mode)) mode="quick";
   store.set("ihki.labMode",mode);
   for(const b of $("labModes").children) b.setAttribute("aria-selected",b.dataset.mode===mode?"true":"false");
-  for(const m of ["test","record","flags","minerva","results"]) $("lab").classList.toggle(m,m===mode);
+  for(const m of ["quick","test","record","flags","minerva","results"]) $("lab").classList.toggle(m,m===mode);
+  if(mode==="quick") drawQuickQuiz();
   if(mode==="test"){ drawWizard(); loadTtsVoices(); }
   if(mode==="flags"&&!labFlags) loadLabFlags();
   if(mode==="minerva") loadMinerva();
   if(mode==="results") loadLabResults();
 }
 for(const b of $("labModes").children) b.onclick=()=>labMode(b.dataset.mode);
+
+/* Ten single-take prompts for a quick Hebrew-speaker comparison.  Nothing is persisted: each blob goes directly to
+   the existing developer-only model comparison endpoint and the compact summary stays in this page. */
+let quickAt=0, quickRec=null, quickRows={};
+function drawQuickQuiz(){
+  const items=LAB?.quick_quiz||[], it=items[quickAt]; if(!it) return;
+  $("quickProgress").textContent=`שאלה ${quickAt+1} מתוך ${items.length}`;
+  $("quickAr").textContent=it.ar; setTr($("quickTr"),it.tr); $("quickHe").textContent=it.he;
+  $("quickPrev").disabled=quickAt===0; $("quickNext").disabled=quickAt===items.length-1;
+  $("quickOut").replaceChildren(); $("quickState").textContent=quickRows[it.id]?"השאלה הושלמה — אפשר להקליט שוב":"מוכנים להקלטה";
+  drawQuickSummary();
+}
+function drawQuickSummary(){
+  const table=$("quickSummary"); table.replaceChildren();
+  const head=document.createElement("tr"); for(const h of ["#","מילה","Facebook","wav2vec2 מאומן","POWSM ONNX"]) head.append(mark("",h,"th")); table.append(head);
+  for(const it of (LAB?.quick_quiz||[])){
+    const tr=document.createElement("tr"), rows=quickRows[it.id]||[], cells=[
+      rows.find(r=>r.model==="facebook/wav2vec2-xlsr-53-espeak-cv-ft"),
+      rows.find(r=>r.model==="checkpoints/ihki-ft-minerva"), rows.find(r=>r.model?.includes("powsm-ft-shortpad"))];
+    tr.onclick=()=>{quickAt=it.number-1;drawQuickQuiz()};
+    for(const value of [it.number,it.ar,...cells.map(row=>row?.error?"שגיאה":row?.score==null?"—":Math.round(row.score))]) tr.append(mark("",value,"td"));
+    table.append(tr);
+  }
+}
+$("quickPrev").onclick=()=>{ if(quickAt>0){quickAt--;drawQuickQuiz()} };
+$("quickNext").onclick=()=>{ if(quickAt<(LAB?.quick_quiz?.length||1)-1){quickAt++;drawQuickQuiz()} };
+$("quickReset").onclick=()=>{ quickRows={}; quickAt=0; drawQuickQuiz(); };
+$("quickMic").onclick=async()=>{
+  if(quickRec){ quickRec.stop(); return; }
+  if(!navigator.mediaDevices||!window.MediaRecorder){ $("quickState").textContent="הדפדפן הזה אינו תומך בהקלטה."; return; }
+  const item=LAB.quick_quiz[quickAt], button=$("quickMic");
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true}), chunks=[], type=pickType();
+    const rec=quickRec=new MediaRecorder(stream,type?{mimeType:type}:{});
+    rec.ondataavailable=e=>{if(e.data.size) chunks.push(e.data)};
+    rec.onstop=async()=>{
+      stream.getTracks().forEach(t=>t.stop()); quickRec=null; button.classList.remove("live"); button.disabled=true;
+      $("quickState").textContent="בודק בשלושת המודלים… הטעינה הראשונה עשויה לקחת עד חצי דקה";
+      try{
+        const blob=new Blob(chunks,{type:rec.mimeType||type||"audio/webm"}), fd=new FormData(); fd.append("item",item.id); fd.append("audio",blob,"rec");
+        const res=await api("/api/admin/compare-models",{method:"POST",body:fd}), data=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(data.detail||res.status);
+        quickRows[item.id]=data.models; drawComparison(data.models,"quickOut"); drawQuickSummary();
+        $("quickState").textContent="הושלם";
+      }catch(err){ $("quickState").textContent="הבדיקה נכשלה: "+err.message; }
+      finally{button.disabled=false}
+    };
+    await listenCue(); rec.start(); button.classList.add("live"); $("quickState").textContent="מקליט… לחצו שוב לסיום";
+  }catch(err){ quickRec=null; $("quickState").textContent="לא ניתן לפתוח את המיקרופון: "+err.message; }
+};
 const labCount=id=>{ const c=LAB.counts[id]||{}; return (c.correct||0)+(c.mistake||0); };
 function drawLabList(){
   const box=$("labList"); box.replaceChildren();

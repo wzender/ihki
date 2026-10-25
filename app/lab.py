@@ -100,6 +100,25 @@ ITEMS = [
     _item("vow-miin", "vowels", "iː", "מי", ("مين", "m iː n"), pair="i / iː"),
 ]
 BY_ID = {item["id"]: item for item in ITEMS}
+
+# A deliberately small, single-take screen for comparing acoustic models with Hebrew speakers.  Unlike the full
+# diagnostic list above, this is not saved as labelled benchmark data: the same take is scored by every comparison
+# model and shown side by side.  It mixes the two pharyngeals, Hebrew ח' /x/, emphatics and short/long vowels.  زمن
+# is intentional: Hebrew speakers commonly insert an alif-like long /a:/ and say zama:n although both vowels are
+# short.  كتاب is the positive control, where the alif really should be long.
+QUICK_QUIZ = [
+    _item("quick-halib", "quick", "ħ", "חַלִיב — ח גרונית", ("حليب", "ħ a l iː b")),
+    _item("quick-baid", "quick", "ʕ", "בַּעִיד — ע גרונית", ("بعيد", "b a ʕ iː d")),
+    _item("quick-khali", "quick", "x", "חַ'אלִי — ח׳", ("خالي", "x aː l i")),
+    _item("quick-zaman", "quick", "a", "זַמַן — שתי תנועות קצרות (לא זַמַאן)", ("زمن", "z a m a n")),
+    _item("quick-kitab", "quick", "aː", "כִּתַאבּ — אליף ארוכה", ("كتاب", "k i t aː b")),
+    _item("quick-sabah", "quick", "ħ", "סַבַּאח — ח בסוף ואליף ארוכה", ("صباح", "sˤ a b aː ħ")),
+    _item("quick-sual", "quick", "ʔ", "סֻאַאל — המזה ואליף ארוכה", ("سؤال", "s u ʔ aː l")),
+    _item("quick-tawle", "quick", "tˤ", "טַאוְלֶה — ט נחצית", ("طاولة", "tˤ aː w l e")),
+    _item("quick-zghir", "quick", "ɣ", "זְעִ'יר — ע׳", ("صغير", "sˤ ɣ iː r")),
+    _item("quick-bint", "quick", "i", "בִּנְת — תנועה קצרה", ("بنت", "b i n t")),
+]
+QUICK_BY_ID = {item["id"]: item for item in QUICK_QUIZ}
 MINERVA_METADATA = Path(__file__).resolve().parent.parent / "data" / "minerva_metadata.json"
 
 
@@ -181,6 +200,13 @@ def public_items() -> list[dict]:
                     "pair": item["pair"], "ar": ar, "tr": " ".join(to_hebrew(ipa, ar)),
                     "sounds": [s for s in ipa.split() if s != "|"]})
     return out
+
+
+def public_quick_quiz() -> list[dict]:
+    """The ten model-comparison prompts, without exposing any extra scorer internals."""
+    return [{"id": item["id"], "number": number, "focus": item["focus"], "he": item["he"],
+             "ar": item["variants"][0][0], "tr": " ".join(to_hebrew(item["variants"][0][1], item["variants"][0][0]))}
+            for number, item in enumerate(QUICK_QUIZ, 1)]
 
 
 # ---------- the benchmark ----------

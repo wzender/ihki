@@ -13,3 +13,4 @@ pywebpush>=2.0  # the daily video's morning reminder (app/push.py)
 edge-tts>=7.0
 gTTS>=2.5
 tzdata>=2024.1  # time zones for zoneinfo: the slim image may not carry the system ones
+onnxruntime>=1.20  # the exported POWSM phoneme model (app/powsm.py PowsmOnnxEmitter, MODEL_ID=powsm-onnx:<repo>)

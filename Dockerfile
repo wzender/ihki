@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # CPU image; runs on Hugging Face Spaces (Docker SDK), Render, Fly, or any VM.
 FROM python:3.11-slim
 
@@ -15,8 +16,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 ARG MODEL_ID=facebook/wav2vec2-xlsr-53-espeak-cv-ft
 ENV MODEL_ID=${MODEL_ID}
 USER user
-# bake the model into the image so cold starts don't download 1.2 GB
-RUN python -c "import os; from transformers import AutoFeatureExtractor, Wav2Vec2ForCTC; from huggingface_hub import hf_hub_download; m=os.environ['MODEL_ID']; AutoFeatureExtractor.from_pretrained(m); Wav2Vec2ForCTC.from_pretrained(m); hf_hub_download(m,'vocab.json')"
+# bake the model into the image so cold starts don't download it (1.2-1.6 GB). MODEL_ID is a Space variable:
+# a wav2vec2 repo, or powsm-onnx:<repo> for the exported POWSM (app/powsm.py). A private repo needs a Space secret
+# HF_TOKEN; it is mounted for this step only and never stored in the image.
+COPY --chown=user app/__init__.py app/powsm.py app/prefetch.py ./app/
+RUN --mount=type=secret,id=HF_TOKEN,mode=0444,required=false \
+    if [ -s /run/secrets/HF_TOKEN ]; then export HF_TOKEN="$(cat /run/secrets/HF_TOKEN)"; fi; python -m app.prefetch
 
 COPY --chown=user app ./app
 COPY --chown=user static ./static

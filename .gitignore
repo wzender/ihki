@@ -15,3 +15,7 @@ data/minerva/
 checkpoints/
 .env.*
 !.env.example
+# extra packages for scripts/zero_shot_phone_models.py (scripts/setup_zero_shot_deps.sh)
+.zero-shot-deps/
+# exported models (scripts/export_powsm_onnx.py): uploaded to the Hub, never committed
+exports/

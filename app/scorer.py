@@ -1126,8 +1126,17 @@ def scorer_config(model_id: str) -> ScorerConfig:
 
 
 def load_scorer(model_id: str) -> Scorer:
-    emitter = HFEmitter(model_id)
-    vocab = Vocab(emitter.token_to_id)
+    from .powsm import PowsmEmitter, PowsmOnnxEmitter, onnx_model_dir, parse_model_id
+    powsm, exported = parse_model_id(model_id), onnx_model_dir(model_id)
+    if exported:  # an exported POWSM-CTC (scripts/export_powsm_onnx.py): onnxruntime only, what the Space runs
+        emitter = PowsmOnnxEmitter(str(exported))
+        vocab = Vocab(emitter.token_to_id, blank_token=emitter.blank_token)
+    elif powsm:  # POWSM-CTC through ESPnet (app/powsm.py): a local trial, needs .zero-shot-deps
+        emitter = PowsmEmitter(*powsm)
+        vocab = Vocab(emitter.token_to_id, blank_token=emitter.blank_token)
+    else:
+        emitter = HFEmitter(model_id)
+        vocab = Vocab(emitter.token_to_id)
     scorer = Scorer(emitter, vocab, scorer_config(model_id))
     # resolve every phoneme once at startup so missing symbols show up in the logs and /api/health
     from .phrases import PHRASES

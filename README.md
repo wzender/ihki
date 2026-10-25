@@ -749,6 +749,29 @@ MODEL_ID=checkpoints/ihki-ft uvicorn app.main:app --host 0.0.0.0 --port 7860
 
 The script reports phoneme error rate (PER) before and after training. A GPU is advisable. A free Colab T4 handles a few hundred clips in minutes.
 
+### POWSM on the Space
+
+The most accurate model so far is POWSM-CTC fine-tuned on the Minerva lines with short padding (`train/finetune_powsm.py --pad random`). On the test lines it reaches 16.5% PER, against 38% for the base model, at 0.57 s a recording on 2 CPU threads. See [docs/zero-shot-phone-models.md](docs/zero-shot-phone-models.md). The Space runs it as an ONNX export, with `onnxruntime` and torch only. ESPnet, which training needs, stays on the training machine.
+
+1. **Export it.** Do this once per fine-tune, on the training machine, after running `scripts/setup_zero_shot_deps.sh`:
+   ```bash
+   python scripts/export_powsm_onnx.py checkpoints/powsm-ft-shortpad/powsm_ft.pt exports/powsm-ft-shortpad \
+       --check data/minerva/dev.csv   # each frame's best phone should match ESPnet's 100%
+   ```
+2. **Upload the folder to a Hub model repo.** Use `--private` if the model should not be public: it was trained on the copyrighted Minerva clips.
+   ```bash
+   hf repo create wzender/ihki-powsm-ft --repo-type model --private
+   hf upload wzender/ihki-powsm-ft exports/powsm-ft-shortpad .
+   ```
+3. **Point the Space at it.** In the Space settings, set the variable `MODEL_ID=powsm-onnx:wzender/ihki-powsm-ft`, and `POWSM_ONNX_THREADS=2` to match the free hardware. For a private repo, also add a secret `HF_TOKEN` with read access. The Docker build passes that secret only to the step that downloads the model, which is then baked into the image. Saving the settings rebuilds the Space. `/api/health` and the panel's פרטי המערכת show the model.
+
+Settings:
+- `POWSM_ONNX_PRECISION=int8` loads the int8 copy: 0.38 s a recording, but ط and ص drop by 5–6 points.
+- `POWSM_PAD_SECONDS` overrides the padding (default: what the export was trained for, none here).
+- `POWSM_ONNX_REPO` names the repo the panel's "מודלים" tab offers.
+
+To roll back, delete `MODEL_ID`. The Space rebuilds onto the base model.
+
 ## Calibration knobs
 
 - `ScorerConfig.flag_below` (50): the phoneme score under which a consonant gets a tip.

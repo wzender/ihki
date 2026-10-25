@@ -1,7 +1,8 @@
 """HTTP service: serves the practice page and scores recordings.
 
 Run:  uvicorn app.main:app --host 0.0.0.0 --port 7860
-Env:  MODEL_ID  (default facebook/wav2vec2-xlsr-53-espeak-cv-ft, or a path to a fine-tuned checkpoint)
+Env:  MODEL_ID  (default facebook/wav2vec2-xlsr-53-espeak-cv-ft, or a path to a fine-tuned checkpoint;
+                 a POWSM fine-tune's .pt file or powsm:<ara> loads POWSM-CTC, see app/powsm.py)
       SAWTAK_API_KEY  (model-answer playback with the Raef voice, see app/tts.py)
       SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY  (Google sign-in, see app/auth.py)
       TEACHER_EMAILS, SUPABASE_SECRET_KEY  (the teacher's management panel, its classes and the lesson videos, see app/auth.py)
@@ -52,9 +53,13 @@ from .math_skills import algebra9
 from . import push as pushes
 from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
+from .model_settings import CREATE_MODEL_SETTINGS, build as build_model_config, clean as clean_model_settings, describe as describe_model_settings
+from .models import (POWSM_ONNX_REPO, availability as model_availability, catalog as model_catalog,
+                     known as model_known)
 from .reference import References
 from .rules import TOGGLES, check_detectable
-from .scorer import SAMPLE_RATE, Scorer, decode_audio, decode_audio_with_timing, frame_energy, load_scorer
+from .archi import archify
+from .scorer import SAMPLE_RATE, Scorer, decode_audio, decode_audio_with_timing, frame_energy, load_scorer, tokenize
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
 from .tts import BASELINE_VOICES, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts, voice_name
@@ -90,6 +95,7 @@ def subject_code(label: object) -> str:
     label = " ".join(str(label or "").split())
     return next((code for code, name in SUBJECT_LABELS.items() if name == label), "")
 MODEL_ID = os.environ.get("MODEL_ID", "facebook/wav2vec2-xlsr-53-espeak-cv-ft")
+ENV_MODEL_ID = MODEL_ID  # the one the server starts with; the panel's "מודלים" tab can switch until a restart
 LOCAL_TZ = ZoneInfo("Asia/Jerusalem")  # a day of practice is the students' calendar day
 WARM_WORKERS = 3  # Sawtak requests the cache-warm sweep runs at once (tts.MAX_CONCURRENT and its pace apply)
 MAX_UPLOAD = 2_000_000  # bytes; 15 s of opus is ~100 KB
@@ -539,6 +545,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 app.state.scorer.set_calibrations([r for r in rows if not r.get("model") or r.get("model") == MODEL_ID])
             except AuthUnavailable as e:
                 log.warning("calibrations not loaded: %s", e)
+        apply_model_settings(app.state.scorer, MODEL_ID)
         if app.state.auth and hasattr(app.state.auth, "scoring_rules"):
             try:
                 reload_scoring_rules(app.state.auth)
@@ -1418,7 +1425,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             label = r["label"] if r["label"] in ("correct", "mistake") else "correct"
             for tally in (counts, mine) if who and (r.get("speaker") or "") == who else (counts,):
                 tally.setdefault(r["item"], {"correct": 0, "mistake": 0})[label] += 1
-        return {"items": lab.public_items(), "groups": lab.GROUPS, "counts": counts, "mine": mine, "setup": setup}
+        return {"items": lab.public_items(), "quick_quiz": lab.public_quick_quiz(), "groups": lab.GROUPS,
+                "counts": counts, "mine": mine, "setup": setup}
 
     @app.post("/api/lab/score")
     def lab_score(request: Request, item: str = Form(...), audio: UploadFile = File(...),
@@ -3204,6 +3212,278 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if app.state.auth:
             app.state.auth.log_event("permission", user, f"מפתח API: {name}", {"key": name, "action": "clear"})
         return keys_status(response)
+
+    # ---- the phoneme model: which one scores, switched from the panel's "מודלים" tab ----
+    app.state.model_switch = {"state": "idle", "target": "", "error": "", "started_at": 0.0, "by": ""}
+    model_lock = threading.Lock()
+
+    def models_only(user: dict | None = Depends(signed_in)) -> SupabaseAuth:
+        """Only developers ("*") switch the model: every learner's score changes with it. Like keys_only, an open
+        deployment (no sign-in) is refused too."""
+        permissions = set((user or {}).get("permissions", ()))
+        if app.state.auth is None or ("*" not in permissions and "models.manage" not in permissions):
+            raise HTTPException(403, "missing permission: models.manage")
+        return app.state.auth
+
+    def models_status(user: dict | None) -> dict:
+        permissions = set((user or {}).get("permissions", ()))
+        return {"active": MODEL_ID, "default": ENV_MODEL_ID, "switch": dict(app.state.model_switch),
+                "can_switch": app.state.auth is not None and bool(permissions & {"*", "models.manage"}),
+                "models": model_catalog(MODEL_ID)}
+
+    def prepare_scorer(model_id: str) -> Scorer:
+        """A scorer for `model_id` set up as the running one would be: its stored settings, the calibrations made for
+        it and the rules switched off in ניטור."""
+        scorer = load_scorer(model_id)
+        apply_model_settings(scorer, model_id)
+        if app.state.auth and hasattr(app.state.auth, "calibrations"):
+            try:
+                rows = app.state.auth.calibrations("applied")
+                scorer.set_calibrations([r for r in rows if not r.get("model") or r.get("model") == model_id])
+            except AuthUnavailable as e:
+                log.warning("calibrations not loaded for %s: %s", model_id, e)
+        if app.state.auth and hasattr(app.state.auth, "scoring_rules"):
+            try:
+                scorer.set_disabled(r["id"] for r in app.state.auth.scoring_rules() if not r.get("active", True))
+            except AuthUnavailable as e:
+                log.warning("scoring rules not loaded for %s: %s", model_id, e)
+        return scorer
+
+    def use_model(model_id: str, user: dict | None) -> None:
+        """Loads `model_id` beside the running one, then swaps it in: requests in flight finish on the old one.
+        The swap carries over what belongs to the scoring, not to the model: the switched-off rules, the native
+        baseline (rebuilt from the cached voices, scored by the new model) and the calibrations made for it."""
+        global MODEL_ID
+        try:
+            scorer = prepare_scorer(model_id)
+            app.state.compare.pop(model_id, None)   # the comparison's own copy, if it had one, is this one now
+            old = app.state.scorer
+            app.state.scorer, MODEL_ID = scorer, model_id
+            if app.state.tts:
+                app.state.refs = References(scorer, app.state.tts, list(BASELINE_VOICES.values()))
+            del old
+            try:   # hand the old model's memory back (the GPU has room for one model at a time)
+                import gc
+                import torch
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except ImportError:
+                pass
+            app.state.model_switch.update(state="idle", error="")
+            log.info("phoneme model switched to %s by %s", model_id, (user or {}).get("email", "?"))
+            if app.state.auth:
+                app.state.auth.log_event("permission", user, f"מודל: {model_id}", {"model": model_id, "action": "switch"})
+        except Exception as e:  # the running model stays; the panel shows why
+            log.exception("loading the model %s failed", model_id)
+            app.state.model_switch.update(state="error", error=f"{type(e).__name__}: {e}"[:400])
+
+    @app.get("/api/admin/models")
+    def models(response: Response, _a: SupabaseAuth = Depends(admin_only), user: dict | None = Depends(signed_in)):
+        """The models this server can score with, what each was measured to do, and which one is scoring now."""
+        response.headers["Cache-Control"] = "no-store"
+        return models_status(user)
+
+    @app.put("/api/admin/models/active")
+    def switch_model(response: Response, body: dict = Body(...), _a: SupabaseAuth = Depends(models_only),
+                     user: dict | None = Depends(signed_in)):
+        """Starts loading another model in the background; GET /api/admin/models shows when it took over.
+        The choice lasts until the server restarts (MODEL_ID decides the one it starts with)."""
+        response.headers["Cache-Control"] = "no-store"
+        model_id = body.get("model_id")
+        if not isinstance(model_id, str) or not (model_known(model_id) or model_id == ENV_MODEL_ID):
+            raise HTTPException(400, "unknown model")
+        ok, why = model_availability(model_id)
+        if not ok:
+            raise HTTPException(409, why)
+        with model_lock:
+            if app.state.model_switch["state"] == "loading":
+                raise HTTPException(409, "מודל אחר נטען כרגע")
+            if model_id == MODEL_ID:
+                return models_status(user)
+            app.state.model_switch = {"state": "loading", "target": model_id, "error": "", "started_at": time.time(),
+                                      "by": (user or {}).get("email", "")}
+        threading.Thread(target=use_model, args=(model_id, user), daemon=True, name="model-switch").start()
+        return models_status(user)
+
+    # ---- debugging: one recording scored by several models side by side (the practice page's 🔬 button) ----
+    app.state.compare = {}   # model id -> (scorer, References or None), loaded on first use and kept
+    compare_lock = threading.Lock()
+
+    def compare_ids() -> list[str]:
+        """COMPARE_MODELS (comma-separated), else the base model, the wav2vec2 fine-tune and POWSM (the local
+        export, or the Hub one). The model scoring now always comes first; models this server can't load are left out."""
+        raw = os.environ.get("COMPARE_MODELS", "").strip()
+        if raw:
+            ids = [m.strip() for m in raw.split(",") if m.strip()]
+        else:
+            local = "exports/powsm-ft-shortpad"
+            ids = ["facebook/wav2vec2-xlsr-53-espeak-cv-ft", "checkpoints/ihki-ft-minerva",
+                   local if Path(local, "powsm_onnx.json").is_file() else f"powsm-onnx:{POWSM_ONNX_REPO}"]
+        ids = [MODEL_ID] + [m for m in ids if m != MODEL_ID]
+        return [m for m in ids if m == MODEL_ID or model_availability(m)[0]]
+
+    def quick_compare_ids() -> list[str]:
+        """The stable three columns promised by the lab's quick Hebrew-speaker benchmark."""
+        local = "exports/powsm-ft-shortpad"
+        ids = ["facebook/wav2vec2-xlsr-53-espeak-cv-ft", "checkpoints/ihki-ft-minerva",
+               local if Path(local, "powsm_onnx.json").is_file() else f"powsm-onnx:{POWSM_ONNX_REPO}"]
+        return [model_id for model_id in ids if model_id == MODEL_ID or model_availability(model_id)[0]]
+
+    def compare_scorer(model_id: str):
+        """(scorer, native baselines) for a model: the running ones for the active model, else loaded once."""
+        if model_id == MODEL_ID:
+            return app.state.scorer, app.state.refs
+        with compare_lock:
+            if model_id not in app.state.compare:
+                scorer = prepare_scorer(model_id)
+                refs = References(scorer, app.state.tts, list(BASELINE_VOICES.values())) if app.state.tts else None
+                app.state.compare[model_id] = (scorer, refs)
+            return app.state.compare[model_id]
+
+    def compare_view(result: dict) -> dict:
+        """What the comparison panel draws from a result: the verdict, what was heard, each word's sounds."""
+        words = [{"tr": w.get("tr", ""), "heard_tr": w.get("heard_tr", ""), "score": w.get("score"),
+                  "phonemes": [{"ipa": p.get("ipa", ""), "score": round(p.get("score", 0)), "flagged": bool(p.get("flagged")),
+                                "heard": p.get("heard") or ""} for p in w.get("phonemes", [])]}
+                 for w in result.get("words", [])]
+        return {"score": result.get("score"), "unrelated": bool(result.get("unrelated")),
+                "heard_tr": result.get("heard_tr", ""), "heard_ipa": result.get("heard_ipa", ""), "words": words,
+                "tips": [t.get("title", "") for t in result.get("tips", [])], "references": refs if isinstance(refs := result.get("references"), int) else len(refs or [])}
+
+    @app.post("/api/admin/compare-models")
+    def compare_models(phrase_id: int | None = Form(None), item: str = Form(""), audio: UploadFile = File(...),
+                       _a: SupabaseAuth = Depends(models_only), user: dict | None = Depends(signed_in)):
+        """One recording scored by each comparison model, as /api/score would score it with that model. Nothing is
+        saved. The first call loads the models that aren't running (several seconds each)."""
+        if item:
+            found = lab.QUICK_BY_ID.get(item)
+            if found is None:
+                raise HTTPException(404, "no such quick benchmark item")
+            phrase, reference_key = lab.phrase(found), f"quick:{item}"
+        elif phrase_id is not None:
+            phrase, reference_key = phrase_of(phrase_id), phrase_id
+        else:
+            raise HTTPException(400, "phrase_id or item is required")
+        data = audio.file.read(MAX_UPLOAD + 1)
+        if len(data) > MAX_UPLOAD:
+            raise HTTPException(413, "recording too long")
+        try:
+            wav = decode_audio(data)
+        except ValueError:
+            raise HTTPException(400, "could not decode audio")
+        names = {m["id"]: m["name"] for m in model_catalog(MODEL_ID)}
+        out = []
+        for model_id in (quick_compare_ids() if item else compare_ids()):
+            row = {"model": model_id, "name": names.get(model_id, model_id), "active": model_id == MODEL_ID}
+            try:
+                t0 = time.perf_counter()
+                scorer, refs = compare_scorer(model_id)
+                row["load_ms"] = round(1000 * (time.perf_counter() - t0))
+                t0 = time.perf_counter()
+                baselines = refs.get(reference_key, phrase) if refs else []
+                result = scorer.score(wav, phrase, baselines, diagnostics=False)
+                row["ms"] = round(1000 * (time.perf_counter() - t0))
+                row.update(compare_view(result))
+            except Exception as e:  # one model failing must not hide the others
+                log.exception("comparison with %s failed", model_id)
+                row["error"] = f"{type(e).__name__}: {e}"[:300]
+            out.append(row)
+        return {"phrase": phrase.get("key", phrase.get("he", "")), "models": out}
+
+    # ---- the scorer's settings per model (thresholds, floors, GOP), tuned in the "מודלים" tab ----
+    def model_settings_row(model_id: str) -> tuple[bool, dict | None]:
+        """(is the table there, the model's stored row or None). Raises AuthUnavailable on other failures."""
+        a = app.state.auth
+        if not a or not hasattr(a, "model_settings"):
+            return False, None
+        try:
+            rows = a.model_settings()
+        except AuthUnavailable as e:
+            if "answered 404" in str(e):
+                return False, None
+            raise
+        return True, next((r for r in rows if r.get("model") == model_id), None)
+
+    def apply_model_settings(scorer: Scorer, model_id: str) -> None:
+        """Puts a model's stored settings on its scorer. No row leaves the scorer as it was built."""
+        try:
+            _, row = model_settings_row(model_id)
+            if row:
+                scorer.cfg = build_model_config(model_id, row.get("settings") or {})
+        except (AuthUnavailable, ValueError, TypeError) as e:
+            log.warning("model settings for %s not applied: %s", model_id, e)
+
+    def sound_counts() -> dict[str, int]:
+        """How often each sound occurs in the phrase bank: the tab shows which thresholds matter most."""
+        if getattr(app.state, "sound_counts", None) is None:
+            counts: dict[str, int] = {}
+            vocab = app.state.scorer.vocab
+            for p in PHRASES:
+                for ar, ipa in p["variants"]:
+                    try:
+                        for t in tokenize(archify(ar, ipa), vocab):
+                            counts[t.sound] = counts.get(t.sound, 0) + 1
+                    except KeyError:
+                        pass
+            app.state.sound_counts = counts
+        return app.state.sound_counts
+
+    def model_settings_payload(model_id: str, user: dict | None) -> dict:
+        try:
+            stored, row = model_settings_row(model_id)
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        permissions = set((user or {}).get("permissions", ()))
+        row = row or {}
+        try:
+            described = describe_model_settings(model_id, row.get("settings") or {}, sound_counts())
+        except ValueError as e:   # a row written by hand that no longer validates: show the defaults and why
+            described = {**describe_model_settings(model_id, {}, sound_counts()), "error": str(e)}
+        return {"model": model_id, "active": model_id == MODEL_ID, "stored": stored,
+                "create_sql": None if stored else CREATE_MODEL_SETTINGS,
+                "can_edit": stored and app.state.auth is not None and bool(permissions & {"*", "models.manage"}),
+                "updated_by": row.get("updated_by", ""), "updated_at": row.get("updated_at"), **described}
+
+    def settings_model(model_id) -> str:
+        if not isinstance(model_id, str) or not (model_known(model_id) or model_id in (MODEL_ID, ENV_MODEL_ID)):
+            raise HTTPException(400, "unknown model")
+        return model_id
+
+    @app.get("/api/admin/model-settings")
+    def model_settings(response: Response, model: str = Query(""), _a: SupabaseAuth = Depends(admin_only),
+                       user: dict | None = Depends(signed_in)):
+        """One model's scorer settings: each with its default, its value now and whether it was changed."""
+        response.headers["Cache-Control"] = "no-store"
+        return model_settings_payload(settings_model(model or MODEL_ID), user)
+
+    @app.put("/api/admin/model-settings")
+    def save_model_settings(response: Response, body: dict = Body(...), _a: SupabaseAuth = Depends(models_only),
+                            user: dict | None = Depends(signed_in)):
+        """Replaces a model's settings (an empty object: back to the defaults). For the model scoring now they take
+        effect at once, and the native baselines are scored again under them."""
+        response.headers["Cache-Control"] = "no-store"
+        model_id = settings_model(body.get("model"))
+        try:
+            settings = clean_model_settings(body.get("settings", {}))
+            cfg = build_model_config(model_id, settings)
+        except (ValueError, TypeError) as e:
+            raise HTTPException(400, str(e))
+        stored, _ = model_settings_row(model_id)
+        if not stored:
+            raise HTTPException(503, f"הטבלה model_settings לא קיימת. הריצו ב-SQL Editor: {CREATE_MODEL_SETTINGS}")
+        try:
+            app.state.auth.set_model_settings(model_id, settings, (user or {}).get("email", "").lower())
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        if model_id == MODEL_ID:
+            app.state.scorer.cfg = cfg
+            if app.state.refs is not None:
+                app.state.refs.invalidate()
+        log.info("model settings for %s replaced by %s: %s", model_id, (user or {}).get("email", "?"), settings)
+        app.state.auth.log_event("permission", user, f"הגדרות מודל: {model_id}",
+                                 {"model": model_id, "action": "settings", "settings": settings})
+        return model_settings_payload(model_id, user)
 
     @app.get("/api/prompt-audio/{phrase_id}", dependencies=[Depends(require("practice.use"))])
     def prompt_audio(phrase_id: int, engine: str = "gtts"):

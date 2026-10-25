@@ -1,0 +1,77 @@
+# Extra packages for scripts/zero_shot_phone_models.py (ZIPA and POWSM-CTC), on top of requirements.txt.
+# Installed with --no-deps into .zero-shot-deps/ by scripts/setup_zero_shot_deps.sh, never into the app venv:
+# ESPnet's own pins (old librosa, typeguard, ...) conflict with the app's torch/numpy, so this is the exact set
+# that was checked to work with torch 2.14 / numpy 2.2 / Python 3.10.
+
+# ZIPA (ONNX). The CPU build: onnxruntime-gpu 1.23 needs CUDA 12 and the app runs CUDA 13.
+onnxruntime==1.23.2
+lhotse==1.33.0
+coloredlogs==15.0.1
+humanfriendly==10.0
+flatbuffers==25.12.19
+protobuf==7.36.2
+audioread==3.1.0
+cytoolz==1.2.0
+toolz==1.2.0
+intervaltree==3.2.1
+sortedcontainers==2.4.0
+soundfile==0.14.0
+
+# exporting POWSM to ONNX (scripts/export_powsm_onnx.py)
+onnx==1.17.0
+
+# POWSM-CTC (ESPnet). 202511 is the newest release for Python 3.10; the script patches its two POWSM-CTC bugs.
+espnet==202511
+espnet-model-zoo==0.1.7
+espnet-tts-frontend==0.0.4
+espnet-g2p-en==2.1.0.post1
+antlr4-python3-runtime==4.9.3
+ci_sdr==0.0.2
+cloudpickle==3.1.2
+ConfigArgParse==1.8.0
+ctc_segmentation==1.7.5
+Cython==3.3.0
+decorator==5.3.1
+defusedxml==0.7.1
+Distance==0.1.3
+editdistance==0.8.1
+einops==0.8.2
+fast_bss_eval==0.1.3
+h5py==3.16.0
+hydra-core==1.3.7
+importlib-metadata==4.13.0
+inflect==7.0.0
+jaconv==0.5.0
+jamo==0.4.1
+joblib==1.6.0
+kaldiio==2.18.1
+lazy-loader==0.6
+librosa==0.11.0
+llvmlite==0.50.0
+msgpack==1.2.3
+nltk==3.10.4
+numba==0.68.0
+omegaconf==2.3.1
+opt_einsum==3.4.0
+pandas==2.3.3
+platformdirs==4.12.4
+pooch==1.9.0
+pypinyin==0.44.0
+python-dateutil==3.0.0
+pytorch-wpe==0.0.1
+pytz==2026.5
+pyworld==0.3.5
+resampy==0.4.3
+scikit-learn==1.7.2
+scipy==1.15.3
+sentencepiece==0.1.97
+six==1.17.0
+soxr==1.1.0
+standard-aifc==3.13.0
+standard-sunau==3.13.0
+threadpoolctl==3.7.0
+torch-complex==0.4.4
+typeguard==2.13.3
+tzdata==2026.5
+Unidecode==1.4.0
+zipp==4.1.2

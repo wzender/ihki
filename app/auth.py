@@ -101,10 +101,11 @@ CREATE_LEARNER_CLASS_STATE = (
 BACKUP_TABLES = (
     "dailies", "library", "videos", "texts", "classes", "writings", "tutors", "flags",
     "lab_samples", "calibrations", "scoring_rules", "user_access", "access_audit", "app_secrets",
-    "system_events", "tutor_chats",
+    "system_events", "tutor_chats", "model_settings",
 )
 BACKUP_NATURAL_KEYS = {"writings": "user_id,topic", "tutors": "email", "scoring_rules": "id",
-                       "user_access": "user_id", "app_secrets": "name", "tutor_chats": "id"}
+                       "user_access": "user_id", "app_secrets": "name", "tutor_chats": "id",
+                       "model_settings": "model"}
 
 
 class AuthUnavailable(RuntimeError):
@@ -921,6 +922,16 @@ class SupabaseAuth:
         """Switches one rule on or off (an upsert on its id)."""
         self._admin("/rest/v1/scoring_rules", "POST", {"id": rule_id, "active": bool(active), "updated_by": by,
                                                        "updated_at": datetime.now(timezone.utc).isoformat()},
+                    prefer="resolution=merge-duplicates,return=minimal")
+
+    def model_settings(self) -> list[dict]:
+        """The scorer settings tuned per model in the panel's "מודלים" tab: model, settings, updated_by, updated_at."""
+        return self._admin("/rest/v1/model_settings?select=*") or []
+
+    def set_model_settings(self, model: str, settings: dict, by: str) -> None:
+        """Replaces one model's settings (an upsert on the model id)."""
+        self._admin("/rest/v1/model_settings", "POST", {"model": model, "settings": settings, "updated_by": by,
+                                                        "updated_at": datetime.now(timezone.utc).isoformat()},
                     prefer="resolution=merge-duplicates,return=minimal")
 
     def users(self) -> list[dict]:
