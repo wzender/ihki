@@ -666,7 +666,7 @@ body.driving .mic::before{display:none} body.driving .mic-zone.two{display:flex}
 .score{font:400 28px/1 var(--f-display);font-variant-numeric:tabular-nums}
 .pill{font:700 13px var(--f-body);padding:4px 10px;border-radius:999px}
 .cheer{display:inline-flex;flex-direction:column;align-items:flex-start;animation:celebrate-pop .5s cubic-bezier(.2,1.6,.4,1) both}
-.cheer b{font:700 24px/1.1 var(--f-ar);color:var(--olive)}.cheer small{font:700 12px/1.2 var(--f-tr);color:var(--muted)}
+.cheer b{font:700 24px/1.1 var(--f-tr);color:var(--olive)}.cheer small{font:700 12px/1.2 var(--f-ar);color:var(--muted)}
 #result .score{font-size:46px}#result .pill{font-size:16px;padding:6px 14px}   /* the grade first and big, right under the mic */
 .good{background:var(--ok-bg);color:var(--ok)} .mid{background:var(--amber-bg);color:var(--amber)} .bad{background:var(--sumac-bg);color:var(--sumac)}
 .words{display:flex;flex-wrap:wrap;gap:6px 14px;direction:rtl;align-items:flex-start}
@@ -679,13 +679,9 @@ body.driving .mic::before{display:none} body.driving .mic-zone.two{display:flex}
 .word .n{font-size:12px;line-height:1.5;color:var(--muted);font-variant-numeric:tabular-nums}
 .word .n [lang=ar]{font-family:var(--f-ar);font-size:14px}
 .word .w.bad{background:none;color:var(--sumac)} .word .w.mid{background:none;color:var(--amber)} .word .w.good{background:none;color:var(--ink)}
-/* the report of a wrong score: a small link under the result, its form only when opened */
+/* one-click report of a wrong score */
 .flag-box{align-self:flex-start}
-.flag-box>summary{cursor:pointer;color:var(--muted);font-size:13px;text-decoration:underline;text-underline-offset:3px;list-style:none}
-.flag-box>summary::-webkit-details-marker{display:none}
-.flag-box .flag-form{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
-.flag-box[open]{align-self:stretch}
-.flag-box input{flex:1 1 180px;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--surface);color:inherit}
+.flag-box>.flag-link{border:0;padding:0;background:none;cursor:pointer;color:var(--muted);font:inherit;font-size:13px;text-decoration:underline;text-underline-offset:3px}
 .flag-box .sub{flex-basis:100%;margin:0}
 .flag-facts{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:8px 0 0}
 .flag-facts dt{color:var(--muted);font-size:13px;white-space:nowrap}
@@ -1615,14 +1611,10 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
       <div class="verdict"><span class="score" id="score"></span><span class="pill" id="pill"></span><span class="cheer" id="cheer" hidden></span><div class="words" id="words" hidden></div></div>
       <p class="sub" id="whyHint" hidden></p>
       <ul class="tips" id="tips"></ul>
-      <details class="flag-box" id="flagBox" hidden>
-        <summary>המערכת טעתה?</summary>
-        <div class="flag-form">
-        <input id="flagNote" maxlength="500" placeholder="מה קרה? (לא חובה)" aria-label="הערה לדיווח">
-        <button class="btn" id="flagBtn" title="ההקלטה, הציון ומה שהמודל שמע נשמרים למורה">🚩 אמרתי נכון, המערכת טעתה</button>
+      <div class="flag-box" id="flagBox" hidden>
+        <button class="flag-link" id="flagBtn" title="ההקלטה, הציון ומה שהמודל שמע נשמרים למורה">🚩 המערכת טעתה?</button>
         <p class="sub" id="flagMsg" role="status"></p>
-        </div>
-      </details>
+      </div>
     </section>
 
     <div class="hint" id="hint">
@@ -3312,7 +3304,7 @@ function drawSkins(){   // the colour of the beads: one more opens with each mis
 }
 function rewardPop(title,detail,kind=false){
   const pop=$("rewardPop"); clearTimeout(rewardTimer); pop.className="reward-pop"+(kind===true?" gold":kind?` ${kind}`:"");
-  pop.querySelector("b").textContent=title; pop.querySelector("small").textContent=detail;
+  setTr(pop.querySelector("b"),title); setTr(pop.querySelector("small"),detail);
   requestAnimationFrame(()=>pop.classList.add("show")); rewardTimer=setTimeout(()=>pop.classList.remove("show"),2600);
 }
 $("rewardShelf").onclick=()=>{ drawRewards(); $("rewardsDlg").showModal(); };
@@ -3653,7 +3645,7 @@ function drawPath(stay){
   for(let k=0;k<LESSONS.length;k++){
     const l=LESSONS[k];
     if(l.level!==level){   // a level opens with its name and how many of its lessons are ready
-      level=l.level; const of=LESSONS.filter(x=>x.level===level), h=mark("level","","h2"); setTr(h,levelOf(l).name);
+      level=l.level; const of=LESSONS.filter(x=>x.level===level), h=mark("level","","h2"), levelName=levelOf(l).name; setTr(h,levelName); h.setAttribute("aria-label",levelName);
       h.style.top=y+"px"; h.append(mark("",`${of.filter(x=>!x.soon).length} מתוך ${of.length} שיעורים מוכנים`,"small")); box.append(h); y+=60;
     }
     if(l.soon){   // the lessons still to come, a run of them in one banner
@@ -3670,7 +3662,7 @@ function drawPath(stay){
     const foldable=whole.over&&l.id!==pin, folded=foldable&&!unfolded.has(l.id);   // a finished lesson is one line, until it is opened
     head.className="chapter"+(whole.gold?" gold":""); head.dataset.lesson=l.id; head.style.top=y+"px"; head.style.setProperty("--p",`${whole.n?whole.done/whole.n*100:0}%`);
     const lessonName=mark(""); setTr(lessonName,l.name);
-    head.append(lessonName,count(whole),document.createElement("i")); head.title=`${l.name}: תורגלו ${whole.done} מתוך ${whole.n}`;
+    head.append(lessonName,count(whole),document.createElement("i")); head.title=`${l.name}: תורגלו ${whole.done} מתוך ${whole.n}`; head.setAttribute("aria-label",head.title);
     if(foldable){
       head.classList.add("foldable"); if(folded) head.classList.add("folded");
       head.append(mark("fold",folded?"הצגה ▾":"הסתרה ▴","small")); head.setAttribute("aria-expanded",String(!folded));
@@ -4021,24 +4013,10 @@ async function readPrompt(){   // resolves once the prompt has been read out, or
    the student only speaks. A topic's first sentence waits for the microphone button, and so does the next attempt
    after a grade that does not move on. */
 let autoRec=false, promptRead=Promise.resolve();   // autoRec: the sentence on screen is recorded without a press
-/* A recording the page starts by itself is counted down first ("מקליט בעוד 1…"), so the microphone never turns on
-   unannounced. A tap anywhere stops the count, and the microphone waits for its button. The timed bubble game
-   records at once: its clock is already running. */
-const REC_COUNTDOWN=1;
-let recCountdown=null;
 const recBlocked=()=>!autoRec||mute()||heRec||home||driving||mic.disabled||starting||(rec&&rec.state==="recording");
-function cancelRecCountdown(){ if(!recCountdown) return false; clearInterval(recCountdown); recCountdown=null; return true; }
 function autoRecord(){
-  cancelRecCountdown();
   if(recBlocked()) return;
-  if(bubbleCat()){ startRec(true); return; }
-  const id=cur.id; let left=REC_COUNTDOWN;
-  const tick=()=>{
-    if(recBlocked()||!cur||cur.id!==id){ cancelRecCountdown(); return; }
-    if(left>0){ $("status").textContent=`מקליט בעוד ${left--}…`; return; }
-    cancelRecCountdown(); startRec(true);
-  };
-  tick(); recCountdown=setInterval(tick,1000);
+  startRec(true);
 }
 function recordWhenReady(){
   const id=cur.id, read=promptRead;
@@ -4074,7 +4052,6 @@ addEventListener("scroll",hideWhy,true);
 for(const ev of ["pointerdown","keydown"]) addEventListener(ev,()=>{
   hideWhy();   // a tap on another letter then shows its own
   cancelAutoNext();   // any click or key keeps the sentence on screen
-  if(cancelRecCountdown()) $("status").textContent="לחצו על המיקרופון כשאתם מוכנים";   // and the microphone waits for its button
   if(hePending!=null){ const id=hePending; hePending=null; if(cur&&cur.id===id&&heAudio) heAudio.play().catch(()=>{}); }
 },true);
 // A grade at AUTO_NEXT.minimum or above moves on by itself after the grade has been seen for a moment; lower grades
@@ -4411,8 +4388,9 @@ $("heBtn").onclick=async()=>{
    each gold, and a cheer in spoken Arabic. The reminder prompt waits for one of these good moments (pushMoment). */
 const DAILY_GOAL=5, COMBO_AT=[3,5,10,15,20,30];
 let goldRun=0, pushMoment=false;
-const CHEERS=[["برافو!","בראבו!"],["يا سلام!","יא סלאם!"],["ممتاز!","מומתאז!"],["عاش!","עאש!"],["ولا أحلى!","ולא אחלא!"],["زي العسل!","זי אל-עסל!"]];
+const CHEERS=[["برافو!","בְּרַאבוֹ!"],["يا سلام!","יַא סַלַאם!"],["ممتاز!","מֻמְתַאז!"],["عاش!","עַאש!"],["ولا أحلى!","וַלַא אַחְלַא!"],["زي العسل!","זַיّ אֵלְעַסַל!"]];
 const cheer=()=>CHEERS[Math.floor(Math.random()*CHEERS.length)];
+const cheerLine=([ar,tr])=>`${tr} · ${ar}`;
 function todaySaid(){ const d=store.get("ihki.todaySaid",null); return d&&d.day===today()&&Array.isArray(d.ids)?d.ids:[]; }
 function noteToday(id){   // the different sentences said today; hit: this one reached the day's goal
   const ids=todaySaid(); if(ids.includes(id)) return {n:ids.length,hit:false};
@@ -4428,7 +4406,7 @@ function ding(){   // one bright note for a gold sentence
 function celebrate(emoji,title,text){   // a moment big enough for the whole screen
   const dlg=$("celebrateDlg");
   $("celebrateEmoji").textContent=emoji; $("celebrateTitle").textContent=title; $("celebrateText").textContent=text;
-  cancelAutoNext(); cancelRecCountdown();
+  cancelAutoNext();
   if(!dlg.open) dlg.showModal(); chime(true); buzz([40,60,40,60,80]); confetti(90,dlg);
 }
 function keepScore(id,s){   // a sentence's best score, on the device and for this visit
@@ -4454,7 +4432,7 @@ function keepScore(id,s){   // a sentence's best score, on the device and for th
   else if(topicDone) rewardPop(after.gold?"הנושא כולו בזהב!":"הנושא הושלם!",c.name,after.gold);
   else if(firstGold) celebrate("✨","החרוז הזהב הראשון שלכם!","ציון 75 ומעלה הופך חרוז לזהב. כל זהב נאסף לאוסף שלכם, ומשיעור שלם יוצאת מסבחה.");
   else if(day.hit){ rewardPop("🎯 היעד היומי הושג!",`${DAILY_GOAL} משפטים היום · כל הכבוד`,true); chime(true); confetti(45,document.body); }
-  else if(COMBO_AT.includes(goldRun)){ const [ar,he]=cheer(); rewardPop(`🔥 ${goldRun} זהב ברצף!`,`${ar} · ${he}`,true); }
+  else if(COMBO_AT.includes(goldRun)) rewardPop(`🔥 ${goldRun} זהב ברצף!`,cheerLine(cheer()),true);
   else if(becameGold&&old!=null&&!c?.story) rewardPop("המשפט הפך לזהב ★",phrase.he,true);
   else if(streakReward&&streakReward.current>=2) rewardPop(`🔥 רצף של ${streakReward.current} ימים`,streakReward.newBest?"שיא אישי חדש":"ממשיכים מחר");
   else if(improved&&old!=null&&s-old>=8) rewardPop(`שיא חדש: ${Math.round(old)} ← ${Math.round(s)}`,phrase.he);
@@ -4684,21 +4662,18 @@ function drawPhoneTrack(data){
   const seconds=(data.duration_ms||0)/1000;
   for(const part of [0,.25,.5,.75,1]) c.fillText(seconds?`${(seconds*part).toFixed(1)}s`:Math.round(part*100)+"%",label+part*plot,height-axis/2);
 }
-/* A tutor's flag under the score: the sentence was said right and the system got it wrong. The recording goes back to
-   the server, which scores it again and keeps it with what it made of it (the table `flags`), for the teacher.
-   The form opens from the "המערכת טעתה?" link, ready to type in. */
-$("flagBox").addEventListener("toggle",()=>{ if($("flagBox").open&&!$("flagNote").disabled) $("flagNote").focus({preventScroll:true}); });
+/* A tutor's flag under the score: one click sends the recording back to the server, which scores it again and keeps
+   it with what it made of it (the table `flags`), for the teacher. */
 $("flagBtn").onclick=async()=>{
   const rec=lastRec, btn=$("flagBtn"), msg=$("flagMsg");
   if(!rec) return;
   btn.disabled=true; msg.textContent="שומר…";
   try{
-    const fd=new FormData(); fd.append("phrase_id",rec.id); fd.append("audio",rec.blob,"rec"); fd.append("note",$("flagNote").value);
+    const fd=new FormData(); fd.append("phrase_id",rec.id); fd.append("audio",rec.blob,"rec");
     const res=await api("/api/flags",{method:"POST",body:fd});
     if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error(e.detail||res.status); }
     const out=await res.json();
     msg.textContent=out.audio?"האבחון וקובץ הקול נשמרו למורה.":"האבחון נשמר, אך קובץ הקול לא נשמר.";
-    $("flagNote").disabled=true;   // one flag for a recording
     if(out.flag){ drawFlag(out.flag,out.audio); $("flagDlg").showModal(); }
   }catch(err){ msg.textContent="הדיווח לא נשמר: "+err.message; btn.disabled=false; }
 };
@@ -4750,7 +4725,7 @@ function render(r){
     lastPhone=r; $("phoneBtn").hidden=false; $("phoneBtn").disabled=false;
   }
   $("flagBox").hidden=!(TUTOR&&lastRec&&lastRec.id===cur.id);
-  $("flagBox").open=false; $("flagBtn").disabled=$("flagNote").disabled=false; $("flagNote").value=$("flagMsg").textContent="";
+  $("flagBtn").disabled=false; $("flagMsg").textContent="";
   $("status").textContent=r.score<30?"רוצים לנסות שוב? לחצו על המיקרופון":"לחצו כדי לנסות שוב";
   $("nextBtn").classList.add("primary");
   $("score").textContent=r.score;
@@ -4758,7 +4733,10 @@ function render(r){
   pill.className="pill "+(s>=EXCELLENT?"good":s>=60?"mid":"bad");
   pill.textContent= r.unrelated ? "משפט אחר?" : s>=EXCELLENT?"מצוין": s>=60?"כמעט":"נסו שוב";
   const ch=$("cheer"); ch.replaceChildren(); ch.hidden=!(s>=EXCELLENT&&!r.unrelated);
-  if(!ch.hidden){ const [ar,he]=cheer(); ch.append(mark("",ar,"b"),mark("",he,"small")); ch.querySelector("b").lang="ar"; }
+  if(!ch.hidden){
+    const [ar,tr]=cheer(), main=mark("","","b"), original=mark("",ar,"small");
+    setTr(main,tr); original.lang="ar"; ch.append(main,original);
+  }
 
   $("words").hidden=true;
   drawAnalyzedAnswer(r);

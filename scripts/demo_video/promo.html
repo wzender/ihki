@@ -75,6 +75,10 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
 .tile .isl{position:absolute;top:12px;left:50%;width:100px;height:30px;margin-left:-50px;border-radius:16px;background:#000}
 .tile .lab{position:absolute;left:50%;bottom:-34px;transform:translateX(-50%) translateZ(30px);white-space:nowrap;direction:rtl;
   font:800 36px/1 "Assistant",sans-serif;color:#fff;background:var(--navy);padding:18px 30px;border-radius:999px;box-shadow:0 10px 24px rgba(31,33,86,.25)}
+.co{position:absolute;display:flex;align-items:center;gap:14px;direction:rtl;opacity:0;z-index:7}
+.co .n{width:58px;height:58px;border-radius:50%;background:var(--red);color:#fff;font:800 32px/58px "Assistant",sans-serif;text-align:center;box-shadow:0 0 0 6px #fff,0 8px 18px rgba(0,0,0,.2)}
+.cap .nb{display:inline-block;width:46px;height:46px;border-radius:50%;background:var(--red);color:#fff;font:800 28px/46px "Assistant",sans-serif;text-align:center;vertical-align:middle;margin-inline-end:8px}
+.co .l{background:var(--navy);color:#fff;font:700 34px/1.2 "Assistant",sans-serif;padding:14px 26px;border-radius:999px;white-space:nowrap;box-shadow:0 8px 18px rgba(31,33,86,.25)}
 #open{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;direction:rtl}
 #open svg{width:900px;height:auto}
 #logo{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:90px;opacity:0}
@@ -143,7 +147,10 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
 <div class="cap" id="cb"><h1>בנויה בדיוק <em style="color:var(--teal)">לפי החוברת</em> 📖</h1><p>כל שיעור בחוברת הוא נושא באפליקציה,<br>עם אותם פעלים ואותם משפטים</p></div>
 <div class="cap" id="c8"><h1>כל הערבית שלכם, <em style="color:var(--teal)">במקום אחד</em></h1></div>
 <div id="pills"><div>🎙️ שומעת כל עיצור</div><div>📖 לפי החוברת</div><div>🚗 מצב נסיעה</div><div>📿 חרוזים ומשחקים</div></div>
-<div class="cap" id="c1"><h1>אומרים בקול</h1><p>רואים פועל בעברית,<br>ואומרים אותו <b>בערבית מדוברת</b></p></div>
+<div class="cap" id="ch"><h1>יודעים <em style="color:var(--teal)">מה לתרגל עכשיו</em></h1><p><span class="nb">1</span> ממשיכים בשיעור של הכיתה<br><span class="nb">2</span> או תרגול קצר, כמה דקות</p></div>
+<div class="co" id="co1"><span class="n">1</span></div>
+<div class="co" id="co2"><span class="n">2</span></div>
+<div class="cap" id="c1"><h1>אומרים בקול</h1><p>רואים משפט בעברית,<br>ואומרים אותו <b>בערבית מדוברת</b></p></div>
 <div class="cap" id="c2"><h1>האפליקציה מקשיבה<br>ל<em>כל עיצור</em></h1><p>ומסמנת באדום את מה<br>שלא נשמע נכון</p></div>
 <div class="cap" id="c3"><h1>ח׳ במקום <em>ח</em>?</h1><p>טיפ שנכתב <b>לדוברי עברית</b>:<br>מה נשמע, ואיך מתקנים</p></div>
 <div class="cap" id="c4"><h1>מנסים שוב — <em style="color:var(--teal)">100!</em></h1><p>ח נקייה, <b>בדיוק כמו שצריך</b></p></div>
@@ -176,8 +183,8 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
   <circle cx="170" cy="1930" r="440" fill="none" stroke="#2C2F45" stroke-width="10" stroke-dasharray="40 26" opacity=".7"/>
   <path d="M170 1930 L560 1760" stroke="#14151F" stroke-width="70" stroke-linecap="round"/>
 </g></svg>
-<div class="bub app" id="b1">🔊 דיבר — עבר ועתיד</div>
-<div class="bub me" id="b2">🎙️ <span class="tr">חַכַא, יִחְכִּי</span></div>
+<div class="bub app" id="b1">🔊 אנחנו דיברנו</div>
+<div class="bub me" id="b2">🎙️ <span class="tr">אִחְנַא חַכֵּינַא</span></div>
 <div class="bub ok" id="b3">🔊 מצוין! · 100 ✓</div>
 
 
@@ -250,12 +257,14 @@ async function setup(d){
   $("mis").innerHTML=mis;
   const S=t=>INTRO+t;
   const rest={tx:0,ty:0,k:1,rx:4,ry:-16,rz:0}, away={tx:0,ty:1500,k:.9,rx:20,ry:-30,rz:-6};
-  const SUM={tx:0, ty:150, k:.88, rx:3, ry:-9, rz:0};                         // beside the summary's pills
+  const SUM={tx:0, ty:150, k:.88, rx:3, ry:-9, rz:0};
+  const HOMEV=focus(.5,.5,1.06,540,1200,{ry:-5,rx:2});                         // the home's cards, a little closer                         // beside the summary's pills
   const MOUNT={tx:700-PHONE.cx, ty:1290-PHONE.cy, k:.6, rx:0, ry:-6, rz:-3};   // in the car's mount, on the dashboard
   const [lu,lv]=center(M.letter.box), [tu,tv]=M.tip&&M.tip.box&&M.tip.box[3]>0?center(M.tip.box):[.5,.85];
   const [gu,gv]=center(M.great.box);
   KEYS=[
     [0,away],[INTRO-.9,away],[INTRO+.4,rest],
+    [S(M.home.t)+1.0,HOMEV],[S(M.homeTap.t)+.25,HOMEV],[S(M.start.t)+.4,rest],
     [S(M.mic.t),{...rest,ry:-8}],
     [S(M.score.t),{...rest,ry:-5,rx:2}],
     [S(M.score.t)+.9,focus(lu,lv,1.5,540,1150,{ry:-4,rx:2})],
@@ -328,7 +337,7 @@ async function seek(t){
   $("announce").style.opacity=an; $("announce").style.visibility=an>0?"visible":"hidden";
   $("announce").style.transform=`translateY(${(1-rise)*820}px)`;
   drawBook(t);
-  const caps=[["cb",BOOK0+.9,INTRO-.5],["c1",INTRO-.5,S(M.score.t)+.2],["c8",S(M.shelf.t)-.1,S(END)+.4],["c2",S(M.score.t)+.2,S(M.tap.t)+.6],["c3",S(M.tap.t)+.6,S(M.retry.t)+.4],
+  const caps=[["cb",BOOK0+.9,INTRO-.5],["ch",INTRO-.5,S(M.homeTap.t)+.3],["c1",S(M.start.t)-.1,S(M.score.t)+.2],["c8",S(M.shelf.t)-.1,S(END)+.4],["c2",S(M.score.t)+.2,S(M.tap.t)+.6],["c3",S(M.tap.t)+.6,S(M.retry.t)+.4],
     ["c4",S(M.retry.t)+.4,S(M.great.t)+1.5],["c5",S(M.great.t)+1.5,S(M.drive.t)-.2],
     ["c7",S(M.drive.t)-.2,S(M.driveEnd.t)+.2],
     ["cg",S(M.w0.t)-.1,S(M.w0.t)+1.6],["cw",S(M.w0.t)+1.6,S(M.w1.t)-.2],["cp",S(M.p0.t)+.1,S(M.p1.t)-.2],
@@ -381,6 +390,12 @@ async function seek(t){
   // the band behind the headlines: up a little in the car (the mirror shows), away over the grid's overview
   $("band").style.transform=`translateY(${-120*car}px)`;
   $("band").style.opacity=(gv>0?zmax:1)*ease((t-BOOK0-.5)/.4);   // none in the opening: it would fade the top of the logo
+  // the home's callouts: a numbered dot on each card's corner, its label beside it
+  for(const [id,m,a] of [["co1",M.home,S(M.home.t)+1.1],["co2",M.short,S(M.home.t)+1.7]]){
+    const o=win(t,a,S(M.homeTap.t)+.15,.3), el=$(id);
+    if(o>0&&m.box){ const p0=onPhone(m.box[0]+m.box[2],m.box[1]), x=PHONE.cx+p.tx+p.k*p0.x, y=PHONE.cy+p.ty+p.k*p0.y;
+      Object.assign(el.style,{right:(1080-x-18)+"px",top:(y-40)+"px",opacity:o,transform:`scale(${lerp(.7,1,o)})`,transformOrigin:"100% 50%"}); }
+    else el.style.opacity=0; }
   // the ring on the red letter: after the camera has moved in, until the tip opens
   const r=win(t,S(M.score.t)+.9,S(M.tap.t)+.25,.25);
   if(r>0){ const b=M.letter.box, p0=onPhone(b[0],b[1]), w=b[2]*SCREEN.w*p.k, h=b[3]*SCREEN.h*p.k, pad=14;

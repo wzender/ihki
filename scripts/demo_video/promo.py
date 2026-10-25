@@ -63,8 +63,13 @@ async def record_screen(url, takes, work):
         def pause():
             paused.update(on=True, at=time.time())
 
-        def resume():
+        async def resume():
             paused["skipped"] += time.time() - paused["at"]; paused["on"] = False
+            # a still screen sends no frames: an invisible change makes Chrome send the one now on screen
+            await pg.evaluate("""(()=>{ let k=document.getElementById('demoKick'); if(!k){ k=document.createElement('div'); k.id='demoKick';
+              k.style.cssText='position:fixed;left:0;top:0;width:2px;height:2px;pointer-events:none;z-index:999999'; document.body.append(k); }
+              k.style.background=k.style.background==='rgba(0, 0, 0, 0.01)'?'rgba(0, 0, 0, 0.02)':'rgba(0, 0, 0, 0.01)'; })()""")
+            await asyncio.sleep(0.12)
 
         async def mark(name, sel=None):
             m = {"t": round(time.time() - t0[0] - paused["skipped"], 3)}
@@ -81,8 +86,11 @@ async def record_screen(url, takes, work):
 
         recording = lambda: pg.evaluate("typeof rec!=='undefined'&&rec&&rec.state==='recording'")
 
-        async def say(take):
+        async def say(take, fresh=False):
+            """fresh: drop a recording the app started by itself (it would hold silence before the take)."""
             await pg.evaluate("document.getElementById('result').hidden=true")
+            if fresh and await recording():
+                await pg.evaluate("recCancel=true; rec.stop()"); await wait(400)
             for _ in range(80):                  # the app may be counting down ("מקליט בעוד 3…") to record by itself
                 if await recording() or not (await pg.inner_text("#status")).startswith("מקליט בעוד"):
                     break
@@ -97,8 +105,13 @@ async def record_screen(url, takes, work):
                     break
                 await wait(50)
             await wait(150)
+            print(f"  {take}: recording={await recording()} status={await pg.inner_text('#status')!r}")
             await pg.evaluate("t=>__demo.play(t)", take)
-            await pg.wait_for_selector("#result:not([hidden])", timeout=30000)
+            try:
+                await pg.wait_for_selector("#result:not([hidden])", timeout=30000)
+            except Exception:
+                await pg.screenshot(path=str(work / "stuck.png"))
+                raise SystemExit(f"no score for {take}: status {await pg.inner_text('#status')!r}, see {work / 'stuck.png'}")
 
         # off camera: in, and the focused home a signed-in student of class א1 on lesson 4 would get (with sign-in
         # off the app shows the path instead, so the app's own home component is drawn here with that content)
@@ -129,7 +142,7 @@ async def record_screen(url, takes, work):
                 break
             await pg.click("#nextBtn"); await wait(250)
         await pg.evaluate("scrollTo(0,0)"); await wait(200)
-        resume()
+        await resume()
         await mark("start")
         await wait(900)
         await mark("mic", "#mic")
@@ -147,7 +160,7 @@ async def record_screen(url, takes, work):
         await pg.mouse.click(5, 5)               # closes the tip
         await wait(400)
         await mark("retry", "#mic")
-        await say("c892")
+        await say("c892", fresh=True)
         await pg.evaluate("cancelAutoNext()")    # keeps the score on screen
         await mark("great", "#result")
         print("  retry:", await pg.inner_text("#score"))
@@ -161,7 +174,7 @@ async def record_screen(url, takes, work):
         await pg.evaluate("cancelAutoNext(); show(cur,true); scrollTo(0,0)")   # fresh: no old score, no countdown to the next verb
         await wait(400)
         await pg.click("#driveBtn"); await wait(150)
-        resume()
+        await resume()
         await mark("drive")
         await wait(1800)
         pause()
@@ -174,7 +187,7 @@ async def record_screen(url, takes, work):
             if await pg.evaluate("typeof rec!=='undefined'&&rec&&rec.state==='recording'"):
                 break
             await wait(50)
-        resume()
+        await resume()
         await mark("turn")
         await wait(250)
         await pg.evaluate("t=>__demo.play(t)", "c892")
@@ -198,7 +211,7 @@ async def record_screen(url, takes, work):
         await pg.locator("button", has_text="חזרה למסלול").first.click(); await wait(600)
         sat = pg.locator("button.sat", has_text="מילים חדשות").nth(3)
         await sat.scroll_into_view_if_needed(); await sat.click(); await wait(1200)
-        resume(); await mark("w0")
+        await resume(); await mark("w0")
         await wait(2000)                                           # the whole grid first, then the camera moves in
         await tap("#learnShow", 1000)
         await tap("#learnKnow", 300)
@@ -207,7 +220,7 @@ async def record_screen(url, takes, work):
 
         sat = pg.locator("button.sat", has_text="התאימו זוגות").nth(3)        # pairs: two matched
         await sat.scroll_into_view_if_needed(); await sat.click(); await wait(1300)
-        resume(); await mark("p0")
+        await resume(); await mark("p0")
         await wait(350)
         ids = await pg.evaluate("[...document.querySelectorAll('.mtile[data-side=he]')].map(t=>t.dataset.id)")
         for i in ids[:2]:
@@ -219,7 +232,7 @@ async def record_screen(url, takes, work):
         sat = pg.locator("button.sat", has_text="סיפור: שכני החדש").first      # a story, read aloud line by line
         await sat.scroll_into_view_if_needed(); await sat.click(); await wait(1100)
         await pg.evaluate("scrollTo(0,0)"); await wait(300)
-        resume(); await mark("s0")
+        await resume(); await mark("s0")
         await wait(400)
         await tap("#hearBtn", 0)
         await wait(2200); await mark("s1")
@@ -228,7 +241,7 @@ async def record_screen(url, takes, work):
 
         await pg.locator("#nav button", has_text="משחקים").first.click(); await wait(600)   # "הפועל זכרון": two pairs
         await pg.locator("#vids button", has_text="הפועל זכרון").first.click(); await wait(1200)
-        resume(); await mark("m0")
+        await resume(); await mark("m0")
         await wait(350)
         for he, ar in [("פתח", "פַתַח"), ("אכל", "אַכַּל")]:
             await tap(f'.mg-bead.he:has-text("{he}")', 200)
@@ -238,10 +251,9 @@ async def record_screen(url, takes, work):
         # the summary: "the Arabic that's already yours", what this session collected
         pause()
         await pg.locator(".mg-close").first.click(); await wait(500)
-        await pg.locator("#nav button", has_text="מסלול").first.click(); await wait(600)
-        await pg.evaluate("scrollTo(0,0)"); await wait(300)
+        await pg.evaluate(HOME); await wait(600)          # the home again, its card now counting this session's beads
         await pg.click("#rewardShelf"); await wait(900)
-        resume()
+        await resume()
         await mark("shelf")
         await wait(4600)
         await mark("end")

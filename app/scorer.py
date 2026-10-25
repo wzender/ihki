@@ -16,7 +16,7 @@ from .align import (Alignment, GopConfig, TokenScore, ctc_viterbi, edit_distance
                     weighted_edit_distance)
 from .archi import archify, diphthong_variants, split_token, written
 from .phones import base
-from .rules import EXEMPTIONS, TOGGLE_IDS, Check, Rules, elided_article, near_vowels, load as load_rules  # noqa: F401 (re-exported)
+from .rules import EXEMPTIONS, TOGGLE_IDS, Check, Rules, elided_article, near_vowels, norm, load as load_rules  # noqa: F401 (re-exported)
 from .tips import VOWELS, letter_reason, sound_name, tip_for
 from .translit import CONSONANTS as _HEB_C, HEARD_ONLY as _HEB_HEARD, VOWELS as _HEB_V, to_hebrew, word_letters, word_to_hebrew
 
@@ -194,6 +194,9 @@ class Reference:
     sounds: list[tuple[int, str]]  # (word, sound) of each sound of the variant the voice said (Q, not ʔ / k)
     scores: list[float]            # their scores, same order
     voice: str = ""                # who said it (the TTS voice's name), for the trace dashboard
+    # per sound, what took its place in the voice (Scorer._heard): "_" nothing, a symbol, None kept.
+    # Empty for a reference built before this was recorded: its failures are then unknown.
+    heard: list[str | None] = field(default_factory=list)
 
 
 @dataclass
@@ -404,32 +407,59 @@ class Scorer:
             return None
         if fit.unrelated or float(np.mean([sc.score for sc in fit.scores])) < self.cfg.ref_min_mean:
             return None
-        return Reference([(t.word, t.sound) for t in fit.toks], [sc.score for sc in fit.scores])
+        return Reference([(t.word, t.sound) for t in fit.toks], [sc.score for sc in fit.scores],
+                         heard=[self._heard(t, sc) for t, sc in zip(fit.toks, fit.scores)])
 
-    @staticmethod
-    def _baseline(toks: list[TargetToken], refs: list[Reference]) -> list[float | None]:
-        """Per target token, the lowest score a native reference got on the same sound (None: no reference has it).
+    def _baseline(self, toks: list[TargetToken], scores: list[TokenScore],
+                  refs: list[Reference]) -> tuple[list[float | None], list[str | None]]:
+        """Per target token, the lowest score a native reference got on the same sound, counting only a reference
+        that is evidence about the learner's realisation (None: none counts), and why compensation was refused.
 
+        A reference counts when the learner kept the sound (a weak but correct sound), or when the reference lost it
+        too, however (the model's limitation in this phrase, as ʕ heard as ʔ). It does not count when it kept the
+        sound ("kept"), nor for a pair the rules protect, which a TTS voice can say the learner's way ("protected":
+        ħ heard as x).
         References may have said another accepted variant: only the sounds the two variants share are matched.
         Sounds are compared by symbol, so a voice that said ق as q is a baseline for a learner who says ʔ.
         """
         out: list[float | None] = [None] * len(toks)
-        for per_ref in Scorer._ref_scores(toks, refs):
-            out = [x if y is None else y if x is None else min(x, y) for x, y in zip(out, per_ref)]
+        why: list[str | None] = [None] * len(toks)
+        learner = [self._heard(t, sc) for t, sc in zip(toks, scores)]
+        rows = self._ref_rows(toks, refs)
+        for i, tok in enumerate(toks):
+            lh = learner[i]
+            have = [cell for row in rows if (cell := row[i]) is not None]
+            if not have:
+                continue
+            if lh is not None and self.rules.protected([tok.sound, tok.phoneme], lh):
+                why[i] = "protected"
+                continue
+            counting = [score for score, heard, known in have if lh is None or not known or heard is not None]
+            if counting:
+                out[i] = min(counting)
+            else:
+                why[i] = "kept"
+        return out, why
+
+    @staticmethod
+    def _ref_rows(toks: list[TargetToken], refs: list[Reference]) -> list[list[tuple[float, str | None, bool] | None]]:
+        """Per reference, per target token: (its score, what took the sound's place, whether that is known), or None
+        when the reference does not have the sound."""
+        sounds = [(t.word, t.sound) for t in toks]
+        out = []
+        for ref in refs:
+            known = len(ref.heard) == len(ref.sounds)
+            row: list[tuple[float, str | None, bool] | None] = [None] * len(toks)
+            for a, b, n in SequenceMatcher(None, ref.sounds, sounds, autojunk=False).get_matching_blocks():
+                for k in range(n):
+                    row[b + k] = (ref.scores[a + k], ref.heard[a + k] if known else None, known)
+            out.append(row)
         return out
 
     @staticmethod
     def _ref_scores(toks: list[TargetToken], refs: list[Reference]) -> list[list[float | None]]:
         """Per reference, per target token, the score that reference got on the same sound (None: it does not have it)."""
-        sounds = [(t.word, t.sound) for t in toks]
-        out = []
-        for ref in refs:
-            row: list[float | None] = [None] * len(toks)
-            for a, b, n in SequenceMatcher(None, ref.sounds, sounds, autojunk=False).get_matching_blocks():
-                for k in range(n):
-                    row[b + k] = ref.scores[a + k]
-            out.append(row)
-        return out
+        return [[None if cell is None else cell[0] for cell in row] for row in Scorer._ref_rows(toks, refs)]
 
     def _carriers(self, ipa: str) -> list[list[list[int]]]:
         """For each word, for each of its phonemes, the indexes in _targets(ipa) of the tokens that carry it.
@@ -682,6 +712,21 @@ class Scorer:
             return True
         return -sc.gop >= self._margin(targets, heard)
 
+    def _evidenced(self, sc: TokenScore) -> bool:
+        """Did the competitor show up in the audio: win at least one frame, or reach the confident posterior?
+        A competitor barely likelier than a weak target, and winning no frame, is no finding (a tip needs this)."""
+        return sc.comp_frames >= 1 or sc.comp_peak >= float(np.log(self.cfg.gop.confident_peak))
+
+    def _heard(self, tok: TargetToken, sc: TokenScore) -> str | None:
+        """What took the sound's place, the same way for a learner and a native reference: "_" when the sound is
+        missing, the competitor's symbol when it won beyond the pair's margin with evidence, None when it was kept."""
+        if sc.deleted:
+            return "_"
+        sym = self.vocab.i2t.get(sc.competitor) if sc.competitor is not None else None
+        if sym is None or sc.gop >= 0 or not self._evidenced(sc) or not self._beyond_margin(tok, sc, sym):
+            return None   # no competitor, the target won, no evidence, or not by the pair's margin
+        return sym
+
     def _margin(self, targets: list[str], heard: str | None) -> float:
         """The pair's margin (rules 6.2), or the default for every pair when the teacher switched margins off."""
         return self.rules.margin(targets if self._on("margins") else [], heard)
@@ -712,7 +757,7 @@ class Scorer:
         # Measure against what the model gives a native on the same sound: a sound it misses in the
         # reference voice too (ʕ in على heard as dropped) is the model's weakness, not the learner's.
         heatmap = self._heatmap(fit.logp, toks, al, scores, duration_s) if diagnostics else None
-        raw, bases = scores, self._baseline(toks, refs)
+        raw, (bases, refused) = scores, self._baseline(toks, scores, refs)
         scores = [sc if b is None or b >= 100 else replace(sc, score=round(min(100.0, 100.0 * sc.score / max(b, 1.0)), 1))
                   for sc, b in zip(raw, bases)]
         after_baseline = scores
@@ -743,10 +788,15 @@ class Scorer:
         tr_words = to_hebrew(ipa, ar)
         for idx, (tok, sc) in enumerate(zip(toks, scores)):
             heard_ph = "_" if sc.deleted else (i2t.get(sc.competitor) if sc.competitor is not None else None)
+            # a competitor with no acoustic evidence (won no frame, never confident) is not named: no substitution
+            # tip and no "heard as" for its letter, whose score stays as it is
+            unevidenced = heard_ph is not None and not sc.deleted and not self._evidenced(sc)
+            if unevidenced:
+                heard_ph = None
             check = self._check(tok, heard_ph)
             beyond.append(self._beyond_margin(tok, sc, heard_ph))
             flagged = (bool(sc.score < self.cfg.flag_below_sound.get(tok.sound, self.cfg.flag_below)) and beyond[-1]
-                       and (tok.phoneme not in VOWELS or self._flag_vowel(toks, idx)))
+                       and not unevidenced and (tok.phoneme not in VOWELS or self._flag_vowel(toks, idx)))
             # a long vowel said short (3.8): heard as its short vowel, with the rule's tip, unless the native
             # reference was as short (the baseline gave the score back)
             short = idx in fit.shortened and sc.score < self.cfg.issue_below
@@ -870,16 +920,19 @@ class Scorer:
         if diagnostics:
             result["trace"] = self._trace(fit, refs, bases, after_baseline, floors, scores, phonemes, checks, beyond,
                                           words, tips, tip_idx, set(issue_idx), phone_mean, word_mean, overall, heard,
-                                          duration_s)
+                                          duration_s, refused)
         return result
 
     def _trace(self, fit: Fit, refs, bases, after_baseline, floors, scores, phonemes, checks, beyond,
                words, tips, tip_idx, issue_idx, phone_mean, word_mean, overall, heard,
-               duration_s: float | None = None) -> dict:
+               duration_s: float | None = None, refused: list[str | None] | None = None) -> dict:
         """Every stage of the classification with its numbers, weights and thresholds, for the teacher's view
         (the 'stages' part of the phoneme analysis). Nothing here changes the result."""
         cfg, g, i2t = self.cfg, self.cfg.gop, self.vocab.i2t
-        per_ref = self._ref_scores(fit.toks, refs)
+        rows = self._ref_rows(fit.toks, refs)
+        per_ref = [[None if c is None else c[0] for c in row] for row in rows]
+        per_heard = [[None if c is None else c[1] for c in row] for row in rows]   # what took the sound's place in each voice
+        refused = refused or [None] * len(fit.toks)
         p = lambda lp: round(float(np.exp(lp)), 4) if lp > -1e20 else 0.0
         max_tips = self._max_tips()
         n, T = len(fit.toks), len(fit.logp)
@@ -904,7 +957,8 @@ class Scorer:
                 {"stage": "insertion", "score": fit.insert_scores[i].score, "applied": fit.inserted.get(i)},
                 {"stage": "length", "score": fit.scores[i].score, "applied": fit.shortened.get(i)},
                 {"stage": "baseline", "score": after_baseline[i].score, "ref": b,
-                 "refs": [row[i] for row in per_ref], "applied": b is not None and b < 100},
+                 "refs": [row[i] for row in per_ref], "heard": [None if h is None else norm(h) for h in (row[i] for row in per_heard)],
+                 "refused": refused[i], "applied": b is not None and b < 100},
                 {"stage": "calibration", "score": sc.score, "floor": floors[i],
                  "applied": floors[i] is not None and after_baseline[i].score < floors[i]},
             ]

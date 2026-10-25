@@ -62,6 +62,8 @@ class Rules:
     flag_vowels: dict[str, str] = field(default_factory=dict)
     # a long vowel said short, judged by its duration (3.8): rule, severity, min_ratio, prior_frames, ..., feedback
     length: dict | None = None
+    # (target, heard) pairs a native reference never forgives (scoring.baseline_protected, 6.4)
+    baseline_protected: set[tuple[str, str]] = field(default_factory=set)
 
     def members(self, symbol: str, written: str | None = None) -> list[str]:
         """The correct realisations of an abstract symbol, in base() names, first the dialects' own.
@@ -105,6 +107,11 @@ class Rules:
             if m is not None:
                 return m
         return default
+
+    def protected(self, targets: str | list[str], heard: str | None) -> bool:
+        """Is (target, heard) a pair a native reference never forgives? The target as an abstract symbol or written."""
+        return heard is not None and any((norm(t), norm(heard)) in self.baseline_protected
+                                         for t in ([targets] if isinstance(targets, str) else targets))
 
     def label(self, heard: str | None) -> str | None:
         """The Hebrew name of a heard symbol, as section 8 gives it."""
@@ -162,6 +169,7 @@ def parse(text: str) -> Rules:
         for t in (t for t in m["target"] if "ː" not in str(t)):
             for h in m["heard"]:
                 rules.margins[(norm(str(t)), norm(str(h)))] = float(m["margin"])
+    rules.baseline_protected = {(norm(str(p["target"])), norm(str(p["heard"]))) for p in scoring.get("baseline_protected", [])}
     return rules
 
 

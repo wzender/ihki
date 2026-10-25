@@ -250,7 +250,8 @@ def test_emphatic_heard_plain_is_a_mistake_with_the_rules_feedback():
 
 
 def margin_scorer(competitor_ratio):
-    """طين where tˤ is weak (p 0.07) and plain t is `competitor_ratio` times likelier in the same frames."""
+    """طين where tˤ is weak (p 0.12) and plain t is `competitor_ratio` times likelier in the same frames (from p 0.2 up:
+    enough evidence to be named, so the margin alone decides)."""
     syms = SYMS + ["tˤ", "t"]
     vocab = {s: i for i, s in enumerate(syms)}
     V = len(syms)
@@ -262,7 +263,7 @@ def margin_scorer(competitor_ratio):
         return r / r.sum()
 
     rows = [row({"<pad>": 0.95})] * 2
-    rows += [row({"tˤ": 0.07, "t": 0.07 * competitor_ratio, "<pad>": 0.8})] * 3 + [row({"<pad>": 0.95})] * 2
+    rows += [row({"tˤ": 0.12, "t": 0.12 * competitor_ratio, "<pad>": 0.55})] * 3 + [row({"<pad>": 0.95})] * 2
     for ph in ("i", "n"):
         rows += [row({ph: 0.9})] * 3 + [row({"<pad>": 0.95})] * 2
     return Scorer(lambda wav: np.log(np.array(rows)), Vocab(vocab))
@@ -270,11 +271,13 @@ def margin_scorer(competitor_ratio):
 
 def test_emphatic_needs_a_clear_win_before_it_is_flagged():
     phrase = {"variants": [("طين", "tˤ i n")]}
-    under = margin_scorer(1.8).score(None, phrase)        # plain t under twice as likely: the model's doubt
+    under = margin_scorer(1.8).score(None, phrase, diagnostics=True)   # plain t under twice as likely: the model's doubt
     p = under["words"][0]["phonemes"][0]
-    assert p["score"] < 50 and not p["flagged"] and not under["tips"]
-    over = margin_scorer(2.5).score(None, phrase)
+    assert p["score"] < 60 and not p["flagged"] and not under["tips"]
+    assert under["trace"]["tokens"][0]["margin"]["beyond"] is False     # the margin itself holds it back
+    over = margin_scorer(2.5).score(None, phrase, diagnostics=True)
     assert over["words"][0]["phonemes"][0]["flagged"] and [t["key"] for t in over["tips"]] == ["tˤ>t"]
+    assert over["trace"]["tokens"][0]["margin"]["beyond"] is True
 
 
 @pytest.mark.parametrize("ar,ipa,extra,said,key,heard_letter", [
@@ -842,6 +845,95 @@ def test_native_reference_keeps_real_errors():
     # a reference in which the model does not recognise the phrase is not a baseline
     assert scorer_for(emissions(["ʃ", "e", "k", "e", "d"])).reference(None, ALA) is None
     assert scorer_for(emissions(["ʕ", "χ", "l", "χ", "i", "l", "χ", "a", "χ", "aː", "χ"])).reference(None, ALA) is None
+
+
+def h_as(sym):   # على الحمام with its ħ said as `sym`
+    return ["ʕ", "a", "l", "a", "i", "l", sym, "a", "m", "aː", "m"]
+
+
+def weakened(phones, at, p):
+    """emissions(phones) with phone `at` held at posterior p and nothing else standing out: kept, but weak."""
+    logp = np.exp(emissions(phones))
+    start = 2 + sum((3 * 2 if "ː" in ph else 3) + 2 for ph in phones[:at])
+    for f in range(start, start + 3):
+        logp[f] = (1 - p) / (len(SYMS) - 1)
+        logp[f, VOCAB[phones[at]]] = p
+    return np.log(logp)
+
+
+def test_reference_that_lost_the_sound_another_way_still_forgives():
+    ref = scorer_for(emissions(h_as("χ"))).reference(None, ALA)      # the voice's ħ heard as x
+    r = scorer_for(emissions(h_as("h"))).score(None, ALA, [ref])      # the learner's as h: not a protected pair
+    assert r["words"][1]["phonemes"][2]["score"] == 100 and not r["tips"]
+
+
+def test_reference_that_kept_the_sound_does_not_forgive():
+    ref = scorer_for(emissions(h_as("ħ"))).reference(None, ALA)      # the voice says ħ, and it is heard
+    dropped = [ph for k, ph in enumerate(h_as("ħ")) if k != 6]        # the learner leaves ħ out altogether
+    r = scorer_for(emissions(dropped)).score(None, ALA, [ref], diagnostics=True)
+    assert "ħ>_" in [t["key"] for t in r["tips"]] and r["words"][1]["phonemes"][2]["score"] < 50
+    stage = next(s for s in r["trace"]["tokens"][6]["stages"] if s["stage"] == "baseline")
+    assert stage["refused"] in ("kept", None) and not stage["applied"]
+
+
+def test_protected_pair_is_not_forgiven_even_when_the_voice_says_it_that_way():
+    ref = scorer_for(emissions(h_as("χ"))).reference(None, ALA)      # the TTS voice itself says خ for ح
+    assert ref is not None and ref.heard[6] in ("x", "χ")
+    r = scorer_for(emissions(h_as("χ"))).score(None, ALA, [ref], diagnostics=True)
+    assert "ħ>x" in [t["key"] for t in r["tips"]] and r["words"][1]["phonemes"][2]["score"] < 50
+    stage = next(s for s in r["trace"]["tokens"][6]["stages"] if s["stage"] == "baseline")
+    assert stage["refused"] == "protected" and stage["heard"] == ["x"]
+
+
+def test_weak_but_correct_sound_is_still_compensated():
+    weak = weakened(h_as("ħ"), 6, 0.12)                               # ħ faint in the voice and the learner alike
+    ref = scorer_for(weak).reference(None, ALA)
+    assert ref.heard[6] is None and ref.scores[6] < 100
+    plain = scorer_for(weak).score(None, ALA)["words"][1]["phonemes"][2]["score"]
+    r = scorer_for(weak).score(None, ALA, [ref])
+    assert plain < 100 and r["words"][1]["phonemes"][2]["score"] == 100 and not r["tips"]
+
+
+def onset_scorer(p_target, p_comp):
+    """احنا whose opening ʔ is faint (p_target) with b at p_comp in the same frames, under the blank."""
+    syms = SYMS + ["b"]
+    vocab = {s: i for i, s in enumerate(syms)}
+
+    def row(probs):
+        r = np.full(len(syms), 1e-4)
+        for sym, p in probs.items():
+            r[vocab[sym]] = p
+        return r / r.sum()
+
+    rows = [row({"<pad>": 0.95})] * 2
+    rows += [row({"ʔ": p_target, "b": p_comp, "<pad>": 1 - p_target - p_comp})] * 3 + [row({"<pad>": 0.95})] * 2
+    for ph in ("i", "ħ", "n", "a"):
+        rows += [row({ph: 0.9})] * 3 + [row({"<pad>": 0.95})] * 2
+    return Scorer(lambda wav: np.log(np.array(rows)), Vocab(vocab))
+
+
+ONSET = {"variants": [("احنا", "ʔ i ħ n a")]}
+
+
+def test_no_substitution_tip_without_evidence():
+    r = onset_scorer(0.06, 0.08).score(None, ONSET, diagnostics=True)   # b barely likelier, never winning a frame
+    tok = r["trace"]["tokens"][0]
+    assert tok["competitor_frames"] == 0 and tok["p_competitor"] < 0.3
+    assert not r["tips"] and not r["words"][0]["phonemes"][0]["flagged"]
+    letter = r["words"][0]["letters"][0]
+    assert letter["score"] == tok["final"] < 75 and "כמו" not in letter.get("why", "") and "tip" not in letter
+
+
+def test_substitution_tip_with_evidence():
+    r = onset_scorer(0.05, 0.6).score(None, ONSET)                      # b wins the frames
+    assert r["words"][0]["phonemes"][0]["flagged"] and r["tips"]
+    assert "נשמעה כמו ב" in r["words"][0]["letters"][0]["why"]
+
+
+def test_reference_records_what_took_each_sounds_place():
+    ref = scorer_for(emissions(MISHEARD)).reference(None, ALA)   # the voice's ʕ heard as a glottal stop
+    assert ref.heard[0] == "ʔ"
+    assert all(h is None for h in ref.heard[1:])
 
 
 def test_baseline_voices_are_raef_then_fadwa_by_name():
@@ -2155,9 +2247,9 @@ def test_switched_off_rules_bring_back_the_old_behaviour():
     # the emphatic margin: off, plain t winning by less than twice is a mistake again
     phrase = {"variants": [("طين", "tˤ i n")]}
     s = margin_scorer(1.8)
-    assert not s.score(None, phrase)["tips"]
+    assert s.score(None, phrase, diagnostics=True)["trace"]["tokens"][0]["margin"]["beyond"] is False
     s.set_disabled({"margins"})
-    assert [t["key"] for t in s.score(None, phrase)["tips"]] == ["tˤ>t"]
+    assert s.score(None, phrase, diagnostics=True)["trace"]["tokens"][0]["margin"]["beyond"] is True
     # a section-3 rule off: the general tip and severity instead of the document's
     s = custom_scorer(["p", "f", "dʒ"], ["p", "i", "n", "dʒ", "aː", "n"])
     fin = {"variants": [("فنجان", "f i n dʒ aː n")]}

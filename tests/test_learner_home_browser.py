@@ -124,12 +124,14 @@ def serve(auth, monkeypatch, tmp_path):
         time.sleep(0.05)
     profile = tmp_path / "chrome"
 
-    def run(email, script, query="", width=390):
+    def run(email, script, query="", width=390, mobile=False):
         case = f"c{len(cases)}"; cases[case] = script
         url = f"http://127.0.0.1:{port}/t/{email}/{case}{query}"
-        dom = subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--no-sandbox", "--no-first-run",
-                              f"--user-data-dir={profile}", f"--window-size={width},860", "--virtual-time-budget=20000",
-                              "--dump-dom", url], capture_output=True, text=True, timeout=90).stdout
+        args = [CHROME, "--headless=new", "--disable-gpu", "--no-sandbox", "--no-first-run",
+                f"--user-data-dir={profile}", f"--window-size={width},860", "--virtual-time-budget=20000"]
+        if mobile:
+            args += ["--touch-events=enabled", "--user-agent=Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36"]
+        dom = subprocess.run(args + ["--dump-dom", url], capture_output=True, text=True, timeout=90).stdout
         found = re.search(r'<pre id="result">(.*?)</pre>', dom, re.S)
         assert found, dom[-2000:]
         result = json.loads(found.group(1).replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&").replace("&quot;", '"'))
@@ -214,6 +216,44 @@ def test_a_later_visit_opens_the_home_and_the_path_at_the_current_lesson(site):
     assert r["pathShortcuts"] == []   # daily practice and homework are no longer path shortcuts
     assert r["inLesson5"] and r["inView"]   # lessons 3 and 4 are unfinished too, yet the path opens at lesson 5
     assert r["pushPrompt"] is False         # not on entering: the prompt waits for a good moment
+
+
+PATH_SHADDA = """
+await sleep(1500);
+const lesson=LESSONS[0], level=ALL_LEVELS.find(v=>v.id===lesson.level), topic=CATS.find(c=>c.lesson===lesson.id);
+level.name="רַמّה"; lesson.name="דַרّס"; topic.name="כֻּלّ";
+showView(""); drawPath(true);
+const levelEl=document.querySelector("#path .level");
+const lessonEl=document.querySelector(`#path .chapter[data-lesson="${lesson.id}"]`);
+const topicEl=[...document.querySelectorAll("#path .sat")].find(b=>b.getAttribute("aria-label")?.startsWith(topic.name+":"));
+const check=(el,original)=>{
+  const sh=el.querySelector(".sh"), pseudo=getComputedStyle(sh,"::before");
+  return {wrappers:el.querySelectorAll(".sh").length, original,
+    visible:!!(el.offsetWidth&&el.offsetHeight), baseText:el.textContent.includes(original.replaceAll("ّ","")),
+    mark:{content:pseudo.content,top:pseudo.top,mask:pseudo.maskImage||pseudo.webkitMaskImage}};
+};
+out.level=check(levelEl,level.name); out.level.label=levelEl.getAttribute("aria-label");
+out.lesson=check(lessonEl,lesson.name); out.lesson.label=lessonEl.getAttribute("aria-label");
+out.topic=check(topicEl,topic.name); out.topic.label=topicEl.getAttribute("aria-label");
+out.controls=[lessonEl,topicEl].map(b=>({tag:b.tagName,disabled:b.disabled,tabIndex:b.tabIndex,action:typeof b.onclick==="function"}));
+out.noOverflow=document.documentElement.scrollWidth<=innerWidth;
+const fallback=document.createElement("style"); fallback.textContent=".sh::before{content:none!important}"; document.head.append(fallback);
+out.fallback=[levelEl,lessonEl,topicEl].every((el,i)=>el.textContent.includes([level.name,lesson.name,topic.name][i].replaceAll("ّ",""))&&el.offsetWidth>0);
+fallback.remove();
+"""
+
+
+def test_complete_path_renders_shadda_with_original_accessible_text_on_mobile(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", PATH_SHADDA, mobile=True)
+    for name in ("level", "lesson", "topic"):
+        item = r[name]
+        assert item["wrappers"] == 1 and item["visible"] and item["baseText"]
+        assert item["mark"]["content"] != "none" and item["mark"]["mask"] != "none"
+        assert float(item["mark"]["top"].removesuffix("px")) < 0
+        assert item["original"] in item["label"]
+    assert r["controls"] == [{"tag": "BUTTON", "disabled": False, "tabIndex": 0, "action": True}] * 2
+    assert r["noOverflow"] and r["fallback"] is True
 
 
 GOOD_MOMENT = """

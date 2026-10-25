@@ -257,7 +257,10 @@ function refScores(t){
   return refList().length===1?[b.ref??null]:[];
 }
 /* the voice the sound was measured against: the lowest score, as Scorer._baseline takes it */
+const REFUSED={protected:"זוג מוגן: קול ילידי לא מוחל על ההחלפה הזו",kept:"הקולות הילידיים שמרו על ההגה: לא נמדד מולם"};
+const refHeard=t=>{ const b=t.stages.find(s=>s.stage==="baseline")||{}; return Array.isArray(b.heard)?b.heard:[]; };
 function refUsed(t){
+  const b=t.stages.find(s=>s.stage==="baseline")||{}; if(b.refused) return -1;   // compensation refused: measured against no voice
   const xs=refScores(t); let best=-1;
   xs.forEach((x,k)=>{ if(x!=null&&(best<0||x<xs[best])) best=k; });
   return best>=0&&xs[best]<100?best:-1;   // at 100 the baseline changes nothing: no voice was measured against
@@ -274,7 +277,8 @@ function drawRefBar(){
 function refTip(i){
   const t=T.tokens[i], xs=refScores(t), used=refUsed(t);
   return [el("div",{class:"t",text:`קו בסיס ילידי · ${t.ipa}`}),
-    ...xs.map((x,k)=>trow(refName(k),x==null?"אין הגה כזה בקריאה שלו":`${fmt(x,0)}`+(k===used?" · נמדד מולו":""))),
+    ...xs.map((x,k)=>trow(refName(k),x==null?"אין הגה כזה בקריאה שלו":`${fmt(x,0)}`+(refHeard(t)[k]?` · נשמע ${refHeard(t)[k]}`:"")+(k===used?" · נמדד מולו":""))),
+    ...(()=>{ const b=t.stages.find(s=>s.stage==="baseline")||{}; return b.refused?[trow("קו הבסיס",REFUSED[b.refused]||b.refused)]:[]; })(),
     trow("הלומד: לפני → אחרי",(()=>{ const st=Object.fromEntries(t.stages.map(s=>[s.stage,s.score])); return `${fmt(st.length??st.insertion)} → ${fmt(st.baseline)}`; })())];
 }
 
@@ -617,7 +621,8 @@ function drawWaterfall(){
     if(s.stage==="insertion"&&s.applied) note=`תנועה ${s.applied} בצרור`;
     if(s.stage==="length"&&s.applied) note=`תנועה ארוכה קצרה: ${fmt(s.applied.ratio,2)}× מתנועה קצרה (סף ${fmt(s.applied.min_ratio,2)})`;
     if(s.stage==="baseline"){ const xs=refScores(t), u=refUsed(t);
-      note=s.ref==null?(refList().length?"לאף קול ילידי אין את ההגה הזה":"אין קול ילידי")
+      note=s.refused?(REFUSED[s.refused]||s.refused)+(refHeard(t).some(Boolean)?` (נשמע בקולות: ${refHeard(t).map(h=>h||"—").join(" · ")})`:"")
+        :s.ref==null?(refList().length?"לאף קול ילידי אין את ההגה הזה":"אין קול ילידי")
         :xs.length>1?xs.map((x,k)=>`${refName(k)} ${x==null?"—":fmt(x,0)}`).join(" · ")+(u>=0?` → נמדד מול ${refName(u)} (${fmt(s.ref,0)}): 100·s/${fmt(s.ref,0)}`:" (100: לא משנה)")
         :`${refName(0)}: ${fmt(s.ref,0)}`+(s.ref<100?` → 100·s/${fmt(s.ref,0)}`:" (100: לא משנה)"); }
     if(s.stage==="calibration") note=s.floor==null?"אין רצפה":`רצפה ${fmt(s.floor,0)}`;
@@ -652,7 +657,9 @@ function drawWaterfall(){
   box.replaceChildren(svg);
   $("p2sub").replaceChildren(el("span",{class:"ipa",text:t.ipa})," · ",el("span",{class:"dot "+band(t.final)}),`${fmt(t.final,0)} · ${BAND_NAME[band(t.final)]}`);
   const rx=refScores(t), ru=refUsed(t);
-  $("p2facts").replaceChildren(...[...rx.map((x,k)=>fact(`בסיס ${refName(k)}`,(x==null?"—":fmt(x,0))+(k===ru&&rx.length>1?" ◆":""))),fact("סומן",t.flagged?"כן":"לא"),fact("מרווח נדרש",fmt(t.margin.needed,2)),fact("בפועל",fmt(t.margin.got,2)),
+  const bst=t.stages.find(s=>s.stage==="baseline")||{};
+  $("p2facts").replaceChildren(...[...rx.map((x,k)=>fact(`בסיס ${refName(k)}`,(x==null?"—":fmt(x,0))+(refHeard(t)[k]?` (נשמע ${refHeard(t)[k]})`:"")+(k===ru&&rx.length>1?" ◆":""))),
+    ...(bst.refused?[fact("קו בסיס",bst.refused==="protected"?"לא הוחל: זוג מוגן":"לא הוחל: הקול שמר על ההגה")]:[]),fact("סומן",t.flagged?"כן":"לא"),fact("מרווח נדרש",fmt(t.margin.needed,2)),fact("בפועל",fmt(t.margin.got,2)),
     t.rule?fact("כלל",`${t.rule.title} (${t.rule.severity})`):null, fact("טיפ",t.tip?"כן":"לא")].filter(Boolean));
 }
 
