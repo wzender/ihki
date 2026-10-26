@@ -579,13 +579,26 @@ Keeping the link from being passed on is done in Vimeo, not here: the page has t
 
 The app can expose a restricted [Model Context Protocol](https://modelcontextprotocol.io/) connector so a teacher can manage the digital library from Grok Business without receiving a Supabase secret, Hugging Face token, or general administrator access. It exposes exactly four operations: list the library, prepare a video, publish a prepared video after confirmation, and rename a video. It cannot delete videos, manage classes, users or teachers, or run database queries.
 
-Generate a dedicated random credential locally:
+The connector uses the teacher's existing Supabase account through OAuth 2.1. Grok receives revocable user tokens; it never receives `SUPABASE_SECRET_KEY`. On every MCP request the app asks Supabase who the token belongs to and freshly checks that the account still has `management.access`, so removing the admin/developer role stops the connector even if Grok still has a token.
 
-```bash
-openssl rand -base64 32
+Configure Supabase first:
+
+1. In **Authentication → Signing Keys**, migrate to an asymmetric signing key such as ES256 or RS256 if the project still uses HS256.
+2. In **Authentication → URL Configuration**, set **Site URL** to the public app origin, for example `https://<owner>-<space>.hf.space`.
+3. In **Authentication → OAuth Server**, enable the OAuth 2.1 server and **Dynamic Client Registration**. Set **Authorization Path** to `/oauth/consent`.
+4. Keep explicit user approval enabled. Dynamic registration lets compatible MCP clients register their exact callback URL, so periodically review OAuth applications and grants in Supabase.
+
+In Hugging Face **Settings → Variables and secrets**, keep `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY` configured as described above. `SUPABASE_SECRET_KEY` remains a Space secret. `MCP_PUBLIC_URL` is normally inferred from `SPACE_HOST`; for a custom domain set it to the exact final URL:
+
+```text
+https://<your-domain>/mcp/
 ```
 
-In the Hugging Face Space, open **Settings → Variables and secrets**, add `GROK_LIBRARY_TOKEN` as a **secret**, and restart the Space. Do not add it as a visible variable and do not reuse `SUPABASE_SECRET_KEY`, `HF_TOKEN`, an xAI API key, or a login password. When the secret is absent, the MCP endpoint answers 503 and performs no operation.
+Restart the Space, then check these URLs in a browser:
+
+- `https://<host>/.well-known/oauth-protected-resource/mcp/` names the MCP resource and the Supabase authorization server.
+- `https://<project-ref>.supabase.co/.well-known/oauth-authorization-server/auth/v1` is Supabase's OAuth discovery document.
+- `https://<host>/oauth/consent` shows an error without an active `authorization_id`; that is expected because Supabase supplies it during sign-in.
 
 In Grok Business, add a Custom MCP connector whose final Streamable HTTP URL is:
 
@@ -593,9 +606,13 @@ In Grok Business, add a Custom MCP connector whose final Streamable HTTP URL is:
 https://<owner>-<space>.hf.space/mcp/
 ```
 
-Configure the connector to send `Authorization: Bearer <GROK_LIBRARY_TOKEN>`. Grok must first call `prepare_library_video`; the app returns the normalized title, URL and a single-use approval that expires after ten minutes. Only after the teacher explicitly confirms those details should Grok call `publish_library_video`. Pending approvals disappear safely when the Space restarts.
+Only the name and Server URL are needed. Grok should discover Supabase OAuth and display **Sign in**. Sign in with an account that currently has the app's admin or developer role, review the client name, callback and scopes on the Hebrew consent screen, then approve. A student or a user without `management.access` cannot approve or call MCP tools.
 
-The connector does not make calls to the xAI API, so an xAI developer API key and API credits are not required. Grok Business plan or connector charges, if any, are handled by xAI. To revoke access immediately, remove or rotate `GROK_LIBRARY_TOKEN` in the Space settings and restart the Space. Existing videos and management-screen access are unaffected. Connector mutations appear in the existing management activity log when its optional `system_events` table is installed; application logs are the fallback and never contain the bearer credential.
+Grok must first call `prepare_library_video`; the app returns the normalized title, URL and a single-use approval that expires after ten minutes. Only after the teacher explicitly confirms those details should Grok call `publish_library_video`. Pending approvals disappear safely when the Space restarts.
+
+The connector does not make calls to the xAI API, so an xAI developer API key and API credits are not required. Grok Business plan or connector charges, if any, are handled by xAI. To revoke one connector, revoke its grant or OAuth application in Supabase. To revoke the teacher immediately, remove their admin/developer role in the management screen; the next MCP request is refused. Existing videos and ordinary management-screen access are otherwise unaffected. Connector mutations appear in the existing management activity log when its optional `system_events` table is installed; application logs are the fallback and never contain OAuth tokens.
+
+If Grok does not show sign-in, confirm that both discovery URLs return JSON, dynamic registration is enabled, `MCP_PUBLIC_URL` matches Grok's URL including `/mcp/`, and the Space uses HTTPS. A registration 403/404 usually means dynamic registration is disabled. `invalid_grant` usually means the authorization code expired, its PKCE verifier differs, or the registered callback does not match exactly; remove and recreate the connector. A consent-page configuration error means the Site URL, Authorization Path, or Supabase public settings are missing. OAuth configuration failures never fall back to public or shared-secret access.
 
 ### Texts
 

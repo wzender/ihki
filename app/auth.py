@@ -945,12 +945,12 @@ class SupabaseAuth:
                 break
         return users
 
-    def access_for(self, user_id: str) -> dict | None:
+    def access_for(self, user_id: str, fresh: bool = False) -> dict | None:
         """The roles and student entitlements assigned to an account. None also means the migration table is absent."""
         now = time.monotonic()
         with self._lock:
             hit = self._access.get(user_id)
-        if hit and hit[0] > now:
+        if not fresh and hit and hit[0] > now:
             return hit[1]
         try:
             rows = self._admin("/rest/v1/user_access?" + urllib.parse.urlencode({

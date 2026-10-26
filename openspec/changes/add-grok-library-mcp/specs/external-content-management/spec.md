@@ -13,16 +13,35 @@ The service SHALL expose a public HTTPS MCP endpoint whose advertised tools and 
 - **WHEN** an authenticated MCP client initializes a session and requests the tool list
 - **THEN** the service returns the supported protocol response and only the configured library-management tools
 
-### Requirement: Dedicated integration authentication
-The MCP endpoint SHALL require a dedicated bearer credential configured on the server and SHALL disclose neither that credential nor any Supabase, Hugging Face, or third-party secret.
+### Requirement: OAuth discovery and authentication
+The MCP endpoint SHALL advertise standards-compatible protected-resource metadata and require Supabase OAuth 2.1 access tokens obtained through authorization code with PKCE and explicit user consent.
 
-#### Scenario: Credential is absent or wrong
-- **WHEN** a caller supplies no integration credential or an incorrect credential
-- **THEN** the service refuses the request without revealing which credential check failed
+#### Scenario: Grok discovers authentication
+- **WHEN** Grok calls the MCP endpoint without an access token
+- **THEN** the service refuses the request with protected-resource metadata that leads Grok to the configured Supabase authorization server
 
-#### Scenario: Integration is not configured
-- **WHEN** the server has no integration credential configured
-- **THEN** the MCP endpoint is unavailable and no library operation is performed
+#### Scenario: Teacher authorizes Grok
+- **WHEN** an eligible signed-in teacher reviews the client identity and requested library access and approves it
+- **THEN** Supabase returns Grok to its registered redirect URI with a short-lived authorization code usable only with the matching PKCE verifier
+
+#### Scenario: Teacher denies consent
+- **WHEN** the teacher denies the authorization request
+- **THEN** no authorization code or MCP access is granted
+
+#### Scenario: OAuth is not configured
+- **WHEN** Supabase OAuth 2.1, dynamic registration, signing keys, or the authorization path is unavailable
+- **THEN** connection fails safely and no library operation is performed
+
+### Requirement: Consent is restricted to authorized staff
+The authorization page SHALL allow approval only for a currently authenticated user with `management.access` and SHALL clearly identify the requesting client and the library-only access being requested.
+
+#### Scenario: Student reaches the consent page
+- **WHEN** a signed-in user without `management.access` opens a valid authorization request
+- **THEN** approval is unavailable and the page explains that management permission is required
+
+#### Scenario: Signed-out user reaches the consent page
+- **WHEN** a signed-out user opens a valid authorization request
+- **THEN** the page preserves the authorization request through Google or email-link sign-in and returns to consent afterward
 
 ### Requirement: Narrow tool authority
 The connector SHALL expose only listing, preparing, publishing, and renaming digital-library videos and SHALL provide no tool for deletion, user or teacher management, classes, arbitrary URLs, SQL, or general database access.

@@ -1,7 +1,6 @@
 """Restricted MCP connector through which Grok can manage library videos."""
 from __future__ import annotations
 
-import hmac
 import logging
 import os
 import secrets
@@ -11,9 +10,14 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from mcp.server.auth.provider import AccessToken
+from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver import MCPServer
+from pydantic import AnyHttpUrl
 
 from . import library
+from .access import has_permission, resolve_access
+from .auth import AuthUnavailable
 
 
 log = logging.getLogger("ihki.grok_mcp")
@@ -75,45 +79,51 @@ class MutationLimiter:
             return True
 
 
-class BearerAuthApp:
-    """Small ASGI authentication boundary around only the MCP endpoint."""
+def oauth_urls(app) -> tuple[str, str]:
+    """Return the public MCP resource and Supabase OAuth issuer URLs."""
+    auth = getattr(app.state, "auth", None)
+    supabase = (getattr(auth, "url", "") or os.environ.get("SUPABASE_URL", "")).rstrip("/")
+    public = os.environ.get("MCP_PUBLIC_URL", "").strip()
+    if not public and os.environ.get("SPACE_HOST", "").strip():
+        public = f"https://{os.environ['SPACE_HOST'].strip()}/mcp/"
+    public = public or "http://localhost:8000/mcp/"
+    return public.rstrip("/") + "/", (supabase + "/auth/v1" if supabase else "https://invalid.invalid/auth/v1")
 
-    def __init__(self, app, token: Callable[[], str] | None = None):
+
+class SupabaseTokenVerifier:
+    """Validate a Supabase OAuth token and its current ihki management permission."""
+
+    def __init__(self, app):
         self.app = app
-        self.token = token or (lambda: os.environ.get("GROK_LIBRARY_TOKEN", "").strip())
 
-    async def __call__(self, scope, receive, send):
-        if scope["type"] not in {"http", "websocket"}:
-            await self.app(scope, receive, send)
-            return
-        expected = self.token()
-        if not expected:
-            await self._response(send, 503, b"MCP integration is not configured")
-            return
-        headers = {key.lower(): value for key, value in scope.get("headers", ())}
-        scheme, _, supplied = headers.get(b"authorization", b"").partition(b" ")
-        valid = scheme.lower() == b"bearer" and hmac.compare_digest(
-            supplied, expected.encode("utf-8")
-        )
-        if not valid:
-            await self._response(send, 401, b"Unauthorized", [(b"www-authenticate", b"Bearer")])
-            return
-        await self.app(scope, receive, send)
-
-    @staticmethod
-    async def _response(send, status: int, body: bytes, extra: list[tuple[bytes, bytes]] | None = None):
-        headers = [(b"content-type", b"text/plain; charset=utf-8"), (b"content-length", str(len(body)).encode())]
-        headers.extend(extra or [])
-        await send({"type": "http.response.start", "status": status, "headers": headers})
-        await send({"type": "http.response.body", "body": body})
+    async def verify_token(self, token: str) -> AccessToken | None:
+        auth = getattr(self.app.state, "auth", None)
+        if auth is None or not token:
+            return None
+        try:
+            # SupabaseAuth is deliberately synchronous throughout ihki. Keeping the same
+            # verifier path also avoids retaining a worker/thread beyond an MCP request.
+            user = resolve_access(auth, token, fresh_permissions=True)
+        except AuthUnavailable as exc:
+            log.warning("MCP OAuth verification unavailable: %s", exc)
+            return None
+        if not user or user.get("denied") or not has_permission(user, "management.access"):
+            return None
+        _, issuer = oauth_urls(self.app)
+        return AccessToken(token=token, client_id="supabase-oauth", scopes=["openid", "email"],
+                           subject=str(user["id"]), claims={"iss": issuer, "email": user.get("email", "")})
 
 
 def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimiter | None = None):
     """Return ``(server, authenticated ASGI app, raw Starlette app)``."""
+    resource_url, issuer_url = oauth_urls(app)
     server = MCPServer(
         "ihki-digital-library",
         instructions=("Manage only the ihki digital video library. Always prepare a video, show the normalized "
                       "title and URL to the teacher, and publish only after the teacher explicitly confirms."),
+        token_verifier=SupabaseTokenVerifier(app),
+        auth=AuthSettings(issuer_url=AnyHttpUrl(issuer_url), resource_server_url=AnyHttpUrl(resource_url),
+                          validate_token_resource=False, required_scopes=[]),
     )
     approvals = approvals or ApprovalStore()
     limiter = limiter or MutationLimiter()
@@ -187,4 +197,4 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         max_request_body_size=64 * 1024,
         host="0.0.0.0",
     )
-    return server, BearerAuthApp(raw), raw
+    return server, raw, raw

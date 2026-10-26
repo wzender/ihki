@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>אישור חיבור לספרייה הדיגיטלית</title>
+  <style>
+    :root{font-family:system-ui,sans-serif;color:#172116;background:#f3f6ef}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:1rem;box-sizing:border-box}
+    main{width:min(34rem,100%);background:white;border:1px solid #d7dfd0;border-radius:18px;padding:clamp(1.2rem,5vw,2.2rem);box-shadow:0 12px 35px #24331b18}
+    h1{font-size:1.55rem;margin-top:0}#client{font-weight:700}.details{background:#f6f8f3;border-radius:12px;padding:1rem;overflow-wrap:anywhere}.actions{display:flex;gap:.75rem;margin-top:1.4rem;flex-wrap:wrap}
+    button,input{font:inherit;min-height:46px;border-radius:10px;padding:.7rem 1rem}button{cursor:pointer;border:0;background:#45652d;color:white;font-weight:700}button.secondary{background:#e8ede3;color:#26371b}button:disabled{opacity:.5;cursor:not-allowed}
+    input{box-sizing:border-box;width:100%;border:1px solid #aeb9a6;margin:.4rem 0}.error{color:#9b1c1c}.muted{color:#586251;font-size:.92rem}[hidden]{display:none!important}
+  </style>
+</head>
+<body><main>
+  <h1>אישור חיבור לספרייה הדיגיטלית</h1>
+  <p id="status">בודקים את בקשת החיבור…</p>
+  <section id="login" hidden>
+    <p>כדי לבדוק את ההרשאה שלך, יש להתחבר לחשבון המורה. לאחר ההתחברות תחזרו למסך הזה.</p>
+    <button id="google">התחברות עם Google</button>
+    <p class="muted">או קישור התחברות בדוא״ל:</p><input id="email" type="email" autocomplete="email" inputmode="email" placeholder="teacher@example.com">
+    <button id="magic" class="secondary">שליחת קישור</button>
+  </section>
+  <section id="request" hidden>
+    <div class="details"><p>היישום <span id="client"></span> מבקש להתחבר.</p><p>כתובת החזרה: <span id="redirect"></span></p><p>מידע חשבון מבוקש: <span id="scopes"></span></p></div>
+    <p>החיבור מאפשר רק צפייה, הכנה, פרסום ושינוי שם של סרטונים בספרייה הדיגיטלית. הוא אינו מאפשר ניהול תלמידים, מורים או כיתות.</p>
+    <div class="actions"><button id="approve">אישור החיבור</button><button id="deny" class="secondary">דחייה</button></div>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3"></script>
+<script>
+const AUTH_URL=__SUPABASE_URL_JSON__,AUTH_KEY=__SUPABASE_KEY_JSON__,sb=AUTH_URL&&AUTH_KEY&&window.supabase?supabase.createClient(AUTH_URL,AUTH_KEY):null;
+const q=new URLSearchParams(location.search),authorizationId=q.get("authorization_id"),status=document.querySelector("#status"),login=document.querySelector("#login"),request=document.querySelector("#request");
+const fail=message=>{status.textContent=message;status.className="error"};
+async function begin(){
+  if(!sb)return fail("ההתחברות אינה מוגדרת בשרת."); if(!authorizationId)return fail("בקשת האישור חסרה או אינה תקינה.");
+  const {data:{session}}=await sb.auth.getSession(); if(!session){status.hidden=true;login.hidden=false;return}
+  const eligible=await fetch("/api/oauth/eligibility",{headers:{Authorization:`Bearer ${session.access_token}`}});
+  if(!eligible.ok)return fail("לא ניתן לבדוק את הרשאת הניהול כרגע."); if(!(await eligible.json()).eligible)return fail("לחשבון הזה אין הרשאת ניהול. לא ניתן לאשר את החיבור.");
+  const {data,error}=await sb.auth.oauth.getAuthorizationDetails(authorizationId); if(error||!data)return fail("בקשת האישור אינה תקינה או שפג תוקפה.");
+  if(!("authorization_id" in data)){location.assign(data.redirect_url);return}
+  document.querySelector("#client").textContent=data.client?.name||"יישום חיצוני"; document.querySelector("#redirect").textContent=data.client?.redirect_uris?.[0]||data.redirect_uri||"";
+  document.querySelector("#scopes").textContent=(data.scope||"").split(" ").filter(Boolean).join(", ")||"פרטי חשבון בסיסיים"; status.hidden=true;request.hidden=false;
+}
+document.querySelector("#google").onclick=()=>sb.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.href,queryParams:{prompt:"select_account"}}});
+document.querySelector("#magic").onclick=async()=>{const email=document.querySelector("#email").value.trim();if(!email)return fail("יש להזין כתובת דוא״ל.");const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.href}});if(error)fail("שליחת הקישור נכשלה.");else{login.hidden=true;status.hidden=false;status.textContent="קישור התחברות נשלח בדוא״ל."}};
+async function decide(approve){document.querySelector("#approve").disabled=document.querySelector("#deny").disabled=true;const {data,error}=await (approve?sb.auth.oauth.approveAuthorization(authorizationId):sb.auth.oauth.denyAuthorization(authorizationId));if(error||!data?.redirect_url){fail("לא ניתן להשלים את הבחירה. נסו שוב.");return}location.assign(data.redirect_url)}
+document.querySelector("#approve").onclick=()=>decide(true);document.querySelector("#deny").onclick=()=>decide(false);begin();
+</script></body></html>

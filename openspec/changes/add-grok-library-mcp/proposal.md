@@ -8,9 +8,10 @@ The teacher who curates the digital library prefers managing content through Gro
 
 - Add an authenticated MCP endpoint that Grok can discover over public HTTPS.
 - Expose tools to list library videos, prepare a proposed YouTube or Vimeo video, explicitly publish a prepared proposal, and rename an existing library video.
-- Require a dedicated server-side integration token and constant-time credential verification; the token grants no access to other APIs, tables, teacher assignments, deletion, or raw database operations.
+- Authenticate Grok with Supabase OAuth 2.1 discovery, dynamic client registration, authorization-code flow with PKCE, and an explicit Hebrew consent screen using the teacher's existing account.
+- Authorize every MCP request from the current Supabase user and current `management.access` permission; OAuth identity alone grants no content access.
 - Validate video titles and URLs with the existing library rules, reject duplicates, make publication approvals short-lived and single-use, and record integration actions without logging credentials.
-- Document the Hugging Face secret needed to enable the connector and keep the endpoint unavailable when it is not configured.
+- Document the Supabase OAuth Server configuration needed for discovery, consent, token issuance, refresh, revocation, and degraded behavior when OAuth is unavailable.
 
 Out of scope are deleting videos, managing teachers or users, editing classes, arbitrary database access, automatic web research, and calling the paid xAI API from ihki.
 
@@ -28,8 +29,8 @@ Out of scope are deleting videos, managing teachers or users, editing classes, a
 ## Impact
 
 - Affected code: FastAPI application routing, a new MCP protocol module, library persistence helpers, configuration documentation, and server tests.
-- APIs: a new public MCP-over-HTTP endpoint protected independently from Supabase user sessions; existing browser endpoints remain unchanged.
+- APIs: a public MCP-over-HTTP protected resource plus a Hebrew `/oauth/consent` browser route; existing content and browser-authentication endpoints remain unchanged.
 - Persistence: library rows continue to use the existing Supabase `library` table; pending approvals are process-local and expire, so a restart safely invalidates them.
-- Privacy and authorization: no learner data is exposed; Supabase and Hugging Face administrative secrets never leave the server; audit metadata excludes bearer tokens.
-- Deployment: operators add one dedicated `GROK_LIBRARY_TOKEN` Hugging Face Space secret. No new Supabase migration is required.
+- Privacy and authorization: no learner data is exposed; the connector receives revocable user-scoped Supabase OAuth tokens, while Supabase and Hugging Face administrative secrets never leave the server and tokens never enter logs.
+- Deployment: operators enable Supabase OAuth 2.1, dynamic client registration, an asymmetric signing key, and the Space's `/oauth/consent` authorization path. No application data migration is required.
 - Paid APIs: the application does not call xAI and therefore adds no xAI API-credit usage; Grok Business connector availability and billing remain external to ihki.

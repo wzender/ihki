@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import httpx
 
 from app.auth import AuthUnavailable
-from app.grok_mcp import ApprovalStore, BearerAuthApp, MutationLimiter, build
+from app.grok_mcp import ApprovalStore, MutationLimiter, SupabaseTokenVerifier, build
 from app.main import create_app, video_link
 from tests.test_scoring import emissions, scorer_for
 
@@ -42,7 +42,11 @@ class LibraryAuth:
         self.events.append((kind, actor, label, details))
 
     def user(self, token):
-        return {"id": "teacher-1", "email": "teacher@example.com"} if token == "teacher-session" else None
+        if token == "teacher-session":
+            return {"id": "teacher-1", "email": "teacher@example.com"}
+        if token == "student-session":
+            return {"id": "student-1", "email": "student@example.com"}
+        return None
 
     def classes(self, fresh=False):
         return []
@@ -126,45 +130,45 @@ def test_invalid_and_unavailable_operations_are_safe():
         "title": "x", "url": "https://youtu.be/dQw4w9WgXcQ"})["ok"] is False
 
 
-def asgi_request(app, authorization=None):
-    sent = []
-    headers = [] if authorization is None else [(b"authorization", authorization.encode())]
-    scope = {"type": "http", "method": "POST", "path": "/", "headers": headers}
+def test_oauth_verifier_requires_current_management_permission():
+    class ChangingAuth(LibraryAuth):
+        teachers = frozenset()
 
-    async def receive():
-        return {"type": "http.request", "body": b"", "more_body": False}
+        def __init__(self):
+            super().__init__()
+            self.roles = ["admin"]
+            self.fresh = []
 
-    async def send(message):
-        sent.append(message)
+        def access_for(self, user_id, fresh=False):
+            self.fresh.append(fresh)
+            return {"roles": self.roles, "entitlements": []}
 
-    asyncio.run(app(scope, receive, send))
-    return sent
+    auth = ChangingAuth()
+    host = SimpleNamespace(state=SimpleNamespace(auth=auth))
+    verifier = SupabaseTokenVerifier(host)
+    accepted = asyncio.run(verifier.verify_token("teacher-session"))
+    assert accepted and accepted.subject == "teacher-1" and accepted.token == "teacher-session"
+    auth.roles = ["student"]
+    assert asyncio.run(verifier.verify_token("teacher-session")) is None
+    assert asyncio.run(verifier.verify_token("malformed")) is None
+    assert auth.fresh == [True, True]
 
+    class BrokenAuth(ChangingAuth):
+        def user(self, token):
+            raise AuthUnavailable("offline")
 
-def test_bearer_auth_is_independent_and_does_not_disclose_tokens():
-    async def accepted(scope, receive, send):
-        await send({"type": "http.response.start", "status": 204, "headers": []})
-        await send({"type": "http.response.body", "body": b""})
-
-    disabled = BearerAuthApp(accepted, token=lambda: "")
-    assert asgi_request(disabled)[0]["status"] == 503
-    protected = BearerAuthApp(accepted, token=lambda: "correct-secret")
-    missing = asgi_request(protected)
-    wrong = asgi_request(protected, "Bearer wrong-secret")
-    good = asgi_request(protected, "Bearer correct-secret")
-    assert missing[0]["status"] == wrong[0]["status"] == 401
-    assert good[0]["status"] == 204
-    assert b"correct-secret" not in b"".join(message.get("body", b"") for message in missing + wrong + good)
+    assert asyncio.run(SupabaseTokenVerifier(
+        SimpleNamespace(state=SimpleNamespace(auth=BrokenAuth()))).verify_token("expired-or-offline")) is None
 
 
 def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
-    monkeypatch.setenv("GROK_LIBRARY_TOKEN", "disposable-test-token")
+    monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
     monkeypatch.setenv("SUPABASE_URL", "")
     monkeypatch.setenv("SUPABASE_PUBLISHABLE_KEY", "")
     monkeypatch.setenv("SUPABASE_SECRET_KEY", "")
     monkeypatch.setenv("SAWTAK_API_KEY", "")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
-    app = create_app(scorer_for(emissions(["w"])))
+    app = create_app(scorer_for(emissions(["w"])), auth=LibraryAuth())
     initialize = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
         "protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}}}
 
@@ -173,7 +177,7 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
                 accept = {"Accept": "application/json, text/event-stream"}
                 assert (await client.post("/mcp/", json=initialize, headers=accept)).status_code == 401
-                headers = {**accept, "Authorization": "Bearer disposable-test-token"}
+                headers = {**accept, "Authorization": "Bearer teacher-session"}
                 initialized = await client.post("/mcp/", json=initialize, headers=headers)
                 discovered = await client.post("/mcp/", json={
                     "jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}, headers=headers)
@@ -187,7 +191,7 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
 
 
 def test_existing_library_api_is_compatible_and_mcp_token_has_no_api_authority(monkeypatch):
-    monkeypatch.setenv("GROK_LIBRARY_TOKEN", "mcp-only-token")
+    monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
     monkeypatch.setenv("SAWTAK_API_KEY", "")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
     auth = LibraryAuth()
@@ -215,7 +219,7 @@ def test_existing_library_api_is_compatible_and_mcp_token_has_no_api_authority(m
 
 
 def test_streamable_http_manages_library_end_to_end_and_browser_still_opens(monkeypatch):
-    monkeypatch.setenv("GROK_LIBRARY_TOKEN", "disposable-e2e-token")
+    monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
     monkeypatch.setenv("SAWTAK_API_KEY", "")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
     auth = LibraryAuth()
@@ -224,7 +228,7 @@ def test_streamable_http_manages_library_end_to_end_and_browser_still_opens(monk
     async def request():
         async with app.router.lifespan_context(app):
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
-                headers = {"Authorization": "Bearer disposable-e2e-token",
+                headers = {"Authorization": "Bearer teacher-session",
                            "Accept": "application/json, text/event-stream"}
                 next_id = 1
 
@@ -252,6 +256,41 @@ def test_streamable_http_manages_library_end_to_end_and_browser_still_opens(monk
         "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "position": 1}]
     assert renamed == {"ok": True, "video_id": 1, "title": "שם חדש"}
     assert page.status_code == 200 and "ניהול" in page.text
+
+
+def test_oauth_discovery_challenge_and_consent_routes(monkeypatch):
+    monkeypatch.setenv("MCP_PUBLIC_URL", "https://ihki.example/mcp/")
+    monkeypatch.setenv("SAWTAK_API_KEY", "")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    auth = LibraryAuth()
+    app = create_app(scorer_for(emissions(["w"])), auth=auth)
+    initialize = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+        "protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}}}
+
+    async def request():
+        async with app.router.lifespan_context(app):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                denied = await client.post("/mcp/", json=initialize, headers={"Accept": "application/json, text/event-stream"})
+                metadata = await client.get("/.well-known/oauth-protected-resource/mcp/")
+                consent = await client.get("/oauth/consent?authorization_id=request-1")
+                unsigned = await client.get("/api/oauth/eligibility", headers={"Authorization": "Bearer invalid"})
+                student = await client.get("/api/oauth/eligibility", headers={"Authorization": "Bearer student-session"})
+                teacher = await client.get("/api/oauth/eligibility", headers={"Authorization": "Bearer teacher-session"})
+                return denied, metadata, consent, unsigned, student, teacher
+
+    denied, metadata, consent, unsigned, student, teacher = asyncio.run(request())
+    assert denied.status_code == 401
+    assert 'resource_metadata="https://ihki.example/.well-known/oauth-protected-resource/mcp/"' in denied.headers["www-authenticate"]
+    assert metadata.json() == {"resource": "https://ihki.example/mcp/",
+        "authorization_servers": ["https://example.supabase.co/auth/v1"],
+        "scopes_supported": ["openid", "email"], "bearer_methods_supported": ["header"],
+        "resource_name": "ihki digital library"}
+    assert consent.status_code == 200 and 'dir="rtl"' in consent.text
+    assert "getAuthorizationDetails" in consent.text and "approveAuthorization" in consent.text and "denyAuthorization" in consent.text
+    assert "authorization_id" in consent.text and "redirectTo:location.href" in consent.text
+    assert unsigned.status_code == 401
+    assert student.json() == {"eligible": False}
+    assert teacher.json() == {"eligible": True}
 
 
 def test_mutations_are_bounded_but_listing_remains_available():

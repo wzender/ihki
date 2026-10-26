@@ -38,7 +38,7 @@ from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Body, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import HTMLResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .arabic_diacritics import point_arabic, tts_arabic
@@ -67,8 +67,10 @@ from .tts import (BASELINE_VOICES, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
                     DEFAULT_MODEL as DEFAULT_TUTOR_MODEL, TutorUnavailable, load_tutor, tutor_client)
 from .verb_game import VerbExerciseGenerator
-from .grok_mcp import build as build_grok_mcp
+from .grok_mcp import build as build_grok_mcp, oauth_urls
 from . import library as video_library
+from .access import (DEFAULT_ENTITLEMENTS, DEFAULT_ROLES, ENTITLEMENTS, ENTITLEMENT_PERMISSIONS,
+                     ROLES, ROLE_PERMISSIONS, has_permission, resolve_access)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("ihki")
@@ -221,8 +223,6 @@ CREATE_USER_ACCESS = ("create table public.user_access (user_id uuid primary key
                       "target_user_id uuid not null, changed_by uuid not null, old_access jsonb not null, "
                       "new_access jsonb not null, created_at timestamptz not null default now()); "
                       "alter table public.access_audit enable row level security;")
-ROLES = frozenset({"student", "teacher", "flagger", "admin", "developer"})
-DEFAULT_ROLES = ("student", "flagger")   # everyone may report a wrong score unless a manager removes it
 CREATE_SYSTEM_EVENTS = ("create table public.system_events (id bigint generated always as identity primary key, "
                         "kind text not null check (kind in ('exercise','game','permission','content')), "
                         "actor_id uuid references auth.users(id) on delete set null, actor_email text not null default '', "
@@ -237,19 +237,6 @@ MIGRATE_USER_ACCESS = ("alter table public.user_access add column if not exists 
                        "where 'path' = any(entitlements) and not ('practice' = any(entitlements)); "
                        "alter table public.user_access add constraint valid_entitlements check "
                        "(entitlements <@ array['practice','games','tutor','path','library']::text[]);")
-ENTITLEMENTS = frozenset({"practice", "games", "tutor", "path", "library"})
-DEFAULT_ENTITLEMENTS = ENTITLEMENTS - {"tutor"}  # the paid AI tutor is always an explicit grant
-ROLE_PERMISSIONS = {
-    "student": frozenset(),
-    "teacher": frozenset({"exercises.use_all", "students.view", "games.use", "path.use", "exercises.use", "library.view"}),
-    "flagger": frozenset({"flags.create"}),
-    "admin": frozenset({"exercises.use_all", "students.view", "management.access", "users.manage",
-                        "classes.manage", "content.manage", "flags.review", "games.use", "path.use",
-                        "exercises.use", "library.view"}),
-    "developer": frozenset({"*"}),
-}
-ENTITLEMENT_PERMISSIONS = {"practice": {"practice.use", "exercises.use"}, "games": {"games.use"},
-                           "tutor": {"tutor.use"}, "path": {"path.use"}, "library": {"library.view"}}
 MAX_NOTE = 500
 MIGRATE_ATTEMPT_ISSUES = ("alter table public.attempts add column if not exists issues jsonb not null default '[]'::jsonb, "
                           "add column if not exists model text not null default '', "
@@ -528,7 +515,6 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.scorer = scorer or load_scorer(MODEL_ID)
-        app.state.auth = auth or load_auth()
         if app.state.auth and hasattr(app.state.auth, "migrate_legacy_audio"):
             app.state.auth.migrate_legacy_audio()
         app.state.keys = load_keys(app.state.auth)   # the API keys a developer set in the panel, else the environment's
@@ -563,6 +549,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             reminders.cancel()
 
     app = FastAPI(title="ihki", lifespan=lifespan)
+    app.state.auth = auth or load_auth()
     app.state.verb_game = VerbExerciseGenerator()
     app.state.live = LiveStore()
     app.state.video_link = video_link
@@ -577,61 +564,20 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             return None
         scheme, _, token = request.headers.get("authorization", "").partition(" ")
         try:
-            user = a.user(token.strip()) if scheme.lower() == "bearer" and token.strip() else None
+            user = resolve_access(a, token.strip()) if scheme.lower() == "bearer" and token.strip() else None
         except AuthUnavailable as e:
             raise HTTPException(503, f"sign-in check failed: {e}")
         if user is None:
             raise HTTPException(401, "sign in required")
-        email = user["email"].lower()
-        try:
-            classes = a.classes()
-        except AuthUnavailable as e:
-            raise HTTPException(503, f"class list not available: {e}")
-        mine = [c for c in classes if email in c["emails"]]   # a student may be in several classes
-        teaches = [c for c in classes if email in (c.get("teachers") or [])]
-        # the default entitlements are a class member's (or anyone's, before the first class): an account in no class
-        # gets in only with a row of its own in user_access, or a role
-        member = bool(mine or teaches or not classes)
-        roles, entitlements, assigned = {"student"}, set(DEFAULT_ENTITLEMENTS) if member else set(), None
-        if hasattr(a, "access_for"):
-            try:
-                assigned = a.access_for(user["id"])
-            except AuthUnavailable as e:
-                raise HTTPException(503, f"permissions not available: {e}")
-            if assigned:
-                roles = set(assigned.get("roles") or ["student"]) & ROLES
-                entitlements = set(assigned.get("entitlements") or []) & ENTITLEMENTS
-        # Legacy environment assignments retain their old abilities while deployments move to user_access.
-        if email in getattr(a, "teachers", ()):
-            roles.update({"teacher", "admin", "flagger"})
-        if email in getattr(a, "tutors", ()):
-            roles.add("flagger")
-        if email in getattr(a, "developers", ()):
-            roles.add("developer")
-        privileged = roles - {"student"}   # before the panel's rank, which lets nobody in by itself
-        if classes and not mine and not privileged and not entitlements:
+        if user.get("denied"):
             raise HTTPException(403, "this account is not on the list")
-        if not assigned:   # after the gate above: the default report permission lets nobody in by itself
-            roles.update(DEFAULT_ROLES)
-        if "flagger" not in roles:
-            try:
-                if email in (a.ranked() or ()):
-                    roles.add("flagger")
-            except AuthUnavailable as e:
-                log.warning("tutors not read: %s", e)
-        permissions = set().union(*(ROLE_PERMISSIONS[r] for r in roles))
-        permissions.update(*[ENTITLEMENT_PERMISSIONS[e] for e in entitlements])
-        return {**user, "token": token.strip(), "roles": sorted(roles), "entitlements": sorted(entitlements),
-                "subject": str((assigned or {}).get("subject") or ""),
-                "permissions": sorted(permissions), "teacher": bool(roles & {"teacher", "admin", "developer"}),
-                "tutor": "flags.create" in permissions or "*" in permissions, "classes": mine, "teaches": teaches}
+        return user
 
     def require(permission: str):
         def allowed(user: dict | None = Depends(signed_in)) -> SupabaseAuth:
             if app.state.auth is None:  # authentication is optional in local/open deployments
                 return app.state.auth
-            permissions = set(user.get("permissions", ())) if user else set()
-            if "*" not in permissions and permission not in permissions:
+            if not has_permission(user, permission):
                 raise HTTPException(403, f"missing permission: {permission}")
             return app.state.auth
         return allowed
@@ -641,6 +587,27 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     teacher_only = admin_only  # compatibility name for the management endpoints below
 
     members = [Depends(signed_in)]
+
+    @app.get("/.well-known/oauth-protected-resource/mcp/", include_in_schema=False)
+    @app.get("/.well-known/oauth-protected-resource/mcp", include_in_schema=False)
+    def mcp_oauth_metadata():
+        resource, issuer = oauth_urls(app)
+        return JSONResponse({"resource": resource, "authorization_servers": [issuer],
+                             "scopes_supported": ["openid", "email"],
+                             "bearer_methods_supported": ["header"],
+                             "resource_name": "ihki digital library"})
+
+    @app.get("/api/oauth/eligibility", include_in_schema=False)
+    def oauth_eligibility(user: dict | None = Depends(signed_in)):
+        return {"eligible": has_permission(user, "management.access")}
+
+    @app.get("/oauth/consent", response_class=HTMLResponse, include_in_schema=False)
+    def oauth_consent():
+        html = (STATIC / "oauth-consent.html").read_text(encoding="utf-8")
+        a: SupabaseAuth | None = app.state.auth
+        html = html.replace("__SUPABASE_URL_JSON__", json.dumps(a.url if a else ""))
+        html = html.replace("__SUPABASE_KEY_JSON__", json.dumps(a.key if a else ""))
+        return HTMLResponse(html, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
 
     def managed_classes(a: SupabaseAuth, actor: dict | None, fresh: bool = False) -> list[dict]:
         """Classes visible in management: developers see all; admins only their own subject."""

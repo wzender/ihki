@@ -11,7 +11,8 @@ The MCP protocol and remote-client behavior evolve independently from the applic
 **Goals:**
 
 - Serve standards-compatible Streamable HTTP MCP from the existing FastAPI deployment.
-- Authenticate the connector independently with one high-entropy deployment secret.
+- Let Grok authenticate through standards-compatible OAuth discovery and the teacher's existing Supabase account.
+- Recheck the authenticated user's current application permission on every MCP request.
 - Reuse the exact normalization, validation, storage, ordering, and audit paths used by existing library operations.
 - Require an explicit second tool call before a prepared video becomes visible to learners.
 - Keep failure behavior deterministic when authentication, configuration, or Supabase is unavailable.
@@ -19,8 +20,8 @@ The MCP protocol and remote-client behavior evolve independently from the applic
 **Non-Goals:**
 
 - Maintaining MCP conversation state or storing Grok conversations.
-- Giving the integration a Supabase user, service-role credential, Hugging Face token, or xAI API key.
-- Adding a browser UI, changing RTL/touch/keyboard behavior, or calling xAI from the application.
+- Giving the integration a service-role credential, Hugging Face token, shared bearer secret, or xAI API key.
+- Changing the management UI, or calling xAI from the application; the only new browser UI is OAuth consent.
 - Durable approvals across process restarts or replicas; invalidating pending approvals is the safer failure mode.
 
 ## Decisions
@@ -31,11 +32,23 @@ Add the current stable `mcp` 2.x dependency, pinned to a release containing the 
 
 This is preferred to handwritten JSON-RPC because protocol negotiation, discovery, schemas, and client compatibility are easy to get subtly wrong. The legacy SSE transport is not used because Streamable HTTP supersedes it. Stateless mode fits Hugging Face restarts and avoids retaining untrusted client initialization payloads.
 
-### Authenticate before protocol dispatch
+### Use Supabase as the OAuth 2.1 authorization server
 
-An ASGI middleware surrounding only the MCP mount reads `Authorization: Bearer <token>` and compares it in constant time against `GROK_LIBRARY_TOKEN`. Missing configuration returns service unavailable; missing or wrong credentials return the same unauthorized response. The middleware never logs the header or includes it in exceptions.
+Enable Supabase Auth's OAuth Server, dynamic client registration, and asymmetric JWT signing. Configure its issuer as `https://<project-ref>.supabase.co/auth/v1` and its authorization UI as the Space's `/oauth/consent` route. Grok discovers the authorization server from the MCP resource's RFC 9728 protected-resource metadata, dynamically registers its exact redirect URI, and uses authorization code with PKCE. Supabase owns authorization codes, access and refresh tokens, rotation, expiration, revocation, and client registration.
 
-The dedicated token is stored as a Hugging Face Space secret. It is not accepted by any `/api/*` route, while Supabase session and secret credentials are not accepted as MCP credentials. A database token table is deferred because there is one teacher and one connector; adding multiple principals later can replace the verifier without changing tool contracts.
+This is preferred to implementing an authorization server in FastAPI: it reuses the existing Google/email identities and avoids custom storage of security-critical OAuth grants. The static `GROK_LIBRARY_TOKEN` path is removed because Grok.com's URL-only connector UI cannot configure it. Query-string credentials and an unauthenticated MCP endpoint are rejected because URLs leak into logs and public access would allow anyone to mutate the library.
+
+### Publish protected-resource metadata and verify user tokens
+
+Configure the MCP SDK's resource-server authentication with the Space's public MCP resource URL, Supabase's issuer URL, and the minimal identity scopes supported by Supabase. An SDK token verifier validates each presented token through the configured Supabase Auth service and returns only verified identity metadata. Challenges point to `/.well-known/oauth-protected-resource/mcp/`; no access token is included in errors or logs.
+
+After token verification, ihki resolves the user through the same centralized role and permission logic as browser sessions and requires current `management.access` for discovery and every tool call. This prevents an OAuth grant from outliving a teacher-role revocation. OAuth tokens remain invalid on unrelated `/api/*` routes unless they independently satisfy those routes' existing user authorization; the MCP layer never exposes service-role access.
+
+### Add an RTL OAuth consent route
+
+Serve `/oauth/consent?authorization_id=...` as a small Hebrew, RTL page using the existing Supabase browser client. It preserves the authorization ID through the current Google or email-link sign-in flow, requests the authorization details from Supabase, and shows the requesting client's name, redirect URI, requested identity scopes, and a fixed explanation that access is limited to listing, preparing, publishing, and renaming digital-library videos.
+
+Before enabling approval, the page sends the current Supabase access token to a narrow server check that uses the centralized permission resolver and returns only eligibility. Approval and denial use Supabase's OAuth consent APIs, then redirect only to the URL Supabase returns. A student, signed-out user, malformed/expired authorization ID, or user who lost management permission cannot approve. The page supports touch and keyboard use and does not expose administrative secrets.
 
 ### Put content operations behind shared service functions
 
@@ -57,13 +70,15 @@ The authenticated token may make bounded read requests, while prepare, publish, 
 
 Successful and refused authenticated mutations call the existing best-effort `system_events` audit path with action, target identifier/title, and outcome. If the optional audit table is missing, application logging remains available and the content operation is not blocked, matching existing audit behavior.
 
-### Keep storage and configuration unchanged
+### Keep content storage unchanged
 
-Published and renamed videos remain in the existing Supabase `library` table. No new Supabase schema or browser state is introduced. `.env.example` and deployment documentation gain `GROK_LIBRARY_TOKEN`; production stores it as a Hugging Face secret, not a visible variable. The integration does not consume paid xAI API credits because Grok initiates MCP calls.
+Published and renamed videos remain in the existing Supabase `library` table. No application table stores OAuth codes or tokens. Deployment documentation replaces `GROK_LIBRARY_TOKEN` instructions with Supabase OAuth Server, dynamic registration, asymmetric signing, Site URL, authorization path, and redirect-domain configuration. The integration does not consume paid xAI API credits because Grok initiates MCP calls.
 
 ## Risks / Trade-offs
 
-- **A leaked integration token can mutate the library within its tool scope** → keep the scope narrow, rate-limit writes, make the token independently rotatable, and record actions.
+- **A stolen OAuth access or refresh token can act as its user** → rely on short access-token lifetime, refresh rotation and revocation, never persist/log tokens, and recheck current management permission on every request.
+- **Dynamic client registration permits unknown clients to register** → always require interactive user consent, display client and redirect details, monitor/revoke registered clients in Supabase, and keep MCP tool authority narrow.
+- **A malicious redirect or consent request could phish the teacher** → let Supabase validate exact registered redirect URIs and authorization IDs; the consent page redirects only to Supabase-returned URLs.
 - **An LLM may call a tool after reading malicious content** → require a separate opaque approval and publication call; expose no destructive or permission-management tool.
 - **Per-process approvals disappear on restart or differ across replicas** → report invalid approval and ask the teacher to prepare again; document single-replica expectations for this first version.
 - **MCP SDK changes could affect compatibility or resource use** → pin a secure compatible major/minor range and cover initialization, discovery, and calls through an MCP client in tests.
@@ -72,9 +87,9 @@ Published and renamed videos remain in the existing Supabase `library` table. No
 
 ## Migration Plan
 
-1. Add the SDK dependency, MCP module, shared library helpers, configuration documentation, and focused tests.
-2. Deploy with no `GROK_LIBRARY_TOKEN`; verify `/mcp` remains unavailable and browser behavior is unchanged.
-3. Generate a new high-entropy token, add it as a Hugging Face Space secret, and restart the Space.
-4. Configure the Grok Business custom connector with the Space's final `/mcp` URL and bearer credential.
-5. Test list, prepare, explicit publish, duplicate refusal, and rename with a disposable video; verify the management activity entry.
-6. Roll back by removing or rotating `GROK_LIBRARY_TOKEN`; the MCP endpoint becomes unavailable while existing library content and UI management continue unchanged.
+1. Implement the consent route, Supabase token verifier, protected-resource metadata, centralized permission check, documentation, and focused OAuth tests while retaining the current connector tools.
+2. In Supabase, migrate to an asymmetric signing key if necessary, enable OAuth 2.1 Server and dynamic client registration, set the Space as Site URL, and set `/oauth/consent` as Authorization Path.
+3. Deploy and verify signed-out, student, teacher approval, denial, expired request, revoked permission, refresh, and MCP discovery flows.
+4. Remove `GROK_LIBRARY_TOKEN` from Hugging Face and local configuration; the old static bearer path must no longer authorize MCP.
+5. Recreate the Grok Business custom connector using only the final `https://<owner>-<space>.hf.space/mcp/` URL, complete browser consent, then test all four tools and audit entries.
+6. Roll back by disabling Supabase OAuth Server or dynamic registration and reverting the deployment; existing library content and browser management remain unchanged.
