@@ -442,6 +442,17 @@ class SupabaseAuth:
             self._classes = (now + CLASSES_TTL, rows)
         return rows
 
+    def database_health(self) -> bool:
+        """Perform one bounded, read-only PostgREST probe without returning table data."""
+        if not self.secret:
+            return False
+        try:
+            self._admin("/rest/v1/classes?select=id&limit=1")
+        except AuthUnavailable as exc:
+            if "answered 404" not in str(exc):
+                raise
+        return True
+
     def save_class(self, id: int | None, name: str, emails: list[str], nicknames: dict[str, str],
                    lessons: list[str], homeworks: list[dict] = (), dailies: list[dict] | None = None,
                    subject: str = "", teachers: list[str] | None = None) -> None:

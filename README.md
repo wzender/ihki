@@ -577,7 +577,7 @@ Keeping the link from being passed on is done in Vimeo, not here: the page has t
 
 #### Managing the library and class rosters from Grok
 
-The app can expose a restricted [Model Context Protocol](https://modelcontextprotocol.io/) connector so a teacher can manage the digital library and basic class rosters from Grok Business without receiving a Supabase secret, Hugging Face token, or general administrator access. It exposes seven tools: the four library tools (list, prepare, publish, rename) plus `list_classes`, `prepare_class_change`, and `publish_class_change`. Class changes are limited to creating or renaming a class and adding or removing one student at a time.
+The app can expose a restricted [Model Context Protocol](https://modelcontextprotocol.io/) connector so a teacher can manage the digital library and basic class rosters, and read privacy-preserving monitoring data, from Grok Business without receiving a Supabase secret, Hugging Face token, or general administrator access. It exposes nine tools: the four library tools (list, prepare, publish, rename), `list_classes`, `prepare_class_change`, `publish_class_change`, `get_activity_timeseries`, and `get_system_health`. Class changes are limited to creating or renaming a class and adding or removing one student at a time.
 
 The connector uses the teacher's existing Supabase account through OAuth 2.1. Grok receives revocable user tokens; it never receives `SUPABASE_SECRET_KEY`. On every MCP request the app asks Supabase who the token belongs to and freshly checks that the account still has `management.access`, so removing the admin/developer role stops the connector even if Grok still has a token.
 
@@ -621,7 +621,19 @@ Class mutations use the same two-step rule. Useful prompts include:
 
 Grok calls `prepare_class_change` with one of `create_class`, `rename_class`, `add_student`, or `remove_student`, then displays the normalized class and email details. After the teacher checks them and explicitly confirms, Grok calls `publish_class_change` with the returned approval id. The approval lasts ten minutes, is single-use, is bound to that signed-in manager, and is refused if the class or the manager's subject scope changed meanwhile.
 
-Class listing returns only class id, name, subject, student emails, and optional class-local nicknames. The connector cannot delete a class or account, create a login account, change roles or entitlements, assign teachers, edit lessons/homework/daily videos, or read progress, grades, attempts, activity, or recordings. Those operations remain in the browser management screen where applicable. Adding an email to a class does not create a Supabase user; that student still signs in normally.
+Class listing returns only class id, name, subject, student emails, and optional class-local nicknames. The connector cannot delete a class or account, create a login account, change roles or entitlements, assign teachers, edit lessons/homework/daily videos, or read individual progress, grades, raw attempts, or recordings. Those operations remain in the browser management screen where applicable. Adding an email to a class does not create a Supabase user; that student still signs in normally.
+
+The two monitoring tools are read-only and do not use the prepare/publish flow. `get_activity_timeseries` accepts `from_date` and `to_date` as `YYYY-MM-DD`, an `interval` of `day` or `week`, and an optional `class_id`. The inclusive range is limited to 90 non-future days. With a class id it returns only that authorized class; without one it combines only classes currently visible to the signed-in manager. The response contains aggregate attempts, the peak simultaneously active learners reported by the source buckets, and a range summary. It never contains student names, emails, ids, individual scores, answers, recordings, or exact login events.
+
+`get_system_health` returns only `healthy`, `degraded`, `unavailable`, or `not_configured` for the application, authentication, database, model, and text-to-speech components. `not_configured` for an optional component such as text-to-speech does not by itself make the service unhealthy. A developer may also see a non-sensitive build version and revision. No caller receives raw logs, stack traces, database queries, internal URLs, paths, environment variables, tokens, credentials, or secret-presence values.
+
+Useful read-only prompts include:
+
+```text
+הצג גרף פעילות יומי של כיתה 12 בין 2026-10-01 ל-2026-10-26. אל תציג מידע אישי.
+הצג פעילות שבועית בכל הכיתות שאני מורשה/ית לראות ב-30 הימים האחרונים.
+בדוק את מצב המערכת והסבר בעברית פשוטה אם רכיב כלשהו אינו זמין.
+```
 
 The connector does not make calls to the xAI API, so an xAI developer API key and API credits are not required. Grok Business plan or connector charges, if any, are handled by xAI. To revoke one connector, revoke its grant or OAuth application in Supabase. To revoke the teacher immediately, remove their admin/developer role in the management screen; the next MCP request is refused. Existing videos and ordinary management-screen access are otherwise unaffected. Connector mutations appear in the existing management activity log when its optional `system_events` table is installed; application logs are the fallback and never contain OAuth tokens.
 

@@ -18,6 +18,7 @@ from pydantic import AnyHttpUrl
 
 from . import library
 from . import class_management
+from . import monitoring
 from .access import has_permission, resolve_access
 from .auth import AuthUnavailable
 
@@ -162,8 +163,9 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
     resource_url, issuer_url = oauth_urls(app)
     server = MCPServer(
         "ihki-digital-library",
-        instructions=("Manage only the ihki digital video library and scoped class rosters. Always prepare a change, "
-                      "show its exact effect to the teacher, and publish only after explicit confirmation."),
+        instructions=("Manage only the ihki digital video library and scoped class rosters, and provide read-only "
+                      "privacy-preserving monitoring. Always prepare a mutation, show its exact effect to the teacher, "
+                      "and publish only after explicit confirmation."),
         token_verifier=SupabaseTokenVerifier(app),
         auth=AuthSettings(issuer_url=AnyHttpUrl(issuer_url), resource_server_url=AnyHttpUrl(resource_url),
                           validate_token_resource=False, required_scopes=[]),
@@ -318,6 +320,35 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             return {"ok": True, **answer, "published": True}
         except class_management.ClassManagementError as exc:
             class_audit("publish_class_change", current, "refused", reason=type(exc).__name__)
+            return {"ok": False, "error": str(exc)}
+
+    @server.tool(description=("Return a read-only daily or weekly aggregate activity series for one authorized class "
+                              "or all classes in the current manager's scope. Returns no learner identities."),
+                 structured_output=True)
+    async def get_activity_timeseries(
+        from_date: str, to_date: str, interval: Literal["day", "week"] = "day",
+        class_id: int | None = None,
+    ) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "נתוני הפעילות אינם זמינים"}
+        try:
+            return {"ok": True, **monitoring.activity_timeseries(
+                store, current, from_date=from_date, to_date=to_date, interval=interval, class_id=class_id)}
+        except monitoring.MonitoringError as exc:
+            log.info("MCP activity outcome=refused actor_id=%s class_id=%s range=%s..%s reason=%s",
+                     current.get("id"), class_id, from_date, to_date, type(exc).__name__)
+            return {"ok": False, "error": str(exc)}
+
+    @server.tool(description=("Return a read-only coarse application health summary. Never returns logs, errors, "
+                              "credentials, internal addresses, or configuration values."), structured_output=True)
+    async def get_system_health() -> dict[str, Any]:
+        current = actor()
+        if current is None:
+            return {"ok": False, "error": "אין הרשאת ניהול"}
+        try:
+            return {"ok": True, **monitoring.system_health(app, current)}
+        except monitoring.MonitoringError as exc:
             return {"ok": False, "error": str(exc)}
 
     raw = server.streamable_http_app(

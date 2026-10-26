@@ -547,6 +547,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     app.state.video_link = video_link
     app.state.initial_class_lessons = {SUBJECT_LABELS["arabic"]: READY_LESSONS[0],
                                        SUBJECT_LABELS["math"]: algebra9()["units"][0]["id"]}
+    metadata = build_metadata()
+    app.state.mcp_build_info = {"version": metadata["version"], "revision": metadata["commit"][:40]}
     app.state.mcp_server, mcp_app, app.state.mcp_http = build_grok_mcp(app)
     app.mount("/mcp", mcp_app, name="mcp")
     app.mount("/static", StaticFiles(directory=STATIC), name="static")

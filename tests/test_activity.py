@@ -36,3 +36,11 @@ def test_scoped_activity_fallback_is_not_limited_to_the_newest_day():
     data = auth.scoped_activity({"u1", "u2"}, datetime(2026, 10, 15, tzinfo=timezone.utc), 60)
     assert data["summary"] == {"attempts": 3, "active_students": 2, "returning_students": 1, "active_days": 2}
     assert sum(bucket["attempts"] for bucket in data["buckets"]) == 3
+
+
+def test_database_health_uses_one_bounded_read():
+    auth = SupabaseAuth("https://example.supabase.co", "public", secret="secret")
+    calls = []
+    auth._admin = lambda path, *args, **kwargs: calls.append(path) or []
+    assert auth.database_health() is True
+    assert calls == ["/rest/v1/classes?select=id&limit=1"]

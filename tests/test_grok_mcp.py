@@ -53,6 +53,13 @@ class LibraryAuth:
     def classes(self, fresh=False):
         return [dict(row) for row in self.class_rows]
 
+    def users(self):
+        return [{"id": "student-1", "email": "student@example.com", "name": "Student"}]
+
+    def scoped_activity(self, ids, since, bucket_minutes):
+        return {"buckets": [], "summary": {"attempts": 0, "active_students": 0,
+                                             "returning_students": 0, "active_days": 0}}
+
     def save_class(self, class_id, name, emails, nicknames, lessons, homeworks=(), dailies=None,
                    subject="", teachers=None):
         if class_id is None:
@@ -80,7 +87,8 @@ class UnavailableAuth(LibraryAuth):
 
 def connector(auth=None, clock=None, actor=None):
     clock = clock or Clock()
-    host = SimpleNamespace(state=SimpleNamespace(auth=auth, video_link=video_link,
+    host = SimpleNamespace(state=SimpleNamespace(auth=auth, video_link=video_link, scorer=object(), tts=None,
+        mcp_build_info={"version": "test", "revision": "abc"},
         initial_class_lessons={"ערבית": "1", "מתמטיקה": "linear-functions"}))
     server, protected, _ = build(host, approvals=ApprovalStore(clock), limiter=MutationLimiter(clock),
         class_approvals=ClassApprovalStore(clock), actor_provider=(lambda: actor) if actor else None)
@@ -92,15 +100,17 @@ def call(server, name, arguments=None):
     return answer.structured_content
 
 
-def test_exactly_seven_narrow_tools_are_discoverable():
+def test_exactly_nine_narrow_tools_are_discoverable():
     server, _ = connector(LibraryAuth())
     tools = asyncio.run(server.list_tools())
     assert [tool.name for tool in tools] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
-        "list_classes", "prepare_class_change", "publish_class_change"]
+        "list_classes", "prepare_class_change", "publish_class_change",
+        "get_activity_timeseries", "get_system_health"]
     assert all(tool.output_schema for tool in tools)
     assert not any(word in tool.name for tool in tools
-                   for word in ("delete", "teacher", "user", "role", "lesson", "homework", "grade", "recording", "sql"))
+                   for word in ("delete", "teacher", "user", "role", "lesson", "homework", "grade", "recording",
+                                "sql", "log", "environment", "timeline", "remediate", "restart", "shell"))
 
 
 def test_list_and_rename_return_only_library_metadata():
@@ -253,6 +263,54 @@ def test_failed_class_publish_consumes_approval_and_does_not_claim_success():
     assert failed["ok"] is False and replay["ok"] is False and auth.class_rows[0]["name"] == "א"
 
 
+def test_monitoring_tools_are_scoped_read_only_and_privacy_preserving():
+    actor = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
+             "subject": "ערבית", "permissions": ["management.access"]}
+
+    class MonitoringAuth(LibraryAuth):
+        def __init__(self):
+            super().__init__()
+            self.class_rows = [
+                {"id": 1, "name": "ערבית", "subject": "ערבית", "emails": ["student@example.com"]},
+                {"id": 2, "name": "מתמטיקה", "subject": "מתמטיקה", "emails": ["math@example.com"]},
+            ]
+            self.activity_ids = None
+
+        def users(self):
+            return [{"id": "student-1", "email": "student@example.com"},
+                    {"id": "math-1", "email": "math@example.com"}]
+
+        def scoped_activity(self, ids, since, bucket_minutes):
+            self.activity_ids = ids
+            return {"buckets": [{"bucket": "2026-10-25T09:00:00+00:00", "attempts": 4,
+                                  "active_students": 1}],
+                    "summary": {"attempts": 4, "active_students": 1,
+                                "returning_students": 0, "active_days": 1}}
+
+    auth = MonitoringAuth()
+    server, _ = connector(auth, actor=actor)
+    before = list(auth.events)
+    activity = call(server, "get_activity_timeseries", {
+        "from_date": "2026-10-25", "to_date": "2026-10-26", "interval": "day", "class_id": 1})
+    health = call(server, "get_system_health")
+    assert activity["ok"] and auth.activity_ids == {"student-1"}
+    assert activity["series"][0]["attempts"] == 4
+    assert not any(word in str(activity).lower() for word in ("student@example", "student-1", "score", "recording"))
+    assert health["ok"] and health["status"] == "healthy" and "build" not in health
+    assert auth.events == before
+    assert call(server, "get_activity_timeseries", {
+        "from_date": "2026-10-25", "to_date": "2026-10-26", "class_id": 2})["ok"] is False
+
+
+def test_system_health_developer_metadata_is_whitelisted():
+    actor = {"id": "dev-1", "email": "dev@example.com", "roles": ["developer"],
+             "subject": "", "permissions": ["management.access"]}
+    server, _ = connector(LibraryAuth(), actor=actor)
+    health = call(server, "get_system_health")
+    assert health["build"] == {"version": "test", "revision": "abc"}
+    assert not any(word in str(health).lower() for word in ("token", "secret", "trace", "http", "path"))
+
+
 def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
     monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
     monkeypatch.setenv("SUPABASE_URL", "")
@@ -280,7 +338,8 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
     assert initialized.json()["result"]["serverInfo"]["name"] == "ihki-digital-library"
     assert [tool["name"] for tool in discovered.json()["result"]["tools"]] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
-        "list_classes", "prepare_class_change", "publish_class_change"]
+        "list_classes", "prepare_class_change", "publish_class_change",
+        "get_activity_timeseries", "get_system_health"]
 
 
 def test_existing_library_api_is_compatible_and_mcp_token_has_no_api_authority(monkeypatch):
