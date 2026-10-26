@@ -577,7 +577,7 @@ Keeping the link from being passed on is done in Vimeo, not here: the page has t
 
 #### Managing the library and class rosters from Grok
 
-The app can expose a restricted [Model Context Protocol](https://modelcontextprotocol.io/) connector so a teacher can manage the digital library and basic class rosters, and read privacy-preserving monitoring data, from Grok Business without receiving a Supabase secret, Hugging Face token, or general administrator access. It exposes ten tools: the four library tools (list, prepare, publish, rename), `list_classes`, `prepare_class_change`, `publish_class_change`, `get_activity_timeseries`, `get_system_health`, and `get_exercise_difficulty`. Class changes are limited to creating or renaming a class and adding or removing one student at a time.
+The app can expose a restricted [Model Context Protocol](https://modelcontextprotocol.io/) connector so a teacher can manage the digital library and basic class rosters, and read privacy-preserving monitoring data, from Grok Business without receiving a Supabase secret, Hugging Face token, or general administrator access. It exposes fourteen tools: four library tools, three class tools, and seven read-only monitoring/analytics tools: `get_activity_timeseries`, `get_system_health`, `get_exercise_difficulty`, `get_pronunciation_difficulties`, `get_learning_progress`, `compare_class_difficulties`, and `get_learning_bottlenecks`. Class changes are limited to creating or renaming a class and adding or removing one student at a time.
 
 The connector uses the teacher's existing Supabase account through OAuth 2.1. Grok receives revocable user tokens; it never receives `SUPABASE_SECRET_KEY`. On every MCP request the app asks Supabase who the token belongs to and freshly checks that the account still has `management.access`, so removing the admin/developer role stops the connector even if Grok still has a token.
 
@@ -623,13 +623,50 @@ Grok calls `prepare_class_change` with one of `create_class`, `rename_class`, `a
 
 Class listing returns only class id, name, subject, student emails, and optional class-local nicknames. The connector cannot delete a class or account, create a login account, change roles or entitlements, assign teachers, edit lessons/homework/daily videos, or read individual progress, grades, raw attempts, or recordings. Those operations remain in the browser management screen where applicable. Adding an email to a class does not create a Supabase user; that student still signs in normally.
 
-The three monitoring tools are read-only and do not use the prepare/publish flow. `get_activity_timeseries` accepts `from_date` and `to_date` as `YYYY-MM-DD`, an `interval` of `day` or `week`, and an optional `class_id`. The inclusive range is limited to 90 non-future days. With a class id it returns only that authorized class; without one it combines only classes currently visible to the signed-in manager. The response contains aggregate attempts, the peak simultaneously active learners reported by the source buckets, and a range summary. It never contains student names, emails, ids, individual scores, answers, recordings, or exact login events.
+The seven monitoring and analytics tools are read-only and do not use the prepare/publish flow. `get_activity_timeseries` accepts `from_date` and `to_date` as `YYYY-MM-DD`, an `interval` of `day` or `week`, and an optional `class_id`. The inclusive range is limited to 90 non-future days. With a class id it returns only that authorized class; without one it combines only classes currently visible to the signed-in manager. The response contains aggregate attempts, the peak simultaneously active learners reported by the source buckets, and a range summary. It never contains student names, emails, ids, individual scores, answers, recordings, or exact login events.
 
 `get_system_health` returns only `healthy`, `degraded`, `unavailable`, or `not_configured` for the application, authentication, database, model, and text-to-speech components. `not_configured` for an optional component such as text-to-speech does not by itself make the service unhealthy. A developer may also see a non-sensitive build version and revision. No caller receives raw logs, stack traces, database queries, internal URLs, paths, environment variables, tokens, credentials, or secret-presence values.
 
-`get_exercise_difficulty` accepts `from_date`, `to_date`, an optional `class_id`, and `limit` from 1 through 20 (default 10). It ranks qualifying spoken exercises hardest first. Success means an attempt score of at least 75, the same threshold as a gold bead. Each result reports attempt success rate, distinct student count, average attempts to first success among students who succeeded, the number who did not reach success in the selected window, and average first-to-last score change among students with repeated attempts. The last value is descriptive and does not prove that practice caused learning.
+`get_exercise_difficulty` accepts `from_date`, `to_date`, optional `class_id` and `exercise_type`, `limit` from 1 through 20 (default 20), and `min_attempts` (default 10). Exercise types are `pronunciation`, `verb`, `game`, and `other`. It returns stable exercise metadata, attempts, students, successes, success rate, attempts per student, average score, retry metrics, and rank. Existing aliases such as `exercise`, `category`, `attempt_count`, and `student_count` remain available.
+
+`get_pronunciation_difficulties` uses only stored, actually flagged phoneme diagnostics. It returns a phoneme, safe example words, error attempts, affected students, average diagnostic score, and weekly trend. Stored `issues` do not contain every correctly pronounced exposure, so `pronunciation_error_rate` is currently `null` rather than a fabricated denominator. Missing optional diagnostic columns produce `status: "insufficient_data"`.
+
+`get_learning_progress` returns `day`, `week`, or `month` buckets with attempts, students, success and average score, first-observed-attempt success, retry success, and an aggregate score trend. Its optional stable `exercise_id` restricts the report. “First” means first persisted attempt inside the requested range, not lifetime first.
+
+`compare_class_difficulties` applies the same definitions to optional `class_ids` and normalizes by participating students and observed exercise exposure. Overlapping enrollment is disclosed because class populations may not be mutually exclusive.
+
+`get_learning_bottlenecks` returns qualifying exercise/topic aggregates for affected students, repeated-failure rate, attempts until success, improvement rate, and severity. Measured `observed_metrics` remain separate from `suggested_intervention`, which is labeled `recommendation` and lists its measured basis.
+
+Across analytics, success means `score >= 75` and `unrelated = false`. A group requires at least three students and `max(5, min_attempts)` attempts. Sparse groups are suppressed or marked `insufficient_data`; missing metrics are `null`. Dates use ISO 8601 and Asia/Jerusalem calendar boundaries.
 
 An exercise is omitted unless at least three students made at least five attempts in the selected scope and period. Suppressed exercise names and counts are not revealed. “Did not reach success” is not called abandonment because attempt data cannot show whether somebody quit. The report never returns student identities, individual scores or sequences, timestamps, answers, recordings, or pronunciation traces. If the bounded attempt safety cap is reached, the tool refuses partial analysis and asks for a narrower date range or one class.
+
+Example difficulty response (shortened):
+
+```json
+{
+  "ok": true,
+  "status": "complete",
+  "from_date": "2026-10-01",
+  "to_date": "2026-10-26",
+  "privacy_threshold": {"minimum_students": 3, "minimum_attempts": 10},
+  "exercises": [{
+    "exercise_id": "a1b2c3d4e5f6",
+    "exercise_name": "תרגיל לדוגמה",
+    "exercise_type": "pronunciation",
+    "topic": "הגופים",
+    "total_attempts": 18,
+    "unique_students": 6,
+    "successful_attempts": 7,
+    "success_rate": 38.9,
+    "average_attempts_per_student": 3.0,
+    "average_score": 61.4,
+    "difficulty_rank": 1
+  }]
+}
+```
+
+Persisted data has no reliable session boundaries, abandoned or incomplete exercise event, unanswered exposure, or item-level correctness for every non-spoken game. The tools therefore do not report sessions or abandonment and return `insufficient_data` for untracked answers. Trends describe association; they do not prove that practice caused learning.
 
 Useful read-only prompts include:
 
@@ -638,6 +675,10 @@ Useful read-only prompts include:
 הצג פעילות שבועית בכל הכיתות שאני מורשה/ית לראות ב-30 הימים האחרונים.
 בדוק את מצב המערכת והסבר בעברית פשוטה אם רכיב כלשהו אינו זמין.
 הצג את 10 התרגילים הקשים ביותר בכל הכיתות שאני מורשה/ית לראות בין 2026-10-01 ל-2026-10-26. הסבר את המדדים ואל תציג מידע אישי.
+אילו פונמות ערביות גרמו לשגיאות הגייה מדודות בכיתה 12 בחודש האחרון? הצג רק קבוצות שעוברות את סף הפרטיות.
+הצג התקדמות שבועית בכיתה 12, כולל הצלחה בניסיון הראשון לעומת ניסיונות חוזרים.
+השווה בין כיתות 12 ו-15 לפי הצלחה, השתתפות וחשיפה לתרגילים. ציין אם יש תלמידים החופפים בין הכיתות.
+מצא צווארי בקבוק בלמידה בכל הכיתות המורשות. הפרד בבירור בין המדדים שנמדדו לבין המלצות הוראה.
 ```
 
 The connector does not make calls to the xAI API, so an xAI developer API key and API credits are not required. Grok Business plan or connector charges, if any, are handled by xAI. To revoke one connector, revoke its grant or OAuth application in Supabase. To revoke the teacher immediately, remove their admin/developer role in the management screen; the next MCP request is refused. Existing videos and ordinary management-screen access are otherwise unaffected. Connector mutations appear in the existing management activity log when its optional `system_events` table is installed; application logs are the fallback and never contain OAuth tokens.

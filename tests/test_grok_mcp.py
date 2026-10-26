@@ -60,8 +60,8 @@ class LibraryAuth:
         return {"buckets": [], "summary": {"attempts": 0, "active_students": 0,
                                              "returning_students": 0, "active_days": 0}}
 
-    def scoped_attempts(self, ids, since, until):
-        return [], False
+    def scoped_attempts(self, ids, since, until, *, include_diagnostics=False):
+        return ([], False, True) if include_diagnostics else ([], False)
 
     def save_class(self, class_id, name, emails, nicknames, lessons, homeworks=(), dailies=None,
                    subject="", teachers=None):
@@ -103,18 +103,22 @@ def call(server, name, arguments=None):
     return answer.structured_content
 
 
-def test_exactly_ten_narrow_tools_are_discoverable():
+def test_narrow_tools_are_discoverable():
     server, _ = connector(LibraryAuth())
     tools = asyncio.run(server.list_tools())
     assert [tool.name for tool in tools] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "prepare_class_change", "publish_class_change",
-        "get_activity_timeseries", "get_system_health", "get_exercise_difficulty"]
+        "get_activity_timeseries", "get_system_health", "get_exercise_difficulty",
+        "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",
+        "get_learning_bottlenecks"]
     assert all(tool.output_schema for tool in tools)
     difficulty = next(tool for tool in tools if tool.name == "get_exercise_difficulty")
-    assert set(difficulty.input_schema["properties"]) == {"from_date", "to_date", "class_id", "limit"}
+    assert set(difficulty.input_schema["properties"]) == {
+        "from_date", "to_date", "class_id", "exercise_type", "limit", "min_attempts"}
     assert set(difficulty.input_schema["required"]) == {"from_date", "to_date"}
-    assert difficulty.input_schema["properties"]["limit"]["default"] == 10
+    assert difficulty.input_schema["properties"]["limit"]["default"] == 20
+    assert difficulty.input_schema["properties"]["min_attempts"]["default"] == 10
     assert not any(word in tool.name for tool in tools
                    for word in ("delete", "teacher", "user", "role", "lesson", "homework", "grade", "recording",
                                 "sql", "log", "environment", "timeline", "remediate", "restart", "shell",
@@ -334,9 +338,9 @@ def test_exercise_difficulty_tool_is_scoped_private_read_only_and_audit_free():
             return [{"id": "u1", "email": "one@example.com"}, {"id": "u2", "email": "two@example.com"},
                     {"id": "u3", "email": "three@example.com"}, {"id": "outside", "email": "x@example.com"}]
 
-        def scoped_attempts(self, ids, since, until):
+        def scoped_attempts(self, ids, since, until, *, include_diagnostics=False):
             self.seen = ids
-            return [
+            rows = [
                 {"id": 1, "user_id": "u1", "cat": "c", "phrase": "קשה", "score": 20,
                  "unrelated": False, "created_at": "2026-10-25T01:00:00+00:00"},
                 {"id": 2, "user_id": "u1", "cat": "c", "phrase": "קשה", "score": 80,
@@ -347,18 +351,64 @@ def test_exercise_difficulty_tool_is_scoped_private_read_only_and_audit_free():
                  "unrelated": False, "created_at": "2026-10-25T04:00:00+00:00"},
                 {"id": 5, "user_id": "u3", "cat": "c", "phrase": "קשה", "score": 75,
                  "unrelated": False, "created_at": "2026-10-25T05:00:00+00:00"},
-            ], False
+            ]
+            return (rows, False, True) if include_diagnostics else (rows, False)
 
     auth = DifficultyAuth()
     server, _ = connector(auth, actor=actor)
     before = list(auth.events)
     result = call(server, "get_exercise_difficulty", {
-        "from_date": "2026-10-25", "to_date": "2026-10-26", "class_id": 1, "limit": 10})
+        "from_date": "2026-10-25", "to_date": "2026-10-26", "class_id": 1,
+        "limit": 10, "min_attempts": 5})
     assert result["ok"] and result["returned"] == 1 and auth.seen == {"u1", "u2", "u3"}
     assert result["exercises"][0]["exercise"] == "קשה"
     assert not any(word in str(result).lower() for word in
                    ("u1", "example.com", "created_at", "recording", "answer", "abandon"))
     assert auth.events == before
+
+
+def test_pronunciation_tool_is_scoped_aggregate_read_only_and_handles_missing_diagnostics():
+    actor = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
+             "subject": "ערבית", "permissions": ["management.access"]}
+
+    class PronunciationAuth(LibraryAuth):
+        def __init__(self):
+            super().__init__()
+            self.class_rows = [{"id": 1, "name": "א", "subject": "ערבית",
+                                "emails": ["student@example.com"]}]
+
+        def scoped_attempts(self, ids, since, until, *, include_diagnostics=False):
+            assert ids == {"student-1"} and include_diagnostics is True
+            return [], False, False
+
+    auth = PronunciationAuth(); server, _ = connector(auth, actor=actor)
+    before = list(auth.events)
+    result = call(server, "get_pronunciation_difficulties", {
+        "from_date": "2026-10-25", "to_date": "2026-10-26", "class_id": 1})
+    assert result["ok"] and result["status"] == "insufficient_data"
+    assert result["diagnostics_available"] is False and result["phonemes"] == []
+    assert auth.events == before
+
+
+def test_progress_comparison_and_bottleneck_tools_are_structured_scoped_and_read_only():
+    actor = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
+             "subject": "ערבית", "permissions": ["management.access"]}
+    auth = LibraryAuth()
+    auth.class_rows = [{"id": 1, "name": "א", "subject": "ערבית",
+                        "emails": ["student@example.com"]}]
+    server, _ = connector(auth, actor=actor)
+    before = list(auth.events)
+    common = {"from_date": "2026-10-25", "to_date": "2026-10-26"}
+    progress = call(server, "get_learning_progress", {**common, "class_id": 1, "interval": "month"})
+    comparison = call(server, "compare_class_difficulties", {**common, "class_ids": [1]})
+    bottlenecks = call(server, "get_learning_bottlenecks", {**common, "class_id": 1})
+    assert progress["ok"] and progress["status"] == "insufficient_data"
+    assert comparison["ok"] and comparison["classes"][0]["status"] == "insufficient_data"
+    assert bottlenecks["ok"] and bottlenecks["bottlenecks"] == []
+    combined = str((progress, comparison, bottlenecks)).lower()
+    assert not any(word in combined for word in ("student@example", "student-1", "recording", "raw_attempt"))
+    assert auth.events == before
+    assert call(server, "compare_class_difficulties", {**common, "class_ids": [999]})["ok"] is False
 
 
 def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
@@ -389,7 +439,9 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
     assert [tool["name"] for tool in discovered.json()["result"]["tools"]] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "prepare_class_change", "publish_class_change",
-        "get_activity_timeseries", "get_system_health", "get_exercise_difficulty"]
+        "get_activity_timeseries", "get_system_health", "get_exercise_difficulty",
+        "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",
+        "get_learning_bottlenecks"]
 
 
 def test_existing_library_api_is_compatible_and_mcp_token_has_no_api_authority(monkeypatch):

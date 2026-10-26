@@ -1058,7 +1058,8 @@ class SupabaseAuth:
         return rows
 
     def scoped_attempts(self, user_ids: set[str], since: datetime, until: datetime,
-                        limit: int = MAX_DIFFICULTY_ATTEMPTS) -> tuple[list[dict], bool]:
+                        limit: int = MAX_DIFFICULTY_ATTEMPTS, *,
+                        include_diagnostics: bool = False) -> tuple[list[dict], bool] | tuple[list[dict], bool, bool]:
         """Bounded attempt metadata for authorized users and ``since <= created_at < until``.
 
         The caller gets at most ``limit`` rows plus a truncation signal. Audio, diagnostics,
@@ -1066,23 +1067,32 @@ class SupabaseAuth:
         """
         ids = sorted({str(user_id) for user_id in user_ids if str(user_id)})
         if not ids:
-            return [], False
+            return ([], False, True) if include_diagnostics else ([], False)
         limit = max(1, min(int(limit), MAX_DIFFICULTY_ATTEMPTS))
         wanted, rows = limit + 1, []
         while len(rows) < wanted:
             page = min(PAGE, wanted - len(rows))
+            fields = "id,user_id,cat,phrase,score,unrelated,created_at"
+            if include_diagnostics:
+                fields += ",issues,model,version"
             query = urllib.parse.urlencode([
-                ("select", "id,user_id,cat,phrase,score,unrelated,created_at"),
+                ("select", fields),
                 ("user_id", f"in.({','.join(ids)})"),
                 ("created_at", f"gte.{since.astimezone(timezone.utc).isoformat()}"),
                 ("created_at", f"lt.{until.astimezone(timezone.utc).isoformat()}"),
                 ("order", "created_at.asc,id.asc"), ("limit", page), ("offset", len(rows)),
             ])
-            batch = self._admin(f"/rest/v1/attempts?{query}") or []
+            try:
+                batch = self._admin(f"/rest/v1/attempts?{query}") or []
+            except AuthUnavailable as exc:
+                if include_diagnostics and any(name in str(exc) for name in ("issues", "model", "version")):
+                    return [], False, False
+                raise
             rows += batch
             if len(batch) < page:
                 break
-        return rows[:limit], len(rows) > limit
+        result = (rows[:limit], len(rows) > limit)
+        return (*result, True) if include_diagnostics else result
 
     def activity(self, hours: int = 24, bucket_minutes: int = 15) -> dict:
         """Aggregated attempt counts for monitoring, without returning student identities.

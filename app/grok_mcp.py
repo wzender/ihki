@@ -355,20 +355,107 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                               "authorized class or all classes in the current manager's scope. Returns aggregates "
                               "only and never identifies learners."), structured_output=True)
     async def get_exercise_difficulty(
-        from_date: str, to_date: str, class_id: int | None = None, limit: int = 10,
+        from_date: str, to_date: str, class_id: int | None = None,
+        exercise_type: Literal["pronunciation", "verb", "game", "other"] | None = None,
+        limit: int = 20, min_attempts: int = 10,
     ) -> dict[str, Any]:
         current, store = actor(), auth()
         if current is None or store is None:
             return {"ok": False, "error": "נתוני הקושי אינם זמינים"}
         try:
             answer = monitoring.exercise_difficulty(
-                store, current, from_date=from_date, to_date=to_date, class_id=class_id, limit=limit)
+                store, current, from_date=from_date, to_date=to_date, class_id=class_id,
+                exercise_type=exercise_type, limit=limit, min_attempts=min_attempts)
             log.info("MCP difficulty outcome=success actor_id=%s class_id=%s range=%s..%s returned=%s",
                      current.get("id"), class_id, from_date, to_date, answer["returned"])
             return {"ok": True, **answer}
         except monitoring.MonitoringError as exc:
             log.info("MCP difficulty outcome=refused actor_id=%s class_id=%s range=%s..%s reason=%s",
                      current.get("id"), class_id, from_date, to_date, type(exc).__name__)
+            return {"ok": False, "error": str(exc)}
+
+    @server.tool(description=("Return measured pronunciation errors from stored phoneme diagnostics for one "
+                              "authorized class or all visible classes. Returns aggregates only and never infers "
+                              "linguistic difficulty when diagnostics are missing."), structured_output=True)
+    async def get_pronunciation_difficulties(
+        from_date: str, to_date: str, class_id: int | None = None,
+        limit: int = 20, min_attempts: int = 5,
+    ) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "נתוני ההגייה אינם זמינים"}
+        try:
+            answer = monitoring.pronunciation_difficulties(
+                store, current, from_date=from_date, to_date=to_date, class_id=class_id,
+                limit=limit, min_attempts=min_attempts)
+            log.info("MCP pronunciation outcome=%s actor_id=%s class_id=%s range=%s..%s returned=%s",
+                     answer["status"], current.get("id"), class_id, from_date, to_date, answer["returned"])
+            return {"ok": True, **answer}
+        except monitoring.MonitoringError as exc:
+            log.info("MCP pronunciation outcome=refused actor_id=%s class_id=%s range=%s..%s reason=%s",
+                     current.get("id"), class_id, from_date, to_date, type(exc).__name__)
+            return {"ok": False, "error": str(exc)}
+
+    @server.tool(description=("Return a privacy-thresholded learning progress series for one authorized class or "
+                              "all visible classes, optionally restricted to a stable exercise identifier."),
+                 structured_output=True)
+    async def get_learning_progress(
+        from_date: str, to_date: str, interval: Literal["day", "week", "month"] = "week",
+        class_id: int | None = None, exercise_id: str | None = None, min_attempts: int = 5,
+    ) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "נתוני הלמידה אינם זמינים"}
+        try:
+            answer = monitoring.learning_progress(
+                store, current, from_date=from_date, to_date=to_date, interval=interval,
+                class_id=class_id, exercise_id=exercise_id, min_attempts=min_attempts)
+            log.info("MCP progress outcome=%s actor_id=%s class_id=%s range=%s..%s",
+                     answer["status"], current.get("id"), class_id, from_date, to_date)
+            return {"ok": True, **answer}
+        except monitoring.MonitoringError as exc:
+            return {"ok": False, "error": str(exc)}
+
+    @server.tool(description=("Compare privacy-thresholded learning difficulty across authorized classes using "
+                              "normalized participation and exercise-exposure metrics. Returns no learner identities."),
+                 structured_output=True)
+    async def compare_class_difficulties(
+        from_date: str, to_date: str, class_ids: list[int] | None = None,
+        exercise_type: Literal["pronunciation", "verb", "game", "other"] | None = None,
+        min_attempts: int = 5,
+    ) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "נתוני ההשוואה אינם זמינים"}
+        try:
+            answer = monitoring.compare_class_difficulties(
+                store, current, from_date=from_date, to_date=to_date, class_ids=class_ids,
+                exercise_type=exercise_type, min_attempts=min_attempts)
+            log.info("MCP class comparison outcome=%s actor_id=%s classes=%s range=%s..%s",
+                     answer["status"], current.get("id"), len(answer["classes"]), from_date, to_date)
+            return {"ok": True, **answer}
+        except monitoring.MonitoringError as exc:
+            return {"ok": False, "error": str(exc)}
+
+    @server.tool(description=("Identify privacy-thresholded exercise and topic bottlenecks from repeated failures "
+                              "and measured improvement. Recommendations are labeled separately from observations."),
+                 structured_output=True)
+    async def get_learning_bottlenecks(
+        from_date: str, to_date: str, class_id: int | None = None,
+        exercise_type: Literal["pronunciation", "verb", "game", "other"] | None = None,
+        limit: int = 20, min_attempts: int = 10,
+    ) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "נתוני הלמידה אינם זמינים"}
+        try:
+            answer = monitoring.learning_bottlenecks(
+                store, current, from_date=from_date, to_date=to_date, class_id=class_id,
+                exercise_type=exercise_type, limit=limit, min_attempts=min_attempts)
+            log.info("MCP bottlenecks outcome=%s actor_id=%s class_id=%s range=%s..%s returned=%s",
+                     answer["status"], current.get("id"), class_id, from_date, to_date, answer["returned"])
+            return {"ok": True, **answer}
+        except monitoring.MonitoringError as exc:
             return {"ok": False, "error": str(exc)}
 
     raw = server.streamable_http_app(

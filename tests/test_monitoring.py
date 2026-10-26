@@ -5,7 +5,9 @@ import pytest
 
 from app.auth import AuthUnavailable
 from app.monitoring import (MonitoringError, MonitoringUnavailable, activity_timeseries,
-                            aggregate_exercise_difficulty, exercise_difficulty,
+                            aggregate_exercise_difficulty, compare_class_difficulties,
+                            exercise_difficulty, learning_bottlenecks, learning_progress,
+                            normalize_attempts, pronunciation_difficulties,
                             system_health, validate_range)
 
 
@@ -43,7 +45,7 @@ class ActivityAuth:
 @pytest.mark.parametrize("start,end,interval", [
     ("bad", "2026-10-26", "day"), ("2026-10-27", "2026-10-26", "day"),
     ("2026-10-26", "2026-10-27", "day"), ("2026-07-28", "2026-10-26", "day"),
-    ("2026-10-01", "2026-10-26", "month"),
+    ("2026-10-01", "2026-10-26", "quarter"),
 ])
 def test_range_rejects_invalid_reversed_future_oversized_and_unknown_interval(start, end, interval):
     with pytest.raises(MonitoringError):
@@ -137,6 +139,8 @@ def test_difficulty_metrics_retries_no_success_improvement_and_unrelated_attempt
     assert item["average_attempts_to_first_success"] == 2.0  # u1 at 3, u3 at 1; u2 excluded
     assert item["never_succeeded_students"] == 1
     assert item["average_score_change"] == 27.5  # u1 +50, u2 +5; one-attempt u3 excluded
+    assert item["successful_attempts"] == 3 and item["difficulty_rank"] == 1
+    assert item["average_attempts_per_student"] == 2.33 and item["average_score"] == 64.3
     assert not any(key in item for key in ("user_id", "created_at", "unrelated", "score", "recording", "answer"))
 
 
@@ -208,3 +212,159 @@ def test_exercise_difficulty_refuses_truncation_and_safe_storage_failure():
         exercise_difficulty(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
                             today=date(2026, 10, 26))
     assert "postgres" not in str(failure.value) and "secret" not in str(failure.value)
+
+
+def test_expanded_difficulty_filters_thresholds_status_and_canonical_fields():
+    auth = DifficultyAuth()
+    auth.class_rows[0]["emails"] = ["one@example.com", "two@example.com"]
+    auth.users = lambda: [{"id": "u1", "email": "one@example.com"},
+                          {"id": "u2", "email": "two@example.com"},
+                          {"id": "u3", "email": "three@example.com"}]
+    auth.class_rows[0]["emails"].append("three@example.com")
+    auth.attempt_rows = [attempt(i, f"u{(i % 3) + 1}", "x", 40, i, category="spoken")
+                         for i in range(1, 7)]
+    data = exercise_difficulty(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                               exercise_type="other", min_attempts=6, today=date(2026, 10, 26))
+    assert data["status"] == "complete" and data["privacy_threshold"]["minimum_attempts"] == 6
+    assert data["exercises"][0]["total_attempts"] == data["exercises"][0]["attempt_count"] == 6
+    assert data["exercises"][0]["unique_students"] == data["exercises"][0]["student_count"] == 3
+    assert data["exercises"][0]["difficulty_rank"] == 1
+    empty = exercise_difficulty(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                                exercise_type="game", today=date(2026, 10, 26))
+    assert empty["status"] == "insufficient_data" and empty["exercises"] == []
+
+
+def test_normalization_is_stable_jerusalem_aware_and_ignores_bad_scores():
+    rows = [attempt(1, "u1", "x", 80, 22),
+            {**attempt(2, "u2", "x", 50, 1), "score": None},
+            {**attempt(3, "u3", "x", 50, 1), "created_at": "bad"}]
+    got = normalize_attempts(rows)
+    assert len(got) == 1 and got[0]["local_date"].isoformat() == "2026-10-26"
+    assert got[0]["exercise_id"] == normalize_attempts(rows)[0]["exercise_id"]
+
+
+class DiagnosticAuth(DifficultyAuth):
+    diagnostics = True
+
+    def scoped_attempts(self, ids, since, until, *, include_diagnostics=False):
+        self.attempt_args = ids, since, until, include_diagnostics
+        if include_diagnostics:
+            return list(self.attempt_rows), self.truncated, self.diagnostics
+        return list(self.attempt_rows), self.truncated
+
+
+def test_pronunciation_uses_only_scoped_stored_issues_and_safe_examples():
+    auth = DiagnosticAuth()
+    auth.class_rows[0]["emails"] = ["one@example.com", "two@example.com", "three@example.com"]
+    auth.users = lambda: [{"id": f"u{i}", "email": email} for i, email in enumerate(
+        ("one@example.com", "two@example.com", "three@example.com"), 1)]
+    auth.attempt_rows = [
+        attempt(i, f"u{i}", "בית יפה", 60, i, issues=[
+            {"word": 1, "expected": "ħ", "heard": "x", "score": 30}], model="m", version="v")
+        for i in range(1, 4)
+    ] + [
+        attempt(4, "u1", "בית יפה", 70, 4, issues=[
+            {"word": 99, "expected": "ħ", "heard": "x", "score": 40}], model="m", version="v"),
+        attempt(5, "u2", "בית יפה", 80, 5, issues=[
+            {"word": 1, "expected": "ħ", "heard": "x", "score": 50}], model="m", version="v"),
+    ]
+    data = pronunciation_difficulties(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                                      class_id=1, today=date(2026, 10, 26))
+    assert data["status"] == "complete" and data["phonemes"][0]["phoneme"] == "ħ"
+    assert data["phonemes"][0]["example_words"] == ["יפה"]
+    assert data["phonemes"][0]["pronunciation_error_rate"] is None
+    assert auth.attempt_args[0] == {"u1", "u2", "u3"} and auth.attempt_args[3] is True
+    assert not any(key in str(data) for key in ("u1", "example.com"))
+
+
+def test_pronunciation_missing_diagnostics_is_insufficient_not_inferred():
+    auth = DiagnosticAuth(); auth.diagnostics = False
+    data = pronunciation_difficulties(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                                      today=date(2026, 10, 26))
+    assert data["status"] == "insufficient_data" and data["phonemes"] == []
+    assert data["diagnostics_available"] is False
+
+
+def analytics_auth():
+    auth = DifficultyAuth()
+    auth.class_rows = [
+        {"id": 1, "name": "א", "subject": "ערבית",
+         "emails": ["one@example.com", "two@example.com", "three@example.com"]},
+        {"id": 2, "name": "ב", "subject": "ערבית",
+         "emails": ["three@example.com", "four@example.com", "five@example.com"]},
+    ]
+    auth.users = lambda: [{"id": f"u{i}", "email": name} for i, name in enumerate((
+        "one@example.com", "two@example.com", "three@example.com",
+        "four@example.com", "five@example.com"), 1)]
+    return auth
+
+
+def test_learning_progress_buckets_retries_months_nulls_and_filter_refusal():
+    auth = analytics_auth()
+    first = [attempt(i, f"u{((i - 1) % 3) + 1}", "x", 40 if i <= 3 else 80, i)
+             for i in range(1, 7)]
+    second = [{**attempt(10 + i, f"u{((i - 1) % 3) + 1}", "x", 80, i),
+               "created_at": f"2026-10-26T{i:02d}:00:00+00:00"} for i in range(1, 7)]
+    auth.attempt_rows = first + second
+    data = learning_progress(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                             class_id=1, interval="day", today=date(2026, 10, 26))
+    assert [row["attempts"] for row in data["series"]] == [6, 6]
+    assert data["series"][0]["first_attempt_success_rate"] == 0.0
+    assert data["series"][1]["repeated_attempt_success_rate"] == 100.0
+    assert data["improvement_trend"] == 20.0
+    monthly = learning_progress(auth, ACTOR, from_date="2026-10-01", to_date="2026-10-26",
+                                class_id=1, interval="month", today=date(2026, 10, 26))
+    assert monthly["series"][0]["date"] == "2026-10-01"
+    with pytest.raises(MonitoringError, match="אינו זמין"):
+        learning_progress(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                          class_id=1, exercise_id="000000000000", today=date(2026, 10, 26))
+
+
+def test_progress_suppresses_small_bucket_counts_and_metrics():
+    auth = analytics_auth(); auth.attempt_rows = [attempt(1, "u1", "private", 80, 1)]
+    data = learning_progress(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                             class_id=1, interval="day", today=date(2026, 10, 26))
+    assert data["status"] == "insufficient_data"
+    assert data["series"][0]["attempts"] == data["series"][0]["unique_students"] == 0
+    assert data["series"][0]["average_score"] is None
+
+
+def test_class_comparison_normalizes_and_discloses_overlapping_enrollment():
+    auth = analytics_auth()
+    auth.attempt_rows = ([attempt(i, f"u{((i - 1) % 3) + 1}", "x", 80, i) for i in range(1, 7)] +
+                         [attempt(10 + i, f"u{((i - 1) % 3) + 3}", "x", 40, i) for i in range(1, 7)])
+
+    def scoped(ids, since, until):
+        return [row for row in auth.attempt_rows if row["user_id"] in ids], False
+    auth.scoped_attempts = scoped
+    data = compare_class_difficulties(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                                      class_ids=[1, 2], today=date(2026, 10, 26))
+    assert data["overlapping_enrollment"] is True and len(data["classes"]) == 2
+    assert data["classes"][0]["success_rate"] == 75.0
+    assert data["classes"][1]["success_rate"] == 25.0
+    with pytest.raises(MonitoringError, match="אינה זמינה"):
+        compare_class_difficulties(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                                   class_ids=[1, 999], today=date(2026, 10, 26))
+
+
+def test_bottlenecks_separate_observations_recommendations_and_rank_severity():
+    auth = analytics_auth()
+    auth.attempt_rows = [
+        attempt(i, f"u{((i - 1) % 3) + 1}", "קשה", 30 + i, i) for i in range(1, 10)
+    ] + [attempt(20 + i, f"u{((i - 1) % 3) + 1}", "משתפר", 30 if i <= 3 else 90, 10 + i)
+         for i in range(1, 7)]
+    data = learning_bottlenecks(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                                class_id=1, min_attempts=5, today=date(2026, 10, 26))
+    assert data["status"] == "complete" and data["bottlenecks"][0]["name"] == "קשה"
+    item = data["bottlenecks"][0]
+    assert "affected_students" in item["observed_metrics"]
+    assert item["suggested_intervention"]["type"] == "recommendation"
+    assert item["suggested_intervention"]["basis"]
+    assert not any(key in str(data) for key in ("u1", "example.com"))
+
+
+def test_bottlenecks_do_not_claim_no_difficulty_for_small_sample():
+    auth = analytics_auth(); auth.attempt_rows = [attempt(1, "u1", "x", 10, 1)]
+    data = learning_bottlenecks(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                                class_id=1, today=date(2026, 10, 26))
+    assert data["status"] == "insufficient_data" and data["bottlenecks"] == []

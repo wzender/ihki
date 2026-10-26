@@ -90,3 +90,26 @@ def test_scoped_attempts_empty_scope_does_not_query_and_storage_errors_propagate
     auth._admin = lambda *args, **kwargs: (_ for _ in ()).throw(AuthUnavailable("offline"))
     with pytest.raises(AuthUnavailable):
         auth.scoped_attempts({"u1"}, start, end)
+
+
+def test_scoped_attempts_diagnostics_are_optional_and_missing_columns_are_safe():
+    auth = SupabaseAuth("https://example.supabase.co", "public", secret="secret")
+    start, end = datetime(2026, 10, 1, tzinfo=timezone.utc), datetime(2026, 10, 2, tzinfo=timezone.utc)
+    seen = []
+
+    def admin(path, *args, **kwargs):
+        seen.append(parse_qs(urlsplit(path).query)["select"][0])
+        return [{"id": 1, "user_id": "u1", "cat": "c", "phrase": "p", "score": 50,
+                 "unrelated": False, "created_at": start.isoformat(), "issues": [],
+                 "model": "m", "version": "v"}]
+
+    auth._admin = admin
+    rows, truncated, available = auth.scoped_attempts(
+        {"u1"}, start, end, include_diagnostics=True)
+    assert available is True and truncated is False and rows[0]["model"] == "m"
+    assert seen == ["id,user_id,cat,phrase,score,unrelated,created_at,issues,model,version"]
+
+    auth._admin = lambda *args, **kwargs: (_ for _ in ()).throw(
+        AuthUnavailable("supabase answered 400: column attempts.issues does not exist"))
+    assert auth.scoped_attempts({"u1"}, start, end, include_diagnostics=True) == ([], False, False)
+    assert auth.scoped_attempts(set(), start, end, include_diagnostics=True) == ([], False, True)
