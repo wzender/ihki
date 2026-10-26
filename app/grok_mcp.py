@@ -351,6 +351,26 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         except monitoring.MonitoringError as exc:
             return {"ok": False, "error": str(exc)}
 
+    @server.tool(description=("Return a read-only privacy-thresholded ranking of difficult exercises for one "
+                              "authorized class or all classes in the current manager's scope. Returns aggregates "
+                              "only and never identifies learners."), structured_output=True)
+    async def get_exercise_difficulty(
+        from_date: str, to_date: str, class_id: int | None = None, limit: int = 10,
+    ) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "נתוני הקושי אינם זמינים"}
+        try:
+            answer = monitoring.exercise_difficulty(
+                store, current, from_date=from_date, to_date=to_date, class_id=class_id, limit=limit)
+            log.info("MCP difficulty outcome=success actor_id=%s class_id=%s range=%s..%s returned=%s",
+                     current.get("id"), class_id, from_date, to_date, answer["returned"])
+            return {"ok": True, **answer}
+        except monitoring.MonitoringError as exc:
+            log.info("MCP difficulty outcome=refused actor_id=%s class_id=%s range=%s..%s reason=%s",
+                     current.get("id"), class_id, from_date, to_date, type(exc).__name__)
+            return {"ok": False, "error": str(exc)}
+
     raw = server.streamable_http_app(
         streamable_http_path="/",
         stateless_http=True,

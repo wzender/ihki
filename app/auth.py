@@ -86,6 +86,7 @@ PAGE = 1000  # rows per request: Supabase's default ceiling
 MAX_ATTEMPTS = 20_000  # of one student, read for their progress
 MAX_CLASS_ATTEMPTS = 200_000  # of all students, read for the teacher's panel
 MAX_MONITOR_ATTEMPTS = 5_000  # newest compact attempts sampled for pronunciation patterns; never audio
+MAX_DIFFICULTY_ATTEMPTS = 50_000  # bounded scoped metadata; refuse rather than rank a partial sample
 CLASSES_TTL = 60  # seconds the class list is trusted without reading it again (each sign-in check uses it)
 # One-time migration boundary requested on 24 Oct 2026: the then-current seven days remain in Supabase forever.
 DEFAULT_AUDIO_MIGRATION_CUTOFF = "2026-10-17T00:00:00+03:00"
@@ -1055,6 +1056,33 @@ class SupabaseAuth:
             if len(batch) < page:
                 break
         return rows
+
+    def scoped_attempts(self, user_ids: set[str], since: datetime, until: datetime,
+                        limit: int = MAX_DIFFICULTY_ATTEMPTS) -> tuple[list[dict], bool]:
+        """Bounded attempt metadata for authorized users and ``since <= created_at < until``.
+
+        The caller gets at most ``limit`` rows plus a truncation signal. Audio, diagnostics,
+        answers, and attempts from other users are never requested.
+        """
+        ids = sorted({str(user_id) for user_id in user_ids if str(user_id)})
+        if not ids:
+            return [], False
+        limit = max(1, min(int(limit), MAX_DIFFICULTY_ATTEMPTS))
+        wanted, rows = limit + 1, []
+        while len(rows) < wanted:
+            page = min(PAGE, wanted - len(rows))
+            query = urllib.parse.urlencode([
+                ("select", "id,user_id,cat,phrase,score,unrelated,created_at"),
+                ("user_id", f"in.({','.join(ids)})"),
+                ("created_at", f"gte.{since.astimezone(timezone.utc).isoformat()}"),
+                ("created_at", f"lt.{until.astimezone(timezone.utc).isoformat()}"),
+                ("order", "created_at.asc,id.asc"), ("limit", page), ("offset", len(rows)),
+            ])
+            batch = self._admin(f"/rest/v1/attempts?{query}") or []
+            rows += batch
+            if len(batch) < page:
+                break
+        return rows[:limit], len(rows) > limit
 
     def activity(self, hours: int = 24, bucket_minutes: int = 15) -> dict:
         """Aggregated attempt counts for monitoring, without returning student identities.

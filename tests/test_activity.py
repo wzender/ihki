@@ -1,4 +1,7 @@
 from datetime import datetime, timezone
+from urllib.parse import parse_qs, urlsplit
+
+import pytest
 
 from app.auth import AuthUnavailable, SupabaseAuth
 
@@ -44,3 +47,46 @@ def test_database_health_uses_one_bounded_read():
     auth._admin = lambda path, *args, **kwargs: calls.append(path) or []
     assert auth.database_health() is True
     assert calls == ["/rest/v1/classes?select=id&limit=1"]
+
+
+def test_scoped_attempts_is_bounded_encoded_and_stably_paged(monkeypatch):
+    monkeypatch.setattr("app.auth.PAGE", 2)
+    auth = SupabaseAuth("https://example.supabase.co", "public", secret="secret")
+    calls = []
+    rows = [
+        {"id": 1, "user_id": "u1", "cat": "c", "phrase": "p", "score": 10,
+         "unrelated": False, "created_at": "2026-10-01T00:00:00+00:00"},
+        {"id": 2, "user_id": "u2", "cat": "c", "phrase": "p", "score": 20,
+         "unrelated": False, "created_at": "2026-10-01T01:00:00+00:00"},
+        {"id": 3, "user_id": "u1", "cat": "c", "phrase": "p", "score": 30,
+         "unrelated": False, "created_at": "2026-10-01T02:00:00+00:00"},
+        {"id": 4, "user_id": "u2", "cat": "c", "phrase": "p", "score": 40,
+         "unrelated": False, "created_at": "2026-10-01T03:00:00+00:00"},
+    ]
+
+    def admin(path, *args, **kwargs):
+        calls.append(path)
+        query = parse_qs(urlsplit(path).query)
+        offset, limit = int(query["offset"][0]), int(query["limit"][0])
+        assert query["select"] == ["id,user_id,cat,phrase,score,unrelated,created_at"]
+        assert query["user_id"] == ["in.(u1,u2)"]
+        assert query["created_at"] == ["gte.2026-10-01T00:00:00+00:00", "lt.2026-10-02T00:00:00+00:00"]
+        assert query["order"] == ["created_at.asc,id.asc"]
+        return rows[offset:offset + limit]
+
+    auth._admin = admin
+    got, truncated = auth.scoped_attempts(
+        {"u2", "u1"}, datetime(2026, 10, 1, tzinfo=timezone.utc),
+        datetime(2026, 10, 2, tzinfo=timezone.utc), limit=3)
+    assert [row["id"] for row in got] == [1, 2, 3] and truncated is True
+    assert len(calls) == 2 and "%2B00%3A00" in calls[0]
+
+
+def test_scoped_attempts_empty_scope_does_not_query_and_storage_errors_propagate():
+    auth = SupabaseAuth("https://example.supabase.co", "public", secret="secret")
+    auth._admin = lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("must not query"))
+    start, end = datetime(2026, 10, 1, tzinfo=timezone.utc), datetime(2026, 10, 2, tzinfo=timezone.utc)
+    assert auth.scoped_attempts(set(), start, end) == ([], False)
+    auth._admin = lambda *args, **kwargs: (_ for _ in ()).throw(AuthUnavailable("offline"))
+    with pytest.raises(AuthUnavailable):
+        auth.scoped_attempts({"u1"}, start, end)

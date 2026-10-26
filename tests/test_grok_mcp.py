@@ -60,6 +60,9 @@ class LibraryAuth:
         return {"buckets": [], "summary": {"attempts": 0, "active_students": 0,
                                              "returning_students": 0, "active_days": 0}}
 
+    def scoped_attempts(self, ids, since, until):
+        return [], False
+
     def save_class(self, class_id, name, emails, nicknames, lessons, homeworks=(), dailies=None,
                    subject="", teachers=None):
         if class_id is None:
@@ -100,17 +103,22 @@ def call(server, name, arguments=None):
     return answer.structured_content
 
 
-def test_exactly_nine_narrow_tools_are_discoverable():
+def test_exactly_ten_narrow_tools_are_discoverable():
     server, _ = connector(LibraryAuth())
     tools = asyncio.run(server.list_tools())
     assert [tool.name for tool in tools] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "prepare_class_change", "publish_class_change",
-        "get_activity_timeseries", "get_system_health"]
+        "get_activity_timeseries", "get_system_health", "get_exercise_difficulty"]
     assert all(tool.output_schema for tool in tools)
+    difficulty = next(tool for tool in tools if tool.name == "get_exercise_difficulty")
+    assert set(difficulty.input_schema["properties"]) == {"from_date", "to_date", "class_id", "limit"}
+    assert set(difficulty.input_schema["required"]) == {"from_date", "to_date"}
+    assert difficulty.input_schema["properties"]["limit"]["default"] == 10
     assert not any(word in tool.name for tool in tools
                    for word in ("delete", "teacher", "user", "role", "lesson", "homework", "grade", "recording",
-                                "sql", "log", "environment", "timeline", "remediate", "restart", "shell"))
+                                "sql", "log", "environment", "timeline", "remediate", "restart", "shell",
+                                "learner", "raw_attempt", "abandonment", "answer", "calibration"))
 
 
 def test_list_and_rename_return_only_library_metadata():
@@ -311,6 +319,48 @@ def test_system_health_developer_metadata_is_whitelisted():
     assert not any(word in str(health).lower() for word in ("token", "secret", "trace", "http", "path"))
 
 
+def test_exercise_difficulty_tool_is_scoped_private_read_only_and_audit_free():
+    actor = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
+             "subject": "ערבית", "permissions": ["management.access"]}
+
+    class DifficultyAuth(LibraryAuth):
+        def __init__(self):
+            super().__init__()
+            self.class_rows = [{"id": 1, "name": "א", "subject": "ערבית",
+                                "emails": ["one@example.com", "two@example.com", "three@example.com"]}]
+            self.seen = None
+
+        def users(self):
+            return [{"id": "u1", "email": "one@example.com"}, {"id": "u2", "email": "two@example.com"},
+                    {"id": "u3", "email": "three@example.com"}, {"id": "outside", "email": "x@example.com"}]
+
+        def scoped_attempts(self, ids, since, until):
+            self.seen = ids
+            return [
+                {"id": 1, "user_id": "u1", "cat": "c", "phrase": "קשה", "score": 20,
+                 "unrelated": False, "created_at": "2026-10-25T01:00:00+00:00"},
+                {"id": 2, "user_id": "u1", "cat": "c", "phrase": "קשה", "score": 80,
+                 "unrelated": False, "created_at": "2026-10-25T02:00:00+00:00"},
+                {"id": 3, "user_id": "u2", "cat": "c", "phrase": "קשה", "score": 40,
+                 "unrelated": False, "created_at": "2026-10-25T03:00:00+00:00"},
+                {"id": 4, "user_id": "u2", "cat": "c", "phrase": "קשה", "score": 50,
+                 "unrelated": False, "created_at": "2026-10-25T04:00:00+00:00"},
+                {"id": 5, "user_id": "u3", "cat": "c", "phrase": "קשה", "score": 75,
+                 "unrelated": False, "created_at": "2026-10-25T05:00:00+00:00"},
+            ], False
+
+    auth = DifficultyAuth()
+    server, _ = connector(auth, actor=actor)
+    before = list(auth.events)
+    result = call(server, "get_exercise_difficulty", {
+        "from_date": "2026-10-25", "to_date": "2026-10-26", "class_id": 1, "limit": 10})
+    assert result["ok"] and result["returned"] == 1 and auth.seen == {"u1", "u2", "u3"}
+    assert result["exercises"][0]["exercise"] == "קשה"
+    assert not any(word in str(result).lower() for word in
+                   ("u1", "example.com", "created_at", "recording", "answer", "abandon"))
+    assert auth.events == before
+
+
 def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
     monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
     monkeypatch.setenv("SUPABASE_URL", "")
@@ -339,7 +389,7 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
     assert [tool["name"] for tool in discovered.json()["result"]["tools"]] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "prepare_class_change", "publish_class_change",
-        "get_activity_timeseries", "get_system_health"]
+        "get_activity_timeseries", "get_system_health", "get_exercise_difficulty"]
 
 
 def test_existing_library_api_is_compatible_and_mcp_token_has_no_api_authority(monkeypatch):
