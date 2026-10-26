@@ -575,6 +575,28 @@ For the video to play inside the page, its Vimeo privacy setting has to allow em
 
 Keeping the link from being passed on is done in Vimeo, not here: the page has to give the browser the player's address, so a student who looks for it finds it (the server only keeps the link itself, `url`, for teachers). In the video's privacy settings on Vimeo, hide it from vimeo.com and allow embedding on specific domains only, naming the app's own domain (on Hugging Face, `<owner>-<space>.hf.space`). The video then plays inside the app and nowhere else: its link, opened or embedded anywhere else, shows nothing. Domain-level privacy needs a paid Vimeo plan.
 
+#### Managing the library from Grok
+
+The app can expose a restricted [Model Context Protocol](https://modelcontextprotocol.io/) connector so a teacher can manage the digital library from Grok Business without receiving a Supabase secret, Hugging Face token, or general administrator access. It exposes exactly four operations: list the library, prepare a video, publish a prepared video after confirmation, and rename a video. It cannot delete videos, manage classes, users or teachers, or run database queries.
+
+Generate a dedicated random credential locally:
+
+```bash
+openssl rand -base64 32
+```
+
+In the Hugging Face Space, open **Settings → Variables and secrets**, add `GROK_LIBRARY_TOKEN` as a **secret**, and restart the Space. Do not add it as a visible variable and do not reuse `SUPABASE_SECRET_KEY`, `HF_TOKEN`, an xAI API key, or a login password. When the secret is absent, the MCP endpoint answers 503 and performs no operation.
+
+In Grok Business, add a Custom MCP connector whose final Streamable HTTP URL is:
+
+```text
+https://<owner>-<space>.hf.space/mcp/
+```
+
+Configure the connector to send `Authorization: Bearer <GROK_LIBRARY_TOKEN>`. Grok must first call `prepare_library_video`; the app returns the normalized title, URL and a single-use approval that expires after ten minutes. Only after the teacher explicitly confirms those details should Grok call `publish_library_video`. Pending approvals disappear safely when the Space restarts.
+
+The connector does not make calls to the xAI API, so an xAI developer API key and API credits are not required. Grok Business plan or connector charges, if any, are handled by xAI. To revoke access immediately, remove or rotate `GROK_LIBRARY_TOKEN` in the Space settings and restart the Space. Existing videos and management-screen access are unaffected. Connector mutations appear in the existing management activity log when its optional `system_events` table is installed; application logs are the fallback and never contain the bearer credential.
+
 ### Texts
 
 In **תוכן** the teacher also adds texts to a lesson, as many as they like: a story or a dialogue, practised like the course's own conversation "שיחת היכרות". "+ הוספת טקסט" under the lesson asks for a name and the text twice, a line per sentence: in Hebrew, and the same lines, in the same order, in Arabic written in Hebrew letters as the course writes it (`כִּיף חַאלַכּ?`). Each is pasted into its box, or read into it from a plain-text file (`.txt`, UTF-8), and can be corrected there before it is added. Empty lines are not counted, and the two must have the same number of lines; otherwise the text is refused, with both numbers in the message. The kind is chosen there too:

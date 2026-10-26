@@ -67,6 +67,8 @@ from .tts import (BASELINE_VOICES, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
                     DEFAULT_MODEL as DEFAULT_TUTOR_MODEL, TutorUnavailable, load_tutor, tutor_client)
 from .verb_game import VerbExerciseGenerator
+from .grok_mcp import build as build_grok_mcp
+from . import library as video_library
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("ihki")
@@ -555,13 +557,17 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         app.state.push = pushes.load_push(app.state.auth)
         reminders = (asyncio.create_task(pushes.loop(app.state.push, daily_today, lambda: datetime.now(LOCAL_TZ)))
                      if app.state.push and app.state.push.on else None)
-        yield
+        async with app.state.mcp_server.session_manager.run():
+            yield
         if reminders:
             reminders.cancel()
 
     app = FastAPI(title="ihki", lifespan=lifespan)
     app.state.verb_game = VerbExerciseGenerator()
     app.state.live = LiveStore()
+    app.state.video_link = video_link
+    app.state.mcp_server, mcp_app, app.state.mcp_http = build_grok_mcp(app)
+    app.mount("/mcp", mcp_app, name="mcp")
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
     def signed_in(request: Request) -> dict | None:
@@ -2453,7 +2459,19 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def add_library(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
                     user: dict | None = Depends(signed_in)):
         """Adds a video to the library: {"title", "url": a Vimeo or YouTube link}."""
-        return add_level_video("library", body, a, user)
+        try:
+            title = video_library.normalize_title(body.get("title", ""))
+            url = video_library.normalize_url(body.get("url", ""), video_link)
+            video_library.add(a, title, url, reject_duplicate=False)
+        except video_library.LibraryError as e:
+            if isinstance(e, video_library.LibraryUnavailable):
+                raise HTTPException(503, level_store_error("library", AuthUnavailable(str(e))))
+            detail = str(e)
+            if detail == "זה לא קישור לסרטון ב-Vimeo או ב-YouTube":
+                detail += ". הדביקו קישור כמו https://vimeo.com/1233611297/d46ac373c8 או https://youtu.be/dQw4w9WgXcQ"
+            raise HTTPException(400, detail)
+        a.log_event("content", user, title, {"type": "library", "level": ""})
+        return {"ok": True}
 
     @app.delete("/api/library/{video_id}")
     def delete_library(video_id: int, a: SupabaseAuth = Depends(teacher_only)):
@@ -2476,15 +2494,15 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.put("/api/library/{video_id}")
     def rename_library(video_id: int, body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
         """Gives a video of the library another name: {"title"}."""
-        title = " ".join(str(body.get("title", "")).split())
-        if not title or len(title) > MAX_TITLE:
-            raise HTTPException(400, f"לסרטון צריך שם (עד {MAX_TITLE} תווים)")
         try:
-            if all(v["id"] != video_id for v in a.level_videos("library", fresh=True)):
+            title = video_library.normalize_title(body.get("title", ""))
+            video_library.rename(a, video_id, title)
+        except video_library.LibraryUnavailable as e:
+            raise HTTPException(503, level_store_error("library", AuthUnavailable(str(e))))
+        except video_library.LibraryError as e:
+            if str(e) == "הסרטון אינו נמצא בספרייה":
                 raise HTTPException(404, "הסרטון כבר לא בספריה. רעננו ונסו שוב")
-            a.rename_level_video("library", video_id, title)
-        except AuthUnavailable as e:
-            raise HTTPException(503, level_store_error("library", e))
+            raise HTTPException(400, str(e))
         return {"ok": True}
 
     @app.get("/api/classmates")

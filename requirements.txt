@@ -1,5 +1,7 @@
 fastapi>=0.110
 uvicorn[standard]>=0.29
+mcp>=2.2,<3  # Grok connector: official MCP SDK; 2.2+ bounds Streamable HTTP sessions
+anyio>=4.10,<4.11  # newer releases hang the Python 3.10 worker-thread bridge used by FastAPI/MCP
 python-multipart>=0.0.9
 numpy>=1.26
 pyyaml>=6.0  # the scorer reads its rules from the yaml blocks of static/assets/pronunciation-rules.md
