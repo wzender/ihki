@@ -62,7 +62,8 @@ from .archi import archify
 from .scorer import SAMPLE_RATE, Scorer, decode_audio, decode_audio_with_timing, frame_energy, load_scorer, tokenize
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
-from .tts import BASELINE_VOICES, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts, voice_name
+from .tts import (BASELINE_VOICES, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
+                  playback_voices, voice_name)
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
                     DEFAULT_MODEL as DEFAULT_TUTOR_MODEL, TutorUnavailable, load_tutor, tutor_client)
 from .verb_game import VerbExerciseGenerator
@@ -537,7 +538,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         app.state.tts_warm_lock = threading.Lock()
         app.state.tts_warm_stop = threading.Event()  # set by POST /api/tts-cache/warm/stop
         app.state.tutor = tutor or load_tutor(app.state.keys.get("ANTHROPIC_API_KEY"), app.state.keys.get("TUTOR_MODEL"))
-        # the playback voices double as the native baseline of the scores (see reference.py)
+        # Baselines deliberately stay fixed; SAWTAK_VOICE_ID changes playback only (see tts.load_tts).
         app.state.refs = References(app.state.scorer, app.state.tts, list(BASELINE_VOICES.values())) if app.state.tts else None
         if app.state.auth and hasattr(app.state.auth, "calibrations"):
             try:
@@ -2590,7 +2591,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.get("/api/phrases")
     def phrases():
         return {"levels": LEVELS, "lessons": LESSONS, "categories": CATEGORIES, "games": GAMES, "phrases": public_phrases(),
-                "voices": [{"id": i, "name": n} for n, i in VOICES.items()]}
+                "voices": [{"id": i, "name": n} for n, i in playback_voices().items()]}
 
     def verb_lessons(user: dict | None) -> list[str]:
         """Lessons available to this learner, using the existing class rules."""
@@ -2766,8 +2767,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/tts/{phrase_id}", dependencies=[Depends(require("practice.use"))])
     def tts_phrase(phrase_id: int):
-        """The model answer spoken by Raef, or by a dialogue line's own voice. 503 tells the page to use the device voice."""
-        names = {i: n for n, i in {**VOICES, **LINE_VOICES}.items()}
+        """The model answer in the playback voice (SAWTAK_VOICE_ID, else Raef), or a dialogue line's own voice.
+        503 tells the page to use the device voice."""
+        names = {i: n for n, i in {**playback_voices(), **LINE_VOICES}.items()}
         phrase = phrase_of(phrase_id)
         text = tts_arabic(*phrase["variants"][0])
         if app.state.tts is None:
@@ -2790,7 +2792,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         try:
             with app.state.tts_warm_lock:
                 warm = dict(app.state.tts_warm)
-            return {"available": True, **app.state.tts.cache_stats(), "warm": warm}
+            return {"available": True, "voice_id": getattr(app.state.tts, "voice_id", RAEF_VOICE_ID),
+                    **app.state.tts.cache_stats(), "warm": warm}
         except TTSUnavailable as e:
             raise HTTPException(503, str(e))
 

@@ -786,9 +786,9 @@ Tune them on a handful of labelled learner recordings. A useful target is that n
 
 - Local: `cp .env.example .env` and set `SAWTAK_API_KEY` (`.env` is git-ignored and excluded from the Docker image).
 - Hugging Face: add `SAWTAK_API_KEY` as a Space **secret** (Settings → Variables and secrets). It is injected as an environment variable at runtime.
-- Playback, candidate generation and score calibration all use the Palestinian voice רַאאִף.
+- Model-answer playback uses `SAWTAK_VOICE_ID`, or the Palestinian voice רַאאִף when it is unset.
 - Without a key the endpoint answers 503 and the page falls back to the device's Arabic voice.
-- The same רַאאִף voice calibrates the scores (step 5 above), once for every phrase that gets scored, also when the learner never presses "השמע". The first score of a phrase waits up to 8 s for it. Without a key the scores are not calibrated; `/api/health` reports this as `references`.
+- Score calibration keeps its fixed native baseline voices; it does not use `SAWTAK_VOICE_ID`. A baseline is prepared once for every phrase that gets scored, also when the learner never presses "השמע". The first score of a phrase waits up to 8 s for it. Without a key the scores are not calibrated; `/api/health` reports this as `references`.
 
 ## Cost estimate (API keys)
 

@@ -4,6 +4,7 @@ The API key stays on the server: the browser asks for a phrase by id and gets a 
 Only phrases from the phrase bank can be synthesised, and each one is generated once and cached on disk.
 
 Env:  SAWTAK_API_KEY   required; without it /api/tts answers 503 and the page falls back to the device voice
+      SAWTAK_VOICE_ID  optional voice used to read sentences; default is Raef
       TTS_CACHE_DIR    optional; default ~/.cache/ihki-tts
       TTS_BUCKET       optional Hugging Face Storage Bucket id (e.g. "user/ihki-storage"); the cache-warm sweep
                        uploads every cached WAV to it through the Bucket API (needs HF_TOKEN with write access)
@@ -40,7 +41,7 @@ MAX_AUDIO_SECONDS = 60  # the longest phrase is ~240 characters; Sawtak's broken
 # for this server, and at most 3 are in flight, so student playback and other clients keep some room. 429s are retried.
 MIN_REQUEST_INTERVAL = 60 / 45
 MAX_CONCURRENT = 3
-# The single Sawtak voice used throughout the application.
+# The default Sawtak voice used throughout the application.
 RAEF_VOICE_ID = "273d81b2-991b-5b76-8525-eeacc6a3d759"
 VOICES = {"רַאאִף": RAEF_VOICE_ID}
 # A female voice, only for the lines a dialogue gives her (workbook.LINE_VOICES); never offered on the page.
@@ -51,9 +52,19 @@ FADWA_VOICE_ID = "39a7e0e0-087e-52b3-afff-5203e430fc39"   # فدوى: Palestinia
 BASELINE_VOICES = {"ראאף": RAEF_VOICE_ID, "פדוא": FADWA_VOICE_ID}
 
 
+def playback_voices() -> dict[str, str]:
+    """The playback voices by name: VOICES, plus the one SAWTAK_VOICE_ID sets, named by SAWTAK_VOICE_NAME (אמיר).
+    Read when called, after main.py has loaded .env. Playback only: the baseline stays BASELINE_VOICES."""
+    out = dict(VOICES)
+    voice = os.environ.get("SAWTAK_VOICE_ID", "").strip()
+    if voice and voice not in out.values():
+        out[os.environ.get("SAWTAK_VOICE_NAME", "").strip() or "אַמִיר"] = voice
+    return out
+
+
 def voice_name(voice_id: str) -> str:
     """A voice id's display name, without vowel points (ראאף, חנאן); the id itself when it is not one of ours."""
-    names = {v: k for k, v in {**VOICES, **LINE_VOICES, **BASELINE_VOICES}.items()}
+    names = {v: k for k, v in {**playback_voices(), **LINE_VOICES, **BASELINE_VOICES}.items()}
     return names.get(voice_id, voice_id).translate({c: None for c in range(0x591, 0x5c8)})
 
 class TTSUnavailable(Exception):
@@ -107,6 +118,8 @@ class BucketMirror:
     def __init__(self, bucket_id: str, prefix: str = "ihki-tts", token: str | None = None):
         self.bucket_id, self.prefix, self.token = bucket_id, prefix.strip("/"), token
         self.activity: ActivityLog | None = None  # set when attached to a SawtakTTS
+        self._stats_lock = threading.Lock()
+        self._stats: tuple[float, int, int] | None = None
 
     def remote_path(self, rel: str) -> str:
         return f"{self.prefix}/{rel}" if self.prefix else rel
@@ -121,6 +134,22 @@ class BucketMirror:
             if size is not None:
                 out[item.path] = size
         return out
+
+    def cache_stats(self, max_age: float = 60) -> tuple[int, int] | None:
+        """Cached WAV count/size in the shared bucket; refresh without holding up the monitoring request."""
+        stats = self._stats
+        if (stats is None or time.monotonic() - stats[0] > max_age) and self._stats_lock.acquire(blocking=False):
+            def scan() -> None:
+                try:
+                    sizes = self.remote_sizes()
+                    wavs = [size for path, size in sizes.items() if path.endswith(".wav")]
+                    self._stats = (time.monotonic(), len(wavs), sum(wavs))
+                except Exception as e:
+                    log.warning("could not inspect TTS bucket: %s", e)
+                finally:
+                    self._stats_lock.release()
+            threading.Thread(target=scan, name="ihki-tts-bucket-count", daemon=True).start()
+        return (stats[1], stats[2]) if stats else None
 
     def upload(self, files: list[tuple[Path | bytes, str]], source: str = "") -> None:
         """Upload (local path or bytes, bucket path) pairs in one batch."""
@@ -141,8 +170,8 @@ class BucketMirror:
 
 class SawtakTTS:
     def __init__(self, api_key: str, voice_id: str = RAEF_VOICE_ID, cache_dir: Path | None = None):
-        self.api_key, self.voice_id = api_key, RAEF_VOICE_ID
-        self.voice_name = "רַאאִף"
+        self.api_key, self.voice_id = api_key, voice_id.strip() or RAEF_VOICE_ID
+        self.voice_name = voice_name(self.voice_id)
         self.cache_dir = cache_dir or Path.home() / ".cache" / "ihki-tts"
         # Separate locks, so nothing slow holds up a generation: walking a bucket-mounted cache folder for the
         # panel's file count takes tens of seconds, and it once stalled every sweep worker behind it.
@@ -359,7 +388,12 @@ class SawtakTTS:
         with self._counts:
             hits, misses = self._cache_hits, self._cache_misses
         requests = hits + misses
-        return {"files": disk[1] if disk else None, "bytes": disk[2] if disk else None, "hits": hits,
+        shared = self.mirror.cache_stats() if self.mirror is not None and hasattr(self.mirror, "cache_stats") else None
+        if self.mirror is not None and hasattr(self.mirror, "cache_stats"):
+            files, size = shared if shared is not None else (None, None)
+        else:
+            files, size = (disk[1], disk[2]) if disk else (None, None)
+        return {"files": files, "bytes": size, "hits": hits,
                 "misses": misses, "hit_rate": round(hits / requests, 4) if requests else None}
 
     def _count_files(self) -> None:
@@ -380,7 +414,7 @@ class SawtakTTS:
         with self._key_lock(self.cache_key(text, voice)):
             found = self.cache_file(text, voice) if self.staging_dir else None
             if found is not None:  # with a mirror the cache folder may be a slow mount: no migration there
-                self._count(hit=True)
+                if source == "playback": self._count(hit=True)
                 return found.read_bytes(), voice
             path = self._path(text, voice)
             legacy = self._legacy_path(path)
@@ -392,9 +426,9 @@ class SawtakTTS:
                     log.warning("tts cache migration failed: %s: %s", type(e).__name__, e)
                     path = legacy
             if path.exists():
-                self._count(hit=True)
+                if source == "playback": self._count(hit=True)
                 return path.read_bytes(), voice
-            self._count(hit=False)
+            if source == "playback": self._count(hit=False)
             # The caller supplies the phrase's Palestinian vowel marks. Sawtak preserves existing
             # marks; enhancement fills remaining pronunciation cues using the selected voice's dialect.
             data = self._generate(text, voice, source)
@@ -430,8 +464,8 @@ class SawtakTTS:
         threading.Thread(target=go, name="ihki-tts-upload", daemon=True).start()
 
     def wav(self, text: str, voice: str = "") -> tuple[bytes, str]:
-        """(WAV, voice id) in Raef's voice, or a dialogue line's configured voice."""
-        voice = voice if voice in LINE_VOICES.values() else RAEF_VOICE_ID
+        """(WAV, voice id) in the configured voice, or a dialogue line's own voice."""
+        voice = voice if voice in LINE_VOICES.values() else self.voice_id
         return self._wav(text, voice, upload=True, source="playback")
 
     def wav_for_voice(self, text: str, voice: str, source: str = "sweep", upload: bool = False) -> tuple[bytes, str]:
@@ -447,7 +481,8 @@ def load_tts(key: str | None = None) -> SawtakTTS | None:
         log.info("SAWTAK_API_KEY not set: playback uses the device voice")
         return None
     cache = os.environ.get("TTS_CACHE_DIR", "").strip()
-    tts = SawtakTTS(key, RAEF_VOICE_ID, Path(cache) if cache else None)
+    voice = os.environ.get("SAWTAK_VOICE_ID", RAEF_VOICE_ID).strip() or RAEF_VOICE_ID
+    tts = SawtakTTS(key, voice, Path(cache) if cache else None)
     bucket = os.environ.get("TTS_BUCKET", "").strip()
     if bucket:
         tts.mirror = BucketMirror(bucket, os.environ.get("TTS_BUCKET_PREFIX", "ihki-tts"),

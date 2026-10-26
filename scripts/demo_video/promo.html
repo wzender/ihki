@@ -29,6 +29,16 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
 .cap h1 em{font-style:normal;color:var(--red)}
 .cap p{margin:22px 0 0;font:600 38px/1.35 "Assistant",sans-serif;color:var(--muted)}
 .cap p b{color:var(--teal);font-weight:800}
+.cmp{display:flex;align-items:center;justify-content:center;gap:28px;margin-top:22px;direction:rtl}
+.cmp>div{width:330px;padding:16px 10px 12px;border-radius:30px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.cmp b{font:700 92px/1 "Noto Naskh Arabic","Amiri",serif}
+.cmp span{font:800 32px/1.2 "Assistant",sans-serif}
+.cmp small{font:600 24px/1.2 "Assistant",sans-serif;opacity:.85}
+.cmp .was{background:var(--red);color:#fff} .cmp .ok{background:#2F7A4A;color:#fff}
+.cmp i{font:800 56px/1 "Assistant",sans-serif;color:var(--navy);font-style:normal}
+.bub .hl{background:var(--red);color:#fff;border-radius:12px;padding:0 6px}
+.bub .typing{letter-spacing:10px;font-size:52px}
+.bub .lab{display:block;font:700 24px/1.2 "Assistant",sans-serif;opacity:.85;margin-bottom:4px}
 /* the phone */
 #stage{position:absolute;inset:0;perspective:2600px;perspective-origin:50% 45%}
 #phone{position:absolute;left:220px;top:504px;width:641px;height:1353px;transform-style:preserve-3d;will-change:transform}
@@ -44,6 +54,8 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
 #shadow{position:absolute;left:250px;top:1790px;width:580px;height:90px;border-radius:50%;
   background:radial-gradient(closest-side,rgba(31,33,86,.38),rgba(31,33,86,0));filter:blur(6px)}
 /* a ring around the red letter, drawn outside the phone's screen so it reads at a glance */
+.word{position:absolute;z-index:8;opacity:0;direction:rtl;white-space:nowrap;font:800 62px/1 "Assistant",sans-serif;color:var(--navy);
+  background:#fff;padding:16px 30px;border-radius:999px;box-shadow:0 14px 34px rgba(31,33,86,.28),inset 0 0 0 4px var(--teal)}
 #ring{position:absolute;border:7px solid var(--red);border-radius:22px;box-shadow:0 0 0 10px rgba(200,52,74,.18);opacity:0}
 /* the opening and closing */
 /* the announcement, and the booklet the app follows */
@@ -62,7 +74,8 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
 #bookShadow{position:absolute;width:1150px;height:200px;border-radius:50%;background:radial-gradient(closest-side,rgba(31,33,86,.30),rgba(31,33,86,0));filter:blur(8px)}
 #bookRing{position:absolute;border:7px solid var(--red);border-radius:18px;box-shadow:0 0 0 10px rgba(200,52,74,.18);opacity:0}
 /* the summary: what the app is, beside its "הערבית שכבר שלכם" */
-#pills{position:absolute;left:60px;right:60px;top:300px;display:grid;grid-template-columns:1fr 1fr;gap:20px;z-index:6;opacity:0;direction:rtl}
+#pills{position:absolute;left:60px;right:60px;top:340px;display:grid;grid-template-columns:1fr 1fr;gap:20px;z-index:6;opacity:0;direction:rtl}
+#pills small{display:block;font:600 26px/1.2 "Assistant",sans-serif;color:var(--muted);margin-top:4px}
 #pills div{background:#fff;border-radius:28px;padding:22px 20px;text-align:center;font:700 36px/1.2 "Assistant",sans-serif;color:var(--navy);
   box-shadow:0 8px 24px rgba(31,33,86,.10),inset 0 0 0 3px rgba(31,33,86,.06)}
 /* the grid of other ways to practice: four small phones, each zooming in for its example */
@@ -145,14 +158,17 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
 </div>
 <div id="band"></div>
 <div class="cap" id="cb"><h1>בנויה בדיוק <em style="color:var(--teal)">לפי החוברת</em> 📖</h1><p>כל שיעור בחוברת הוא נושא באפליקציה,<br>עם אותם פעלים ואותם משפטים</p></div>
-<div class="cap" id="c8"><h1>כל הערבית שלכם, <em style="color:var(--teal)">במקום אחד</em></h1></div>
-<div id="pills"><div>🎙️ שומעת כל עיצור</div><div>📖 לפי החוברת</div><div>🚗 מצב נסיעה</div><div>📿 חרוזים ומשחקים</div></div>
+<div class="cap" id="c8"><h1>החוברת מלמדת את השפה</h1><p>האפליקציה עוזרת <b>לשלוף, לדבר, לתקן ולזכור</b></p></div>
+<div id="pills"><div>🧠 לשלוף<small>מילים ותרגול יומי</small></div><div>🎙️ לדבר<small>בקול, גם בנסיעה</small></div><div>✍️ לתקן<small>עיצור אחרי עיצור</small></div><div>📿 לזכור<small>חרוזים ומשחקים</small></div></div>
 <div class="cap" id="ch"><h1>יודעים <em style="color:var(--teal)">מה לתרגל עכשיו</em></h1><p><span class="nb">1</span> ממשיכים בשיעור של הכיתה<br><span class="nb">2</span> או תרגול קצר, כמה דקות</p></div>
 <div class="co" id="co1"><span class="n">1</span></div>
 <div class="co" id="co2"><span class="n">2</span></div>
 <div class="cap" id="c1"><h1>אומרים בקול</h1><p>רואים פועל בעברית,<br>ואומרים אותו <b>בערבית מדוברת</b></p></div>
 <div class="cap" id="c2"><h1>האפליקציה מקשיבה<br>ל<em>כל עיצור</em></h1><p>ומסמנת באדום את מה<br>שלא נשמע נכון</p></div>
-<div class="cap" id="c3"><h1>ח׳ במקום <em>ח</em>?</h1><p>טיפ שנכתב <b>לדוברי עברית</b>:<br>מה נשמע, ואיך מתקנים</p></div>
+<div class="cap" id="c3"><h1>ח׳ במקום <em>ח</em>?</h1>
+  <div class="cmp"><div class="was"><b>خ</b><span>ח׳ · חיכוך בחך</span><small>מה שנשמע</small></div><i>←</i>
+  <div class="ok"><b>ح</b><span>ח · מהלוע</span><small>מה שצריך</small></div></div></div>
+<div class="cap" id="cl"><h1>שומעים <em style="color:var(--teal)">איך אומרים נכון</em> 🔊</h1><p>ומנסים שוב</p></div>
 <div class="cap" id="c4"><h1>מנסים שוב — <em style="color:var(--teal)">100!</em></h1><p>ח נקייה, <b>בדיוק כמו שצריך</b></p></div>
 <div class="cap" id="c5"><h1>כל משפט — <em style="color:var(--orange)">חרוז</em> 📿</h1><p>מ־75 ומעלה הוא מזהיב ★<br>ואוספים אותם לאורך כל הדרך</p></div>
 <div class="cap" id="c7"><h1>מצב נסיעה 🚗</h1><p>מתרגלים <b>בלי ידיים</b>: האפליקציה מקריאה,<br>מקשיבה ואומרת את הציון בקול</p></div>
@@ -172,6 +188,7 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
   </div>
 </div>
 <div id="ring"></div>
+<div class="word" id="wd">דיבר</div><div class="word" id="wp">חַכַּא</div><div class="word" id="wf">יִחְכִּי</div>
 <div id="grid">
   <div class="tile" id="tw"><div class="ph"><div class="scr"><img alt=""><div class="isl"></div></div></div><div class="lab">📖 מילים חדשות</div></div>
   <div class="tile" id="tp"><div class="ph"><div class="scr"><img alt=""><div class="isl"></div></div></div><div class="lab">🧩 זוגות מילים</div></div>
@@ -183,6 +200,10 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
   <circle cx="170" cy="1930" r="440" fill="none" stroke="#2C2F45" stroke-width="10" stroke-dasharray="40 26" opacity=".7"/>
   <path d="M170 1930 L560 1760" stroke="#14151F" stroke-width="70" stroke-linecap="round"/>
 </g></svg>
+<div class="bub me" id="sm0"><span class="lab">🎙️ אומרים</span><span class="typing">● ● ●</span></div>
+<div class="bub me" id="sm1"><span class="lab">🎙️ מה שהאפליקציה שמעה</span><span class="tr">חַ'כַּא, יִ<span class="hl">חְ'</span>כִּי</span></div>
+<div class="bub app" id="sa"><span class="lab">🔊 האפליקציה</span><span class="tr">חַכַּא, יִחְכִּי</span></div>
+<div class="bub ok" id="sc"><span class="lab">🎙️ ניסיון שני</span><span class="tr">חַכַּא, יִחְכִּי</span> ✓</div>
 <div class="bub app" id="b1">🔊 דיבר — עבר ועתיד</div>
 <div class="bub me" id="b2">🎙️ <span class="tr">חַכַּא, יִחְכִּי</span></div>
 <div class="bub ok" id="b3">🔊 מצוין! · 100 ✓</div>
@@ -202,7 +223,7 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
 const $=id=>document.getElementById(id);
 // the opening logo, the announcement and the booklet come before the screen; the animated logo closes
 // the logo stays up while the description rises under it
-const OPEN_END=4.2, ANN=[1.0,4.2], BOOK0=4.0, BOOK_LEN=7.0, INTRO=BOOK0+BOOK_LEN, CHIPS=0.5, LOGO=6.8, LOGO_SPEED=1.2;
+const OPEN_END=4.2, ANN=[1.0,4.2], BOOK0=4.0, BOOK_LEN=8.4, INTRO=BOOK0+BOOK_LEN, CHIPS=0.5, LOGO=6.8, LOGO_SPEED=1.2;
 const SLOW=1.15;                              // the app's screens play 15% slower than recorded, to be read
 const PW=520, PH=716;                         // a booklet page on the frame
 const LEAVES=[["cover.jpg",null],["p53.jpg","p54.jpg"],["p55.jpg","p56.jpg"],["p57.jpg","p58.jpg"],["p59.jpg","p60.jpg"]];
@@ -271,7 +292,8 @@ async function setup(d){
     [S(M.score.t)+.9,focus(lu,lv,1.5,540,1150,{ry:-4,rx:2})],
     [S(M.tap.t)+.3,focus(lu,lv,1.5,540,1150,{ry:-3,rx:2})],
     [S(M.tap.t)+1.2,focus((lu+tu)/2,(lv+tv)/2,1.22,540,1250,{ry:3,rx:2})],
-    [S(M.retry.t)-.2,focus((lu+tu)/2,(lv+tv)/2,1.22,540,1250,{ry:4,rx:2})],
+    [S(M.listen.t)-.1,focus((lu+tu)/2,(lv+tv)/2,1.22,540,1250,{ry:4,rx:2})],
+    [S(M.listen.t)+.6,{...rest,ry:6,rx:3}],
     [S(M.retry.t)+.7,{...rest,ry:10,rx:3}],
     [S(M.great.t),{...rest,ry:8,rx:3}],
     [S(M.great.t)+.8,focus(gu,gv,1.3,540,1250,{ry:4,rx:2})],
@@ -297,12 +319,38 @@ function stateAt(t){
 function frameAt(s){   // the last screen frame at or before s
   let lo=0, hi=F.length-1; while(lo<hi){ const m=(lo+hi+1)>>1; if(F[m].t<=s) lo=m; else hi=m-1; } return F[lo].file;
 }
+/* where the booklet is on the frame at booklet time b (drawBook's camera): page fraction (u,v) -> frame (x,y) */
+function bookAt(b,u,v){
+  const lay=ease((b-.9)/1.0), flat=ease((b-4.3)/.9), k0=lerp(lerp(1.16,1.22,ease(b/.9)),.92,lay), zoom=ease((b-5.4)/1.0);
+  const k=lerp(lerp(k0,1.55,flat),2.75,zoom), fu=ROW.u+ROW.w/2, fv=ROW.v+ROW.h/2;
+  const sx=lerp(lerp(540+PW*k0/2,540,lay),540-k*fu*PW,flat), sy=lerp(lerp(1040,1110,lay),1060-k*(fv-.5)*PH,flat);
+  return {x:sx+k*u*PW, y:sy+k*(v-.5)*PH, k};
+}
+/* the three words of the booklet's row fly into the app: off the page as the booklet ends, hovering over the home,
+   and into place when the practice opens: דיבר onto the prompt, חכא and יחכי onto the answer's card */
+// דיבר lands when the practice opens; חכא and יחכי wait at the top until the app reveals the answer (after the attempt)
+const WORDS=[{id:"wd",u:.70,to:"promptBox",at:"start"},{id:"wp",u:.41,to:"ans1",at:"score"},{id:"wf",u:.22,to:"ans2",at:"score"}];
+const HOVER=[[730,405],[480,405],[300,405]];
+function drawWords(t,p){
+  const S=x=>INTRO+x*SLOW, L0=INTRO-1.3;
+  WORDS.forEach((w,i)=>{ const el=$(w.id), land0=S(M[w.at].t)+(w.at==="score"?-.25:.15), land1=land0+.9;   // the answer shows just before the score mark
+    if(t<L0||t>=land1+.5){ el.style.opacity=0; return; }
+    const src=bookAt(Math.min(t,L0)-BOOK0,w.u,ROW.v+ROW.h/2), box=M[w.to].box;
+    const p0=onPhone(box[0]+box[2]/2,box[1]+box[3]/2), dst={x:PHONE.cx+p.tx+p.k*p0.x, y:PHONE.cy+p.ty+p.k*p0.y};
+    const pop=ease((t-L0)/.35), lift=ease((t-L0-.35)/.8), fly=ease((t-land0)/(land1-land0));
+    let x=lerp(src.x,HOVER[i][0],lift), y=lerp(src.y-30*pop,HOVER[i][1],lift);
+    x=lerp(x,dst.x,fly); y=lerp(y,dst.y,fly);
+    const sc=lerp(lerp(.9,1.25,pop),1,lift)*lerp(1,.62,fly), bob=Math.sin((t-L0)*3+i)*6*(1-fly)*lift;
+    Object.assign(el.style,{left:x+"px",top:y+bob+"px",opacity:Math.min(pop,1-ease((t-land1)/.4)),
+      transform:`translate(-50%,-50%) scale(${sc}) rotate(${(1-lift)*(i-1)*-4}deg)`}); });
+}
 function drawBook(t){
   const b=t-BOOK0, on=t>BOOK0-.1&&t<INTRO+.3;
   $("bookStage").style.visibility=on?"visible":"hidden"; $("bookRing").style.opacity=0; if(!on) return;
   // the booklet: face on and closed (its spine on the right), then lying down, open, flat for a close look at the verb
   const lay=ease((b-.9)/1.0), flat=ease((b-4.3)/.9), k0=lerp(lerp(1.16,1.22,ease(b/.9)),.92,lay);
-  const k=lerp(k0,1.55,flat), rx=lerp(lerp(0,54,lay),4,flat), rz=lerp(lerp(0,-7,lay),0,flat);
+  const zoom=ease((b-5.4)/1.0);                  // then into the line itself, until it fills the frame
+  const k=lerp(lerp(k0,1.55,flat),2.75,zoom), rx=lerp(lerp(0,54,lay),4,flat), rz=lerp(lerp(0,-7,lay),0,flat);
   const fu=ROW.u+ROW.w/2, fv=ROW.v+ROW.h/2;      // the row comes to the frame's middle
   const sx=lerp(lerp(540+PW*k0/2,540,lay),540-k*fu*PW,flat), sy=lerp(lerp(1040,1110,lay),1060-k*(fv-.5)*PH,flat);
   $("book").style.transform=`translate(${sx}px,${sy}px) rotateX(${rx}deg) rotateZ(${rz}deg) scale(${k})`;
@@ -313,7 +361,7 @@ function drawBook(t){
     l.style.transform=`rotateY(${ang}deg) translateZ(${l.dataset.z*1.2}px)`;
     l.querySelectorAll(".shade").forEach(s=>s.style.opacity=Math.sin(Math.PI*x)*.9); });
   // the ring on the row, once the booklet lies flat
-  const r=win(b,5.1,BOOK_LEN-.1,.25);
+  const r=win(b,6.5,BOOK_LEN-.1,.3);
   if(r>0){ const x=sx+k*ROW.u*PW, y=sy+k*(ROW.v-.5)*PH, pad=12;
     Object.assign($("bookRing").style,{left:x-pad+"px",top:y-pad+"px",width:k*ROW.w*PW+2*pad+"px",height:k*ROW.h*PH+2*pad+"px",
       opacity:Math.min(r,out),transform:`scale(${1+.05*Math.sin(b*7)})`}); }
@@ -338,7 +386,7 @@ async function seek(t){
   $("announce").style.opacity=an; $("announce").style.visibility=an>0?"visible":"hidden";
   $("announce").style.transform=`translateY(${(1-rise)*820}px)`;
   drawBook(t);
-  const caps=[["cb",BOOK0+.9,INTRO-.5],["ch",INTRO-.5,S(M.homeTap.t)+.3],["c1",S(M.start.t)-.1,S(M.score.t)+.2],["c8",S(M.shelf.t)-.1,S(END)+.4],["c2",S(M.score.t)+.2,S(M.tap.t)+.6],["c3",S(M.tap.t)+.6,S(M.retry.t)+.4],
+  const caps=[["cb",BOOK0+.9,INTRO-.5],["ch",INTRO-.5,S(M.homeTap.t)+.3],["c1",S(M.start.t)-.1,S(M.score.t)+.2],["c8",S(M.shelf.t)-.1,S(END)+.4],["c2",S(M.score.t)+.2,S(M.tap.t)+.6],["c3",S(M.tap.t)+.6,S(M.listen.t)],["cl",S(M.listen.t),S(M.retry.t)+.4],
     ["c4",S(M.retry.t)+.4,S(M.great.t)+1.5],["c5",S(M.great.t)+1.5,S(M.drive.t)-.2],
     ["c7",S(M.drive.t)-.2,S(M.driveEnd.t)+.2],
     ["cg",S(M.w0.t)-.1,S(M.w0.t)+1.6],["cw",S(M.w0.t)+1.6,S(M.w1.t)-.2],["cp",S(M.p0.t)+.1,S(M.p1.t)-.2],
@@ -356,6 +404,13 @@ async function seek(t){
   for(let i=0;i<N;i++){ const d=((i/N+t*speed/N)%1), z=d*d, y=400+360*z, h=6+70*z, w=4+34*z;
     dashes+=`<rect x="${560-w/2}" y="${y}" width="${w}" height="${h}" fill="#F4EFE2" opacity="${.4+.6*d}"/>`; }
   $("dashes").innerHTML=car>0?dashes:"";
+  // the core's conversation: the student speaks (typing dots), the app shows what it heard with the consonant
+  // marked, says it right, and the second try comes back clean
+  const cb=[["sm0",S(M.said_m876.t),S(M.score.t)+.1,60,1530,"me"],["sm1",S(M.score.t)+.1,S(M.listen.t)+.2,60,1530,"me"],
+            ["sa",S(M.listen.t)+.2,S(M.retry.t)+.3,60,1530,"app"],["sc",S(M.said_c876.t)+.3,S(M.great.t)+1.6,60,1530,"me"]];
+  for(const [id,a,b,x,y,side] of cb){ const o=win(t,a,b,.25);
+    Object.assign($(id).style,{[side==="app"?"right":"left"]:x+"px",top:y+"px",opacity:o,transform:`scale(${lerp(.7,1,o)})`,
+      transformOrigin:side==="app"?"100% 100%":"0% 100%"}); }
   // the conversation, in bubbles: the app reads out the verb, the driver answers, the app says the verdict
   const bubs=[["b1",S(M.drive.t)+.5,S(M.turn.t)+.2,60,820],["b2",S(M.turn.t)+.3,S(M.verdict.t)+.1,80,1240],["b3",S(M.verdict.t)+.1,S(M.driveEnd.t)+.3,90,820]];
   for(const [id,a,b,x,y] of bubs){ const o=win(t,a,b,.25);
@@ -397,6 +452,7 @@ async function seek(t){
     if(o>0&&m.box){ const p0=onPhone(m.box[0]+m.box[2],m.box[1]), x=PHONE.cx+p.tx+p.k*p0.x, y=PHONE.cy+p.ty+p.k*p0.y;
       Object.assign(el.style,{right:(1080-x-18)+"px",top:(y-40)+"px",opacity:o,transform:`scale(${lerp(.7,1,o)})`,transformOrigin:"100% 50%"}); }
     else el.style.opacity=0; }
+  drawWords(t,p);
   // the ring on the red letter: after the camera has moved in, until the tip opens
   const r=win(t,S(M.score.t)+.9,S(M.tap.t)+.25,.25);
   if(r>0){ const b=M.letter.box, p0=onPhone(b[0],b[1]), w=b[2]*SCREEN.w*p.k, h=b[3]*SCREEN.h*p.k, pad=14;

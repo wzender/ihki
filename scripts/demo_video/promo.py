@@ -107,6 +107,7 @@ async def record_screen(url, takes, work):
             await wait(150)
             print(f"  {take}: recording={await recording()} status={await pg.inner_text('#status')!r}")
             await pg.evaluate("t=>__demo.play(t)", take)
+            await mark("said_" + take)                # the student starts speaking (the bubble shows it)
             try:
                 await pg.wait_for_selector("#result:not([hidden])", timeout=30000)
             except Exception:
@@ -144,10 +145,15 @@ async def record_screen(url, takes, work):
         await pg.evaluate("scrollTo(0,0)"); await wait(200)
         await resume()
         await mark("start")
-        await wait(900)
+        await mark("promptBox", "#prompt")       # where the booklet's words land: the verb, and the answer's card
+        await mark("hintBox", "#hint")
+        await wait(1500)
         await mark("mic", "#mic")
         await say("m876")
         await mark("score", "#result")
+        # the answer is now revealed, word by word: where חכא and יחכי drop in from the top
+        await mark("ans1", "#wordReveals .analysis-word:nth-child(1) .expected")
+        await mark("ans2", "#wordReveals .analysis-word:nth-child(2) .expected")
         bad = '#wordReveals .bad.why[title^="ח (ح) נשמעה כמו ח\'"]'
         await mark("letter", bad)
         print("  score:", await pg.inner_text("#score"))
@@ -159,6 +165,8 @@ async def record_screen(url, takes, work):
         await wait(3600)
         await pg.mouse.click(5, 5)               # closes the tip
         await wait(400)
+        await mark("listen", "#speakBtn")        # the right way, said by the app
+        await tap("#speakBtn", 2200)
         await mark("retry", "#mic")
         await say("c876", fresh=True)
         await pg.evaluate("cancelAutoNext()")    # keeps the score on screen
@@ -215,7 +223,7 @@ async def record_screen(url, takes, work):
         await wait(2000)                                           # the whole grid first, then the camera moves in
         await tap("#learnShow", 1000)
         await tap("#learnKnow", 300)
-        await wait(300); await mark("w1")
+        await wait(1600); await mark("w1")
         pause(); await pg.click("#learnClose"); await wait(500)
 
         sat = pg.locator("button.sat", has_text="התאימו זוגות").nth(3)        # pairs: two matched
@@ -226,7 +234,7 @@ async def record_screen(url, takes, work):
         for i in ids[:2]:
             await tap(f'.mtile[data-side="he"][data-id="{i}"]', 180)
             await tap(f'.mtile[data-side="tr"][data-id="{i}"]', 500)
-        await wait(300); await mark("p1")
+        await wait(1600); await mark("p1")
         pause(); await pg.click("#matchClose"); await wait(500)
 
         sat = pg.locator("button.sat", has_text="סיפור: שכני החדש").first      # a story, read aloud line by line
@@ -235,7 +243,7 @@ async def record_screen(url, takes, work):
         await resume(); await mark("s0")
         await wait(400)
         await tap("#hearBtn", 0)
-        await wait(2200); await mark("s1")
+        await wait(3500); await mark("s1")
         pause(); await pg.click("#hearBtn"); await wait(300)
         await pg.locator("button", has_text="חזרה למסלול").first.click(); await wait(600)
 
@@ -246,7 +254,7 @@ async def record_screen(url, takes, work):
         for he, ar in [("פתח", "פַתַח"), ("אכל", "אַכַּל")]:
             await tap(f'.mg-bead.he:has-text("{he}")', 200)
             await tap(f'.mg-bead.ar:has-text("{ar}")', 480)
-        await wait(750); await mark("m1")                        # the camera moves back out to the grid
+        await wait(2050); await mark("m1")                        # the camera moves back out to the grid
 
         # the summary: "the Arabic that's already yours", what this session collected
         pause()

@@ -24,15 +24,18 @@ D=scripts/demo_video; .venv/bin/python $D/record.py --takes $D/takes --out $D/ih
   app says "מצוין" and shows no letters to tap; if a scoring change moves it, pick another take in make_takes.py.
 - The app listens by itself after "next"; the recorder plays the take into the fake mic either way.
 
-## The short promo (76 s, a 3D iPhone)
+## The short promo (88 s, a 3D iPhone)
 
 The opening logo, with "חדש! האפליקציה של אהלא וסהלא" rising under it; the booklet (its cover face on, then lying
-open, pages flipping to lesson 4's new verbs, the row "דיבר · חכא · יחכי" circled); the focused home ("מה עושים
-עכשיו?", its two actions numbered); "דיבר (עבר, עתיד)" said with a Hebrew speaker's mistake (ح said as a "dirty" ח', خ),
-the red consonant and its tip, the retry at 100; collecting beads; driving mode (the phone flies into a car's mount,
-the conversation in bubbles, a misbaha on the mirror whose next bead turns gold on the verdict); a grid of the other
-ways to practice (lesson 4's new words, pairs, story, and "הפועל זכרון"), each coming forward for a short example;
-the summary beside "הערבית שכבר שלכם"; the animated logo. Silent.
+open, pages flipping to lesson 4's new verbs, the camera going into the line "דיבר · חכא · יחכי", whose three words then lift off the page, float over the home and
+land in the practice: דיבר on the prompt when the practice opens, חכא and יחכי on the answer once the app reveals it); the focused home
+("מה עושים עכשיו?", its two actions numbered); "דיבר (עבר, עתיד)" said with a Hebrew speaker's mistake: chat bubbles
+show what the student said (the ח' marked), a card compares ח' (חיכוך בחך) with ح (מהלוע), the app says it right, the
+second try comes back at 100; collecting beads; driving mode (the phone in a car's mount, the conversation in bubbles,
+a misbaha whose next bead turns gold); a grid of the other ways to practice (lesson 4's new words, pairs, story, and
+"הפועל זכרון"), each coming forward for a short example; the summary, "החוברת מלמדת את השפה. האפליקציה עוזרת לשלוף,
+לדבר, לתקן ולזכור", beside "הערבית שכבר שלכם"; the animated logo. Silent. The app's screens play 15% slower than
+recorded (`SLOW` in promo.html).
 
 The focused home appears only to a signed-in student of a class; with sign-in off, promo.py draws it with the app's
 own component (`LearnerHome.renderHome`) for class א1 on lesson 4, with the two actions such a student would get.

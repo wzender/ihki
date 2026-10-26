@@ -521,7 +521,8 @@ def test_ana_explicitly_accepts_the_natural_vowell_initial_form():
     assert not r["tips"] and not r["issues"]
 
 
-def test_tts_endpoint_serves_phrase_audio_and_503_without_key():
+def test_tts_endpoint_serves_phrase_audio_and_503_without_key(monkeypatch):
+    monkeypatch.delenv("SAWTAK_VOICE_ID", raising=False)   # a developer's .env may set a playback voice
     from fastapi.testclient import TestClient
 
     from app.main import create_app
@@ -541,9 +542,9 @@ def test_tts_endpoint_serves_phrase_audio_and_503_without_key():
         assert r.status_code == 200 and r.headers["content-type"] == "audio/wav" and r.content == b"RIFFfake"
         assert r.headers["x-tts-provider"] == "sawtakarabi.ai" and r.headers["x-tts-voice-id"] == FakeTTS.voice_id
 
-        from app.tts import VOICES
+        from app.tts import playback_voices
         voices = c.get("/api/phrases").json()["voices"]
-        assert [v["name"] for v in voices] == list(VOICES)
+        assert [v["name"] for v in voices] == list(playback_voices())
         assert voices == [{"id": FakeTTS.voice_id, "name": "רַאאִף"}]
         assert c.get("/api/tts/9999").status_code == 404
         health = c.get("/api/health").json()
@@ -2894,3 +2895,13 @@ def test_a_vowel_heard_with_a_tone_number_is_the_vowel():
 def test_another_vowel_with_a_tone_number_is_still_wrong():
     r = split_vowel_scorer("u", "u5", 0.45).score(None, HIYYE)
     assert r["words"][0]["phonemes"][1]["score"] < 50
+
+
+def test_the_sawtak_voice_id_is_offered_for_playback_by_name(monkeypatch):
+    from app.tts import BASELINE_VOICES, VOICES, playback_voices, voice_name
+    monkeypatch.setenv("SAWTAK_VOICE_ID", "amir-voice-id")
+    monkeypatch.delenv("SAWTAK_VOICE_NAME", raising=False)
+    voices = playback_voices()
+    assert list(voices)[: len(VOICES)] == list(VOICES) and voices["אַמִיר"] == "amir-voice-id"
+    assert voice_name("amir-voice-id") == "אמיר"
+    assert "amir-voice-id" not in BASELINE_VOICES.values()   # playback only: scores keep their baseline

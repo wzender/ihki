@@ -463,6 +463,28 @@ def test_home_resumes_the_partly_started_topic_instead_of_the_first_unfinished_o
     assert r["proposed"] == r["started"]
 
 
+RESUME_OPEN_STORY = """
+await sleep(1500);
+const current=LESSONS.find(l=>l.id===currentLesson());
+const started=CATS.find(c=>c.story&&c.lesson!==current.id&&PHRASES.some(p=>p.cat===c.id&&p.listed!==false));
+if(!started) throw new Error("the class needs a story in an earlier lesson");
+cat=started.id; store.set("ihki.cat",cat);   // opened, but left before the first line received a score
+drawNav();
+const action=[...document.querySelectorAll("#vids .focus-action")].find(b=>b.textContent.includes("ממשיכים ב"));
+out.story=started.name;
+out.lesson=LESSONS.find(l=>l.id===started.lesson).name;
+out.proposed=action.querySelector(".focus-detail").textContent;
+out.title=action.querySelector("strong").textContent;
+"""
+
+
+def test_home_resumes_an_open_story_before_its_first_score_even_from_an_earlier_lesson(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", RESUME_OPEN_STORY)
+    assert r["proposed"] == r["story"]
+    assert r["lesson"] in r["title"]
+
+
 PRIORITY = """
 await sleep(1500);
 const titles=()=>[...document.querySelectorAll("#vids .focus-action strong")].map(s=>s.textContent);

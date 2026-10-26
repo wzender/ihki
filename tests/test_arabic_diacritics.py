@@ -116,14 +116,16 @@ def test_flat_sawtak_cache_is_migrated_into_voice_folder(tmp_path):
     assert data == b"old recording" and nested.exists() and not legacy.exists()
 
 
-def test_only_raef_is_offered_and_is_the_configured_default(monkeypatch):
+def test_sawtak_voice_id_configures_sentence_playback(monkeypatch):
     from app.tts import RAEF_VOICE_ID, VOICES, load_tts
 
     monkeypatch.setenv("SAWTAK_API_KEY", "key")
-    monkeypatch.setenv("SAWTAK_VOICE_ID", "an-old-different-voice")
+    monkeypatch.setenv("SAWTAK_VOICE_ID", "a-different-voice")
     tts = load_tts()
     assert VOICES == {"רַאאִף": RAEF_VOICE_ID}
-    assert tts.voice_id == RAEF_VOICE_ID
+    assert tts.voice_id == "a-different-voice"
+    tts._wav = lambda _text, voice, **_kwargs: (b"audio", voice)
+    assert tts.wav("مَرْحَبَا") == (b"audio", "a-different-voice")
 
 
 
