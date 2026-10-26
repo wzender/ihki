@@ -5,7 +5,8 @@ from types import SimpleNamespace
 import httpx
 
 from app.auth import AuthUnavailable
-from app.grok_mcp import ApprovalStore, MutationLimiter, SupabaseTokenVerifier, build
+from app.grok_mcp import (ApprovalStore, ClassApprovalStore, MutationLimiter,
+                          SupabaseTokenVerifier, build)
 from app.main import create_app, video_link
 from tests.test_scoring import emissions, scorer_for
 
@@ -26,6 +27,7 @@ class LibraryAuth:
 
     def __init__(self):
         self.videos = []
+        self.class_rows = []
         self.events = []
 
     def level_videos(self, table, fresh=False):
@@ -49,10 +51,26 @@ class LibraryAuth:
         return None
 
     def classes(self, fresh=False):
-        return []
+        return [dict(row) for row in self.class_rows]
+
+    def save_class(self, class_id, name, emails, nicknames, lessons, homeworks=(), dailies=None,
+                   subject="", teachers=None):
+        if class_id is None:
+            self.class_rows.append({"id": len(self.class_rows) + 1, "name": name, "emails": emails,
+                "nicknames": nicknames, "lessons": lessons, "homeworks": list(homeworks),
+                "dailies": list(dailies or []), "subject": subject, "teachers": list(teachers or [])})
+            return
+        row = next(row for row in self.class_rows if row["id"] == class_id)
+        row.update(name=name, emails=emails, nicknames=nicknames, lessons=lessons,
+                   homeworks=list(homeworks), dailies=list(dailies or []), subject=subject)
+        if teachers is not None:
+            row["teachers"] = teachers
 
     def ranked(self, fresh=False):
         return []
+
+    def access_for(self, user_id, fresh=False):
+        return None
 
 
 class UnavailableAuth(LibraryAuth):
@@ -60,10 +78,12 @@ class UnavailableAuth(LibraryAuth):
         raise AuthUnavailable("offline")
 
 
-def connector(auth=None, clock=None):
+def connector(auth=None, clock=None, actor=None):
     clock = clock or Clock()
-    host = SimpleNamespace(state=SimpleNamespace(auth=auth, video_link=video_link))
-    server, protected, _ = build(host, approvals=ApprovalStore(clock), limiter=MutationLimiter(clock))
+    host = SimpleNamespace(state=SimpleNamespace(auth=auth, video_link=video_link,
+        initial_class_lessons={"ערבית": "1", "מתמטיקה": "linear-functions"}))
+    server, protected, _ = build(host, approvals=ApprovalStore(clock), limiter=MutationLimiter(clock),
+        class_approvals=ClassApprovalStore(clock), actor_provider=(lambda: actor) if actor else None)
     return server, protected
 
 
@@ -72,13 +92,15 @@ def call(server, name, arguments=None):
     return answer.structured_content
 
 
-def test_exactly_four_narrow_tools_are_discoverable():
+def test_exactly_seven_narrow_tools_are_discoverable():
     server, _ = connector(LibraryAuth())
     tools = asyncio.run(server.list_tools())
     assert [tool.name for tool in tools] == [
-        "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video"]
+        "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
+        "list_classes", "prepare_class_change", "publish_class_change"]
     assert all(tool.output_schema for tool in tools)
-    assert not any(word in tool.name for tool in tools for word in ("delete", "class", "teacher", "user", "sql"))
+    assert not any(word in tool.name for tool in tools
+                   for word in ("delete", "teacher", "user", "role", "lesson", "homework", "grade", "recording", "sql"))
 
 
 def test_list_and_rename_return_only_library_metadata():
@@ -137,17 +159,24 @@ def test_oauth_verifier_requires_current_management_permission():
         def __init__(self):
             super().__init__()
             self.roles = ["admin"]
+            self.subject = "ערבית"
             self.fresh = []
 
         def access_for(self, user_id, fresh=False):
             self.fresh.append(fresh)
-            return {"roles": self.roles, "entitlements": []}
+            return {"roles": self.roles, "entitlements": [], "subject": self.subject}
 
     auth = ChangingAuth()
     host = SimpleNamespace(state=SimpleNamespace(auth=auth))
     verifier = SupabaseTokenVerifier(host)
     accepted = asyncio.run(verifier.verify_token("teacher-session"))
     assert accepted and accepted.subject == "teacher-1" and accepted.token == "teacher-session"
+    assert accepted.claims["ihki_actor"]["id"] == "teacher-1"
+    assert accepted.claims["ihki_actor"]["email"] == "teacher@example.com"
+    assert accepted.claims["ihki_actor"]["roles"] == ["admin"]
+    assert accepted.claims["ihki_actor"]["subject"] == "ערבית"
+    assert "management.access" in accepted.claims["ihki_actor"]["permissions"]
+    assert "teacher-session" not in str(accepted.claims)
     auth.roles = ["student"]
     assert asyncio.run(verifier.verify_token("teacher-session")) is None
     assert asyncio.run(verifier.verify_token("malformed")) is None
@@ -159,6 +188,69 @@ def test_oauth_verifier_requires_current_management_permission():
 
     assert asyncio.run(SupabaseTokenVerifier(
         SimpleNamespace(state=SimpleNamespace(auth=BrokenAuth()))).verify_token("expired-or-offline")) is None
+
+
+def test_class_approvals_are_expiring_single_use_and_actor_bound():
+    clock, approvals = Clock(), ClassApprovalStore(Clock())
+    approvals = ClassApprovalStore(clock)
+    approval_id, _ = approvals.prepare("manager-1", {"operation": "rename_class"})
+    assert approvals.consume(approval_id, "manager-2") is None
+    assert approvals.consume(approval_id, "manager-1") is not None
+    assert approvals.consume(approval_id, "manager-1") is None
+    expiring, _ = approvals.prepare("manager-1", {"operation": "rename_class"})
+    clock.now += 601
+    assert approvals.consume(expiring, "manager-1") is None
+
+
+def test_class_tools_manage_only_scoped_rosters_with_confirmation():
+    actor = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
+             "subject": "ערבית", "permissions": ["management.access"]}
+    auth = LibraryAuth()
+    auth.class_rows = [{"id": 1, "name": "א", "subject": "ערבית", "emails": ["old@example.com"],
+        "nicknames": {"old@example.com": "ישן"}, "teachers": [], "lessons": ["1", "2"],
+        "homeworks": [{"topic": "l1-hw", "due": None}], "dailies": [{"video": 2, "date": "2026-10-27"}]},
+        {"id": 2, "name": "מתמטיקה", "subject": "מתמטיקה", "emails": ["math@example.com"],
+         "nicknames": {}, "teachers": [], "lessons": ["linear-functions"], "homeworks": [], "dailies": []}]
+    server, _ = connector(auth, actor=actor)
+    listed = call(server, "list_classes")
+    assert listed == {"ok": True, "classes": [{"id": 1, "name": "א", "subject": "ערבית",
+        "students": [{"email": "old@example.com", "nickname": "ישן"}]}]}
+
+    prepared = call(server, "prepare_class_change", {"operation": "add_student", "class_id": 1,
+        "email": "NEW@example.com", "nickname": "חדש"})
+    assert prepared["ok"] and not prepared["published"] and len(auth.class_rows[0]["emails"]) == 1
+    published = call(server, "publish_class_change", {"approval_id": prepared["approval_id"]})
+    assert published["ok"] and published["published"] and "new@example.com" in auth.class_rows[0]["emails"]
+    assert auth.class_rows[0]["lessons"] == ["1", "2"] and auth.class_rows[0]["homeworks"]
+    assert call(server, "publish_class_change", {"approval_id": prepared["approval_id"]})["ok"] is False
+
+    renamed = call(server, "prepare_class_change", {"operation": "rename_class", "class_id": 1, "name": "חדשה"})
+    assert call(server, "publish_class_change", {"approval_id": renamed["approval_id"]})["class_name"] == "חדשה"
+    removed = call(server, "prepare_class_change", {"operation": "remove_student", "class_id": 1,
+        "email": "old@example.com"})
+    assert call(server, "publish_class_change", {"approval_id": removed["approval_id"]})["ok"]
+    created = call(server, "prepare_class_change", {"operation": "create_class", "name": "חדשים",
+        "students": [{"email": "first@example.com", "nickname": "ראשון"}]})
+    assert call(server, "publish_class_change", {"approval_id": created["approval_id"]})["ok"]
+    assert len(auth.class_rows) == 3
+    assert all("token" not in str(event).lower() and "nickname" not in str(event).lower() for event in auth.events)
+
+
+def test_failed_class_publish_consumes_approval_and_does_not_claim_success():
+    class FailingAuth(LibraryAuth):
+        def save_class(self, *args, **kwargs):
+            raise AuthUnavailable("offline")
+
+    actor = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
+             "subject": "ערבית", "permissions": ["management.access"]}
+    auth = FailingAuth()
+    auth.class_rows = [{"id": 1, "name": "א", "subject": "ערבית", "emails": [], "nicknames": {},
+                        "teachers": [], "lessons": ["1"], "homeworks": [], "dailies": []}]
+    server, _ = connector(auth, actor=actor)
+    prepared = call(server, "prepare_class_change", {"operation": "rename_class", "class_id": 1, "name": "ב"})
+    failed = call(server, "publish_class_change", {"approval_id": prepared["approval_id"]})
+    replay = call(server, "publish_class_change", {"approval_id": prepared["approval_id"]})
+    assert failed["ok"] is False and replay["ok"] is False and auth.class_rows[0]["name"] == "א"
 
 
 def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
@@ -187,7 +279,8 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
     assert initialized.status_code == 200
     assert initialized.json()["result"]["serverInfo"]["name"] == "ihki-digital-library"
     assert [tool["name"] for tool in discovered.json()["result"]["tools"]] == [
-        "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video"]
+        "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
+        "list_classes", "prepare_class_change", "publish_class_change"]
 
 
 def test_existing_library_api_is_compatible_and_mcp_token_has_no_api_authority(monkeypatch):

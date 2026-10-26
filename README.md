@@ -575,9 +575,9 @@ For the video to play inside the page, its Vimeo privacy setting has to allow em
 
 Keeping the link from being passed on is done in Vimeo, not here: the page has to give the browser the player's address, so a student who looks for it finds it (the server only keeps the link itself, `url`, for teachers). In the video's privacy settings on Vimeo, hide it from vimeo.com and allow embedding on specific domains only, naming the app's own domain (on Hugging Face, `<owner>-<space>.hf.space`). The video then plays inside the app and nowhere else: its link, opened or embedded anywhere else, shows nothing. Domain-level privacy needs a paid Vimeo plan.
 
-#### Managing the library from Grok
+#### Managing the library and class rosters from Grok
 
-The app can expose a restricted [Model Context Protocol](https://modelcontextprotocol.io/) connector so a teacher can manage the digital library from Grok Business without receiving a Supabase secret, Hugging Face token, or general administrator access. It exposes exactly four operations: list the library, prepare a video, publish a prepared video after confirmation, and rename a video. It cannot delete videos, manage classes, users or teachers, or run database queries.
+The app can expose a restricted [Model Context Protocol](https://modelcontextprotocol.io/) connector so a teacher can manage the digital library and basic class rosters from Grok Business without receiving a Supabase secret, Hugging Face token, or general administrator access. It exposes seven tools: the four library tools (list, prepare, publish, rename) plus `list_classes`, `prepare_class_change`, and `publish_class_change`. Class changes are limited to creating or renaming a class and adding or removing one student at a time.
 
 The connector uses the teacher's existing Supabase account through OAuth 2.1. Grok receives revocable user tokens; it never receives `SUPABASE_SECRET_KEY`. On every MCP request the app asks Supabase who the token belongs to and freshly checks that the account still has `management.access`, so removing the admin/developer role stops the connector even if Grok still has a token.
 
@@ -609,6 +609,19 @@ https://<owner>-<space>.hf.space/mcp/
 Only the name and Server URL are needed. Grok should discover Supabase OAuth and display **Sign in**. Sign in with an account that currently has the app's admin or developer role, review the client name, callback and scopes on the Hebrew consent screen, then approve. A student or a user without `management.access` cannot approve or call MCP tools.
 
 Grok must first call `prepare_library_video`; the app returns the normalized title, URL and a single-use approval that expires after ten minutes. Only after the teacher explicitly confirms those details should Grok call `publish_library_video`. Pending approvals disappear safely when the Space restarts.
+
+Class mutations use the same two-step rule. Useful prompts include:
+
+```text
+הצג את הכיתות והתלמידים שאני רשאי/ת לנהל.
+הכן יצירת כיתה בשם "מתחילים נובמבר" עם התלמיד dana@example.com. אל תבצע עדיין.
+הכן הוספת התלמיד noam@example.com לכיתה 12 עם הכינוי נועם. אל תבצע עדיין.
+הכן הסרת התלמיד old@example.com מכיתה 12. אל תבצע עדיין.
+```
+
+Grok calls `prepare_class_change` with one of `create_class`, `rename_class`, `add_student`, or `remove_student`, then displays the normalized class and email details. After the teacher checks them and explicitly confirms, Grok calls `publish_class_change` with the returned approval id. The approval lasts ten minutes, is single-use, is bound to that signed-in manager, and is refused if the class or the manager's subject scope changed meanwhile.
+
+Class listing returns only class id, name, subject, student emails, and optional class-local nicknames. The connector cannot delete a class or account, create a login account, change roles or entitlements, assign teachers, edit lessons/homework/daily videos, or read progress, grades, attempts, activity, or recordings. Those operations remain in the browser management screen where applicable. Adding an email to a class does not create a Supabase user; that student still signs in normally.
 
 The connector does not make calls to the xAI API, so an xAI developer API key and API credits are not required. Grok Business plan or connector charges, if any, are handled by xAI. To revoke one connector, revoke its grant or OAuth application in Supabase. To revoke the teacher immediately, remove their admin/developer role in the management screen; the next MCP request is refused. Existing videos and ordinary management-screen access are otherwise unaffected. Connector mutations appear in the existing management activity log when its optional `system_events` table is installed; application logs are the fallback and never contain OAuth tokens.
 

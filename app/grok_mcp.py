@@ -8,14 +8,16 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
+from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.provider import AccessToken
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver import MCPServer
 from pydantic import AnyHttpUrl
 
 from . import library
+from . import class_management
 from .access import has_permission, resolve_access
 from .auth import AuthUnavailable
 
@@ -60,6 +62,44 @@ class ApprovalStore:
             item = self._items.pop(str(approval_id), None)
             self._prune(now)
             return item if item and item.expires_at > now else None
+
+
+@dataclass(frozen=True)
+class ClassApproval:
+    actor_id: str
+    plan: dict[str, Any]
+    expires_at: float
+
+
+class ClassApprovalStore:
+    def __init__(self, clock: Callable[[], float] = time.monotonic):
+        self.clock = clock
+        self._items: dict[str, ClassApproval] = {}
+        self._lock = threading.Lock()
+
+    def _prune(self, now: float) -> None:
+        self._items = {key: item for key, item in self._items.items() if item.expires_at > now}
+        while len(self._items) >= MAX_APPROVALS:
+            self._items.pop(next(iter(self._items)))
+
+    def prepare(self, actor_id: str, plan: dict[str, Any]) -> tuple[str, ClassApproval]:
+        now = self.clock()
+        with self._lock:
+            self._prune(now)
+            approval_id = secrets.token_urlsafe(24)
+            item = ClassApproval(actor_id, plan, now + APPROVAL_TTL)
+            self._items[approval_id] = item
+        return approval_id, item
+
+    def consume(self, approval_id: str, actor_id: str) -> ClassApproval | None:
+        now = self.clock()
+        with self._lock:
+            self._prune(now)
+            item = self._items.get(str(approval_id))
+            if item is None or item.actor_id != actor_id:
+                return None
+            self._items.pop(str(approval_id), None)
+            return item if item.expires_at > now else None
 
 
 class MutationLimiter:
@@ -110,26 +150,54 @@ class SupabaseTokenVerifier:
         if not user or user.get("denied") or not has_permission(user, "management.access"):
             return None
         _, issuer = oauth_urls(self.app)
+        actor = {key: user.get(key) for key in ("id", "email", "roles", "subject", "permissions")}
         return AccessToken(token=token, client_id="supabase-oauth", scopes=["openid", "email"],
-                           subject=str(user["id"]), claims={"iss": issuer, "email": user.get("email", "")})
+                           subject=str(user["id"]), claims={"iss": issuer, "ihki_actor": actor})
 
 
-def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimiter | None = None):
+def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimiter | None = None,
+          class_approvals: ClassApprovalStore | None = None,
+          actor_provider: Callable[[], dict[str, Any] | None] | None = None):
     """Return ``(server, authenticated ASGI app, raw Starlette app)``."""
     resource_url, issuer_url = oauth_urls(app)
     server = MCPServer(
         "ihki-digital-library",
-        instructions=("Manage only the ihki digital video library. Always prepare a video, show the normalized "
-                      "title and URL to the teacher, and publish only after the teacher explicitly confirms."),
+        instructions=("Manage only the ihki digital video library and scoped class rosters. Always prepare a change, "
+                      "show its exact effect to the teacher, and publish only after explicit confirmation."),
         token_verifier=SupabaseTokenVerifier(app),
         auth=AuthSettings(issuer_url=AnyHttpUrl(issuer_url), resource_server_url=AnyHttpUrl(resource_url),
                           validate_token_resource=False, required_scopes=[]),
     )
     approvals = approvals or ApprovalStore()
+    class_approvals = class_approvals or ClassApprovalStore()
     limiter = limiter or MutationLimiter()
 
     def auth():
         return getattr(app.state, "auth", None)
+
+    def actor() -> dict[str, Any] | None:
+        if actor_provider:
+            return actor_provider()
+        access = get_access_token()
+        value = (access.claims or {}).get("ihki_actor") if access else None
+        return value if isinstance(value, dict) else None
+
+    def initial_lessons() -> dict[str, str]:
+        return dict(getattr(app.state, "initial_class_lessons", {}))
+
+    def class_audit(action: str, current: dict[str, Any] | None, outcome: str,
+                    result: dict[str, Any] | None = None, reason: str = "") -> None:
+        safe = result or {}
+        log.info("Grok class action=%s outcome=%s class_id=%s email=%s reason=%s", action, outcome,
+                 safe.get("class_id"), safe.get("email"), reason)
+        store = auth()
+        if store is not None and hasattr(store, "log_event"):
+            store.log_event("content", current or {"id": None, "email": ""},
+                            str(safe.get("class_name") or action),
+                            {"action": action, "outcome": outcome,
+                             **({"class_id": safe["class_id"]} if safe.get("class_id") is not None else {}),
+                             **({"email": safe["email"]} if safe.get("email") else {}),
+                             **({"reason": reason} if reason else {})})
 
     def result(action: str, operation: Callable[[], dict[str, Any]]) -> dict[str, Any]:
         if not limiter.allow():
@@ -189,6 +257,68 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             library.rename(auth(), video_id, clean_title)
             return {"video_id": video_id, "title": clean_title}
         return result("rename_library_video", rename)
+
+    @server.tool(description="List only classes in the current manager's scope and their student emails/nicknames.",
+                 structured_output=True)
+    async def list_classes() -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "אין הרשאת ניהול", "classes": []}
+        try:
+            return {"ok": True, "classes": class_management.public_classes(store, current)}
+        except class_management.ClassManagementError as exc:
+            return {"ok": False, "error": str(exc), "classes": []}
+
+    @server.tool(description=("Prepare one class change for confirmation. Allowed operations: create_class, rename_class, "
+                              "add_student, remove_student. This does not mutate data."), structured_output=True)
+    async def prepare_class_change(
+        operation: Literal["create_class", "rename_class", "add_student", "remove_student"],
+        class_id: int | None = None, name: str = "", subject: str = "", email: str = "",
+        nickname: str = "", students: list[dict[str, str]] | None = None,
+    ) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "אין הרשאת ניהול"}
+        if not limiter.allow():
+            class_audit("prepare_class_change", current, "refused", reason="rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        try:
+            plan = class_management.prepare(store, current, operation, class_id=class_id, name=name,
+                                            subject=subject, email=email, nickname=nickname, students=students,
+                                            initial_lessons=initial_lessons())
+            approval_id, _ = class_approvals.prepare(str(current["id"]), plan)
+            shown = {key: value for key, value in plan.items() if key not in {"state", "emails", "nicknames", "lesson"}}
+            if operation == "create_class":
+                shown["students"] = [{"email": item, **({"nickname": plan["nicknames"][item]}
+                                                          if item in plan["nicknames"] else {})}
+                                     for item in plan["emails"]]
+            class_audit("prepare_class_change", current, "success", shown)
+            return {"ok": True, "approval_id": approval_id, **shown,
+                    "expires_in_seconds": APPROVAL_TTL, "published": False}
+        except class_management.ClassManagementError as exc:
+            class_audit("prepare_class_change", current, "refused", reason=type(exc).__name__)
+            return {"ok": False, "error": str(exc)}
+
+    @server.tool(description="Publish a prepared class change only after the teacher explicitly confirms its exact effect.",
+                 structured_output=True)
+    async def publish_class_change(approval_id: str) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "אין הרשאת ניהול"}
+        if not limiter.allow():
+            class_audit("publish_class_change", current, "refused", reason="rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        item = class_approvals.consume(approval_id, str(current["id"]))
+        if item is None:
+            class_audit("publish_class_change", current, "refused", reason="invalid_approval")
+            return {"ok": False, "error": "האישור אינו תקף, פג תוקף, שייך למשתמש אחר או כבר נוצל."}
+        try:
+            answer = class_management.apply(store, current, item.plan, initial_lessons=initial_lessons())
+            class_audit("publish_class_change", current, "success", answer)
+            return {"ok": True, **answer, "published": True}
+        except class_management.ClassManagementError as exc:
+            class_audit("publish_class_change", current, "refused", reason=type(exc).__name__)
+            return {"ok": False, "error": str(exc)}
 
     raw = server.streamable_http_app(
         streamable_http_path="/",

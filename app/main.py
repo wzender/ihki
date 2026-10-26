@@ -71,6 +71,8 @@ from .grok_mcp import build as build_grok_mcp, oauth_urls
 from . import library as video_library
 from .access import (DEFAULT_ENTITLEMENTS, DEFAULT_ROLES, ENTITLEMENTS, ENTITLEMENT_PERMISSIONS,
                      ROLES, ROLE_PERMISSIONS, has_permission, resolve_access)
+from .class_management import (ClassManagementError, normalize_class_name, parse_roster,
+                               visible_classes)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("ihki")
@@ -368,17 +370,7 @@ def class_members(text: str) -> tuple[list[str], dict[str, str]]:
     """The panel's student list: a line per student, "email nickname" (the nickname is optional). A line with
     several addresses and nothing else, e.g. pasted "a@x.com, b@x.com", is those students without nicknames.
     Gives the emails (lower-case, sorted) and {email: nickname}; text that is not an address raises ValueError."""
-    emails, nicks = set(), {}
-    for line in re.split(r"[\r\n]+", text):
-        found = EMAIL.findall(line)
-        rest = re.sub(r"\s+", " ", EMAIL.sub(" ", line)).strip(" ,;:-–<>()\t")
-        if not found and rest or len(found) > 1 and rest.strip(" ,;"):
-            raise ValueError(line.strip())
-        for e in found:
-            emails.add(e.lower())
-        if len(found) == 1 and rest:
-            nicks[found[0].lower()] = rest[:MAX_NICKNAME]
-    return sorted(emails), nicks
+    return parse_roster(text)
 
 
 def build_version() -> str:
@@ -553,6 +545,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     app.state.verb_game = VerbExerciseGenerator()
     app.state.live = LiveStore()
     app.state.video_link = video_link
+    app.state.initial_class_lessons = {SUBJECT_LABELS["arabic"]: READY_LESSONS[0],
+                                       SUBJECT_LABELS["math"]: algebra9()["units"][0]["id"]}
     app.state.mcp_server, mcp_app, app.state.mcp_http = build_grok_mcp(app)
     app.mount("/mcp", mcp_app, name="mcp")
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
@@ -611,11 +605,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     def managed_classes(a: SupabaseAuth, actor: dict | None, fresh: bool = False) -> list[dict]:
         """Classes visible in management: developers see all; admins only their own subject."""
-        classes = a.classes(fresh=fresh)
-        if not actor or "developer" in actor.get("roles", ()) or not hasattr(a, "access_for"):
-            return classes
-        subject = str(actor.get("subject") or "").strip()
-        return [c for c in classes if subject and str(c.get("subject") or "").strip() == subject]
+        return visible_classes(a, actor, fresh=fresh)
 
     def text_rows() -> list[dict]:
         """The teacher's texts in the lessons the path shows. None without sign-in, or when they cannot be read."""
@@ -1992,9 +1982,10 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         before a class could have several, "homework" and "due" for a single one; "dailies": [{"video": the id of
         a daily video, "date": the ISO date the class watches it, or "" for none}], each video once; without it
         the class's daily videos stay as they are) and stores it. A student may be in several classes, e.g. a beginners' class and an advanced one."""
-        name = " ".join(str(body.get("name", "")).split())   # one space between words, none around
-        if not name or len(name) > 80:
-            raise HTTPException(400, "לכיתה צריך שם (עד 80 תווים)")
+        try:
+            name = normalize_class_name(body.get("name"))
+        except ClassManagementError as e:
+            raise HTTPException(400, str(e))
         try:
             emails, nicks = class_members(str(body.get("emails", "")))
         except ValueError as e:
