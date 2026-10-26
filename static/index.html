@@ -5568,6 +5568,7 @@ const ACTIVITY_RANGES={"5m":{label:"5 דקות",title:"5 הדקות האחרונ
 let activityRange=store.get("ihki.activityRange","day"); if(!ACTIVITY_RANGES[activityRange]) activityRange="day";
 const activityViews=new Map();
 let shownStudent="", classScroll=0;   // the student whose screen is on show (an email; "" for the class's), and where the class's was left
+let manageLoad=0;
 let CLASS_LESSONS=[], CLASS_SOON=[];   // the ready lessons of the class on show, and those still to come (every lesson before the first class)
 const HARD=70;   // a sentence whose class average (of each student's best score) is under this is flagged as hard
 const listedPhrases=()=>PHRASES.filter(p=>p.listed!==false);
@@ -5584,25 +5585,32 @@ const bar=frac=>{ const b=mark("progress",""), f=document.createElement("i"); f.
 const place=p=>{ const c=ALL_CATS.find(c=>c.id===p.cat), l=c&&ALL_LESSONS.find(l=>l.id===c.lesson); return [lessonName(l),c&&c.name].filter(Boolean).join(" · "); };
 const part=into=>{ const d=document.createElement("details"); d.className="sec"; d.append(document.createElement("summary")); into.append(d); return d; };   // a closed part of a card
 async function loadManage(){
+  const load=++manageLoad;
   const state=$("mState");
-  state.textContent="טוען…"; state.classList.remove("setup");
+  state.textContent="טוען את נתוני התלמידים…"; state.classList.remove("setup");
+  if(!["classes","students","content","flags","access","models"].includes(mMode)) mMode="classes";
+  drawManageShell();
+  const health=fetch("/api/health").then(async res=>{ if(res.ok){ const data=await res.json(); if(load===manageLoad) drawBuild(data.build,data.model); } }).catch(()=>{});
+  const content=Promise.all([loadContent(),loadMathUnits()]).then(()=>{ if(load===manageLoad&&mMode==="content") drawContent(); });
+  const panel=mMode==="flags"?loadFlags().then(()=>{ if(load===manageLoad&&mMode==="flags") drawFlags(); }):
+    mMode==="access"?loadAccess().then(()=>{ if(load===manageLoad&&mMode==="access") drawAccess(); }):
+    mMode==="models"?loadModels().then(async()=>{ if(MODELS) await loadModelSettings(MS_MODEL||MODELS.active); if(load===manageLoad&&mMode==="models") drawModels(); }):Promise.resolve();
   try{
-    const [res,healthRes]=await Promise.all([api("/api/class"),fetch("/api/health").catch(()=>null)]); await ready;
-    if(healthRes?.ok){ const health=await healthRes.json(); drawBuild(health.build,health.model); }
+    await ready;
+    const res=await api("/api/class");
+    if(load!==manageLoad) return;
     if(!res.ok){
       const detail=(await res.json().catch(()=>({}))).detail||res.status;
       state.textContent=res.status===403?"הפאנל פתוח למורים בלבד.":`נתוני התלמידים לא זמינים כרגע (${detail}).`; return;
     }
-    CLASS=await res.json(); await Promise.all([loadContent(),loadMathUnits()]);
-    if(mMode==="flags") await loadFlags();
-    if(mMode==="access") await loadAccess();
-    if(mMode==="models"){ await loadModels(); if(MODELS) await loadModelSettings(MS_MODEL||MODELS.active); }
+    CLASS=await res.json();
     TEACHER_DAILIES=CLASS.classes.flatMap(classDailies).map(d=>({...d.v,date:d.date})).sort((a,b)=>a.date.localeCompare(b.date));   // as just saved; the earliest day of each comes first
   }catch{ state.textContent="השרת לא זמין."; return; }
   state.textContent=""; state.classList.toggle("setup",!!(CLASS.setup||[]).length);
   for(const x of CLASS.setup||[]){   // a table the teacher still has to create in Supabase: what is missing, and the command
     const code=mark("",x.sql,"code"); code.dir="ltr"; state.append(mark("",x.what,"b"),mark(""," הריצו ב-SQL Editor של Supabase:"),code); }
   drawManage();
+  void health; void content; void panel;
 }
 function drawBuild(info,model){
   const box=$("mBuild");
@@ -5923,8 +5931,27 @@ function drawAccess(){
   };
   table.append(body); syncAll(); scroll.append(table); box.append(actions,scroll);
 }
+function selectManageMode(){
+  $("mModes").hidden=false;
+  for(const mode of ["classes","content","flags","access","models"]) $("manage").classList.toggle(mode,mMode===mode);
+  for(const b of $("mModes").children) b.setAttribute("aria-selected",b.dataset.mode===mMode);
+}
+function drawManageShell(){
+  selectManageMode();
+  $("manage").classList.remove("student");
+  const id={classes:"mClasses",students:"mRoster",content:"mContent",flags:"mFlags",access:"mAccess",models:"mModels"}[mMode];
+  const what={classes:"הכיתות",students:"נתוני התלמידים",content:"התוכן",flags:"הניטור",access:"ההרשאות",models:"המודלים"}[mMode];
+  if(id) $(id).replaceChildren(mark("card",`טוען את ${what}…`));
+}
 function drawManage(){
+  selectManageMode();
+  if(!CLASS){ drawManageShell(); return; }
   const classes=CLASS.classes||[];
+  if(mMode==="classes"){ drawClasses(classes); return; }
+  if(mMode==="content"){ drawContent(); return; }
+  if(mMode==="flags"){ drawFlags(); return; }
+  if(mMode==="access"){ drawAccess(); return; }
+  if(mMode==="models"){ drawModels(); return; }
   if(shownClass!=="*"&&!classes.some(c=>c.name===shownClass)) shownClass="*";
   const klass=classes.find(c=>c.name===shownClass)||null;
   const mine=ALL_LESSONS.filter(l=>!klass||klass.lessons.includes(l.id));
@@ -5934,10 +5961,7 @@ function drawManage(){
   // progress; only the class's own lessons count); the totals beside their own fields (`tries` stays the per-sentence one)
   const students=CLASS.students.filter(s=>!klass||klass.name in s.classes).map(s=>{ const t=stuTally(s,listed);
     return {...s,nick:klass?s.classes[klass.name]:s.name?"":Object.values(s.classes).find(Boolean)||"",classNames:Object.keys(s.classes),done:t.done,n:t.n,avg:t.avg}; });
-  if(!["classes","students","content","flags","access","models"].includes(mMode)) mMode=classes.length?"students":"classes";
-  $("mModes").hidden=false; for(const mode of ["classes","content","flags","access","models"]) $("manage").classList.toggle(mode,mMode===mode);
-  for(const b of $("mModes").children) b.setAttribute("aria-selected",b.dataset.mode===mMode);
-  drawClasses(classes); drawContent(); drawFlags(); drawAccess(); drawModels(); drawTabs(classes); drawHead(klass,students);
+  drawTabs(classes); drawHead(klass,students);
   if(klass||!classes.length) drawLessons(students,listed); else{ $("mLessons").innerHTML=""; $("mLessons").hidden=true; }
   drawRoster(klass,students,listed);
   const one=students.find(s=>s.email===shownStudent);   // a student who left the class has no screen in it
@@ -5947,9 +5971,10 @@ function drawManage(){
 }
 async function showMode(mode){
   mMode=mode; store.set("ihki.mmode",mode); drawManage();
-  if(mode==="flags"&&!flagsLoaded){ await loadFlags(); drawManage(); }
-  if(mode==="access"){ await loadAccess(); drawManage(); }
-  if(mode==="models"){ await loadModels(); if(!MS&&MODELS) await loadModelSettings(MODELS.active); drawManage(); }
+  if(mode==="content"){ await Promise.all([loadContent(),loadMathUnits()]); if(mMode===mode) CLASS?drawManage():drawContent(); }
+  if(mode==="flags"&&!flagsLoaded){ await loadFlags(); if(mMode===mode) CLASS?drawManage():drawFlags(); }
+  if(mode==="access"){ await loadAccess(); if(mMode===mode) CLASS?drawManage():drawAccess(); }
+  if(mode==="models"){ await loadModels(); if(!MS&&MODELS) await loadModelSettings(MODELS.active); if(mMode===mode) CLASS?drawManage():drawModels(); }
 }
 for(const b of $("mModes").children) b.onclick=()=>showMode(b.dataset.mode);
 setInterval(()=>{
@@ -6093,6 +6118,9 @@ function drawFlags(){
   if(!patternsLoaded){ const card=mark("card",""); card.append(mark("","דפוסים אצל תלמידים","h2"),mark("meta","מנתח ברקע את 5,000 הניסיונות האחרונים… שאר הניטור זמין בינתיים.","p")); box.append(card); }
   else if(patternsError){ const card=mark("card",""); card.append(mark("","דפוסים אצל תלמידים","h2"),mark("note","ניתוח הדפוסים לא זמין כרגע: "+patternsError,"p")); box.append(card); }
   const frequent=patternsLoaded&&!patternsError?ATTEMPT_PATTERNS.filter(p=>p.students>=3&&p.attempts>=5&&p.student_rate>=.3):[];
+  if(patternsLoaded&&!patternsError&&!frequent.length){
+    const card=mark("card",""); card.append(mark("","דפוסים אצל תלמידים","h2"),mark("","אין דפוסים","b"),mark("meta","יוצגו כאן דפוסים שחזרו אצל לפחות 3 תלמידים, ב־5 ניסיונות לפחות ובקרב 30% לפחות מהמתרגלים במשפט.","p")); box.append(card);
+  }
   if(frequent.length){
     const card=mark("card",""); card.append(mark("","דפוסים אצל תלמידים","h2"),mark("meta","מועמדים לבדיקה בלבד: שכיחות אינה מוכיחה שהמערכת טעתה.","p"));
     const table=mark("flag-patterns","","table"), head=document.createElement("tr"); for(const x of ["משפט וצמד","תלמידים","ניסיונות","שיעור מהמתרגלים","פעולה"]) head.append(mark("",x,"th")); table.append(head);
