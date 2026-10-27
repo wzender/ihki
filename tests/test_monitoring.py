@@ -7,7 +7,7 @@ from app.auth import AuthUnavailable
 from app.monitoring import (MonitoringError, MonitoringUnavailable, activity_timeseries,
                             aggregate_exercise_difficulty, compare_class_difficulties,
                             current_activity, exercise_difficulty, learning_bottlenecks, learning_progress,
-                            normalize_attempts, pronunciation_difficulties,
+                            normalize_attempts, notification_coverage, pronunciation_difficulties,
                             system_error_reports, system_health, validate_range)
 
 
@@ -569,3 +569,68 @@ def test_system_error_report_reliability_uses_unique_linked_attempts():
     assert data["totals"]["flagged_attempt_rate"] == 30.0
     assert data["reliability_index"]["value_percent"] == 70.0
     assert data["reliability_index"]["denominator_attempts"] == 10
+
+
+class NotificationAuth(ActivityAuth):
+    def __init__(self):
+        super().__init__()
+        self.class_rows[0]["emails"] = ["one@example.com", "two@example.com", "three@example.com"]
+        self.class_rows[1]["emails"] = ["three@example.com", "four@example.com"]
+        self.subscriptions = []
+        self.seen_emails = None
+
+    def users(self):
+        return [{"id": f"u{i}", "email": email} for i, email in enumerate(
+            ("one@example.com", "two@example.com", "three@example.com", "four@example.com"), 1)]
+
+    def scoped_push_subscriptions(self, emails):
+        self.seen_emails = set(emails)
+        return [row for row in self.subscriptions if row.get("email") in emails]
+
+
+PUSH_ON = SimpleNamespace(on=True)
+
+
+def push_sub(email, device, **changes):
+    return {"email": email, "endpoint": f"https://push.example/{email.split('@')[0]}/{device}",
+            "p256dh": "key", "auth": "secret", **changes}
+
+
+def test_notification_coverage_deduplicates_users_devices_and_overlapping_classes():
+    auth = NotificationAuth()
+    auth.subscriptions = [
+        push_sub("one@example.com", "phone"), push_sub("one@example.com", "laptop"),
+        push_sub("two@example.com", "phone"), push_sub("three@example.com", "phone"),
+        push_sub("four@example.com", "phone"), push_sub("four@example.com", "tablet"),
+        push_sub("outside@example.com", "outside"),
+    ]
+    data = notification_coverage(auth, ACTOR, push_service=PUSH_ON,
+                                 checked_at=datetime(2026, 10, 27, 14, 40, tzinfo=timezone.utc))
+    assert auth.seen_emails == {"one@example.com", "two@example.com", "three@example.com", "four@example.com"}
+    assert data["status"] == "complete" and data["total_users"] == data["reachable_users"] == 4
+    assert data["active_subscriptions"] == 6 and data["coverage_percent"] == 100.0
+    assert data["users_without_active_subscription"] == 0
+    assert data["permission_confirmed_users"] is data["permission_unknown_users"] is None
+    assert data["checked_at"] == "2026-10-27T14:40:00Z"
+    assert not any(secret in str(data) for secret in ("example.com", "push.example", "secret"))
+
+
+def test_notification_coverage_inactive_missing_unavailable_and_out_of_scope():
+    auth = NotificationAuth()
+    auth.subscriptions = [push_sub("one@example.com", "one"),
+                          push_sub("two@example.com", "broken", auth=""),
+                          push_sub("three@example.com", "broken", endpoint="not-a-push-endpoint")]
+    hidden = notification_coverage(auth, ACTOR, class_id=1, push_service=PUSH_ON)
+    assert hidden["status"] == "insufficient_data" and hidden["reachable_users"] is None
+    auth.subscriptions = []
+    empty = notification_coverage(auth, ACTOR, class_id=1, push_service=PUSH_ON)
+    assert empty["status"] == "complete" and empty["reachable_users"] == 0
+    assert empty["users_without_active_subscription"] == 3 and empty["permission_unknown_users"] is None
+    unavailable = notification_coverage(auth, ACTOR, class_id=1, push_service=None)
+    assert unavailable["status"] == "unavailable" and unavailable["total_users"] is None
+    auth.scoped_push_subscriptions = lambda emails: (_ for _ in ()).throw(AuthUnavailable("private endpoint"))
+    with pytest.raises(MonitoringUnavailable, match="אינם זמינים") as failure:
+        notification_coverage(auth, ACTOR, class_id=1, push_service=PUSH_ON)
+    assert "private" not in str(failure.value)
+    with pytest.raises(MonitoringError, match="הכיתה אינה זמינה"):
+        notification_coverage(auth, ACTOR, class_id=3, push_service=PUSH_ON)

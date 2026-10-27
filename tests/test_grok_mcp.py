@@ -70,6 +70,9 @@ class LibraryAuth:
     def scoped_flags(self, emails, since, until):
         return [], False
 
+    def scoped_push_subscriptions(self, emails):
+        return []
+
     def save_class(self, class_id, name, emails, nicknames, lessons, homeworks=(), dailies=None,
                    subject="", teachers=None):
         if class_id is None:
@@ -100,7 +103,7 @@ def connector(auth=None, clock=None, actor=None, live=None):
     host = SimpleNamespace(state=SimpleNamespace(auth=auth, video_link=video_link, scorer=object(), tts=None,
         mcp_build_info={"version": "test", "revision": "abc"},
         initial_class_lessons={"ערבית": "1", "מתמטיקה": "linear-functions"},
-        live=live or LiveStore()))
+        live=live or LiveStore(), push=SimpleNamespace(on=True)))
     server, protected, _ = build(host, approvals=ApprovalStore(clock), limiter=MutationLimiter(clock),
         class_approvals=ClassApprovalStore(clock), actor_provider=(lambda: actor) if actor else None)
     return server, protected
@@ -117,7 +120,8 @@ def test_narrow_tools_are_discoverable():
     assert [tool.name for tool in tools] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "prepare_class_change", "publish_class_change",
-        "get_activity_timeseries", "get_current_activity", "get_system_health", "get_exercise_difficulty",
+        "get_activity_timeseries", "get_current_activity", "get_system_health", "get_notification_coverage",
+        "get_exercise_difficulty",
         "get_system_error_reports",
         "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",
         "get_learning_bottlenecks"]
@@ -135,6 +139,8 @@ def test_narrow_tools_are_discoverable():
     assert set(reports.input_schema["properties"]) == {
         "from_date", "to_date", "class_id", "exercise", "exercise_type", "report_type",
         "review_status", "interval", "limit", "min_attempts"}
+    coverage = next(tool for tool in tools if tool.name == "get_notification_coverage")
+    assert set(coverage.input_schema["properties"]) == {"class_id"}
     assert not any(word in tool.name for tool in tools
                    for word in ("delete", "teacher", "user", "role", "lesson", "homework", "grade", "recording",
                                 "sql", "log", "environment", "timeline", "remediate", "restart", "shell",
@@ -497,7 +503,8 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
     assert [tool["name"] for tool in discovered.json()["result"]["tools"]] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "prepare_class_change", "publish_class_change",
-        "get_activity_timeseries", "get_current_activity", "get_system_health", "get_exercise_difficulty",
+        "get_activity_timeseries", "get_current_activity", "get_system_health", "get_notification_coverage",
+        "get_exercise_difficulty",
         "get_system_error_reports",
         "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",
         "get_learning_bottlenecks"]

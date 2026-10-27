@@ -627,6 +627,79 @@ def system_error_reports(auth: Any, actor: dict[str, Any], *, from_date: object,
             "reliability_index": reliability}
 
 
+def notification_coverage(auth: Any, actor: dict[str, Any], *, class_id: int | None = None,
+                          checked_at: datetime | None = None, push_service: Any = None) -> dict[str, Any]:
+    """Return scoped aggregate Push reach without exposing endpoints, keys, or identities."""
+    classes, scope = _scope(auth, actor, class_id)
+    now = (checked_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    checked = _utc_iso(now)
+    threshold = {"minimum_users": MIN_DIFFICULTY_STUDENTS,
+                 "minimum_active_subscriptions": MIN_DIFFICULTY_ATTEMPTS}
+    definition = ("A unique scoped user with at least one stored, structurally complete Web Push subscription. "
+                  "The application does not persist the browser permission state; delivery is not guaranteed.")
+    base = {**scope, "checked_at": checked, "timezone": "UTC", "definition": definition,
+            "privacy_threshold": threshold,
+            "permission_state_stored": False,
+            "permission_status_breakdown_available": False,
+            "limitations": [
+                "Browser notification permission state is not stored separately.",
+                "A subscription is removed after a 404/410 response, so stale subscriptions may remain until a send is attempted.",
+                "A stored subscription permits only an attempted send; it does not guarantee delivery or display.",
+                "Users enrolled in multiple selected classes are counted once in combined totals.",
+            ]}
+    if push_service is None or not bool(getattr(push_service, "on", False)):
+        return {**base, "status": "unavailable", "reason": "push_service_not_configured",
+                "total_users": None, "reachable_users": None, "coverage_percent": None,
+                "active_subscriptions": None, "users_without_active_subscription": None,
+                "permission_confirmed_users": None, "permission_unknown_users": None}
+
+    roster_emails = {str(email).strip().lower() for row in classes
+                     for email in [*row.get("emails", ()), *row.get("teachers", ())] if email}
+    try:
+        registered_emails = {str(user.get("email") or "").strip().lower()
+                             for user in auth.users() if user.get("id") and user.get("email")}
+    except (AuthUnavailable, AttributeError, KeyError, TypeError, ValueError) as exc:
+        raise MonitoringUnavailable("נתוני ההתראות אינם זמינים") from exc
+    scoped_emails = roster_emails & registered_emails
+    if len(scoped_emails) < MIN_DIFFICULTY_STUDENTS:
+        return {**base, "status": "insufficient_data", "reason": "privacy_threshold",
+                "total_users": None, "reachable_users": None, "coverage_percent": None,
+                "active_subscriptions": None, "users_without_active_subscription": None,
+                "permission_confirmed_users": None, "permission_unknown_users": None}
+    try:
+        rows = auth.scoped_push_subscriptions(scoped_emails)
+    except (AuthUnavailable, AttributeError, KeyError, TypeError, ValueError) as exc:
+        raise MonitoringUnavailable("נתוני ההתראות אינם זמינים") from exc
+
+    endpoints, reachable = set(), set()
+    for row in rows:
+        email = str(row.get("email") or "").strip().lower()
+        endpoint = str(row.get("endpoint") or "").strip()
+        p256dh = str(row.get("p256dh") or "").strip()
+        auth_key = str(row.get("auth") or "").strip()
+        if (email in scoped_emails and endpoint.startswith("https://")
+                and endpoint not in endpoints and p256dh and auth_key):
+            endpoints.add(endpoint)
+            reachable.add(email)
+    if reachable and (len(reachable) < MIN_DIFFICULTY_STUDENTS
+                      or len(endpoints) < MIN_DIFFICULTY_ATTEMPTS):
+        return {**base, "status": "insufficient_data", "reason": "privacy_threshold",
+                "total_users": len(scoped_emails), "reachable_users": None, "coverage_percent": None,
+                "active_subscriptions": None, "users_without_active_subscription": None,
+                "permission_confirmed_users": None, "permission_unknown_users": None}
+    without = len(scoped_emails) - len(reachable)
+    return {**base, "status": "complete", "reason": None,
+            "total_users": len(scoped_emails), "reachable_users": len(reachable),
+            "coverage_percent": round(len(reachable) * 100 / len(scoped_emails), 1),
+            "active_subscriptions": len(endpoints),
+            "users_without_active_subscription": without,
+            "permission_confirmed_users": None,
+            "permission_unknown_users": None,
+            "permission_note": ("A stored subscription implies permission existed when it was created, but current "
+                                "browser permission is not persisted or independently verified, so users cannot be "
+                                "partitioned reliably by current permission state.")}
+
+
 def pronunciation_difficulties(auth: Any, actor: dict[str, Any], *, from_date: object, to_date: object,
                                class_id: int | None = None, limit: object = 20,
                                min_attempts: object = 5, today: date | None = None) -> dict[str, Any]:

@@ -866,6 +866,18 @@ class SupabaseAuth:
                 break
         return rows[:limit], len(rows) > limit
 
+    def scoped_push_subscriptions(self, emails: set[str]) -> list[dict]:
+        """Return only the fields needed to validate/count Push subscriptions in scope."""
+        scoped = sorted({str(email).strip().lower() for email in emails if str(email).strip()})
+        if not scoped:
+            return []
+        query = urllib.parse.urlencode({
+            "select": "email,endpoint,p256dh,auth",
+            "email": f"in.({','.join(scoped)})",
+            "order": "email.asc,endpoint.asc",
+        })
+        return self._admin(f"/rest/v1/push_subs?{query}") or []
+
     def review_flag(self, flag_id: int, values: dict) -> None:
         """Records a teacher's decision about one flagged score."""
         self._admin(f"/rest/v1/flags?id=eq.{int(flag_id)}", "PATCH", values)

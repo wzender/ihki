@@ -373,6 +373,24 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         except monitoring.MonitoringError as exc:
             return {"ok": False, "error": str(exc)}
 
+    @server.tool(description=("Answer how many users enabled notifications or can be attempted via Push for one "
+                              "authorized class or all visible classes. Returns privacy-thresholded aggregate user "
+                              "and device coverage only; it never sends notifications or exposes subscriptions, "
+                              "tokens, endpoints, or identities, and discloses that permission state is not stored."),
+                 structured_output=True)
+    async def get_notification_coverage(class_id: int | None = None) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "נתוני ההתראות אינם זמינים"}
+        try:
+            answer = monitoring.notification_coverage(
+                store, current, class_id=class_id, push_service=getattr(app.state, "push", None))
+            log.info("MCP notification coverage outcome=%s actor_id=%s class_id=%s",
+                     answer["status"], current.get("id"), class_id)
+            return {"ok": True, **answer}
+        except monitoring.MonitoringError as exc:
+            return {"ok": False, "error": str(exc)}
+
     @server.tool(description=("Return a read-only privacy-thresholded ranking of difficult exercises for one "
                               "authorized class or all classes in the current manager's scope. Returns aggregates "
                               "only and never identifies learners."), structured_output=True)
