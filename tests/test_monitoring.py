@@ -8,7 +8,7 @@ from app.monitoring import (MonitoringError, MonitoringUnavailable, activity_tim
                             aggregate_exercise_difficulty, compare_class_difficulties,
                             current_activity, exercise_difficulty, learning_bottlenecks, learning_progress,
                             normalize_attempts, pronunciation_difficulties,
-                            system_health, validate_range)
+                            system_error_reports, system_health, validate_range)
 
 
 ACTOR = {"id": "a1", "roles": ["admin"], "subject": "ערבית", "permissions": ["management.access"]}
@@ -474,3 +474,98 @@ def test_bottlenecks_do_not_claim_no_difficulty_for_small_sample():
     data = learning_bottlenecks(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
                                 class_id=1, today=date(2026, 10, 26))
     assert data["status"] == "insufficient_data" and data["bottlenecks"] == []
+
+
+class ReportAuth(ActivityAuth):
+    def __init__(self):
+        super().__init__()
+        self.class_rows[0]["emails"] = ["one@example.com", "two@example.com", "three@example.com"]
+        self.class_rows[1]["emails"] = ["three@example.com", "four@example.com"]
+        self.attempt_rows = []
+        self.flag_rows = []
+        self.flag_args = None
+
+    def users(self):
+        return [{"id": f"u{i}", "email": email} for i, email in enumerate(
+            ("one@example.com", "two@example.com", "three@example.com", "four@example.com"), 1)]
+
+    def scoped_attempts(self, ids, since, until):
+        return [row for row in self.attempt_rows if row["user_id"] in ids], False
+
+    def scoped_flags(self, emails, since, until):
+        self.flag_args = set(emails)
+        return [row for row in self.flag_rows if row["email"] in emails], False
+
+
+def report_flag(row_id, email, phrase="x", status="pending", category="recognition", day=25):
+    return {"id": row_id, "email": email, "cat": "spoken", "phrase": phrase,
+            "status": status, "category": category,
+            "created_at": f"2026-10-{day:02d}T10:00:00+00:00"}
+
+
+def test_system_error_reports_rates_reviews_duplicates_and_scope_are_honest():
+    auth = ReportAuth()
+    auth.attempt_rows = [attempt(i, f"u{((i - 1) % 4) + 1}", "x", 70, i % 20) for i in range(1, 31)]
+    emails = ["one@example.com", "two@example.com", "three@example.com", "four@example.com"]
+    auth.flag_rows = ([report_flag(i, emails[(i - 1) % 4], status="confirmed") for i in range(1, 6)]
+                      + [report_flag(i, emails[(i - 1) % 4], status="rejected") for i in range(6, 11)]
+                      + [report_flag(i, emails[(i - 1) % 4]) for i in range(11, 16)]
+                      + [report_flag(15, "three@example.com"),  # duplicate id is counted once
+                         report_flag(99, "outside@example.com")])
+    data = system_error_reports(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                                min_attempts=5, today=date(2026, 10, 26))
+    assert auth.flag_args == {"one@example.com", "two@example.com", "three@example.com", "four@example.com"}
+    assert data["status"] == "complete"
+    assert data["totals"] == {"total_attempts": 30, "total_reports": 15,
+                              "unique_flagged_attempts": None, "duplicate_reports_per_attempt": None,
+                              "flagged_attempt_rate": None}
+    assert data["review"]["reviewed_reports"] == 10
+    assert data["review"]["verified_errors"] == data["review"]["rejected_reports"] == 5
+    assert data["review"]["verified_error_rate_among_reviewed"] == 50.0
+    assert data["review"]["denominator_reviewed_reports"] == 10
+    assert data["exercise_ranking"][0]["report_rate_per_attempts"] == 50.0
+    assert data["exercise_ranking"][0]["flagged_attempts"] is None
+    assert data["breakdowns"]["class_counts_are_additive"] is False
+    assert data["reliability_index"]["status"] == "unavailable"
+    assert data["reliability_index"]["reason"] == "attempts_without_attempt_id"
+    assert not any(secret in str(data) for secret in ("example.com", "u1", "outside"))
+
+
+def test_system_error_reports_suppression_no_data_filters_and_permissions():
+    auth = ReportAuth()
+    auth.attempt_rows = [attempt(i, f"u{((i - 1) % 3) + 1}", "x", 70, i) for i in range(1, 7)]
+    auth.flag_rows = [report_flag(1, "one@example.com")]
+    hidden = system_error_reports(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                                  class_id=1, today=date(2026, 10, 26))
+    assert hidden["status"] == "insufficient_data" and hidden["totals"]["total_reports"] is None
+    auth.flag_rows = []
+    empty = system_error_reports(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                                 class_id=1, report_type="noise", today=date(2026, 10, 26))
+    assert empty["status"] == "complete" and empty["totals"]["total_reports"] == 0
+    with pytest.raises(MonitoringError, match="הכיתה אינה זמינה"):
+        system_error_reports(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                             class_id=3, today=date(2026, 10, 26))
+    with pytest.raises(MonitoringError, match="אין הרשאת ניהול"):
+        system_error_reports(auth, {"permissions": []}, from_date="2026-10-25", to_date="2026-10-26",
+                             today=date(2026, 10, 26))
+
+
+def test_system_error_report_reliability_uses_unique_linked_attempts():
+    auth = ReportAuth()
+    auth.attempt_rows = [
+        attempt(i, f"u{((i - 1) % 4) + 1}", "x", 70, i, attempt_id=f"attempt-{i}")
+        for i in range(1, 11)
+    ]
+    emails = ["one@example.com", "two@example.com", "three@example.com", "four@example.com"]
+    auth.flag_rows = [
+        {**report_flag(i, emails[(i - 1) % 4]), "attempt_id": f"attempt-{((i - 1) % 3) + 1}"}
+        for i in range(1, 7)
+    ]
+    data = system_error_reports(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                                min_attempts=5, today=date(2026, 10, 26))
+    assert data["totals"]["total_reports"] == 6
+    assert data["totals"]["unique_flagged_attempts"] == 3
+    assert data["totals"]["duplicate_reports_per_attempt"] == 3
+    assert data["totals"]["flagged_attempt_rate"] == 30.0
+    assert data["reliability_index"]["value_percent"] == 70.0
+    assert data["reliability_index"]["denominator_attempts"] == 10

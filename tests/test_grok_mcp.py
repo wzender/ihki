@@ -67,6 +67,9 @@ class LibraryAuth:
     def scoped_attempts(self, ids, since, until, *, include_diagnostics=False):
         return ([], False, True) if include_diagnostics else ([], False)
 
+    def scoped_flags(self, emails, since, until):
+        return [], False
+
     def save_class(self, class_id, name, emails, nicknames, lessons, homeworks=(), dailies=None,
                    subject="", teachers=None):
         if class_id is None:
@@ -115,6 +118,7 @@ def test_narrow_tools_are_discoverable():
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "prepare_class_change", "publish_class_change",
         "get_activity_timeseries", "get_current_activity", "get_system_health", "get_exercise_difficulty",
+        "get_system_error_reports",
         "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",
         "get_learning_bottlenecks"]
     assert all(tool.output_schema for tool in tools)
@@ -127,6 +131,10 @@ def test_narrow_tools_are_discoverable():
     assert set(current.input_schema["properties"]) == {"window_minutes", "class_id"}
     assert current.input_schema["properties"]["window_minutes"]["enum"] == [5, 15]
     assert difficulty.input_schema["properties"]["min_attempts"]["default"] == 10
+    reports = next(tool for tool in tools if tool.name == "get_system_error_reports")
+    assert set(reports.input_schema["properties"]) == {
+        "from_date", "to_date", "class_id", "exercise", "exercise_type", "report_type",
+        "review_status", "interval", "limit", "min_attempts"}
     assert not any(word in tool.name for tool in tools
                    for word in ("delete", "teacher", "user", "role", "lesson", "homework", "grade", "recording",
                                 "sql", "log", "environment", "timeline", "remediate", "restart", "shell",
@@ -490,6 +498,7 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "prepare_class_change", "publish_class_change",
         "get_activity_timeseries", "get_current_activity", "get_system_health", "get_exercise_difficulty",
+        "get_system_error_reports",
         "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",
         "get_learning_bottlenecks"]
 

@@ -68,7 +68,7 @@ def test_scoped_attempts_is_bounded_encoded_and_stably_paged(monkeypatch):
         calls.append(path)
         query = parse_qs(urlsplit(path).query)
         offset, limit = int(query["offset"][0]), int(query["limit"][0])
-        assert query["select"] == ["id,user_id,cat,phrase,score,unrelated,created_at"]
+        assert query["select"] == ["id,attempt_id,user_id,cat,phrase,score,unrelated,created_at"]
         assert query["user_id"] == ["in.(u1,u2)"]
         assert query["created_at"] == ["gte.2026-10-01T00:00:00+00:00", "lt.2026-10-02T00:00:00+00:00"]
         assert query["order"] == ["created_at.asc,id.asc"]
@@ -107,7 +107,7 @@ def test_scoped_attempts_diagnostics_are_optional_and_missing_columns_are_safe()
     rows, truncated, available = auth.scoped_attempts(
         {"u1"}, start, end, include_diagnostics=True)
     assert available is True and truncated is False and rows[0]["model"] == "m"
-    assert seen == ["id,user_id,cat,phrase,score,unrelated,created_at,issues,model,version"]
+    assert seen == ["id,attempt_id,user_id,cat,phrase,score,unrelated,created_at,issues,model,version"]
 
     auth._admin = lambda *args, **kwargs: (_ for _ in ()).throw(
         AuthUnavailable("supabase answered 400: column attempts.issues does not exist"))

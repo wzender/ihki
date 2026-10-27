@@ -396,6 +396,30 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                      current.get("id"), class_id, from_date, to_date, type(exc).__name__)
             return {"ok": False, "error": str(exc)}
 
+    @server.tool(description=("Return read-only privacy-thresholded aggregates of learner reports that suspect "
+                              "system scoring errors. Reports are not proof of errors; no identities, recordings, "
+                              "answers, notes, or raw attempts are returned."), structured_output=True)
+    async def get_system_error_reports(
+        from_date: str, to_date: str, class_id: int | None = None, exercise: str | None = None,
+        exercise_type: Literal["pronunciation", "verb", "game", "other"] | None = None,
+        report_type: Literal["recognition", "valid_variant", "alternative_answer", "noise", "other"] | None = None,
+        review_status: Literal["pending", "confirmed", "rejected", "fixed"] | None = None,
+        interval: Literal["day", "week", "month"] = "week", limit: int = 20, min_attempts: int = 10,
+    ) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "נתוני דיווחי המערכת אינם זמינים"}
+        try:
+            answer = monitoring.system_error_reports(
+                store, current, from_date=from_date, to_date=to_date, class_id=class_id,
+                exercise=exercise, exercise_type=exercise_type, report_type=report_type,
+                review_status=review_status, interval=interval, limit=limit, min_attempts=min_attempts)
+            log.info("MCP system error reports outcome=%s actor_id=%s class_id=%s range=%s..%s",
+                     answer["status"], current.get("id"), class_id, from_date, to_date)
+            return {"ok": True, **answer}
+        except monitoring.MonitoringError as exc:
+            return {"ok": False, "error": str(exc)}
+
     @server.tool(description=("Return measured pronunciation errors from stored phoneme diagnostics for one "
                               "authorized class or all visible classes. Returns aggregates only and never infers "
                               "linguistic difficulty when diagnostics are missing."), structured_output=True)

@@ -24,6 +24,8 @@ MAX_DIFFICULTY_RESULTS = 20
 MAX_ANALYTICS_RESULTS = 50
 EXERCISE_TYPES = frozenset({"pronunciation", "verb", "game", "other"})
 CURRENT_ACTIVITY_WINDOWS = frozenset({5, 15})
+FLAG_STATUSES = frozenset({"pending", "confirmed", "rejected", "fixed"})
+FLAG_CATEGORIES = frozenset({"recognition", "valid_variant", "alternative_answer", "noise", "other"})
 
 
 class MonitoringError(ValueError):
@@ -301,7 +303,9 @@ def normalize_attempts(rows: list[dict]) -> list[dict[str, Any]]:
                 issues.append({"expected": expected, "heard": heard,
                                "word": word if isinstance(word, int) and not isinstance(word, bool) else None,
                                "score": issue.get("score")})
-            normalized.append({"id": int(row.get("id") or 0), "user_id": user_id,
+            normalized.append({"id": int(row.get("id") or 0),
+                               "attempt_id": str(row.get("attempt_id") or "").strip() or None,
+                               "user_id": user_id,
                                "category": category, "phrase": phrase, "score": score,
                                "unrelated": bool(row.get("unrelated")), "stamp": stamp,
                                "local_date": stamp.date(), "issues": issues,
@@ -405,6 +409,222 @@ def exercise_difficulty(auth: Any, actor: dict[str, Any], *, from_date: object, 
             "definitions": {"success": "score >= 75 and unrelated = false",
                             "first_attempt": "first observed attempt in requested range"},
             "exercises": exercises, "returned": len(exercises)}
+
+
+def system_error_reports(auth: Any, actor: dict[str, Any], *, from_date: object, to_date: object,
+                         class_id: int | None = None, exercise: str | None = None,
+                         exercise_type: str | None = None, report_type: str | None = None,
+                         review_status: str | None = None, interval: object = "week",
+                         limit: object = 20, min_attempts: object = 10,
+                         today: date | None = None) -> dict[str, Any]:
+    """Aggregate suspected scoring-error reports without treating reports as proven errors."""
+    start, end, clean_interval = validate_range(from_date, to_date, interval, today=today)
+    if exercise_type is not None and exercise_type not in EXERCISE_TYPES:
+        raise MonitoringError("exercise_type אינו מוכר")
+    if report_type is not None and report_type not in FLAG_CATEGORIES:
+        raise MonitoringError("report_type אינו מוכר")
+    if review_status is not None and review_status not in FLAG_STATUSES:
+        raise MonitoringError("review_status אינו מוכר")
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= MAX_ANALYTICS_RESULTS:
+        raise MonitoringError("limit חייב להיות מספר בין 1 ל-50")
+    effective = _threshold(min_attempts, default=10)
+    exercise = " ".join(str(exercise or "").split()) or None
+    classes, scope = _scope(auth, actor, class_id)
+    roster_emails = {str(email).strip().lower() for row in classes
+                     for email in row.get("emails", ()) if email}
+    email_classes: dict[str, list[dict]] = defaultdict(list)
+    for row in classes:
+        for email in row.get("emails", ()):
+            email_classes[str(email).strip().lower()].append(row)
+    since = datetime.combine(start, time.min, LOCAL_TZ).astimezone(timezone.utc)
+    until = datetime.combine(end + timedelta(days=1), time.min, LOCAL_TZ).astimezone(timezone.utc)
+    try:
+        user_ids = _scoped_user_ids(auth, classes)
+        raw_attempts, attempts_truncated = auth.scoped_attempts(user_ids, since, until)
+        raw_flags, flags_truncated = auth.scoped_flags(roster_emails, since, until)
+    except (AuthUnavailable, AttributeError, KeyError, TypeError, ValueError) as exc:
+        raise MonitoringUnavailable("נתוני דיווחי המערכת אינם זמינים") from exc
+    if attempts_truncated or flags_truncated:
+        raise MonitoringError("יש יותר מדי נתונים לניתוח מלא. צמצמו את הטווח או בחרו כיתה אחת.")
+
+    attempts = normalize_attempts(raw_attempts)
+    flags = []
+    seen_ids = set()
+    for row in raw_flags:
+        try:
+            flag_id = int(row.get("id"))
+            email = str(row.get("email") or "").strip().lower()
+            category = str(row.get("cat") or "").strip()
+            phrase = " ".join(str(row.get("phrase") or "").split())
+            stamp = _stamp(row.get("created_at"))
+            status = str(row.get("status") or "pending")
+            kind = row.get("category")
+            if flag_id in seen_ids or email not in roster_emails or not category or not phrase:
+                continue
+            seen_ids.add(flag_id)
+            flags.append({"id": flag_id, "attempt_id": str(row.get("attempt_id") or "").strip() or None,
+                          "email": email, "category": category, "phrase": phrase,
+                          "status": status, "report_type": str(kind) if kind else None,
+                          "stamp": stamp, "local_date": stamp.date(), **_metadata(category, phrase)})
+        except (TypeError, ValueError, OverflowError):
+            continue
+
+    def selected(item: dict[str, Any]) -> bool:
+        return ((exercise_type is None or item["exercise_type"] == exercise_type)
+                and (exercise is None or exercise in {item["exercise_id"], item["phrase"]})
+                and (report_type is None or item.get("report_type") == report_type)
+                and (review_status is None or item.get("status") == review_status))
+
+    # Attempt rows have no report type/status. Exercise filters can be applied to the denominator;
+    # report filters cannot define a corresponding attempt population and are disclosed below.
+    filtered_attempts = [item for item in attempts if
+                         (exercise_type is None or item["exercise_type"] == exercise_type)
+                         and (exercise is None or exercise in {item["exercise_id"], item["phrase"]})]
+    filtered_flags = [item for item in flags if selected(item)]
+    attempt_students = {item["user_id"] for item in filtered_attempts}
+    attempts_visible = (len(filtered_attempts) >= MIN_DIFFICULTY_ATTEMPTS
+                        and len(attempt_students) >= MIN_DIFFICULTY_STUDENTS)
+    report_students = {item["email"] for item in filtered_flags}
+    reports_visible = (not filtered_flags or
+                       (len(filtered_flags) >= MIN_DIFFICULTY_ATTEMPTS
+                        and len(report_students) >= MIN_DIFFICULTY_STUDENTS))
+
+    base = {**scope, "from_date": start.isoformat(), "to_date": end.isoformat(),
+            "timezone": "Asia/Jerusalem", "interval": clean_interval,
+            "filters": {"exercise": exercise, "exercise_type": exercise_type,
+                        "report_type": report_type, "review_status": review_status},
+            "privacy_threshold": {"minimum_students": MIN_DIFFICULTY_STUDENTS,
+                                  "minimum_reports_per_report_aggregate": MIN_DIFFICULTY_ATTEMPTS,
+                                  "minimum_attempts": MIN_DIFFICULTY_ATTEMPTS,
+                                  "minimum_attempts_for_ranking": effective},
+            "definitions": {
+                "report": "A learner-submitted suspicion of a system scoring error; it is not proof of an error.",
+                "attempt": "One persisted row in attempts within the selected scope and date range.",
+                "reported_failure": "A unique persisted attempt linked to one or more learner reports.",
+                "reliability_index": "100 * (1 - unique reported-failure attempts / persisted attempts). This is report-based, not independently verified model accuracy.",
+            },
+            "limitations": [
+                "Reports created before attempt_id linkage cannot contribute to an exact reliability index.",
+                "The reliability index treats every linked flag as a reported failure and is not an independently reviewed accuracy estimate.",
+                "Class breakdowns may overlap and must not be summed when a learner belongs to more than one class.",
+            ]}
+    if not attempts_visible:
+        return {**base, "status": "no_data" if not filtered_attempts else "insufficient_data",
+                "reason": "No attempts matched the filters." if not filtered_attempts else "The attempt cohort is below the privacy threshold.",
+                "totals": {"total_attempts": None, "total_reports": None,
+                           "unique_flagged_attempts": None, "flagged_attempt_rate": None},
+                "review": None, "breakdowns": {}, "exercise_ranking": [],
+                "reliability_index": {"status": "unavailable", "reason": "attempt_cohort_below_privacy_threshold"}}
+    if not reports_visible:
+        return {**base, "status": "insufficient_data", "reason": "Report aggregates are below the privacy threshold.",
+                "totals": {"total_attempts": len(filtered_attempts), "total_reports": None,
+                           "unique_flagged_attempts": None, "flagged_attempt_rate": None},
+                "review": None, "breakdowns": {}, "exercise_ranking": [],
+                "reliability_index": {"status": "unavailable", "reason": "report_aggregate_below_privacy_threshold"}}
+
+    def safe_group(items: list[dict], key: str) -> list[dict[str, Any]]:
+        groups: dict[str, list[dict]] = defaultdict(list)
+        for item in items:
+            value = item.get(key)
+            if value is not None:
+                groups[str(value)].append(item)
+        return [{key: value, "reports": len(group)} for value, group in sorted(groups.items())
+                if len(group) >= MIN_DIFFICULTY_ATTEMPTS
+                and len({item["email"] for item in group}) >= MIN_DIFFICULTY_STUDENTS]
+
+    reviewed = [item for item in filtered_flags if item["status"] != "pending"]
+    confirmed_items = [item for item in reviewed if item["status"] in {"confirmed", "fixed"}]
+    rejected_items = [item for item in reviewed if item["status"] == "rejected"]
+    pending_items = [item for item in filtered_flags if item["status"] == "pending"]
+
+    def private_count(items: list[dict]) -> int | None:
+        if not items:
+            return 0
+        if (len(items) < MIN_DIFFICULTY_ATTEMPTS
+                or len({item["email"] for item in items}) < MIN_DIFFICULTY_STUDENTS):
+            return None
+        return len(items)
+
+    reviewed_count, confirmed, rejected = private_count(reviewed), private_count(confirmed_items), private_count(rejected_items)
+    rate_available = reviewed_count is not None and confirmed is not None and rejected is not None
+    review = {"reviewed_reports": reviewed_count, "verified_errors": confirmed,
+              "rejected_reports": rejected, "unreviewed_reports": private_count(pending_items),
+              "verified_error_rate_among_reviewed": round(confirmed * 100 / reviewed_count, 1)
+              if rate_available and reviewed_count else None,
+              "denominator_reviewed_reports": reviewed_count if rate_available else None,
+              "verified_definition": "status is confirmed or fixed"}
+    periods = []
+    by_period: dict[date, list[dict]] = defaultdict(list)
+    for item in filtered_flags:
+        by_period[_period_key(item["local_date"], clean_interval)].append(item)
+    for period, group in sorted(by_period.items()):
+        if len(group) >= MIN_DIFFICULTY_ATTEMPTS and len({item["email"] for item in group}) >= MIN_DIFFICULTY_STUDENTS:
+            periods.append({"period": period.isoformat(), "reports": len(group)})
+
+    exercise_attempts: dict[str, list[dict]] = defaultdict(list)
+    exercise_flags: dict[str, list[dict]] = defaultdict(list)
+    for item in filtered_attempts:
+        exercise_attempts[item["exercise_id"]].append(item)
+    for item in filtered_flags:
+        exercise_flags[item["exercise_id"]].append(item)
+    ranking = []
+    for exercise_id, group in exercise_attempts.items():
+        reports = exercise_flags.get(exercise_id, [])
+        if (len(group) < effective or len({item["user_id"] for item in group}) < MIN_DIFFICULTY_STUDENTS
+                or (reports and (len(reports) < MIN_DIFFICULTY_ATTEMPTS
+                    or len({item["email"] for item in reports}) < MIN_DIFFICULTY_STUDENTS))):
+            continue
+        first = group[0]
+        ranking.append({"exercise_id": exercise_id, "exercise_name": first["exercise_name"],
+                        "exercise_type": first["exercise_type"], "attempts": len(group),
+                        "reports": len(reports), "report_rate_per_attempts": round(len(reports) * 100 / len(group), 1),
+                        "flagged_attempts": None,
+                        "note": "Report rate, not flagged-attempt rate or system error rate."})
+    ranking.sort(key=lambda item: (-item["report_rate_per_attempts"], -item["reports"], item["exercise_id"]))
+    ranking = ranking[:limit]
+    for index, item in enumerate(ranking, 1):
+        item["rank"] = index
+
+    attempt_ids = {item["attempt_id"] for item in filtered_attempts if item.get("attempt_id")}
+    missing_attempt_ids = len(filtered_attempts) - len(attempt_ids)
+    linked_reports = [item for item in filtered_flags if item.get("attempt_id") in attempt_ids]
+    unlinked_reports = len(filtered_flags) - len(linked_reports)
+    reported_failures = {item["attempt_id"] for item in linked_reports}
+    exact_linkage = unlinked_reports == 0 and missing_attempt_ids == 0 and report_type is None and review_status is None
+    unavailable_reason = ("filtered_report_scope" if report_type is not None or review_status is not None else
+                          "attempts_without_attempt_id" if missing_attempt_ids else "reports_without_attempt_id")
+    reliability = {
+        "status": "complete" if exact_linkage else "unavailable",
+        "value_percent": round((1 - len(reported_failures) / len(filtered_attempts)) * 100, 1)
+        if exact_linkage and filtered_attempts else None,
+        "reported_failure_attempts": len(reported_failures) if exact_linkage else None,
+        "denominator_attempts": len(filtered_attempts),
+        "linked_reports": len(linked_reports), "unlinked_reports": unlinked_reports,
+        "attempts_without_attempt_id": missing_attempt_ids,
+        "reason": None if exact_linkage else unavailable_reason,
+        "interpretation": "Report-based reliability; every uniquely linked flagged attempt counts as one reported failure.",
+    }
+
+    class_breakdown = []
+    for row in classes:
+        group = [item for item in filtered_flags if row in email_classes[item["email"]]]
+        if len(group) >= MIN_DIFFICULTY_ATTEMPTS and len({item["email"] for item in group}) >= MIN_DIFFICULTY_STUDENTS:
+            class_breakdown.append({"class_id": row["id"], "class_name": row.get("name", ""), "reports": len(group)})
+    return {**base, "status": "complete", "reason": None,
+            "totals": {"total_attempts": len(filtered_attempts), "total_reports": len(filtered_flags),
+                       "unique_flagged_attempts": len(reported_failures) if exact_linkage else None,
+                       "duplicate_reports_per_attempt": len(linked_reports) - len(reported_failures) if exact_linkage else None,
+                       "flagged_attempt_rate": round(len(reported_failures) * 100 / len(filtered_attempts), 1)
+                       if exact_linkage else None},
+            "review": review,
+            "breakdowns": {"exercise": safe_group(filtered_flags, "exercise_id"),
+                           "exercise_type": safe_group(filtered_flags, "exercise_type"),
+                           "report_type": safe_group(filtered_flags, "report_type"),
+                           "review_status": safe_group(filtered_flags, "status"),
+                           "period": periods, "class": class_breakdown,
+                           "class_counts_are_additive": False},
+            "exercise_ranking": ranking,
+            "reliability_index": reliability}
 
 
 def pronunciation_difficulties(auth: Any, actor: dict[str, Any], *, from_date: object, to_date: object,

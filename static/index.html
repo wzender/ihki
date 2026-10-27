@@ -4809,6 +4809,7 @@ $("flagBtn").onclick=async()=>{
   btn.disabled=true; msg.textContent="שומר…";
   try{
     const fd=new FormData(); fd.append("phrase_id",rec.id); fd.append("audio",rec.blob,"rec");
+    if(rec.attempt_id) fd.append("attempt_id",rec.attempt_id);
     const res=await api("/api/flags",{method:"POST",body:fd});
     if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error(e.detail||res.status); }
     const out=await res.json();
@@ -5054,6 +5055,7 @@ async function startRec(auto){   // auto: started by the page for the sentence o
       const res=await api("/api/score",{method:"POST",body:fd});
       if(!res.ok) throw new Error(res.status);
       const r=await res.json();
+      lastRec.attempt_id=r.attempt_id||null;
       if(home&&!r.error) keepScore(id,r.score);   // graded after the student went back to the path: it still counts
       if(home||cur.id!==id){ mic.disabled=false; finishRec({kind:"cancel"}); recordWhenReady(); return; }   // moved on while it was analysed
       render(r); mic.disabled=false; finishRec(r.error?{kind:"nospeech"}:{kind:"result",r});
@@ -7403,13 +7405,14 @@ async function scoreVerbSpeech(blob,btn,status,actions){
   const replay=mark("btn","▶ ההקלטה שלי","button");replay.onclick=()=>new Audio(verbRecordingUrl).play();const retry=mark("btn","ניסיון נוסף","button");retry.onclick=()=>{actions.replaceChildren();status.textContent="לחצו והקליטו שוב"};actions.append(replay,retry);
   if(!r||!r.ok){status.textContent="הבדיקה אינה זמינה כרגע. ההקלטה לא נחשבה כטעות.";return}const result=await r.json(), feedback=$("verbFeedback");feedback.className="verb-feedback "+(result.outcome==="correct"?"good":result.outcome==="uncertain"?"":"bad");feedback.textContent=result.message||"נסו שוב";
   const answer=mark("verb-answer",result.variant?.tr||"","div");if(result.variant?.ar){answer.append(mark("ar",result.variant.ar));const hear=mark("btn","🔊 תשובה","button");hear.onclick=()=>{const u=new SpeechSynthesisUtterance(result.variant.ar);u.lang="ar-PS";speechSynthesis.cancel();speechSynthesis.speak(u)};actions.append(hear)}actions.before(answer);
-  if(TUTOR){const report=mark("btn verb-report","🚩 דווחו על טעות בבדיקה","button");report.title="ההקלטה, שתי המילים הצפויות ומה שהמודל שמע יישלחו לניטור";report.onclick=()=>reportVerbScore(q.question_id,blob,report,status);actions.append(report)}
+  if(TUTOR){const report=mark("btn verb-report","🚩 דווחו על טעות בבדיקה","button");report.title="ההקלטה, שתי המילים הצפויות ומה שהמודל שמע יישלחו לניטור";report.onclick=()=>reportVerbScore(q.question_id,blob,report,status,result.attempt_id);actions.append(report)}
   if(!result.counts_as_attempt)return;
   const ok=result.outcome==="correct", elapsed=Math.round(performance.now()-verbStarted), key=q.mastery_key,m=verbMastery[key]||{attempts:0,correct:0,times:[],streak:0};m.attempts++;if(ok)m.correct++;m.streak=ok?(m.streak||0)+1:0;m.times=[...(m.times||[]),elapsed].slice(-20);m.median_ms=[...m.times].sort((a,b)=>a-b)[m.times.length>>1];m.last=new Date().toISOString();verbMastery[key]=m;const s=verbSummary[q.level]||{attempts:0,correct:0};s.attempts++;if(ok)s.correct++;verbSummary[q.level]=s;store.set("ihki.verbMastery",verbMastery);store.set("ihki.verbSummary",verbSummary);drawVerbLevels();
   if(ok){verbQuestion=null;verbStreak++;verbN++;status.textContent="נכון ✓";if(TUTOR){const next=mark("btn primary","השאלה הבאה","button");next.onclick=nextVerb;actions.append(next)}else setTimeout(nextVerb,1100)}
 }
-async function reportVerbScore(questionId,blob,button,status){
+async function reportVerbScore(questionId,blob,button,status,attemptId){
   button.disabled=true;button.textContent="שולח…";const fd=new FormData();fd.append("question_id",questionId);fd.append("audio",blob,"answer.webm");fd.append("note","דיווח ממשחק פועל יוצא");
+  if(attemptId)fd.append("attempt_id",attemptId);
   const r=await api("/api/verb-game/flag",{method:"POST",body:fd}).catch(()=>null);
   if(r?.ok){button.textContent="✓ הדיווח נשלח";status.textContent="הדיווח נשמר בטאב ניטור. תודה!";return}
   const detail=r?(await r.json().catch(()=>({}))).detail:"";button.disabled=false;button.textContent="🚩 נסו לשלוח שוב";status.textContent=`הדיווח לא נשמר${detail?`: ${detail}`:"."}`;

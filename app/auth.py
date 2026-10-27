@@ -205,8 +205,8 @@ class SupabaseAuth:
         try:
             urllib.request.urlopen(request(row), timeout=TIMEOUT).close()
         except urllib.error.HTTPError as e:
-            if e.code == 400 and any(k in row for k in ("issues", "model", "version")):
-                legacy = {k: v for k, v in row.items() if k not in ("issues", "model", "version")}
+            if e.code == 400 and any(k in row for k in ("issues", "model", "version", "attempt_id")):
+                legacy = {k: v for k, v in row.items() if k not in ("issues", "model", "version", "attempt_id")}
                 try:
                     urllib.request.urlopen(request(legacy), timeout=TIMEOUT).close()
                     log.warning("attempt stored without issue diagnostics; migrate the attempts table (see README)")
@@ -326,9 +326,16 @@ class SupabaseAuth:
     def final_scores(self) -> list[dict]:
         """One compact row per student and exercise: the highest score that drives the panel's final grades."""
         best: dict[tuple[str, str, str], dict] = {}
-        for offset in range(0, MAX_CLASS_ATTEMPTS, PAGE):
-            query = urllib.parse.urlencode({"select": "user_id,cat,phrase,score,created_at",
-                                            "order": "id.asc", "limit": PAGE, "offset": offset})
+        # Walk the attempts primary key instead of using OFFSET.  Large offsets make Postgres scan and discard
+        # every preceding row on every page and can hit Supabase's statement timeout while a backup is running.
+        last_id: int | None = None
+        read = 0
+        while read < MAX_CLASS_ATTEMPTS:
+            limit = min(PAGE, MAX_CLASS_ATTEMPTS - read)
+            params = {"select": "id,user_id,cat,phrase,score,created_at", "order": "id.asc", "limit": limit}
+            if last_id is not None:
+                params["id"] = f"gt.{last_id}"
+            query = urllib.parse.urlencode(params)
             path = f"/rest/v1/attempts?{query}"
             for attempt in range(3):
                 try:
@@ -340,9 +347,11 @@ class SupabaseAuth:
             for row in batch:
                 key = (str(row["user_id"]), str(row["cat"]), str(row["phrase"]))
                 if key not in best or int(row["score"]) > int(best[key]["score"]):
-                    best[key] = row
-            if len(batch) < PAGE:
+                    best[key] = {k: v for k, v in row.items() if k != "id"}
+            read += len(batch)
+            if len(batch) < limit:
                 break
+            last_id = int(batch[-1]["id"])
         return list(best.values())
 
     def restore_final_scores(self, rows: list[dict]) -> int:
@@ -830,6 +839,33 @@ class SupabaseAuth:
         query = urllib.parse.urlencode({"select": "*", "status": f"eq.{status}", "order": "created_at.desc"})
         return self._admin(f"/rest/v1/flags?{query}")
 
+    def scoped_flags(self, emails: set[str], since: datetime, until: datetime,
+                     limit: int = MAX_DIFFICULTY_ATTEMPTS) -> tuple[list[dict], bool]:
+        """Bounded report metadata for authorized roster emails.
+
+        Audio, score traces, notes, reviewer identities, and learner answers are deliberately
+        not requested.  ``flags`` has no attempt foreign key, so callers must not infer one.
+        """
+        scoped = sorted({str(email).strip().lower() for email in emails if str(email).strip()})
+        if not scoped:
+            return [], False
+        limit = max(1, min(int(limit), MAX_DIFFICULTY_ATTEMPTS))
+        wanted, rows = limit + 1, []
+        while len(rows) < wanted:
+            page = min(PAGE, wanted - len(rows))
+            query = urllib.parse.urlencode([
+                ("select", "id,attempt_id,email,cat,phrase,status,category,reviewed_at,created_at"),
+                ("email", f"in.({','.join(scoped)})"),
+                ("created_at", f"gte.{since.astimezone(timezone.utc).isoformat()}"),
+                ("created_at", f"lt.{until.astimezone(timezone.utc).isoformat()}"),
+                ("order", "created_at.asc,id.asc"), ("limit", page), ("offset", len(rows)),
+            ])
+            batch = self._admin(f"/rest/v1/flags?{query}") or []
+            rows += batch
+            if len(batch) < page:
+                break
+        return rows[:limit], len(rows) > limit
+
     def review_flag(self, flag_id: int, values: dict) -> None:
         """Records a teacher's decision about one flagged score."""
         self._admin(f"/rest/v1/flags?id=eq.{int(flag_id)}", "PATCH", values)
@@ -1072,7 +1108,7 @@ class SupabaseAuth:
         wanted, rows = limit + 1, []
         while len(rows) < wanted:
             page = min(PAGE, wanted - len(rows))
-            fields = "id,user_id,cat,phrase,score,unrelated,created_at"
+            fields = "id,attempt_id,user_id,cat,phrase,score,unrelated,created_at"
             if include_diagnostics:
                 fields += ",issues,model,version"
             query = urllib.parse.urlencode([

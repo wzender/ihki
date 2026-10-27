@@ -3,6 +3,7 @@
 -- are math classes by default (the last lines).
 create table public.attempts (
   id         bigint generated always as identity primary key,
+  attempt_id uuid unique,
   user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
   cat        text not null,      -- the topic id, e.g. l1-verbs
   phrase     text not null,      -- the Hebrew prompt
@@ -166,6 +167,7 @@ alter table public.tutors enable row level security;   -- no policy: only the se
 
 create table public.flags (
   id         bigint generated always as identity primary key,
+  attempt_id uuid,
   email      text not null,      -- the tutor
   cat        text not null,      -- the topic id
   phrase     text not null,
@@ -204,12 +206,17 @@ on conflict (id) do update set
   allowed_mime_types = excluded.allowed_mime_types;
 
 alter table public.flags
+  add column if not exists attempt_id uuid,
   add column if not exists status text not null default 'pending',
   add column if not exists category text,
   add column if not exists reviewed_by text,
   add column if not exists reviewed_at timestamptz,
   add column if not exists review_note text not null default '',
   add column if not exists false_issues jsonb not null default '[]'::jsonb;
+
+alter table public.attempts add column if not exists attempt_id uuid;
+create unique index if not exists attempts_attempt_id_idx on public.attempts(attempt_id) where attempt_id is not null;
+create index if not exists flags_attempt_id_idx on public.flags(attempt_id) where attempt_id is not null;
 
 create table public.lab_samples (
   id bigint generated always as identity primary key, email text not null,

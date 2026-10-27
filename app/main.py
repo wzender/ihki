@@ -185,6 +185,7 @@ CREATE_WRITINGS = ("create table public.writings (user_id uuid not null default 
 # A tutor's flags (see auth.py): a recording that was said right and scored wrong, with what the scorer made of it.
 # `ipa` is what was said, so `audio,ipa` of these rows is training data as train/finetune.py reads it.
 CREATE_FLAGS = ("create table public.flags (id bigint generated always as identity primary key, email text not null, "
+                "attempt_id uuid, "
                 "cat text not null, phrase text not null, he text not null, ar text not null, ipa text not null, heard_ipa text not null, "
                 "score int not null, unrelated boolean not null default false, note text not null default '', result jsonb not null, "
                 "model text not null, version text not null default '', audio text, status text not null default 'pending', "
@@ -192,10 +193,15 @@ CREATE_FLAGS = ("create table public.flags (id bigint generated always as identi
                 "false_issues jsonb not null default '[]'::jsonb, created_at timestamptz not null default now()); "
                 "alter table public.flags enable row level security; "
                 "insert into storage.buckets (id, name) values ('flags', 'flags') on conflict (id) do nothing;")
-MIGRATE_FLAGS = ("alter table public.flags add column if not exists status text not null default 'pending', "
+MIGRATE_FLAGS = ("alter table public.flags add column if not exists attempt_id uuid, "
+                 "add column if not exists status text not null default 'pending', "
                  "add column if not exists category text, add column if not exists reviewed_by text, "
                  "add column if not exists reviewed_at timestamptz, add column if not exists review_note text not null default '', "
                  "add column if not exists false_issues jsonb not null default '[]'::jsonb;")
+MIGRATE_ATTEMPT_IDS = ("alter table public.attempts add column if not exists attempt_id uuid; "
+                       "create unique index if not exists attempts_attempt_id_idx on public.attempts(attempt_id) "
+                       "where attempt_id is not null; create index if not exists flags_attempt_id_idx "
+                       "on public.flags(attempt_id) where attempt_id is not null;")
 FLAG_STATUSES = frozenset({"pending", "confirmed", "rejected", "fixed"})
 FLAG_CATEGORIES = frozenset({"recognition", "valid_variant", "alternative_answer", "noise", "other"})
 CREATE_CALIBRATIONS = ("create table public.calibrations (id bigint generated always as identity primary key, "
@@ -1319,7 +1325,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             return {"flags": a.list_flags(status)}
         except AuthUnavailable as e:
             detail = str(e)
-            if "status" in detail or "false_issues" in detail:
+            if "status" in detail or "false_issues" in detail or "attempt_id" in detail:
                 raise HTTPException(503, f"לטבלה flags חסרות עמודות הבדיקה. הריצו ב-SQL Editor: {MIGRATE_FLAGS}")
             raise HTTPException(503, f"Supabase לא זמין: {e}")
 
@@ -1348,7 +1354,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             a.review_flag(flag_id, values)
         except AuthUnavailable as e:
             detail = str(e)
-            if any(column in detail for column in ("status", "category", "false_issues", "reviewed_by")):
+            if any(column in detail for column in ("status", "category", "false_issues", "reviewed_by", "attempt_id")):
                 raise HTTPException(503, f"לטבלה flags חסרות עמודות הבדיקה. הריצו ב-SQL Editor: {MIGRATE_FLAGS}")
             raise HTTPException(503, f"Supabase לא זמין: {e}")
         return {"ok": True}
@@ -2615,7 +2621,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(410, str(e))
 
     @app.post("/api/verb-game/speech", dependencies=[Depends(require("games.use"))])
-    def verb_speech(audio: UploadFile = File(...), question_id: str = Form(...),
+    def verb_speech(tasks: BackgroundTasks, audio: UploadFile = File(...), question_id: str = Form(...),
                     user: dict | None = Depends(signed_in)):
         """Evaluate Levels 4–5 audio without turning uncertain recognition into an error."""
         try:
@@ -2635,10 +2641,19 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         result = SpeechEvaluationService(app.state.scorer).evaluate(
             wav, phrase, diagnostics=bool(user and user["teacher"]))
         result["level"] = question.mode
+        if user and result.get("counts_as_attempt"):
+            attempt_id = str(uuid.uuid4())
+            tasks.add_task(app.state.auth.record, user["token"], {
+                "attempt_id": attempt_id, "cat": phrase["cat"],
+                "phrase": phrase.get("key", phrase["he"]), "score": round(result.get("score") or 0),
+                "unrelated": bool(result.get("unrelated")), "issues": [],
+                "model": MODEL_ID, "version": build_version()})
+            result["attempt_id"] = attempt_id
         return result
 
     @app.post("/api/verb-game/flag")
     def verb_flag(question_id: str = Form(...), audio: UploadFile = File(...), note: str = Form(""),
+                  attempt_id: str | None = Form(None),
                   user: dict | None = Depends(signed_in)):
         """A tutor reports an incorrect judgement of a dynamic spoken verb answer."""
         if not user or not user["tutor"]:
@@ -2658,7 +2673,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if result.get("error"):
             raise HTTPException(400, result["message"])
         result.pop("phoneme_heatmap", None)
-        return save_flag(phrase, result, note, user, data, audio.content_type or "application/octet-stream")
+        return save_flag(phrase, result, note, user, data, audio.content_type or "application/octet-stream", attempt_id)
 
     def tutor_for(user: dict | None) -> Tutor:
         """The paid tutor game, after the tutor.use dependency authorized the account (or on an open service)."""
@@ -3510,7 +3525,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if user and result.get("score") is not None:   # the student's progress; sent after the answer
             issues = [{"word": wi, "expected": p["ipa"], "heard": p.get("heard") or "_", "score": round(p["score"])}
                       for wi, word in enumerate(result.get("words", [])) for p in word.get("phonemes", []) if p.get("flagged")]
+            attempt_id = str(uuid.uuid4())
             tasks.add_task(app.state.auth.record, user["token"], {
+                "attempt_id": attempt_id,
                 "cat": phrase["cat"], "phrase": phrase.get("key", phrase["he"]), "score": round(result["score"]),
                 "unrelated": bool(result.get("unrelated")), "issues": issues[:12], "model": MODEL_ID,
                 "version": build_version()})
@@ -3518,10 +3535,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             tasks.add_task(app.state.auth.log_event, "game" if phrase["cat"] in game_ids else "exercise", user,
                            phrase.get("he", ""), {"cat": phrase["cat"], "score": round(result["score"]),
                                                    "flags": len(issues), "unrelated": bool(result.get("unrelated"))})
+            result["attempt_id"] = attempt_id
         return result
 
     @app.post("/api/flags")
     def flag(phrase_id: int = Form(...), audio: UploadFile = File(...), note: str = Form(""),
+             attempt_id: str | None = Form(None),
              user: dict | None = Depends(signed_in)):
         """A tutor's flag: this recording of the phrase was said right and the score was wrong. It is scored again in
         memory. The structured diagnosis is kept in `flags` and the audio in its private Storage bucket."""
@@ -3543,14 +3562,20 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         # The trace already contains every value used by the dashboard. The dense heatmap is only a display aid
         # for the immediate scoring screen and would make every database report unnecessarily large.
         result.pop("phoneme_heatmap", None)
-        return save_flag(phrase, result, note, user, data, audio.content_type or "application/octet-stream")
+        return save_flag(phrase, result, note, user, data, audio.content_type or "application/octet-stream", attempt_id)
 
-    def save_flag(phrase: dict, result: dict, note: str, user: dict, audio_data: bytes, audio_mime: str) -> dict:
+    def save_flag(phrase: dict, result: dict, note: str, user: dict, audio_data: bytes, audio_mime: str,
+                  attempt_id: str | None = None) -> dict:
         """Store a reviewed-score candidate and its recording from a bank or dynamic verb-game phrase."""
+        try:
+            clean_attempt_id = str(uuid.UUID(attempt_id)) if attempt_id else None
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(400, "invalid attempt_id")
         row = {"email": user["email"].lower(), "cat": phrase["cat"], "phrase": phrase.get("key", phrase["he"]),
                "he": phrase["he"], "ar": result["variant"]["ar"], "ipa": result["variant"]["ipa"],
                "heard_ipa": result["heard_ipa"], "score": result["score"], "unrelated": bool(result["unrelated"]),
-               "note": " ".join(note.split())[:MAX_NOTE], "result": result, "model": MODEL_ID, "version": build_version()}
+               "note": " ".join(note.split())[:MAX_NOTE], "result": result, "model": MODEL_ID, "version": build_version(),
+               **({"attempt_id": clean_attempt_id} if clean_attempt_id else {})}
         mime = audio_mime.lower().partition(";")[0].strip()
         ext = AUDIO_EXT.get(mime.rpartition("/")[2], "bin")
         name = f"{date.today():%Y-%m}/{uuid.uuid4().hex}.{ext}"
@@ -3560,6 +3585,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             if "answered 404" in str(e):
                 raise HTTPException(503, "הטבלה flags לא קיימת ב-Supabase. הריצו ב-SQL Editor: "
                                          f"{CREATE_FLAGS} אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
+            if "attempt_id" in str(e):
+                raise HTTPException(503, f"חסר קישור הניסיון לדיווח. הריצו ב-SQL Editor: {MIGRATE_FLAGS} {MIGRATE_ATTEMPT_IDS}")
             raise HTTPException(503, f"Supabase לא זמין: {e}")
         row["audio"] = name if kept else None
         return {"ok": True, "audio": kept, "flag": row}
