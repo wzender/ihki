@@ -340,6 +340,28 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                      current.get("id"), class_id, from_date, to_date, type(exc).__name__)
             return {"ok": False, "error": str(exc)}
 
+    @server.tool(description=("Return privacy-thresholded current activity for one authorized class or all visible "
+                              "classes. Recent persisted practice never implies that learners are online; current "
+                              "presence is available only for an active live-class heartbeat session."),
+                 structured_output=True)
+    async def get_current_activity(
+        window_minutes: Literal[5, 15] = 5, class_id: int | None = None,
+    ) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "נתוני הפעילות אינם זמינים"}
+        try:
+            answer = monitoring.current_activity(
+                store, current, window_minutes=window_minutes, class_id=class_id,
+                live_store=getattr(app.state, "live", None))
+            log.info("MCP current activity outcome=%s actor_id=%s class_id=%s window=%s",
+                     answer["status"], current.get("id"), class_id, window_minutes)
+            return {"ok": True, **answer}
+        except monitoring.MonitoringError as exc:
+            log.info("MCP current activity outcome=refused actor_id=%s class_id=%s window=%s reason=%s",
+                     current.get("id"), class_id, window_minutes, type(exc).__name__)
+            return {"ok": False, "error": str(exc)}
+
     @server.tool(description=("Return a read-only coarse application health summary. Never returns logs, errors, "
                               "credentials, internal addresses, or configuration values."), structured_output=True)
     async def get_system_health() -> dict[str, Any]:

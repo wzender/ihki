@@ -1,13 +1,17 @@
 """The Grok connector has a deliberately tiny, independently authenticated scope."""
 import asyncio
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import httpx
+import pytest
+from mcp.server.mcpserver.exceptions import ToolError
 
 from app.auth import AuthUnavailable
 from app.grok_mcp import (ApprovalStore, ClassApprovalStore, MutationLimiter,
                           SupabaseTokenVerifier, build)
 from app.main import create_app, video_link
+from app.live import LiveStore
 from tests.test_scoring import emissions, scorer_for
 
 
@@ -88,11 +92,12 @@ class UnavailableAuth(LibraryAuth):
         raise AuthUnavailable("offline")
 
 
-def connector(auth=None, clock=None, actor=None):
+def connector(auth=None, clock=None, actor=None, live=None):
     clock = clock or Clock()
     host = SimpleNamespace(state=SimpleNamespace(auth=auth, video_link=video_link, scorer=object(), tts=None,
         mcp_build_info={"version": "test", "revision": "abc"},
-        initial_class_lessons={"ערבית": "1", "מתמטיקה": "linear-functions"}))
+        initial_class_lessons={"ערבית": "1", "מתמטיקה": "linear-functions"},
+        live=live or LiveStore()))
     server, protected, _ = build(host, approvals=ApprovalStore(clock), limiter=MutationLimiter(clock),
         class_approvals=ClassApprovalStore(clock), actor_provider=(lambda: actor) if actor else None)
     return server, protected
@@ -109,7 +114,7 @@ def test_narrow_tools_are_discoverable():
     assert [tool.name for tool in tools] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "prepare_class_change", "publish_class_change",
-        "get_activity_timeseries", "get_system_health", "get_exercise_difficulty",
+        "get_activity_timeseries", "get_current_activity", "get_system_health", "get_exercise_difficulty",
         "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",
         "get_learning_bottlenecks"]
     assert all(tool.output_schema for tool in tools)
@@ -118,6 +123,9 @@ def test_narrow_tools_are_discoverable():
         "from_date", "to_date", "class_id", "exercise_type", "limit", "min_attempts"}
     assert set(difficulty.input_schema["required"]) == {"from_date", "to_date"}
     assert difficulty.input_schema["properties"]["limit"]["default"] == 20
+    current = next(tool for tool in tools if tool.name == "get_current_activity")
+    assert set(current.input_schema["properties"]) == {"window_minutes", "class_id"}
+    assert current.input_schema["properties"]["window_minutes"]["enum"] == [5, 15]
     assert difficulty.input_schema["properties"]["min_attempts"]["default"] == 10
     assert not any(word in tool.name for tool in tools
                    for word in ("delete", "teacher", "user", "role", "lesson", "homework", "grade", "recording",
@@ -323,6 +331,48 @@ def test_system_health_developer_metadata_is_whitelisted():
     assert not any(word in str(health).lower() for word in ("token", "secret", "trace", "http", "path"))
 
 
+def test_current_activity_tool_is_scoped_private_read_only_and_audit_free():
+    actor = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
+             "subject": "ערבית", "permissions": ["management.access"]}
+
+    class CurrentAuth(LibraryAuth):
+        def __init__(self):
+            super().__init__()
+            self.class_rows = [{"id": 1, "name": "א", "subject": "ערבית",
+                                "emails": ["one@example.com", "two@example.com", "three@example.com"]},
+                               {"id": 2, "name": "מתמטיקה", "subject": "מתמטיקה",
+                                "emails": ["math@example.com"]}]
+
+        def users(self):
+            return [{"id": f"u{i}", "email": f"{name}@example.com"}
+                    for i, name in enumerate(("one", "two", "three"), 1)]
+
+        def scoped_attempts(self, ids, since, until, *, include_diagnostics=False):
+            if include_diagnostics:
+                return [], False, True
+            latest = datetime.now(timezone.utc) - timedelta(seconds=10)
+            return ([{"id": i, "user_id": f"u{(i % 3) + 1}", "created_at": latest.isoformat()}
+                     for i in range(5)], False)
+
+    auth = CurrentAuth()
+    live = SimpleNamespace(presence_summary=lambda class_ids: {
+        "active_session": True, "active_users": 3, "heartbeat_ttl_seconds": 20, "ephemeral": True})
+    server, _ = connector(auth, actor=actor, live=live)
+    before = list(auth.events)
+    current = call(server, "get_current_activity", {"window_minutes": 5, "class_id": 1})
+    assert current["ok"] and current["recent_practice"]["status"] == "complete"
+    assert current["recent_practice"]["students_with_activity"] == 3
+    assert current["live_presence"]["active_users"] == 3
+    assert current["last_application_activity"]["status"] == "unavailable"
+    assert current["recent_practice"]["presence_claim"] is False
+    assert auth.events == before
+    assert not any(word in str(current).lower() for word in
+                   ("one@example", "u1", "participant", "recording", "raw_attempt"))
+    with pytest.raises(ToolError, match="Input should be 5 or 15"):
+        call(server, "get_current_activity", {"window_minutes": 10})
+    assert call(server, "get_current_activity", {"class_id": 2})["ok"] is False
+
+
 def test_exercise_difficulty_tool_is_scoped_private_read_only_and_audit_free():
     actor = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
              "subject": "ערבית", "permissions": ["management.access"]}
@@ -439,7 +489,7 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
     assert [tool["name"] for tool in discovered.json()["result"]["tools"]] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "prepare_class_change", "publish_class_change",
-        "get_activity_timeseries", "get_system_health", "get_exercise_difficulty",
+        "get_activity_timeseries", "get_current_activity", "get_system_health", "get_exercise_difficulty",
         "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",
         "get_learning_bottlenecks"]
 

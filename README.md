@@ -577,7 +577,7 @@ Keeping the link from being passed on is done in Vimeo, not here: the page has t
 
 #### Managing the library and class rosters from Grok
 
-The app can expose a restricted [Model Context Protocol](https://modelcontextprotocol.io/) connector so a teacher can manage the digital library and basic class rosters, and read privacy-preserving monitoring data, from Grok Business without receiving a Supabase secret, Hugging Face token, or general administrator access. It exposes fourteen tools: four library tools, three class tools, and seven read-only monitoring/analytics tools: `get_activity_timeseries`, `get_system_health`, `get_exercise_difficulty`, `get_pronunciation_difficulties`, `get_learning_progress`, `compare_class_difficulties`, and `get_learning_bottlenecks`. Class changes are limited to creating or renaming a class and adding or removing one student at a time.
+The app can expose a restricted [Model Context Protocol](https://modelcontextprotocol.io/) connector so a teacher can manage the digital library and basic class rosters, and read privacy-preserving monitoring data, from Grok Business without receiving a Supabase secret, Hugging Face token, or general administrator access. It exposes fifteen tools: four library tools, three class tools, and eight read-only monitoring/analytics tools: `get_activity_timeseries`, `get_current_activity`, `get_system_health`, `get_exercise_difficulty`, `get_pronunciation_difficulties`, `get_learning_progress`, `compare_class_difficulties`, and `get_learning_bottlenecks`. Class changes are limited to creating or renaming a class and adding or removing one student at a time.
 
 The connector uses the teacher's existing Supabase account through OAuth 2.1. Grok receives revocable user tokens; it never receives `SUPABASE_SECRET_KEY`. On every MCP request the app asks Supabase who the token belongs to and freshly checks that the account still has `management.access`, so removing the admin/developer role stops the connector even if Grok still has a token.
 
@@ -623,7 +623,48 @@ Grok calls `prepare_class_change` with one of `create_class`, `rename_class`, `a
 
 Class listing returns only class id, name, subject, student emails, and optional class-local nicknames. The connector cannot delete a class or account, create a login account, change roles or entitlements, assign teachers, edit lessons/homework/daily videos, or read individual progress, grades, raw attempts, or recordings. Those operations remain in the browser management screen where applicable. Adding an email to a class does not create a Supabase user; that student still signs in normally.
 
-The seven monitoring and analytics tools are read-only and do not use the prepare/publish flow. `get_activity_timeseries` accepts `from_date` and `to_date` as `YYYY-MM-DD`, an `interval` of `day` or `week`, and an optional `class_id`. The inclusive range is limited to 90 non-future days. With a class id it returns only that authorized class; without one it combines only classes currently visible to the signed-in manager. The response contains aggregate attempts, the peak simultaneously active learners reported by the source buckets, and a range summary. It never contains student names, emails, ids, individual scores, answers, recordings, or exact login events.
+The eight monitoring and analytics tools are read-only and do not use the prepare/publish flow. `get_activity_timeseries` accepts `from_date` and `to_date` as `YYYY-MM-DD`, an `interval` of `day` or `week`, and an optional `class_id`. The inclusive range is limited to 90 non-future days. With a class id it returns only that authorized class; without one it combines only classes currently visible to the signed-in manager. The response contains aggregate attempts, the peak simultaneously active learners reported by the source buckets, and a range summary. It never contains student names, emails, ids, individual scores, answers, recordings, or exact login events.
+
+`get_current_activity` accepts `window_minutes` equal to `5` or `15` (default `5`) and an optional `class_id`. `recent_practice` counts distinct learners and stored attempts in that window but explicitly sets `presence_claim: false`: a recent attempt does not prove that the learner is still connected. `live_presence` is available only during an explicit live-class session and defines active as a heartbeat within 20 seconds of `checked_at`; this process-local state disappears when the session ends or the service restarts. Combined class scopes deduplicate learners enrolled in more than one class.
+
+Attempt-derived counts and timestamps require at least three learners and five attempts. Live counts of one or two are suppressed. The result distinguishes `no_activity` (a successful window query with no events), `no_data` (no observation establishes a last time), `unavailable` (the source does not apply or cannot be read), and `suppressed` (data exists but privacy prevents display). Stored attempts are current as of the database read, not real-time telemetry. Timestamps use UTC ISO 8601 and include an `Asia/Jerusalem` rendering. The app stores no durable general application-activity event, so `last_application_activity` is `unavailable`; lack of practice does not mean the app was unused. No new tracking or retention policy is introduced.
+
+Example current-activity response (shortened):
+
+```json
+{
+  "ok": true,
+  "class_id": 12,
+  "checked_at": "2026-10-27T10:10:00Z",
+  "timezone": "Asia/Jerusalem",
+  "privacy_threshold": {"minimum_students": 3, "minimum_attempts": 5},
+  "recent_practice": {
+    "status": "complete",
+    "source": "persisted_attempts",
+    "window_minutes": 5,
+    "students_with_activity": 4,
+    "attempts": 7,
+    "presence_claim": false,
+    "update_semantics": "current_as_of_database_read"
+  },
+  "live_presence": {
+    "status": "complete",
+    "source": "live_session_heartbeat",
+    "active_users": 3,
+    "heartbeat_ttl_seconds": 20,
+    "ephemeral": true
+  },
+  "last_practice_activity": {
+    "status": "complete",
+    "event_type": "practice_attempt",
+    "timestamp": "2026-10-27T10:09:40Z",
+    "local_timestamp": "2026-10-27T12:09:40+02:00",
+    "timezone": "Asia/Jerusalem",
+    "elapsed_seconds": 20
+  },
+  "last_application_activity": {"status": "unavailable", "reason_code": "not_collected"}
+}
+```
 
 `get_system_health` returns only `healthy`, `degraded`, `unavailable`, or `not_configured` for the application, authentication, database, model, and text-to-speech components. `not_configured` for an optional component such as text-to-speech does not by itself make the service unhealthy. A developer may also see a non-sensitive build version and revision. No caller receives raw logs, stack traces, database queries, internal URLs, paths, environment variables, tokens, credentials, or secret-presence values.
 
@@ -673,6 +714,8 @@ Useful read-only prompts include:
 ```text
 הצג גרף פעילות יומי של כיתה 12 בין 2026-10-01 ל-2026-10-26. אל תציג מידע אישי.
 הצג פעילות שבועית בכל הכיתות שאני מורשה/ית לראות ב-30 הימים האחרונים.
+הצג פעילות עדכנית בכיתה 12 בחמש הדקות האחרונות, והפרד בין נוכחות חיה לבין תרגול שנשמר.
+מתי היה ניסיון התרגול האחרון בכל הכיתות שאני מורשה/ית לראות? ציין UTC וגם שעון ישראל ואל תציג מידע אישי.
 בדוק את מצב המערכת והסבר בעברית פשוטה אם רכיב כלשהו אינו זמין.
 הצג את 10 התרגילים הקשים ביותר בכל הכיתות שאני מורשה/ית לראות בין 2026-10-01 ל-2026-10-26. הסבר את המדדים ואל תציג מידע אישי.
 אילו פונמות ערביות גרמו לשגיאות הגייה מדודות בכיתה 12 בחודש האחרון? הצג רק קבוצות שעוברות את סף הפרטיות.

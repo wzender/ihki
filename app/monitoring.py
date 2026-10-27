@@ -23,6 +23,7 @@ MIN_DIFFICULTY_ATTEMPTS = 5
 MAX_DIFFICULTY_RESULTS = 20
 MAX_ANALYTICS_RESULTS = 50
 EXERCISE_TYPES = frozenset({"pronunciation", "verb", "game", "other"})
+CURRENT_ACTIVITY_WINDOWS = frozenset({5, 15})
 
 
 class MonitoringError(ValueError):
@@ -140,6 +141,113 @@ def activity_timeseries(auth: Any, actor: dict[str, Any], *, from_date: object, 
                     for key in ("attempts", "active_students", "returning_students", "active_days")}
     return {**scope, "from_date": start.isoformat(), "to_date": end.isoformat(),
             "interval": clean_interval, "series": list(grouped.values()), "summary": safe_summary}
+
+
+def _utc_iso(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _activity_stamp(value: object) -> datetime | None:
+    try:
+        return _stamp(value).astimezone(timezone.utc)
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def current_activity(auth: Any, actor: dict[str, Any], *, window_minutes: object = 5,
+                     class_id: int | None = None, checked_at: datetime | None = None,
+                     live_store: Any = None) -> dict[str, Any]:
+    """Return scoped aggregate recency without treating recent attempts as presence."""
+    if (not isinstance(window_minutes, int) or isinstance(window_minutes, bool)
+            or window_minutes not in CURRENT_ACTIVITY_WINDOWS):
+        raise MonitoringError("window_minutes חייב להיות 5 או 15")
+    now = checked_at or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    now = now.astimezone(timezone.utc)
+    classes, scope = _scope(auth, actor, class_id)
+    try:
+        user_ids = _scoped_user_ids(auth, classes)
+        since = now - timedelta(minutes=window_minutes)
+        rows, truncated = auth.scoped_attempts(user_ids, since, now + timedelta(microseconds=1))
+    except (AuthUnavailable, AttributeError, KeyError, TypeError) as exc:
+        raise MonitoringUnavailable("נתוני הפעילות אינם זמינים") from exc
+    if truncated:
+        raise MonitoringError("יש יותר מדי אירועים בחלון. נסו חלון קצר יותר.")
+
+    events: dict[str, tuple[str, datetime]] = {}
+    for index, row in enumerate(rows if isinstance(rows, list) else []):
+        user_id = str(row.get("user_id") or "") if isinstance(row, dict) else ""
+        stamp = _activity_stamp(row.get("created_at")) if isinstance(row, dict) else None
+        if not user_id or user_id not in user_ids or stamp is None or not since <= stamp <= now:
+            continue
+        event_id = str(row.get("id") or f"row-{index}")
+        events.setdefault(event_id, (user_id, stamp))
+
+    attempts = len(events)
+    learners = len({user_id for user_id, _ in events.values()})
+    checked_iso = _utc_iso(now)
+    threshold = {"minimum_students": MIN_DIFFICULTY_STUDENTS,
+                 "minimum_attempts": MIN_DIFFICULTY_ATTEMPTS}
+    recent: dict[str, Any] = {
+        "source": "persisted_attempts", "window_minutes": window_minutes,
+        "checked_at": checked_iso, "collection_delay_seconds": None,
+        "update_semantics": "current_as_of_database_read",
+        "presence_claim": False,
+    }
+    last_practice: dict[str, Any] = {"source": "persisted_attempts", "checked_at": checked_iso}
+    if not events:
+        recent["status"] = "no_activity"
+        last_practice.update(status="no_data", reason_code="no_observation_in_window")
+    elif learners < MIN_DIFFICULTY_STUDENTS or attempts < MIN_DIFFICULTY_ATTEMPTS:
+        recent["status"] = "suppressed"
+        last_practice.update(status="suppressed", reason_code="privacy_threshold")
+    else:
+        latest = max(stamp for _, stamp in events.values())
+        recent.update(status="complete", students_with_activity=learners, attempts=attempts)
+        last_practice.update(
+            status="complete", event_type="practice_attempt", timestamp=_utc_iso(latest),
+            local_timestamp=latest.astimezone(LOCAL_TZ).isoformat(), timezone="Asia/Jerusalem",
+            elapsed_seconds=max(0, int((now - latest).total_seconds())),
+        )
+    live_presence: dict[str, Any] = {
+        "status": "unavailable", "reason_code": "no_active_live_session",
+        "source": "live_session_heartbeat", "checked_at": checked_iso,
+    }
+    if live_store is not None:
+        try:
+            summary = live_store.presence_summary({int(row["id"]) for row in classes if row.get("id") is not None})
+            if summary.get("active_session"):
+                active = max(0, int(summary.get("active_users") or 0))
+                live_presence = {
+                    "status": "suppressed" if len(user_ids) < MIN_DIFFICULTY_STUDENTS or active in {1, 2}
+                    else "complete",
+                    "source": "live_session_heartbeat", "checked_at": checked_iso,
+                    "heartbeat_ttl_seconds": max(1, int(summary.get("heartbeat_ttl_seconds") or 20)),
+                    "ephemeral": True,
+                    "definition": "heartbeat_received_within_ttl",
+                }
+                if live_presence["status"] == "complete":
+                    live_presence["active_users"] = active
+                else:
+                    live_presence["reason_code"] = "privacy_threshold"
+        except (AttributeError, KeyError, TypeError, ValueError):
+            live_presence = {
+                "status": "unavailable", "reason_code": "live_source_unavailable",
+                "source": "live_session_heartbeat", "checked_at": checked_iso,
+            }
+    return {
+        **scope, "status": recent["status"], "checked_at": checked_iso,
+        "timezone": "Asia/Jerusalem", "privacy_threshold": threshold,
+        "recent_practice": recent,
+        "live_presence": live_presence,
+        "last_practice_activity": last_practice,
+        "last_application_activity": {
+            "status": "unavailable", "reason_code": "not_collected",
+            "checked_at": checked_iso,
+            "note": "General application activity is not stored; missing practice does not imply no app use.",
+        },
+    }
 
 
 def _exercise_id(category: str, phrase: str) -> str:

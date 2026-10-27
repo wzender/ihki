@@ -51,3 +51,31 @@ def test_question_accepts_the_server_phrase_shape():
     question = live.ask(code, {"id": 13, "he": "מה שלומך?", "tr": "כִּיף חַאלַכּ?",
                                "variants": [("كيف حالك؟", "kiːf ħaːlak")]})["question"]
     assert question["ar"] == "كيف حالك؟"
+
+
+def test_presence_summary_is_identity_free_ttl_bounded_and_deduplicated(monkeypatch):
+    clock = {"now": 100.0}
+    monkeypatch.setattr("app.live.time.monotonic", lambda: clock["now"])
+    live = LiveStore()
+    first = live.start(COURSE, TEACHER)["code"]
+    second_course = {**COURSE, "id": 8, "name": "כיתה ב"}
+    second = live.start(second_course, TEACHER)["code"]
+    another = {"id": "another-id", "email": "another@example.com"}
+    live.join(first, STUDENT)
+    live.join(second, STUDENT)  # Same learner in two classes must count once.
+    live.join(second, another)
+
+    two = live.presence_summary({7, 8}, now=119.0)
+    assert two == {"active_session": True, "active_users": 2,
+                   "heartbeat_ttl_seconds": 20, "ephemeral": True}
+    assert not any(key in str(two).lower() for key in ("student-id", "email", "name", "participant"))
+    assert live.presence_summary({7}, now=120.0)["active_users"] == 1
+    assert live.presence_summary({7, 8}, now=121.0)["active_users"] == 0
+    assert live.presence_summary({999}, now=121.0)["active_session"] is False
+
+
+def test_new_store_has_no_reconstructed_presence():
+    assert LiveStore().presence_summary({7}) == {
+        "active_session": False, "active_users": 0,
+        "heartbeat_ttl_seconds": 20, "ephemeral": True,
+    }

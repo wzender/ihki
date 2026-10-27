@@ -72,6 +72,18 @@ class LiveStore:
             self._prune(now)
             return self._sessions.get(code)
 
+    def presence_summary(self, class_ids: set[int], *, now: float | None = None) -> dict:
+        """Return identity-free presence for active sessions in the selected classes."""
+        instant = time.monotonic() if now is None else float(now)
+        selected = {int(class_id) for class_id in class_ids}
+        with self._lock:
+            self._prune(instant)
+            sessions = [session for session in self._sessions.values() if session["class_id"] in selected]
+            active = {user_id for session in sessions for user_id, person in session["participants"].items()
+                      if instant - person["last_seen"] <= PRESENCE_TTL}
+            return {"active_session": bool(sessions), "active_users": len(active),
+                    "heartbeat_ttl_seconds": PRESENCE_TTL, "ephemeral": True}
+
     def join(self, code: str, user: dict, name: str = "") -> dict:
         now = time.monotonic()
         with self._lock:

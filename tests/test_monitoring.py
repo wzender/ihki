@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -6,7 +6,7 @@ import pytest
 from app.auth import AuthUnavailable
 from app.monitoring import (MonitoringError, MonitoringUnavailable, activity_timeseries,
                             aggregate_exercise_difficulty, compare_class_difficulties,
-                            exercise_difficulty, learning_bottlenecks, learning_progress,
+                            current_activity, exercise_difficulty, learning_bottlenecks, learning_progress,
                             normalize_attempts, pronunciation_difficulties,
                             system_health, validate_range)
 
@@ -95,6 +95,112 @@ def test_empty_roster_and_unavailable_storage_are_explicit():
         activity_timeseries(auth, ACTOR, from_date="2026-10-26", to_date="2026-10-26",
                             class_id=1, today=date(2026, 10, 26))
     assert "secret" not in str(failure.value)
+
+
+class CurrentActivityAuth(ActivityAuth):
+    def __init__(self):
+        super().__init__()
+        self.class_rows[0]["emails"] = ["one@example.com", "two@example.com", "three@example.com"]
+        self.class_rows[1]["emails"] = ["three@example.com", "four@example.com"]
+        self.rows = []
+        self.truncated = False
+        self.attempt_args = None
+
+    def users(self):
+        return [{"id": f"u{i}", "email": name} for i, name in enumerate(
+            ("one@example.com", "two@example.com", "three@example.com", "four@example.com"), 1)]
+
+    def scoped_attempts(self, ids, since, until):
+        self.attempt_args = set(ids), since, until
+        return list(self.rows), self.truncated
+
+
+def recent_attempt(row_id, user, minute):
+    return {"id": row_id, "user_id": user, "created_at": f"2026-10-27T10:{minute:02d}:00+00:00"}
+
+
+def test_current_activity_qualifies_window_timestamp_and_deduplicates_combined_scope():
+    auth = CurrentActivityAuth()
+    auth.rows = [recent_attempt(1, "u1", 6), recent_attempt(2, "u2", 7),
+                 recent_attempt(3, "u3", 8), recent_attempt(4, "u3", 9),
+                 recent_attempt(5, "u4", 10), recent_attempt(5, "u4", 10),
+                 recent_attempt(6, "outside", 10), recent_attempt(7, "u1", 4)]
+    checked = datetime(2026, 10, 27, 10, 10, tzinfo=timezone.utc)
+    data = current_activity(auth, ACTOR, window_minutes=5, checked_at=checked)
+    ids, since, until = auth.attempt_args
+    assert ids == {"u1", "u2", "u3", "u4"}
+    assert since.isoformat() == "2026-10-27T10:05:00+00:00" and until > checked
+    assert data["recent_practice"] == {
+        "source": "persisted_attempts", "window_minutes": 5,
+        "checked_at": "2026-10-27T10:10:00Z", "collection_delay_seconds": None,
+        "update_semantics": "current_as_of_database_read", "presence_claim": False,
+        "status": "complete", "students_with_activity": 4, "attempts": 5,
+    }
+    assert data["last_practice_activity"]["timestamp"] == "2026-10-27T10:10:00Z"
+    assert data["last_practice_activity"]["local_timestamp"] == "2026-10-27T12:10:00+02:00"
+    assert data["last_practice_activity"]["elapsed_seconds"] == 0
+    assert data["last_application_activity"]["status"] == "unavailable"
+    assert not any(value in str(data) for value in ("u1", "u2", "example.com"))
+
+
+def test_current_activity_distinguishes_no_activity_suppression_and_unavailable_data():
+    auth = CurrentActivityAuth()
+    checked = datetime(2026, 10, 27, 10, 10, tzinfo=timezone.utc)
+    empty = current_activity(auth, ACTOR, window_minutes=15, class_id=1, checked_at=checked)
+    assert empty["recent_practice"]["status"] == "no_activity"
+    assert empty["last_practice_activity"]["status"] == "no_data"
+    assert "students_with_activity" not in empty["recent_practice"]
+
+    auth.rows = [recent_attempt(i, "u1" if i < 4 else "u2", 5 + i) for i in range(1, 6)]
+    hidden = current_activity(auth, ACTOR, window_minutes=15, class_id=1, checked_at=checked)
+    assert hidden["recent_practice"]["status"] == "suppressed"
+    assert hidden["last_practice_activity"]["status"] == "suppressed"
+    assert "attempts" not in hidden["recent_practice"] and "timestamp" not in hidden["last_practice_activity"]
+
+    auth.scoped_attempts = lambda *args: (_ for _ in ()).throw(AuthUnavailable("postgres://secret"))
+    with pytest.raises(MonitoringUnavailable, match="אינם זמינים") as failure:
+        current_activity(auth, ACTOR, window_minutes=5, checked_at=checked)
+    assert "postgres" not in str(failure.value) and "secret" not in str(failure.value)
+
+
+def test_current_activity_rejects_bad_windows_scope_and_truncated_samples():
+    auth = CurrentActivityAuth()
+    checked = datetime(2026, 10, 27, 10, 10, tzinfo=timezone.utc)
+    for window in (0, 10, 30, True, "5"):
+        with pytest.raises(MonitoringError):
+            current_activity(auth, ACTOR, window_minutes=window, checked_at=checked)
+    assert auth.attempt_args is None
+    for class_id in (3, 999):
+        with pytest.raises(MonitoringError, match="הכיתה אינה זמינה"):
+            current_activity(auth, ACTOR, class_id=class_id, checked_at=checked)
+    auth.truncated = True
+    with pytest.raises(MonitoringError, match="יותר מדי"):
+        current_activity(auth, ACTOR, checked_at=checked)
+
+
+@pytest.mark.parametrize("active,expected_status,shown", [
+    (0, "complete", 0), (1, "suppressed", None), (2, "suppressed", None), (3, "complete", 3),
+])
+def test_current_activity_live_presence_applies_privacy_without_identities(active, expected_status, shown):
+    auth = CurrentActivityAuth()
+    checked = datetime(2026, 10, 27, 10, 10, tzinfo=timezone.utc)
+    live = SimpleNamespace(presence_summary=lambda class_ids: {
+        "active_session": True, "active_users": active, "heartbeat_ttl_seconds": 20, "ephemeral": True})
+    data = current_activity(auth, ACTOR, checked_at=checked, live_store=live)
+    presence = data["live_presence"]
+    assert presence["status"] == expected_status and presence["heartbeat_ttl_seconds"] == 20
+    assert presence.get("active_users") == shown
+    assert not any(key in str(presence).lower() for key in ("email", "name", "participant", "user_id"))
+
+
+def test_current_activity_live_presence_is_unavailable_without_active_session_or_store():
+    auth = CurrentActivityAuth()
+    checked = datetime(2026, 10, 27, 10, 10, tzinfo=timezone.utc)
+    no_store = current_activity(auth, ACTOR, checked_at=checked)
+    assert no_store["live_presence"]["status"] == "unavailable"
+    live = SimpleNamespace(presence_summary=lambda class_ids: {"active_session": False})
+    no_session = current_activity(auth, ACTOR, checked_at=checked, live_store=live)
+    assert no_session["live_presence"]["status"] == "unavailable"
 
 
 def test_health_is_whitelisted_role_aware_and_read_only():

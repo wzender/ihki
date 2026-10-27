@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="he" dir="ltr">
+<head>
+<meta charset="utf-8">
+<title>ihki install</title>
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&display=block" rel="stylesheet">
+<style>
+/* How to install the app, on an iPhone (Safari) or an Android phone (Chrome), 1080x1920, in the promo's look.
+   install.py opens this page with ?os=ios or ?os=android and calls seek(t) for every frame. The browser's menus
+   are drawn here (in Hebrew, right to left), around a real screenshot of the app (app.png). */
+:root{ --navy:#1F2156; --teal:#1E8C8C; --orange:#E8902E; --red:#C8344A; --cream:#FBF7EE; --muted:#5E685C; --blue:#0A7AFF; }
+*{box-sizing:border-box}
+html,body{margin:0;width:1080px;height:1920px;overflow:clip;background:var(--cream)}
+body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
+.cap,#logo,#announce,#ui{direction:rtl}
+#bg{position:absolute;inset:0;
+  background:
+    radial-gradient(900px 700px at 85% 8%, rgba(30,140,140,.16), transparent 70%),
+    radial-gradient(800px 800px at 10% 70%, rgba(232,144,46,.14), transparent 70%),
+    radial-gradient(700px 500px at 60% 105%, rgba(31,33,86,.12), transparent 70%),
+    linear-gradient(180deg,#FDFBF5,#F3ECDD)}
+#band{position:absolute;left:0;right:0;top:0;height:560px;z-index:4;
+  background:linear-gradient(180deg,#FCF8F0 0%,#FCF8F0 62%,rgba(252,248,240,0) 100%)}
+.cap{position:absolute;left:60px;right:60px;top:110px;text-align:center;z-index:5;opacity:0}
+.cap h1{margin:0;font:400 74px/1.12 "Secular One","Assistant",sans-serif;color:var(--navy);letter-spacing:-.5px}
+.cap h1 em{font-style:normal;color:var(--teal)}
+.cap p{margin:22px 0 0;font:600 38px/1.35 "Assistant",sans-serif;color:var(--muted)}
+.cap p b{color:var(--teal);font-weight:800}
+.cap .nb{display:inline-block;width:70px;height:70px;border-radius:50%;background:var(--red);color:#fff;font:800 44px/70px "Assistant",sans-serif;
+  text-align:center;vertical-align:middle;margin-inline-end:16px;position:relative;top:-6px}
+.cap .en{display:inline-block;margin-top:14px;font:700 32px/1 "Assistant",sans-serif;color:var(--navy);background:#fff;padding:12px 24px;border-radius:999px;
+  box-shadow:inset 0 0 0 3px rgba(31,33,86,.12);direction:ltr}
+/* the opening */
+#open{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0}
+#open svg{width:900px;height:auto}
+#announce{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;padding-top:440px;
+  text-align:center;opacity:0}
+#announce .new{font:800 40px/1 "Assistant",sans-serif;color:#fff;background:var(--red);padding:16px 34px;border-radius:999px;direction:ltr}
+#announce h1{margin:0;font:400 96px/1.1 "Secular One","Assistant",sans-serif;color:var(--navy)}
+#announce p{margin:0;font:600 42px/1.4 "Assistant",sans-serif;color:var(--muted)}
+/* the phone (the promo's), with an Android's punch-hole camera instead of the island */
+#stage{position:absolute;inset:0;perspective:2600px;perspective-origin:50% 45%}
+#phone{position:absolute;left:220px;top:504px;width:641px;height:1353px;transform-style:preserve-3d}
+.slab{position:absolute;inset:0;border-radius:74px;background:#2B2C33}
+#body{position:absolute;inset:0;border-radius:74px;padding:16px;background:#0D0D10;
+  box-shadow:inset 0 0 0 3px #A9AEB6, inset 0 0 0 5px #4B4E55, inset 0 0 0 7px #0D0D10}
+#screen{position:relative;width:609px;height:1321px;border-radius:58px;overflow:hidden;background:#fff}
+#island{position:absolute;top:22px;left:50%;width:190px;height:54px;margin-left:-95px;border-radius:30px;background:#000;z-index:50}
+.android #island{width:40px;height:40px;margin-left:-20px;top:26px}
+.android #phone .slab,.android #body{border-radius:60px} .android #screen{border-radius:46px}
+#gloss{position:absolute;inset:0;border-radius:58px;pointer-events:none;z-index:49;
+  background:linear-gradient(115deg,rgba(255,255,255,.22) 0%,rgba(255,255,255,0) 32%,rgba(255,255,255,0) 70%,rgba(255,255,255,.08) 100%)}
+.btn-side{position:absolute;width:8px;border-radius:4px;background:#8E939B}
+#shadow{position:absolute;left:250px;top:1790px;width:580px;height:90px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(31,33,86,.38),rgba(31,33,86,0));filter:blur(6px)}
+
+/* the phone's screen, drawn at an iPhone's CSS size (393x852) and scaled to the frame's screen */
+#ui{position:absolute;left:0;top:0;width:393px;height:852px;transform-origin:0 0;transform:scale(1.5496);overflow:hidden;
+  font-family:-apple-system,"Assistant",system-ui,sans-serif;color:#111}
+.L{position:absolute;inset:0}
+.status{position:absolute;left:0;right:0;top:0;height:50px;display:flex;align-items:center;justify-content:space-between;padding:8px 34px 0;
+  font:700 16px/1 "Assistant",sans-serif;direction:ltr;z-index:30}
+.android .status{height:32px;padding:4px 18px 0 22px;font-size:13px}
+.status .ic{display:flex;gap:6px;align-items:center}
+.status .bat{width:24px;height:12px;border-radius:4px;border:2px solid currentColor;position:relative}
+.status .bat::after{content:"";position:absolute;inset:1px 5px 1px 1px;background:currentColor;border-radius:1px}
+.status .sig{display:flex;gap:2px;align-items:flex-end;height:12px}
+.status .sig i{width:3px;background:currentColor;border-radius:1px}
+.page{position:absolute;left:0;width:393px;height:852px;background:#fff url(app.png) top/393px 852px no-repeat}
+.ios .page{top:20px} .android .page{top:70px}
+/* Safari (iOS 26): the address and its two buttons float at the bottom */
+#sbar{position:absolute;left:0;right:0;bottom:0;height:110px;background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.96) 30%)}
+.circ{position:absolute;width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.14),inset 0 0 0 1px rgba(0,0,0,.05);
+  display:flex;align-items:center;justify-content:center;font:700 24px/1 -apple-system,sans-serif;color:#111}
+.pill{position:absolute;height:46px;border-radius:23px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.14),inset 0 0 0 1px rgba(0,0,0,.05);
+  display:flex;align-items:center;justify-content:center;gap:6px;font:600 16px/1 -apple-system,"Assistant",sans-serif;color:#111;direction:ltr}
+/* a menu, a sheet, a dialog */
+.menu{position:absolute;background:rgba(250,250,252,.97);border-radius:22px;box-shadow:0 12px 40px rgba(0,0,0,.25);overflow:hidden}
+.row{height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font:500 17px/1 "Assistant",-apple-system,sans-serif;
+  border-bottom:1px solid rgba(0,0,0,.07)}
+.row span:last-child{font-size:18px;opacity:.75;direction:ltr}
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.32)}
+#share{position:absolute;left:0;right:0;top:300px;bottom:0;background:#F2F2F7;border-radius:28px 28px 0 0;padding:14px 16px}
+#share .hd{display:flex;align-items:center;gap:12px;padding:6px 4px 14px;border-bottom:1px solid rgba(0,0,0,.08)}
+.appicon{border-radius:22%;background:#F4F4F0 url(icon.png) center/86% no-repeat;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+#share .hd b{display:block;font:700 17px/1.2 "Assistant",sans-serif} #share .hd small{font:400 14px/1.2 -apple-system,sans-serif;color:#888;direction:ltr;display:block;text-align:right}
+#share .apps{display:flex;justify-content:space-between;padding:14px 6px 12px}
+#share .apps div{display:flex;flex-direction:column;align-items:center;gap:6px;font:500 12px/1 "Assistant",sans-serif;color:#333}
+#share .apps i{width:58px;height:58px;border-radius:16px;display:block}
+#share .list{background:#fff;border-radius:14px;overflow:hidden}
+#add{position:absolute;left:0;right:0;top:56px;bottom:0;background:#F2F2F7;border-radius:28px 28px 0 0}
+#add .nav{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;font:500 17px/1 "Assistant",sans-serif}
+#add .nav b{font-weight:700;color:#111} #add .nav span{color:var(--blue)} #add .nav span.go{font-weight:700}
+#add .card{margin:10px 16px;background:#fff;border-radius:14px;padding:14px;display:flex;gap:14px;align-items:center}
+#add .card .t{flex:1} #add .card .t div{font:600 18px/1.2 "Assistant",sans-serif;padding:6px 0;border-bottom:1px solid #ddd}
+#add .card .t small{display:block;font:400 14px/1.4 -apple-system,sans-serif;color:#888;direction:ltr;text-align:right;margin-top:6px}
+#add .tg{margin:14px 16px 6px;background:#fff;border-radius:14px;height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:500 17px/1 "Assistant",sans-serif}
+#add .tg i{width:52px;height:32px;border-radius:16px;background:#34C759;position:relative} #add .tg i::after{content:"";position:absolute;left:3px;top:3px;width:26px;height:26px;border-radius:50%;background:#fff}
+#add .note{margin:0 30px;font:400 13px/1.4 "Assistant",sans-serif;color:#888}
+/* Chrome (Android): the address on top */
+#cbar{position:absolute;left:0;right:0;top:0;height:92px;background:#fff;border-bottom:1px solid #e3e3e3}
+#cbar .url{position:absolute;left:84px;right:56px;top:42px;height:42px;border-radius:21px;background:#EEF1F4;display:flex;align-items:center;gap:8px;padding:0 14px;
+  font:500 15px/1 Roboto,"Assistant",sans-serif;color:#222;direction:ltr}
+#cbar .dots{position:absolute;left:8px;top:43px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font:900 26px/1 sans-serif;color:#333}
+#cbar .tabs{position:absolute;left:50px;top:52px;width:22px;height:22px;border:2.5px solid #333;border-radius:5px;font:700 12px/17px sans-serif;text-align:center;color:#333}
+#cbar .home{position:absolute;right:14px;top:50px;font:400 24px/1 sans-serif;color:#333}
+#cmenu{left:6px;top:38px;width:292px;border-radius:14px;background:#fff}
+#cmenu .ico{height:52px;display:flex;justify-content:space-around;align-items:center;font:400 20px/1 sans-serif;color:#333;border-bottom:1px solid #eee;direction:ltr}
+#cmenu .row{border:0;justify-content:flex-start;gap:16px;font-family:Roboto,"Assistant",sans-serif;font-size:16px}
+#cmenu .row span:first-child{width:24px;text-align:center;opacity:.7;font-size:18px}
+#dlg{position:absolute;left:28px;right:28px;top:290px;background:#F3F1F7;border-radius:28px;padding:24px 22px 18px;font-family:Roboto,"Assistant",sans-serif}
+#dlg h3{margin:0 0 18px;font:500 22px/1.2 "Assistant",sans-serif;color:#1c1b1f}
+#dlg .who{display:flex;align-items:center;gap:14px}
+#dlg .who b{display:block;font:600 18px/1.2 "Assistant",sans-serif} #dlg .who small{font:400 14px/1.3 Roboto,sans-serif;color:#666;direction:ltr;display:block;text-align:right}
+#dlg .bt{display:flex;justify-content:flex-end;gap:8px;margin-top:26px;direction:ltr}
+#dlg .bt span{padding:11px 18px;border-radius:20px;font:600 16px/1 "Assistant",sans-serif;color:#4A5A9A}
+#dlg .bt span.go{background:#4A5A9A;color:#fff}
+/* the home screen */
+#home{background:linear-gradient(160deg,#1E8C8C 0%,#2D5E7E 45%,#1F2156 100%)}
+#home::before{content:"";position:absolute;inset:0;background:radial-gradient(260px 260px at 80% 75%,rgba(232,144,46,.55),transparent 70%),radial-gradient(220px 220px at 15% 30%,rgba(255,255,255,.12),transparent 70%)}
+.app{position:absolute;width:80px;display:flex;flex-direction:column;align-items:center;gap:6px;color:#fff;font:500 12px/1.1 "Assistant",sans-serif;text-align:center;white-space:nowrap;
+  text-shadow:0 1px 3px rgba(0,0,0,.35)}
+.app i{width:62px;height:62px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:30px;box-shadow:0 2px 6px rgba(0,0,0,.18)}
+.android .app i{border-radius:50%}
+#dock{position:absolute;left:12px;right:12px;bottom:14px;height:92px;border-radius:34px;background:rgba(255,255,255,.22)}
+.android #dock{background:none}
+#gsearch{position:absolute;left:24px;right:24px;bottom:30px;height:50px;border-radius:25px;background:rgba(255,255,255,.85);display:none;align-items:center;padding:0 20px;color:#555;font:500 16px/1 "Assistant",sans-serif}
+.android #gsearch{display:flex}
+#mine i{background:#F4F4F0 url(icon.png) center/86% no-repeat}
+.android #mine i{background:#F4F4F0 url(icon-maskable.png) center/100% no-repeat}
+#mine .new{position:absolute;top:-8px;left:-4px;background:var(--red);color:#fff;font:800 11px/1 "Assistant",sans-serif;padding:4px 7px;border-radius:999px;text-shadow:none}
+/* the app, opened from its icon: full screen, no browser */
+#app{background:#fff}
+#app .page{top:20px}
+.android #app .page{top:30px}
+/* where to tap: a ring, then a ripple */
+#ring{position:absolute;border:4px solid var(--red);border-radius:14px;box-shadow:0 0 0 6px rgba(200,52,74,.2);opacity:0;z-index:40}
+#tap{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:rgba(31,33,86,.35);border:3px solid rgba(255,255,255,.9);opacity:0;z-index:41}
+/* the closing */
+#tip{position:absolute;left:70px;right:70px;top:640px;z-index:6;opacity:0;background:#fff;border-radius:40px;padding:44px 48px;direction:rtl;text-align:center;
+  box-shadow:0 20px 50px rgba(31,33,86,.18),inset 0 0 0 4px rgba(30,140,140,.25)}
+#tip h2{margin:0 0 16px;font:400 60px/1.15 "Secular One","Assistant",sans-serif;color:var(--navy)}
+#tip p{margin:0;font:600 38px/1.4 "Assistant",sans-serif;color:var(--muted)}
+#tip p b{color:var(--teal)}
+#logo{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:90px;opacity:0}
+#logo svg{width:920px;height:auto}
+#logo .cta{font:400 60px/1 "Secular One","Assistant",sans-serif;color:#fff;background:var(--navy);padding:28px 64px;border-radius:999px}
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<div id="open"><div id="openSvg"></div></div>
+<div id="announce"><div class="new" id="annOs"></div><h1 id="annH"></h1><p>מתקינים פעם אחת,<br>ונכנסים בלחיצה מהמסך הראשי</p></div>
+<div id="band"></div>
+<div id="caps"></div>
+
+<div id="stage">
+  <div id="shadow"></div>
+  <div id="phone">
+    <div id="slabs"></div>
+    <div id="body"><div id="screen"><div id="ui"></div><div id="island"></div><div id="gloss"></div></div></div>
+  </div>
+</div>
+<div id="tip"></div>
+<div id="logo"><div id="logoSvg"></div><div class="cta">יאללה, מתחילים!</div></div>
+
+<template id="t-ios">
+  <div class="L" id="browser"><div class="page"></div>
+    <div id="sbar">
+      <div class="circ" style="right:14px;top:44px">›</div>
+      <div class="pill" style="left:68px;right:68px;top:44px"><span style="opacity:.6">🔒</span> wzender-ihki.hf.space</div>
+      <div class="circ" style="left:14px;top:44px">⋯</div>
+    </div>
+  </div>
+  <div class="L" id="menu"><div class="menu" style="left:12px;top:440px;width:250px;border-radius:22px">
+    <div class="row"><span>שיתוף</span><span>⬆︎</span></div>
+    <div class="row"><span>הוספה לסימניות</span><span>📖</span></div>
+    <div class="row"><span>הוספה למועדפים</span><span>☆</span></div>
+    <div class="row"><span>חיפוש בדף</span><span>🔍</span></div>
+    <div class="row"><span>מצב קריאה</span><span>≡</span></div>
+    <div class="row" style="border:0"><span>הצגת אתר שולחני</span><span>🖥</span></div>
+  </div></div>
+  <div class="L" id="shareL"><div class="scrim"></div><div id="share">
+    <div class="hd"><div class="appicon" style="width:48px;height:48px"></div><div style="flex:1"><b>אהלא  וסהלא</b><small>wzender-ihki.hf.space</small></div><span style="font-size:22px;color:#888">✕</span></div>
+    <div class="apps"><div><i style="background:#34C759"></i>הודעות</div><div><i style="background:#1E8CF0"></i>דואר</div><div><i style="background:#F5C542"></i>הערות</div><div><i style="background:#E8E8ED"></i>עוד</div></div>
+    <div class="list">
+      <div class="row"><span>העתקה</span><span>⧉</span></div>
+      <div class="row"><span>הוספה לרשימת קריאה</span><span>👓</span></div>
+      <div class="row"><span>הוספה לסימניות</span><span>📖</span></div>
+      <div class="row" id="a2hs"><span>הוספה למסך הבית</span><span>⊞</span></div>
+      <div class="row"><span>סימון</span><span>✎</span></div>
+      <div class="row" style="border:0"><span>הדפסה</span><span>⎙</span></div>
+    </div>
+  </div></div>
+  <div class="L" id="addL"><div class="scrim"></div><div id="add">
+    <div class="nav"><span>ביטול</span><b>הוספה למסך הבית</b><span class="go">הוספה</span></div>
+    <div class="card"><div class="appicon" style="width:62px;height:62px"></div><div class="t"><div>אהלא  וסהלא</div><small>https://wzender-ihki.hf.space/</small></div></div>
+    <div class="tg"><span>פתיחה כיישום אינטרנט</span><i></i></div>
+    <div class="note">צלמית תתווסף למסך הבית כדי שתוכל/י לגשת במהירות לאתר זה.</div>
+  </div></div>
+</template>
+
+<template id="t-android">
+  <div class="L" id="browser"><div class="page"></div>
+    <div id="cbar">
+      <div class="dots">⋮</div><div class="tabs">1</div>
+      <div class="url"><span style="opacity:.6">🔒</span> wzender-ihki.hf.space</div>
+      <div class="home">⌂</div>
+    </div>
+  </div>
+  <div class="L" id="menu"><div class="menu" id="cmenu">
+    <div class="ico"><span>→</span><span>☆</span><span>⤓</span><span>ⓘ</span><span>↻</span></div>
+    <div class="row"><span>＋</span><span>כרטיסייה חדשה</span></div>
+    <div class="row"><span>🕶</span><span>כרטיסייה חדשה בגלישה בסתר</span></div>
+    <div class="row"><span>🕘</span><span>היסטוריה</span></div>
+    <div class="row"><span>⤓</span><span>הורדות</span></div>
+    <div class="row"><span>★</span><span>סימניות</span></div>
+    <div class="row" id="inst"><span>📲</span><span>התקנת האפליקציה</span></div>
+    <div class="row"><span>⤴</span><span>שיתוף</span></div>
+    <div class="row"><span>⚙</span><span>הגדרות</span></div>
+  </div></div>
+  <div class="L" id="dlgL"><div class="scrim"></div><div id="dlg">
+    <h3>להתקין את האפליקציה?</h3>
+    <div class="who"><div class="appicon" style="width:52px;height:52px;border-radius:50%;background-image:url(icon-maskable.png);background-size:100%"></div><div><b>אהלא  וסהלא</b><small>wzender-ihki.hf.space</small></div></div>
+    <div class="bt"><span class="go">התקנה</span><span>ביטול</span></div>
+  </div></div>
+</template>
+
+<template id="t-home">
+  <div class="L" id="home"><div id="dock"></div><div id="gsearch">🔍&nbsp;&nbsp;חיפוש</div></div>
+  <div class="L" id="app"><div class="page"></div></div>
+</template>
+
+<script>
+const $=id=>document.getElementById(id);
+const OS=new URLSearchParams(location.search).get("os")==="android"?"android":"ios";
+document.body.classList.add(OS);
+const ease=x=>x<0?0:x>1?1:x*x*(3-2*x);
+const lerp=(a,b,x)=>a+(b-a)*x;
+const win=(t,a,b,fade=.35)=>Math.min(a<=0?1:ease((t-a)/fade),ease((b-t)/fade));
+const pop=x=>x<=0?0:x>=1?1:1+2.2*Math.pow(x-1,3)+1.2*Math.pow(x-1,2);   // in with a small overshoot
+const UIK=609/393, SCREEN={w:609,h:1321,pad:16}, PHONE={w:641,h:1353,cx:220+641/2,cy:504+1353/2};
+const OPEN_END=3.6, LOGO=6.8, LOGO_SPEED=1.2;
+
+/* each OS: its captions, the screen's states, the taps (each with its ring before it) and the camera */
+const CONF={
+ ios:{ os:"iPhone · Safari", title:"מתקינים<br>באייפון",
+  caps:[
+   ["c1",3.6,6.9,`<h1><span class="nb">1</span>פותחים ב־<em>Safari</em></h1><p>את הקישור של האפליקציה</p>`],
+   ["c2",6.9,10.5,`<h1><span class="nb">2</span>לוחצים על <em>⋯</em><br>ואז על <em>שיתוף</em></h1><p>בגרסאות קודמות: ישר על כפתור השיתוף ⬆︎</p>`],
+   ["c3",10.5,13.7,`<h1><span class="nb">3</span>בוחרים<br><em>הוספה למסך הבית</em></h1><div class="en">Add to Home Screen</div>`],
+   ["c4",13.7,16.4,`<h1><span class="nb">4</span>לוחצים <em>הוספה</em></h1><p>השם כבר מוכן, אין מה לשנות</p>`],
+   ["c5",16.4,21.0,`<h1>האייקון במסך הבית 🎉</h1><p>לוחצים עליו, והאפליקציה נפתחת<br><b>במסך מלא, בלי הדפדפן</b></p>`]],
+  states:[[0,["browser"]],[7.7,["browser","menu"]],[9.6,["browser","shareL"]],[12.3,["browser","shareL","addL"]],[15.0,["home"]],[18.75,["home","app"]]],
+  taps:[[5.0,6.6,"url"],[7.0,7.55,"dots"],[8.4,9.45,"share"],[11.0,12.15,"a2hs"],[13.9,14.85,"addgo"],[17.4,18.6,"mine"]],
+  sel:{url:"#sbar .pill",dots:"#sbar .circ:last-child",share:"#menu .row",a2hs:"#a2hs",addgo:"#add .nav .go",mine:"#mine i"},
+  cam:[[5.0,"url",1.45],[6.8,null],[7.0,"dots",1.3],[7.6,null],[8.2,"share",1.3],[9.5,null],[10.8,"a2hs",1.35],[12.2,null],[13.6,"addgo",1.45],[14.9,null],[17.0,"mine",1.4],[18.5,null]],
+  tip:`<h2>🔔 התזכורת היומית</h2><p>באייפון היא עובדת רק כשנכנסים<br><b>מהאייקון שבמסך הבית</b><br>(iOS 16.4 ומעלה)</p>`,
+  homeAt:15.0, mineAt:15.7, openAt:18.75, tipAt:[19.6,24.4], end:24.6 },
+ android:{ os:"Android · Chrome", title:"מתקינים<br>באנדרואיד",
+  caps:[
+   ["c1",3.6,6.9,`<h1><span class="nb">1</span>פותחים ב־<em>Chrome</em></h1><p>את הקישור של האפליקציה</p>`],
+   ["c2",6.9,9.0,`<h1><span class="nb">2</span>לוחצים על <em>⋮</em></h1><p>שלוש הנקודות, בפינה למעלה</p>`],
+   ["c3",9.0,12.0,`<h1><span class="nb">3</span>בוחרים<br><em>התקנת האפליקציה</em></h1><div class="en">Install app</div>`],
+   ["c4",12.0,14.6,`<h1><span class="nb">4</span>לוחצים <em>התקנה</em></h1><p>ומחכים כמה שניות</p>`],
+   ["c5",14.6,19.2,`<h1>האייקון במסך הבית 🎉</h1><p>לוחצים עליו, והאפליקציה נפתחת<br><b>במסך מלא, בלי הדפדפן</b></p>`]],
+  states:[[0,["browser"]],[7.75,["browser","menu"]],[10.55,["browser","dlgL"]],[13.2,["home"]],[16.95,["home","app"]]],
+  taps:[[5.0,6.6,"url"],[7.0,7.6,"dots"],[9.2,10.4,"inst"],[11.9,13.05,"instgo"],[15.6,16.8,"mine"]],
+  sel:{url:"#cbar .url",dots:"#cbar .dots",inst:"#inst",instgo:"#dlg .go",mine:"#mine i"},
+  cam:[[5.0,"url",1.45],[6.8,null],[7.0,"dots",1.35],[7.7,null],[9.0,"inst",1.3],[10.5,null],[11.8,"instgo",1.4],[13.1,null],[15.2,"mine",1.4],[16.7,null]],
+  tip:`<h2>💡 Chrome הציע בעצמו?</h2><p>אם מופיע למטה כפתור <b>התקנה</b>,<br>אפשר פשוט ללחוץ עליו.<br>ואם בתפריט אין התקנה, בוחרים<br><b>הוספה למסך הבית</b></p>`,
+  homeAt:13.2, mineAt:13.9, openAt:16.95, tipAt:[17.8,23.6], end:23.8 },
+}[OS];
+const C=CONF;
+
+// the home screen's apps: generic, drawn in the logo's colors (RTL: the first is top right)
+const APPS=[["☀︎","#F2A33A","מזג אוויר"],["🕑","#1C1C1E","שעון"],["📷","#8E8E93","מצלמה"],["🖼","#fff","תמונות"],
+            ["🗺","#58B368","מפות"],["📅","#fff","לוח שנה"],["✎","#F5C542","הערות"],["⚙︎","#6E6E73","הגדרות"],
+            ["🧮","#2C2C2E","מחשבון"],["🎵","#E5484D","מוזיקה"]];
+const COLX=[337,241,145,49], ROWY=[66,166,266];   // centers of the grid (RTL), tops of its rows
+const DOCK=[["📞","#34C759"],["💬","#34C759"],["🧭","#1E8CF0"],["✉︎","#1E8CF0"]];
+
+function build(){
+  $("ui").innerHTML=`<div class="status"><span>9:41</span><span class="ic"><span class="sig"><i style="height:4px"></i><i style="height:7px"></i><i style="height:10px"></i><i style="height:12px"></i></span><span>5G</span><span class="bat"></span></span></div>`+
+    $("t-"+OS).innerHTML+$("t-home").innerHTML+`<div id="ring"></div><div id="tap"></div>`;
+  const home=$("home");
+  APPS.forEach(([g,c,n],i)=>{ const a=document.createElement("div"); a.className="app"; a.style.left=COLX[i%4]-40+"px"; a.style.top=ROWY[Math.floor(i/4)]+"px";
+    a.innerHTML=`<i style="background:${c}">${g}</i>${n}`; home.append(a); });
+  const m=document.createElement("div"); m.className="app"; m.id="mine"; m.style.left=COLX[2]-40+"px"; m.style.top=ROWY[2]+"px";
+  m.innerHTML=`<i></i>אהלא וסהלא<span class="new">חדש</span>`; home.append(m);
+  if(OS==="ios") DOCK.forEach(([g,c],i)=>{ const a=document.createElement("div"); a.className="app"; a.style.left=COLX[i]-40+"px"; a.style.top="772px";
+    a.innerHTML=`<i style="background:${c}">${g}</i>`; home.append(a); });
+  else ["📞","💬","🌐","📷"].forEach((g,i)=>{ const a=document.createElement("div"); a.className="app"; a.style.left=COLX[i]-40+"px"; a.style.top="690px";
+    a.innerHTML=`<i style="background:#fff">${g}</i>`; home.append(a); });
+  // the status bar's color: dark on the browser, light on the wallpaper (set in seek)
+  for(const [id,a,b,html] of C.caps){ const d=document.createElement("div"); d.className="cap"; d.id=id; d.innerHTML=html; $("caps").append(d); }
+  $("tip").innerHTML=C.tip; $("annOs").textContent=C.os; $("annH").innerHTML=C.title;
+  for(let i=1;i<=16;i++){ const s=document.createElement("div"); s.className="slab";
+    s.style.transform=`translateZ(${-i}px)`; s.style.background=i<3||i>14?"#9AA0A8":"#3A3C44"; $("slabs").append(s); }
+  for(const [top,h,side] of [[300,110,"left"],[460,170,"left"],[380,200,"right"]]){
+    const b=document.createElement("div"); b.className="btn-side"; b.style.top=top+"px"; b.style.height=h+"px";
+    b.style[side]="-6px"; b.style.transform="translateZ(-8px)"; $("phone").append(b); }
+}
+
+let KEYS=[], LOGO_ANIMS=[];
+const onPhone=(x,y)=>({x:SCREEN.pad+x*UIK-PHONE.w/2, y:SCREEN.pad+y*UIK-PHONE.h/2});   // a point of the ui, from the phone's center
+function focus(x,y,k,fx=540,fy=1180){ const p=onPhone(x,y); return {tx:fx-PHONE.cx-k*p.x, ty:fy-PHONE.cy-k*p.y, k, rx:2, ry:-3, rz:0}; }
+
+async function setup(){
+  build();
+  await document.fonts.ready;
+  // where each thing to tap is on the screen, in the ui's own pixels (measured before anything moves)
+  const u=$("ui").getBoundingClientRect(); C.boxes={};
+  for(const [k,sel] of Object.entries(C.sel)){ const r=document.querySelector(sel).getBoundingClientRect();
+    C.boxes[k]=[(r.left-u.left)/UIK,(r.top-u.top)/UIK,r.width/UIK,r.height/UIK]; }
+  const svg=await (await fetch("logo-intro.svg")).text();
+  $("logoSvg").innerHTML=svg;
+  LOGO_ANIMS=$("logoSvg").getAnimations({subtree:true}); LOGO_ANIMS.forEach(a=>a.pause());
+  $("openSvg").innerHTML=svg.replace(/id="([\w-]+)"/g,'id="o_$1"').replace(/href="#([\w-]+)"/g,'href="#o_$1"').replace(/url\(#([\w-]+)\)/g,"url(#o_$1)");
+  $("openSvg").getAnimations({subtree:true}).forEach(a=>{ a.pause(); a.currentTime=60000; });
+  await Promise.all(["app.png","icon.png","icon-maskable.png"].map(s=>{ const im=new Image(); im.src=s; return im.decode().catch(()=>{}); }));
+  const rest={tx:0,ty:0,k:1,rx:4,ry:-14,rz:0}, away={tx:0,ty:1500,k:.9,rx:20,ry:-30,rz:-6};
+  const calm={tx:0,ty:0,k:1,rx:3,ry:-6,rz:0};
+  KEYS=[[0,away],[OPEN_END-.4,away],[OPEN_END+.6,rest],[4.6,calm]];
+  for(const [t,box,k] of C.cam){
+    if(box){ const b=C.boxes[box]; KEYS.push([t,focus(b[0]+b[2]/2,b[1]+b[3]/2,k)]); }
+    else KEYS.push([t,calm]); }
+  KEYS.push([C.tipAt[0]-.2,calm],[C.tipAt[0]+.5,{tx:0,ty:420,k:.78,rx:8,ry:-16,rz:0}],[C.tipAt[1]-.3,{tx:0,ty:430,k:.78,rx:8,ry:-10,rz:0}],[C.tipAt[1]+.5,away]);
+  KEYS.sort((a,b)=>a[0]-b[0]);
+}
+const duration=()=>C.end+LOGO;
+function stateAt(t){
+  let i=KEYS.findIndex(k=>k[0]>t); if(i<0) return KEYS[KEYS.length-1][1]; if(i===0) return KEYS[0][1];
+  const [t0,a]=KEYS[i-1], [t1,b]=KEYS[i], x=ease((t-t0)/(t1-t0)), s={};
+  for(const k in a) s[k]=lerp(a[k],b[k],x); return s;
+}
+// a layer's presence (0..1) at t: in with its state, out when the next state drops it
+function presence(id,t){
+  let v=0;
+  for(let i=0;i<C.states.length;i++){ const [a,on]=C.states[i], b=i+1<C.states.length?C.states[i+1][0]:1e9;
+    if(!on.includes(id)) continue;
+    const prev=i>0&&C.states[i-1][1].includes(id), next=i+1<C.states.length&&C.states[i+1][1].includes(id);
+    const x=Math.min(prev?1:ease((t-a)/.35), next?1:1-ease((t-b)/.3));
+    if(t>=a-0.001&&t<b+.3) v=Math.max(v,x); }
+  return v;
+}
+const SLIDE={shareL:"up",addL:"up",menu:"pop",dlgL:"pop",home:"fade",app:"open",browser:"fade"};
+
+async function seek(t){
+  const p=stateAt(t);
+  $("phone").style.transform=`translate3d(${p.tx}px,${p.ty}px,0) rotateX(${p.rx}deg) rotateY(${p.ry}deg) rotateZ(${p.rz}deg) scale(${p.k})`;
+  $("shadow").style.transform=`translate(${p.tx}px,${Math.min(p.ty,300)*.2}px) scale(${p.k*(1-Math.abs(p.ry)/90)},1)`;
+  $("shadow").style.opacity=Math.max(0,1-Math.max(0,p.ty)/600);
+  $("gloss").style.backgroundPosition=`${p.ry*4}px 0`;
+  // the screen's layers
+  for(const id of ["browser","menu","shareL","addL","dlgL","home","app"]){ const el=$(id); if(!el) continue;
+    const v=presence(id,t), kind=SLIDE[id]; el.style.visibility=v>0?"visible":"hidden";
+    if(kind==="up"){ el.style.opacity=1; el.querySelector(".scrim").style.opacity=v; el.lastElementChild.style.transform=`translateY(${(1-v)*560}px)`; }
+    else if(kind==="pop"){ el.style.opacity=v; const c=el.querySelector(".menu,#dlg"); c.style.transformOrigin=id==="menu"?(OS==="ios"?"0% 100%":"0% 0%"):"50% 50%"; c.style.transform=`scale(${lerp(.85,1,v)})`; }
+    else if(kind==="open"){ const m=C.boxes.mine, ox=m[0]+m[2]/2, oy=m[1]+m[3]/2; el.style.transformOrigin=`${ox}px ${oy}px`;
+      el.style.transform=`scale(${lerp(.16,1,v)})`; el.style.opacity=Math.min(1,v*3); el.style.borderRadius=lerp(60,0,v)+"px"; }
+    else el.style.opacity=v; }
+  // the status bar: light over the wallpaper
+  const onHome=presence("home",t)*(1-presence("app",t));
+  document.querySelector(".status").style.color=onHome>.5?"#fff":"#111";
+  // our icon arrives on the home screen
+  const mi=pop((t-C.mineAt)/.6); $("mine").style.transform=`scale(${mi})`; $("mine").style.opacity=Math.min(1,mi*2);
+  $("mine").querySelector(".new").style.opacity=ease((t-C.mineAt-.5)/.3);
+  // the ring before each tap, then the tap's ripple
+  let ro=0, rb=null, to=0, tb=null, tx=0;
+  for(const [a,b,box] of C.taps){ const o=win(t,a,b+.05,.25); if(o>ro){ ro=o; rb=C.boxes[box]; }
+    if(t>=b&&t<b+.5){ to=1-ease((t-b)/.5); tb=C.boxes[box]; tx=ease((t-b)/.5); } }
+  if(rb){ const pad=5; Object.assign($("ring").style,{left:rb[0]-pad+"px",top:rb[1]-pad+"px",width:rb[2]+2*pad+"px",height:rb[3]+2*pad+"px",opacity:ro,
+    transform:`scale(${1+.05*Math.sin(t*7)})`}); } else $("ring").style.opacity=0;
+  if(tb){ Object.assign($("tap").style,{left:tb[0]+tb[2]/2+"px",top:tb[1]+tb[3]/2+"px",opacity:to,transform:`scale(${lerp(.6,1.8,tx)})`}); } else $("tap").style.opacity=0;
+  // the opening: the logo, then what this video shows
+  const op=Math.min(ease(t/.5),1-ease((t-(OPEN_END-.4))/.5)), up=ease((t-.8)/.8);
+  $("open").style.opacity=op; $("open").style.visibility=op>0?"visible":"hidden";
+  $("open").style.transform=`translateY(${-420*up}px) scale(${lerp(.94,1,ease(t/1.0))*lerp(1,.82,up)})`;
+  const rise=ease((t-1.0)/.8), an=Math.min(ease((t-1.0)/.4),1-ease((t-(OPEN_END-.4))/.5));
+  $("announce").style.opacity=an; $("announce").style.visibility=an>0?"visible":"hidden";
+  $("announce").style.transform=`translateY(${(1-rise)*820}px)`;
+  $("band").style.opacity=ease((t-OPEN_END+.4)/.4);
+  for(const [id,a,b] of C.caps){ const o=win(t,a,b); $(id).style.opacity=o; $(id).style.transform=`translateY(${(1-o)*30}px)`; }
+  const tp=win(t,C.tipAt[0],C.tipAt[1],.45); $("tip").style.opacity=tp; $("tip").style.transform=`translateY(${(1-tp)*40}px) scale(${lerp(.94,1,tp)})`;
+  // the closing logo, its whole animation
+  const L=C.end;
+  $("logo").style.opacity=ease((t-L+.2)/.4); $("logo").style.visibility=t>L-.2?"visible":"hidden";
+  LOGO_ANIMS.forEach(a=>{ a.currentTime=Math.max(0,t-L)*1000*LOGO_SPEED; });
+  const cta=ease((t-L-5.0)/.5); $("logo").querySelector(".cta").style.opacity=cta;
+  $("logo").querySelector(".cta").style.transform=`translateY(${(1-cta)*24}px)`;
+  $("stage").style.opacity=1-ease((t-L+.3)/.4);
+}
+</script>
+</body>
+</html>
