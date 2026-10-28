@@ -7307,11 +7307,12 @@ $("newForm").onsubmit=async e=>{   // "next" checks the step on show; on the las
 /* "פועל יוצא" (Switch & Speak), Levels 1--5. Linguistic content and grading come from the server;
    lightweight mastery is kept on this device. */
 const VERB_ROUND=10, VERB_THRESH={2:.85,3:.90,4:.90,5:.85};
+const VERB_ALL_LEVELS_OPEN=true;
 let verbMeta=null, verbQuestion=null, verbStarted=0, verbLevel=1, verbPath="learn", verbN=0, verbStreak=0, verbRecent=[];
 let verbMastery=store.get("ihki.verbMastery",{}), verbSummary=store.get("ihki.verbSummary",{}), verbPairs={}, verbPicked=null;
 const verbRatio=n=>{const s=verbSummary[n]||{}; return s.attempts?s.correct/s.attempts:0};
 // FREE is set only from /api/me's server-verified teacher flag. Teachers can inspect every level.
-const verbUnlocked=n=>FREE||n===1
+const verbUnlocked=n=>VERB_ALL_LEVELS_OPEN||FREE||n===1
   ||(n===2&&(verbSummary[1]?.attempts||0)>=10&&verbRatio(1)>=VERB_THRESH[2])
   ||(n===3&&(verbSummary[2]?.attempts||0)>=6&&verbRatio(2)>=VERB_THRESH[3])
   ||(n===4&&(verbSummary[3]?.attempts||0)>=10&&verbRatio(3)>=VERB_THRESH[4]&&(verbSummary[3]?.median_ms||Infinity)<=2000)
@@ -7446,7 +7447,7 @@ async function reportVerbScore(questionId,blob,button,status,attemptId){
    Hebrew beside it. Tiles carry their Arabic, which the server grades. 6 shows the Hebrew while building, 7 after; 8 shows one form
    and asks for every pronoun it can be (تقعد: אתה and היא). A tap puts a tile in the open slot: no dragging on a phone. */
 const EITAN_COLOR={"א":"a","ת":"t","י":"y","נ":"n"};
-const eitanUnlocked=n=>FREE||n===6||((verbSummary[6]?.attempts||0)>=8&&verbRatio(6)>=.8);
+const eitanUnlocked=n=>VERB_ALL_LEVELS_OPEN||FREE||n===6||((verbSummary[6]?.attempts||0)>=8&&verbRatio(6)>=.8);
 const TR_MARK=/[\u0591-\u05C7'\u0651]/, TR_FINAL={"כ":"ך","מ":"ם","נ":"ן","פ":"ף","צ":"ץ"}, TR_REGULAR=Object.fromEntries(Object.entries(TR_FINAL).map(([a,b])=>[b,a]));
 function eitanCompose(pre,body,suf){   // as compose_tr in conjugation.py: a final letter only at the end, חִ'י before a geresh
   let i=body.length; while(i&&TR_MARK.test(body[i-1])) i--;
