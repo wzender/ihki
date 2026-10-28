@@ -340,6 +340,26 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                      current.get("id"), class_id, from_date, to_date, type(exc).__name__)
             return {"ok": False, "error": str(exc)}
 
+    @server.tool(description=("Return read-only, privacy-thresholded hourly aggregates of persisted practice "
+                              "attempts for one authorized class or all visible classes. This is not app presence, "
+                              "does not identify learners, and does not send notifications."), structured_output=True)
+    async def get_hourly_activity(
+        from_date: str, to_date: str, class_id: int | None = None,
+        breakdown: Literal["hour_of_day", "date_hour"] = "hour_of_day",
+        timezone: str = "Asia/Jerusalem",
+    ) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "נתוני הפעילות אינם זמינים"}
+        try:
+            return {"ok": True, **monitoring.hourly_activity(
+                store, current, from_date=from_date, to_date=to_date, class_id=class_id,
+                breakdown=breakdown, timezone_name=timezone)}
+        except monitoring.MonitoringError as exc:
+            log.info("MCP hourly activity outcome=refused actor_id=%s class_id=%s range=%s..%s reason=%s",
+                     current.get("id"), class_id, from_date, to_date, type(exc).__name__)
+            return {"ok": False, "error": str(exc)}
+
     @server.tool(description=("Return privacy-thresholded current activity for one authorized class or all visible "
                               "classes. Recent persisted practice never implies that learners are online; current "
                               "presence is available only for an active live-class heartbeat session."),

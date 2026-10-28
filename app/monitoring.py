@@ -24,6 +24,7 @@ MAX_DIFFICULTY_RESULTS = 20
 MAX_ANALYTICS_RESULTS = 50
 EXERCISE_TYPES = frozenset({"pronunciation", "verb", "game", "other"})
 CURRENT_ACTIVITY_WINDOWS = frozenset({5, 15})
+HOURLY_BREAKDOWNS = frozenset({"hour_of_day", "date_hour"})
 FLAG_STATUSES = frozenset({"pending", "confirmed", "rejected", "fixed"})
 FLAG_CATEGORIES = frozenset({"recognition", "valid_variant", "alternative_answer", "noise", "other"})
 
@@ -138,11 +139,140 @@ def activity_timeseries(auth: Any, actor: dict[str, Any], *, from_date: object, 
         except (TypeError, ValueError, OverflowError):
             continue
 
-    summary = raw.get("summary") if isinstance(raw, dict) and isinstance(raw.get("summary"), dict) else {}
+    if not isinstance(raw, dict) or not isinstance(raw.get("summary"), dict):
+        raise MonitoringUnavailable("נתוני הפעילות השעתיים אינם זמינים")
+    summary = raw["summary"]
     safe_summary = {key: max(0, int(summary.get(key) or 0))
                     for key in ("attempts", "active_students", "returning_students", "active_days")}
     return {**scope, "from_date": start.isoformat(), "to_date": end.isoformat(),
             "interval": clean_interval, "series": list(grouped.values()), "summary": safe_summary}
+
+
+def hourly_activity(auth: Any, actor: dict[str, Any], *, from_date: object, to_date: object,
+                    class_id: int | None = None, breakdown: object = "hour_of_day",
+                    timezone_name: object = "Asia/Jerusalem", today: date | None = None,
+                    read_at: datetime | None = None) -> dict[str, Any]:
+    """Return scoped hourly persisted-practice aggregates with non-composable suppression."""
+    if breakdown not in HOURLY_BREAKDOWNS:
+        raise MonitoringError("breakdown חייב להיות hour_of_day או date_hour")
+    if not isinstance(timezone_name, str):
+        raise MonitoringError("timezone חייב להיות אזור זמן תקין של IANA")
+    try:
+        selected_tz = ZoneInfo(timezone_name)
+    except (KeyError, ValueError):
+        raise MonitoringError("timezone חייב להיות אזור זמן תקין של IANA") from None
+    start, end, _ = validate_range(from_date, to_date, "day",
+                                   today=today or datetime.now(selected_tz).date())
+    classes, scope = _scope(auth, actor, class_id)
+    since = datetime.combine(start, time.min, selected_tz).astimezone(timezone.utc)
+    until = datetime.combine(end + timedelta(days=1), time.min, selected_tz).astimezone(timezone.utc)
+    checked = (read_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    try:
+        user_ids = _scoped_user_ids(auth, classes)
+        raw = auth.scoped_hourly_activity(user_ids, since, until, str(breakdown), timezone_name)
+    except (AuthUnavailable, AttributeError, KeyError, TypeError) as exc:
+        raise MonitoringUnavailable("נתוני הפעילות השעתיים אינם זמינים; יש להחיל את מיגרציית hourly activity") from exc
+
+    summary = raw.get("summary") if isinstance(raw, dict) and isinstance(raw.get("summary"), dict) else {}
+    try:
+        missing = max(0, int(summary.get("missing_timestamps") or 0))
+    except (TypeError, ValueError, OverflowError):
+        missing = 0
+    database_stamp = _activity_stamp(summary.get("database_read_at")) or checked
+    base = {**scope, "from_date": start.isoformat(), "to_date": end.isoformat(),
+            "breakdown": breakdown, "timezone": timezone_name, "days_included": (end - start).days + 1,
+            "database_read_at": _utc_iso(database_stamp), "source": "persisted_attempts",
+            "privacy_threshold": {"minimum_students": MIN_DIFFICULTY_STUDENTS,
+                                  "minimum_attempts": MIN_DIFFICULTY_ATTEMPTS},
+            "interpretation": ("These figures count persisted practice attempts, not general app visits or proof "
+                               "that students were online. A peak practice hour is only a hypothesis for reminder "
+                               "timing, not evidence that it is the best notification time."),
+            "distinct_count_note": ("Period distinct students are computed directly across the period; hourly "
+                                    "distinct counts are never summed or averaged."),
+            "period_denominator": {"calendar_days": (end - start).days + 1,
+                                   "average_attempts_per_calendar_day_denominator": (end - start).days + 1}}
+    if missing:
+        return {**base, "status": "unavailable", "reason": "missing_or_unreliable_attempt_timestamps",
+                "buckets": [], "summary": {"status": "unavailable"}}
+
+    parsed_by_key: dict[tuple, dict[str, Any]] = {}
+    invalid_bucket = False
+    for row in raw.get("buckets", ()) if isinstance(raw, dict) else ():
+        try:
+            attempts = max(0, int(row.get("attempts") or 0))
+            students = max(0, int(row.get("active_students") or 0))
+            if breakdown == "date_hour":
+                utc_stamp = _activity_stamp(row["utc_hour_start"])
+                if utc_stamp is None:
+                    continue
+                local_stamp = utc_stamp.astimezone(selected_tz)
+                offset = local_stamp.strftime("%z")
+                label = {"date": local_stamp.date().isoformat(), "hour": local_stamp.hour,
+                         "utc_offset": offset[:3] + ":" + offset[3:],
+                         "utc_hour_start": _utc_iso(utc_stamp)}
+            else:
+                label = {"hour": int(row["local_hour"])}
+        except (KeyError, TypeError, ValueError, OverflowError):
+            invalid_bucket = True
+            continue
+        visible = attempts == 0 or (attempts >= MIN_DIFFICULTY_ATTEMPTS and students >= MIN_DIFFICULTY_STUDENTS)
+        key = ((label["utc_hour_start"],) if breakdown == "date_hour" else (label["hour"],))
+        parsed_by_key[key] = {**label, "status": "complete" if visible else "suppressed",
+                              **({"attempts": attempts, "distinct_active_students": students} if visible else
+                                 {"reason": "privacy_threshold"})}
+
+    if invalid_bucket:
+        return {**base, "status": "unavailable", "reason": "missing_or_unreliable_attempt_timestamps",
+                "buckets": [], "summary": {"status": "unavailable"}}
+
+    parsed: list[dict[str, Any]] = []
+    if breakdown == "hour_of_day":
+        for hour in range(24):
+            parsed.append(parsed_by_key.get((hour,), {"hour": hour, "status": "complete", "attempts": 0,
+                                                       "distinct_active_students": 0}))
+    else:
+        cursor = since
+        while cursor < until:
+            local = cursor.astimezone(selected_tz)
+            utc_key = _utc_iso(cursor)
+            offset = local.strftime("%z")
+            parsed.append(parsed_by_key.get((utc_key,), {
+                "date": local.date().isoformat(), "hour": local.hour,
+                "utc_offset": offset[:3] + ":" + offset[3:], "utc_hour_start": utc_key,
+                "status": "complete", "attempts": 0, "distinct_active_students": 0}))
+            cursor += timedelta(hours=1)
+
+    try:
+        total_attempts = max(0, int(summary.get("attempts") or 0))
+        total_students = max(0, int(summary.get("active_students") or 0))
+    except (TypeError, ValueError, OverflowError):
+        raise MonitoringUnavailable("נתוני הפעילות השעתיים אינם זמינים") from None
+    suppressed = any(row["status"] == "suppressed" for row in parsed)
+    if total_attempts == 0:
+        summary_out = {"status": "no_activity", "total_attempts": 0, "distinct_active_students": 0,
+                       "average_attempts_per_calendar_day": 0.0,
+                       "peak_by_attempts": [], "peak_by_distinct_active_students": []}
+    elif suppressed or total_attempts < MIN_DIFFICULTY_ATTEMPTS or total_students < MIN_DIFFICULTY_STUDENTS:
+        summary_out = {"status": "suppressed", "reason": "privacy_threshold"}
+    else:
+        visible = [row for row in parsed if row["status"] == "complete"]
+        max_attempts = max((row["attempts"] for row in visible), default=0)
+        max_students = max((row["distinct_active_students"] for row in visible), default=0)
+        clean = lambda row: {key: value for key, value in row.items() if key not in {"status", "attempts", "distinct_active_students"}}
+        summary_out = {"status": "complete", "total_attempts": total_attempts,
+                       "distinct_active_students": total_students,
+                       "average_attempts_per_calendar_day": round(total_attempts / base["days_included"], 2),
+                       "peak_by_attempts": {"attempts": max_attempts,
+                                            "hours": [clean(row) for row in visible
+                                                      if row["attempts"] == max_attempts]},
+                       "peak_by_distinct_active_students": {
+                           "distinct_active_students": max_students,
+                           "hours": [clean(row) for row in visible
+                                     if row["distinct_active_students"] == max_students]}}
+    overall_status = ("no_activity" if total_attempts == 0 else
+                      "suppressed" if summary_out["status"] == "suppressed" else "complete")
+    return {**base, "status": overall_status,
+            "buckets": parsed, "summary": summary_out}
 
 
 def _utc_iso(value: datetime) -> str:

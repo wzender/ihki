@@ -535,10 +535,13 @@ body:not(.home) .reward-shelf,body.manage .reward-shelf,body:not([data-view=home
 .verb-stats{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}
 .verb-track{height:7px;border-radius:8px;background:var(--line);overflow:hidden}.verb-track i{display:block;height:100%;width:0;background:var(--olive);transition:width .2s}
 .verb-menu{display:grid;gap:10px}.verb-path{padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);text-align:start;font:700 17px var(--f-body);cursor:pointer}.verb-path small{display:block;margin-top:4px;color:var(--muted);font-weight:600}
+.verb-family-title{margin:6px 2px -2px;font:800 16px/1.3 var(--f-body)}.verb-family-title small{display:block;margin-top:2px;color:var(--muted);font-size:12px;font-weight:600}
+#eitanMenu{display:grid;gap:10px}#eitanMenu[hidden]{display:none}
+.verb-tense-pick{margin:0;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}.verb-tense-pick legend{padding:0 7px;font-weight:800}.verb-tense-pick>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.verb-tense-pick label{position:relative;cursor:pointer}.verb-tense-pick input{position:absolute;opacity:0;pointer-events:none}.verb-tense-pick span{display:flex;min-height:53px;flex-direction:column;align-items:center;justify-content:center;padding:5px;border:2px solid var(--line);border-radius:12px;background:var(--bg);font-weight:800}.verb-tense-pick span small{color:var(--muted);font-size:11px;font-weight:600}.verb-tense-pick input:checked+span{border-color:var(--olive);background:var(--olive);color:var(--on-olive)}.verb-tense-pick input:checked+span small{color:inherit}.verb-tense-pick input:focus-visible+span{outline:3px solid var(--amber);outline-offset:2px}.verb-tense-pick>p{margin:8px 2px 0;color:var(--muted);font-size:12px;text-align:center}
 .verb-levels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.verb-levels button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:58px;padding:7px 4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-weight:700}.verb-levels button small{font:600 11px/1.25 var(--f-body);color:var(--muted)}.verb-levels button.on{background:var(--olive);color:var(--on-olive)}.verb-levels button.on small{color:inherit}.verb-levels button:disabled{opacity:1;border-style:dashed;color:var(--muted);background:color-mix(in srgb,var(--surface) 75%,var(--line))}.verb-levels button:disabled::before{content:"🔒";font-size:14px;line-height:1}
 .verb-board{display:flex;flex:1;flex-direction:column;gap:12px}.verb-cue{text-align:center}.verb-cue h3{margin:8px 0 2px;font:400 clamp(28px,8vw,42px) var(--f-display)}.verb-cue .ar{font:26px var(--f-ar);color:var(--muted)}
 .verb-pronoun{margin:8px 0 0;font:700 22px/1.65 var(--f-tr);letter-spacing:.025em}.verb-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.verb-choice{min-height:84px;padding:8px 10px 4px;border:2px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);font:700 25px/1.75 var(--f-tr);letter-spacing:.035em;cursor:pointer}.verb-choice .ar{display:block;margin-top:-5px;font:18px/1.25 var(--f-ar);letter-spacing:0;color:var(--muted)}.verb-choice.good{border-color:var(--ok);background:var(--ok-bg)}.verb-choice.bad{border-color:var(--sumac);background:var(--sumac-bg)}
-.verb-match{display:grid;grid-template-columns:1fr 1fr;gap:8px}.verb-match button{min-height:68px;padding:6px 8px 3px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:700 22px/1.7 var(--f-tr);letter-spacing:.03em}.verb-match button small{display:block;margin-top:-5px;font:500 17px/1.5 var(--f-tr);letter-spacing:.02em;color:var(--muted)}.verb-match button.selected{border-color:var(--amber);background:var(--amber-bg)}.verb-match button.done{border-color:var(--ok);opacity:.58}.verb-match .ar{display:block;margin-top:-4px;font:16px/1.25 var(--f-ar);letter-spacing:0}
+.verb-match{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}.verb-match>div{display:flex;min-width:0;flex-direction:column;gap:8px}.verb-match h3{margin:0 0 2px;color:var(--muted);font:700 14px/1.3 var(--f-body);text-align:center}.verb-match button{width:100%;min-height:68px;padding:6px 8px 3px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:700 22px/1.7 var(--f-tr);letter-spacing:.03em}.verb-match button small{display:block;margin-top:-5px;font:500 17px/1.5 var(--f-tr);letter-spacing:.02em;color:var(--muted)}.verb-match button.selected{border-color:var(--amber);background:var(--amber-bg)}.verb-match button.done{border-color:var(--line);background:var(--bg);opacity:.72}.verb-match button.good{border-color:var(--ok);background:var(--ok-bg);opacity:1}.verb-match button.bad{border-color:var(--sumac);background:var(--sumac-bg);color:var(--sumac);opacity:1}
 .verb-feedback{min-height:44px;padding:10px;border-radius:12px;text-align:center;font-weight:700}.verb-feedback:empty{padding:0}.verb-feedback.good{background:var(--ok-bg);color:var(--ok)}.verb-feedback.bad{background:var(--sumac-bg);color:var(--sumac)}
 .verb-speak{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}.verb-mic{display:grid;place-items:center;width:86px;height:86px;border:0;border-radius:50%;background:var(--olive);color:var(--on-olive);font-size:34px;box-shadow:0 5px 0 var(--olive-deep);cursor:pointer}.verb-mic.live{background:var(--sumac);box-shadow:0 5px 0 color-mix(in srgb,var(--sumac) 70%,#000)}.verb-mic:disabled{opacity:.5}.verb-record-actions{display:flex;gap:8px}.verb-conversation{padding:14px;border-radius:16px;background:var(--olive-soft)}.verb-conversation .ar{font:700 27px/1.6 var(--f-ar)}.verb-answer{font:700 25px/1.7 var(--f-tr);letter-spacing:.035em}
 .verb-record-actions{flex-wrap:wrap;justify-content:center}.verb-report{border-color:var(--sumac);color:var(--sumac)}.verb-report:disabled{opacity:.65}
@@ -581,6 +584,7 @@ html.a11y-contrast{--e-a:#d8b4ff;--e-t:#8fd0ff;--e-y:#70ff9b;--e-n:#ffb45b;--e-s
 .verb-badge{display:inline-block;padding:1px 8px;border-radius:9px;background:var(--amber-bg);color:var(--amber);font:700 12px var(--f-body);vertical-align:middle}
 /* Pronoun-driven animation: איתן falls into the future form; ב falls in before it in the present. */
 .fall-game{display:flex;flex:1;flex-direction:column;align-items:center;gap:14px;text-align:center}.fall-base small,.fall-help{color:var(--muted);font-weight:700}.fall-base .tr{display:block;font:700 clamp(34px,11vw,50px)/1.5 var(--f-tr)}.fall-base .ar,.fall-ar{font:700 25px/1.5 var(--f-ar);color:var(--muted)}
+.fall-picker{display:flex;align-items:center;gap:8px;width:100%;font-weight:800}.fall-picker select{flex:1;min-width:0;padding:9px 12px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:700 16px var(--f-body)}
 .fall-tense{display:flex;gap:7px}.fall-tense button{min-width:100px;padding:9px;border:2px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font-weight:800}.fall-tense button.on{border-color:var(--olive);background:var(--olive);color:var(--on-olive)}
 .fall-pronouns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;width:100%}.fall-pronouns button{min-height:55px;padding:5px 3px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-weight:800}.fall-pronouns button small{display:block;color:var(--muted);font:500 12px/1.4 var(--f-tr)}.fall-pronouns button.on{border-color:var(--amber);background:var(--amber-bg)}
 .fall-stage{display:grid;place-items:center;min-height:150px;width:100%;padding:12px;box-sizing:border-box;border-radius:18px;background:var(--olive-soft)}.fall-word{display:flex;align-items:baseline;justify-content:center;direction:rtl;font:800 clamp(36px,12vw,54px)/1.5 var(--f-tr);letter-spacing:.04em}.fall-letter{display:inline-block;color:var(--e,var(--e-a));animation:letter-fall .7s cubic-bezier(.2,1.35,.45,1) both}.fall-letter.present{--e:var(--e-s);animation-delay:.3s}.fall-body{display:inline-block}.fall-suffix{color:var(--e-s)}
@@ -2061,11 +2065,18 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
     <div class="verb-stats"><span id="verbProgress">מוכנים?</span><span id="verbStreak">רצף 0 🔥</span></div>
     <div class="verb-track"><i id="verbBar"></i></div>
     <div class="verb-menu" id="verbMenu">
+      <fieldset class="verb-tense-pick" id="verbTensePick"><legend>אילו זמנים להגריל?</legend><div>
+        <label><input type="checkbox" value="past"><span>עבר<small>מה עשיתי?</small></span></label>
+        <label><input type="checkbox" value="present"><span>הווה<small>מה אני עושה?</small></span></label>
+        <label><input type="checkbox" value="future"><span>עתיד<small>מה אעשה?</small></span></label>
+      </div><p>אפשר לבחור זמן אחד או לשלב כמה זמנים באותו סבב.</p></fieldset>
       <button class="verb-path" data-path="learn">ללמוד פעלים חדשים<small>זיהוי והתאמת גופים, בקצב נוח</small></button>
       <button class="verb-path" data-path="daily">אימון הפעלים היומי<small>שליפה מהירה וחזרה על מה שכבר נלמד</small></button>
       <div class="verb-levels" id="verbLevels"></div>
-      <button class="verb-path" data-path="eitan">בונים פועל עם איתן<small>עבר ועתיד יחד, מאותיות איתן ומהסיומות, כמו בעברית</small></button>
-      <div class="verb-levels" id="eitanLevels"></div>
+      <section id="eitanMenu" hidden>
+        <h3 class="verb-family-title">תרגילי אית״ן<small>בנייה וזיהוי של הטיות לפי כינוי הגוף</small></h3>
+        <div class="verb-levels" id="eitanLevels"></div>
+      </section>
     </div>
     <div class="verb-board" id="verbBoard" hidden></div>
     <div class="verb-feedback" id="verbFeedback" role="status"></div>
@@ -7308,8 +7319,18 @@ $("newForm").onsubmit=async e=>{   // "next" checks the step on show; on the las
    lightweight mastery is kept on this device. */
 const VERB_ROUND=10, VERB_THRESH={2:.85,3:.90,4:.90,5:.85};
 const VERB_ALL_LEVELS_OPEN=true;
-let verbMeta=null, verbQuestion=null, verbStarted=0, verbLevel=1, verbPath="learn", verbN=0, verbStreak=0, verbRecent=[];
+let verbMeta=null, verbQuestion=null, verbStarted=0, verbLevel=1, verbPath="learn", verbN=0, verbStreak=0, verbRecent=[], verbDailyLevels=[];
 let verbMastery=store.get("ihki.verbMastery",{}), verbSummary=store.get("ihki.verbSummary",{}), verbPairs={}, verbPicked=null;
+let verbTenses=store.get("ihki.verbTenses",["past","present","future"]).filter(t=>["past","present","future"].includes(t));
+if(!verbTenses.length)verbTenses=["past","present","future"];
+for(const input of $("verbTensePick").querySelectorAll("input")){
+  input.checked=verbTenses.includes(input.value);
+  input.onchange=()=>{
+    const picked=[...$("verbTensePick").querySelectorAll("input:checked")].map(x=>x.value);
+    if(!picked.length){input.checked=true;return}
+    verbTenses=picked;store.set("ihki.verbTenses",verbTenses);
+  };
+}
 const verbRatio=n=>{const s=verbSummary[n]||{}; return s.attempts?s.correct/s.attempts:0};
 // FREE is set only from /api/me's server-verified teacher flag. Teachers can inspect every level.
 const verbUnlocked=n=>VERB_ALL_LEVELS_OPEN||FREE||n===1
@@ -7331,69 +7352,99 @@ function drawVerbLevels(){
     b.onclick=()=>{verbPath=verbPath==="eitan"?"learn":verbPath; verbLevel=l.id; drawVerbLevels(); startVerbRound();}; box.append(b);
   }
   const ebox=$("eitanLevels"), none=!(verbMeta?.eitan_verbs||[]).length; ebox.replaceChildren();
-  document.querySelector('[data-path="eitan"]').disabled=none;
   for(const l of verbMeta?.eitan_levels||[]){
     const locked=none||!eitanUnlocked(l.id), b=mark(l.id===verbLevel?"on":"",l.name,"button");
     b.disabled=locked; if(locked){const why=none?"ייפתח עם פעלי שלב א'":`${verbSummary[6]?.attempts||0}/8 · ${Math.round(verbRatio(6)*100)}%/80% ברמה הראשונה`;b.append(mark("",why,"small"));b.setAttribute("aria-label",`${l.name}, נעול: ${why}`)}
     b.onclick=()=>{verbPath="eitan"; verbLevel=l.id; drawVerbLevels(); startVerbRound();}; ebox.append(b);
   }
 }
+function showVerbHub(){
+  if(verbRecorder?.state==="recording"){verbRecordCancel=true;verbRecorder.stop()}
+  verbQuestion=null; fallingData=null; fallingForm=null;
+  $("verbTitle").textContent="פועל יוצא"; $("verbClose").textContent="סגירה";
+  $("eitanMenu").hidden=true;
+  $("verbBoard").hidden=true; $("verbMenu").hidden=false; $("verbFeedback").textContent="";
+  $("verbProgress").textContent="בחרו משחק"; $("verbStreak").textContent=""; $("verbBar").style.width="0";
+  for(const el of [$("verbTensePick"),$("verbLevels"),...document.querySelectorAll('[data-path="learn"],[data-path="daily"]')]) el.hidden=false;
+  if(verbMeta) drawVerbLevels();
+}
 async function openVerbGame(eitanOnly=false){   // eitanOnly: "בונים פועל עם איתן" alone, without פועל יוצא's own levels
   const dlg=$("verbDlg"); $("verbBoard").hidden=true; $("verbMenu").hidden=false; $("verbFeedback").textContent="";
+  $("verbClose").textContent="סגירה";
   $("verbTitle").textContent=eitanOnly?"בונים פועל עם איתן":"פועל יוצא";
-  for(const el of [$("verbLevels"),...document.querySelectorAll('[data-path="learn"],[data-path="daily"]')]) el.hidden=eitanOnly;
+  $("eitanMenu").hidden=!eitanOnly;
+  for(const el of [$("verbTensePick"),$("verbLevels"),...document.querySelectorAll('[data-path="learn"],[data-path="daily"]')]) el.hidden=eitanOnly;
   dlg.showModal();
   if(!verbMeta){ const r=await api("/api/verb-game").catch(()=>null); if(!r||!r.ok){$("verbFeedback").textContent="המשחק לא זמין כרגע.";return} verbMeta=await r.json(); }
   drawVerbLevels();
   if(eitanOnly&&!verbMeta.eitan_levels){ verbMeta=null; $("verbFeedback").textContent="השרת עדיין לא מכיר את המשחק הזה. הפעילו אותו מחדש ונסו שוב."; }
   else if(eitanOnly&&!verbMeta.eitan_verbs.length) $("verbFeedback").textContent="המשחק ייפתח אחרי שיעור הפעלים הראשון של שלב א'.";
 }
-$("verbClose").onclick=()=>$("verbDlg").close();
+$("verbClose").onclick=()=>$("verbBoard").hidden?$("verbDlg").close():showVerbHub();
 $("verbDlg").addEventListener("close",()=>{verbQuestion=null});
 for(const b of document.querySelectorAll("[data-path]")) b.onclick=()=>{verbPath=b.dataset.path; verbLevel=verbPath==="eitan"?(eitanUnlocked(7)?7:6):verbPath==="daily"?[5,4,3,2,1].find(verbUnlocked):(verbUnlocked(2)?2:1); drawVerbLevels(); startVerbRound();};
-function startVerbRound(){ verbN=0; verbStreak=0; verbRecent=[]; $("verbMenu").hidden=true; $("verbBoard").hidden=false; nextVerb(); }
+function startVerbRound(){
+  verbN=0;verbStreak=0;verbRecent=[];
+  verbDailyLevels=verbPath==="daily"?shuffleCopy([1,2,3,4,5,1,2,3,4,5]):[];
+  $("verbClose").textContent="חזרה";$("verbMenu").hidden=true;$("verbBoard").hidden=false;nextVerb();
+}
+function shuffleCopy(items){
+  const out=[...items];for(let i=out.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[out[i],out[j]]=[out[j],out[i]]}return out;
+}
 async function nextVerb(){
   if(verbN>=VERB_ROUND){
-    $("verbBoard").innerHTML=`<div class="verb-cue"><h3>כל הכבוד!</h3><p>סיימתם ${VERB_ROUND} שאלות. הרצף הטוב נשמר להמשך.</p><button class="btn primary" id="verbAgain">סבב נוסף</button></div>`;
-    $("verbAgain").onclick=startVerbRound; $("verbFeedback").textContent=""; return;
+    $("verbBoard").innerHTML=`<div class="verb-cue"><h3>כל הכבוד!</h3><p>סיימתם ${VERB_ROUND} שאלות. הרצף הטוב נשמר להמשך.</p><div class="row"><button class="btn primary" id="verbHub">חזרה לפועל יוצא</button><button class="btn" id="verbAgain">סבב נוסף</button></div></div>`;
+    $("verbHub").onclick=showVerbHub; $("verbAgain").onclick=startVerbRound; $("verbFeedback").textContent=""; return;
   }
   $("verbFeedback").className="verb-feedback"; $("verbFeedback").textContent=""; $("verbBoard").innerHTML="טוען…";
-  const payload={level:verbLevel,mastery:verbMastery,recent:verbRecent};
+  const questionLevel=verbPath==="daily"?(verbDailyLevels[verbN]||1):verbLevel;
+  const payload={level:questionLevel,mastery:verbMastery,recent:verbRecent,tenses:verbTenses};
   const r=await api("/api/verb-game/question",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).catch(()=>null);
   if(!r||!r.ok){$("verbBoard").textContent="לא הצלחנו לטעון שאלה.";return}
   verbQuestion=await r.json(); verbStarted=performance.now(); verbPairs={}; verbPicked=null;
   verbRecent.push(verbQuestion.mastery_key); if(verbRecent.length>6) verbRecent.shift();
-  const levelName=verbLevel>=6?(verbMeta.eitan_levels.find(l=>l.id===verbLevel)||{}).name:`רמה ${verbLevel}`;
+  const levelName=questionLevel>=6?(verbMeta.eitan_levels.find(l=>l.id===questionLevel)||{}).name:verbPath==="daily"?`אימון מעורב · רמה ${questionLevel}`:`רמה ${questionLevel}`;
   $("verbProgress").textContent=`שאלה ${verbN+1} מתוך ${VERB_ROUND} · ${levelName}`; $("verbStreak").textContent=`רצף ${verbStreak} 🔥`; $("verbBar").style.width=`${verbN/VERB_ROUND*100}%`;
   drawVerbQuestion();
 }
 function cue(q){
-  const top=mark("verb-cue","","div"); top.append(mark("",`${q.verb.name} · ${q.tense.name}`,"h3"),mark("ar",q.verb.arabic,"div")); return top;
+  const top=mark("verb-cue","","div"); top.append(mark("",`${q.verb.name} · ${q.tense.name}`,"h3")); return top;
 }
 function drawVerbQuestion(){
   if(verbQuestion.level>=6) return drawEitan(verbQuestion);
   const q=verbQuestion, board=$("verbBoard"); board.replaceChildren(cue(q));
   if(q.level>=4){
-    if(q.conversation){const c=mark("verb-conversation","","div"); c.append(mark("ar",q.conversation.arabic,"div"),mark("",q.conversation.transliteration,"div"),mark("",q.conversation.hebrew,"small")); const hear=mark("btn","🔊 השמעת השאלה","button"); hear.onclick=()=>{const u=new SpeechSynthesisUtterance(q.conversation.arabic);u.lang="ar-PS";speechSynthesis.cancel();speechSynthesis.speak(u)}; c.append(hear); board.append(c)}
+    if(q.conversation){const c=mark("verb-conversation","","div"); c.append(mark("",q.conversation.transliteration,"div"),mark("",q.conversation.hebrew,"small")); const hear=mark("btn","🔊 השמעת השאלה","button"); hear.onclick=()=>{const u=new SpeechSynthesisUtterance(q.conversation.arabic);u.lang="ar-PS";speechSynthesis.cancel();speechSynthesis.speak(u)}; c.append(hear); board.append(c)}
     else board.append(mark("verb-pronoun",`הגוף: ${q.pronoun.hebrew} · ${q.pronoun.transliteration}`,"p"));
-    const speak=mark("verb-speak","","div"), mic=mark("verb-mic","🎙","button"), status=mark("","לחצו, אמרו את ההטיה ולחצו שוב לסיום","p"), actions=mark("verb-record-actions","","div"); mic.onclick=()=>verbRecord(mic,status,actions); speak.append(mic,status,actions); board.append(speak); return;
+    const speak=mark("verb-speak","","div"), mic=mark("verb-mic","🎙","button"), status=mark("","ההקלטה מתחילה ונעצרת לבד","p"), actions=mark("verb-record-actions","","div"); mic.onclick=()=>verbRecord(mic,status,actions,false); speak.append(mic,status,actions); board.append(speak); setTimeout(()=>{if(verbQuestion===q)verbRecord(mic,status,actions,true)},0); return;
   }
   if(q.level===2){
     const grid=mark("verb-match","","div"), left=mark("","","div"), right=mark("","","div");
+    left.append(mark("","כינוי גוף","h3")); right.append(mark("","הטיה","h3"));
     for(const p of q.pronouns){ const b=mark("",p.hebrew,"button"); b.dataset.id=p.id; b.append(mark("",p.transliteration,"small")); b.onclick=()=>pickVerbPair("pronoun",b); left.append(b); }
-    for(const f of q.forms){ const b=mark("",f.transliteration,"button"); b.dataset.id=f.id; b.append(mark("ar",f.arabic)); b.onclick=()=>pickVerbPair("form",b); right.append(b); }
+    for(const f of q.forms){ const b=mark("",f.transliteration,"button"); b.dataset.id=f.id; b.onclick=()=>pickVerbPair("form",b); right.append(b); }
     grid.append(left,right); board.append(grid); return;
   }
   const pron=mark("verb-pronoun",`הגוף: ${q.pronoun.hebrew} · ${q.pronoun.transliteration}`,"p"), choices=mark("verb-choices","","div"); board.append(pron,choices);
-  for(const c of q.choices){ const b=mark("verb-choice",c.transliteration,"button"); b.append(mark("ar",c.arabic)); b.onclick=()=>submitVerb(c.id,b); choices.append(b); }
+  for(const c of q.choices){ const b=mark("verb-choice",c.transliteration,"button"); b.onclick=()=>submitVerb(c.id,b); choices.append(b); }
 }
-function pickVerbPair(kind,b){
+async function pickVerbPair(kind,b){
   if(b.classList.contains("done")) return;
   document.querySelectorAll(`.verb-match button.selected`).forEach(x=>{if((kind==="pronoun")===(x.parentElement===$("verbBoard").querySelector(".verb-match>div:first-child")))x.classList.remove("selected")});
   b.classList.add("selected"); verbPicked=verbPicked||{}; verbPicked[kind]=b;
   if(!verbPicked.pronoun||!verbPicked.form) return;
-  verbPairs[verbPicked.pronoun.dataset.id]=verbPicked.form.dataset.id; verbPicked.pronoun.classList.replace("selected","done"); verbPicked.form.classList.replace("selected","done"); verbPicked=null;
-  if(Object.keys(verbPairs).length===verbQuestion.pair_count) submitVerb(verbPairs);
+  const picked=verbPicked,q=verbQuestion;verbPicked=null;picked.pronoun.disabled=picked.form.disabled=true;
+  const r=await api("/api/verb-game/pair",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question_id:q.question_id,pronoun_id:picked.pronoun.dataset.id,form_id:picked.form.dataset.id})}).catch(()=>null);
+  if(!r||!r.ok){for(const x of [picked.pronoun,picked.form]){x.disabled=false;x.classList.remove("selected")}$("verbFeedback").textContent="לא הצלחנו לבדוק את הזוג. נסו שוב.";return}
+  const result=await r.json();
+  if(result.correct){
+    verbPairs[picked.pronoun.dataset.id]=picked.form.dataset.id;
+    for(const x of [picked.pronoun,picked.form]){x.classList.remove("selected");x.classList.add("done","good")}
+    if(Object.keys(verbPairs).length===q.pair_count) submitVerb(verbPairs);
+  }else{
+    for(const x of [picked.pronoun,picked.form]){x.classList.remove("selected");x.classList.add("bad")}
+    setTimeout(()=>{if(verbQuestion===q)for(const x of [picked.pronoun,picked.form]){x.classList.remove("bad");x.disabled=false}},700);
+  }
 }
 async function submitVerb(answer,button){
   const q=verbQuestion; if(!q) return; verbQuestion=null;
@@ -7411,27 +7462,46 @@ function verbTally(q,ok,elapsed){   // the streak, the progress bar, and what is
   const key=q.mastery_key, m=verbMastery[key]||{attempts:0,correct:0,times:[],streak:0}; m.attempts++; if(ok)m.correct++; m.streak=ok?(m.streak||0)+1:0; m.times=[...(m.times||[]),elapsed].slice(-20); m.median_ms=[...m.times].sort((a,b)=>a-b)[m.times.length>>1]; m.last=new Date().toISOString(); verbMastery[key]=m;
   const s=verbSummary[q.level]||{attempts:0,correct:0,times:[]}; s.attempts++; if(ok)s.correct++; s.times=[...(s.times||[]),elapsed].slice(-30); s.median_ms=[...s.times].sort((a,b)=>a-b)[s.times.length>>1]; verbSummary[q.level]=s; store.set("ihki.verbMastery",verbMastery); store.set("ihki.verbSummary",verbSummary); drawVerbLevels();
 }
-let verbRecorder=null, verbChunks=[], verbRecordingUrl=null;
-async function verbRecord(btn,status,actions){
+let verbRecorder=null, verbChunks=[], verbRecordingUrl=null, verbRecordCancel=false, verbVad=null, verbStopTimer=null;
+async function verbRecord(btn,status,actions,auto=false){
   if(verbRecorder?.state==="recording"){verbRecorder.stop();return}
   unlockPlayback();
   if(!navigator.mediaDevices||!window.MediaRecorder){status.textContent="הדפדפן הזה אינו תומך בהקלטה.";return}
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}), type=pickType(); verbChunks=[];
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}), type=pickType(); verbChunks=[];verbRecordCancel=false;
     const rec=verbRecorder=new MediaRecorder(stream,type?{mimeType:type}:{}); rec.ondataavailable=e=>{if(e.data.size)verbChunks.push(e.data)};
-    rec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());btn.classList.remove("live");btn.disabled=true;status.textContent="בודק…";const blob=new Blob(verbChunks,{type:rec.mimeType||"audio/webm"}); if(verbRecordingUrl)URL.revokeObjectURL(verbRecordingUrl);verbRecordingUrl=URL.createObjectURL(blob);await scoreVerbSpeech(blob,btn,status,actions)};
-    await listenCue(); rec.start();btn.classList.add("live");status.textContent="מקשיב… לחצו שוב כשסיימתם";
+    let heardSpeech=true;
+    rec.onstop=async()=>{clearTimeout(verbStopTimer);if(verbVad){verbVad.stop();verbVad=null}stream.getTracks().forEach(t=>t.stop());btn.classList.remove("live");if(verbRecordCancel){verbRecordCancel=false;return}if(!heardSpeech){status.textContent="לא נשמע דיבור. לחצו על המיקרופון ונסו שוב.";return}btn.disabled=true;status.textContent="בודק…";const blob=new Blob(verbChunks,{type:rec.mimeType||"audio/webm"}); if(verbRecordingUrl)URL.revokeObjectURL(verbRecordingUrl);verbRecordingUrl=URL.createObjectURL(blob);await scoreVerbSpeech(blob,btn,status,actions)};
+    await listenCue(); rec.start();btn.classList.add("live");const noSpeech=auto?VAD.noSpeechAuto:VAD.noSpeech;verbStopTimer=setTimeout(()=>rec.state==="recording"&&rec.stop(),noSpeech+VAD.maxSpeech);verbVad=startVad(stream,spoke=>{heardSpeech=spoke;if(rec.state==="recording")rec.stop()},noSpeech);status.textContent=verbVad?"מקליט… דברו, ההקלטה תיעצר לבד":"מקליט… לחצו לסיום";
   }catch{status.textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."}
 }
 async function scoreVerbSpeech(blob,btn,status,actions){
-  const q=verbQuestion, fd=new FormData();fd.append("question_id",q.question_id);fd.append("audio",blob,"answer.webm");const r=await api("/api/verb-game/speech",{method:"POST",body:fd}).catch(()=>null);btn.disabled=false;actions.replaceChildren();
-  const replay=mark("btn","▶ ההקלטה שלי","button");replay.onclick=()=>new Audio(verbRecordingUrl).play();const retry=mark("btn","ניסיון נוסף","button");retry.onclick=()=>{actions.replaceChildren();status.textContent="לחצו והקליטו שוב"};actions.append(replay,retry);
+  const q=verbQuestion, fd=new FormData();fd.append("question_id",q.question_id);fd.append("audio",blob,"answer.webm");const r=await api("/api/verb-game/speech",{method:"POST",body:fd}).catch(()=>null);btn.disabled=false;actions.replaceChildren();$("verbBoard").querySelectorAll(".verb-answer").forEach(x=>x.remove());
+  const replay=mark("btn","▶ ההקלטה שלי","button");replay.onclick=()=>new Audio(verbRecordingUrl).play();const retry=mark("btn","ניסיון נוסף","button");retry.onclick=()=>{actions.replaceChildren();$("verbBoard").querySelectorAll(".verb-answer").forEach(x=>x.remove());verbRecord(btn,status,actions,true)};actions.append(replay,retry);
   if(!r||!r.ok){status.textContent="הבדיקה אינה זמינה כרגע. ההקלטה לא נחשבה כטעות.";return}const result=await r.json(), feedback=$("verbFeedback");feedback.className="verb-feedback "+(result.outcome==="correct"?"good":result.outcome==="uncertain"?"":"bad");feedback.textContent=result.message||"נסו שוב";
-  const answer=mark("verb-answer",result.variant?.tr||"","div");if(result.variant?.ar){answer.append(mark("ar",result.variant.ar));const hear=mark("btn","🔊 תשובה","button");hear.onclick=()=>{const u=new SpeechSynthesisUtterance(result.variant.ar);u.lang="ar-PS";speechSynthesis.cancel();speechSynthesis.speak(u)};actions.append(hear)}actions.before(answer);
+  const answer=mark("verb-answer",result.variant?.tr||"","div");actions.before(answer);
   if(TUTOR){const report=mark("btn verb-report","🚩 דווחו על טעות בבדיקה","button");report.title="ההקלטה, שתי המילים הצפויות ומה שהמודל שמע יישלחו לניטור";report.onclick=()=>reportVerbScore(q.question_id,blob,report,status,result.attempt_id);actions.append(report)}
   if(!result.counts_as_attempt)return;
   const ok=result.outcome==="correct", elapsed=Math.round(performance.now()-verbStarted), key=q.mastery_key,m=verbMastery[key]||{attempts:0,correct:0,times:[],streak:0};m.attempts++;if(ok)m.correct++;m.streak=ok?(m.streak||0)+1:0;m.times=[...(m.times||[]),elapsed].slice(-20);m.median_ms=[...m.times].sort((a,b)=>a-b)[m.times.length>>1];m.last=new Date().toISOString();verbMastery[key]=m;const s=verbSummary[q.level]||{attempts:0,correct:0};s.attempts++;if(ok)s.correct++;verbSummary[q.level]=s;store.set("ihki.verbMastery",verbMastery);store.set("ihki.verbSummary",verbSummary);drawVerbLevels();
-  if(ok){verbQuestion=null;verbStreak++;verbN++;status.textContent="נכון ✓";if(TUTOR){const next=mark("btn primary","השאלה הבאה","button");next.onclick=nextVerb;actions.append(next)}else setTimeout(nextVerb,1100)}
+  if(ok){
+    verbQuestion=null;verbStreak++;verbN++;status.textContent="נכון ✓ עוברים לשאלה הבאה";
+    setTimeout(()=>{if(!verbQuestion&&$("verbDlg").open&&$("verbMenu").hidden&&!$("verbBoard").hidden)nextVerb()},1100);
+  }else{
+    status.textContent="הקשיבו לתשובה";
+    await playVerbTeacher(q.question_id,result.variant?.ar||"");
+    if(verbQuestion!==q)return;
+    await pause(300);if(verbQuestion!==q)return;
+    status.textContent="נסו שוב";actions.replaceChildren();
+    $("verbBoard").querySelectorAll(".verb-answer").forEach(x=>x.remove());
+    verbRecord(btn,status,actions,true);
+  }
+}
+async function playVerbTeacher(questionId,fallback){
+  try{
+    const res=await api(`/api/verb-game/tts/${encodeURIComponent(questionId)}`);
+    if(res.ok){const blob=await res.blob(),url=URL.createObjectURL(blob);try{await playUrl(url,true)}finally{URL.revokeObjectURL(url)}return}
+  }catch{}
+  if(fallback) await speakLocal(fallback,"ar");
 }
 async function reportVerbScore(questionId,blob,button,status,attemptId){
   button.disabled=true;button.textContent="שולח…";const fd=new FormData();fd.append("question_id",questionId);fd.append("audio",blob,"answer.webm");fd.append("note","דיווח ממשחק פועל יוצא");
@@ -7507,21 +7577,20 @@ function drawEitan(q){
       b.append(mark("",eitanTileText(t.label,active),"b")); if(!t.label) b.append(mark("","בלי סיומת","small"));
       b.onclick=()=>{st[active]=t.arabic; shown[active]=t.label; active=order.find(n=>st[n]===null)||active; draw()}; tray.append(b);
     }
-    if(order.every(n=>st[n]!==null)){const go=mark("btn primary eitan-go","בדיקה ✓","button"); go.onclick=()=>submitEitan({past:st.past,prefix:st.prefix,suffix:st.suffix},{rows,slots,tray}); tray.append(go)}
+    if(order.every(n=>st[n]!==null)) setTimeout(()=>{if(verbQuestion===q)submitEitan({past:st.past,prefix:st.prefix,suffix:st.suffix},{rows,slots,tray})},0);
   }
   draw();
 }
 function drawEitanWho(q,box){
   const form=mark("eitan-form","","div"); form.append(mark("",q.tense.name,"small"),eitanWord(q.form.parts,"tr"));
-  const chips=mark("eitan-chips","","div"), picked=new Set(), tray=mark("eitan-tray","","div");
-  tray.append(mark("","מי יכול להגיד את זה? סמנו את כל הגופים","p"));
-  const go=mark("btn primary eitan-go","בדיקה ✓","button"); go.disabled=true;
+  const chips=mark("eitan-chips","","div"), tray=mark("eitan-tray","","div");
+  tray.append(mark("","מי יכול להגיד את זה? לחצו על כינוי הגוף","p"));
   for(const p of q.pronouns){
     const b=mark("",p.hebrew,"button"); b.type="button"; b.dataset.id=p.id; b.append(mark("",p.transliteration,"small")); b.setAttribute("aria-pressed","false");
-    b.onclick=()=>{picked.has(p.id)?picked.delete(p.id):picked.add(p.id); b.classList.toggle("on"); b.setAttribute("aria-pressed",String(picked.has(p.id))); go.disabled=!picked.size};
+    b.onclick=()=>{b.classList.add("on");b.setAttribute("aria-pressed","true");submitEitan({who:p.id},{chips,tray,picked:new Set([p.id])})};
     chips.append(b);
   }
-  go.onclick=()=>submitEitan({who:[...picked]},{chips,tray,picked}); tray.append(go); box.append(form,chips,tray);
+  box.append(form,chips,tray);
 }
 async function submitEitan(answer,ui){
   const q=verbQuestion; if(!q) return; verbQuestion=null;
@@ -7529,6 +7598,9 @@ async function submitEitan(answer,ui){
   const elapsed=Math.round(performance.now()-verbStarted), r=await api("/api/verb-game/answer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question_id:q.question_id,answer,response_ms:elapsed})}).catch(()=>null);
   if(!r||!r.ok){$("verbFeedback").textContent="התשובה לא נבדקה. נסו שאלה חדשה."; setTimeout(nextVerb,900);return}
   const result=await r.json(), ok=result.correct, feedback=$("verbFeedback");
+  if(q.level===8&&ok){
+    verbTally(q,true,elapsed);feedback.className="verb-feedback good";feedback.textContent="נכון!";nextVerb();return;
+  }
   if(q.level===8){
     for(const b of ui.chips.children){const right=result.who.includes(b.dataset.id), mine=ui.picked.has(b.dataset.id); b.disabled=true; b.classList.remove("on"); if(right) b.classList.add(mine?"good":"missed"); else if(mine) b.classList.add("bad")}
     const table=mark("eitan-table","","div"), names=Object.fromEntries(q.pronouns.map(p=>[p.id,p.hebrew]));
@@ -7546,7 +7618,7 @@ async function submitEitan(answer,ui){
   feedback.className="verb-feedback "+(ok?"good":"bad"); feedback.textContent=ok?`נכון! ${elapsed<4000?"שליפה מהירה ⚡":""}`:`עוד לא. ${result.explanation||""}`;
   verbTally(q,ok,elapsed);
   ui.tray.replaceChildren(); const next=mark("btn primary eitan-go",verbN>=VERB_ROUND?"סיום הסבב":"הבא ←","button"); next.onclick=nextVerb; ui.tray.append(next); next.focus();
-  if(ok) setTimeout(()=>{if(next.isConnected&&!verbQuestion) nextVerb()},1600);
+  if(ok&&q.level!==8) setTimeout(()=>{if(next.isConnected&&!verbQuestion) nextVerb()},1600);
 }
 
 /* "אותיות נופלות": choose a pronoun; איתן falls into the future, and ב joins it in the present. */
@@ -7554,18 +7626,22 @@ let fallingData=null, fallingTense="future", fallingForm=null;
 async function openFallingLetters(){
   const dlg=$("verbDlg"); fallingTense="future"; fallingForm=null; verbQuestion=null;
   $("verbTitle").textContent="אותיות נופלות"; $("verbMenu").hidden=true; $("verbBoard").hidden=false;
+  $("verbClose").textContent="חזרה";
   $("verbFeedback").textContent=""; $("verbProgress").textContent="בחרו זמן וכינוי גוף"; $("verbStreak").textContent="אית״ן + ב׳"; $("verbBar").style.width="0";
   $("verbBoard").textContent="טוען פועל שלמדתם…"; if(!dlg.open) dlg.showModal();
   await loadFallingVerb();
 }
-async function loadFallingVerb(){
-  const r=await api("/api/verb-game/falling").catch(()=>null);
+async function loadFallingVerb(verb=""){
+  const r=await api("/api/verb-game/falling"+(verb?`?verb=${encodeURIComponent(verb)}`:"")).catch(()=>null);
   if(!r||!r.ok){$("verbBoard").textContent="המשחק ייפתח אחרי שילמדו את פעלי שלב א׳.";return}
   fallingData=await r.json(); fallingForm=null; drawFallingLetters();
 }
 function drawFallingLetters(){
   const q=fallingData, board=$("verbBoard"), game=mark("fall-game","","div"); board.replaceChildren(game);
-  const base=mark("fall-base","","div"); base.append(mark("",`${q.base.label} · ${q.verb.name}`,"small"),mark("tr",q.base.transliteration,"span"),mark("ar",q.base.arabic,"div"));
+  const picker=mark("fall-picker","","label"), select=mark("","","select"); picker.append("בחרו פועל",select);
+  for(const verb of q.verbs){const option=mark("",verb.name,"option");option.value=verb.id;option.selected=verb.id===q.verb.id;select.append(option)}
+  select.onchange=async()=>{$("verbBoard").textContent="טוען…";await loadFallingVerb(select.value)};
+  const base=mark("fall-base","","div"); base.append(mark("",`${q.base.label} · ${q.verb.name}`,"small"),mark("tr",q.base.transliteration,"span"));
   const tense=mark("fall-tense","","div");
   for(const [id,label] of [["future","עתיד · אית״ן"],["present","הווה · ב׳"]]){const b=mark(id===fallingTense?"on":"",label,"button");b.type="button";b.onclick=()=>{fallingTense=id;drawFallingLetters()};tense.append(b)}
   const help=mark("fall-help",fallingForm?"לחצו על גוף אחר וראו מה נופל":"בחרו כינוי גוף כדי לבנות את הפועל","p"), stage=mark("fall-stage","","div"), pronouns=mark("fall-pronouns","","div");
@@ -7573,7 +7649,7 @@ function drawFallingLetters(){
   else drawFallingTarget(fallingForm,stage);
   for(const form of q.forms){const p=form.pronoun,b=mark(fallingForm?.pronoun.id===p.id?"on":"",p.hebrew,"button");b.type="button";b.append(mark("",p.transliteration,"small"));b.onclick=()=>{fallingForm=form;drawFallingLetters()};pronouns.append(b)}
   const next=mark("btn","פועל אחר ←","button");next.type="button";next.onclick=async()=>{$("verbBoard").textContent="טוען…";await loadFallingVerb()};
-  game.append(base,tense,help,stage,pronouns,next);
+  game.append(picker,base,tense,help,stage,pronouns,next);
 }
 function drawFallingTarget(form,stage){
   const future=form.future, parts=future.parts, present=fallingTense==="present", word=mark("fall-word","","div");
@@ -7583,7 +7659,7 @@ function drawFallingTarget(form,stage){
     const pre=mark("fall-letter e-"+(EITAN_COLOR[parts.pre[0]]||"a"),parts.pre,"span");pre.setAttribute("aria-label","אות איתן");word.append(pre);
   }
   word.append(mark("fall-body",parts.body,"span")); if(parts.suf)word.append(mark("fall-suffix",parts.suf,"span"));
-  stage.append(mark("",`${form.pronoun.hebrew} · ${present?"הווה":"עתיד"}`,"small"),word,mark("fall-ar",present?form.present.arabic:future.arabic,"div"));
+  stage.append(mark("",`${form.pronoun.hebrew} · ${present?"הווה":"עתיד"}`,"small"),word);
 }
 
 /* ---------- the lab (מעבדה, teachers only) ----------

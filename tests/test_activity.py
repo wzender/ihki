@@ -41,6 +41,26 @@ def test_scoped_activity_fallback_is_not_limited_to_the_newest_day():
     assert sum(bucket["attempts"] for bucket in data["buckets"]) == 3
 
 
+def test_scoped_hourly_activity_uses_service_role_aggregate_rpcs():
+    auth = SupabaseAuth("https://example.supabase.co", "public", secret="secret")
+    calls = []
+
+    def admin(path, method="GET", body=None, **kwargs):
+        calls.append((path, method, body))
+        if path.endswith("hourly_activity_scoped"):
+            return [{"local_hour": 9, "attempts": 5, "active_students": 3}]
+        return [{"attempts": 5, "active_students": 3, "missing_timestamps": 0,
+                 "database_read_at": "2026-10-28T10:00:00Z"}]
+
+    auth._admin = admin
+    data = auth.scoped_hourly_activity(
+        {"u2", "u1"}, datetime(2026, 10, 1, tzinfo=timezone.utc),
+        datetime(2026, 10, 2, tzinfo=timezone.utc), "hour_of_day", "Asia/Jerusalem")
+    assert data["summary"]["active_students"] == 3
+    assert len(calls) == 2 and calls[0][2]["p_user_ids"] == ["u1", "u2"]
+    assert all(call[1] == "POST" for call in calls)
+
+
 def test_database_health_uses_one_bounded_read():
     auth = SupabaseAuth("https://example.supabase.co", "public", secret="secret")
     calls = []

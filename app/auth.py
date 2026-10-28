@@ -1176,6 +1176,25 @@ class SupabaseAuth:
             log.warning("scoped activity RPCs are missing; using the paged timestamp fallback")
             return self._scoped_activity_fallback(user_ids, since, bucket_minutes)
 
+    def scoped_hourly_activity(self, user_ids: set[str], since: datetime, until: datetime,
+                               breakdown: str, timezone_name: str) -> dict:
+        """Database-side hourly aggregates for an already-authorized, deduplicated user scope.
+
+        The service-role-only RPC returns counts and time labels, never attempt rows or identities.
+        There is deliberately no row-level fallback: bounded/paged samples cannot produce reliable
+        totals or distinct counts and would make privacy suppression unsafe.
+        """
+        if not user_ids:
+            return {"buckets": [], "summary": {"attempts": 0, "active_students": 0,
+                                                  "missing_timestamps": 0}}
+        body = {"p_user_ids": sorted({str(value) for value in user_ids if str(value)}),
+                "p_since": since.astimezone(timezone.utc).isoformat(),
+                "p_until": until.astimezone(timezone.utc).isoformat(),
+                "p_breakdown": breakdown, "p_timezone": timezone_name}
+        buckets = self._admin("/rest/v1/rpc/hourly_activity_scoped", "POST", body) or []
+        rows = self._admin("/rest/v1/rpc/hourly_activity_summary_scoped", "POST", body) or []
+        return {"buckets": buckets, "summary": rows[0] if rows else None}
+
     def _scoped_activity_fallback(self, user_ids: set[str], since: datetime, bucket_minutes: int) -> dict:
         """Accurate compatibility path until the scoped aggregate RPC migration is installed."""
         rows: list[dict] = []

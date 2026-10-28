@@ -15,7 +15,7 @@ from typing import Any
 from .conjugation import (FUTURE_PREFIX, FUTURE_SUFFIX, FUTURE_SUFFIX_TILES, PAST_SUFFIX, PAST_SUFFIX_TILES,
                           PAST_SUFFIX_TR, PREFIX_TILES, STAGE_A_VERBS, compose, lead, plain)
 from .grammar import PRONOUNS, VERBS
-from .workbook import LEX
+from .workbook import LEX, _present_of
 
 
 VERB_META = {
@@ -36,6 +36,10 @@ VERB_META = {
     "rakad": {"name": "רץ", "unlock": "2.7"},
     "dall": {"name": "נשאר / המשיך", "unlock": "2.8"},
 }
+STAGE_A_BY_META = {
+    "akal": "ياكل", "qaad": "يقعد", "fatah": "يفتح", "saal": "يسأل", "tabakh": "يطبخ",
+    "aja": "يجي", "raah": "يروح", "faat": "يفوت", "fihem": "يفهم", "laeb": "يلعب",
+}
 LEVELS = {
     1: {"name": "בחירת ההטיה", "choices": 4, "window_ms": 12000},
     2: {"name": "התאמת הגופים", "pairs": 6},
@@ -51,7 +55,7 @@ EITAN_LEVELS = {
     7: {"name": "בונים לבד"},
     8: {"name": "מי אמר?"},
 }
-TENSE_NAMES = {"past": "עבר", "future": "עתיד"}
+TENSE_NAMES = {"past": "עבר", "future": "עתיד", "present": "הווה"}
 
 # Complete, filled past-tense tables in the parsed book.  Order is PRONOUNS order.
 # Arabic is not copied or inferred from transliteration: each form must resolve back
@@ -174,12 +178,15 @@ class VerbExerciseGenerator:
                             for v in self.eitan_available(lessons, drafts=True)],
         }
 
-    def falling_letters(self, lessons: list[str], drafts: bool = False) -> dict[str, Any]:
+    def falling_letters(self, lessons: list[str], drafts: bool = False,
+                        verb_id: str | None = None) -> dict[str, Any]:
         """One learned verb for the pronoun-driven איתן/present-prefix animation."""
         verbs = self.eitan_available(lessons, drafts)
         if not verbs:
             raise LookupError("no stage A verbs with a checked future are unlocked")
-        verb_id = self.rng.choice(verbs)
+        if verb_id and verb_id not in verbs:
+            raise LookupError("verb is not unlocked")
+        verb_id = verb_id or self.rng.choice(verbs)
         verb = STAGE_A_VERBS[verb_id]
 
         def present(ar: str, pronoun: int) -> str:
@@ -201,15 +208,16 @@ class VerbExerciseGenerator:
         base = verb["past"][3]
         return {
             "verb": {"id": verb_id, "name": verb["name"], "draft": verb["draft"]},
+            "verbs": [{"id": key, "name": STAGE_A_VERBS[key]["name"]} for key in verbs],
             "base": {"label": "הוא · עבר", "arabic": base["ar"], "transliteration": base["tr"]},
             "forms": forms,
         }
 
-    def _target(self, verbs: list[str], mastery: dict, recent: list[str]) -> tuple[str, int]:
+    def _target(self, verbs: list[str], mastery: dict, recent: list[str], tense: str = "past") -> tuple[str, int]:
         candidates = [(v, p) for v in verbs for p in range(len(PRONOUNS))]
         def priority(item: tuple[str, int]) -> float:
             v, p = item
-            key = f"{v}:past:{PRONOUNS[p][0]}"
+            key = f"{v}:{tense}:{PRONOUNS[p][0]}"
             m = mastery.get(key, {}) if isinstance(mastery, dict) else {}
             attempts = max(0, int(m.get("attempts", 0) or 0))
             accuracy = float(m.get("correct", 0) or 0) / attempts if attempts else 0.0
@@ -220,35 +228,73 @@ class VerbExerciseGenerator:
         return max(candidates, key=priority)
 
     @staticmethod
+    def _present_form(future: dict[str, Any], pronoun: int) -> dict[str, Any] | None:
+        ar = future["ar"]
+        if pronoun == 0 and ar[:1] in "اأإآ":
+            ar = "با" + ar[1:] if ar.startswith("آ") else "ب" + ar[1:]
+        else:
+            ar = "ب" + ar
+        found = _present_of(ar)
+        if not found:
+            return None
+        tr, ipas = found
+        return {"hebrew": "", "transliteration": tr, "arabic": ar, "ipas": list(ipas)}
+
+    def _tense_form(self, verb: str, tense: str, pronoun: int) -> dict[str, Any] | None:
+        if tense == "past":
+            return _form(verb, pronoun)
+        stage = STAGE_A_VERBS.get(STAGE_A_BY_META.get(verb, ""))
+        if not stage or stage["draft"]:
+            return None
+        future = stage["future"][pronoun]
+        if tense == "future":
+            return {"hebrew": "", "transliteration": future["tr"], "arabic": future["ar"],
+                    "ipas": list(future["ipas"])}
+        return self._present_form(future, pronoun)
+
+    def _choose_tense(self, verbs: list[str], requested: list[str] | None) -> tuple[str, list[str]]:
+        wanted = [t for t in (requested or ["past"]) if t in TENSE_NAMES] or ["past"]
+        eligible = {t: [v for v in verbs if all(self._tense_form(v, t, p) for p in range(len(PRONOUNS)))]
+                    for t in wanted}
+        possible = [t for t in wanted if eligible[t]]
+        if not possible:
+            raise LookupError("no verified verbs are available for the selected tenses")
+        tense = self.rng.choice(possible)
+        return tense, eligible[tense]
+
+    @staticmethod
     def eitan_available(lessons: list[str], drafts: bool = False) -> list[str]:
         """Stage A's verbs of the lessons given; a verb with draft future forms only when drafts are wanted (teachers)."""
         allowed = set(lessons)
         return [v for v, verb in STAGE_A_VERBS.items() if verb["lesson"] in allowed and (drafts or not verb["draft"])]
 
     def question(self, level: int, lessons: list[str], mastery: dict | None = None,
-                 recent: list[str] | None = None, drafts: bool = False) -> dict[str, Any]:
+                 recent: list[str] | None = None, drafts: bool = False,
+                 tenses: list[str] | None = None) -> dict[str, Any]:
         if level in EITAN_LEVELS:
-            return self._eitan(level, lessons, mastery or {}, recent or [], drafts)
+            return self._eitan(level, lessons, mastery or {}, recent or [], drafts, tenses)
         if level not in LEVELS:
             raise ValueError("unsupported level")
         verbs = self.available(lessons)
         if not verbs:
             raise LookupError("no complete verb paradigms are unlocked")
+        tense, verbs = self._choose_tense(verbs, tenses if tenses is not None else (["past", "future", "present"] if level == 3 else ["past"]))
         if level == 2:
-            return self._matching(verbs, mastery or {}, recent or [])
+            return self._matching(verbs, mastery or {}, recent or [], tense)
         if level in (4, 5):
-            return self._spoken(level, verbs, mastery or {}, recent or [])
-        verb, pron = self._target(verbs, mastery or {}, recent or [])
-        right = _form(verb, pron)
+            return self._spoken(level, verbs, mastery or {}, recent or [], tense)
+        verb, pron = self._target(verbs, mastery or {}, recent or [], tense)
+        right = self._tense_form(verb, tense, pron)
         count = LEVELS[level]["choices"]
         pool = []
         for other_pron in range(len(PRONOUNS)):
             if other_pron != pron:
-                pool.append((verb, other_pron, _form(verb, other_pron)))
+                pool.append((verb, other_pron, self._tense_form(verb, tense, other_pron)))
         if level == 3 and len(verbs) > 1:
             for other in verbs:
                 if other != verb:
-                    pool.append((other, pron, _form(other, pron)))
+                    pool.append((other, pron, self._tense_form(other, tense, pron)))
+        pool = [item for item in pool if item[2]]
         pool.sort(key=lambda x: (_distance(right["transliteration"], x[2]["transliteration"]), self.rng.random()))
         unique, seen = [], {(right["transliteration"], right["arabic"])}
         for _, _, form in pool:
@@ -266,21 +312,21 @@ class VerbExerciseGenerator:
         qid = self.sessions.put(StoredQuestion(level, verb, {"choice": correct_id}, time.monotonic()))
         pronoun = PRONOUNS[pron]
         return {
-            "question_id": qid, "level": level, "tense": {"id": "past", "name": "עבר"},
+            "question_id": qid, "level": level, "tense": {"id": tense, "name": TENSE_NAMES[tense]},
             "verb": {"id": verb, "name": VERB_META[verb]["name"], "arabic": _form(verb, 3)["arabic"]},
             "pronoun": {"id": pronoun[0], "hebrew": pronoun[1], "transliteration": pronoun[2]},
             "choices": choices, "time_limit_ms": LEVELS[level]["window_ms"],
-            "mastery_key": f"{verb}:past:{pronoun[0]}",
+            "mastery_key": f"{verb}:{tense}:{pronoun[0]}",
         }
 
-    def _matching(self, verbs: list[str], mastery: dict, recent: list[str]) -> dict[str, Any]:
-        verb, _ = self._target(verbs, mastery, recent)
+    def _matching(self, verbs: list[str], mastery: dict, recent: list[str], tense: str) -> dict[str, Any]:
+        verb, _ = self._target(verbs, mastery, recent, tense)
         count = min(LEVELS[2]["pairs"], len(PRONOUNS))
         indices = self.rng.sample(range(len(PRONOUNS)), count)
         left, right, correct, forms = [], [], {}, {}
         for p in indices:
             pron = PRONOUNS[p]
-            form = _form(verb, p)
+            form = self._tense_form(verb, tense, p)
             pid, fid = secrets.token_urlsafe(6), secrets.token_urlsafe(6)
             left.append({"id": pid, "hebrew": pron[1], "transliteration": pron[2]})
             right.append({"id": fid, "transliteration": form["transliteration"], "arabic": form["arabic"]})
@@ -289,38 +335,41 @@ class VerbExerciseGenerator:
         self.rng.shuffle(left)
         self.rng.shuffle(right)
         qid = self.sessions.put(StoredQuestion(2, verb, correct, time.monotonic(), forms))
-        return {"question_id": qid, "level": 2, "tense": {"id": "past", "name": "עבר"},
+        return {"question_id": qid, "level": 2, "tense": {"id": tense, "name": TENSE_NAMES[tense]},
                 "verb": {"id": verb, "name": VERB_META[verb]["name"], "arabic": _form(verb, 3)["arabic"]},
                 "pronouns": left, "forms": right, "pair_count": count,
-                "mastery_key": f"{verb}:past:matching"}
+                "mastery_key": f"{verb}:{tense}:matching"}
 
-    def _spoken(self, level: int, verbs: list[str], mastery: dict, recent: list[str]) -> dict[str, Any]:
+    def _spoken(self, level: int, verbs: list[str], mastery: dict, recent: list[str], tense: str) -> dict[str, Any]:
         if level == 5:
             # A controlled first conversation: the learner answers about themself.  Keeping
             # the target to ana makes the prompt natural and the grammar target unambiguous.
             scored = [(v, 0) for v in verbs]
             verb, pron = max(scored, key=lambda x: self.rng.random() +
-                             (2 if not mastery.get(f"{x[0]}:past:ana") else 0))
+                             (2 if not mastery.get(f"{x[0]}:{tense}:ana") else 0))
         else:
-            verb, pron = self._target(verbs, mastery, recent)
-        form = _form(verb, pron)
+            verb, pron = self._target(verbs, mastery, recent, tense)
+        form = self._tense_form(verb, tense, pron)
         p = PRONOUNS[pron]
         variants = [(form["arabic"], ipa) for ipa in form["ipas"]]
         if level == 5:
             pron_ar, pron_ipa = PRONOUNS[0][3][0]
             variants += [(f"{pron_ar} {form['arabic']}", f"{pron_ipa} | {ipa}") for ipa in form["ipas"]]
-        phrase = {"variants": variants, "cat": "verb-game", "key": f"{verb}:past:{p[0]}:spoken",
-                  "he": f"{p[1]} · {VERB_META[verb]['name']} (עבר)"}
+        phrase = {"variants": variants, "cat": "verb-game", "key": f"{verb}:{tense}:{p[0]}:spoken",
+                  "he": f"{p[1]} · {VERB_META[verb]['name']} ({TENSE_NAMES[tense]})"}
         qid = self.sessions.put(StoredQuestion(level, verb, {}, time.monotonic(), phrase=phrase))
         result = {
-            "question_id": qid, "level": level, "tense": {"id": "past", "name": "עבר"},
+            "question_id": qid, "level": level, "tense": {"id": tense, "name": TENSE_NAMES[tense]},
             "verb": {"id": verb, "name": VERB_META[verb]["name"], "arabic": _form(verb, 3)["arabic"]},
             "pronoun": {"id": p[0], "hebrew": p[1], "transliteration": p[2]},
-            "mastery_key": f"{verb}:past:{p[0]}:spoken",
+            "mastery_key": f"{verb}:{tense}:{p[0]}:spoken",
         }
         if level == 5:
-            result["conversation"] = {"arabic": "شو عملت مبارح؟", "transliteration": "שוּ עְמֵלְת אִמְבַּארֵח?",
-                                      "hebrew": "מה עשית אתמול?"}
+            result["conversation"] = {
+                "past": {"arabic": "شو عملت مبارح؟", "transliteration": "שוּ עְמֵלְת אִמְבַּארֵח?", "hebrew": "מה עשית אתמול?"},
+                "present": {"arabic": "شو بتعمل هلقيت؟", "transliteration": "שוּ בְּתִעְמַל הַלְקֵית?", "hebrew": "מה אתה עושה עכשיו?"},
+                "future": {"arabic": "شو رح تعمل بكرا؟", "transliteration": "שוּ רַח תִעְמַל בֻּכְּרַא?", "hebrew": "מה תעשה מחר?"},
+            }[tense]
         return result
 
     def _pick(self, keys: list[tuple[str, Any]], mastery: dict, recent: list[str]) -> tuple[str, Any]:
@@ -335,16 +384,36 @@ class VerbExerciseGenerator:
                     - (5 if entry[0] in recent[-3:] else 0) + self.rng.random())
         return max(keys, key=priority)
 
-    def _eitan(self, level: int, lessons: list[str], mastery: dict, recent: list[str], drafts: bool) -> dict[str, Any]:
+    def _stage_tense_forms(self, verb: dict[str, Any], tense: str) -> list[dict[str, Any]]:
+        if tense in ("past", "future"):
+            return verb[tense]
+        forms = []
+        for p, future in enumerate(verb["future"]):
+            present = self._present_form(future, p)
+            if not present:
+                return []
+            forms.append({"ar": present["arabic"], "tr": present["transliteration"],
+                          "ipas": present["ipas"], "tr_parts": {"pre": "", "body": present["transliteration"], "suf": ""},
+                          "he": {"pre": "", "body": "", "suf": ""}, "draft": False})
+        return forms
+
+    def _eitan(self, level: int, lessons: list[str], mastery: dict, recent: list[str], drafts: bool,
+               tenses: list[str] | None = None) -> dict[str, Any]:
         verbs = self.eitan_available(lessons, drafts)
         if not verbs:
             raise LookupError("no stage A verbs with a checked future are unlocked")
         if level == 8:
-            entries = [(f"{v}:{t}:who:{p}", (v, t, p)) for v in verbs for t in ("past", "future") for p in range(len(PRONOUNS))]
+            wanted = [t for t in (tenses or ["past", "future"]) if t in TENSE_NAMES] or ["past", "future"]
+            entries = [(f"{v}:{t}:who:{p}", (v, t, p)) for v in verbs for t in wanted
+                       if self._stage_tense_forms(STAGE_A_VERBS[v], t) for p in range(len(PRONOUNS))]
+            if not entries:
+                raise LookupError("no verified forms are available for the selected tenses")
             key, (verb_id, tense, pron) = self._pick(entries, mastery, recent)
-            verb, form = STAGE_A_VERBS[verb_id], STAGE_A_VERBS[verb_id][tense][pron]
+            verb = STAGE_A_VERBS[verb_id]
+            tense_forms = self._stage_tense_forms(verb, tense)
+            form = tense_forms[pron]
             same = lambda f: plain(f["ar"]) == plain(form["ar"]) and f["tr"] == form["tr"]
-            who = [PRONOUNS[p][0] for p, f in enumerate(verb[tense]) if same(f)]
+            who = [PRONOUNS[p][0] for p, f in enumerate(tense_forms) if same(f)]
             qid = self.sessions.put(StoredQuestion(level, verb_id, {"who": who, "tense": tense, "pronoun": pron},
                                                    time.monotonic()))
             return {"question_id": qid, "level": level, "tense": {"id": tense, "name": TENSE_NAMES[tense]},
@@ -385,15 +454,16 @@ class VerbExerciseGenerator:
         verb = STAGE_A_VERBS[q.verb]
         supplied = answer if isinstance(answer, dict) else {}
         if q.mode == 8:
-            chosen = supplied.get("who") if isinstance(supplied.get("who"), list) else []
-            chosen = sorted({str(c) for c in chosen})
-            ok = chosen == sorted(q.correct["who"])
+            raw = supplied.get("who")
+            chosen = str(raw) if isinstance(raw, str) else ""
+            ok = chosen in q.correct["who"]
             tense = q.correct["tense"]
+            tense_forms = self._stage_tense_forms(verb, tense)
             explain = ("בעתיד התחילית אומרת מי: א=אני, ת=אתה/את/היא/אתם, י=הוא/הם, נ=אנחנו, כמו בעברית. "
                        "ת לבדה היא גם אתה וגם היא." if tense == "future" else
                        "בעבר הסיומת אומרת מי. ת בסוף היא אני, אתה וגם היא, ורק התנועות מבדילות ביניהם.")
-            return {"correct": ok, "who": q.correct["who"], "response_ms": response_ms,
-                    "forms": [{"pronoun": PRONOUNS[i][0], **self._shown(f)} for i, f in enumerate(verb[tense])],
+            return {"correct": ok, "chosen": chosen, "who": q.correct["who"], "response_ms": response_ms,
+                    "forms": [{"pronoun": PRONOUNS[i][0], **self._shown(f)} for i, f in enumerate(tense_forms)],
                     **({} if ok else {"explanation": explain})}
         pron = q.correct["pronoun"]
         past, future = verb["past"][pron], verb["future"][pron]
@@ -416,6 +486,14 @@ class VerbExerciseGenerator:
         if not question or question.mode not in (4, 5) or not question.phrase:
             raise LookupError("spoken question expired")
         return question, question.phrase
+
+    def check_pair(self, question_id: str, pronoun_id: str, form_id: str) -> bool:
+        """Check one matching pair without consuming the Level 2 question."""
+        question = self.sessions.get(question_id)
+        if not question or question.mode != 2:
+            raise LookupError("matching question expired")
+        expected = question.correct.get(pronoun_id)
+        return bool(expected and form_id in question.forms and question.forms[form_id] == question.forms[expected])
 
     def answer(self, question_id: str, answer: Any, response_ms: int) -> dict[str, Any]:
         q = self.sessions.take(question_id)

@@ -2599,19 +2599,21 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             level = int(body.get("level", 1))
             mastery = body.get("mastery") if isinstance(body.get("mastery"), dict) else {}
             recent = body.get("recent") if isinstance(body.get("recent"), list) else []
+            tenses = body.get("tenses") if isinstance(body.get("tenses"), list) else None
             return app.state.verb_game.question(level, verb_lessons(user), mastery, list(map(str, recent[-10:])),
-                                                drafts=bool(user and user["teacher"]))
+                                                drafts=bool(user and user["teacher"]),
+                                                tenses=[str(t) for t in tenses] if tenses is not None else None)
         except (TypeError, ValueError) as e:
             raise HTTPException(400, str(e))
         except LookupError as e:
             raise HTTPException(404, str(e))
 
     @app.get("/api/verb-game/falling", dependencies=[Depends(require("games.use"))])
-    def verb_falling(user: dict | None = Depends(signed_in)):
+    def verb_falling(verb: str = "", user: dict | None = Depends(signed_in)):
         """A learned verb and its forms for the falling איתן/present-prefix game."""
         try:
             return app.state.verb_game.falling_letters(
-                verb_lessons(user), drafts=bool(user and user["teacher"])
+                verb_lessons(user), drafts=bool(user and user["teacher"]), verb_id=verb or None
             )
         except LookupError as e:
             raise HTTPException(404, str(e))
@@ -2627,6 +2629,18 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             return result
         except (TypeError, ValueError) as e:
             raise HTTPException(400, str(e))
+        except LookupError as e:
+            raise HTTPException(410, str(e))
+
+    @app.post("/api/verb-game/pair", dependencies=[Depends(require("games.use"))])
+    def verb_pair(body: dict = Body(...)):
+        """Check one Level 2 pair immediately; the full question remains available."""
+        try:
+            correct = app.state.verb_game.check_pair(
+                str(body.get("question_id", "")), str(body.get("pronoun_id", "")),
+                str(body.get("form_id", "")),
+            )
+            return {"correct": correct}
         except LookupError as e:
             raise HTTPException(410, str(e))
 
@@ -2660,6 +2674,26 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 "model": MODEL_ID, "version": build_version()})
             result["attempt_id"] = attempt_id
         return result
+
+    @app.get("/api/verb-game/tts/{question_id}", dependencies=[Depends(require("games.use"))])
+    def verb_tts(question_id: str):
+        """The teacher playback voice saying a dynamic spoken-verb answer."""
+        try:
+            _question, phrase = app.state.verb_game.speech_phrase(question_id)
+        except LookupError as e:
+            raise HTTPException(410, str(e))
+        if app.state.tts is None:
+            raise HTTPException(503, "tts not configured")
+        text = tts_arabic(*phrase["variants"][0])
+        try:
+            data, used = app.state.tts.wav(text, RAEF_VOICE_ID)
+        except TTSUnavailable as e:
+            raise HTTPException(503, str(e))
+        return Response(data, media_type="audio/wav", headers={
+            "Cache-Control": "private, no-store", "X-TTS-Provider": "sawtakarabi.ai",
+            "X-TTS-Voice-Id": urllib.parse.quote(used),
+            "X-TTS-Voice-Name": urllib.parse.quote(voice_name(used)),
+        })
 
     @app.post("/api/verb-game/flag")
     def verb_flag(question_id: str = Form(...), audio: UploadFile = File(...), note: str = Form(""),

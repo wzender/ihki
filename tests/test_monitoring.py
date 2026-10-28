@@ -6,7 +6,7 @@ import pytest
 from app.auth import AuthUnavailable
 from app.monitoring import (MonitoringError, MonitoringUnavailable, activity_timeseries,
                             aggregate_exercise_difficulty, compare_class_difficulties,
-                            current_activity, exercise_difficulty, learning_bottlenecks, learning_progress,
+                            current_activity, exercise_difficulty, hourly_activity, learning_bottlenecks, learning_progress,
                             normalize_attempts, notification_coverage, pronunciation_difficulties,
                             system_error_reports, system_health, validate_range)
 
@@ -113,6 +113,77 @@ class CurrentActivityAuth(ActivityAuth):
     def scoped_attempts(self, ids, since, until):
         self.attempt_args = set(ids), since, until
         return list(self.rows), self.truncated
+
+
+class HourlyAuth(CurrentActivityAuth):
+    def __init__(self):
+        super().__init__()
+        self.hourly = {"buckets": [], "summary": {"attempts": 0, "active_students": 0,
+                                                     "missing_timestamps": 0}}
+        self.hourly_args = None
+
+    def scoped_hourly_activity(self, ids, since, until, breakdown, timezone_name):
+        self.hourly_args = set(ids), since, until, breakdown, timezone_name
+        return self.hourly
+
+
+def test_hourly_activity_combines_overlapping_rosters_and_counts_period_distinct_directly():
+    auth = HourlyAuth()
+    auth.hourly = {"buckets": [
+        {"local_hour": 9, "attempts": 7, "active_students": 3},
+        {"local_hour": 10, "attempts": 5, "active_students": 3},
+    ], "summary": {"attempts": 12, "active_students": 4, "missing_timestamps": 0}}
+    data = hourly_activity(auth, ACTOR, from_date="2026-10-01", to_date="2026-10-02",
+                           today=date(2026, 10, 28), read_at=datetime(2026, 10, 28, tzinfo=timezone.utc))
+    assert auth.hourly_args[0] == {"u1", "u2", "u3", "u4"}  # u3 occurs in both classes only once
+    assert data["summary"]["distinct_active_students"] == 4
+    assert data["summary"]["total_attempts"] == 12
+    assert data["summary"]["average_attempts_per_calendar_day"] == 6
+    assert len(data["buckets"]) == 24 and data["buckets"][0]["attempts"] == 0
+
+
+def test_hourly_activity_dst_fall_back_has_two_local_hours_with_different_offsets():
+    auth = HourlyAuth()
+    auth.hourly = {"buckets": [
+        {"local_date": "2026-11-01", "local_hour": 1, "utc_offset": "ignored",
+         "utc_hour_start": "2026-11-01T05:00:00Z", "attempts": 5, "active_students": 3},
+        {"local_date": "2026-11-01", "local_hour": 1, "utc_offset": "ignored",
+         "utc_hour_start": "2026-11-01T06:00:00Z", "attempts": 6, "active_students": 3},
+    ], "summary": {"attempts": 11, "active_students": 3, "missing_timestamps": 0}}
+    data = hourly_activity(auth, ACTOR, from_date="2026-11-01", to_date="2026-11-01",
+                           breakdown="date_hour", timezone_name="America/New_York",
+                           today=date(2026, 11, 2))
+    repeated = [row for row in data["buckets"] if row["hour"] == 1]
+    assert len(data["buckets"]) == 25
+    assert [row["utc_offset"] for row in repeated] == ["-04:00", "-05:00"]
+
+
+def test_hourly_activity_suppression_hides_totals_peaks_and_values_and_missing_time_is_unavailable():
+    auth = HourlyAuth()
+    auth.hourly = {"buckets": [{"local_hour": 9, "attempts": 4, "active_students": 2}],
+                   "summary": {"attempts": 4, "active_students": 2, "missing_timestamps": 0}}
+    hidden = hourly_activity(auth, ACTOR, from_date="2026-10-28", to_date="2026-10-28",
+                             today=date(2026, 10, 28))
+    assert hidden["status"] == "suppressed" and hidden["summary"] == {
+        "status": "suppressed", "reason": "privacy_threshold"}
+    assert hidden["buckets"][9] == {"hour": 9, "status": "suppressed", "reason": "privacy_threshold"}
+    auth.hourly["summary"]["missing_timestamps"] = 1
+    unavailable = hourly_activity(auth, ACTOR, from_date="2026-10-28", to_date="2026-10-28",
+                                  today=date(2026, 10, 28))
+    assert unavailable["status"] == "unavailable" and unavailable["buckets"] == []
+
+
+def test_hourly_activity_authorization_empty_period_and_bad_timezone():
+    auth = HourlyAuth()
+    empty = hourly_activity(auth, ACTOR, from_date="2026-10-28", to_date="2026-10-28",
+                            class_id=1, today=date(2026, 10, 28))
+    assert empty["status"] == "no_activity" and empty["summary"]["total_attempts"] == 0
+    with pytest.raises(MonitoringError, match="הכיתה אינה זמינה"):
+        hourly_activity(auth, ACTOR, from_date="2026-10-28", to_date="2026-10-28",
+                        class_id=999, today=date(2026, 10, 28))
+    with pytest.raises(MonitoringError, match="IANA"):
+        hourly_activity(auth, ACTOR, from_date="2026-10-28", to_date="2026-10-28",
+                        timezone_name="Mars/Olympus", today=date(2026, 10, 28))
 
 
 def recent_attempt(row_id, user, minute):

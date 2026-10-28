@@ -120,7 +120,7 @@ def test_narrow_tools_are_discoverable():
     assert [tool.name for tool in tools] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "prepare_class_change", "publish_class_change",
-        "get_activity_timeseries", "get_current_activity", "get_system_health", "get_notification_coverage",
+        "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_notification_coverage",
         "get_exercise_difficulty",
         "get_system_error_reports",
         "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",
@@ -134,6 +134,8 @@ def test_narrow_tools_are_discoverable():
     current = next(tool for tool in tools if tool.name == "get_current_activity")
     assert set(current.input_schema["properties"]) == {"window_minutes", "class_id"}
     assert current.input_schema["properties"]["window_minutes"]["enum"] == [5, 15]
+    hourly = next(tool for tool in tools if tool.name == "get_hourly_activity")
+    assert set(hourly.input_schema["properties"]) == {"from_date", "to_date", "class_id", "breakdown", "timezone"}
     assert difficulty.input_schema["properties"]["min_attempts"]["default"] == 10
     reports = next(tool for tool in tools if tool.name == "get_system_error_reports")
     assert set(reports.input_schema["properties"]) == {
@@ -503,7 +505,7 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
     assert [tool["name"] for tool in discovered.json()["result"]["tools"]] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "prepare_class_change", "publish_class_change",
-        "get_activity_timeseries", "get_current_activity", "get_system_health", "get_notification_coverage",
+        "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_notification_coverage",
         "get_exercise_difficulty",
         "get_system_error_reports",
         "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",

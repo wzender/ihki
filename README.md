@@ -232,6 +232,25 @@ alter table public.app_secrets add constraint app_secrets_name_check
   check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','TUTOR_MODEL'));
 ```
 
+### Hourly persisted-practice monitoring
+
+Apply [`docs/hourly-activity-migration.sql`](docs/hourly-activity-migration.sql) before using the read-only MCP
+tool `get_hourly_activity`. It returns only authorization-scoped, privacy-thresholded aggregates. Counts describe
+persisted practice attempts—not general visits or proof of online presence—and a peak hour is only a hypothesis for
+reminder timing. The tool never sends a notification.
+
+Today by local date/hour (example date 2026-10-28):
+
+```json
+{"from_date":"2026-10-28","to_date":"2026-10-28","breakdown":"date_hour","timezone":"Asia/Jerusalem"}
+```
+
+Past 28 calendar days by hour of day (2026-10-01 through 2026-10-28):
+
+```json
+{"from_date":"2026-10-01","to_date":"2026-10-28","breakdown":"hour_of_day","timezone":"Asia/Jerusalem"}
+```
+
 For an existing `attempts` table, add the compact diagnostics once. Until this migration is run, attempts continue to be saved without diagnostics:
 
 ```sql
@@ -577,7 +596,7 @@ Keeping the link from being passed on is done in Vimeo, not here: the page has t
 
 #### Managing the library and class rosters from Grok
 
-The app can expose a restricted [Model Context Protocol](https://modelcontextprotocol.io/) connector so a teacher can manage the digital library and basic class rosters, and read privacy-preserving monitoring data, from Grok Business without receiving a Supabase secret, Hugging Face token, or general administrator access. It exposes seventeen tools: four library tools, three class tools, and ten read-only monitoring/analytics tools: `get_activity_timeseries`, `get_current_activity`, `get_system_health`, `get_notification_coverage`, `get_exercise_difficulty`, `get_system_error_reports`, `get_pronunciation_difficulties`, `get_learning_progress`, `compare_class_difficulties`, and `get_learning_bottlenecks`. Class changes are limited to creating or renaming a class and adding or removing one student at a time.
+The app can expose a restricted [Model Context Protocol](https://modelcontextprotocol.io/) connector so a teacher can manage the digital library and basic class rosters, and read privacy-preserving monitoring data, from Grok Business without receiving a Supabase secret, Hugging Face token, or general administrator access. It exposes eighteen tools: four library tools, three class tools, and eleven read-only monitoring/analytics tools: `get_activity_timeseries`, `get_hourly_activity`, `get_current_activity`, `get_system_health`, `get_notification_coverage`, `get_exercise_difficulty`, `get_system_error_reports`, `get_pronunciation_difficulties`, `get_learning_progress`, `compare_class_difficulties`, and `get_learning_bottlenecks`. Class changes are limited to creating or renaming a class and adding or removing one student at a time.
 
 The connector uses the teacher's existing Supabase account through OAuth 2.1. Grok receives revocable user tokens; it never receives `SUPABASE_SECRET_KEY`. On every MCP request the app asks Supabase who the token belongs to and freshly checks that the account still has `management.access`, so removing the admin/developer role stops the connector even if Grok still has a token.
 
