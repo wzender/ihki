@@ -174,6 +174,37 @@ class VerbExerciseGenerator:
                             for v in self.eitan_available(lessons, drafts=True)],
         }
 
+    def falling_letters(self, lessons: list[str], drafts: bool = False) -> dict[str, Any]:
+        """One learned verb for the pronoun-driven איתן/present-prefix animation."""
+        verbs = self.eitan_available(lessons, drafts)
+        if not verbs:
+            raise LookupError("no stage A verbs with a checked future are unlocked")
+        verb_id = self.rng.choice(verbs)
+        verb = STAGE_A_VERBS[verb_id]
+
+        def present(ar: str, pronoun: int) -> str:
+            # In spoken Palestinian Arabic the present adds بـ to the future form;
+            # first-person ا/آ is replaced by that prefix rather than retained.
+            if pronoun == 0 and ar[:1] in "اأإآ":
+                return "با" + ar[1:] if ar.startswith("آ") else "ب" + ar[1:]
+            return "ب" + ar
+
+        forms = []
+        for i, pronoun in enumerate(PRONOUNS):
+            future = verb["future"][i]
+            forms.append({
+                "pronoun": {"id": pronoun[0], "hebrew": pronoun[1], "transliteration": pronoun[2]},
+                "future": {"arabic": future["ar"], "transliteration": future["tr"],
+                           "parts": future["tr_parts"]},
+                "present": {"arabic": present(future["ar"], i)},
+            })
+        base = verb["past"][3]
+        return {
+            "verb": {"id": verb_id, "name": verb["name"], "draft": verb["draft"]},
+            "base": {"label": "הוא · עבר", "arabic": base["ar"], "transliteration": base["tr"]},
+            "forms": forms,
+        }
+
     def _target(self, verbs: list[str], mastery: dict, recent: list[str]) -> tuple[str, int]:
         candidates = [(v, p) for v in verbs for p in range(len(PRONOUNS))]
         def priority(item: tuple[str, int]) -> float:

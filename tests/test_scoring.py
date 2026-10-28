@@ -1374,7 +1374,7 @@ def test_workbook_level_2_lesson_2():
     from app.workbook import _present_of
 
     # the workbook's eleventh lesson: the days of the week and the present, which is بـ on the future form
-    cats = ["l2.2-days", "l2.2-pres", "l2.2-read", "l2.2-read2", "l2.2-read3", "l2.2-say", "l2.2-say2", "l2.2-story", "l2.2-fread"]
+    cats = ["l2.2-days", "l2.2-verbs", "l2.2-pres", "l2.2-read", "l2.2-read2", "l2.2-read3", "l2.2-say", "l2.2-say2", "l2.2-story", "l2.2-fread"]
     mine = [c for c in CATEGORIES if c["lesson"] == "2.2" and not WORD_TOPICS(c)]
     assert [c["id"] for c in mine] == cats + ["l2.2-hw"]
     hw = mine[-1]["write"]
@@ -1383,11 +1383,12 @@ def test_workbook_level_2_lesson_2():
     assert story["name"] == "סיפור הפלאפל" and story["story"] and "voices" not in story
     assert mine[0]["unit"] == "מילה"
     pub = public_phrases()
-    assert [sum(p["cat"] == c for p in pub) for c in cats] == [10, 24, 8, 8, 8, 8, 8, 19, 11]
+    assert [sum(p["cat"] == c for p in pub) for c in cats] == [10, 1, 24, 8, 8, 8, 8, 8, 19, 11]
     reads = ("l2.2-read", "l2.2-read2", "l2.2-read3", "l2.2-fread")
     assert all(p["read"] == (p["cat"] in reads) and "#" not in p["ar"] for p in pub if p["cat"].startswith("l2.2-"))
     by = {(p["cat"], p["he"]): p for p in PHRASES}
     assert by["l2.2-days", "יום שלישי"]["tr"] == "יוֹם אֵ(ל)תַّלַאתַא" and by["l2.2-days", "חודש"]["tr"] == "שַהֵר"
+    assert by["l2.2-verbs", "אסף, כינס (עבר, עתיד)"]["tr"] == "גַ'מַע, יִגְ'מַע"
     # the prefix takes the vowel the form needs, and "we" may take مـ
     assert by["l2.2-pres", "אני שואל"]["tr"] == "אַנַא בַּסְאַל" and by["l2.2-pres", "אתה שואל"]["tr"] == "אִנְתֵ בְּתִסְאַל"
     assert by["l2.2-pres", "הוא רואה"]["tr"] == "הוּّ בִּישוּף" and by["l2.2-pres", "אנחנו רואים"]["tr"] == "אִחְנַא בִּנְשוּף"

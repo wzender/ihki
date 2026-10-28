@@ -2606,6 +2606,16 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except LookupError as e:
             raise HTTPException(404, str(e))
 
+    @app.get("/api/verb-game/falling", dependencies=[Depends(require("games.use"))])
+    def verb_falling(user: dict | None = Depends(signed_in)):
+        """A learned verb and its forms for the falling איתן/present-prefix game."""
+        try:
+            return app.state.verb_game.falling_letters(
+                verb_lessons(user), drafts=bool(user and user["teacher"])
+            )
+        except LookupError as e:
+            raise HTTPException(404, str(e))
+
     @app.post("/api/verb-game/answer", dependencies=[Depends(require("games.use"))])
     def verb_answer(tasks: BackgroundTasks, body: dict = Body(...), user: dict | None = Depends(signed_in)):
         """Grade one opaque question once and return feedback plus measured client response time."""

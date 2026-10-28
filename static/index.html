@@ -579,6 +579,13 @@ html.a11y-contrast{--e-a:#d8b4ff;--e-t:#8fd0ff;--e-y:#70ff9b;--e-n:#ffb45b;--e-s
 .eitan-chips button.on{border-color:var(--amber);background:var(--amber-bg)}.eitan-chips .good{border-color:var(--ok);background:var(--ok-bg)}.eitan-chips .bad{border-color:var(--sumac);background:var(--sumac-bg)}.eitan-chips .missed{border-style:dashed;border-color:var(--ok)}
 .eitan-table{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 14px}.eitan-table div{display:flex;align-items:baseline;justify-content:space-between;gap:6px;border-bottom:1px solid var(--line)}.eitan-table .tr{font:19px/1.7 var(--f-tr)}.eitan-table div.hit{background:var(--amber-bg)}
 .verb-badge{display:inline-block;padding:1px 8px;border-radius:9px;background:var(--amber-bg);color:var(--amber);font:700 12px var(--f-body);vertical-align:middle}
+/* Pronoun-driven animation: איתן falls into the future form; ב falls in before it in the present. */
+.fall-game{display:flex;flex:1;flex-direction:column;align-items:center;gap:14px;text-align:center}.fall-base small,.fall-help{color:var(--muted);font-weight:700}.fall-base .tr{display:block;font:700 clamp(34px,11vw,50px)/1.5 var(--f-tr)}.fall-base .ar,.fall-ar{font:700 25px/1.5 var(--f-ar);color:var(--muted)}
+.fall-tense{display:flex;gap:7px}.fall-tense button{min-width:100px;padding:9px;border:2px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font-weight:800}.fall-tense button.on{border-color:var(--olive);background:var(--olive);color:var(--on-olive)}
+.fall-pronouns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;width:100%}.fall-pronouns button{min-height:55px;padding:5px 3px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-weight:800}.fall-pronouns button small{display:block;color:var(--muted);font:500 12px/1.4 var(--f-tr)}.fall-pronouns button.on{border-color:var(--amber);background:var(--amber-bg)}
+.fall-stage{display:grid;place-items:center;min-height:150px;width:100%;padding:12px;box-sizing:border-box;border-radius:18px;background:var(--olive-soft)}.fall-word{display:flex;align-items:baseline;justify-content:center;direction:rtl;font:800 clamp(36px,12vw,54px)/1.5 var(--f-tr);letter-spacing:.04em}.fall-letter{display:inline-block;color:var(--e,var(--e-a));animation:letter-fall .7s cubic-bezier(.2,1.35,.45,1) both}.fall-letter.present{--e:var(--e-s);animation-delay:.3s}.fall-body{display:inline-block}.fall-suffix{color:var(--e-s)}
+@keyframes letter-fall{from{transform:translateY(-95px) rotate(-10deg);opacity:0}70%{transform:translateY(7px) rotate(2deg);opacity:1}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.fall-letter{animation-duration:.01ms;animation-delay:0s}}@media(max-width:410px){.fall-pronouns{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* on a phone the game takes the whole screen, and the tiles sit at the bottom, under the thumb */
 @media (max-width:600px){
   .verb-dlg{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border-radius:0}
@@ -2191,11 +2198,21 @@ const AUTH_URL="__SUPABASE_URL__", AUTH_KEY="__SUPABASE_KEY__";
 const sb=AUTH_URL&&window.supabase?supabase.createClient(AUTH_URL,AUTH_KEY):null;
 /* A failure the student sees: in words, never a status code (that goes to the console). */
 const oops=(what="משהו השתבש")=>navigator.onLine===false?"אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב.":`${what}, נסו שוב בעוד רגע 🙏`;
-async function api(url,opts={}){   // fetch with the session token; a refused token goes back to the sign-in screen
+let sessionRefresh=null;
+const refreshSession=()=>sessionRefresh||(sessionRefresh=sb.auth.refreshSession().catch(error=>({data:{session:null},error})).finally(()=>sessionRefresh=null));
+async function api(url,opts={}){   // refresh once on 401; only a freshly issued token being refused proves the sign-in is no longer valid
   if(!sb) return fetch(url,opts);
-  const {data}=await sb.auth.getSession();   // refreshes the token when it has expired
-  const res=await fetch(url,{...opts,headers:{...opts.headers,Authorization:"Bearer "+(data.session?data.session.access_token:"")}});
-  if(res.status===401){ await sb.auth.signOut({scope:"local"}); location.reload(); }
+  const current=await sb.auth.getSession().catch(error=>({data:{session:null},error}));
+  const request=token=>fetch(url,{...opts,headers:{...opts.headers,Authorization:"Bearer "+(token||"")}});
+  const token=current.data?.session?.access_token||"";
+  let res=await request(token);
+  if(res.status!==401) return res;
+  const renewed=await refreshSession(), fresh=renewed.data?.session?.access_token||"";
+  // A sleeping phone or a network change can make refresh fail temporarily. Keep the local session and let the
+  // exercise show its normal retry message instead of turning a transient failure into a forced sign-out.
+  if(renewed.error||!fresh) return res;
+  res=await request(fresh);
+  if(res.status===401){ await sb.auth.signOut({scope:"local"}); }
   return res;
 }
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
@@ -2589,8 +2606,8 @@ async function askPush(){
   };
   dlg.showModal(); yes.focus();
 }
-const VERB_GAME_VISIBLE=false;   // "פועל יוצא" is still under development; flip to true to publish it again.
-const EITAN_GAME_VISIBLE=false;  // "בונים פועל עם איתן" (פועל יוצא's levels 6–8, on their own): teachers see it; true shows it to students.
+const VERB_GAME_VISIBLE=true;    // "פועל יוצא" is published in the games tab.
+const EITAN_GAME_VISIBLE=true;   // "בונים פועל עם איתן" is published in the games tab.
 /* A game tile's corner: "חדש!" for a game not played yet, and about how long a round takes. */
 function gameMeta(fresh,minutes){
   const m=mark("game-meta","","span");
@@ -2627,6 +2644,11 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
       const eitan=mark("now","","button");
       eitan.append(mark("","🧩","i"),mark("","בונים פועל עם איתן","b"),mark("","עבר ועתיד יחד, מאותיות איתן ומהסיומות, כמו בעברית","small"));
       eitan.onclick=()=>openVerbGame(true); box.append(eitan);
+    }
+    if(can("games.use")&&EITAN_GAME_VISIBLE){
+      const falling=mark("now","","button");
+      falling.append(mark("","🔤","i"),mark("","אותיות נופלות","b"),mark("","בחרו גוף וראו את אית״ן — ואת ב׳ בהווה — נופלות למקום","small"));
+      falling.onclick=openFallingLetters; box.append(falling);
     }
     const memo=mark("now","","button"), upto=vtLessonNow();   // the memory game, on the verb table's lesson
     memo.classList.add("game-tile");
@@ -7524,6 +7546,43 @@ async function submitEitan(answer,ui){
   verbTally(q,ok,elapsed);
   ui.tray.replaceChildren(); const next=mark("btn primary eitan-go",verbN>=VERB_ROUND?"סיום הסבב":"הבא ←","button"); next.onclick=nextVerb; ui.tray.append(next); next.focus();
   if(ok) setTimeout(()=>{if(next.isConnected&&!verbQuestion) nextVerb()},1600);
+}
+
+/* "אותיות נופלות": choose a pronoun; איתן falls into the future, and ב joins it in the present. */
+let fallingData=null, fallingTense="future", fallingForm=null;
+async function openFallingLetters(){
+  const dlg=$("verbDlg"); fallingTense="future"; fallingForm=null; verbQuestion=null;
+  $("verbTitle").textContent="אותיות נופלות"; $("verbMenu").hidden=true; $("verbBoard").hidden=false;
+  $("verbFeedback").textContent=""; $("verbProgress").textContent="בחרו זמן וכינוי גוף"; $("verbStreak").textContent="אית״ן + ב׳"; $("verbBar").style.width="0";
+  $("verbBoard").textContent="טוען פועל שלמדתם…"; if(!dlg.open) dlg.showModal();
+  await loadFallingVerb();
+}
+async function loadFallingVerb(){
+  const r=await api("/api/verb-game/falling").catch(()=>null);
+  if(!r||!r.ok){$("verbBoard").textContent="המשחק ייפתח אחרי שילמדו את פעלי שלב א׳.";return}
+  fallingData=await r.json(); fallingForm=null; drawFallingLetters();
+}
+function drawFallingLetters(){
+  const q=fallingData, board=$("verbBoard"), game=mark("fall-game","","div"); board.replaceChildren(game);
+  const base=mark("fall-base","","div"); base.append(mark("",`${q.base.label} · ${q.verb.name}`,"small"),mark("tr",q.base.transliteration,"span"),mark("ar",q.base.arabic,"div"));
+  const tense=mark("fall-tense","","div");
+  for(const [id,label] of [["future","עתיד · אית״ן"],["present","הווה · ב׳"]]){const b=mark(id===fallingTense?"on":"",label,"button");b.type="button";b.onclick=()=>{fallingTense=id;drawFallingLetters()};tense.append(b)}
+  const help=mark("fall-help",fallingForm?"לחצו על גוף אחר וראו מה נופל":"בחרו כינוי גוף כדי לבנות את הפועל","p"), stage=mark("fall-stage","","div"), pronouns=mark("fall-pronouns","","div");
+  if(!fallingForm) stage.append(mark("fall-help","צורת הוא בעבר היא נקודת ההתחלה","p"));
+  else drawFallingTarget(fallingForm,stage);
+  for(const form of q.forms){const p=form.pronoun,b=mark(fallingForm?.pronoun.id===p.id?"on":"",p.hebrew,"button");b.type="button";b.append(mark("",p.transliteration,"small"));b.onclick=()=>{fallingForm=form;drawFallingLetters()};pronouns.append(b)}
+  const next=mark("btn","פועל אחר ←","button");next.type="button";next.onclick=async()=>{$("verbBoard").textContent="טוען…";await loadFallingVerb()};
+  game.append(base,tense,help,stage,pronouns,next);
+}
+function drawFallingTarget(form,stage){
+  const future=form.future, parts=future.parts, present=fallingTense==="present", word=mark("fall-word","","div");
+  if(present){const b=mark("fall-letter present","בּ","span");b.setAttribute("aria-label","האות ב בהווה");word.append(b)}
+  // In first person present, ב replaces the initial ا; for the other bodies איתן remains after ב.
+  if(!present||form.pronoun.id!=="ana"){
+    const pre=mark("fall-letter e-"+(EITAN_COLOR[parts.pre[0]]||"a"),parts.pre,"span");pre.setAttribute("aria-label","אות איתן");word.append(pre);
+  }
+  word.append(mark("fall-body",parts.body,"span")); if(parts.suf)word.append(mark("fall-suffix",parts.suf,"span"));
+  stage.append(mark("",`${form.pronoun.hebrew} · ${present?"הווה":"עתיד"}`,"small"),word,mark("fall-ar",present?form.present.arabic:future.arabic,"div"));
 }
 
 /* ---------- the lab (מעבדה, teachers only) ----------

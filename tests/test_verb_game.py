@@ -118,6 +118,22 @@ def test_drafts_never_shadow_lex_and_only_teachers_get_draft_verbs(game):
     assert game.eitan_available(["1"]) == ["يسأل", "يقعد"]
 
 
+def test_falling_letters_starts_with_he_past_and_adds_future_or_present_prefix(game):
+    q = game.falling_letters(["1"])
+    verb = STAGE_A_VERBS[q["verb"]["id"]]
+    assert q["base"]["label"] == "הוא · עבר"
+    assert q["base"]["arabic"] == verb["past"][3]["ar"]
+    assert len(q["forms"]) == len(PRONOUNS)
+    for i, form in enumerate(q["forms"]):
+        assert form["pronoun"]["id"] == PRONOUNS[i][0]
+        assert form["future"]["arabic"] == verb["future"][i]["ar"]
+        if i == 0:
+            assert form["present"]["arabic"].startswith("ب")
+            assert not form["present"]["arabic"].startswith(("باا", "بآ"))
+        else:
+            assert form["present"]["arabic"] == "ب" + form["future"]["arabic"]
+
+
 def test_build_question_grades_past_and_future_together(game):
     q = game.question(6, STAGE_A)
     p = [x[0] for x in PRONOUNS].index(q["pronoun"]["id"])
