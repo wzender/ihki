@@ -33,7 +33,7 @@ land in the practice: דיבר on the prompt when the practice opens, חכא and
 show what the student said (the ח' marked), a card compares ח' (חיכוך בחך) with ح (מהלוע), the app says it right, the
 second try comes back at 100; collecting beads; driving mode (the phone in a car's mount, the conversation in bubbles,
 a misbaha whose next bead turns gold); a grid of the other ways to practice (lesson 4's new words, pairs, story, and
-"הפועל זכרון"), each coming forward for a short example; the summary, "החוברת מלמדת את השפה. האפליקציה עוזרת לשלוף,
+"הפועל זכרון"), each coming forward for a short example; the summary, "הספר מלמד את השפה. האפליקציה עוזרת לשלוף,
 לדבר, לתקן ולזכור", beside "הערבית שכבר שלכם"; the animated logo. Silent. The app's screens play 15% slower than
 recorded (`SLOW` in promo.html).
 

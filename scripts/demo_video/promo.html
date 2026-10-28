@@ -157,8 +157,8 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
   <div id="mount"></div>
 </div>
 <div id="band"></div>
-<div class="cap" id="cb"><h1>בנויה בדיוק <em style="color:var(--teal)">לפי החוברת</em> 📖</h1><p>כל שיעור בחוברת הוא נושא באפליקציה,<br>עם אותם פעלים ואותם משפטים</p></div>
-<div class="cap" id="c8"><h1>החוברת מלמדת את השפה</h1><p>האפליקציה עוזרת <b>לשלוף, לדבר, לתקן ולזכור</b></p></div>
+<div class="cap" id="cb"><h1>בנויה בדיוק <em style="color:var(--teal)">לפי הספר</em> 📖</h1><p>כל שיעור בספר הוא נושא באפליקציה,<br>עם אותם פעלים ואותם משפטים</p></div>
+<div class="cap" id="c8"><h1>הספר מלמד את השפה</h1><p>האפליקציה עוזרת <b>לשלוף, לדבר, לתקן ולזכור</b></p></div>
 <div id="pills"><div>🧠 לשלוף<small>מילים ותרגול יומי</small></div><div>🎙️ לדבר<small>בקול, גם בנסיעה</small></div><div>✍️ לתקן<small>עיצור אחרי עיצור</small></div><div>📿 לזכור<small>חרוזים ומשחקים</small></div></div>
 <div class="cap" id="ch"><h1>יודעים <em style="color:var(--teal)">מה לתרגל עכשיו</em></h1><p><span class="nb">1</span> ממשיכים בשיעור של הכיתה<br><span class="nb">2</span> או תרגול קצר, כמה דקות</p></div>
 <div class="co" id="co1"><span class="n">1</span></div>
@@ -329,14 +329,15 @@ function bookAt(b,u,v){
 /* the three words of the booklet's row fly into the app: off the page as the booklet ends, hovering over the home,
    and into place when the practice opens: דיבר onto the prompt, חכא and יחכי onto the answer's card */
 // דיבר lands when the practice opens; חכא and יחכי wait at the top until the app reveals the answer (after the attempt)
-const WORDS=[{id:"wd",u:.70,to:"promptBox",at:"start"},{id:"wp",u:.41,to:"ans1",at:"score"},{id:"wf",u:.22,to:"ans2",at:"score"}];
+// the prompt's word sits at its right edge, on its top line (fx, fy: where in the target's box)
+const WORDS=[{id:"wd",u:.70,to:"promptBox",at:"start",fx:.9,fy:.3},{id:"wp",u:.41,to:"ans1",at:"score"},{id:"wf",u:.22,to:"ans2",at:"score"}];
 const HOVER=[[730,405],[480,405],[300,405]];
 function drawWords(t,p){
   const S=x=>INTRO+x*SLOW, L0=INTRO-1.3;
   WORDS.forEach((w,i)=>{ const el=$(w.id), land0=S(M[w.at].t)+(w.at==="score"?-.25:.15), land1=land0+.9;   // the answer shows just before the score mark
     if(t<L0||t>=land1+.5){ el.style.opacity=0; return; }
     const src=bookAt(Math.min(t,L0)-BOOK0,w.u,ROW.v+ROW.h/2), box=M[w.to].box;
-    const p0=onPhone(box[0]+box[2]/2,box[1]+box[3]/2), dst={x:PHONE.cx+p.tx+p.k*p0.x, y:PHONE.cy+p.ty+p.k*p0.y};
+    const p0=onPhone(box[0]+box[2]*(w.fx ?? 0.5),box[1]+box[3]*(w.fy ?? 0.5)), dst={x:PHONE.cx+p.tx+p.k*p0.x, y:PHONE.cy+p.ty+p.k*p0.y};
     const pop=ease((t-L0)/.35), lift=ease((t-L0-.35)/.8), fly=ease((t-land0)/(land1-land0));
     let x=lerp(src.x,HOVER[i][0],lift), y=lerp(src.y-30*pop,HOVER[i][1],lift);
     x=lerp(x,dst.x,fly); y=lerp(y,dst.y,fly);

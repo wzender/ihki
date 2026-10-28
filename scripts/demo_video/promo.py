@@ -142,12 +142,20 @@ async def record_screen(url, takes, work):
             if (await pg.inner_text("#prompt")).strip().startswith("דיבר"):
                 break
             await pg.click("#nextBtn"); await wait(250)
-        await pg.evaluate("scrollTo(0,0)"); await wait(200)
+        # the verb and the mic start hidden: the booklet's "דיבר" drops in and becomes the prompt, then the mic shows
+        await pg.evaluate("""(()=>{ const pr=$("prompt"), mz=document.querySelector(".mic-zone");
+          pr.style.transition="opacity .3s"; mz.style.transition="opacity .35s, transform .35s cubic-bezier(.3,1.6,.5,1)";
+          pr.style.opacity=0; mz.style.opacity=0; mz.style.transform="scale(.6)"; scrollTo(0,0); })()""")
+        await wait(200)
         await resume()
         await mark("start")
         await mark("promptBox", "#prompt")       # where the booklet's words land: the verb, and the answer's card
         await mark("hintBox", "#hint")
-        await wait(1500)
+        await wait(850)                          # the chip lands (about 0.9 s of the slowed video)
+        await pg.evaluate("$('prompt').style.opacity=1")
+        await wait(450)
+        await pg.evaluate("(()=>{ const mz=document.querySelector('.mic-zone'); mz.style.opacity=1; mz.style.transform='none'; })()")
+        await wait(900)
         await mark("mic", "#mic")
         await say("m876")
         await mark("score", "#result")

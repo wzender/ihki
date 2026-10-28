@@ -13,9 +13,10 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-COVER_CORNERS = {"tl": (128, 346), "tr": (934, 350), "br": (980, 1544), "bl": (72, 1544)}
+# corners of the booklet in the cover photo (שלב א, on a light table, 2048x2048), set by hand
+COVER_CORNERS = {"tl": (429, 117), "tr": (1592, 98), "br": (1694, 1766), "bl": (408, 1900)}
 COVER_SIZE = (1000, 1377)                  # the booklet's proportions (654 x 901 pt)
-STAGE_LINE = (330, 866, 620, 920)          # where "שלב ב" is on the straightened cover (x0, y0, x1, y1)
+STAGE_LINE = None                          # a cover line to paint over (x0, y0, x1, y1); none: the photo is of שלב א
 LEAVES = [(53, 54), (55, 56), (57, 58), (59, 60)]   # (front: on the left before the flip, back: on the right after)
 LEFT_BASE = 61                             # the left page left when the flip is done
 
@@ -25,9 +26,10 @@ def cover(photo: Path, out: Path):
     c = COVER_CORNERS
     cov = im.transform(COVER_SIZE, Image.QUAD, (*c["tl"], *c["bl"], *c["br"], *c["tr"]), Image.BICUBIC)
     a = np.asarray(cov).copy()
-    x0, y0, x1, y1 = STAGE_LINE
-    above = a[y0 - 10:y0 - 3, x0:x1].mean(axis=0)          # each column's white, from just above the line
-    a[y0:y1, x0:x1] = above[None, :, :].astype(np.uint8)
+    if STAGE_LINE:
+        x0, y0, x1, y1 = STAGE_LINE
+        above = a[y0 - 10:y0 - 3, x0:x1].mean(axis=0)      # each column's white, from just above the line
+        a[y0:y1, x0:x1] = above[None, :, :].astype(np.uint8)
     Image.fromarray(a).save(out / "cover.jpg", quality=90)
 
 
