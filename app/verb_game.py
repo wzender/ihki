@@ -9,6 +9,7 @@ from __future__ import annotations
 import random
 import secrets
 import time
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -55,6 +56,7 @@ EITAN_LEVELS = {
     7: {"name": "בונים לבד"},
     8: {"name": "מי אמר?"},
 }
+HU = next(i for i, p in enumerate(PRONOUNS) if p[0] == "huwwe")   # third person masculine singular
 TENSE_NAMES = {"past": "עבר", "future": "עתיד", "present": "הווה"}
 CONVERSATION_PROMPTS = {
     "past": [
@@ -129,6 +131,18 @@ def _form(verb: str, pronoun: int) -> dict[str, Any]:
 
 def _paradigm(verb: str) -> list:
     return VERBS[verb] if verb in VERBS else BOOK_VERBS[verb]
+
+
+_FINALS = str.maketrans("ךםןףץأإآ", "כמנפצااا")
+
+
+def _typed(text: str) -> str:
+    """A typed answer as compared: no vowel points, harakat, geresh or punctuation; finals and alef forms folded."""
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(c for c in text if not unicodedata.combining(c) and c not in "\u0640'`\u05f3\u05f4\"?!.,؟،-\u05be")
+    words = text.translate(_FINALS).split()
+    # a written-in or left-out א inside a Hebrew-letter word (בעמל / באעמל) is spelling, not grammar
+    return " ".join(w[:1] + w[1:].replace("א", "") for w in words)
 
 
 def _distance(a: str, b: str) -> int:
@@ -245,11 +259,13 @@ class VerbExerciseGenerator:
             "forms": forms,
         }
 
-    def _target(self, verbs: list[str], mastery: dict, recent: list[str], tense: str = "past") -> tuple[str, int]:
+    def _target(self, verbs: list[str], mastery: dict, recent: list[str], tense: str = "past",
+                kind: str = "") -> tuple[str, int]:
+        """kind is the mastery key's ending (":spoken" for Levels 4–5), so recent and mastery match what was asked."""
         candidates = [(v, p) for v in verbs for p in range(len(PRONOUNS))]
         def priority(item: tuple[str, int]) -> float:
             v, p = item
-            key = f"{v}:{tense}:{PRONOUNS[p][0]}"
+            key = f"{v}:{tense}:{PRONOUNS[p][0]}{kind}"
             m = mastery.get(key, {}) if isinstance(mastery, dict) else {}
             attempts = max(0, int(m.get("attempts", 0) or 0))
             accuracy = float(m.get("correct", 0) or 0) / attempts if attempts else 0.0
@@ -313,9 +329,9 @@ class VerbExerciseGenerator:
         tense, verbs = self._choose_tense(verbs, tenses if tenses is not None else (["past", "future", "present"] if level == 3 else ["past"]))
         if level == 5:
             # The first-error prompt teaches a useful contrast, so conversations use
-            # only verbs whose first-person past and future are both verified.
-            verbs_with_reminder = [v for v in verbs if self._tense_form(v, "past", 0)
-                                   and self._tense_form(v, "future", 0)]
+            # only verbs whose "הוא" past and future (the hint and the second-miss walk-through) are verified.
+            verbs_with_reminder = [v for v in verbs if self._tense_form(v, "past", HU)
+                                   and self._tense_form(v, "future", HU)]
             if verbs_with_reminder:
                 verbs = verbs_with_reminder
         if level == 2:
@@ -380,7 +396,7 @@ class VerbExerciseGenerator:
                 "mastery_key": f"{verb}:{tense}:matching"}
 
     def _spoken(self, level: int, verbs: list[str], mastery: dict, recent: list[str], tense: str) -> dict[str, Any]:
-        verb, pron = self._target(verbs, mastery, recent, tense)
+        verb, pron = self._target(verbs, mastery, recent, tense, kind=":spoken")
         form = self._tense_form(verb, tense, pron)
         p = PRONOUNS[pron]
         variants = [(form["arabic"], ipa) for ipa in form["ipas"]]
@@ -389,7 +405,11 @@ class VerbExerciseGenerator:
             variants += [(f"{pron_ar} {form['arabic']}", f"{pron_ipa} | {ipa}") for ipa in form["ipas"]]
         phrase = {"variants": variants, "cat": "verb-game", "key": f"{verb}:{tense}:{p[0]}:spoken",
                   "he": f"{p[1]} · {VERB_META[verb]['name']} ({TENSE_NAMES[tense]})"}
-        qid = self.sessions.put(StoredQuestion(level, verb, {}, time.monotonic(), phrase=phrase))
+        written = {"tr": form["transliteration"], "ar": form["arabic"], "tense": tense, "pron": pron}
+        if level == 5:   # a typed reply may also start with the pronoun, as a spoken one may
+            written["accepted"] = [_typed(x) for x in (form["transliteration"], form["arabic"],
+                                                       f"{p[2]} {form['transliteration']}", f"{p[3][0][0]} {form['arabic']}")]
+        qid = self.sessions.put(StoredQuestion(level, verb, written, time.monotonic(), phrase=phrase))
         result = {
             "question_id": qid, "level": level, "tense": {"id": tense, "name": TENSE_NAMES[tense]},
             "verb": {"id": verb, "name": VERB_META[verb]["name"], "arabic": _form(verb, 3)["arabic"]},
@@ -399,7 +419,8 @@ class VerbExerciseGenerator:
         if level == 5:
             ar, tr, he = CONVERSATION_PROMPTS[tense][pron]
             result["conversation"] = {"arabic": ar, "transliteration": tr, "hebrew": he}
-            reminder = {hint_tense: self._tense_form(verb, hint_tense, pron)
+            # the hint is the verb's dictionary-like form, always "הוא", so it does not give away the answer's ending
+            reminder = {hint_tense: self._tense_form(verb, hint_tense, HU)
                         for hint_tense in ("past", "future")}
             if all(reminder.values()):
                 result["conversation"]["reminder"] = {
@@ -521,6 +542,34 @@ class VerbExerciseGenerator:
         if not question or question.mode not in (4, 5) or not question.phrase:
             raise LookupError("spoken question expired")
         return question, question.phrase
+
+    def check_text(self, question_id: str, text: str) -> dict[str, Any]:
+        """A typed reply in the Level 5 conversation; like speech, the question stays open for another try."""
+        question = self.sessions.get(question_id)
+        if not question or question.mode != 5 or "accepted" not in question.correct:
+            raise LookupError("conversation question expired")
+        ok = _typed(text) in question.correct["accepted"]
+        return {"outcome": "correct" if ok else "needs_work", "correct": ok, "counts_as_attempt": True,
+                "variant": {"tr": question.correct["tr"], "ar": question.correct["ar"]}, "heard_tr": text.strip(),
+                "message": "נכון" if ok else "עוד לא. הקשיבו לתשובה ונסו שוב."}
+
+    def walk_through(self, question_id: str) -> list[dict[str, str]]:
+        """After a second miss in the conversation: the verb's base form (past, "הוא"), then the way to the answer —
+        past: the right past form; future: the right future form; present: the future form, then the present.
+        The question stays open until it expires, so the teacher's voice can still say the answer."""
+        question = self.sessions.get(question_id)
+        if not question or question.mode != 5 or "tense" not in question.correct:
+            raise LookupError("conversation question expired")
+        verb, tense, pron = question.verb, question.correct["tense"], question.correct["pron"]
+        steps = []
+        for t, p in [("past", HU)] + [(t, pron) for t in {"past": ["past"], "future": ["future"],
+                                                         "present": ["future", "present"]}[tense]]:
+            form = self._tense_form(verb, t, p)
+            step = {"kind": "form", "tense": TENSE_NAMES[t], "who": PRONOUNS[p][1],
+                    "tr": form["transliteration"] if form else ""}
+            if form and step not in steps:   # a "הוא" past question needs the base form only once
+                steps.append(step)
+        return steps
 
     def check_pair(self, question_id: str, pronoun_id: str, form_id: str) -> bool:
         """Check one matching pair without consuming the Level 2 question."""

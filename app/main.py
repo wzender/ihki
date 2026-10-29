@@ -2712,6 +2712,25 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except LookupError as e:
             raise HTTPException(410, str(e))
 
+    @app.post("/api/verb-game/text", dependencies=[Depends(require("games.use"))])
+    def verb_text(body: dict):
+        """Check a typed reply in the Level 5 conversation."""
+        text = str(body.get("text", ""))[:200]
+        if not text.strip():
+            raise HTTPException(400, "empty answer")
+        try:
+            return app.state.verb_game.check_text(str(body.get("question_id", "")), text)
+        except LookupError as e:
+            raise HTTPException(410, str(e))
+
+    @app.post("/api/verb-game/walk-through", dependencies=[Depends(require("games.use"))])
+    def verb_walk_through(body: dict):
+        """The teacher's step-by-step answer after a second miss in the conversation; ends the question."""
+        try:
+            return {"steps": app.state.verb_game.walk_through(str(body.get("question_id", "")))}
+        except LookupError as e:
+            raise HTTPException(410, str(e))
+
     @app.post("/api/verb-game/speech", dependencies=[Depends(require("games.use"))])
     def verb_speech(tasks: BackgroundTasks, audio: UploadFile = File(...), question_id: str = Form(...),
                     user: dict | None = Depends(signed_in)):

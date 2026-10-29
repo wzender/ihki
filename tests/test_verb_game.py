@@ -50,6 +50,8 @@ def test_every_main_exercise_respects_the_selected_tense(game, level, tense):
         if "reminder" in q["conversation"]:
             assert set(q["conversation"]["reminder"]) == {"past", "future"}
             assert all(q["conversation"]["reminder"].values())
+            stem = q["mastery_key"].split(":")[0]
+            assert q["conversation"]["reminder"]["past"] == game._tense_form(stem, "past", 3)["transliteration"]
 
 
 def test_server_grades_choice_once_and_reports_timing(game):
@@ -120,12 +122,46 @@ def test_spoken_questions_keep_expected_forms_server_side(game, level):
 
 
 def test_conversation_practises_pronouns_beyond_ana(game):
-    mastery = {f"{verb}:past:ana": {"attempts": 10, "correct": 10, "median_ms": 500}
+    mastery = {f"{verb}:past:ana:spoken": {"attempts": 10, "correct": 10, "median_ms": 500}
                for verb in VERBS}
     q = game.question(5, ["1"], mastery=mastery, tenses=["past"])
     assert q["pronoun"]["id"] != "ana"
     assert q["conversation"]["arabic"] and q["conversation"]["transliteration"]
 
+
+
+@pytest.mark.parametrize("level", [4, 5])
+def test_spoken_levels_do_not_repeat_the_last_questions(game, level):
+    recent = []
+    for _ in range(30):
+        q = game.question(level, ["1", "2", "3"], recent=recent, tenses=["past"])
+        assert q["mastery_key"] not in recent[-3:]
+        recent = (recent + [q["mastery_key"]])[-6:]
+
+@pytest.mark.parametrize("tense,shown", [("past", ["עבר"]), ("future", ["עתיד"]), ("present", ["עתיד", "הווה"])])
+def test_second_miss_walks_through_to_the_answer(game, tense, shown):
+    q = game.question(5, [str(n) for n in range(1, 11)], tenses=[tense])
+    stored = game.sessions.get(q["question_id"]).correct
+    steps = game.walk_through(q["question_id"])
+    assert (steps[0]["tense"], steps[0]["who"]) == ("עבר", "הוא") and steps[0]["tr"]   # the base form first
+    rest = steps[1:] if (tense, q["pronoun"]["id"]) != ("past", "huwwe") else steps
+    assert [s["tense"] for s in rest] == shown
+    assert all(s["who"] == q["pronoun"]["hebrew"] for s in rest)
+    assert steps[-1]["tr"] == stored["tr"]   # the last step is the answer itself
+
+def test_conversation_accepts_a_typed_reply(game):
+    import re
+    q = game.question(5, ["1"], tenses=["past"])
+    stored = game.sessions.get(q["question_id"]).correct
+    bare = re.sub(r"[\u0591-\u05C7]", "", stored["tr"])   # typed without vowel points
+    for text in (stored["tr"], bare, stored["ar"], f"{q['pronoun']['transliteration']} {bare}"):
+        result = game.check_text(q["question_id"], text)
+        assert result["correct"] and result["counts_as_attempt"] and result["variant"]["tr"] == stored["tr"]
+    wrong = game.check_text(q["question_id"], "שטויות")
+    assert not wrong["correct"] and wrong["counts_as_attempt"]
+    assert game.sessions.get(q["question_id"])   # a typed try leaves the question open, like a spoken one
+    with pytest.raises(LookupError):
+        game.check_text(game.question(4, ["1"], tenses=["past"])["question_id"], bare)
 
 # ---- "בונים עם איתן" (levels 6-8) ----
 from app.conjugation import (FUTURE_PREFIX, FUTURE_SUFFIX, PAST_SUFFIX, STAGE_A_VERBS, compose, plain)
