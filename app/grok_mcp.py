@@ -393,6 +393,27 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         except monitoring.MonitoringError as exc:
             return {"ok": False, "error": str(exc)}
 
+    @server.tool(description=("Return a read-only aggregate count of structured operational failures by safe "
+                              "category and day. Never returns raw logs, exception text, requests, identities, "
+                              "or individual events; live connection failures are a server-observed lower bound."),
+                 structured_output=True)
+    async def get_error_summary(
+        from_date: str, to_date: str,
+        category: Literal["live_connection_failure", "timeout", "authentication", "database",
+                          "upstream_service", "internal"] | None = None,
+    ) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "נתוני השגיאות התפעוליות אינם זמינים"}
+        try:
+            answer = monitoring.error_summary(
+                store, current, from_date=from_date, to_date=to_date, category=category)
+            log.info("MCP operational error summary outcome=%s actor_id=%s range=%s..%s category=%s",
+                     answer["status"], current.get("id"), from_date, to_date, category)
+            return {"ok": True, **answer}
+        except monitoring.MonitoringError as exc:
+            return {"ok": False, "error": str(exc)}
+
     @server.tool(description=("Answer how many users enabled notifications or can be attempted via Push for one "
                               "authorized class or all visible classes. Returns privacy-thresholded aggregate user "
                               "and device coverage only; it never sends notifications or exposes subscriptions, "

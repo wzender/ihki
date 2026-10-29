@@ -12,10 +12,12 @@ Teachers using the conversational connector can manage content and rosters, but 
 - Return explicit `no_activity`, `no_data`, `unavailable`, and `suppressed` states, disclose source freshness, query time, UTC ISO 8601 timestamps, and `Asia/Jerusalem` display values, and deduplicate learners across combined class rosters.
 - Bound activity requests to supported daily/weekly intervals and at most 90 days, and return no learner identities, scores, answers, recordings, or exact login events.
 - Add a read-only `get_system_health` MCP tool with a small public component-status vocabulary and role-aware detail.
+- Add a read-only `get_error_summary` MCP tool that returns persisted aggregate operational-error counts by safe category for a bounded date range, including observed live-connection request failures, timeout, authentication, database, upstream-service, and internal failures.
+- Record only allowlisted error categories and coarse component/context metadata, retain aggregate monitoring events for at most 90 days, and never store or return raw exception text, stack traces, request payloads, tokens, endpoints, or learner identities.
 - Reuse verified OAuth actor permissions and current class/subject scope for every request; reject unavailable persistence safely.
 - Keep all monitoring tools outside the mutation approval flow and record only safe operational audit metadata.
 - Reuse existing persisted attempts and ephemeral live-session heartbeats without adding general application-presence tracking, changing retention, or claiming an application-wide last-active time that is not stored.
-- Explicitly exclude raw logs, stack traces, database queries, environment variables, service endpoints, credentials, per-student timelines, and notification or remediation actions.
+- Explicitly exclude raw logs, stack traces, database queries, environment variables, service endpoints, credentials, per-student timelines, and notification or remediation actions; aggregate error telemetry is not a raw-log interface.
 
 ## Capabilities
 
@@ -30,7 +32,8 @@ Teachers using the conversational connector can manage content and rosters, but 
 
 ## Impact
 
-- Affects `app/grok_mcp.py`, `app/monitoring.py`, bounded attempt reads in `app/auth.py`, and aggregate access to the existing in-memory live-session store.
-- Adds focused MCP, authorization, aggregation, recency, privacy, deduplication, degraded-storage, and health tests; no database migration or new persistence is expected.
+- Affects `app/grok_mcp.py`, `app/monitoring.py`, operational error capture in the application and live-session boundaries, bounded reads in `app/auth.py`, and aggregate access to the existing in-memory live-session store.
+- Adds a database migration for privacy-safe operational error events with a 90-day retention bound and no user or request identifiers.
+- Adds focused MCP, authorization, aggregation, recency, privacy, deduplication, degraded-storage, health, telemetry-classification, and retention tests.
 - Extends README and the Hebrew teacher guide with safe example prompts.
-- Does not add paid API calls, browser UI changes, write operations, new credentials, deployment configuration, tracking events, or retention-policy changes.
+- Does not add paid API calls, browser UI changes, new credentials, or remediation actions. Error capture writes only the approved aggregate telemetry described here and does not turn MCP reads into mutations.

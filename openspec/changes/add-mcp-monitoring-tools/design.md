@@ -8,6 +8,8 @@ See `proposal.md` for motivation. The FastAPI management API already calculates 
 
 No browser state participates in MCP authorization. Supabase remains optional for ordinary practice, but MCP management and activity monitoring require the configured management store. There is no UI change, so RTL, touch, and keyboard behavior are unaffected.
 
+The service currently logs exceptions but has no structured, durable source from which an MCP query can truthfully answer how many operational errors occurred or which safe category they belonged to. Learner-submitted scoring-error reports are a separate product signal and must not be presented as infrastructure failures.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -18,6 +20,7 @@ No browser state participates in MCP authorization. Supabase remains optional fo
 - Expose current presence only from an active live-class heartbeat source and state its definition and freshness.
 - Distinguish no activity, no data, unavailable data, and privacy suppression in a stable schema.
 - Return a deliberately small health schema whose values cannot contain exception text.
+- Persist privacy-safe operational error events, summarize them by allowlisted type, and make server-observed live polling/heartbeat failures queryable without exposing raw logs or claiming knowledge of silent client disconnects.
 - Keep monitoring calls strictly read-only and independent of mutation approvals.
 
 **Non-Goals:**
@@ -72,6 +75,22 @@ Database reachability will use a minimal bounded read through the existing auth 
 
 The tools will not write management audit events because the spec requires no application mutation as a consequence of a call. Server logs may record the tool name, outcome category, actor ID, class ID, and requested date range, but not bearer tokens, roster data, returned series, or exception text.
 
+### 8. Capture allowlisted operational error events at failure boundaries
+
+Add one structured telemetry writer used only at explicit application failure boundaries. Each event stores a server-generated timestamp, an allowlisted category (`live_connection_failure`, `timeout`, `authentication`, `database`, `upstream_service`, or `internal`), an allowlisted component, and an optional coarse outcome code. It stores no exception message, stack trace, URL, path, request body, token, IP address, actor ID, learner ID, class ID, session ID, or free-form metadata.
+
+The live-class transport is HTTP polling, not WebSocket. A live request counts as `live_connection_failure` only when a heartbeat or polling request reaches the server and fails unexpectedly while the session should be active. Successful polls, expected missing/ended-session responses, deliberate session completion, and the mere absence of a later poll are not errors. Because the server cannot observe a device that silently loses connectivity, this metric is explicitly a lower bound on server-observed request failures, not a count of all user disconnects. Known timeout, authentication-store, database, and upstream-provider failure boundaries map directly to their safe categories; uncategorized handled exceptions map to `internal`. A failed telemetry write must never replace, delay, or mask the original application response.
+
+The alternative of attaching a handler to all text logs was rejected because log records contain free-form values and cannot provide reliable request semantics. A process-local counter was rejected because restarts would erase precisely the intermittent history needed for diagnosis.
+
+### 9. Persist bounded events and aggregate inside the monitoring service
+
+Add a minimal persistence table with a generated identifier, `occurred_at`, category, component, and outcome code constrained to approved values. Rows older than 90 days are deleted by a scheduled cleanup and may also be removed opportunistically after writes; cleanup failure is non-fatal and never expands retention intentionally. No foreign keys connect telemetry to users, classes, attempts, or sessions.
+
+`get_error_summary` accepts an inclusive ISO date range of at most 90 days and an optional safe category filter. The shared monitoring service validates the range before storage access, queries only the aggregate columns, and returns total errors, counts by category, and daily buckets with explicit zeros. It also returns the query time, timezone, retention limitation, and an `unavailable` state when persistence cannot be read. It never returns individual event rows.
+
+All verified management actors may request the same global operational summary because the events contain no class data and class scoping would be misleading. Developer role does not unlock raw detail. Learner-submitted system-error reports remain available only through their separate tool and are labeled distinctly.
+
 ## Risks / Trade-offs
 
 - **[Risk] Existing hourly aggregates may not provide exact distinct learners for a larger displayed bucket** → Omit or explicitly label any non-additive metric; never sum hourly distinct counts and present them as daily distinct learners.
@@ -82,12 +101,16 @@ The tools will not write management audit events because the spec requires no ap
 - **[Risk] Mapping all visible roster emails through the user directory may be slower for developers** → Enforce the 90-day limit, reuse one user-directory read per call, and pass only the final bounded ID set to the aggregate helper.
 - **[Risk] A health endpoint can become an infrastructure oracle** → Require OAuth management access and serialize only enum statuses from a fixed whitelist.
 - **[Risk] Database degradation can make both activity and health checks slow** → Use existing bounded request timeouts and map failures to a stable unavailable response.
+- **[Risk] Telemetry itself could become a sensitive log** → Constrain every stored field to an enum, reject free-form values, store no identifiers, and expose aggregates only.
+- **[Risk] Polling cannot reveal silent client disconnects** → Count only failed requests that reach the server, label the metric as a lower bound, and never infer an error from a missing future poll.
+- **[Risk] Telemetry writes fail during the same outage being measured** → Make writes best-effort, report source availability and limitations, and never claim the count is complete when persistence is unavailable.
 - **[Trade-off] No new RPC means local calendar roll-up is less precise for distinct-student counts** → Prefer truthful, limited metrics now; add a dedicated RPC in a future migration if teachers need exact per-day distinct counts.
 
 ## Migration Plan
 
-1. Deploy the service and three additional MCP tool schemas without changing the connector URL or OAuth registration.
-2. Verify local discovery, scoped activity fixtures, recent-window boundaries, privacy assertions, cross-class deduplication, degraded storage, ephemeral live presence, and role-aware health output.
-3. After deployment, refresh an existing connector session if its client caches tool discovery; no reconnection or Supabase configuration change should normally be required.
-4. Roll back by reverting the application commit; no stored data or schema requires rollback.
+1. Apply the operational-error telemetry migration and configure its 90-day cleanup before enabling capture.
+2. Deploy the service and four additional MCP tool schemas without changing the connector URL or OAuth registration.
+3. Verify local discovery, scoped activity fixtures, recent-window boundaries, privacy assertions, cross-class deduplication, degraded storage, ephemeral live presence, role-aware health output, live polling/heartbeat failure classification, and aggregate error counts.
+4. After deployment, refresh an existing connector session if its client caches tool discovery; no OAuth reconfiguration should normally be required.
+5. Roll back application capture and the MCP schema first; the telemetry table can then be dropped after its retention window or by an explicitly approved migration.
 

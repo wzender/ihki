@@ -19,6 +19,24 @@ Remote monitoring responses SHALL NOT disclose raw logs, stack traces, database 
 - **WHEN** a caller without a valid OAuth access token requests any monitoring tool
 - **THEN** the MCP transport rejects the request before monitoring data is evaluated
 
+### Requirement: Privacy-safe operational telemetry
+Operational error telemetry SHALL store only server timestamps and allowlisted category, component, and outcome values, SHALL contain no user, learner, class, session, network, request, endpoint, token, exception-message, or stack-trace data, and SHALL be retained for no more than 90 days.
+
+#### Scenario: Application records an operational failure
+- **WHEN** an instrumented failure boundary reports an error
+- **THEN** the stored event contains only constrained non-identifying fields
+- **AND** free-form exception or request content is not written to telemetry storage
+
+#### Scenario: Telemetry reaches its retention limit
+- **WHEN** an operational error event becomes older than 90 days
+- **THEN** scheduled retention cleanup removes it
+- **AND** monitoring queries do not return it
+
+#### Scenario: Developer requests an error summary
+- **WHEN** a verified developer requests aggregate error counts
+- **THEN** the response remains aggregate and uses the same safe fields available to other verified management actors
+- **AND** the developer role does not unlock individual events or raw diagnostic content
+
 ### Requirement: Aggregate recency privacy
 Remote monitoring SHALL NOT expose participant identities, per-learner presence, individual activity times, or timestamps derived from a sample below the existing privacy threshold. An aggregate latest timestamp MAY be returned only after the qualifying scoped sample passes its threshold.
 

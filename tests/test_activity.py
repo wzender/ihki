@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -133,3 +134,35 @@ def test_scoped_attempts_diagnostics_are_optional_and_missing_columns_are_safe()
         AuthUnavailable("supabase answered 400: column attempts.issues does not exist"))
     assert auth.scoped_attempts({"u1"}, start, end, include_diagnostics=True) == ([], False, False)
     assert auth.scoped_attempts(set(), start, end, include_diagnostics=True) == ([], False, True)
+
+
+def test_operational_error_writer_accepts_only_safe_enums_and_is_best_effort():
+    auth = SupabaseAuth("https://example.supabase.co", "public", secret="secret")
+    calls = []
+    auth._admin = lambda *args, **kwargs: calls.append((args, kwargs))
+    assert auth.record_operational_error("live_connection_failure", "live_session", "poll_failed") is True
+    assert calls == [(('/rest/v1/operational_error_events', 'POST', {
+        'category': 'live_connection_failure', 'component': 'live_session', 'outcome': 'poll_failed',
+    }), {'prefer': 'return=minimal'})]
+
+    for values in [
+        ("Exception: secret URL", "live_session", "exception"),
+        ("internal", "student-123", "exception"),
+        ("internal", "application", "traceback text"),
+    ]:
+        with pytest.raises(ValueError, match="unsupported"):
+            auth.record_operational_error(*values)
+
+    auth._admin = lambda *args, **kwargs: (_ for _ in ()).throw(AuthUnavailable("private endpoint"))
+    assert auth.record_operational_error("database", "database", "unavailable") is False
+
+
+def test_operational_error_migration_is_service_only_and_retained_for_90_days():
+    sql = Path("docs/operational-error-migration.sql").read_text()
+    assert "enable row level security" in sql
+    assert "revoke all" in sql and "anon, authenticated" in sql
+    assert "grant select, insert, delete" in sql and "service_role" in sql
+    assert 'policy "service role manages operational errors"' in sql
+    assert "interval '90 days'" in sql and "cron.schedule" in sql
+    for forbidden in ("user_id", "class_id", "session_id", "exception_text", "stack_trace", "request_body"):
+        assert forbidden not in sql

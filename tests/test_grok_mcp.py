@@ -73,6 +73,9 @@ class LibraryAuth:
     def scoped_push_subscriptions(self, emails):
         return []
 
+    def operational_error_summary(self, since, until, category=None):
+        return []
+
     def save_class(self, class_id, name, emails, nicknames, lessons, homeworks=(), dailies=None,
                    subject="", teachers=None):
         if class_id is None:
@@ -120,7 +123,7 @@ def test_narrow_tools_are_discoverable():
     assert [tool.name for tool in tools] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "prepare_class_change", "publish_class_change",
-        "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_notification_coverage",
+        "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_error_summary", "get_notification_coverage",
         "get_exercise_difficulty",
         "get_system_error_reports",
         "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",
@@ -134,6 +137,11 @@ def test_narrow_tools_are_discoverable():
     current = next(tool for tool in tools if tool.name == "get_current_activity")
     assert set(current.input_schema["properties"]) == {"window_minutes", "class_id"}
     assert current.input_schema["properties"]["window_minutes"]["enum"] == [5, 15]
+    errors = next(tool for tool in tools if tool.name == "get_error_summary")
+    assert set(errors.input_schema["properties"]) == {"from_date", "to_date", "category"}
+    assert set(errors.input_schema["required"]) == {"from_date", "to_date"}
+    assert errors.input_schema["properties"]["category"]["anyOf"][0]["enum"] == [
+        "live_connection_failure", "timeout", "authentication", "database", "upstream_service", "internal"]
     hourly = next(tool for tool in tools if tool.name == "get_hourly_activity")
     assert set(hourly.input_schema["properties"]) == {"from_date", "to_date", "class_id", "breakdown", "timezone"}
     assert difficulty.input_schema["properties"]["min_attempts"]["default"] == 10
@@ -347,6 +355,36 @@ def test_system_health_developer_metadata_is_whitelisted():
     assert not any(word in str(health).lower() for word in ("token", "secret", "trace", "http", "path"))
 
 
+def test_operational_error_summary_tool_is_aggregate_read_only_and_distinct_from_reports():
+    actor = {"id": "admin-1", "roles": ["admin"], "permissions": ["management.access"]}
+
+    class ErrorAuth(LibraryAuth):
+        def __init__(self):
+            super().__init__()
+            self.reads = []
+
+        def operational_error_summary(self, since, until, category=None):
+            self.reads.append((since, until, category))
+            return [{"local_date": "2026-10-25", "category": "live_connection_failure", "errors": 4,
+                     "database_read_at": "2026-10-26T00:00:00Z"}]
+
+    auth = ErrorAuth()
+    server, _ = connector(auth, actor=actor)
+    before = list(auth.events)
+    result = call(server, "get_error_summary", {
+        "from_date": "2026-10-25", "to_date": "2026-10-26"})
+    assert result["ok"] and result["total_errors"] == 4
+    assert result["counts_by_category"]["live_connection_failure"] == 4
+    assert result["source"] == "structured_operational_telemetry"
+    assert result["capture_semantics"] == "best_effort_lower_bound"
+    assert auth.events == before and len(auth.reads) == 1
+    assert not any(word in str(result).lower() for word in
+                   ("student", "request_body", "stack", "exception text", "endpoint", "token"))
+    refused = call(server, "get_error_summary", {
+        "from_date": "2026-10-27", "to_date": "2026-10-26"})
+    assert refused["ok"] is False
+
+
 def test_current_activity_tool_is_scoped_private_read_only_and_audit_free():
     actor = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
              "subject": "ערבית", "permissions": ["management.access"]}
@@ -505,7 +543,7 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
     assert [tool["name"] for tool in discovered.json()["result"]["tools"]] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "prepare_class_change", "publish_class_change",
-        "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_notification_coverage",
+        "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_error_summary", "get_notification_coverage",
         "get_exercise_difficulty",
         "get_system_error_reports",
         "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",

@@ -157,6 +157,62 @@ The MCP service SHALL return a read-only health summary using a bounded status v
 - **THEN** that component is reported as `not_configured`
 - **AND** the whole service is not reported as failed solely for that reason
 
+### Requirement: Aggregate operational error summary
+The MCP service SHALL provide a read-only `get_error_summary` tool that returns persisted operational-error totals, counts by safe category, and zero-filled daily buckets for an inclusive ISO date range of at most 90 days.
+
+#### Scenario: Manager requests an error summary
+- **WHEN** a verified management actor requests a valid date range
+- **THEN** the response returns a total and counts for `live_connection_failure`, `timeout`, `authentication`, `database`, `upstream_service`, and `internal`
+- **AND** it returns no individual event rows or free-form diagnostic content
+
+#### Scenario: Manager filters by category
+- **WHEN** the caller supplies one supported error category
+- **THEN** totals and daily buckets include only that category
+- **AND** an unsupported category is rejected before querying storage
+
+#### Scenario: Invalid error-summary range
+- **WHEN** the requested range is invalid, reversed, future-only, or longer than 90 days
+- **THEN** the service refuses the request before querying telemetry storage
+
+#### Scenario: Error telemetry is unavailable
+- **WHEN** telemetry persistence cannot be queried
+- **THEN** the service returns an explicit `unavailable` state
+- **AND** it does not fabricate a zero count
+
+### Requirement: Operational error classification
+The application SHALL record only allowlisted operational error categories at explicit failure boundaries and SHALL distinguish server-observed live polling/heartbeat failures from successful requests, expected session endings, and silent client absence.
+
+#### Scenario: Live polling or heartbeat request fails unexpectedly
+- **WHEN** a live polling or heartbeat request reaches the server and fails unexpectedly while its session should be active
+- **THEN** one `live_connection_failure` event is recorded with safe component and outcome enums
+
+#### Scenario: Live request or session ends normally
+- **WHEN** a live poll succeeds, the session is already expected to be absent or ended, or a live session completes deliberately
+- **THEN** no operational error event is recorded
+
+#### Scenario: Client silently stops polling
+- **WHEN** no later request reaches the server from a client
+- **THEN** the service does not infer or record a disconnect
+- **AND** summaries state that live connection failures are a lower bound on server-observed failed requests
+
+#### Scenario: Known dependency failure occurs
+- **WHEN** an instrumented operation fails through a timeout, authentication store, database, or upstream provider boundary
+- **THEN** the event maps to the matching safe category
+- **AND** unclassified handled exceptions map to `internal`
+
+#### Scenario: Telemetry write fails
+- **WHEN** recording an operational error fails
+- **THEN** the original application behavior and response remain unchanged
+- **AND** no retry loop delays or masks the original failure
+
+### Requirement: Error-summary semantics and limitations
+The error summary SHALL state its query time, `Asia/Jerusalem` bucket timezone, 90-day retention bound, source availability, and that best-effort capture may undercount failures during persistence outages. Learner-submitted scoring-error reports SHALL remain a separate signal and SHALL NOT contribute to operational error counts.
+
+#### Scenario: Summary is returned
+- **WHEN** aggregate telemetry is available
+- **THEN** the response identifies the source as structured operational telemetry and explains its retention and best-effort limitations
+- **AND** it does not characterize learner reports as confirmed infrastructure errors
+
 ### Requirement: Monitoring tools are read-only
 Monitoring MCP calls SHALL NOT mutate class, learner, content, audit, configuration, or infrastructure state and SHALL NOT require a prepare/publish approval.
 

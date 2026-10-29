@@ -73,6 +73,7 @@ from .access import (DEFAULT_ENTITLEMENTS, DEFAULT_ROLES, ENTITLEMENTS, ENTITLEM
                      ROLES, ROLE_PERMISSIONS, has_permission, resolve_access)
 from .class_management import (ClassManagementError, normalize_class_name, parse_roster,
                                visible_classes)
+from .error_telemetry import record_failure
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("ihki")
@@ -568,6 +569,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         try:
             user = resolve_access(a, token.strip()) if scheme.lower() == "bearer" and token.strip() else None
         except AuthUnavailable as e:
+            record_failure(a, "authentication")
             raise HTTPException(503, f"sign-in check failed: {e}")
         if user is None:
             raise HTTPException(401, "sign in required")
@@ -764,6 +766,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         try:
             a.set_current_lesson(email, class_id, lesson)
         except AuthUnavailable as e:
+            record_failure(a, "database")
             raise HTTPException(503, f"current lesson not saved: {e}")
         return {"class_id": class_id, "current_lesson": lesson}
 
@@ -838,6 +841,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(403, "יש להצטרף למפגש תחילה")
         except KeyError:
             raise HTTPException(404, "המפגש הסתיים")
+        except Exception:
+            record_failure(app.state.auth, "live_session")
+            raise
 
     @app.post("/api/live/{code}/question")
     def live_question(code: str, body: dict = Body(...), user: dict | None = Depends(signed_in)):
@@ -2766,6 +2772,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except TutorLimit:
             raise HTTPException(429, f"סיימתם את {DAILY_LIMIT} השיחות של היום. נתראה מחר!")
         except TutorUnavailable as e:
+            record_failure(app.state.auth, "model")
             raise HTTPException(502, str(e))
         if user and app.state.auth:
             tasks.add_task(app.state.auth.save_tutor_chat, chat.row())
@@ -2787,6 +2794,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         try:
             result = t.turn(chat, text)
         except TutorUnavailable as e:
+            record_failure(app.state.auth, "model")
             raise HTTPException(502, str(e))
         if user and app.state.auth:
             tasks.add_task(app.state.auth.save_tutor_chat, chat.row())
@@ -2814,6 +2822,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         try:
             data, used = app.state.tts.wav(text, LINE_VOICES.get(phrase.get("voice"), RAEF_VOICE_ID))
         except TTSUnavailable as e:
+            record_failure(app.state.auth, "text_to_speech")
             raise HTTPException(503, str(e))
         tts = app.state.tts  # debug: lets the page show which voice spoke
         return Response(data, media_type="audio/wav", headers={

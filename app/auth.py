@@ -87,6 +87,15 @@ MAX_ATTEMPTS = 20_000  # of one student, read for their progress
 MAX_CLASS_ATTEMPTS = 200_000  # of all students, read for the teacher's panel
 MAX_MONITOR_ATTEMPTS = 5_000  # newest compact attempts sampled for pronunciation patterns; never audio
 MAX_DIFFICULTY_ATTEMPTS = 50_000  # bounded scoped metadata; refuse rather than rank a partial sample
+OPERATIONAL_ERROR_CATEGORIES = frozenset({
+    "live_connection_failure", "timeout", "authentication", "database", "upstream_service", "internal",
+})
+OPERATIONAL_ERROR_COMPONENTS = frozenset({
+    "live_session", "authentication", "database", "model", "text_to_speech", "mcp", "application",
+})
+OPERATIONAL_ERROR_OUTCOMES = frozenset({
+    "poll_failed", "timed_out", "unavailable", "rejected", "exception",
+})
 CLASSES_TTL = 60  # seconds the class list is trusted without reading it again (each sign-in check uses it)
 # One-time migration boundary requested on 24 Oct 2026: the then-current seven days remain in Supabase forever.
 DEFAULT_AUDIO_MIGRATION_CUTOFF = "2026-10-17T00:00:00+03:00"
@@ -1241,6 +1250,31 @@ class SupabaseAuth:
             if "answered 404" in str(e):
                 return None
             raise
+
+    def record_operational_error(self, category: str, component: str, outcome: str) -> bool:
+        """Best-effort structured telemetry; free-form values and identifiers are never accepted."""
+        if (category not in OPERATIONAL_ERROR_CATEGORIES or component not in OPERATIONAL_ERROR_COMPONENTS
+                or outcome not in OPERATIONAL_ERROR_OUTCOMES):
+            raise ValueError("unsupported operational error telemetry value")
+        try:
+            self._admin("/rest/v1/operational_error_events", "POST", {
+                "category": category, "component": component, "outcome": outcome,
+            }, prefer="return=minimal")
+            return True
+        except AuthUnavailable as exc:
+            log.warning("operational error telemetry not stored (%s)", type(exc).__name__)
+            return False
+
+    def operational_error_summary(self, since: datetime, until: datetime,
+                                  category: str | None = None) -> list[dict]:
+        """Read database-side aggregates only; individual telemetry rows never leave Postgres."""
+        if category is not None and category not in OPERATIONAL_ERROR_CATEGORIES:
+            raise ValueError("unsupported operational error category")
+        return self._admin("/rest/v1/rpc/operational_error_summary", "POST", {
+            "p_since": since.astimezone(timezone.utc).isoformat(),
+            "p_until": until.astimezone(timezone.utc).isoformat(),
+            "p_category": category, "p_timezone": "Asia/Jerusalem",
+        }) or []
 
     def save_tutor_chat(self, row: dict) -> None:
         """Keeps a conversation with the tutor (see tutor.py), in place of what was kept of it before. A failure is

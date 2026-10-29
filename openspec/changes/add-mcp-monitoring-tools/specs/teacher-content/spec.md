@@ -26,3 +26,9 @@ Teacher activity views and conversational monitoring tools SHALL expose only agg
 - **THEN** the response distinguishes the latest stored practice attempt from unavailable general application activity
 - **AND** it does not infer that the application is unused from missing practice data
 
+#### Scenario: Teacher asks how many system errors occurred
+- **WHEN** a teacher requests operational errors for a supported date range
+- **THEN** the response returns aggregate counts by safe error category and day
+- **AND** it does not expose raw logs, exception text, infrastructure locations, or learner identities
+- **AND** learner-submitted scoring-error reports remain clearly separate from measured operational failures
+

@@ -9,7 +9,7 @@ from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 from .access import has_permission
-from .auth import AuthUnavailable
+from .auth import AuthUnavailable, OPERATIONAL_ERROR_CATEGORIES
 from .class_management import ClassManagementError, visible_classes
 
 
@@ -146,6 +146,56 @@ def activity_timeseries(auth: Any, actor: dict[str, Any], *, from_date: object, 
                     for key in ("attempts", "active_students", "returning_students", "active_days")}
     return {**scope, "from_date": start.isoformat(), "to_date": end.isoformat(),
             "interval": clean_interval, "series": list(grouped.values()), "summary": safe_summary}
+
+
+def error_summary(auth: Any, actor: dict[str, Any], *, from_date: object, to_date: object,
+                  category: object = None, today: date | None = None,
+                  checked_at: datetime | None = None) -> dict[str, Any]:
+    """Return global enum-only operational aggregates, never individual telemetry rows."""
+    if not has_permission(actor, "management.access"):
+        raise MonitoringError("אין הרשאת ניהול")
+    start, end, _ = validate_range(from_date, to_date, "day", today=today)
+    if category is not None and category not in OPERATIONAL_ERROR_CATEGORIES:
+        raise MonitoringError("category אינה קטגוריית שגיאה נתמכת")
+    since = datetime.combine(start, time.min, LOCAL_TZ).astimezone(timezone.utc)
+    until = datetime.combine(end + timedelta(days=1), time.min, LOCAL_TZ).astimezone(timezone.utc)
+    try:
+        rows = auth.operational_error_summary(since, until, category)
+    except (AuthUnavailable, AttributeError, KeyError, TypeError, ValueError) as exc:
+        raise MonitoringUnavailable("נתוני השגיאות התפעוליות אינם זמינים") from exc
+
+    categories = [category] if category else sorted(OPERATIONAL_ERROR_CATEGORIES)
+    by_day: dict[date, dict[str, int]] = {}
+    cursor = start
+    while cursor <= end:
+        by_day[cursor] = {name: 0 for name in categories}
+        cursor += timedelta(days=1)
+    database_read_at = None
+    for row in rows if isinstance(rows, list) else []:
+        try:
+            day = date.fromisoformat(str(row["local_date"]))
+            name = str(row["category"])
+            count = max(0, int(row.get("errors") or 0))
+            if day in by_day and name in by_day[day]:
+                by_day[day][name] += count
+            database_read_at = database_read_at or _activity_stamp(row.get("database_read_at"))
+        except (KeyError, TypeError, ValueError, OverflowError):
+            continue
+    counts = {name: sum(day[name] for day in by_day.values()) for name in categories}
+    checked = (checked_at or database_read_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    total = sum(counts.values())
+    return {
+        "status": "no_activity" if total == 0 else "complete",
+        "from_date": start.isoformat(), "to_date": end.isoformat(), "category": category,
+        "timezone": "Asia/Jerusalem", "checked_at": _utc_iso(checked),
+        "source": "structured_operational_telemetry", "retention_days": 90,
+        "capture_semantics": "best_effort_lower_bound",
+        "limitations": ("Counts include only failures observed by the server. Missing client polls and failures "
+                        "during telemetry persistence outages may be absent."),
+        "total_errors": total, "counts_by_category": counts,
+        "series": [{"date": day.isoformat(), "total_errors": sum(values.values()),
+                    "counts_by_category": values} for day, values in by_day.items()],
+    }
 
 
 def hourly_activity(auth: Any, actor: dict[str, Any], *, from_date: object, to_date: object,

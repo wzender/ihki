@@ -20,12 +20,23 @@
 ## 4. Documentation and integration
 
 - [x] 4.1 Document Hebrew example prompts, date/interval limits, class scope, health status meanings, privacy exclusions, and read-only behavior in README and the teacher guide; verify HTML parses and the documented tool arguments match runtime schemas.
-- [ ] 4.2 Run focused monitoring, MCP, OAuth, activity, live-session, and privacy tests followed by the full suite and strict OpenSpec validation; after deployment, verify the existing connector discovers all three monitoring tools without OAuth reconfiguration and that read-only queries do not alter management activity.
+- [ ] 4.2 Run focused monitoring, MCP, OAuth, activity, live-session, and privacy tests followed by the full suite and strict OpenSpec validation; after deployment, verify the existing connector discovers all four monitoring tools without OAuth reconfiguration and that read-only queries do not alter management activity.
 
 Verification record (2026-10-27): all 48 focused monitoring, activity, and live-session tests pass; the focused MCP discovery/current-activity tests pass; Python compilation, `git diff --check`, HTML parsing, and strict OpenSpec validation pass. The full suite was attempted with a 120-second bound and stalled in the pre-existing `test_existing_library_api_is_compatible_and_mcp_token_has_no_api_authority` ASGI lifespan teardown after 121 passing tests. Production deployment and connector verification have not been performed.
 
+## 5. Aggregate operational error monitoring
+
+- [x] 5.1 Add a migration and persistence adapter for structured operational error events constrained to timestamp and allowlisted category, component, and outcome enums; add scheduled 90-day cleanup, keep writes best-effort, and verify tests reject free-form or identifying fields and preserve original failures when telemetry is unavailable.
+- [x] 5.2 Instrument explicit failed live polling/heartbeat requests, timeout, authentication, database, upstream-service, and internal failure boundaries without counting successful polls, expected absent/ended sessions, missing future polls, or deliberate session completion; verify classification, exactly-once capture per observed failure, and no exception/request content in stored events.
+- [x] 5.3 Implement a bounded monitoring service that validates inclusive ISO date ranges and optional category filters, enforces the 90-day limit, returns totals, all-category counts, and zero-filled Asia/Jerusalem daily buckets, and reports unavailable storage without fabricating zero; verify unit tests cover range validation, timezone boundaries, empty data, category filters, retention exclusion, and unavailable persistence.
+- [x] 5.4 Register read-only `get_error_summary` in the MCP server for verified management actors, expose aggregate data and capture limitations only, keep learner scoring reports separate, and update exact tool allowlist, OAuth, no-audit-write, schema, privacy, and safe-error tests.
+- [x] 5.5 Document Hebrew example prompts, category definitions, date/retention limits, best-effort undercount risk, distinction from learner reports, and privacy exclusions in README and the teacher guide; verify documented arguments match the runtime schema.
+- [ ] 5.6 Run focused telemetry, monitoring, MCP, OAuth, live-session, retention, and privacy tests, then the full suite and strict OpenSpec validation; after approved migration and deployment, verify the existing connector discovers all four monitoring tools and a controlled failed live polling/heartbeat request increments only the expected aggregate category.
+
+Verification record (2026-10-29): 63 focused activity, monitoring, and live-session tests pass; focused MCP discovery, schema, privacy, read-only, OAuth transport, and `get_error_summary` calls pass. Python compilation, teacher-guide HTML parsing, `git diff --check`, and strict OpenSpec validation pass. The full suite was attempted with a 120-second bound and again stalled during the pre-existing MCP ASGI lifespan teardown after 127 tests had emitted pass markers. The two approved Supabase migrations were applied to project `ihki`; live verification confirms RLS, service-role-only access, the aggregate RPC, and active daily retention cleanup, and the new table adds no security-advisor finding. Production application deployment and connector verification have not been performed.
+
 ## Workflow follow-up
 
-- Obtain explicit approval before any database migration, new activity collection, retention-policy change, or production deployment.
+- Database migration, aggregate operational-error collection, and the 90-day retention policy were approved on 2026-10-29; obtain explicit approval before production deployment.
 - Archive the change after production connector verification and review requirements are satisfied.
 

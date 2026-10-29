@@ -1,5 +1,6 @@
 import pytest
 
+from app.error_telemetry import record_failure
 from app.live import LiveConflict, LiveStore
 
 
@@ -79,3 +80,30 @@ def test_new_store_has_no_reconstructed_presence():
         "active_session": False, "active_users": 0,
         "heartbeat_ttl_seconds": 20, "ephemeral": True,
     }
+
+
+def test_operational_failure_boundaries_emit_one_safe_event_each():
+    class Auth:
+        def __init__(self):
+            self.events = []
+
+        def record_operational_error(self, *values):
+            self.events.append(values)
+            return True
+
+    auth = Auth()
+    assert record_failure(auth, "live_session") is True
+    assert record_failure(auth, "authentication") is True
+    assert record_failure(auth, "database") is True
+    assert record_failure(auth, "model") is True
+    assert record_failure(auth, "application", timed_out=True) is True
+    assert auth.events == [
+        ("live_connection_failure", "live_session", "exception"),
+        ("authentication", "authentication", "unavailable"),
+        ("database", "database", "unavailable"),
+        ("upstream_service", "model", "unavailable"),
+        ("timeout", "application", "timed_out"),
+    ]
+    assert not any("error" in value or "request" in value for event in auth.events for value in event)
+    with pytest.raises(ValueError):
+        record_failure(auth, "student-123")

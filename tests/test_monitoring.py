@@ -6,7 +6,7 @@ import pytest
 from app.auth import AuthUnavailable
 from app.monitoring import (MonitoringError, MonitoringUnavailable, activity_timeseries,
                             aggregate_exercise_difficulty, compare_class_difficulties,
-                            current_activity, exercise_difficulty, hourly_activity, learning_bottlenecks, learning_progress,
+                            current_activity, error_summary, exercise_difficulty, hourly_activity, learning_bottlenecks, learning_progress,
                             normalize_attempts, notification_coverage, pronunciation_difficulties,
                             system_error_reports, system_health, validate_range)
 
@@ -82,6 +82,50 @@ def test_unknown_and_out_of_scope_class_have_the_same_safe_error():
         with pytest.raises(MonitoringError, match="הכיתה אינה זמינה"):
             activity_timeseries(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
                                 class_id=class_id, today=date(2026, 10, 26))
+
+
+def test_error_summary_is_bounded_filtered_zero_filled_and_identity_free():
+    class Auth:
+        def __init__(self):
+            self.args = None
+
+        def operational_error_summary(self, since, until, category):
+            self.args = (since, until, category)
+            return [{"local_date": "2026-10-25", "category": "live_connection_failure", "errors": 3,
+                     "database_read_at": "2026-10-26T07:00:00Z"},
+                    {"local_date": "2026-10-25", "category": "timeout", "errors": 2}]
+
+    auth = Auth()
+    data = error_summary(auth, ACTOR, from_date="2026-10-24", to_date="2026-10-26",
+                         today=date(2026, 10, 26))
+    assert data["total_errors"] == 5
+    assert data["counts_by_category"]["live_connection_failure"] == 3
+    assert data["counts_by_category"]["database"] == 0
+    assert [row["total_errors"] for row in data["series"]] == [0, 5, 0]
+    assert auth.args[2] is None and auth.args[0].tzinfo and auth.args[1].tzinfo
+    assert not any(value in str(data).lower() for value in ("student", "example.com", "stack", "token"))
+
+    filtered = error_summary(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-25",
+                             category="timeout", today=date(2026, 10, 26))
+    assert filtered["counts_by_category"] == {"timeout": 2}
+
+
+def test_error_summary_rejects_bad_requests_and_unavailable_storage():
+    class Auth:
+        def operational_error_summary(self, *args):
+            raise AuthUnavailable("secret database URL")
+
+    for category in ("raw_log", "websocket_disconnect", 7):
+        with pytest.raises(MonitoringError, match="category"):
+            error_summary(Auth(), ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                          category=category, today=date(2026, 10, 26))
+    with pytest.raises(MonitoringUnavailable) as failure:
+        error_summary(Auth(), ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                      today=date(2026, 10, 26))
+    assert "secret" not in str(failure.value)
+    with pytest.raises(MonitoringError):
+        error_summary(Auth(), ACTOR, from_date="2026-07-01", to_date="2026-10-26",
+                      today=date(2026, 10, 26))
 
 
 def test_empty_roster_and_unavailable_storage_are_explicit():
