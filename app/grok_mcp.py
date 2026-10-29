@@ -187,6 +187,9 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
     def initial_lessons() -> dict[str, str]:
         return dict(getattr(app.state, "initial_class_lessons", {}))
 
+    def content_collections() -> list[dict[str, Any]]:
+        return list(getattr(app.state, "class_content_collections", []))
+
     def class_audit(action: str, current: dict[str, Any] | None, outcome: str,
                     result: dict[str, Any] | None = None, reason: str = "") -> None:
         safe = result or {}
@@ -271,12 +274,40 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         except class_management.ClassManagementError as exc:
             return {"ok": False, "error": str(exc), "classes": []}
 
+    @server.tool(description=("List stable curriculum stage or collection identifiers assignable in the current "
+                              "manager's subject scope. Assignment snapshots the collection's current content ids."),
+                 structured_output=True)
+    async def list_class_content_collections() -> dict[str, Any]:
+        current = actor()
+        if current is None:
+            return {"ok": False, "error": "אין הרשאת ניהול", "collections": []}
+        try:
+            return {"ok": True, "collections": class_management.available_collections(
+                current, content_collections()), "assignment_behavior": "snapshot_current_content",
+                "future_content_included": False}
+        except class_management.ClassManagementError as exc:
+            return {"ok": False, "error": str(exc), "collections": []}
+
+    @server.tool(description=("Verify the actual stored content access of one class in the current manager's scope. "
+                              "Separates complete collections, partial collections, and unknown content ids."),
+                 structured_output=True)
+    async def get_class_content_access(class_id: int) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "אין הרשאת ניהול"}
+        try:
+            return {"ok": True, **class_management.content_access(
+                store, current, class_id, content_collections())}
+        except class_management.ClassManagementError as exc:
+            return {"ok": False, "error": str(exc)}
+
     @server.tool(description=("Prepare one class change for confirmation. Allowed operations: create_class, rename_class, "
                               "add_student, remove_student. This does not mutate data."), structured_output=True)
     async def prepare_class_change(
         operation: Literal["create_class", "rename_class", "add_student", "remove_student"],
         class_id: int | None = None, name: str = "", subject: str = "", email: str = "",
         nickname: str = "", students: list[dict[str, str]] | None = None,
+        content_collection_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         current, store = actor(), auth()
         if current is None or store is None:
@@ -287,13 +318,17 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         try:
             plan = class_management.prepare(store, current, operation, class_id=class_id, name=name,
                                             subject=subject, email=email, nickname=nickname, students=students,
-                                            initial_lessons=initial_lessons())
+                                            initial_lessons=initial_lessons(),
+                                            collection_ids=content_collection_ids,
+                                            collections=content_collections())
             approval_id, _ = class_approvals.prepare(str(current["id"]), plan)
-            shown = {key: value for key, value in plan.items() if key not in {"state", "emails", "nicknames", "lesson"}}
+            shown = {key: value for key, value in plan.items()
+                     if key not in {"state", "emails", "nicknames", "content_ids"}}
             if operation == "create_class":
                 shown["students"] = [{"email": item, **({"nickname": plan["nicknames"][item]}
                                                           if item in plan["nicknames"] else {})}
                                      for item in plan["emails"]]
+                shown["initial_student_list"] = "empty" if not shown["students"] else "shown"
             class_audit("prepare_class_change", current, "success", shown)
             return {"ok": True, "approval_id": approval_id, **shown,
                     "expires_in_seconds": APPROVAL_TTL, "published": False}
@@ -315,7 +350,8 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             class_audit("publish_class_change", current, "refused", reason="invalid_approval")
             return {"ok": False, "error": "האישור אינו תקף, פג תוקף, שייך למשתמש אחר או כבר נוצל."}
         try:
-            answer = class_management.apply(store, current, item.plan, initial_lessons=initial_lessons())
+            answer = class_management.apply(store, current, item.plan, initial_lessons=initial_lessons(),
+                                            collections=content_collections())
             class_audit("publish_class_change", current, "success", answer)
             return {"ok": True, **answer, "published": True}
         except class_management.ClassManagementError as exc:

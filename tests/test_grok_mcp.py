@@ -106,6 +106,10 @@ def connector(auth=None, clock=None, actor=None, live=None):
     host = SimpleNamespace(state=SimpleNamespace(auth=auth, video_link=video_link, scorer=object(), tts=None,
         mcp_build_info={"version": "test", "revision": "abc"},
         initial_class_lessons={"ערבית": "1", "מתמטיקה": "linear-functions"},
+        class_content_collections=[
+            {"id": "arabic-stage-1", "name": "שלב א", "subject": "ערבית", "content_ids": ["1", "2"]},
+            {"id": "arabic-stage-2", "name": "שלב ב", "subject": "ערבית", "content_ids": ["2.1", "2.2"]},
+            {"id": "math-unit-f", "name": "יסודות", "subject": "מתמטיקה", "content_ids": ["f"]}],
         live=live or LiveStore(), push=SimpleNamespace(on=True)))
     server, protected, _ = build(host, approvals=ApprovalStore(clock), limiter=MutationLimiter(clock),
         class_approvals=ClassApprovalStore(clock), actor_provider=(lambda: actor) if actor else None)
@@ -122,7 +126,8 @@ def test_narrow_tools_are_discoverable():
     tools = asyncio.run(server.list_tools())
     assert [tool.name for tool in tools] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
-        "list_classes", "prepare_class_change", "publish_class_change",
+        "list_classes", "list_class_content_collections", "get_class_content_access",
+        "prepare_class_change", "publish_class_change",
         "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_error_summary", "get_notification_coverage",
         "get_exercise_difficulty",
         "get_system_error_reports",
@@ -284,10 +289,39 @@ def test_class_tools_manage_only_scoped_rosters_with_confirmation():
         "email": "old@example.com"})
     assert call(server, "publish_class_change", {"approval_id": removed["approval_id"]})["ok"]
     created = call(server, "prepare_class_change", {"operation": "create_class", "name": "חדשים",
-        "students": [{"email": "first@example.com", "nickname": "ראשון"}]})
+        "students": [{"email": "first@example.com", "nickname": "ראשון"}],
+        "content_collection_ids": ["arabic-stage-1", "arabic-stage-2"]})
+    assert created["subject"] == "ערבית"
+    assert created["selected_collections"] == [
+        {"id": "arabic-stage-1", "name": "שלב א"}, {"id": "arabic-stage-2", "name": "שלב ב"}]
+    assert created["initial_student_list"] == "shown"
     assert call(server, "publish_class_change", {"approval_id": created["approval_id"]})["ok"]
     assert len(auth.class_rows) == 3
+    assert auth.class_rows[-1]["lessons"] == ["1", "2", "2.1", "2.2"]
     assert all("token" not in str(event).lower() and "nickname" not in str(event).lower() for event in auth.events)
+
+
+def test_class_content_catalog_empty_roster_invalid_ids_duplicate_name_and_verification():
+    actor = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
+             "subject": "ערבית", "permissions": ["management.access"]}
+    auth = LibraryAuth()
+    auth.class_rows = [{"id": 1, "name": "קיימת", "subject": "ערבית", "emails": [], "nicknames": {},
+                        "teachers": [], "lessons": ["1", "legacy"], "homeworks": [], "dailies": []}]
+    server, _ = connector(auth, actor=actor)
+    catalog = call(server, "list_class_content_collections")
+    assert [item["id"] for item in catalog["collections"]] == ["arabic-stage-1", "arabic-stage-2"]
+    assert catalog["future_content_included"] is False
+    verify = call(server, "get_class_content_access", {"class_id": 1})
+    assert verify["status"] == "unknown_or_unsupported" and verify["unknown_content_ids"] == ["legacy"]
+    invalid = call(server, "prepare_class_change", {"operation": "create_class", "name": "חדשה",
+        "content_collection_ids": ["not-a-stage"]})
+    assert invalid["ok"] is False and len(auth.class_rows) == 1
+    duplicate = call(server, "prepare_class_change", {"operation": "create_class", "name": "  קיימת ",
+        "content_collection_ids": ["arabic-stage-1"]})
+    assert duplicate["ok"] is False
+    prepared = call(server, "prepare_class_change", {"operation": "create_class", "name": "ריקה",
+        "content_collection_ids": ["arabic-stage-1"]})
+    assert prepared["students"] == [] and prepared["initial_student_list"] == "empty"
 
 
 def test_failed_class_publish_consumes_approval_and_does_not_claim_success():
@@ -542,7 +576,8 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
     assert initialized.json()["result"]["serverInfo"]["name"] == "ihki-digital-library"
     assert [tool["name"] for tool in discovered.json()["result"]["tools"]] == [
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
-        "list_classes", "prepare_class_change", "publish_class_change",
+        "list_classes", "list_class_content_collections", "get_class_content_access",
+        "prepare_class_change", "publish_class_change",
         "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_error_summary", "get_notification_coverage",
         "get_exercise_difficulty",
         "get_system_error_reports",

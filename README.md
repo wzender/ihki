@@ -648,14 +648,28 @@ Class mutations use the same two-step rule. Useful prompts include:
 
 ```text
 הצג את הכיתות והתלמידים שאני רשאי/ת לנהל.
-הכן יצירת כיתה בשם "מתחילים נובמבר" עם התלמיד dana@example.com. אל תבצע עדיין.
+הצג את שלבי התוכן שאפשר להקצות לכיתה.
+הכן יצירת כיתה בשם "מנחים ומתרגלים חדש" עם שלב א ושלב ב וללא תלמידים. אל תבצע עדיין.
 הכן הוספת התלמיד noam@example.com לכיתה 12 עם הכינוי נועם. אל תבצע עדיין.
 הכן הסרת התלמיד old@example.com מכיתה 12. אל תבצע עדיין.
 ```
 
-Grok calls `prepare_class_change` with one of `create_class`, `rename_class`, `add_student`, or `remove_student`, then displays the normalized class and email details. After the teacher checks them and explicitly confirms, Grok calls `publish_class_change` with the returned approval id. The approval lasts ten minutes, is single-use, is bound to that signed-in manager, and is refused if the class or the manager's subject scope changed meanwhile.
+For class creation, Grok first calls `list_class_content_collections`, then passes one or more returned stable ids as `content_collection_ids` to `prepare_class_change`. The prepared response displays the exact normalized class name, subject, selected collections, and initial student list (including an explicit `empty` marker). After the teacher checks those exact details and explicitly confirms, Grok calls `publish_class_change` with the returned approval id. The approval lasts ten minutes, is single-use, is bound to that signed-in manager, and is refused if the class, catalog, or manager's subject scope changed meanwhile.
 
-Class listing returns only class id, name, subject, student emails, and optional class-local nicknames. The connector cannot delete a class or account, create a login account, change roles or entitlements, assign teachers, edit lessons/homework/daily videos, or read individual progress, grades, raw attempts, or recordings. Those operations remain in the browser management screen where applicable. Adding an email to a class does not create a Supabase user; that student still signs in normally.
+Collection assignment is a snapshot: the application expands each selected collection to its currently defined lesson or unit ids and stores those ids in the existing class `lessons` field. Content already represented in the catalog, including currently planned lesson entries, is included; a new content id added to a stage in a later release is not automatically added to an existing class. No access rule or existing class is changed by this feature.
+
+Example MCP arguments for the requested two-stage class (illustrative ids shown; do not publish until the teacher confirms the prepare response):
+
+```json
+{"name":"list_class_content_collections","arguments":{}}
+{"name":"prepare_class_change","arguments":{"operation":"create_class","name":"מנחים ומתרגלים חדש","content_collection_ids":["arabic-stage-1","arabic-stage-2"],"students":[]}}
+{"name":"publish_class_change","arguments":{"approval_id":"<approval id returned by prepare>"}}
+{"name":"get_class_content_access","arguments":{"class_id":123}}
+```
+
+`get_class_content_access` reads the stored class row after creation. It reports fully confirmed collections separately from partially assigned collections and unknown or unsupported stored content ids; it never treats an unknown id as confirmed access. A legacy class with an empty `lessons` array is reported separately as `legacy_empty_selection_means_all_content`: the existing application fallback gives such a class all current catalog content and therefore also content added later. Newly prepared collection assignments are explicit snapshots and do not use that fallback. Class creation and its content ids are written by one class-row insert. If persistence fails, publication returns an error, consumes the approval, and does not claim the class or all selected content was assigned.
+
+Class listing returns only class id, name, subject, student emails, and optional class-local nicknames. Apart from selecting content collections while creating a class, the connector cannot delete a class or account, create a login account, change roles or entitlements, assign teachers, edit an existing class's lessons/homework/daily videos, or read individual progress, grades, raw attempts, or recordings. Those operations remain in the browser management screen where applicable. Adding an email to a class does not create a Supabase user; that student still signs in normally.
 
 The twelve monitoring and analytics tools are read-only and do not use the prepare/publish flow. `get_activity_timeseries` accepts `from_date` and `to_date` as `YYYY-MM-DD`, an `interval` of `day` or `week`, and an optional `class_id`. The inclusive range is limited to 90 non-future days. With a class id it returns only that authorized class; without one it combines only classes currently visible to the signed-in manager. The response contains aggregate attempts, the peak simultaneously active learners reported by the source buckets, and a range summary. It never contains student names, emails, ids, individual scores, answers, recordings, or exact login events.
 

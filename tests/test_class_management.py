@@ -3,11 +3,16 @@ from copy import deepcopy
 import pytest
 
 from app.auth import AuthUnavailable
-from app.class_management import (ClassManagementError, ClassStorageUnavailable, apply, parse_roster,
-                                  prepare, public_classes)
+from app.class_management import (ClassManagementError, ClassStorageUnavailable, apply, available_collections,
+                                  content_access, parse_roster, prepare, public_classes)
 
 
 INITIAL = {"ערבית": "1", "מתמטיקה": "linear-functions"}
+COLLECTIONS = [
+    {"id": "arabic-stage-1", "name": "שלב א", "subject": "ערבית", "content_ids": ["1", "2"]},
+    {"id": "arabic-stage-2", "name": "שלב ב", "subject": "ערבית", "content_ids": ["2.1", "2.2"]},
+    {"id": "math-unit-f", "name": "יסודות", "subject": "מתמטיקה", "content_ids": ["f"]},
+]
 ADMIN = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
          "subject": "ערבית", "permissions": ["management.access"]}
 DEVELOPER = {"id": "dev-1", "email": "dev@example.com", "roles": ["developer"],
@@ -66,16 +71,44 @@ def test_listing_is_subject_scoped_and_minimized():
 def test_create_and_rename_are_scoped_and_unique():
     auth = ClassAuth()
     plan = prepare(auth, ADMIN, "create_class", name="  חדשה  ", subject="מתמטיקה",
-                   students=[{"email": "New@Example.com", "nickname": " נועה "}], initial_lessons=INITIAL)
-    assert plan["subject"] == "ערבית" and plan["lesson"] == "1"
-    made = apply(auth, ADMIN, plan, initial_lessons=INITIAL)
+                   students=[{"email": "New@Example.com", "nickname": " נועה "}], initial_lessons=INITIAL,
+                   collection_ids=["arabic-stage-1", "arabic-stage-2"], collections=COLLECTIONS)
+    assert plan["subject"] == "ערבית" and plan["content_ids"] == ["1", "2", "2.1", "2.2"]
+    made = apply(auth, ADMIN, plan, initial_lessons=INITIAL, collections=COLLECTIONS)
     assert made["class_name"] == "חדשה" and auth.rows[0]["emails"] == ["new@example.com"]
+    assert auth.rows[0]["lessons"] == ["1", "2", "2.1", "2.2"]
     with pytest.raises(ClassManagementError):
-        prepare(auth, ADMIN, "create_class", name="חדשה", initial_lessons=INITIAL)
+        prepare(auth, ADMIN, "create_class", name="חדשה", initial_lessons=INITIAL,
+                collection_ids=["arabic-stage-1"], collections=COLLECTIONS)
     with pytest.raises(ClassManagementError):
         prepare(auth, ADMIN, "rename_class", class_id=2, name="אחרת", initial_lessons=INITIAL)
     with pytest.raises(ClassManagementError):
-        prepare(auth, DEVELOPER, "create_class", name="בלי מקצוע", initial_lessons=INITIAL)
+        prepare(auth, DEVELOPER, "create_class", name="בלי מקצוע", initial_lessons=INITIAL,
+                collection_ids=["arabic-stage-1"], collections=COLLECTIONS)
+
+
+def test_content_collections_are_scoped_validated_and_verifiable():
+    auth = ClassAuth()
+    assert [item["id"] for item in available_collections(ADMIN, COLLECTIONS)] == [
+        "arabic-stage-1", "arabic-stage-2"]
+    assert len(available_collections(DEVELOPER, COLLECTIONS)) == 3
+    for bad in ([], ["missing"], ["arabic-stage-1", "arabic-stage-1"], ["math-unit-f"]):
+        with pytest.raises(ClassManagementError):
+            prepare(auth, ADMIN, "create_class", name="חדשה", initial_lessons=INITIAL,
+                    collection_ids=bad, collections=COLLECTIONS)
+    access = content_access(auth, ADMIN, 1, COLLECTIONS)
+    assert [item["id"] for item in access["confirmed_collections"]] == ["arabic-stage-1"]
+    assert access["unknown_content_ids"] == [] and access["status"] == "confirmed"
+    auth.rows[0]["lessons"] = ["1", "legacy"]
+    access = content_access(auth, ADMIN, 1, COLLECTIONS)
+    assert access["partial_collections"][0]["id"] == "arabic-stage-1"
+    assert access["unknown_content_ids"] == ["legacy"] and access["status"] == "unknown_or_unsupported"
+    auth.rows[0]["lessons"] = []
+    access = content_access(auth, ADMIN, 1, COLLECTIONS)
+    assert access["status"] == "confirmed"
+    assert access["assignment_behavior"] == "current_and_future_catalog_content"
+    assert [item["id"] for item in access["confirmed_collections"]] == [
+        "arabic-stage-1", "arabic-stage-2"]
 
 
 def test_roster_mutations_preserve_every_other_class_field():
