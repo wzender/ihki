@@ -584,7 +584,7 @@ The Space must be awake at that hour for the reminder to go.
 
 ### Video library
 
-Apart from those there is one library of videos for the whole course: they are not part of the path, need no date, and are the same for every level and class. In **תוכן** the card "ספריה דיגיטלית" comes first, above the levels; the teacher adds a video (a name and a link), renames one, moves one up or down the list with its arrows, and deletes one there. A permitted student enters it from the "ספרייה דיגיטלית" button on the opening screen: a list appears, and a video plays in the same box as the path's videos. The ones opened are marked (on that device). Create the table once (its `level` column stays empty):
+Apart from those there is one library of videos for the whole course: they are not part of the path, need no date, and are the same for every level and class. In **תוכן** the card "ספריה דיגיטלית" comes first, above the levels; the teacher adds a video (a name and a link), renames one, moves one up or down the list with its arrows, and deletes one there. A permitted student enters it from the "סרטונים" tab on the bottom bar: a list appears, and a video plays in the same box as the path's videos. The ones opened are marked (on that device). Create the table once (its `level` column stays empty):
 
 ```sql
 create table public.library (
@@ -611,7 +611,7 @@ Keeping the link from being passed on is done in Vimeo, not here: the page has t
 
 #### Managing the library and class rosters from Grok
 
-The app can expose a restricted [Model Context Protocol](https://modelcontextprotocol.io/) connector so a teacher can manage the digital library and basic class rosters, and read privacy-preserving monitoring data, from Grok Business without receiving a Supabase secret, Hugging Face token, or general administrator access. It exposes nineteen tools: four library tools, three class tools, and twelve read-only monitoring/analytics tools: `get_activity_timeseries`, `get_hourly_activity`, `get_current_activity`, `get_system_health`, `get_error_summary`, `get_notification_coverage`, `get_exercise_difficulty`, `get_system_error_reports`, `get_pronunciation_difficulties`, `get_learning_progress`, `compare_class_difficulties`, and `get_learning_bottlenecks`. Class changes are limited to creating or renaming a class and adding or removing one student at a time.
+The app exposes a restricted [Model Context Protocol](https://modelcontextprotocol.io/) connector so a teacher can manage assigned classes and instructional content, and read privacy-preserving monitoring data, from Grok Business without receiving a Supabase secret or general permission-administration access. Prefer the four cohesive tools `get_teacher_workspace`, `list_teacher_options`, `prepare_teacher_change`, and `publish_teacher_change`; the older library and roster tools remain available for connector compatibility.
 
 The connector uses the teacher's existing Supabase account through OAuth 2.1. Grok receives revocable user tokens; it never receives `SUPABASE_SECRET_KEY`. On every MCP request the app asks Supabase who the token belongs to and freshly checks that the account still has `management.access`, so removing the admin/developer role stops the connector even if Grok still has a token.
 
@@ -640,7 +640,7 @@ In Grok Business, add a Custom MCP connector whose final Streamable HTTP URL is:
 https://<owner>-<space>.hf.space/mcp/
 ```
 
-Only the name and Server URL are needed. Grok should discover Supabase OAuth and display **Sign in**. Sign in with an account that currently has the app's admin or developer role, review the client name, callback and scopes on the Hebrew consent screen, then approve. A student or a user without `management.access` cannot approve or call MCP tools.
+Only the name and Server URL are needed. Grok should discover Supabase OAuth and display **Sign in**. Sign in with an account that is a developer, subject administrator, or currently assigned class teacher; review the client name, callback and scopes on the Hebrew consent screen, then approve. An ordinary student with neither management permission nor a teaching assignment cannot approve or call MCP tools. Revoking the assignment or management access takes effect on the next MCP request.
 
 Grok must first call `prepare_library_video`; the app returns the normalized title, URL and a single-use approval that expires after ten minutes. Only after the teacher explicitly confirms those details should Grok call `publish_library_video`. Pending approvals disappear safely when the Space restarts.
 
@@ -669,7 +669,28 @@ Example MCP arguments for the requested two-stage class (illustrative ids shown;
 
 `get_class_content_access` reads the stored class row after creation. It reports fully confirmed collections separately from partially assigned collections and unknown or unsupported stored content ids; it never treats an unknown id as confirmed access. A legacy class with an empty `lessons` array is reported separately as `legacy_empty_selection_means_all_content`: the existing application fallback gives such a class all current catalog content and therefore also content added later. Newly prepared collection assignments are explicit snapshots and do not use that fallback. Class creation and its content ids are written by one class-row insert. If persistence fails, publication returns an error, consumes the approval, and does not claim the class or all selected content was assigned.
 
-Class listing returns only class id, name, subject, student emails, and optional class-local nicknames. Apart from selecting content collections while creating a class, the connector cannot delete a class or account, create a login account, change roles or entitlements, assign teachers, edit an existing class's lessons/homework/daily videos, or read individual progress, grades, raw attempts, or recordings. Those operations remain in the browser management screen where applicable. Adding an email to a class does not create a Supabase user; that student still signs in normally.
+`get_teacher_workspace` returns complete operational class settings but no learner progress or permission data. A class teacher sees only assigned classes and may manage their roster, nicknames, curriculum selection, homework, and daily-video schedule. A subject administrator may also create/delete classes, assign class teachers, and manage shared daily-video, lesson-video, authored-text, and content-order catalogs in the assigned subject; developers have the same operational reach across subjects. Shared lesson content can affect every class studying that lesson, so class teachers cannot mutate that catalog.
+
+Every mutation goes through `prepare_teacher_change`. Grok must display the returned `preview` and wait for explicit confirmation before calling `publish_teacher_change`. Approvals are actor-bound, single-use, expire after ten minutes, and fail if the target or authorization scope changed. Destructive previews explicitly distinguish deletion of a class/content configuration from deletion of login accounts or learning history.
+
+Example prompts and matching tool arguments:
+
+```text
+הצג את מרחב העבודה שלי ואת הכיתות שאני רשאי/ת לנהל.
+הכן עדכון לכיתה 12: הוסף את noam@example.com בשם נועם וקבע את l1-hw להגשה ב־2026-11-05. אל תבצע עדיין.
+הכן פרסום סרטון יומי בשם "ברכות בבוקר" לשלב א. הצג לי את ההשפעה לפני ביצוע.
+הכן מחיקת כיתה 12 והבהר אם חשבונות או היסטוריית למידה יימחקו. אל תבצע עדיין.
+```
+
+```json
+{"name":"get_teacher_workspace","arguments":{}}
+{"name":"list_teacher_options","arguments":{}}
+{"name":"prepare_teacher_change","arguments":{"operation":"add_student","class_id":12,"email":"noam@example.com","nickname":"נועם"}}
+{"name":"prepare_teacher_change","arguments":{"operation":"assign_homework","class_id":12,"homeworks":[{"topic":"l1-hw","due":"2026-11-05"}]}}
+{"name":"publish_teacher_change","arguments":{"approval_id":"<approval id returned by prepare>"}}
+```
+
+The connector has a hard permission firewall: no tool or operation can create/delete login accounts, grant or revoke roles, permissions, entitlements, `management.access`, subject assignments, OAuth grants, credentials, or secrets. Those remain in the permission area of **ניהול**. Assigning a class teacher changes only that class's `teachers` list and does not make the person an administrator. Adding an email to a class does not create a Supabase user; that student still signs in normally.
 
 The twelve monitoring and analytics tools are read-only and do not use the prepare/publish flow. `get_activity_timeseries` accepts `from_date` and `to_date` as `YYYY-MM-DD`, an `interval` of `day` or `week`, and an optional `class_id`. The inclusive range is limited to 90 non-future days. With a class id it returns only that authorized class; without one it combines only classes currently visible to the signed-in manager. The response contains aggregate attempts, the peak simultaneously active learners reported by the source buckets, and a range summary. It never contains student names, emails, ids, individual scores, answers, recordings, or exact login events.
 

@@ -51,7 +51,7 @@ def resolve_access(a: SupabaseAuth, token: str, *, fresh_permissions: bool = Fal
     if email in getattr(a, "developers", ()):
         roles.add("developer")
     privileged = roles - {"student"}
-    if classes and not mine and not privileged and not entitlements:
+    if classes and not mine and not teaches and not privileged and not entitlements:
         return {**user, "denied": True, "permissions": []}
     if not assigned:
         roles.update(DEFAULT_ROLES)

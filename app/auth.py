@@ -525,6 +525,13 @@ class SupabaseAuth:
         self._admin("/rest/v1/videos", "POST", {"lesson": lesson, "title": title, "url": url, "pos": pos, "ord": ord})
         self._videos = None
 
+    def update_video(self, id: int, row: dict) -> None:
+        """Replace the editable fields of one lesson video."""
+        body = {key: row[key] for key in ("lesson", "title", "url", "pos", "ord") if key in row}
+        if not self._admin(f"/rest/v1/videos?id=eq.{int(id)}", "PATCH", body):
+            raise KeyError(id)
+        self._videos = None
+
     def place(self, places: list[tuple[str, int, int, int]]) -> None:
         """Moves videos and texts: (table, id, pos, ord) of each; the table is "videos" or "texts"."""
         try:
@@ -561,6 +568,13 @@ class SupabaseAuth:
     def add_text(self, lesson: str, title: str, voices: list[str], lines: list[list[str]], pos: int, ord: int) -> None:
         self._admin("/rest/v1/texts", "POST", {"lesson": lesson, "title": title, "voices": voices, "lines": lines,
                                                "pos": pos, "ord": ord})
+        self._texts = None
+
+    def update_text(self, id: int, row: dict) -> None:
+        """Replace the editable fields of one teacher-authored text."""
+        body = {key: row[key] for key in ("lesson", "title", "voices", "lines", "pos", "ord") if key in row}
+        if not self._admin(f"/rest/v1/texts?id=eq.{int(id)}", "PATCH", body):
+            raise KeyError(id)
         self._texts = None
 
     def delete_text(self, id: int) -> None:
@@ -609,6 +623,16 @@ class SupabaseAuth:
         assert table in ("dailies", "library")
         try:
             self._admin(f"/rest/v1/{table}?id=eq.{int(id)}", "PATCH", {"title": title})
+        finally:
+            self._level_videos.pop(table, None)
+
+    def update_level_video(self, table: str, id: int, *, level: str, title: str, url: str) -> None:
+        """Replace the editable fields of a daily or library video."""
+        assert table in ("dailies", "library")
+        try:
+            if not self._admin(f"/rest/v1/{table}?id=eq.{int(id)}", "PATCH",
+                               {"level": level, "title": title, "url": url}):
+                raise KeyError(id)
         finally:
             self._level_videos.pop(table, None)
 

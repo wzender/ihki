@@ -69,6 +69,7 @@ from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, T
 from .verb_game import VerbExerciseGenerator
 from .grok_mcp import build as build_grok_mcp, oauth_urls
 from . import library as video_library
+from . import teacher_operations
 from .access import (DEFAULT_ENTITLEMENTS, DEFAULT_ROLES, ENTITLEMENTS, ENTITLEMENT_PERMISSIONS,
                      ROLES, ROLE_PERMISSIONS, has_permission, resolve_access)
 from .class_management import (ClassManagementError, normalize_class_name, parse_roster,
@@ -563,6 +564,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
          "content_ids": [unit["id"]]}
         for unit in algebra9()["units"]
     ]
+    app.state.class_topics = {category["id"]: category["lesson"] for category in CATEGORIES}
+    app.state.teacher_voice_names = list(VOICE_NAMES)
+    app.state.teacher_lessons = list(READY_LESSONS)
+    app.state.teacher_levels = list(LEVEL_IDS)
+    app.state.lesson_topic_counts = dict(LESSON_TOPICS)
     metadata = build_metadata()
     app.state.mcp_build_info = {"version": metadata["version"], "revision": metadata["commit"][:40]}
     app.state.mcp_server, mcp_app, app.state.mcp_http = build_grok_mcp(app)
@@ -2074,17 +2080,22 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             if (id is None and hasattr(a, "access_for") and actor and "admin" in actor.get("roles", ())
                     and "developer" not in actor.get("roles", ()) and not subject):
                 raise HTTPException(409, "לא הוגדר מקצוע למנהל/ת. מפתח/ת צריך להגדיר אותו בניטור.")
-            args = (id, name, emails, nicks, lessons, homeworks, dailies if dailies or had else None, subject)
-            if teachers is None:
-                a.save_class(*args)
-            else:
-                a.save_class(*args, teachers=teachers)
+            students = [{"email": email, **({"nickname": nicks[email]} if nicks.get(email) else {})}
+                        for email in emails]
+            plan = teacher_operations.prepare_class(
+                a, actor or {}, "create_class" if id is None else "update_class", class_id=id,
+                name=name, subject=subject, students=students, teachers=teachers,
+                content_ids=lessons, homeworks=homeworks,
+                dailies=(dailies if dailies is not None else ([] if id is None else None)))
+            teacher_operations.apply_class(a, actor or {}, plan)
         except ClassConflict:
             raise HTTPException(409, f"כבר יש כיתה בשם {name}")
         except KeyError:
             raise HTTPException(404, "הכיתה לא נמצאה")
         except AuthUnavailable as e:
             raise HTTPException(503, class_store_error(e))
+        except teacher_operations.TeacherOperationError as e:
+            raise HTTPException(400, str(e))
         return {"ok": True}
 
     @app.post("/api/classes")
@@ -2098,13 +2109,14 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.delete("/api/classes/{class_id}")
     def delete_class(class_id: int, a: SupabaseAuth = Depends(teacher_only), actor: dict | None = Depends(signed_in)):
         try:
-            if not any(c["id"] == class_id for c in managed_classes(a, actor, fresh=True)):
-                raise HTTPException(404, "הכיתה לא נמצאה")
-            a.delete_class(class_id)
+            plan = teacher_operations.prepare_class(a, actor or {}, "delete_class", class_id=class_id)
+            teacher_operations.apply_class(a, actor or {}, plan)
         except HTTPException:
             raise
         except AuthUnavailable as e:
             raise HTTPException(503, class_store_error(e))
+        except teacher_operations.TeacherOperationError as e:
+            raise HTTPException(404 if "לא נמצאה" in str(e) else 400, str(e))
         return {"ok": True}
 
     @app.get("/api/videos", dependencies=[Depends(require("path.use"))])
@@ -2151,9 +2163,14 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not url:
             raise HTTPException(400, "זה לא קישור לסרטון ב-Vimeo או ב-YouTube. הדביקו קישור כמו https://vimeo.com/1233611297/d46ac373c8 או https://youtu.be/dQw4w9WgXcQ")
         try:
-            a.add_video(lesson, title, url, LESSON_TOPICS[lesson], next_ord(a, lesson))
+            plan = teacher_operations.prepare_content(
+                a, user or {}, "create_lesson_video", title=title, url=url, lesson=lesson,
+                pos=LESSON_TOPICS[lesson], ord=next_ord(a, lesson), normalize_url=video_link)
+            teacher_operations.apply_content(a, user or {}, plan)
         except AuthUnavailable as e:
             raise HTTPException(503, video_store_error(e))
+        except teacher_operations.TeacherOperationError as e:
+            raise HTTPException(400, str(e))
         a.log_event("content", user, title, {"type": "video", "lesson": lesson})
         return {"ok": True}
 
@@ -2162,7 +2179,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return max((r.get("ord") or 0 for r in a.videos(fresh=True) + a.texts(fresh=True) if r["lesson"] == lesson), default=0) + 1
 
     @app.put("/api/content/order")
-    def order_content(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
+    def order_content(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+                      user: dict | None = Depends(signed_in)):
         """Places what the teacher added to a lesson among its topics: {"lesson", "order": [{"kind": "video" or
         "text", "id", "pos"}]}, every video and text of the lesson once, in their order on the path; `pos` is how
         many of the lesson's own topics stand before it."""
@@ -2180,9 +2198,15 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 raise HTTPException(409, "תוכן השיעור השתנה. רעננו ונסו שוב")
             if any(not 0 <= pos <= LESSON_TOPICS[lesson] for _, _, pos in places):
                 raise HTTPException(400, "no such place in the lesson")
-            a.place([(kind + "s", i, pos, k) for k, (kind, i, pos) in enumerate(places)])
+            ordered = [{"kind": kind + "s", "id": i, "pos": pos, "ord": k}
+                       for k, (kind, i, pos) in enumerate(places)]
+            plan = teacher_operations.prepare_content(a, user or {}, "reorder_lesson_content",
+                                                       ordered_items=ordered)
+            teacher_operations.apply_content(a, user or {}, plan)
         except AuthUnavailable as e:
             raise HTTPException(503, text_store_error(e) if "texts" in str(e) else video_store_error(e))
+        except teacher_operations.TeacherOperationError as e:
+            raise HTTPException(409 if "השתנה" in str(e) else 400, str(e))
         return {"ok": True}
 
     @app.get("/api/texts", dependencies=[Depends(require("path.use"))])
@@ -2237,26 +2261,40 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             if not h or not read_line(t)[0]:
                 raise HTTPException(400, f"בשורה {n} חסר טקסט, או שבערבית שלה אין אותיות עבריות")
         try:
-            a.add_text(lesson, title, list(map(str, voices)), [[h, t] for h, t in zip(he, tr)], LESSON_TOPICS[lesson], next_ord(a, lesson))
+            plan = teacher_operations.prepare_content(
+                a, user or {}, "create_lesson_text", title=title, lesson=lesson,
+                voices=list(map(str, voices)), lines=[[h, t] for h, t in zip(he, tr)],
+                pos=LESSON_TOPICS[lesson], ord=next_ord(a, lesson))
+            teacher_operations.apply_content(a, user or {}, plan)
         except AuthUnavailable as e:
             raise HTTPException(503, text_store_error(e))
+        except teacher_operations.TeacherOperationError as e:
+            raise HTTPException(400, str(e))
         a.log_event("content", user, title, {"type": "text", "lesson": lesson})
         return {"ok": True, "guessed": text_phrases("", [[h, t] for h, t in zip(he, tr)])[1]}
 
     @app.delete("/api/texts/{text_id}")
-    def delete_text(text_id: int, a: SupabaseAuth = Depends(teacher_only)):
+    def delete_text(text_id: int, a: SupabaseAuth = Depends(teacher_only),
+                    user: dict | None = Depends(signed_in)):
         try:
-            a.delete_text(text_id)
+            plan = teacher_operations.prepare_content(a, user or {}, "delete_lesson_text", item_id=text_id)
+            teacher_operations.apply_content(a, user or {}, plan)
         except AuthUnavailable as e:
             raise HTTPException(503, text_store_error(e))
+        except teacher_operations.TeacherOperationError as e:
+            raise HTTPException(404 if "לא נמצא" in str(e) else 400, str(e))
         return {"ok": True}
 
     @app.delete("/api/videos/{video_id}")
-    def delete_video(video_id: int, a: SupabaseAuth = Depends(teacher_only)):
+    def delete_video(video_id: int, a: SupabaseAuth = Depends(teacher_only),
+                     user: dict | None = Depends(signed_in)):
         try:
-            a.delete_video(video_id)
+            plan = teacher_operations.prepare_content(a, user or {}, "delete_lesson_video", item_id=video_id)
+            teacher_operations.apply_content(a, user or {}, plan)
         except AuthUnavailable as e:
             raise HTTPException(503, video_store_error(e))
+        except teacher_operations.TeacherOperationError as e:
+            raise HTTPException(404 if "לא נמצא" in str(e) else 400, str(e))
         return {"ok": True}
 
     def level_store_error(table: str, e: AuthUnavailable) -> str:
@@ -2412,17 +2450,31 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not url:
             raise HTTPException(400, "זה לא קישור לסרטון ב-Vimeo או ב-YouTube. הדביקו קישור כמו https://vimeo.com/1233611297/d46ac373c8 או https://youtu.be/dQw4w9WgXcQ")
         try:
-            a.add_level_video(table, level, title, url)
+            if table == "dailies":
+                plan = teacher_operations.prepare_content(
+                    a, user or {}, "create_daily_video", level=level, title=title, url=url,
+                    normalize_url=video_link)
+                teacher_operations.apply_content(a, user or {}, plan)
+            else:
+                a.add_level_video(table, level, title, url)
         except AuthUnavailable as e:
             raise HTTPException(503, level_store_error(table, e))
+        except teacher_operations.TeacherOperationError as e:
+            raise HTTPException(400, str(e))
         a.log_event("content", user, title, {"type": table, "level": level})
         return {"ok": True}
 
-    def delete_level_video(table: str, id: int, a: SupabaseAuth) -> dict:
+    def delete_level_video(table: str, id: int, a: SupabaseAuth, user: dict | None = None) -> dict:
         try:
-            a.delete_level_video(table, id)
+            if table == "dailies":
+                plan = teacher_operations.prepare_content(a, user or {}, "delete_daily_video", item_id=id)
+                teacher_operations.apply_content(a, user or {}, plan)
+            else:
+                a.delete_level_video(table, id)
         except AuthUnavailable as e:
             raise HTTPException(503, level_store_error(table, e))
+        except teacher_operations.TeacherOperationError as e:
+            raise HTTPException(404 if "לא נמצא" in str(e) else 400, str(e))
         return {"ok": True}
 
     @app.post("/api/dailies")
@@ -2433,8 +2485,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return add_level_video("dailies", body, a, user)
 
     @app.delete("/api/dailies/{daily_id}")
-    def delete_daily(daily_id: int, a: SupabaseAuth = Depends(teacher_only)):
-        return delete_level_video("dailies", daily_id, a)
+    def delete_daily(daily_id: int, a: SupabaseAuth = Depends(teacher_only),
+                     user: dict | None = Depends(signed_in)):
+        return delete_level_video("dailies", daily_id, a, user)
 
     @app.post("/api/library")
     def add_library(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),

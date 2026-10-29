@@ -1,29 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 489 225" role="img" aria-label="אהלא וסהלא, בית הספר ללימוד השפה הערבית"><style>
 /* Every piece rests in its final look; the animations only play in from it, so a viewer without them still sees the whole logo. */
 *{transform-box:view-box}
-.spin{transform-origin:397px 107.5px;animation:rollRight 3.2s cubic-bezier(.18,.75,.22,1) both}
-.line1{animation:calligraphyReveal 1.1s cubic-bezier(.2,.8,.25,1) 3.05s both}
-.line2{animation:calligraphyReveal 1.15s cubic-bezier(.2,.8,.25,1) 3.55s both}
+.spin{transform-origin:397px 107.5px;animation:rollRight 2.27s cubic-bezier(.25,.1,.25,1) both;will-change:transform}
+.line1{animation:calligraphyReveal .78s cubic-bezier(.2,.8,.25,1) 2.163s both}
+.line2{animation:calligraphyReveal .816s cubic-bezier(.2,.8,.25,1) 2.518s both}
 .wet{display:none}
 .pen1,.pen2{animation:none}
 /* The dots play on the two lameds: each lamed's forked top is a springboard that squashes under a dot and flings it on.
    Dot 1 drops on the top lamed and is flung to its place; dot 2 drops on the lower lamed, is flung to the top one, then home.
    Each dot nests x (with fade) > y > spin > squash, so the arcs and squashes combine. */
 .d1x,.d2x{animation-timing-function:linear;animation-fill-mode:both}
-.d1x{animation-name:d1x;animation-duration:1.6s;animation-delay:4.6s}
-.d1y{animation:d1y 1.6s 4.6s both}
-.d1r{transform-origin:205px 33px;animation:d1r 1.6s ease-in-out 4.6s both}
-.d1s{transform-origin:205px 38px;animation:d1s 1.6s ease-in-out 4.6s both}
-.d2x{animation-name:d2x;animation-duration:2.2s;animation-delay:4.85s}
-.d2y{animation:d2y 2.2s 4.85s both}
-.d2r{transform-origin:221px 33px;animation:d2r 2.2s ease-in-out 4.85s both}
-.d2s{transform-origin:221px 38px;animation:d2s 2.2s ease-in-out 4.85s both}
-/* A lamed bends from the base of its stem: it is hit by dot 1 at 5.08s and dot 2 at 5.95s (top), by dot 2 at 5.25s (lower). */
-.lam1{transform-origin:176px 58px;animation:lam1 1.52s ease-in-out 5.08s both}
-.lam2{transform-origin:102px 108px;animation:lam2 .8s ease-in-out 5.25s both}
+.d1x{animation-name:d1x;animation-duration:1.135s;animation-delay:3.262s}
+.d1y{animation:d1y 1.135s 3.262s both}
+.d1r{transform-origin:205px 33px;animation:d1r 1.135s ease-in-out 3.262s both}
+.d1s{transform-origin:205px 38px;animation:d1s 1.135s ease-in-out 3.262s both}
+.d2x{animation-name:d2x;animation-duration:1.56s;animation-delay:3.44s}
+.d2y{animation:d2y 1.56s 3.44s both}
+.d2r{transform-origin:221px 33px;animation:d2r 1.56s ease-in-out 3.44s both}
+.d2s{transform-origin:221px 38px;animation:d2s 1.56s ease-in-out 3.44s both}
+/* A lamed bends from the base of its stem: it is hit by dot 1 at 3.603s and dot 2 at 4.22s (top), by dot 2 at 3.723s (lower). */
+.lam1{transform-origin:176px 58px;animation:lam1 1.078s ease-in-out 3.603s both}
+.lam2{transform-origin:102px 108px;animation:lam2 .567s ease-in-out 3.723s both}
 .rule{display:none}
-.unfold{transform-origin:157px 176px;animation:schoolIn .9s cubic-bezier(.2,.8,.25,1) 5.15s both}
-@keyframes rollRight{from{opacity:0;transform:translateX(-315px) rotate(-720deg) scale(.72)}20%{opacity:1}85%{transform:translateX(7px) rotate(12deg) scale(1)}to{opacity:1;transform:translateX(0) rotate(0) scale(1)}}
+.unfold{transform-origin:157px 176px;animation:schoolIn .638s cubic-bezier(.2,.8,.25,1) 3.652s both}
+@keyframes rollRight{from{opacity:0;transform:translateX(-315px) rotate(-360deg) scale(.72)}20%{opacity:1}to{opacity:1;transform:translateX(0) rotate(0) scale(1)}}
 @keyframes calligraphyReveal{from{opacity:0;clip-path:inset(0 0 0 100%);transform:translateY(8px) skewX(-5deg);filter:blur(3px)}to{opacity:1;clip-path:inset(0);transform:translateY(0) skewX(0);filter:blur(0)}}
 @keyframes schoolIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes spin{from{opacity:0;transform:rotate(-360deg) scale(.6)}30%{opacity:1}}

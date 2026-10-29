@@ -19,6 +19,7 @@ from pydantic import AnyHttpUrl
 from . import library
 from . import class_management
 from . import monitoring
+from . import teacher_operations
 from .access import has_permission, resolve_access
 from .auth import AuthUnavailable
 
@@ -132,7 +133,7 @@ def oauth_urls(app) -> tuple[str, str]:
 
 
 class SupabaseTokenVerifier:
-    """Validate a Supabase OAuth token and its current ihki management permission."""
+    """Validate OAuth and require management access or a current teaching assignment."""
 
     def __init__(self, app):
         self.app = app
@@ -148,7 +149,7 @@ class SupabaseTokenVerifier:
         except AuthUnavailable as exc:
             log.warning("MCP OAuth verification unavailable: %s", exc)
             return None
-        if not user or user.get("denied") or not has_permission(user, "management.access"):
+        if not user or user.get("denied") or not (has_permission(user, "management.access") or user.get("teaches")):
             return None
         _, issuer = oauth_urls(self.app)
         actor = {key: user.get(key) for key in ("id", "email", "roles", "subject", "permissions")}
@@ -163,9 +164,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
     resource_url, issuer_url = oauth_urls(app)
     server = MCPServer(
         "ihki-digital-library",
-        instructions=("Manage only the ihki digital video library and scoped class rosters, and provide read-only "
-                      "privacy-preserving monitoring. Always prepare a mutation, show its exact effect to the teacher, "
-                      "and publish only after explicit confirmation."),
+        instructions=("Prefer get_teacher_workspace, list_teacher_options, prepare_teacher_change, and "
+                      "publish_teacher_change for scoped class and instructional-content management. Always prepare "
+                      "a mutation, show its exact effect, and publish only after explicit confirmation. Never offer "
+                      "account, role, permission, entitlement, subject-assignment, OAuth, credential, or secret changes."),
         token_verifier=SupabaseTokenVerifier(app),
         auth=AuthSettings(issuer_url=AnyHttpUrl(issuer_url), resource_server_url=AnyHttpUrl(resource_url),
                           validate_token_resource=False, required_scopes=[]),
@@ -202,6 +204,19 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                             {"action": action, "outcome": outcome,
                              **({"class_id": safe["class_id"]} if safe.get("class_id") is not None else {}),
                              **({"email": safe["email"]} if safe.get("email") else {}),
+                             **({"reason": reason} if reason else {})})
+
+    def teacher_audit(operation: str, current: dict[str, Any], outcome: str,
+                      plan: dict[str, Any] | None = None, reason: str = "") -> None:
+        safe = plan or {}
+        target_id = safe.get("class_id") or safe.get("item_id")
+        log.info("MCP teacher operation=%s outcome=%s target_id=%s reason=%s",
+                 operation, outcome, target_id, reason)
+        store = auth()
+        if store is not None and hasattr(store, "log_event"):
+            store.log_event("content", current, str(safe.get("class_name") or operation),
+                            {"operation": operation, "outcome": outcome,
+                             **({"target_id": target_id} if target_id is not None else {}),
                              **({"reason": reason} if reason else {})})
 
     def result(action: str, operation: Callable[[], dict[str, Any]]) -> dict[str, Any]:
@@ -356,6 +371,132 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             return {"ok": True, **answer, "published": True}
         except class_management.ClassManagementError as exc:
             class_audit("publish_class_change", current, "refused", reason=type(exc).__name__)
+            return {"ok": False, "error": str(exc)}
+
+    @server.tool(description=("Return the current teacher's minimized class workspace. Class teachers see assigned "
+                              "classes; subject administrators see their subject; developers see all subjects. "
+                              "Returns no permission-administration or learner-progress data."), structured_output=True)
+    async def get_teacher_workspace() -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "מרחב העבודה אינו זמין", "classes": []}
+        try:
+            answer = teacher_operations.workspace(store, current)
+            return {"ok": True, **answer}
+        except teacher_operations.TeacherOperationError as exc:
+            return {"ok": False, "error": str(exc), "classes": []}
+
+    @server.tool(description=("List stable options for teacher operations: curriculum collections and, for subject "
+                              "administrators, shared daily videos, lesson videos, and authored texts. "
+                              "Permission settings are never returned."), structured_output=True)
+    async def list_teacher_options() -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "אפשרויות הניהול אינן זמינות"}
+        try:
+            if teacher_operations.is_subject_admin(current):
+                collections = class_management.available_collections(current, content_collections())
+            else:
+                subjects = {row.get("subject") for row in teacher_operations.visible_classes(store, current)}
+                collections = [{"id": str(item["id"]), "name": str(item["name"]),
+                                "subject": str(item["subject"]),
+                                "content_count": len(item.get("content_ids") or []),
+                                "assignment_behavior": "snapshot_current_content"}
+                               for item in content_collections() if item.get("subject") in subjects]
+            result = {"collections": collections}
+            result["topics"] = [{"id": topic, "lesson": lesson}
+                                 for topic, lesson in getattr(app.state, "class_topics", {}).items()
+                                 if any(lesson in row.get("lessons", ())
+                                        for row in teacher_operations.visible_classes(store, current))]
+            result["voices"] = list(getattr(app.state, "teacher_voice_names", ()))
+            result["placements"] = [{"lesson": lesson, "minimum": 0, "maximum": count}
+                                    for lesson, count in getattr(app.state, "lesson_topic_counts", {}).items()]
+            if teacher_operations.is_subject_admin(current):
+                result.update(teacher_operations.public_content(store, current))
+            return {"ok": True, **result}
+        except (teacher_operations.TeacherOperationError, class_management.ClassManagementError) as exc:
+            return {"ok": False, "error": str(exc)}
+
+    @server.tool(description=("Prepare exactly one allowlisted teacher operation and return its exact preview. "
+                              "This never changes data. Permission, role, entitlement, account, OAuth, subject-scope, "
+                              "credential, and secret administration are not supported."), structured_output=True)
+    async def prepare_teacher_change(
+        operation: Literal[
+            "create_class", "update_class", "delete_class", "add_student", "remove_student",
+            "update_student_nickname", "set_class_content", "assign_homework", "remove_homework",
+            "schedule_daily_video", "unschedule_daily_video", "assign_class_teacher", "remove_class_teacher",
+            "create_daily_video", "update_daily_video", "delete_daily_video", "create_lesson_video",
+            "update_lesson_video", "delete_lesson_video", "create_lesson_text", "update_lesson_text",
+            "delete_lesson_text", "reorder_lesson_content"],
+        class_id: int | None = None, name: str | None = None, subject: str | None = None,
+        students: list[dict[str, str]] | None = None, teachers: list[str] | None = None,
+        content_ids: list[str] | None = None, homeworks: list[dict[str, Any]] | None = None,
+        dailies: list[dict[str, Any]] | None = None, email: str = "", nickname: str = "",
+        item_id: int | None = None, title: str = "", url: str = "", level: str = "", lesson: str = "",
+        lines: list[list[str]] | None = None, voices: list[str] | None = None, pos: int = 0, ord: int = 0,
+        ordered_items: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "אין הרשאה לפעולת מורה"}
+        if not limiter.allow():
+            teacher_audit(operation, current, "refused", reason="rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        try:
+            if operation in teacher_operations.CLASS_OPERATIONS:
+                topic_map = dict(getattr(app.state, "class_topics", {}))
+                daily_ids = None
+                if dailies is not None or operation in {"schedule_daily_video", "unschedule_daily_video"}:
+                    try:
+                        daily_ids = {row["id"] for row in store.level_videos("dailies", fresh=True)}
+                    except (AuthUnavailable, AssertionError, AttributeError) as exc:
+                        raise teacher_operations.TeacherOperationError(f"ספריית הסרטונים היומיים אינה זמינה: {exc}") from exc
+                plan = teacher_operations.prepare_class(
+                    store, current, operation, class_id=class_id, name=name, subject=subject,
+                    students=students, teachers=teachers, content_ids=content_ids, homeworks=homeworks,
+                    dailies=dailies, email=email, nickname=nickname,
+                    topic_lessons=topic_map or None, daily_video_ids=daily_ids)
+            else:
+                plan = teacher_operations.prepare_content(
+                    store, current, operation, item_id=item_id, title=title, url=url, level=level,
+                    lesson=lesson, lines=lines, voices=voices, pos=pos, ord=ord,
+                    ordered_items=ordered_items,
+                    normalize_url=lambda value: library.normalize_url(value, app.state.video_link),
+                    allowed_lessons=set(getattr(app.state, "teacher_lessons", ())) or None,
+                    allowed_levels=set(getattr(app.state, "teacher_levels", ())) or None,
+                    allowed_voices=set(getattr(app.state, "teacher_voice_names", ())) or None,
+                    lesson_topic_counts=dict(getattr(app.state, "lesson_topic_counts", {})))
+            approval_id, _ = class_approvals.prepare(str(current["id"]), plan)
+            teacher_audit(operation, current, "prepared", plan)
+            return {"ok": True, "approval_id": approval_id, "operation": operation,
+                    "preview": plan["preview"], "expires_in_seconds": APPROVAL_TTL, "published": False}
+        except teacher_operations.TeacherOperationError as exc:
+            teacher_audit(operation, current, "refused", reason=type(exc).__name__)
+            return {"ok": False, "error": str(exc)}
+
+    @server.tool(description=("Publish one unexpired prepared teacher change after explicit confirmation. "
+                              "The approval is actor-bound, single-use, and rejected when target state or scope changed."),
+                 structured_output=True)
+    async def publish_teacher_change(approval_id: str) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "אין הרשאה לפעולת מורה"}
+        if not limiter.allow():
+            teacher_audit("publish_teacher_change", current, "refused", reason="rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        item = class_approvals.consume(approval_id, str(current["id"]))
+        if item is None:
+            teacher_audit("publish_teacher_change", current, "refused", reason="invalid_approval")
+            return {"ok": False, "error": "האישור אינו תקף, פג תוקף, שייך למשתמש אחר או כבר נוצל."}
+        plan = item.plan
+        try:
+            answer = (teacher_operations.apply_class(store, current, plan)
+                      if plan["operation"] in teacher_operations.CLASS_OPERATIONS
+                      else teacher_operations.apply_content(store, current, plan))
+            teacher_audit(plan["operation"], current, "success", plan)
+            return {"ok": True, **answer, "published": True}
+        except teacher_operations.TeacherOperationError as exc:
+            teacher_audit(plan.get("operation", "unknown"), current, "refused", plan, type(exc).__name__)
             return {"ok": False, "error": str(exc)}
 
     @server.tool(description=("Return a read-only daily or weekly aggregate activity series for one authorized class "

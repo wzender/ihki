@@ -31,12 +31,13 @@ class LibraryAuth:
 
     def __init__(self):
         self.videos = []
+        self.daily_videos = []
         self.class_rows = []
         self.events = []
 
     def level_videos(self, table, fresh=False):
-        assert table == "library"
-        return list(self.videos)
+        assert table in {"library", "dailies"}
+        return list(self.videos if table == "library" else self.daily_videos)
 
     def add_level_video(self, table, level, title, url):
         self.videos.append({"id": len(self.videos) + 1, "level": level, "title": title, "url": url})
@@ -110,6 +111,8 @@ def connector(auth=None, clock=None, actor=None, live=None):
             {"id": "arabic-stage-1", "name": "שלב א", "subject": "ערבית", "content_ids": ["1", "2"]},
             {"id": "arabic-stage-2", "name": "שלב ב", "subject": "ערבית", "content_ids": ["2.1", "2.2"]},
             {"id": "math-unit-f", "name": "יסודות", "subject": "מתמטיקה", "content_ids": ["f"]}],
+        class_topics={"l1-hw": "1", "l2-hw": "2"}, teacher_voice_names=["אמיר", "ראאף", "חנאן"],
+        teacher_lessons=["1", "2"], teacher_levels=["1", "2"], lesson_topic_counts={"1": 10, "2": 10},
         live=live or LiveStore(), push=SimpleNamespace(on=True)))
     server, protected, _ = build(host, approvals=ApprovalStore(clock), limiter=MutationLimiter(clock),
         class_approvals=ClassApprovalStore(clock), actor_provider=(lambda: actor) if actor else None)
@@ -128,6 +131,7 @@ def test_narrow_tools_are_discoverable():
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "list_class_content_collections", "get_class_content_access",
         "prepare_class_change", "publish_class_change",
+        "get_teacher_workspace", "list_teacher_options", "prepare_teacher_change", "publish_teacher_change",
         "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_error_summary", "get_notification_coverage",
         "get_exercise_difficulty",
         "get_system_error_reports",
@@ -157,7 +161,7 @@ def test_narrow_tools_are_discoverable():
     coverage = next(tool for tool in tools if tool.name == "get_notification_coverage")
     assert set(coverage.input_schema["properties"]) == {"class_id"}
     assert not any(word in tool.name for tool in tools
-                   for word in ("delete", "teacher", "user", "role", "lesson", "homework", "grade", "recording",
+                   for word in ("user", "role", "permission", "entitlement", "oauth", "secret", "grade", "recording",
                                 "sql", "log", "environment", "timeline", "remediate", "restart", "shell",
                                 "learner", "raw_attempt", "abandonment", "answer", "calibration"))
 
@@ -238,8 +242,14 @@ def test_oauth_verifier_requires_current_management_permission():
     assert "teacher-session" not in str(accepted.claims)
     auth.roles = ["student"]
     assert asyncio.run(verifier.verify_token("teacher-session")) is None
+    auth.class_rows = [{"id": 1, "name": "assigned", "subject": "ערבית", "emails": [],
+                        "teachers": ["teacher@example.com"], "lessons": ["1"]}]
+    assigned = asyncio.run(verifier.verify_token("teacher-session"))
+    assert assigned and "management.access" not in assigned.claims["ihki_actor"]["permissions"]
+    auth.class_rows[0]["teachers"] = []
+    assert asyncio.run(verifier.verify_token("teacher-session")) is None
     assert asyncio.run(verifier.verify_token("malformed")) is None
-    assert auth.fresh == [True, True]
+    assert auth.fresh == [True, True, True, True]
 
     class BrokenAuth(ChangingAuth):
         def user(self, token):
@@ -339,6 +349,140 @@ def test_failed_class_publish_consumes_approval_and_does_not_claim_success():
     failed = call(server, "publish_class_change", {"approval_id": prepared["approval_id"]})
     replay = call(server, "publish_class_change", {"approval_id": prepared["approval_id"]})
     assert failed["ok"] is False and replay["ok"] is False and auth.class_rows[0]["name"] == "א"
+
+
+def test_full_teacher_tools_scope_preview_confirm_and_permission_firewall():
+    teacher = {"id": "teacher-1", "email": "teacher@example.com", "roles": ["teacher"],
+               "subject": "", "permissions": []}
+    auth = LibraryAuth()
+    auth.class_rows = [{"id": 1, "name": "א", "subject": "ערבית",
+        "emails": ["teacher@example.com", "old@example.com"], "nicknames": {},
+        "teachers": ["teacher@example.com"], "lessons": ["1"], "homeworks": [], "dailies": []},
+        {"id": 2, "name": "ב", "subject": "ערבית", "emails": [], "nicknames": {},
+         "teachers": [], "lessons": ["1"], "homeworks": [], "dailies": []}]
+    server, _ = connector(auth, actor=teacher)
+    workspace = call(server, "get_teacher_workspace")
+    assert workspace["ok"] and [row["id"] for row in workspace["classes"]] == [1]
+    assert not any(word in str(workspace).lower() for word in
+                   ("permission", "entitlement", "oauth", "secret", "recording", "grade"))
+    prepared = call(server, "prepare_teacher_change", {"operation": "update_class", "class_id": 1,
+        "homeworks": [{"topic": "l1-hw", "due": "2026-11-05"}], "dailies": []})
+    assert prepared["ok"] and not prepared["published"] and auth.class_rows[0]["homeworks"] == []
+    published = call(server, "publish_teacher_change", {"approval_id": prepared["approval_id"]})
+    assert published["ok"] and published["published"]
+    assert auth.class_rows[0]["homeworks"] == [{"topic": "l1-hw", "due": "2026-11-05"}]
+    assert call(server, "prepare_teacher_change", {"operation": "update_class", "class_id": 2,
+                                                   "name": "מחוץ לתחום"})["ok"] is False
+    assert call(server, "prepare_teacher_change", {"operation": "assign_class_teacher", "class_id": 1,
+                                                   "email": "old@example.com"})["ok"] is False
+
+
+def test_full_teacher_admin_delete_stale_state_and_audit_are_safe():
+    admin = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
+             "subject": "ערבית", "permissions": ["management.access"]}
+    class DeletingAuth(LibraryAuth):
+        def delete_class(self, class_id):
+            self.class_rows[:] = [row for row in self.class_rows if row["id"] != class_id]
+    auth = DeletingAuth()
+    auth.class_rows = [{"id": 1, "name": "א", "subject": "ערבית", "emails": ["one@example.com"],
+        "nicknames": {}, "teachers": [], "lessons": ["1"], "homeworks": [], "dailies": []}]
+    server, _ = connector(auth, actor=admin)
+    prepared = call(server, "prepare_teacher_change", {"operation": "delete_class", "class_id": 1})
+    assert prepared["preview"]["accounts_deleted"] is False
+    auth.class_rows[0]["name"] = "שונה"
+    refused = call(server, "publish_teacher_change", {"approval_id": prepared["approval_id"]})
+    assert refused["ok"] is False and auth.class_rows
+    audit = str(auth.events).lower()
+    assert not any(word in audit for word in ("approval_id", "nickname", "oauth", "token", "secret"))
+
+
+def test_full_teacher_subject_content_tools_and_options_end_to_end():
+    admin = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
+             "subject": "ערבית", "permissions": ["management.access"]}
+    class ContentAuth(LibraryAuth):
+        def __init__(self):
+            super().__init__()
+            self.library_rows = self.videos
+            del self.videos
+            self.daily_rows = [{"id": 1, "level": "1", "title": "יום", "url": "https://youtu.be/abcdefghijk"}]
+            self.lesson_videos = []
+            self.text_rows = []
+        def level_videos(self, table, fresh=False):
+            return list(self.library_rows) if table == "library" else [dict(row) for row in self.daily_rows]
+        def videos(self, fresh=False): return [dict(row) for row in self.lesson_videos]
+        def texts(self, fresh=False): return [dict(row) for row in self.text_rows]
+        def add_text(self, lesson, title, voices, lines, pos, ord):
+            self.text_rows.append({"id": 2, "lesson": lesson, "title": title, "voices": voices,
+                                   "lines": lines, "pos": pos, "ord": ord})
+        def delete_text(self, item_id): self.text_rows[:] = [row for row in self.text_rows if row["id"] != item_id]
+        def add_video(self, lesson, title, url, pos, ord):
+            self.lesson_videos.append({"id": 3, "lesson": lesson, "title": title, "url": url,
+                                       "pos": pos, "ord": ord})
+        def delete_video(self, item_id): self.lesson_videos[:] = [row for row in self.lesson_videos if row["id"] != item_id]
+        def delete_level_video(self, table, item_id): self.daily_rows[:] = [row for row in self.daily_rows if row["id"] != item_id]
+        def place(self, places):
+            for kind, item_id, pos, order in places:
+                rows = self.lesson_videos if kind == "videos" else self.text_rows
+                next(row for row in rows if row["id"] == item_id).update(pos=pos, ord=order)
+    auth = ContentAuth()
+    server, _ = connector(auth, actor=admin)
+    options = call(server, "list_teacher_options")
+    assert options["ok"] and options["collections"][0]["id"] == "arabic-stage-1"
+    assert options["daily_videos"][0] == {"id": 1, "level": "1", "title": "יום",
+                                          "url": "https://youtu.be/abcdefghijk"}
+    prepared = call(server, "prepare_teacher_change", {"operation": "create_lesson_text",
+        "lesson": "1", "title": "שיחה", "lines": [["שלום", "מַרְחַבַּא"]], "voices": [], "pos": 1})
+    assert prepared["ok"] and auth.text_rows == []
+    assert call(server, "publish_teacher_change", {"approval_id": prepared["approval_id"]})["ok"]
+    assert auth.text_rows[0]["title"] == "שיחה"
+    teacher = {"id": "teacher-1", "email": "teacher@example.com", "roles": ["teacher"],
+               "subject": "", "permissions": []}
+    auth.class_rows = [{"id": 1, "name": "א", "subject": "ערבית", "emails": ["teacher@example.com"],
+                        "nicknames": {}, "teachers": ["teacher@example.com"], "lessons": ["1"],
+                        "homeworks": [], "dailies": []}]
+    teacher_server, _ = connector(auth, actor=teacher)
+    assert call(teacher_server, "list_teacher_options")["collections"]
+    assert call(teacher_server, "prepare_teacher_change", {"operation": "delete_lesson_text",
+                                                            "item_id": 2})["ok"] is False
+
+
+def test_every_class_local_operation_round_trips_through_prepare_publish():
+    admin = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
+             "subject": "ערבית", "permissions": ["management.access"]}
+    class CompleteAuth(LibraryAuth):
+        def delete_class(self, class_id):
+            self.class_rows[:] = [row for row in self.class_rows if row["id"] != class_id]
+    auth = CompleteAuth()
+    auth.daily_videos = [{"id": 7, "level": "1", "title": "יום", "url": "https://youtu.be/abcdefghijk"}]
+    auth.class_rows = [{"id": 1, "name": "א", "subject": "ערבית",
+        "emails": ["first@example.com", "second@example.com"], "nicknames": {}, "teachers": [],
+        "lessons": ["1"], "homeworks": [], "dailies": []}]
+
+    def round_trip(arguments):
+        server, _ = connector(auth, actor=admin)
+        prepared = call(server, "prepare_teacher_change", arguments)
+        assert prepared["ok"], (arguments, prepared)
+        published = call(server, "publish_teacher_change", {"approval_id": prepared["approval_id"]})
+        assert published["ok"], (arguments, published)
+
+    round_trip({"operation": "create_class", "name": "חדשה", "content_ids": ["1"],
+                "students": [{"email": "new@example.com"}]})
+    for arguments in [
+        {"operation": "update_class", "class_id": 1, "name": "א מעודכנת"},
+        {"operation": "add_student", "class_id": 1, "email": "third@example.com", "nickname": "שלישי"},
+        {"operation": "update_student_nickname", "class_id": 1, "email": "third@example.com", "nickname": "ג"},
+        {"operation": "set_class_content", "class_id": 1, "content_ids": ["1", "2"]},
+        {"operation": "assign_homework", "class_id": 1, "homeworks": [{"topic": "l1-hw", "due": None}]},
+        {"operation": "remove_homework", "class_id": 1},
+        {"operation": "schedule_daily_video", "class_id": 1, "dailies": [{"video": 7, "date": "2026-11-05"}]},
+        {"operation": "unschedule_daily_video", "class_id": 1},
+        {"operation": "assign_class_teacher", "class_id": 1, "email": "first@example.com"},
+        {"operation": "remove_class_teacher", "class_id": 1, "email": "first@example.com"},
+        {"operation": "remove_student", "class_id": 1, "email": "third@example.com"},
+        {"operation": "delete_class", "class_id": 1},
+    ]:
+        round_trip(arguments)
+    assert [row["name"] for row in auth.class_rows] == ["חדשה"]
 
 
 def test_monitoring_tools_are_scoped_read_only_and_privacy_preserving():
@@ -578,6 +722,7 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
         "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
         "list_classes", "list_class_content_collections", "get_class_content_access",
         "prepare_class_change", "publish_class_change",
+        "get_teacher_workspace", "list_teacher_options", "prepare_teacher_change", "publish_teacher_change",
         "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_error_summary", "get_notification_coverage",
         "get_exercise_difficulty",
         "get_system_error_reports",

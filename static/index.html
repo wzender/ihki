@@ -1553,7 +1553,7 @@ html[data-subject="math"] #tagline{color:#F4F2EC}
 #mailForm button:disabled{opacity:.6;cursor:default}
 #mailMsg{margin:0;text-align:center;font:400 15px/1.5 var(--f-body);color:#1C241D;overflow-wrap:anywhere}
 #roles{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
-#roles :is(#libraryBtn,#manageBtn,#labBtn){background:#fff;color:#4B6A2C;box-shadow:inset 0 0 0 2px #4B6A2C}
+#roles :is(#manageBtn,#labBtn){background:#fff;color:#4B6A2C;box-shadow:inset 0 0 0 2px #4B6A2C}
 #bootErr{margin:0;max-width:90vw;font:12px/1.4 ui-monospace,monospace;color:#9B2C2C;white-space:pre-wrap;overflow-wrap:anywhere;text-align:left}
 .install-prompt{position:fixed;z-index:10000;inset:auto 12px calc(12px + env(safe-area-inset-bottom));margin:auto;max-width:430px;padding:14px;border:1px solid var(--olive);border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 8px 28px rgba(0,0,0,.24)}
 .install-prompt strong{display:block;font:400 20px/1.25 var(--f-display)}
@@ -1563,14 +1563,17 @@ html[data-subject="math"] #tagline{color:#F4F2EC}
 .install-actions .primary{background:var(--olive);color:var(--on-olive)}
 /* The math class (/math) opens on its own logo, on black (the logo's ink is light for it), with the buttons in its blue. */
 html[data-subject="math"] #logo-splash{background:#000}
-html[data-subject="math"] #libraryBtn{display:none}   /* the digital library is Arabic videos */
+html[data-subject="math"] #nav [data-view="library"]{display:none}   /* the digital library is Arabic videos */
 html[data-subject="math"] :is(#startBtn,#loginBtn,#roles button){background:#2F5597}
-html[data-subject="math"] #roles :is(#libraryBtn,#manageBtn,#labBtn){background:#000;color:#7FA6F0;box-shadow:inset 0 0 0 2px #7FA6F0}
+html[data-subject="math"] #roles :is(#manageBtn,#labBtn){background:#000;color:#7FA6F0;box-shadow:inset 0 0 0 2px #7FA6F0}
 html[data-subject="math"] #mailForm span{color:#9EA7A0}
 html[data-subject="math"] #mailForm input{background:#111;border-color:#3A403C;color:#F4F2EC}
 html[data-subject="math"] #mailForm button,html[data-subject="math"] #denied button{background:#000;border-color:#7FA6F0;color:#7FA6F0}
 html[data-subject="math"] :is(#mailMsg,#denied){color:#F4F2EC}
 html[data-subject="math"] #bootErr{color:#F08A8A}
+/* The Arabic logo's wheel rolls in for 2.27s (logo-intro.svg, .spin): the start buttons come once it stops. --wheel-left,
+   set as they are shown, is what remains of the roll then (a sign-in check can take part of it). */
+html:not([data-subject="math"]) :is(#startBtn,#roles button){animation-delay:var(--wheel-left,2.27s)}
 @keyframes start-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#startBtn,#loginBtn,#roles button,#mailForm{animation:none;opacity:1}#logo-splash{transition:none}}
 #wrap{opacity:1;transition:opacity .65s ease .1s}
@@ -1646,7 +1649,7 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
   <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></symbol>
   <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
 </defs></svg>
-<div id="logo-splash"><img src="__SPLASH_LOGO__" alt="__SPLASH_ALT__" width="489" height="225"><button id="startBtn">__START_LABEL__</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="libraryBtn">ספרייה דיגיטלית</button><button id="manageBtn">ניהול</button><button id="labBtn">מעבדה</button></div><p id="tagline" hidden>__TAGLINE__</p><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="denied" hidden>הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
+<div id="logo-splash"><img src="__SPLASH_LOGO__" alt="__SPLASH_ALT__" width="489" height="225"><button id="startBtn">__START_LABEL__</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="manageBtn">ניהול</button><button id="labBtn">מעבדה</button></div><p id="tagline" hidden>__TAGLINE__</p><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="denied" hidden>הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
 <script>
 /* While the opening screen is up, an error that stops the page's start shows under the logo: a phone has no console to read it in. */
 (()=>{
@@ -1681,7 +1684,7 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
     </span>
   </button>
   <section id="vids" aria-live="polite"></section>
-  <nav id="nav" aria-label="ניווט"><button data-view="home" hidden>בית</button><button data-view="">מסלול</button><button data-view="live" hidden>שיעור חי</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="refer">חבר מביא חבר</button></nav>
+  <nav id="nav" aria-label="ניווט"><button data-view="home" hidden>בית</button><button data-view="">מסלול</button><button data-view="live" hidden>שיעור חי</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="library" hidden>סרטונים</button><button data-view="refer">חבר מביא חבר</button></nav>
   <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
   <section class="live-page" id="liveView" aria-live="polite"></section>
   <button id="toNow" hidden></button>
@@ -6784,7 +6787,7 @@ function drawContent(){
     sec.ontoggle=()=>{ wide[key]=sec.open?1:0; store.set("ihki.copen",wide); };
     return sec;
   };
-  vcard(fold("library","ספריה דיגיטלית",`${LIBRARY.length?LIBRARY.length+" סרטונים":"עוד אין סרטונים"} · משותפת לכל הרמות`),null,"library",LIBRARY,"הסרטונים שבספריה","סרטון לספריה","משותפת לכל הרמות: נפתחת לתלמידים המורשים מהכפתור „ספרייה דיגיטלית” במסך הפתיחה","הסרטון נוסף לספריה הדיגיטלית. תלמידים שקיבלו הרשאה רואים אותו דרך הכפתור „ספרייה דיגיטלית” במסך הפתיחה.","","למשל: שיר לסיום");
+  vcard(fold("library","ספריה דיגיטלית",`${LIBRARY.length?LIBRARY.length+" סרטונים":"עוד אין סרטונים"} · משותפת לכל הרמות`),null,"library",LIBRARY,"הסרטונים שבספריה","סרטון לספריה","משותפת לכל הרמות: נפתחת לתלמידים המורשים מהכפתור „סרטונים” בסרגל התחתון","הסרטון נוסף לספריה הדיגיטלית. תלמידים שקיבלו הרשאה רואים אותו דרך הכפתור „סרטונים” בסרגל התחתון.","","למשל: שיר לסיום");
   for(const g of byLevel(ALL_LESSONS)){
     const sec=fold(g.level.id,g.level.name,`${lessonsWord(g.lessons)} · ${g.lessons.filter(l=>!l.soon).length} מוכנים`);
     vcard(sec,g.level.id,"dailies",DAILIES,"סרטונים יומיים","סרטון יומי","את התאריך של כל סרטון קובעים בעריכת הכיתה","הסרטון נוסף לסרטונים היומיים של הרמה. כדי שתלמידים יראו אותו, קובעים לו תאריך בעריכת הכיתה: מאותו יום הוא מופיע להם בכפתור „סרטון יומי” שמעל המסלול."," גם הכיתות שקבעו לו תאריך לא יראו אותו עוד.","למשל: יום 1 · ברכות");
@@ -8684,7 +8687,11 @@ function enter(){
   (choosing?Promise.resolve(false):lessonFlow()).catch(()=>false);   // the reminder is offered after a good moment, not on entering (see pushMoment)
 }
 $("startBtn").onclick=$("practiceBtn").onclick=enter;
-$("libraryBtn").onclick=()=>{ enter(); showView("library"); };
+function untilWheelStops(){   // before showing the start buttons: how long the logo's wheel still rolls (it starts as the logo arrives)
+  const logo=$("logo-splash")?.querySelector("img"), got=logo&&performance.getEntriesByName(logo.currentSrc)[0];
+  const since=performance.now()-(got?got.responseEnd:0);
+  document.documentElement.style.setProperty("--wheel-left",Math.max(.15,2.27-since/1000).toFixed(2)+"s");
+}
 $("manageBtn").onclick=()=>{ enter(); showManage(); };
 $("labBtn").onclick=()=>{ enter(); showLab(); };
 $("startBtn").focus({preventScroll:true});
@@ -8692,7 +8699,7 @@ $("startBtn").focus({preventScroll:true});
    sends the address a link that opens the page signed in (no password). A teacher gets two buttons in the start
    button's place: practice, as a student does, or the management panel. */
 if(!AUTH_URL){
-  $("startBtn").hidden=true; $("roles").hidden=false; $("manageBtn").hidden=$("labBtn").hidden=true;
+  untilWheelStops(); $("startBtn").hidden=true; $("roles").hidden=false; $("manageBtn").hidden=$("labBtn").hidden=true; $("nav").querySelector('[data-view="library"]').hidden=false;
   loadTutor();   // an open service: the tutor game, when the server has its key
 }
 if(AUTH_URL){
@@ -8753,9 +8760,9 @@ if(AUTH_URL){
         if(MY_CLASSES.length===1) MY_CLASS=mine[0];
         else{ const last=MY_CLASSES.find(c=>c.name===store.get("ihki.class","")); if(last) useClass(last); }   // the class practised in last
         const management=can("management.access"), laboratory=can("lab.access"), library=can("library.view"), practice=can("practice.use")||can("path.use")||can("games.use")||can("tutor.use");
-        start.hidden=!ok||management||laboratory||library; roles.hidden=!management&&!laboratory&&!library; $("practiceBtn").hidden=!practice; $("libraryBtn").hidden=!library; $("manageBtn").hidden=$("toManage").hidden=!management; $("labBtn").hidden=!laboratory; $("mLab").hidden=!laboratory; denied.hidden=ok;
+        untilWheelStops(); start.hidden=!ok||management||laboratory; roles.hidden=!management&&!laboratory; $("practiceBtn").hidden=!practice; $("nav").querySelector('[data-view="library"]').hidden=!library; $("manageBtn").hidden=$("toManage").hidden=!management; $("labBtn").hidden=!laboratory; $("mLab").hidden=!laboratory; denied.hidden=ok;
         if(ok){ $("nav").querySelector('[data-view="live"]').hidden=!LIVE_TAB_ENABLED; loadLive(true); [...roles.querySelectorAll("button:not([hidden])"),start].find(x=>!x.hidden)?.focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); if(document.body.dataset.view==="home") drawNav(); }); loadContent(); loadWriting(); loadTutor(); }
-      }catch(e){ start.hidden=false; throw e; } },0);   // a failure here still lets the student in, and shows under the logo
+      }catch(e){ untilWheelStops(); start.hidden=false; throw e; } },0);   // a failure here still lets the student in, and shows under the logo
     });
   }
 }
