@@ -56,6 +56,38 @@ EITAN_LEVELS = {
     8: {"name": "מי אמר?"},
 }
 TENSE_NAMES = {"past": "עבר", "future": "עתיד", "present": "הווה"}
+CONVERSATION_PROMPTS = {
+    "past": [
+        ("شو عملت مبارح؟", "שוּ עַמֵלְת אִמְבַּארֵח?", "מה עשיתי אתמול?"),
+        ("شو عملت مبارح؟", "שוּ עַמֵלְת אִמְבַּארֵח?", "מה עשית אתמול?"),
+        ("شو عملتي مبارح؟", "שוּ עַמֵלְתִי אִמְבַּארֵח?", "מה עשית אתמול?"),
+        ("شو عمل مبارح؟", "שוּ עַמֵל אִמְבַּארֵח?", "מה הוא עשה אתמול?"),
+        ("شو عملت مبارح؟", "שוּ עַמְלַת אִמְבַּארֵח?", "מה היא עשתה אתמול?"),
+        ("شو عملنا مبارح؟", "שוּ עַמַלְנַא אִמְבַּארֵח?", "מה עשינו אתמול?"),
+        ("شو عملتو مبارح؟", "שוּ עַמַלְתוּ אִמְבַּארֵח?", "מה עשיתם אתמול?"),
+        ("شو عملوا مبارح؟", "שוּ עַמְלוּ אִמְבַּארֵח?", "מה הם עשו אתמול?"),
+    ],
+    "present": [
+        ("شو بعمل هلقيت؟", "שוּ בַּעְמַל הַלְקֵית?", "מה אני עושה עכשיו?"),
+        ("شو بتعمل هلقيت؟", "שוּ בְּתִעְמַל הַלְקֵית?", "מה אתה עושה עכשיו?"),
+        ("شو بتعملي هلقيت؟", "שוּ בְּתִעְמַלִי הַלְקֵית?", "מה את עושה עכשיו?"),
+        ("شو بعمل هلقيت؟", "שוּ בִּעְמַל הַלְקֵית?", "מה הוא עושה עכשיו?"),
+        ("شو بتعمل هلقيت؟", "שוּ בְּתִעְמַל הַלְקֵית?", "מה היא עושה עכשיו?"),
+        ("شو بنعمل هلقيت؟", "שוּ בִּנְעְמַל הַלְקֵית?", "מה אנחנו עושים עכשיו?"),
+        ("شو بتعملوا هلقيت؟", "שוּ בְּתִעְמַלוּ הַלְקֵית?", "מה אתם עושים עכשיו?"),
+        ("شو بعملوا هلقيت؟", "שוּ בִּעְמַלוּ הַלְקֵית?", "מה הם עושים עכשיו?"),
+    ],
+    "future": [
+        ("شو رح أعمل بكرا؟", "שוּ רַח אַעְמַל בֻּכְּרַא?", "מה אעשה מחר?"),
+        ("شو رح تعمل بكرا؟", "שוּ רַח תִעְמַל בֻּכְּרַא?", "מה תעשה מחר?"),
+        ("شو رح تعملي بكرا؟", "שוּ רַח תִעְמַלִי בֻּכְּרַא?", "מה תעשי מחר?"),
+        ("شو رح يعمل بكرا؟", "שוּ רַח יִעְמַל בֻּכְּרַא?", "מה הוא יעשה מחר?"),
+        ("شو رح تعمل بكرا؟", "שוּ רַח תִעְמַל בֻּכְּרַא?", "מה היא תעשה מחר?"),
+        ("شو رح نعمل بكرا؟", "שוּ רַח נִעְמַל בֻּכְּרַא?", "מה נעשה מחר?"),
+        ("شو رح تعملوا بكرا؟", "שוּ רַח תִעְמַלוּ בֻּכְּרַא?", "מה תעשו מחר?"),
+        ("شو رح يعملوا بكرا؟", "שוּ רַח יִעְמַלוּ בֻּכְּרַא?", "מה הם יעשו מחר?"),
+    ],
+}
 
 # Complete, filled past-tense tables in the parsed book.  Order is PRONOUNS order.
 # Arabic is not copied or inferred from transliteration: each form must resolve back
@@ -279,6 +311,13 @@ class VerbExerciseGenerator:
         if not verbs:
             raise LookupError("no complete verb paradigms are unlocked")
         tense, verbs = self._choose_tense(verbs, tenses if tenses is not None else (["past", "future", "present"] if level == 3 else ["past"]))
+        if level == 5:
+            # The first-error prompt teaches a useful contrast, so conversations use
+            # only verbs whose first-person past and future are both verified.
+            verbs_with_reminder = [v for v in verbs if self._tense_form(v, "past", 0)
+                                   and self._tense_form(v, "future", 0)]
+            if verbs_with_reminder:
+                verbs = verbs_with_reminder
         if level == 2:
             return self._matching(verbs, mastery or {}, recent or [], tense)
         if level in (4, 5):
@@ -341,19 +380,12 @@ class VerbExerciseGenerator:
                 "mastery_key": f"{verb}:{tense}:matching"}
 
     def _spoken(self, level: int, verbs: list[str], mastery: dict, recent: list[str], tense: str) -> dict[str, Any]:
-        if level == 5:
-            # A controlled first conversation: the learner answers about themself.  Keeping
-            # the target to ana makes the prompt natural and the grammar target unambiguous.
-            scored = [(v, 0) for v in verbs]
-            verb, pron = max(scored, key=lambda x: self.rng.random() +
-                             (2 if not mastery.get(f"{x[0]}:{tense}:ana") else 0))
-        else:
-            verb, pron = self._target(verbs, mastery, recent, tense)
+        verb, pron = self._target(verbs, mastery, recent, tense)
         form = self._tense_form(verb, tense, pron)
         p = PRONOUNS[pron]
         variants = [(form["arabic"], ipa) for ipa in form["ipas"]]
         if level == 5:
-            pron_ar, pron_ipa = PRONOUNS[0][3][0]
+            pron_ar, pron_ipa = p[3][0]
             variants += [(f"{pron_ar} {form['arabic']}", f"{pron_ipa} | {ipa}") for ipa in form["ipas"]]
         phrase = {"variants": variants, "cat": "verb-game", "key": f"{verb}:{tense}:{p[0]}:spoken",
                   "he": f"{p[1]} · {VERB_META[verb]['name']} ({TENSE_NAMES[tense]})"}
@@ -365,11 +397,14 @@ class VerbExerciseGenerator:
             "mastery_key": f"{verb}:{tense}:{p[0]}:spoken",
         }
         if level == 5:
-            result["conversation"] = {
-                "past": {"arabic": "شو عملت مبارح؟", "transliteration": "שוּ עְמֵלְת אִמְבַּארֵח?", "hebrew": "מה עשית אתמול?"},
-                "present": {"arabic": "شو بتعمل هلقيت؟", "transliteration": "שוּ בְּתִעְמַל הַלְקֵית?", "hebrew": "מה אתה עושה עכשיו?"},
-                "future": {"arabic": "شو رح تعمل بكرا؟", "transliteration": "שוּ רַח תִעְמַל בֻּכְּרַא?", "hebrew": "מה תעשה מחר?"},
-            }[tense]
+            ar, tr, he = CONVERSATION_PROMPTS[tense][pron]
+            result["conversation"] = {"arabic": ar, "transliteration": tr, "hebrew": he}
+            reminder = {hint_tense: self._tense_form(verb, hint_tense, pron)
+                        for hint_tense in ("past", "future")}
+            if all(reminder.values()):
+                result["conversation"]["reminder"] = {
+                    hint_tense: form["transliteration"] for hint_tense, form in reminder.items()
+                }
         return result
 
     def _pick(self, keys: list[tuple[str, Any]], mastery: dict, recent: list[str]) -> tuple[str, Any]:

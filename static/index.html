@@ -543,7 +543,7 @@ body:not(.home) .reward-shelf,body.manage .reward-shelf,body:not([data-view=home
 .verb-pronoun{margin:8px 0 0;font:700 22px/1.65 var(--f-tr);letter-spacing:.025em}.verb-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.verb-choice{min-height:84px;padding:8px 10px 4px;border:2px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);font:700 25px/1.75 var(--f-tr);letter-spacing:.035em;cursor:pointer}.verb-choice .ar{display:block;margin-top:-5px;font:18px/1.25 var(--f-ar);letter-spacing:0;color:var(--muted)}.verb-choice.good{border-color:var(--ok);background:var(--ok-bg)}.verb-choice.bad{border-color:var(--sumac);background:var(--sumac-bg)}
 .verb-match{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}.verb-match>div{display:flex;min-width:0;flex-direction:column;gap:8px}.verb-match h3{margin:0 0 2px;color:var(--muted);font:700 14px/1.3 var(--f-body);text-align:center}.verb-match button{width:100%;min-height:68px;padding:6px 8px 3px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:700 22px/1.7 var(--f-tr);letter-spacing:.03em}.verb-match button small{display:block;margin-top:-5px;font:500 17px/1.5 var(--f-tr);letter-spacing:.02em;color:var(--muted)}.verb-match button.selected{border-color:var(--amber);background:var(--amber-bg)}.verb-match button.done{border-color:var(--line);background:var(--bg);opacity:.72}.verb-match button.good{border-color:var(--ok);background:var(--ok-bg);opacity:1}.verb-match button.bad{border-color:var(--sumac);background:var(--sumac-bg);color:var(--sumac);opacity:1}
 .verb-feedback{min-height:44px;padding:10px;border-radius:12px;text-align:center;font-weight:700}.verb-feedback:empty{padding:0}.verb-feedback.good{background:var(--ok-bg);color:var(--ok)}.verb-feedback.bad{background:var(--sumac-bg);color:var(--sumac)}
-.verb-speak{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}.verb-mic{display:grid;place-items:center;width:86px;height:86px;border:0;border-radius:50%;background:var(--olive);color:var(--on-olive);font-size:34px;box-shadow:0 5px 0 var(--olive-deep);cursor:pointer}.verb-mic.live{background:var(--sumac);box-shadow:0 5px 0 color-mix(in srgb,var(--sumac) 70%,#000)}.verb-mic:disabled{opacity:.5}.verb-record-actions{display:flex;gap:8px}.verb-conversation{padding:14px;border-radius:16px;background:var(--olive-soft)}.verb-conversation .ar{font:700 27px/1.6 var(--f-ar)}.verb-answer{font:700 25px/1.7 var(--f-tr);letter-spacing:.035em}
+.verb-speak{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}.verb-mic{display:grid;place-items:center;width:86px;height:86px;border:0;border-radius:50%;background:var(--olive);color:var(--on-olive);font-size:34px;box-shadow:0 5px 0 var(--olive-deep);cursor:pointer}.verb-mic.live{background:var(--sumac);box-shadow:0 5px 0 color-mix(in srgb,var(--sumac) 70%,#000)}.verb-mic:disabled{opacity:.5}.verb-record-actions{display:flex;gap:8px}.verb-conversation{display:flex;flex-direction:column;gap:8px;min-height:180px;max-height:min(48vh,520px);overflow-y:auto;padding:14px;border-radius:16px;background:var(--tc-wall);scroll-behavior:smooth}.verb-guide-example{min-height:0;max-height:none;margin:10px 0}.verb-chat-msg{max-width:82%;padding:8px 12px;border-radius:11px;box-shadow:0 1px 1px rgba(0,0,0,.13);font:700 22px/1.55 var(--f-tr);letter-spacing:.025em}.verb-chat-msg.in{align-self:flex-end;background:var(--tc-in);border-start-end-radius:2px}.verb-chat-msg.out{align-self:flex-start;background:var(--tc-out);border-start-start-radius:2px}.verb-chat-msg small{display:block;color:var(--muted);font:500 13px/1.4 var(--f-body);letter-spacing:0}.verb-chat-audio{display:block;border:0;background:none;color:inherit;font:700 14px/1.4 var(--f-body);cursor:pointer;padding:3px 0 0}.verb-chat-result{align-self:center;padding:5px 12px;border-radius:999px;background:var(--surface);font-size:22px;font-weight:800}.verb-chat-result.good{color:var(--ok)}.verb-chat-result.bad{color:var(--sumac)}.verb-chat-hint{align-self:flex-end;max-width:88%;padding:8px 12px;border-radius:11px;background:var(--tc-fix);box-shadow:0 1px 1px rgba(0,0,0,.13)}.verb-chat-hint b{display:block;margin-bottom:3px}.verb-chat-hint p{margin:2px 0;font:700 19px/1.5 var(--f-tr)}.verb-answer{font:700 25px/1.7 var(--f-tr);letter-spacing:.035em}
 .verb-record-actions{flex-wrap:wrap;justify-content:center}.verb-report{border-color:var(--sumac);color:var(--sumac)}.verb-report:disabled{opacity:.65}
 @media (max-width:410px){.verb-choices{grid-template-columns:1fr}.verb-shell{padding:12px}.verb-choice{min-height:62px}}
 /* "בונים עם איתן" (levels 6–8): each of אותיות איתן keeps one colour, in the Arabic and in the Hebrew beside it */
@@ -2061,7 +2061,7 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
 </dialog>
 <dialog id="verbDlg" class="verb-dlg" aria-labelledby="verbTitle">
   <div class="verb-shell">
-    <div class="verb-head"><h2 id="verbTitle">פועל יוצא</h2><button class="btn" id="verbClose">סגירה</button></div>
+    <div class="verb-head"><h2 id="verbTitle">פועל יוצא</h2><button class="btn" id="verbHelp" title="הנחיות לתגובה בשיחה" aria-label="הנחיות לתגובה בשיחה" hidden>?</button><button class="btn" id="verbClose">סגירה</button></div>
     <div class="verb-stats"><span id="verbProgress">מוכנים?</span><span id="verbStreak">רצף 0 🔥</span></div>
     <div class="verb-track"><i id="verbBar"></i></div>
     <div class="verb-menu" id="verbMenu">
@@ -2081,6 +2081,19 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
     <div class="verb-board" id="verbBoard" hidden></div>
     <div class="verb-feedback" id="verbFeedback" role="status"></div>
   </div>
+</dialog>
+<dialog id="verbGuideDlg" aria-labelledby="verbGuideTitle">
+  <div class="dlg-head"><h2 id="verbGuideTitle">איך מתרגלים תגובה בשיחה?</h2><button class="btn" id="verbGuideClose">סגירה</button></div>
+  <p class="dlg-text">המורה שולחת שאלה בערבית באותיות עבריות. הפועל שאותו צריך להטות מופיע בסוגריים בתוך השאלה.</p>
+  <p class="dlg-text">ענו בקול לפי כינוי הגוף והזמן שבשאלה. ההקלטה מתחילה ונעצרת אוטומטית.</p>
+  <div class="verb-conversation verb-guide-example" aria-label="דוגמה לשיחה">
+    <div class="verb-chat-msg in">שוּ עַמֵל אִמְבַּארֵח?<small>מה הוא עשה אתמול? (אכל)</small></div>
+    <div class="verb-chat-msg out">הוּّ אַכַּל</div>
+    <div class="verb-chat-result good" aria-label="תשובה נכונה">✅</div>
+    <div class="verb-chat-msg in">הוּّ אַכַּל<small>התשובה הנכונה</small></div>
+  </div>
+  <p class="dlg-text">התשובה והבדיקה מצטרפות לשיחה. אם טעיתם בפעם הראשונה, תקבלו רמז עם צורת הפועל בעבר ובעתיד.</p>
+  <div class="row"><button class="btn primary" id="verbGuideGo">הבנתי, מתחילים</button></div>
 </dialog>
 <dialog id="phoneDlg" aria-labelledby="phoneTitle">
   <div class="dlg-head"><h2 id="phoneTitle">ניתוח פונמות<small>הרצף הצפוי מול הפענוח החופשי של המודל</small></h2><button class="btn" id="phoneTrace" title="הפריימים, שלבי הציון והקריאות המועמדות, בלשונית חדשה">לוח אבחון</button><button class="btn" id="phoneClose">סגירה</button></div>
@@ -7319,7 +7332,7 @@ $("newForm").onsubmit=async e=>{   // "next" checks the step on show; on the las
    lightweight mastery is kept on this device. */
 const VERB_ROUND=10, VERB_THRESH={2:.85,3:.90,4:.90,5:.85};
 const VERB_ALL_LEVELS_OPEN=true;
-let verbMeta=null, verbQuestion=null, verbStarted=0, verbLevel=1, verbPath="learn", verbN=0, verbStreak=0, verbRecent=[], verbDailyLevels=[];
+let verbMeta=null, verbQuestion=null, verbStarted=0, verbLevel=1, verbPath="learn", verbN=0, verbStreak=0, verbRecent=[], verbDailyLevels=[], verbChatHistory=[], verbChatAudioUrls=[], verbGuideStarts=false;
 let verbMastery=store.get("ihki.verbMastery",{}), verbSummary=store.get("ihki.verbSummary",{}), verbPairs={}, verbPicked=null;
 let verbTenses=store.get("ihki.verbTenses",["past","present","future"]).filter(t=>["past","present","future"].includes(t));
 if(!verbTenses.length)verbTenses=["past","present","future"];
@@ -7363,6 +7376,7 @@ function showVerbHub(){
   verbQuestion=null; fallingData=null; fallingForm=null;
   $("verbTitle").textContent="פועל יוצא"; $("verbClose").textContent="סגירה";
   $("eitanMenu").hidden=true;
+  $("verbHelp").hidden=true;
   $("verbBoard").hidden=true; $("verbMenu").hidden=false; $("verbFeedback").textContent="";
   $("verbProgress").textContent="בחרו משחק"; $("verbStreak").textContent=""; $("verbBar").style.width="0";
   for(const el of [$("verbTensePick"),$("verbLevels"),...document.querySelectorAll('[data-path="learn"],[data-path="daily"]')]) el.hidden=false;
@@ -7384,16 +7398,24 @@ $("verbClose").onclick=()=>$("verbBoard").hidden?$("verbDlg").close():showVerbHu
 $("verbDlg").addEventListener("close",()=>{verbQuestion=null});
 for(const b of document.querySelectorAll("[data-path]")) b.onclick=()=>{verbPath=b.dataset.path; verbLevel=verbPath==="eitan"?(eitanUnlocked(7)?7:6):verbPath==="daily"?[5,4,3,2,1].find(verbUnlocked):(verbUnlocked(2)?2:1); drawVerbLevels(); startVerbRound();};
 function startVerbRound(){
-  verbN=0;verbStreak=0;verbRecent=[];
+  verbN=0;verbStreak=0;verbRecent=[];verbChatAudioUrls.forEach(URL.revokeObjectURL);verbChatAudioUrls=[];verbChatHistory=[];
   verbDailyLevels=verbPath==="daily"?shuffleCopy([1,2,3,4,5,1,2,3,4,5]):[];
-  $("verbClose").textContent="חזרה";$("verbMenu").hidden=true;$("verbBoard").hidden=false;nextVerb();
+  const conversation=verbPath==="learn"&&verbLevel===5;$("verbHelp").hidden=!conversation;
+  if(conversation)verbChatHistory.push({kind:"teacher_intro",tr:"ענו בקול לפי הזמן וכינוי הגוף שבשאלה."});
+  $("verbClose").textContent="חזרה";$("verbMenu").hidden=true;$("verbBoard").hidden=false;
+  if(conversation&&!store.get("ihki.verbConversationGuide",false)){store.set("ihki.verbConversationGuide",true);verbGuideStarts=true;$("verbGuideDlg").showModal()}else nextVerb();
 }
+$("verbHelp").onclick=()=>{verbGuideStarts=false;$("verbGuideDlg").showModal()};
+$("verbGuideClose").onclick=()=>$("verbGuideDlg").close();
+$("verbGuideGo").onclick=()=>$("verbGuideDlg").close();
+$("verbGuideDlg").addEventListener("close",()=>{if(verbGuideStarts){verbGuideStarts=false;nextVerb()}});
 function shuffleCopy(items){
   const out=[...items];for(let i=out.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[out[i],out[j]]=[out[j],out[i]]}return out;
 }
 async function nextVerb(){
   if(verbN>=VERB_ROUND){
-    $("verbBoard").innerHTML=`<div class="verb-cue"><h3>כל הכבוד!</h3><p>סיימתם ${VERB_ROUND} שאלות. הרצף הטוב נשמר להמשך.</p><div class="row"><button class="btn primary" id="verbHub">חזרה לפועל יוצא</button><button class="btn" id="verbAgain">סבב נוסף</button></div></div>`;
+    const board=$("verbBoard"), done=`<div class="verb-cue"><h3>כל הכבוד!</h3><p>סיימתם ${VERB_ROUND} שאלות. הרצף הטוב נשמר להמשך.</p><div class="row"><button class="btn primary" id="verbHub">חזרה לפועל יוצא</button><button class="btn" id="verbAgain">סבב נוסף</button></div></div>`;
+    if(verbPath==="learn"&&verbLevel===5&&verbChatHistory.length){board.querySelector(".verb-speak")?.remove();board.insertAdjacentHTML("beforeend",done)}else board.innerHTML=done;
     $("verbHub").onclick=showVerbHub; $("verbAgain").onclick=startVerbRound; $("verbFeedback").textContent=""; return;
   }
   $("verbFeedback").className="verb-feedback"; $("verbFeedback").textContent=""; $("verbBoard").innerHTML="טוען…";
@@ -7410,13 +7432,26 @@ async function nextVerb(){
 function cue(q){
   const top=mark("verb-cue","","div"); top.append(mark("",`${q.verb.name} · ${q.tense.name}`,"h3")); return top;
 }
+function verbStudentAnswer(text,url){const msg=mark("verb-chat-msg out","","div"),play=mark("verb-chat-audio","▶ השמעה","button");msg.append(document.createTextNode(text||"לא הצלחתי לתעתק"),play);play.onclick=()=>new Audio(url).play();return msg}
 function drawVerbQuestion(){
   if(verbQuestion.level>=6) return drawEitan(verbQuestion);
-  const q=verbQuestion, board=$("verbBoard"); board.replaceChildren(cue(q));
+  const q=verbQuestion, board=$("verbBoard"); board.replaceChildren(...(q.conversation?[]:[cue(q)]));
   if(q.level>=4){
-    if(q.conversation){const c=mark("verb-conversation","","div"); c.append(mark("",q.conversation.transliteration,"div"),mark("",q.conversation.hebrew,"small")); const hear=mark("btn","🔊 השמעת השאלה","button"); hear.onclick=()=>{const u=new SpeechSynthesisUtterance(q.conversation.arabic);u.lang="ar-PS";speechSynthesis.cancel();speechSynthesis.speak(u)}; c.append(hear); board.append(c)}
+    let chat=null;
+    if(q.conversation){
+      verbChatHistory.push({kind:"question",tr:q.conversation.transliteration,he:`${q.conversation.hebrew} (${q.verb.name})`});
+      chat=mark("verb-conversation","","div");
+      for(const item of verbChatHistory){
+        if(item.kind==="hint"){const hint=mark("verb-chat-hint","","div");hint.append(mark("","רמז קטן על הפועל:","b"),mark("",`עבר: ${item.past}`,"p"),mark("",`עתיד: ${item.future}`,"p"));chat.append(hint);continue}
+        if(item.kind==="result"){const result=mark(`verb-chat-result ${item.ok?"good":"bad"}`,item.ok?"✅":"❌","div");result.setAttribute("aria-label",item.ok?"תשובה נכונה":"תשובה לא נכונה");chat.append(result);continue}
+        if(item.kind==="student_answer"){chat.append(verbStudentAnswer(item.text,item.url));continue}
+        const incoming=item.kind==="question"||item.kind==="correct_answer"||item.kind==="teacher_intro",msg=mark(`verb-chat-msg ${incoming?"in":"out"}`+(item.current?" verb-answer":""),"","div");msg.append(document.createTextNode(item.tr));if(item.he)msg.append(mark("",item.he,"small"));chat.append(msg);
+      }
+      board.append(chat);chat.scrollTop=chat.scrollHeight;
+    }
     else board.append(mark("verb-pronoun",`הגוף: ${q.pronoun.hebrew} · ${q.pronoun.transliteration}`,"p"));
-    const speak=mark("verb-speak","","div"), mic=mark("verb-mic","🎙","button"), status=mark("","ההקלטה מתחילה ונעצרת לבד","p"), actions=mark("verb-record-actions","","div"); mic.onclick=()=>verbRecord(mic,status,actions,false); speak.append(mic,status,actions); board.append(speak); setTimeout(()=>{if(verbQuestion===q)verbRecord(mic,status,actions,true)},0); return;
+    const speak=mark("verb-speak","","div"), mic=mark("verb-mic","🎙","button"), status=mark("","ההקלטה מתחילה ונעצרת לבד","p"), actions=mark("verb-record-actions","","div"); mic.onclick=()=>verbRecord(mic,status,actions,false);speak.append(mic,status,actions); board.append(speak);
+    setTimeout(()=>{if(verbQuestion===q)verbRecord(mic,status,actions,true)},0); return;
   }
   if(q.level===2){
     const grid=mark("verb-match","","div"), left=mark("","","div"), right=mark("","","div");
@@ -7471,22 +7506,34 @@ async function verbRecord(btn,status,actions,auto=false){
     const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}), type=pickType(); verbChunks=[];verbRecordCancel=false;
     const rec=verbRecorder=new MediaRecorder(stream,type?{mimeType:type}:{}); rec.ondataavailable=e=>{if(e.data.size)verbChunks.push(e.data)};
     let heardSpeech=true;
-    rec.onstop=async()=>{clearTimeout(verbStopTimer);if(verbVad){verbVad.stop();verbVad=null}stream.getTracks().forEach(t=>t.stop());btn.classList.remove("live");if(verbRecordCancel){verbRecordCancel=false;return}if(!heardSpeech){status.textContent="לא נשמע דיבור. לחצו על המיקרופון ונסו שוב.";return}btn.disabled=true;status.textContent="בודק…";const blob=new Blob(verbChunks,{type:rec.mimeType||"audio/webm"}); if(verbRecordingUrl)URL.revokeObjectURL(verbRecordingUrl);verbRecordingUrl=URL.createObjectURL(blob);await scoreVerbSpeech(blob,btn,status,actions)};
+    rec.onstop=async()=>{clearTimeout(verbStopTimer);if(verbVad){verbVad.stop();verbVad=null}stream.getTracks().forEach(t=>t.stop());btn.classList.remove("live");if(verbRecordCancel){verbRecordCancel=false;return}if(!heardSpeech){status.textContent="לא נשמע דיבור. לחצו על המיקרופון ונסו שוב.";return}btn.disabled=true;status.textContent="בודק…";const blob=new Blob(verbChunks,{type:rec.mimeType||"audio/webm"});verbRecordingUrl=URL.createObjectURL(blob);verbChatAudioUrls.push(verbRecordingUrl);await scoreVerbSpeech(blob,btn,status,actions)};
     await listenCue(); rec.start();btn.classList.add("live");const noSpeech=auto?VAD.noSpeechAuto:VAD.noSpeech;verbStopTimer=setTimeout(()=>rec.state==="recording"&&rec.stop(),noSpeech+VAD.maxSpeech);verbVad=startVad(stream,spoke=>{heardSpeech=spoke;if(rec.state==="recording")rec.stop()},noSpeech);status.textContent=verbVad?"מקליט… דברו, ההקלטה תיעצר לבד":"מקליט… לחצו לסיום";
   }catch{status.textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."}
 }
 async function scoreVerbSpeech(blob,btn,status,actions){
-  const q=verbQuestion, fd=new FormData();fd.append("question_id",q.question_id);fd.append("audio",blob,"answer.webm");const r=await api("/api/verb-game/speech",{method:"POST",body:fd}).catch(()=>null);btn.disabled=false;actions.replaceChildren();$("verbBoard").querySelectorAll(".verb-answer").forEach(x=>x.remove());
+  const q=verbQuestion, fd=new FormData(), controller=new AbortController();let timedOut=false;
+  fd.append("question_id",q.question_id);fd.append("audio",blob,"answer.webm");
+  let timeout;
+  const request=api("/api/verb-game/speech",{method:"POST",body:fd,signal:controller.signal}).catch(()=>null);
+  const deadline=new Promise(resolve=>{timeout=setTimeout(()=>{timedOut=true;controller.abort();resolve(null)},15000)});
+  const r=await Promise.race([request,deadline]);clearTimeout(timeout);btn.disabled=false;actions.replaceChildren();$("verbBoard").querySelectorAll(".verb-answer").forEach(x=>x.remove());
   const replay=mark("btn","▶ ההקלטה שלי","button");replay.onclick=()=>new Audio(verbRecordingUrl).play();const retry=mark("btn","ניסיון נוסף","button");retry.onclick=()=>{actions.replaceChildren();$("verbBoard").querySelectorAll(".verb-answer").forEach(x=>x.remove());verbRecord(btn,status,actions,true)};actions.append(replay,retry);
-  if(!r||!r.ok){status.textContent="הבדיקה אינה זמינה כרגע. ההקלטה לא נחשבה כטעות.";return}const result=await r.json(), feedback=$("verbFeedback");feedback.className="verb-feedback "+(result.outcome==="correct"?"good":result.outcome==="uncertain"?"":"bad");feedback.textContent=result.message||"נסו שוב";
-  const answer=mark("verb-answer",result.variant?.tr||"","div");actions.before(answer);
+  if(!r||!r.ok){status.textContent=timedOut?"הבדיקה התארכה ונעצרה. ההקלטה לא נחשבה כטעות — נסו שוב.":"הבדיקה אינה זמינה כרגע. ההקלטה לא נחשבה כטעות.";return}const result=await r.json(), feedback=$("verbFeedback");feedback.className="verb-feedback "+(result.outcome==="correct"?"good":result.outcome==="uncertain"?"":"bad");feedback.textContent=q.level===5&&result.counts_as_attempt?"":result.message||"נסו שוב";
+  const answerText=result.variant?.tr||"", chat=q.level===5?$("verbBoard").querySelector(".verb-conversation"):null;
+  const answer=mark(q.level===5?"verb-chat-msg in":"verb-answer","","div");answer.append(document.createTextNode(answerText));if(q.level===5)answer.append(mark("","התשובה הנכונה","small"));else actions.parentElement.insertBefore(answer,actions);
+  if(q.level===5){const heardText=(result.heard_tr||"").trim()||"לא הצלחתי לתעתק";verbChatHistory.push({kind:"student_answer",text:heardText,url:verbRecordingUrl});chat?.append(verbStudentAnswer(heardText,verbRecordingUrl));if(chat)chat.scrollTop=chat.scrollHeight}
   if(TUTOR){const report=mark("btn verb-report","🚩 דווחו על טעות בבדיקה","button");report.title="ההקלטה, שתי המילים הצפויות ומה שהמודל שמע יישלחו לניטור";report.onclick=()=>reportVerbScore(q.question_id,blob,report,status,result.attempt_id);actions.append(report)}
   if(!result.counts_as_attempt)return;
-  const ok=result.outcome==="correct", elapsed=Math.round(performance.now()-verbStarted), key=q.mastery_key,m=verbMastery[key]||{attempts:0,correct:0,times:[],streak:0};m.attempts++;if(ok)m.correct++;m.streak=ok?(m.streak||0)+1:0;m.times=[...(m.times||[]),elapsed].slice(-20);m.median_ms=[...m.times].sort((a,b)=>a-b)[m.times.length>>1];m.last=new Date().toISOString();verbMastery[key]=m;const s=verbSummary[q.level]||{attempts:0,correct:0};s.attempts++;if(ok)s.correct++;verbSummary[q.level]=s;store.set("ihki.verbMastery",verbMastery);store.set("ihki.verbSummary",verbSummary);drawVerbLevels();
+  const ok=result.outcome==="correct";
+  if(q.level===5){verbChatHistory.push({kind:"result",ok},{kind:"correct_answer",tr:answerText,he:"התשובה הנכונה"});const resultMark=mark(`verb-chat-result ${ok?"good":"bad"}`,ok?"✅":"❌","div");resultMark.setAttribute("aria-label",ok?"תשובה נכונה":"תשובה לא נכונה");chat?.append(resultMark,answer);if(chat)chat.scrollTop=chat.scrollHeight}
+  const elapsed=Math.round(performance.now()-verbStarted), key=q.mastery_key,m=verbMastery[key]||{attempts:0,correct:0,times:[],streak:0};m.attempts++;if(ok)m.correct++;m.streak=ok?(m.streak||0)+1:0;m.times=[...(m.times||[]),elapsed].slice(-20);m.median_ms=[...m.times].sort((a,b)=>a-b)[m.times.length>>1];m.last=new Date().toISOString();verbMastery[key]=m;const s=verbSummary[q.level]||{attempts:0,correct:0};s.attempts++;if(ok)s.correct++;verbSummary[q.level]=s;store.set("ihki.verbMastery",verbMastery);store.set("ihki.verbSummary",verbSummary);drawVerbLevels();
   if(ok){
     verbQuestion=null;verbStreak++;verbN++;status.textContent="נכון ✓ עוברים לשאלה הבאה";
     setTimeout(()=>{if(!verbQuestion&&$("verbDlg").open&&$("verbMenu").hidden&&!$("verbBoard").hidden)nextVerb()},1100);
   }else{
+    if(q.level===5&&q.conversation?.reminder&&!q.conversationHintShown){
+      q.conversationHintShown=true;verbChatHistory.push({kind:"hint",...q.conversation.reminder});const hint=mark("verb-chat-hint","","div");hint.append(mark("","רמז קטן על הפועל:","b"),mark("",`עבר: ${q.conversation.reminder.past}`,"p"),mark("",`עתיד: ${q.conversation.reminder.future}`,"p"));chat?.append(hint);if(chat)chat.scrollTop=chat.scrollHeight;
+    }
     status.textContent="הקשיבו לתשובה";
     await playVerbTeacher(q.question_id,result.variant?.ar||"");
     if(verbQuestion!==q)return;

@@ -47,6 +47,9 @@ def test_every_main_exercise_respects_the_selected_tense(game, level, tense):
     assert q["mastery_key"].split(":")[1] == tense
     if level == 5:
         assert {"past": "אתמול", "present": "עכשיו", "future": "מחר"}[tense] in q["conversation"]["hebrew"]
+        if "reminder" in q["conversation"]:
+            assert set(q["conversation"]["reminder"]) == {"past", "future"}
+            assert all(q["conversation"]["reminder"].values())
 
 
 def test_server_grades_choice_once_and_reports_timing(game):
@@ -114,6 +117,14 @@ def test_spoken_questions_keep_expected_forms_server_side(game, level):
     assert all(ar and ipa for ar, ipa in phrase["variants"])
     if level == 5:
         assert q["conversation"]["arabic"]
+
+
+def test_conversation_practises_pronouns_beyond_ana(game):
+    mastery = {f"{verb}:past:ana": {"attempts": 10, "correct": 10, "median_ms": 500}
+               for verb in VERBS}
+    q = game.question(5, ["1"], mastery=mastery, tenses=["past"])
+    assert q["pronoun"]["id"] != "ana"
+    assert q["conversation"]["arabic"] and q["conversation"]["transliteration"]
 
 
 # ---- "בונים עם איתן" (levels 6-8) ----
