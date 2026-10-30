@@ -40,6 +40,7 @@ from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Body, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from logtail import LogtailHandler
 
 from .arabic_diacritics import point_arabic, tts_arabic
 from . import lab
@@ -77,10 +78,28 @@ from .class_management import (ClassManagementError, normalize_class_name, parse
                                visible_classes)
 from .error_telemetry import record_failure
 
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger("ihki")
 STATIC = Path(__file__).resolve().parent.parent / "static"
 load_dotenv(STATIC.parent / ".env")
+
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("ihki")
+
+
+def _configure_better_stack_logging() -> None:
+    """Forward logs when Better Stack credentials are configured."""
+    token = os.environ.get("BETTER_STACK_SOURCE_TOKEN", "").strip()
+    host = os.environ.get("BETTER_STACK_INGESTING_HOST", "").strip()
+    if not token or not host:
+        return
+    if not host.startswith(("https://", "http://")):
+        host = f"https://{host}"
+    handler = LogtailHandler(source_token=token, host=host)
+    handler.setLevel(logging.INFO)
+    logging.getLogger().addHandler(handler)
+    log.info("Better Stack log forwarding enabled")
+
+
+_configure_better_stack_logging()
 # A class topic's opening screen, by the path it is served at; "/" is Arabic.
 SUBJECTS = {
     "arabic": {"__TITLE__": "אהלא וסהלא", "__SPLASH_LOGO__": "/static/logo-intro.svg",
