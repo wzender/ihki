@@ -2123,7 +2123,7 @@ try{ if(localStorage.getItem("ihki.student")==="1"&&Object.keys(localStorage).so
   <p class="dlg-text">ענו לפי כינוי הגוף והזמן שבשאלה: כתבו בשורה למטה, או לחצו על המיקרופון ושלחו הודעה קולית.</p>
   <div class="verb-conversation verb-guide-example" aria-label="דוגמה לשיחה">
     <div class="verb-chat-msg in">שוּ עַמֵל אִמְבַּארֵח? (אכל)<small>מה הוא עשה אתמול?</small></div>
-    <div class="verb-chat-msg out">הוּّ אַכַּל<span class="verb-react" role="img" aria-label="המורה: נכון">👍</span></div>
+    <div class="verb-chat-msg out"><span class="sh">הוּ</span> אַכַּל<span class="verb-react" role="img" aria-label="המורה: נכון">👍</span></div>
     <div class="verb-chat-msg in">נכון! 👏</div>
   </div>
   <p class="dlg-text">בזמן הבדיקה המורה "מקלידה", ואז מגיבה על ההודעה שלכם: 👍 נכון, 🤔 עוד לא. כשעוד לא, תקבלו רמז — הפועל בעבר ובעתיד בגוף הוא — ותנסו שוב. אם גם הניסיון השני לא הצליח, המורה תראה צעד אחר צעד איך מגיעים לתשובה, ונעבור לשאלה הבאה.</p>
@@ -2312,6 +2312,7 @@ const band=s=>s>=75?"good":s>=50?"mid":"bad";
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
 // Transliteration text: a letter carrying the doubling mark (U+0651) becomes <span class="sh">letter</span>
 const SHADDA=/([\u05D0-\u05EA][\u0591-\u05C7]*)\u0651([\u0591-\u05C7]*)/g;
+function trNode(text){const f=document.createDocumentFragment(),box=document.createElement("span");setTr(box,text);f.append(...box.childNodes);return f}
 function setTr(el,text){
   el.textContent=""; let at=0;
   for(const m of text.matchAll(SHADDA)){
@@ -7596,7 +7597,7 @@ function cue(q){
   const top=mark("verb-cue","","div"); top.append(mark("",`${q.verb.name} · ${q.tense.name}`,"h3")); return top;
 }
 const VERB_MIC_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></svg>', VERB_SEND_SVG='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 12 20 4l-2.5 8L20 20z"/></svg>';   // the practice card's microphone, and WhatsApp's send arrow
-function verbStudentAnswer(text,url){const msg=mark("verb-chat-msg out","","div");msg.append(document.createTextNode(text||"לא הצלחתי לתעתק"));if(url){const play=mark("verb-chat-audio","▶ השמעה","button");play.onclick=()=>new Audio(url).play();msg.append(play)}return msg}
+function verbStudentAnswer(text,url){const msg=mark("verb-chat-msg out","","div");msg.append(trNode(text||"לא הצלחתי לתעתק"));if(url){const play=mark("verb-chat-audio","▶ השמעה","button");play.onclick=()=>new Audio(url).play();msg.append(play)}return msg}
 function drawVerbQuestion(){
   if(verbQuestion.level>=6) return drawEitan(verbQuestion);
   const q=verbQuestion, board=$("verbBoard"); board.replaceChildren(...(q.conversation?[]:[cue(q)]));
@@ -7608,7 +7609,7 @@ function drawVerbQuestion(){
       for(const item of verbChatHistory){
         if(item.kind==="hint"){const hint=mark("verb-chat-hint","","div");hint.append(mark("","עוד לא. רמז קטן על הפועל (הוא):","b"),mark("",`עבר: ${item.past}`,"p"),mark("",`עתיד: ${item.future}`,"p"));chat.append(hint);continue}
         if(item.kind==="student_answer"){const msg=verbStudentAnswer(item.text,item.url);if(item.ok!==undefined)verbReact(msg,item.ok);chat.append(msg);continue}
-        const incoming=item.kind==="question"||item.kind==="correct_answer"||item.kind==="teacher_intro"||item.kind==="teacher",msg=mark(`verb-chat-msg ${incoming?"in":"out"}`+(item.current?" verb-answer":""),"","div");msg.append(document.createTextNode(item.tr));if(item.he)msg.append(mark("",item.he,"small"));chat.append(msg);
+        const incoming=item.kind==="question"||item.kind==="correct_answer"||item.kind==="teacher_intro"||item.kind==="teacher",msg=mark(`verb-chat-msg ${incoming?"in":"out"}`+(item.current?" verb-answer":""),"","div");msg.append(trNode(item.tr));if(item.he)msg.append(mark("",item.he,"small"));chat.append(msg);
       }
       board.append(verbPinChat(chat));
       // WhatsApp-style bottom row: type a reply, or tap the mic for a voice message (the button turns into ➤ while typing)
@@ -7744,11 +7745,11 @@ async function verbChatReply(q,{text,blob,url},btn,status){   // Level 5: the re
   const r=blob?await verbSpeechRequest(q,blob):await api("/api/verb-game/text",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question_id:q.question_id,text})}).catch(()=>null);
   typing.remove();btn.disabled=false;
   if(verbQuestion!==q)return;
-  const teacherSays=(line,label)=>{const msg=mark("verb-chat-msg in",line,"div");if(label)msg.append(mark("",label,"small"));chat.append(msg);verbChatScroll()};
+  const teacherSays=(line,label)=>{const msg=mark("verb-chat-msg in","","div");msg.append(trNode(line));if(label)msg.append(mark("",label,"small"));chat.append(msg);verbChatScroll()};
   if(!r||!r.ok){teacherSays(r?.status===410?"השאלה פגה. עוברים לשאלה הבאה.":"הבדיקה אינה זמינה כרגע. זה לא נחשב כטעות — נסו שוב.");if(r?.status===410){verbQuestion=null;setTimeout(nextVerb,1200)}return}
   const result=await r.json();
   const shown=blob?((result.heard_tr||"").trim()||"לא הצלחתי לתעתק"):text;
-  if(blob)bubble.firstChild.nodeValue=shown;
+  if(blob)bubble.firstChild.replaceWith(trNode(shown));
   const said={kind:"student_answer",text:shown,url};verbChatHistory.push(said);
   if(blob&&TUTOR){const report=mark("verb-chat-audio verb-report","🚩 דווחו על טעות בבדיקה","button");report.title="ההקלטה, שתי המילים הצפויות ומה שהמודל שמע יישלחו לניטור";report.onclick=()=>reportVerbScore(q.question_id,blob,report,status,result.attempt_id);bubble.append(report)}
   if(!result.counts_as_attempt){teacherSays(result.message||"לא הבנתי. נסו שוב.");return}
