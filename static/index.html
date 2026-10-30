@@ -6044,6 +6044,7 @@ function drawManageShell(){
   $("manage").classList.remove("student");
   const id={classes:"mClasses",students:"mRoster",content:"mContent",flags:"mFlags",access:"mAccess",models:"mModels"}[mMode];
   const what={classes:"הכיתות",students:"נתוני התלמידים",content:"התוכן",flags:"הניטור",access:"ההרשאות",models:"המודלים"}[mMode];
+  if(mMode==="flags"){ drawFlags(); return; }   // each section shows its own "loading" until its data arrives
   if(id) $(id).replaceChildren(mark("card",`טוען את ${what}…`));
 }
 function drawManage(){
@@ -6105,9 +6106,24 @@ async function loadMonitorSummary(){
   const [live,tts,health,errors]=await Promise.all([get("/api/activity?period=5m"),get("/api/tts-cache"),get("/api/health"),get("/api/log-errors")]);
   MONITOR={live,tts,build:health.error?{error:health.error}:health.build||{error:"אין פרטי גרסה"},errors};
 }
+// Draws one Monitoring section again in place, if the tab is on screen.
+function redrawFlagsSection(cls,draw){
+  if(mMode!=="flags"||!document.body.classList.contains("manage")) return;
+  const old=$("mFlags").querySelector("."+cls); if(!old) return;
+  const holder=document.createElement("div"); draw(holder); old.replaceWith(holder.firstElementChild);
+}
 async function loadFlags(){
   flagsError=""; activityError="";
-  const activity=Promise.all([loadActivity(),loadSystemActivity(),loadMonitorSummary()]);
+  // every source loads in parallel and its section is drawn as soon as it arrives, so the slowest does not hold up the rest
+  const activity=Promise.all([
+    loadActivity().then(()=>redrawFlagsSection("activity",drawActivity)),
+    loadSystemActivity().then(()=>{ redrawFlagsSection("system-activity",drawSystemActivity); redrawFlagsSection("mon-summary",drawMonitorSummary); }),
+    loadMonitorSummary().then(()=>redrawFlagsSection("mon-summary",drawMonitorSummary))]);
+  const rules=(async()=>{ try{   // apart from the reports: a missing table here must not hide them
+    const res=await api("/api/scoring-rules"), data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.detail||res.status);
+    SCORING_RULES=data; scoringRulesError="";
+  }catch(err){ SCORING_RULES=null; scoringRulesError=err.message; } })();
   try{
     const get=async(url,field)=>{ const res=await api(url), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); return data[field]||[]; };
     const [pending,confirmed,calibrations]=await Promise.all([
@@ -6116,12 +6132,8 @@ async function loadFlags(){
     FLAG_REVIEWS={pending,confirmed}; CALIBRATIONS=calibrations; flagsLoaded=true;
   }catch(err){ flagsError=err.message; flagsLoaded=true; }
   loadAttemptPatterns();   // deliberately not awaited: the larger sample must not hold up reports or other panels
-  try{   // apart from the reports: a missing table here must not hide them
-    const res=await api("/api/scoring-rules"), data=await res.json().catch(()=>({}));
-    if(!res.ok) throw new Error(data.detail||res.status);
-    SCORING_RULES=data; scoringRulesError="";
-  }catch(err){ SCORING_RULES=null; scoringRulesError=err.message; }
-  await activity;
+  await rules;   // the reports and rules are drawn together by the caller; the activity panels draw themselves
+  activity.catch(()=>{});
 }
 async function loadAttemptPatterns(){
   if(patternsLoading) return;
@@ -6205,7 +6217,7 @@ function drawFlags(){
   drawApiKeys(box);
   drawSystemActivity(box);
   drawTtsCacheControls(box);
-  if(!flagsLoaded){ box.append(mark("card","בחרו בניטור כדי לטעון את הנתונים.")); return; }
+  if(!flagsLoaded){ box.append(mark("card","טוען את הדיווחים…")); return; }
   drawScoringRules(box);
   if(flagsError){ const card=mark("card",""); card.append(mark("","לא ניתן לטעון את הדיווחים","h2"),mark("",flagsError,"p")); box.append(card); return; }
   const visibleCalibration=c=>c.status!=="rejected"&&!(c.evidence||{}).dismissed;
@@ -6834,8 +6846,8 @@ function drawActivity(box){
   card.append(svg); box.append(card);
 }
 function drawActivityOnly(){
-  const box=$("mFlags"), old=box.firstElementChild, holder=document.createElement("div"); drawActivity(holder);
-  if(old&&old.classList.contains("activity")) old.replaceWith(holder.firstElementChild);
+  const box=$("mFlags"), old=box.querySelector(".activity"), holder=document.createElement("div"); drawActivity(holder);
+  if(old) old.replaceWith(holder.firstElementChild);
 }
 const lessonsLine=ls=>byLevel(ls).map(g=>`${g.level.name}: ${lessonsWord(g.lessons)} (${g.lessons.filter(l=>!l.soon).length} מוכנים)`).join(" · ");   // "שלב א: שיעורים 1–10 (2 מוכנים)"
 /* The classes' part: a card per class with what it is made of, and its buttons: edit, delete, and on to its students' progress. */
