@@ -77,6 +77,7 @@ from .access import (DEFAULT_ENTITLEMENTS, DEFAULT_ROLES, ENTITLEMENTS, ENTITLEM
 from .class_management import (ClassManagementError, normalize_class_name, parse_roster,
                                visible_classes)
 from .error_telemetry import record_failure
+from . import log_errors
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 load_dotenv(STATIC.parent / ".env")
@@ -100,6 +101,7 @@ def _configure_better_stack_logging() -> None:
 
 
 _configure_better_stack_logging()
+log_errors.install()
 # A class topic's opening screen, by the path it is served at; "/" is Arabic.
 SUBJECTS = {
     "arabic": {"__TITLE__": "אהלא וסהלא", "__SPLASH_LOGO__": "/static/logo-intro.svg",
@@ -1091,6 +1093,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                     "bucket_minutes": bucket_minutes, **data}
         except AuthUnavailable as e:
             raise HTTPException(503, str(e))
+
+    @app.get("/api/log-errors")
+    def log_error_counts(_a: SupabaseAuth = Depends(teacher_only)):
+        """How many ERROR log records this server process wrote (counts and times only, no messages)."""
+        return log_errors.COUNTER.summary()
 
     @app.get("/api/system-activity")
     def system_activity(limit: int = Query(60, ge=1, le=200), a: SupabaseAuth = Depends(teacher_only)):

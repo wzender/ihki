@@ -1105,6 +1105,8 @@ body.manage #manage{width:100%;max-width:none}
 .activity-chart{width:100%;height:190px;overflow:visible;cursor:grab;touch-action:none;user-select:none}.activity-chart.dragging{cursor:grabbing}.activity-chart .grid{stroke:var(--line);stroke-width:1}.activity-chart .bar{fill:var(--olive);opacity:.82}.activity-chart .bar:hover{opacity:1}.activity-chart .active-line{fill:none;stroke:var(--orange);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;pointer-events:none}.activity-chart .active-dot{fill:var(--surface);stroke:var(--orange);stroke-width:2}.activity-chart text{fill:var(--muted);font:11px var(--f-body)}.activity-chart .active-axis{fill:var(--orange)}
 .streak-team h2{margin:0}.streak-team>.meta{margin:3px 0 0}.streak-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px;margin-top:10px}.streak-player{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;align-items:center;min-height:68px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}.streak-rank{grid-row:1/3;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:var(--amber-bg);color:var(--amber);font-weight:700}.streak-player:first-child .streak-rank{background:var(--amber);color:#fff}.streak-player b{min-width:0;line-height:1.3;overflow-wrap:anywhere}.streak-player small{min-width:0;color:var(--muted);line-height:1.3}
 .flag-group{display:flex;flex-direction:column;gap:10px}.flag-group>summary{cursor:pointer;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:16px}.flag-group>summary .meta{color:var(--muted);font-size:14px}.flag-group[open]>summary{margin-bottom:2px}.flag-group>.card{margin-inline-start:12px}
+.mon-summary h2{margin:0 0 10px}.mon-tiles{display:grid;grid-template-columns:1.6fr repeat(3,minmax(0,1fr));gap:8px}.mon-tile{display:flex;flex-direction:column;gap:3px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);min-width:0}.mon-tile b{font:400 24px/1.15 var(--f-display);font-variant-numeric:tabular-nums}.mon-tile small{color:var(--muted);font-size:12px}.mon-sub{color:var(--muted);font-size:12px;overflow-wrap:anywhere}.mon-tile.ready{border-color:var(--ok);background:var(--ok-bg)}.mon-tile.ready b{color:var(--ok)}.mon-tile.busy{border-color:var(--amber);background:var(--amber-bg)}.mon-tile.busy b{color:var(--amber)}.mon-tile.warn b{color:var(--amber)}.mon-tile.bad{border-color:var(--sumac);background:var(--sumac-bg)}.mon-tile.bad b{color:var(--sumac)}@media(max-width:760px){.mon-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.mon-live{grid-column:1/-1}}@media(max-width:420px){.mon-tiles{grid-template-columns:1fr}}
+.mon-lower{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px;margin-top:12px}.mon-panel{padding:12px;border:1px solid var(--line);border-radius:12px;min-width:0}.mon-panel h3{margin:0 0 6px;font:700 15px/1.3 var(--f-body)}.mon-panel .meta,.mon-panel .note{margin:0 0 6px;color:var(--muted);font-size:13px}.mon-event{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}.mon-event:last-child{border-bottom:0}.mon-event i{font-style:normal}.mon-event b,.mon-event small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mon-event small{color:var(--muted);font-size:12px}.mon-event time{color:var(--muted);font-size:12px;white-space:nowrap}.mon-chart{width:100%;height:auto;max-height:220px;display:block;direction:ltr}@media(max-width:560px){.mon-chart text{font-size:14px}}.mon-chart .bar{fill:var(--olive)}.mon-chart .axis{stroke:var(--line)}.mon-chart text{fill:var(--muted);font-size:10px;font-family:var(--f-body)}.mon-chart .val{fill:var(--ink);font-weight:700}
 .system-activity summary{cursor:pointer}.system-activity summary h2{display:inline;margin:0}.system-activity details[open]>summary{margin-bottom:8px}
 .system-hard{margin:2px 0 4px;padding:10px;border-radius:10px;background:var(--bg)}.system-hard h3{margin:0 0 6px;font:700 15px/1.3 var(--f-body)}.system-hard-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}.system-hard-row:last-child{border-bottom:0}.system-hard-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.system-hard-row small{color:var(--muted);white-space:nowrap}.system-feed{display:flex;flex-direction:column;gap:14px}.system-topic{border-top:1px solid var(--line);padding-top:10px}.system-topic:first-child{border-top:0;padding-top:0}.system-topic h3{margin:0 0 3px;font:700 15px/1.3 var(--f-body)}.system-topic h3 small{color:var(--muted);font-weight:600}.system-event{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}.system-event:last-child{border-bottom:0}.system-event i{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--olive-soft);font-style:normal}.system-event b,.system-event small{display:block}.system-event small,.system-event time{color:var(--muted);font-size:12px}.system-event time{direction:ltr;white-space:nowrap}
 /* the API keys card (developers only): a row per key, where it comes from and a field for a new one; a key is never shown */
@@ -5635,7 +5637,7 @@ let patternsLoaded=false, patternsLoading=false, patternsError="";
 let SCORING_RULES=null, scoringRulesError="";   // the rules of pronunciation-rules.md and whether each is on (see drawScoringRules)
 let ACTIVITY=null, activityError="";
 let SYSTEM_ACTIVITY=null, systemActivityError="";
-let ADMIN_SUBJECTS=null;
+let MONITOR={};   // the Monitoring summary's own sources: live (5-minute activity), tts, build, errors; each may hold .error
 const ACTIVITY_RANGES={"5m":{label:"5 דקות",title:"5 הדקות האחרונות",bucket:"דקה",legacy:"&hours=1&bucket_minutes=1&window_minutes=5"},hour:{label:"שעה",title:"השעה האחרונה",bucket:"5 דקות",legacy:"&hours=1&bucket_minutes=5"},day:{label:"יום",title:"24 השעות האחרונות",bucket:"15 דקות",legacy:"&hours=24&bucket_minutes=15"},week:{label:"שבוע",title:"7 הימים האחרונים",bucket:"שעה",legacy:"&hours=168&bucket_minutes=60"},month:{label:"חודש",title:"30 הימים האחרונים",bucket:"שעה",legacy:""},all:{label:"הכל",title:"כל התקופה",bucket:"שעה",legacy:""}};
 let activityRange=store.get("ihki.activityRange","day"); if(!ACTIVITY_RANGES[activityRange]) activityRange="day";
 const activityViews=new Map();
@@ -6051,7 +6053,7 @@ async function showMode(mode){
 for(const b of $("mModes").children) b.onclick=()=>showMode(b.dataset.mode);
 setInterval(()=>{
   if(!document.body.classList.contains("manage")||document.body.classList.contains("lab")||document.hidden) return;
-  if(mMode==="flags") loadActivity().then(()=>drawActivityOnly());
+  if(mMode==="flags"){ loadActivity().then(()=>drawActivityOnly()); Promise.all([loadMonitorSummary(),loadSystemActivity()]).then(()=>drawMonitorSummaryOnly()); }
   if(mMode==="students"&&CLASS) drawTabs(CLASS.classes||[]);   // let the "active now" hint expire without a page refresh
 },60000);
 
@@ -6068,9 +6070,15 @@ async function loadSystemActivity(){
   try{ const res=await api("/api/system-activity?limit=60"), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); SYSTEM_ACTIVITY=data; }
   catch(err){ SYSTEM_ACTIVITY=null; systemActivityError=err.message; }
 }
+// The summary at the top of Monitoring. Each source fails on its own, so one missing endpoint leaves the others shown.
+async function loadMonitorSummary(){
+  const get=async url=>{ try{ const res=await api(url), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); return data; }catch(err){ return {error:err.message}; } };
+  const [live,tts,health,errors]=await Promise.all([get("/api/activity?period=5m"),get("/api/tts-cache"),get("/api/health"),get("/api/log-errors")]);
+  MONITOR={live,tts,build:health.error?{error:health.error}:health.build||{error:"אין פרטי גרסה"},errors};
+}
 async function loadFlags(){
   flagsError=""; activityError="";
-  const activity=Promise.all([loadActivity(),loadSystemActivity()]);
+  const activity=Promise.all([loadActivity(),loadSystemActivity(),loadMonitorSummary()]);
   try{
     const get=async(url,field)=>{ const res=await api(url), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); return data[field]||[]; };
     const [pending,confirmed,calibrations]=await Promise.all([
@@ -6161,9 +6169,9 @@ function drawScoringRules(box){
 }
 function drawFlags(){
   const box=$("mFlags"); box.innerHTML=""; for(const url of flagAudioUrls) URL.revokeObjectURL(url); flagAudioUrls=[];
+  drawMonitorSummary(box);
   drawActivity(box);
   drawStreakTeam(box);
-  drawAdminSubjects(box);
   drawBackupControls(box);
   drawApiKeys(box);
   drawSystemActivity(box);
@@ -6335,6 +6343,87 @@ function flagChatText(f){
   ].join("\n");
 }
 
+const SYSTEM_EVENT_LABELS={exercise:["🎙️","הכנת תרגילים"],game:["🎮","משחקים"],permission:["🔐","שינוי הרשאות"],content:["➕","הוספת תכנים"],push:["🔔","שליחת התראה"]};
+/* The top of Monitoring at a glance: whether students are practising right now (is it safe to deploy?), when the
+   server was last updated, Sawtak's cache hit rate, error log records, the latest actions and the pending reports by day. */
+function drawMonitorSummary(box){
+  const card=mark("card mon-summary",""), tiles=mark("mon-tiles",""), lower=mark("mon-lower","");
+  card.append(mark("","תמונת מצב","h2"),tiles,lower); box.append(card);
+  const tile=(value,label,sub,tone)=>{ const t=mark("mon-tile"+(tone?` ${tone}`:""),""), b=mark("","","b"); b.append(value); t.append(b,mark("",label,"small")); if(sub){ const line=mark("mon-sub","","span"); line.append(sub); t.append(line); } tiles.append(t); return t; };
+  const {live={},tts={},build={},errors={}}=MONITOR, loading=!Object.keys(MONITOR).length;
+
+  // live students: the 5-minute activity; if that endpoint fails, exercise events of the last 5 minutes
+  const recent=(SYSTEM_ACTIVITY?.events||[]).filter(e=>e.kind==="exercise"&&Date.now()-new Date(e.created_at).getTime()<=300000);
+  const active=loading?null:!live.error&&live.summary?+live.summary.active_students||0:SYSTEM_ACTIVITY?new Set(recent.map(e=>e.actor_email||"")).size:null;
+  const attempts=!live.error&&live.summary?+live.summary.attempts||0:recent.length;
+  const liveTile=tile(active==null?"…":active?`${active} ${active===1?"תלמיד/ה פעיל/ה":"תלמידים פעילים"}`:"אין תלמידים פעילים",
+    "ב־5 הדקות האחרונות",active==null?(loading?"טוען…":"לא ניתן לבדוק כרגע"):active?`${attempts} תרגולים · כדאי לחכות עם פריסה`:"אפשר לפרוס גרסה חדשה",
+    active==null?"":active?"busy":"ready");
+  liveTile.classList.add("mon-live");
+
+  // last update
+  const updated=new Date(build.updated_at), hasDate=!build.error&&build.updated_at&&!Number.isNaN(updated.getTime());
+  tile(hasDate?flagAge(build.updated_at):loading?"…":"–","עדכון אחרון",hasDate?[build.version,build.commit_message].filter(Boolean).join(" · "):build.error||"");
+
+  // Sawtak cache hit rate (since the server started)
+  const rate=tts.hit_rate==null?"–":`${Math.round(tts.hit_rate*100)}%`;
+  tile(loading?"…":rate,"פגיעות במטמון Sawtak",tts.error?tts.error:tts.available===false?"Sawtak אינו מוגדר":`${tts.hits??0} פגיעות · ${tts.misses??0} יצירות מאז ההפעלה`);
+
+  // error log records of this server process
+  const errTone=errors.error?"":errors.last_hour?"bad":errors.last_24h?"warn":"ready";
+  const errSub=errors.error?errors.error:document.createDocumentFragment();
+  if(!errors.error&&!loading){ errSub.append(`${errors.since_start??0} מאז הפעלת השרת`); if(errors.last_at){ errSub.append(" · אחרונה "); errSub.append(flagAge(new Date(errors.last_at*1000).toISOString())); } }
+  tile(loading||errors.error?"–":String(errors.last_24h??0),"שגיאות בלוג ב־24 השעות האחרונות",errSub,errTone);
+
+  // the last 5 actions
+  const acts=mark("mon-panel",""); acts.append(mark("","5 הפעולות האחרונות","h3"));
+  const events=(SYSTEM_ACTIVITY?.events||[]).slice(0,5);
+  if(systemActivityError) acts.append(mark("note","לא ניתן לטעון: "+systemActivityError,"p"));
+  else if(!SYSTEM_ACTIVITY) acts.append(mark("note","טוען…","p"));
+  else if(!events.length) acts.append(mark("note","עדיין לא נרשמה פעילות.","p"));
+  for(const e of events){
+    const [icon,kind]=SYSTEM_EVENT_LABELS[e.kind]||["•","פעילות"], row=mark("mon-event",""), text=document.createElement("div");
+    text.append(mark("",kind,"b"),mark("",[e.actor_email,e.label].filter(Boolean).join(" · ")||"פעילות במערכת","small"));
+    row.append(mark("",icon,"i"),text,flagAge(e.created_at)||mark("","","span")); acts.append(row);
+  }
+
+  // pending reports grouped by day
+  const chart=mark("mon-panel",""); chart.append(mark("","דיווחים שממתינים לבדיקה, לפי יום","h3"));
+  if(!flagsLoaded) chart.append(mark("note","טוען…","p"));
+  else if(flagsError) chart.append(mark("note","לא ניתן לטעון: "+flagsError,"p"));
+  else drawPendingByDay(chart,FLAG_REVIEWS.pending);
+  lower.append(acts,chart);
+}
+function drawPendingByDay(into,pending){
+  const key=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const counts=new Map; let undated=0, oldest=today;
+  for(const f of pending){ const d=new Date(f.created_at); if(!f.created_at||Number.isNaN(d.getTime())){ undated++; continue; } d.setHours(0,0,0,0); if(d<oldest) oldest=d; counts.set(key(d),(counts.get(key(d))||0)+1); }
+  const total=pending.length;
+  into.append(mark("meta",total?`${total} ${total===1?"דיווח ממתין":"דיווחים ממתינים"}`:"אין כרגע דיווחים שממתינים לבדיקה.","p"));
+  if(!total) return;
+  const span=Math.max(7,Math.min(30,Math.round((today-oldest)/86400000)+1)), days=[];
+  for(let i=span-1;i>=0;i--){ const d=new Date(today); d.setDate(d.getDate()-i); days.push({d,n:counts.get(key(d))||0}); }
+  const shown=days.reduce((n,x)=>n+x.n,0), older=total-undated-shown, max=Math.max(1,...days.map(x=>x.n));
+  const ns="http://www.w3.org/2000/svg", svg=document.createElementNS(ns,"svg"), W=360, H=130, top=16, base=108, bw=W/span;
+  svg.setAttribute("viewBox",`0 0 ${W} ${H}`); svg.setAttribute("class","mon-chart"); svg.setAttribute("role","img");
+  svg.setAttribute("aria-label",`דיווחים ממתינים ב־${span} הימים האחרונים`);
+  const fmt=d=>d.toLocaleDateString("he-IL",{day:"numeric",month:"numeric"});
+  const axis=document.createElementNS(ns,"line"); axis.setAttribute("x1",0); axis.setAttribute("x2",W); axis.setAttribute("y1",base); axis.setAttribute("y2",base); axis.setAttribute("class","axis"); svg.append(axis);
+  days.forEach(({d,n},i)=>{
+    const xx=i*bw, h=n/max*(base-top);
+    if(n){ const r=document.createElementNS(ns,"rect"), t=document.createElementNS(ns,"title"); r.setAttribute("x",xx+bw*.15); r.setAttribute("width",bw*.7); r.setAttribute("y",base-h); r.setAttribute("height",h); r.setAttribute("rx",Math.min(3,bw*.2)); r.setAttribute("class","bar"); t.textContent=`${fmt(d)}: ${n} ${n===1?"דיווח":"דיווחים"}`; r.append(t); svg.append(r);
+      const v=document.createElementNS(ns,"text"); v.setAttribute("x",xx+bw/2); v.setAttribute("y",base-h-4); v.setAttribute("text-anchor","middle"); v.setAttribute("class","val"); v.textContent=n; if(bw>=14) svg.append(v); }
+  });
+  for(const [i,anchor] of [[0,"start"],[span-1,"end"]]){ const t=document.createElementNS(ns,"text"); t.setAttribute("x",anchor==="start"?0:W); t.setAttribute("y",H-4); t.setAttribute("text-anchor",anchor); t.setAttribute("class","lbl"); t.textContent=i===span-1?"היום":fmt(days[i].d); svg.append(t); }
+  into.append(svg);
+  const extra=[older>0&&`${older} מלפני ${span} ימים`,undated&&`${undated} ללא תאריך`].filter(Boolean);
+  if(extra.length) into.append(mark("meta","ועוד "+extra.join(" · "),"p"));
+}
+function drawMonitorSummaryOnly(){
+  const box=$("mFlags"), old=box.querySelector(".mon-summary"); if(!old) return;
+  const holder=document.createElement("div"); drawMonitorSummary(holder); old.replaceWith(holder.firstElementChild);
+}
 function drawStreakTeam(box){
   if(!CLASS) return;
   const card=mark("card streak-team",""), rows=CLASS.students||[], hasStreakData=rows.some(s=>s.streak), students=rows.filter(s=>(s.streak?.current||0)>0).sort((a,b)=>(b.streak.current-a.streak.current)||(b.streak.best-a.streak.best)||(a.name||a.email).localeCompare(b.name||b.email)).slice(0,5);
@@ -6385,7 +6474,7 @@ function drawBackupControls(box){
       if(!res.ok) throw new Error(data.detail||res.status);
       const rows=Object.values(data.tables||{}).reduce((a,b)=>a+b,0);
       msg.textContent=`השחזור הושלם: ${rows} רשומות.`;
-      CLASS=null; flagsLoaded=false; ADMIN_SUBJECTS=null; await loadManage();
+      CLASS=null; flagsLoaded=false; await loadManage();
     }catch(err){ msg.textContent="השחזור נכשל: "+err.message; }
     create.disabled=false; fill();
   };
@@ -6394,28 +6483,6 @@ function drawBackupControls(box){
   box.append(card);
 }
 
-/* Developer-only: the subject stamped onto every class an admin creates. The API enforces the same boundary. */
-function drawAdminSubjects(box){
-  if(!can("*")) return;
-  const card=mark("card",""), list=document.createElement("div");
-  card.append(mark("","מקצועות מנהלים","h2"),mark("sub","רק מפתחים רואים ועורכים את הכרטיס הזה. כיתה חדשה מקבלת אוטומטית את המקצוע של המנהל/ת שפתח/ה אותה.","p"),list); box.append(card);
-  const show=data=>{
-    ADMIN_SUBJECTS=data; list.replaceChildren();
-    if(data.setup){ const code=mark("",data.setup,"code"); code.dir="ltr"; list.append(mark("setup","יש ליצור את טבלת ההרשאות:","p"),code); return; }
-    if(!(data.admins||[]).length){ list.append(mark("sub","אין כרגע מנהלים.","p")); return; }
-    for(const admin of data.admins){
-      const row=mark("key-row",""), who=document.createElement("div"), form=document.createElement("form"), input=document.createElement("select"), save=mark("btn primary","שמירה","button"), msg=mark("msg","");
-      who.append(mark("",admin.name||admin.email,"b"),mark("",admin.email,"small")); const labels=(data.subjects||[]).map(s=>s.label), option=(value,text,off)=>{ const o=document.createElement("option"); o.value=value; o.textContent=text; o.disabled=!!off; input.append(o); };
-      if(!admin.subject) option("","בחירת מקצוע",true);
-      else if(!labels.includes(admin.subject)) option(admin.subject,`${admin.subject} (לא ברשימה, יש לבחור מחדש)`,true);   // typed before the list: no class can match it
-      labels.forEach(l=>option(l,l)); input.value=admin.subject||""; input.required=true; input.setAttribute("aria-label",`המקצוע של ${admin.name||admin.email}`); save.type="submit";
-      form.onsubmit=async e=>{ e.preventDefault(); save.disabled=true; msg.textContent="שומר…"; try{ const res=await api(`/api/admin-subjects/${admin.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({subject:input.value})}), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); admin.subject=data.subject; input.value=data.subject; msg.textContent="נשמר"; }catch(err){ msg.textContent="השמירה נכשלה: "+err.message; } save.disabled=false; };
-      form.append(input,save,msg); row.append(who,form); list.append(row);
-    }
-  };
-  if(ADMIN_SUBJECTS){ show(ADMIN_SUBJECTS); return; }
-  list.append(mark("sub","טוען…","p")); api("/api/admin-subjects").then(async res=>{ const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); show(data); }).catch(err=>list.replaceChildren(mark("note","לא ניתן לטעון את מקצועות המנהלים: "+err.message,"p")));
-}
 const flagGroupOpen={};   // score band -> whether its pending-report group is open
 let systemActivityOpen=false;   // the recent activity starts closed; a redraw keeps it as the teacher left it
 function drawSystemActivity(box){
@@ -6425,7 +6492,7 @@ function drawSystemActivity(box){
   if(systemActivityError){ card.append(mark("note","לא ניתן לטעון פעילות אחרונה: "+systemActivityError,"p")); return; }
   if(!SYSTEM_ACTIVITY){ card.append(mark("note","טוען פעילות…","p")); return; }
   if(SYSTEM_ACTIVITY.setup){ const code=mark("",SYSTEM_ACTIVITY.setup,"code"); code.dir="ltr"; card.append(mark("setup","כדי להתחיל לשמור פעילות, יש ליצור את הטבלה system_events ב־Supabase:","p"),code); return; }
-  const events=SYSTEM_ACTIVITY.events||[], labels={exercise:["🎙️","הכנת תרגילים"],game:["🎮","משחקים"],permission:["🔐","שינוי הרשאות"],content:["➕","הוספת תכנים"],push:["🔔","שליחת התראה"]}, feed=mark("system-feed","");
+  const events=SYSTEM_ACTIVITY.events||[], labels=SYSTEM_EVENT_LABELS, feed=mark("system-feed","");
   if(!events.length){ card.append(mark("note","עדיין לא נרשמה פעילות.","p")); return; }
   const difficult=new Map;
   for(const event of events){
