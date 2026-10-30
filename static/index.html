@@ -6474,7 +6474,14 @@ function drawTtsCacheControls(box){
   };
   const warmState=s=>{ if(!s) return; warm.disabled=button.disabled=!!s.running; halt.toggleAttribute("hidden",!s.running); const pct=s.total?Math.round(100*s.done/s.total):0,voice=s.voice_id?` · קול ${s.voice_id}`:""; progress.toggleAttribute("hidden",!s.total); progressLabel.toggleAttribute("hidden",!s.total); progress.value=pct; progressLabel.textContent=`${pct}% · ${s.done} מתוך ${s.total} · נוצרו ${s.generated}`+(s.to_generate?` מתוך ${s.to_generate} חסרות`:"")+` · כבר היו ${s.skipped}`+(s.bucket?` · הועלו לדלי ${s.uploaded||0}`+(s.upload_failed?` · נכשלו בהעלאה ${s.upload_failed}`:""):" · אין דלי מוגדר (TTS_BUCKET)")+(s.upload_error?` · ${s.upload_error}`:"")+estimate(s); if(s.running) msg.textContent=s.waiting?`Sawtak לא ענה כרגע (הגבלת קצב או תקלת רשת); ניסיון נוסף בעוד ${s.waiting} שניות${voice}`:`מכין הקלטות מול Sawtak${voice}`; else if(s.stopped) msg.textContent=`ההכנה נעצרה לבקשתך אחרי ${s.done} הקלטות. הפעלה חוזרת תמשיך מאותה נקודה${voice}.`; else if(s.error) msg.textContent=`ההכנה נעצרה אחרי ${s.done} הקלטות: ${s.error}${voice}`; else if(s.total&&s.done===s.total) msg.textContent=`המאגר מוכן${voice}.`; if(s.running&&!polling){polling=true; setTimeout(poll,2000);} };
   const show=data=>{ if(data.voice_id) configuredVoice=data.voice_id; usage.replaceChildren(); const size=data.bytes==null?"סופר…":data.bytes<1024?`${data.bytes} B`:data.bytes<1048576?`${(data.bytes/1024).toFixed(1)} KB`:`${(data.bytes/1048576).toFixed(1)} MB`, rate=data.hit_rate==null?"–":`${Math.round(data.hit_rate*100)}%`; for(const [n,label] of [[data.files??"סופר…","קבצי שמע במטמון"],[size,"נפח בדיסק"],[data.hits,"פגיעות מאז ההפעלה"],[data.misses,"יצירות מאז ההפעלה"],[rate,"שיעור פגיעה"]]){ const stat=mark("activity-stat",""); stat.append(mark("",n,"b"),mark("",label,"small")); usage.append(stat); } if(!data.available) msg.textContent="Sawtak אינו מוגדר בשרת."; };
-  const poll=()=>api("/api/tts-cache").then(async res=>{const data=await res.json().catch(()=>({}));if(!res.ok) throw new Error(data.detail||res.status);show(data);polling=false;warmState(data.warm);if((data.files==null||data.bytes==null)&&!polling&&card.isConnected){polling=true;setTimeout(poll,2000);}}).catch(err=>{msg.textContent="נתוני המטמון לא זמינים כרגע ("+err.message+"), מנסה שוב…";if(card.isConnected) setTimeout(poll,5000); else polling=false;});
+  let pollingDenied=false;
+  const poll=()=>api("/api/tts-cache").then(async res=>{
+    const data=await res.json().catch(()=>({}));
+    if(res.status===401||res.status===403){ pollingDenied=true; polling=false; msg.textContent=res.status===401?"יש להתחבר מחדש כדי לצפות בנתוני המטמון.":"אין לחשבון הרשאה לצפות בנתוני המטמון."; return; }
+    if(!res.ok) throw new Error(data.detail||res.status);
+    show(data); polling=false; warmState(data.warm);
+    if((data.files==null||data.bytes==null)&&!polling&&card.isConnected){polling=true;setTimeout(poll,2000);}
+  }).catch(err=>{msg.textContent="נתוני המטמון לא זמינים כרגע ("+err.message+"), מנסה שוב…";if(card.isConnected&&!pollingDenied) setTimeout(poll,5000); else polling=false;});
   poll();
   warm.onclick=async()=>{ const voice=(prompt("מזהה הקול של Sawtak:",configuredVoice)||"").trim(); if(!voice) return; if(!confirm(`להכין עכשיו את כל הקלטות Sawtak החסרות לקול ${voice}? התהליך משתמש ביתרה בחשבון וממשיך ברקע.`)) return; warm.disabled=true; msg.textContent="מתחיל…"; let data; try{const res=await api("/api/tts-cache/warm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({voice_id:voice})});data=await res.json().catch(()=>({}));if(!res.ok) throw new Error(data.detail||res.status);}catch(err){warm.disabled=false;msg.textContent="ההכנה לא התחילה: "+err.message;return;} try{warmState(data);}catch(err){console.error("Could not display TTS warm state",err);msg.textContent="ההכנה התחילה. מרענן את נתוני ההתקדמות…";polling=false;setTimeout(poll,500);} };
   halt.hidden=true;
@@ -6534,7 +6541,7 @@ function drawTtsActivity(card){
   const result=e=>e.status===200||e.status==="ok"?"✓":e.status===429?"429 · הגבלת קצב":typeof e.status==="number"&&e.status>=500?`${e.status} · תקלה אצל Sawtak`:typeof e.status==="number"?`${e.status} · נדחה`:"שגיאה";
   const what=e=>e.kind==="upload"?(e.files>1?`${e.files} קבצים · ${(e.bytes/1048576).toFixed(1)} MB`:(e.text||"קובץ אחד")):(e.text||"");
   const cell=(tr,text,head)=>{ const c=document.createElement(head?"th":"td"); c.textContent=text; c.dir="auto"; c.style.cssText="padding:4px 6px;border-bottom:1px solid #8884;text-align:start;white-space:nowrap"; tr.append(c); return c; };
-  let timer=0;
+  let timer=0, pollingDenied=false;
   const render=data=>{
     const p=data.pace; pace.textContent=p?`קצב מותר לשרת הזה: עד ${p.per_minute} בקשות ל־Sawtak בדקה, עד ${p.max_concurrent} במקביל (ההכנה מריצה ${p.sweep_workers}).`:"";
     const recent=data.events.filter(e=>e.kind==="sawtak"&&data.now-e.at<=300), ok=recent.filter(e=>e.status===200), bad=recent.length-ok.length;
@@ -6547,7 +6554,12 @@ function drawTtsActivity(card){
     if(!data.events.length){ const tr=document.createElement("tr"); cell(tr,"עוד לא נשלחו בקשות מאז שהשרת עלה.").colSpan=8; table.append(tr); }
   };
   const tick=()=>{ clearTimeout(timer); if(!details.open||!card.isConnected) return;
-    api("/api/tts-cache/activity").then(async res=>{const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); render(data);}).catch(err=>{stats.textContent="נתוני הפעילות לא זמינים: "+err.message;}).finally(()=>{ if(details.open&&card.isConnected) timer=setTimeout(tick,2000); }); };
+    api("/api/tts-cache/activity").then(async res=>{
+      const data=await res.json().catch(()=>({}));
+      if(res.status===401||res.status===403){ pollingDenied=true; stats.textContent=res.status===401?"יש להתחבר מחדש כדי לצפות בנתוני הפעילות.":"אין לחשבון הרשאה לצפות בנתוני הפעילות."; return; }
+      if(!res.ok) throw new Error(data.detail||res.status);
+      render(data);
+    }).catch(err=>{stats.textContent="נתוני הפעילות לא זמינים: "+err.message;}).finally(()=>{ if(!pollingDenied&&details.open&&card.isConnected) timer=setTimeout(tick,2000); }); };
   details.ontoggle=tick; details.open=true;   // open by default; closing it stops the refresh
   return details;
 }
