@@ -260,3 +260,10 @@ def test_graded_answers_carry_their_level_for_the_game_event(game, level, answer
     q = game.question(level, ["1", "2", "3"])
     result = game.answer(q["question_id"], q["choices"][0]["id"] if answer is None else answer, 1000)
     assert result["level"] == level
+
+
+def test_each_conversation_question_names_one_pronoun():
+    from app.verb_game import CONVERSATION_PROMPTS
+    for tense, rows in CONVERSATION_PROMPTS.items():
+        hebrew = [he for _ar, _tr, he in rows]
+        assert len(set(hebrew)) == len(hebrew), tense   # "מה עשית" alone is both אתה and את
