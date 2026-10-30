@@ -651,6 +651,15 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         html = html.replace("__SUPABASE_KEY_JSON__", json.dumps(a.key if a else ""))
         return HTMLResponse(html, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
 
+    @app.get("/mcp-test", response_class=HTMLResponse, include_in_schema=False)
+    def mcp_test_console():
+        """Manual protocol console; calls still pass through MCP authorization."""
+        html = (STATIC / "mcp-test.html").read_text(encoding="utf-8")
+        a: SupabaseAuth | None = app.state.auth
+        html = html.replace("__SUPABASE_URL_JSON__", json.dumps(a.url if a else ""))
+        html = html.replace("__SUPABASE_KEY_JSON__", json.dumps(a.key if a else ""))
+        return HTMLResponse(html, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+
     def managed_classes(a: SupabaseAuth, actor: dict | None, fresh: bool = False) -> list[dict]:
         """Classes visible in management: developers see all; admins only their own subject."""
         return visible_classes(a, actor, fresh=fresh)

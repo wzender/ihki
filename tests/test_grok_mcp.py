@@ -773,6 +773,20 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
         "get_learning_bottlenecks", "get_game_popularity"]
 
 
+def test_mcp_manual_console_is_a_dedicated_no_store_page(monkeypatch):
+    monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
+    app = create_app(scorer_for(emissions(["w"])), auth=LibraryAuth())
+
+    async def request():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            return await client.get("/mcp-test")
+
+    response = asyncio.run(request())
+    assert response.status_code == 200 and response.headers["cache-control"] == "no-store"
+    assert "ihki MCP test console" in response.text and 'fetch("/mcp/"' in response.text
+    assert "__SUPABASE_URL_JSON__" not in response.text and "publishWarning" in response.text
+
+
 def test_existing_library_api_is_compatible_and_mcp_token_has_no_api_authority(monkeypatch):
     monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
     monkeypatch.setenv("SAWTAK_API_KEY", "")
