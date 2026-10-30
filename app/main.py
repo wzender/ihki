@@ -1105,7 +1105,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/log-errors")
     def log_error_counts(_a: SupabaseAuth = Depends(teacher_only)):
-        """How many ERROR log records this server process wrote (counts and times only, no messages)."""
+        """ERROR log counts of this server process and its last WARNING-or-worse lines, for Monitoring."""
         return log_errors.COUNTER.summary()
 
     @app.get("/api/system-activity")
