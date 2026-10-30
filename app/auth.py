@@ -75,6 +75,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -123,6 +124,7 @@ OPERATIONAL_ERROR_COMPONENTS = frozenset({
 OPERATIONAL_ERROR_OUTCOMES = frozenset({
     "poll_failed", "timed_out", "unavailable", "rejected", "exception",
 })
+USERS_TTL = 60  # seconds the account list is reused: Monitoring asks for it several times per load, and it is slow
 CLASSES_TTL = 60  # seconds the class list is trusted without reading it again (each sign-in check uses it)
 CREATE_LEARNER_CLASS_STATE = (
     "create table public.learner_class_state (email text not null, "
@@ -197,6 +199,8 @@ class SupabaseAuth:
         self._ranked: tuple[float, frozenset[str] | None] | None = None
         self._access: dict[str, tuple[float, dict | None]] = {}
         self._level_videos: dict[str, tuple[float, list[dict]]] = {}   # by table: the daily videos, the library
+        self._users: tuple[float, list[dict]] | None = None
+        self._users_fetch = threading.Lock()   # one request reads the account list; the others wait and reuse it
         self._lock = threading.Lock()
 
     def user(self, token: str) -> dict | None:
@@ -1040,16 +1044,49 @@ class SupabaseAuth:
                                                         "updated_at": datetime.now(timezone.utc).isoformat()},
                     prefer="resolution=merge-duplicates,return=minimal")
 
-    def users(self) -> list[dict]:
-        """Every account that has signed in: id, email, name (as Google gave it; empty for one who signed in by email)."""
-        users: list[dict] = []
-        for page in range(1, 51):
-            batch = self._admin(f"/auth/v1/admin/users?page={page}&per_page={PAGE}").get("users", [])
-            users += [{"id": u["id"], "email": u.get("email") or "",
-                       "name": (u.get("user_metadata") or {}).get("full_name") or ""} for u in batch]
-            if len(batch) < PAGE:
-                break
-        return users
+    def users(self, fresh: bool = False) -> list[dict]:
+        """Every account that has signed in: id, email, name (as Google gave it; empty for one who signed in by email).
+        Reused for USERS_TTL seconds, so a new account shows up within a minute."""
+        def cached() -> list[dict] | None:
+            with self._lock:
+                hit = self._users
+            return [dict(u) for u in hit[1]] if hit and hit[0] > time.monotonic() else None
+        if not fresh and (hit := cached()) is not None:
+            return hit
+        with self._users_fetch:
+            if not fresh and (hit := cached()) is not None:   # another request has just read it
+                return hit
+            users: list[dict] = []
+            for page in range(1, 51):
+                batch = self._admin(f"/auth/v1/admin/users?page={page}&per_page={PAGE}").get("users", [])
+                users += [{"id": u["id"], "email": u.get("email") or "",
+                           "name": (u.get("user_metadata") or {}).get("full_name") or ""} for u in batch]
+                if len(batch) < PAGE:
+                    break
+            with self._lock:
+                self._users = (time.monotonic() + USERS_TTL, users)
+            return [dict(u) for u in users]
+
+    def ping(self, timeout: float = 8) -> dict:
+        """How Supabase answers right now, for Monitoring: its sign-in service and its database, each timed in ms.
+        A part that fails holds {"ok": False, "error"} and does not hide the other."""
+        def timed(path: str, key: str) -> dict:
+            req = urllib.request.Request(self.url + path, headers={
+                "apikey": key, "Authorization": f"Bearer {key}", "User-Agent": "ihki/1.0"})
+            start = time.monotonic()
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as res:
+                    res.read()
+                return {"ok": True, "ms": round((time.monotonic() - start) * 1000)}
+            except urllib.error.HTTPError as e:
+                return {"ok": False, "ms": round((time.monotonic() - start) * 1000), "error": f"HTTP {e.code}"}
+            except NETWORK_ERRORS as e:
+                return {"ok": False, "error": str(e) or type(e).__name__}
+        with ThreadPoolExecutor(2) as pool:
+            auth = pool.submit(timed, "/auth/v1/health", self.key)
+            db = pool.submit(timed, "/rest/v1/classes?select=id&limit=1", self.secret) if self.secret else None
+            return {"auth": auth.result(),
+                    "db": db.result() if db else {"ok": False, "error": "SUPABASE_SECRET_KEY is not set"}}
 
     def access_for(self, user_id: str, fresh: bool = False) -> dict | None:
         """The roles and student entitlements assigned to an account. None also means the migration table is absent."""

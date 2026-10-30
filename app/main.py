@@ -1111,6 +1111,14 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except AuthUnavailable as e:
             raise HTTPException(503, str(e))
 
+    @app.get("/api/supabase-health")
+    def supabase_health(a: SupabaseAuth = Depends(teacher_only)):
+        """Supabase's sign-in service and database, each timed, for the Monitoring summary."""
+        if a is None or not hasattr(a, "ping"):
+            missing = {"ok": False, "error": "Supabase is not configured"}
+            return {"auth": missing, "db": missing}
+        return a.ping()
+
     @app.get("/api/log-errors")
     def log_error_counts(_a: SupabaseAuth = Depends(teacher_only)):
         """ERROR log counts of this server process and its last WARNING-or-worse lines, for Monitoring."""
@@ -1198,6 +1206,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         try:
             users = a.users()
             target = next((u for u in users if u["id"] == target_id), None)
+            if not target:   # signed up just now: the list is reused for a minute
+                users = a.users(fresh=True)
+                target = next((u for u in users if u["id"] == target_id), None)
             if not target:
                 raise HTTPException(404, "account not found")
             old = a.access_for(target_id) if hasattr(a, "access_for") else None
@@ -1256,7 +1267,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not subject_code(subject):   # a fixed list: a class matches its admin's subject only when both are spelled the same
             raise HTTPException(400, "subject must be one of: " + ", ".join(SUBJECT_LABELS.values()))
         try:
-            target = next((u for u in a.users() if u["id"] == target_id), None)
+            target = (next((u for u in a.users() if u["id"] == target_id), None)
+                      or next((u for u in a.users(fresh=True) if u["id"] == target_id), None))   # signed up just now
             if not target:
                 raise HTTPException(404, "account not found")
             old = a.access_for(target_id) or {}
