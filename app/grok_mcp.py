@@ -844,6 +844,29 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
+    @tool(description=("Answer 'which game is the most popular?' for one authorized class or all visible classes. "
+                       "Read-only. Ranks only games with reliable server-side records, by distinct active players "
+                       "and separately by player-days; games stored only on the device are reported as not "
+                       "measurable, never as zero. Returns privacy-thresholded aggregates only."),
+          structured_output=True)
+    async def get_game_popularity(
+        from_date: str, to_date: str, class_id: int | None = None, timezone: str = "Asia/Jerusalem",
+    ) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return {"ok": False, "error": "נתוני המשחקים אינם זמינים"}
+        try:
+            answer = monitoring.game_popularity(
+                store, current, from_date=from_date, to_date=to_date, class_id=class_id, timezone_name=timezone)
+            log.info("MCP game popularity outcome=%s actor_id=%s class_id=%s range=%s..%s",
+                     answer["status"], current.get("id"), class_id, from_date, to_date)
+            return {"ok": True, **answer}
+        except monitoring.MonitoringError as exc:
+            log.info("MCP game popularity outcome=refused actor_id=%s class_id=%s range=%s..%s reason=%s",
+                     current.get("id"), class_id, from_date, to_date, type(exc).__name__)
+            diagnostics.note_refusal(exc)
+            return {"ok": False, "error": str(exc)}
+
     raw = server.streamable_http_app(
         streamable_http_path="/",
         stateless_http=True,

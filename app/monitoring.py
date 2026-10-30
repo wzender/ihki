@@ -1189,3 +1189,314 @@ def system_health(app: Any, actor: dict[str, Any]) -> dict[str, Any]:
         if isinstance(info, dict):
             answer["build"] = {key: str(info[key])[:100] for key in ("version", "revision") if info.get(key)}
     return answer
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Game popularity
+#
+# What each game on the games tab leaves on the server (checked against app/main.py and static/index.html):
+#   פועל זמני and any other workbook bubble game: one `attempts` row per scored spoken answer, cat = the game id.
+#   פועל יוצא: one `system_events` row (kind game, label "פועל יוצא") per graded answer of levels 1–3, and one
+#       `attempts` row (cat verb-game) per counted spoken answer of levels 4–5. Level-5 typed replies are not stored.
+#   בונים פועל עם איתן: the same `system_events` row as פועל יוצא; only details.level (6–8) tells them apart, and
+#       rows written before that level was recorded carry none, so they cannot be split.
+#   יאללה נדבר: one `tutor_chats` row per conversation, with its number of answered student turns.
+#   הפועל זכרון, אותיות נופלות: the result stays on the device (localStorage); nothing is stored on the server.
+# ---------------------------------------------------------------------------------------------------------------
+
+VERB_GAME_LEVELS = frozenset({1, 2, 3, 4, 5})
+EITAN_GAME_LEVELS = frozenset({6, 7, 8})
+VERB_GAME_IDS = ("verb-game", "eitan-verb-builder")
+
+
+def _bubble_games() -> list[dict[str, str]]:
+    try:
+        from .phrases import GAMES
+        return [{"id": str(row["id"]), "name": str(row.get("name") or row["id"])} for row in GAMES]
+    except (ImportError, KeyError, TypeError):
+        return []
+
+
+def _game_catalog() -> list[dict[str, Any]]:
+    games = [{"game_id": row["id"], "game_name": row["name"], "tracking": "server", "coverage": "complete",
+              "sources": ["attempts"], "activity_unit": "scored_spoken_attempts", "sessions_recorded": False}
+             for row in _bubble_games()]
+    games += [
+        {"game_id": "verb-game", "game_name": "פועל יוצא", "tracking": "server", "coverage": "partial",
+         "sources": ["system_events", "attempts"], "activity_unit": "recorded_answers", "sessions_recorded": False,
+         "coverage_note": ("Graded answers of levels 1–3 and counted spoken answers of levels 4–5 are stored; "
+                           "level-5 typed replies and uncertain recordings are not, so counts are a lower bound.")},
+        {"game_id": "eitan-verb-builder", "game_name": "בונים פועל עם איתן", "tracking": "server",
+         "coverage": "complete", "sources": ["system_events"], "activity_unit": "recorded_answers",
+         "sessions_recorded": False},
+        {"game_id": "yalla-nedaber", "game_name": "יאללה נדבר", "tracking": "server", "coverage": "complete",
+         "sources": ["tutor_chats"], "activity_unit": "student_turns", "sessions_recorded": True},
+        {"game_id": "verb-memory", "game_name": "הפועל זכרון", "tracking": "device_only", "coverage": "none",
+         "sources": [], "activity_unit": None, "sessions_recorded": False},
+        {"game_id": "falling-letters", "game_name": "אותיות נופלות", "tracking": "none", "coverage": "none",
+         "sources": [], "activity_unit": None, "sessions_recorded": False},
+    ]
+    return games
+
+
+TRACKING_PROPOSALS = {
+    "verb-memory": ("When a board is completed, POST a body-less request naming only the game to a small endpoint that "
+                    "calls auth.log_event('game', user, 'הפועל זכרון', {'game': 'verb-memory'}). One row per finished "
+                    "board, with no moves, times or answers."),
+    "falling-letters": ("When a round ends, log one system_events row of kind game with details {'game': "
+                        "'falling-letters'} through the same endpoint. No letters, answers or timings."),
+}
+
+
+def _game_rows(auth: Any, source: str, user_ids: set[str], since: datetime, until: datetime,
+               **kwargs: Any) -> tuple[list[dict], str | None]:
+    """Read one source; return its rows or the safe reason it cannot be used."""
+    try:
+        rows, truncated = auth.scoped_game_rows(source, user_ids, since, until, **kwargs)
+    except AuthUnavailable as exc:
+        return [], "source_not_installed" if "answered 404" in str(exc) else "source_unavailable"
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return [], "source_unavailable"
+    if truncated:
+        return [], "row_limit_exceeded"
+    return (rows if isinstance(rows, list) else []), None
+
+
+def _game_events(rows: list[dict], user_field: str, user_ids: set[str], since: datetime, until: datetime,
+                 tz: ZoneInfo, prefix: str) -> tuple[list[dict[str, Any]], bool]:
+    """Keep each stored row once, inside the scope and period; flag rows whose time cannot be read."""
+    events, seen, unreliable = [], set(), False
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        user_id = str(row.get(user_field) or "")
+        stamp = _activity_stamp(row.get("created_at"))
+        if stamp is None:
+            unreliable = True
+            continue
+        key = f"{prefix}:{row.get('id')}" if row.get("id") is not None else None
+        if not user_id or user_id not in user_ids or not since <= stamp < until or (key and key in seen):
+            continue
+        if key:
+            seen.add(key)
+        events.append({**row, "user_id": user_id, "local_date": stamp.astimezone(tz).date()})
+    return events, unreliable
+
+
+def _turns(row: dict) -> int:
+    try:
+        return max(0, int(row.get("turns") or 0))
+    except (TypeError, ValueError, OverflowError):
+        return 0
+
+
+def _visible_count(people: int, rows: int) -> bool:
+    return (people == 0 and rows == 0) or (people >= MIN_DIFFICULTY_STUDENTS and rows >= MIN_DIFFICULTY_ATTEMPTS)
+
+
+def _game_metrics(events: list[dict[str, Any]], member_sets: list[set[str]]) -> tuple[str, dict[str, Any]]:
+    """Return (status, metrics) for one game's events under the privacy rules."""
+    players = {item["user_id"] for item in events}
+    if not events:
+        return "no_activity", {"distinct_active_players": 0, "returning_players": 0, "player_days": 0}
+    if not _visible_count(len(players), len(events)):
+        return "suppressed", {"reason": "privacy_threshold"}
+    # A caller may also ask about each class alone; the rest of the scope must then not be a group that a
+    # single-class answer subtracted from this one would reveal.
+    for members in member_sets:
+        rest = [item for item in events if item["user_id"] not in members]
+        if not _visible_count(len({item["user_id"] for item in rest}), len(rest)):
+            return "suppressed", {"reason": "privacy_threshold_complement"}
+    days: dict[str, set[date]] = defaultdict(set)
+    for item in events:
+        days[item["user_id"]].add(item["local_date"])
+    returning = sum(len(value) >= 2 for value in days.values())
+    one_day = len(players) - returning
+    returning_visible = all(value == 0 or value >= MIN_DIFFICULTY_STUDENTS for value in (returning, one_day))
+    return "complete", {"distinct_active_players": len(players),
+                        "returning_players": returning if returning_visible else None,
+                        **({} if returning_visible else {"returning_players_status": "suppressed"}),
+                        "player_days": sum(len(value) for value in days.values())}
+
+
+def _rank(entries: list[dict[str, Any]], metric: str) -> list[dict[str, Any]]:
+    """Competition ranking (1, 1, 3): equal values share a rank."""
+    ordered = sorted(entries, key=lambda item: (-item[metric], item["game_id"]))
+    ranked, previous, rank = [], None, 0
+    for index, item in enumerate(ordered, 1):
+        if item[metric] != previous:
+            rank, previous = index, item[metric]
+        ranked.append({"rank": rank, "game_id": item["game_id"], "game_name": item["game_name"],
+                       metric: item[metric], "coverage": item["coverage"]})
+    return ranked
+
+
+def game_popularity(auth: Any, actor: dict[str, Any], *, from_date: object, to_date: object,
+                    class_id: int | None = None, timezone_name: object = "Asia/Jerusalem",
+                    today: date | None = None, retrieved_at: datetime | None = None) -> dict[str, Any]:
+    """Rank the games whose play is stored on the server, by distinct players and by player-days."""
+    if not isinstance(timezone_name, str):
+        raise MonitoringError("timezone חייב להיות אזור זמן תקין של IANA")
+    try:
+        tz = ZoneInfo(timezone_name)
+    except (KeyError, ValueError):
+        raise MonitoringError("timezone חייב להיות אזור זמן תקין של IANA") from None
+    start, end, _ = validate_range(from_date, to_date, "day", today=today or datetime.now(tz).date())
+    classes, scope = _scope(auth, actor, class_id)
+    since = datetime.combine(start, time.min, tz).astimezone(timezone.utc)
+    until = datetime.combine(end + timedelta(days=1), time.min, tz).astimezone(timezone.utc)
+    retrieved = (retrieved_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
+
+    try:
+        email_to_id = {str(user.get("email") or "").strip().lower(): str(user["id"])
+                       for user in auth.users() if user.get("id") and user.get("email")}
+    except (AuthUnavailable, AttributeError, KeyError, TypeError) as exc:
+        raise MonitoringUnavailable("נתוני המשחקים אינם זמינים") from exc
+
+    def members(rows: list[dict]) -> set[str]:
+        return {email_to_id[email] for row in rows for email in
+                (str(value).strip().lower() for value in row.get("emails", ()) if value) if email in email_to_id}
+
+    # One set of ids for the whole scope: a learner in several classes is one player, and every row is read once.
+    user_ids = members(classes)
+    member_sets = [members([row]) for row in classes] if class_id is None and len(classes) > 1 else []
+
+    catalog = _game_catalog()
+    bubble_ids = tuple(item["game_id"] for item in catalog if item["sources"] == ["attempts"])
+    sources: dict[str, dict[str, Any]] = {}
+    raw, reason = _game_rows(auth, "game_attempts", user_ids, since, until, cats=(*bubble_ids, "verb-game"))
+    attempt_rows, attempts_bad = _game_events(raw, "user_id", user_ids, since, until, tz, "attempt")
+    sources["attempts"] = {"status": "unavailable" if reason or attempts_bad else "available",
+                           "reason": reason or ("unreliable_timestamps" if attempts_bad else None)}
+    raw, reason = _game_rows(auth, "verb_game_events", user_ids, since, until)
+    verb_rows, events_bad = _game_events(raw, "actor_id", user_ids, since, until, tz, "event")
+    sources["system_events"] = {"status": "unavailable" if reason or events_bad else "available",
+                                "reason": reason or ("unreliable_timestamps" if events_bad else None)}
+    raw, reason = _game_rows(auth, "tutor_chats", user_ids, since, until)
+    tutor_rows, tutor_bad = _game_events(raw, "user_id", user_ids, since, until, tz, "chat")
+    sources["tutor_chats"] = {"status": "unavailable" if reason or tutor_bad else "available",
+                              "reason": reason or ("unreliable_timestamps" if tutor_bad else None)}
+    available = {name for name, value in sources.items() if value["status"] == "available"}
+
+    def level(row: dict) -> int | None:
+        try:
+            return int(row.get("level"))
+        except (TypeError, ValueError):
+            return None
+
+    spoken_verb = [item for item in attempt_rows if item.get("cat") == "verb-game"]
+    unattributed = [item for item in verb_rows
+                    if level(item) not in VERB_GAME_LEVELS | EITAN_GAME_LEVELS]
+    events_by_game: dict[str, list[dict[str, Any]]] = {
+        **{game: [item for item in attempt_rows if item.get("cat") == game] for game in bubble_ids},
+        "verb-game": [item for item in verb_rows if level(item) in VERB_GAME_LEVELS] + spoken_verb,
+        "eitan-verb-builder": [item for item in verb_rows if level(item) in EITAN_GAME_LEVELS],
+        "yalla-nedaber": tutor_rows,
+    }
+
+    games: list[dict[str, Any]] = []
+    for item in catalog:
+        entry = {key: item[key] for key in ("game_id", "game_name", "tracking", "coverage", "sources")}
+        if item.get("coverage_note"):
+            entry["coverage_note"] = item["coverage_note"]
+        if item["tracking"] != "server":
+            games.append({**entry, "status": "not_tracked", "reason": (
+                "result_stored_on_device_only" if item["tracking"] == "device_only" else "no_server_record"),
+                "popularity_measurable": False})
+            continue
+        missing = [name for name in item["sources"] if name not in available]
+        if missing:
+            games.append({**entry, "status": "unavailable", "reason": sources[missing[0]]["reason"],
+                          "popularity_measurable": False})
+            continue
+        if item["game_id"] in VERB_GAME_IDS and unattributed:
+            games.append({**entry, "status": "not_attributable", "reason": "verb_game_events_without_level",
+                          "popularity_measurable": False})
+            continue
+        events = events_by_game.get(item["game_id"], [])
+        status, metrics = _game_metrics(events, member_sets)
+        result = {**entry, "status": status, "popularity_measurable": status in {"complete", "no_activity"},
+                  "activity_unit": item["activity_unit"]}
+        if status == "suppressed":
+            games.append({**result, **metrics})
+            continue
+        if item["game_id"] == "yalla-nedaber":
+            result.update(sessions=len(events), sessions_unit="conversations_started",
+                          activity_count=sum(_turns(row) for row in events))
+        else:
+            result.update(sessions=None, sessions_reason="not_recorded", activity_count=len(events))
+        games.append({**result, **metrics})
+
+    unattributed_out = []
+    if "system_events" in available and unattributed:
+        combined = verb_rows + spoken_verb
+        status, metrics = (_game_metrics(combined, member_sets) if "attempts" in available
+                           else ("unavailable", {"reason": sources["attempts"]["reason"]}))
+        unattributed_out.append({
+            "game_ids": list(VERB_GAME_IDS), "game_names": ["פועל יוצא", "בונים פועל עם איתן"],
+            "status": status, "activity_unit": "recorded_answers",
+            **({"activity_count": len(combined)} if status == "complete" else {}), **metrics,
+            "note": ("These games share one stored event, and rows without a recorded level cannot be split "
+                     "between them, so the pair is reported together and not ranked."),
+        })
+
+    measured = [game for game in games if game["popularity_measurable"]]
+    by_players = _rank(measured, "distinct_active_players")
+    by_volume = _rank(measured, "player_days")
+    excluded = [{"game_id": game["game_id"], "game_name": game["game_name"], "status": game["status"],
+                 "reason": game.get("reason")} for game in games if not game["popularity_measurable"]]
+    tracked_excluded = [game for game in excluded if game["status"] != "not_tracked"]
+    leaders = lambda ranking, metric: ([row["game_id"] for row in ranking if row["rank"] == 1]
+                                       if ranking and ranking[0][metric] > 0 else [])
+    top_players, top_volume = leaders(by_players, "distinct_active_players"), leaders(by_volume, "player_days")
+    answer = {
+        "most_distinct_players": top_players, "most_activity_volume": top_volume,
+        "leaders_differ": top_players != top_volume,
+        "orders_differ": [row["game_id"] for row in by_players] != [row["game_id"] for row in by_volume],
+        "conclusive_among_tracked_games": bool(measured) and not tracked_excluded,
+        "conclusive_among_all_games": bool(measured) and not excluded,
+        "note": ("Only games with reliable server-side records are ranked. Games marked not_tracked, unavailable, "
+                 "not_attributable or suppressed are excluded and are not zero."),
+    }
+    tracked = [game for game in games if game["tracking"] == "server"]
+    status = ("unavailable" if all(game["status"] == "unavailable" for game in tracked) else
+              "partial" if tracked_excluded else
+              "complete" if any(game.get("distinct_active_players") for game in measured) else "no_activity")
+    overall = None
+    if not any(game["status"] in {"suppressed", "unavailable", "not_attributable"} for game in games):
+        everyone = {item["user_id"] for events in events_by_game.values() for item in events}
+        overall = {"distinct_players_any_tracked_game": len(everyone),
+                   "note": "Distinct across tracked games; per-game counts overlap and must not be summed."}
+
+    return {
+        **scope, "status": status,
+        "from_date": start.isoformat(), "to_date": end.isoformat(), "timezone": timezone_name,
+        "days_included": (end - start).days + 1, "retrieved_at": _utc_iso(retrieved),
+        "data_sources": [{"source": name, **value} for name, value in sources.items()],
+        "privacy_threshold": {"minimum_players": MIN_DIFFICULTY_STUDENTS, "minimum_events": MIN_DIFFICULTY_ATTEMPTS,
+                              "complement_checked_against_single_classes": bool(member_sets)},
+        "definitions": {
+            "distinct_active_players": ("Learners on the rosters of the selected classes with at least one stored event "
+                                        "of the game in the period; each learner counts once, however many classes "
+                                        "they are in."),
+            "player_days": ("Distinct (player, local calendar day) pairs with at least one stored event of the game. "
+                            "This is the cross-game activity-volume measure because event units differ between games."),
+            "returning_players": "Players with stored events of the game on at least two different local days in the period.",
+            "sessions": ("Only יאללה נדבר stores sessions: one conversation started in the period. Other games store no "
+                         "session boundary, so sessions is null."),
+            "activity_count": ("The game's own unit (activity_unit): scored_spoken_attempts, recorded_answers, or "
+                               "student_turns. Not comparable across games and never summed."),
+            "player": "A learner on a selected class roster; teachers are not counted unless they are on a roster.",
+        },
+        "games": games,
+        "rankings": {"by_distinct_players": by_players, "by_activity_volume": by_volume},
+        "answer": answer, "excluded_from_ranking": excluded,
+        "unattributed_activity": unattributed_out, "overall": overall,
+        "tracking_gaps": [{"game_id": key, "proposed_change": value,
+                           "historical_usage_recoverable": False} for key, value in TRACKING_PROPOSALS.items()],
+        "limitations": [
+            "Events are written in the background on a best-effort basis; a failed write is lost, so counts are a lower bound.",
+            "A game is only reachable by accounts with the matching entitlement (games or tutor); player counts are not normalized by eligibility.",
+            "Comparing answers for overlapping date ranges can narrow small groups; thresholds apply per answer.",
+        ],
+    }

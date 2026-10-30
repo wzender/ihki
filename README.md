@@ -755,6 +755,67 @@ A flag is a report-based failure signal, not an independently verified model err
 
 `get_learning_bottlenecks` returns qualifying exercise/topic aggregates for affected students, repeated-failure rate, attempts until success, improvement rate, and severity. Measured `observed_metrics` remain separate from `suggested_intervention`, which is labeled `recommendation` and lists its measured basis.
 
+`get_game_popularity` answers “which game is the most popular?” for one authorized class (`class_id`) or, when it is omitted, the deduplicated union of every class the caller may see. `from_date` and `to_date` are required (at most 90 days, not in the future); `timezone` is an optional IANA name (default `Asia/Jerusalem`) that sets the day boundaries. The response states the period, time zone, `retrieved_at` (UTC), and the status of each data source.
+
+Only some games leave a record on the server, so every game gets a `status`:
+
+| Game | Stored on the server | Status when not measurable |
+|---|---|---|
+| פועל זמני (bubble game) | one `attempts` row per scored spoken answer | — |
+| פועל יוצא | one `system_events` row per graded answer (levels 1–3) and one `attempts` row (`verb-game`) per spoken answer (levels 4–5); level-5 typed replies are not stored, so its counts are a lower bound (`coverage: partial`) | `not_attributable` |
+| בונים פועל עם איתן | the same `system_events` row as פועל יוצא, told apart only by `details.level` (6–8) | `not_attributable` |
+| יאללה נדבר | one `tutor_chats` row per conversation, with answered student turns | — |
+| הפועל זכרון | nothing: the best result stays in the browser | `not_tracked` |
+| אותיות נופלות | nothing: the server only serves the letters | `not_tracked` |
+
+Until this change, the verb-game event recorded no level, so older rows cannot be split between פועל יוצא and בונים פועל עם איתן. While any such row falls in the period, both games are `not_attributable` and their combined activity is reported once under `unattributed_activity` instead of being ranked. Rows written after deployment carry the level, so these two games become separately measurable over time. Historical usage of הפועל זכרון and אותיות נופלות cannot be reconstructed; `tracking_gaps` proposes the smallest change that would record one identity-free row per finished round.
+
+Metrics, per game:
+
+- `distinct_active_players`: learners on the selected rosters with at least one stored event of the game in the period. A learner in several selected classes counts once, and each stored row is read once for the whole scope (never once per class).
+- `player_days`: distinct (player, local day) pairs with at least one event. This is the activity-volume measure, because the games' own units differ.
+- `returning_players`: players with events on at least two different local days.
+- `sessions`: only יאללה נדבר stores sessions (conversations started in the period). It is `null` with `sessions_reason: "not_recorded"` for the other games.
+- `activity_count` with `activity_unit`: `scored_spoken_attempts`, `recorded_answers`, or `student_turns`. These are not comparable across games and are never summed.
+
+`rankings.by_distinct_players` and `rankings.by_activity_volume` rank only measurable games (`complete` or `no_activity`). Equal values share a rank. `answer` names the leader(s) of each ranking, reports `leaders_differ` and `orders_differ`, and says whether the result is conclusive among tracked games and among all games. Because two games are never tracked, it is never conclusive among all games.
+
+The statuses are distinct: `no_activity` is a measured zero and is ranked. `unavailable` means a source could not be read (`source_not_installed`, `source_unavailable`, `row_limit_exceeded`, or `unreliable_timestamps`). `not_tracked` and `not_attributable` mean popularity cannot be measured. `suppressed` is a privacy outcome. None of these is ever shown as zero. A game is shown only if it has 0 events, or at least 3 players and 5 events. In an all-classes answer, a game is also suppressed (`privacy_threshold_complement`) when the learners outside any single selected class form a group below that threshold, so a single-class answer cannot be subtracted from it. `returning_players` is withheld when either the returning or the one-day group is 1–2 learners. Suppressed games have no counts and no rank, and the cross-game `overall` figure is `null` whenever any game is suppressed, unavailable, or not attributable. The tool returns no identities, timestamps, answers, messages, or rows.
+
+Example calls for the past 28 completed days (as of 2026-10-30):
+
+```json
+{"name": "get_game_popularity", "arguments": {"from_date": "2026-10-02", "to_date": "2026-10-29"}}
+{"name": "get_game_popularity", "arguments": {"from_date": "2026-10-02", "to_date": "2026-10-29", "class_id": 12}}
+{"name": "get_game_popularity", "arguments": {"from_date": "2026-10-02", "to_date": "2026-10-29", "timezone": "UTC"}}
+```
+
+Example response (shortened):
+
+```json
+{
+  "ok": true, "status": "partial", "class_id": null, "class_name": "כל הכיתות המורשות",
+  "from_date": "2026-10-02", "to_date": "2026-10-29", "timezone": "Asia/Jerusalem", "days_included": 28,
+  "retrieved_at": "2026-10-30T08:00:00Z",
+  "rankings": {
+    "by_distinct_players": [
+      {"rank": 1, "game_id": "game-yalla-verb", "game_name": "פועל זמני", "distinct_active_players": 14, "coverage": "complete"},
+      {"rank": 2, "game_id": "yalla-nedaber", "game_name": "יאללה נדבר", "distinct_active_players": 9, "coverage": "complete"}],
+    "by_activity_volume": [
+      {"rank": 1, "game_id": "yalla-nedaber", "game_name": "יאללה נדבר", "player_days": 41, "coverage": "complete"},
+      {"rank": 2, "game_id": "game-yalla-verb", "game_name": "פועל זמני", "player_days": 30, "coverage": "complete"}]
+  },
+  "answer": {"most_distinct_players": ["game-yalla-verb"], "most_activity_volume": ["yalla-nedaber"],
+             "leaders_differ": true, "orders_differ": true,
+             "conclusive_among_tracked_games": false, "conclusive_among_all_games": false},
+  "excluded_from_ranking": [
+    {"game_id": "verb-game", "game_name": "פועל יוצא", "status": "not_attributable", "reason": "verb_game_events_without_level"},
+    {"game_id": "eitan-verb-builder", "game_name": "בונים פועל עם איתן", "status": "not_attributable", "reason": "verb_game_events_without_level"},
+    {"game_id": "verb-memory", "game_name": "הפועל זכרון", "status": "not_tracked", "reason": "result_stored_on_device_only"},
+    {"game_id": "falling-letters", "game_name": "אותיות נופלות", "status": "not_tracked", "reason": "no_server_record"}]
+}
+```
+
 Across analytics, success means `score >= 75` and `unrelated = false`. A group requires at least three students and `max(5, min_attempts)` attempts. Sparse groups are suppressed or marked `insufficient_data`; missing metrics are `null`. Dates use ISO 8601 and Asia/Jerusalem calendar boundaries.
 
 An exercise is omitted unless at least three students made at least five attempts in the selected scope and period. Suppressed exercise names and counts are not revealed. “Did not reach success” is not called abandonment because attempt data cannot show whether somebody quit. The report never returns student identities, individual scores or sequences, timestamps, answers, recordings, or pronunciation traces. If the bounded attempt safety cap is reached, the tool refuses partial analysis and asks for a narrower date range or one class.
@@ -798,6 +859,7 @@ Useful read-only prompts include:
 הצג את 10 התרגילים הקשים ביותר בכל הכיתות שאני מורשה/ית לראות בין 2026-10-01 ל-2026-10-26. הסבר את המדדים ואל תציג מידע אישי.
 אילו פונמות ערביות גרמו לשגיאות הגייה מדודות בכיתה 12 בחודש האחרון? הצג רק קבוצות שעוברות את סף הפרטיות.
 הצג התקדמות שבועית בכיתה 12, כולל הצלחה בניסיון הראשון לעומת ניסיונות חוזרים.
+איזה משחק הכי פופולרי ב-28 הימים האחרונים בכל הכיתות שאני מורשה/ית לראות? הפרד בין מספר השחקנים לבין כמות הפעילות, וציין אילו משחקים אינם נמדדים.
 השווה בין כיתות 12 ו-15 לפי הצלחה, השתתפות וחשיפה לתרגילים. ציין אם יש תלמידים החופפים בין הכיתות.
 מצא צווארי בקבוק בלמידה בכל הכיתות המורשות. הפרד בבירור בין המדדים שנמדדו לבין המלצות הוראה.
 ```

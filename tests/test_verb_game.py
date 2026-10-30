@@ -251,3 +251,11 @@ def test_who_said_it_checks_one_pronoun_immediately(game):
 def test_who_said_it_respects_the_selected_tenses(game, tense):
     for _ in range(8):
         assert game.question(8, STAGE_A, tenses=[tense])["tense"]["id"] == tense
+
+
+@pytest.mark.parametrize("level,answer", [(1, None), (2, {}), (6, {}), (8, {"who": ""})])
+def test_graded_answers_carry_their_level_for_the_game_event(game, level, answer):
+    """פועל יוצא (1–5) and בונים פועל עם איתן (6–8) share one endpoint; the level tells their events apart."""
+    q = game.question(level, ["1", "2", "3"])
+    result = game.answer(q["question_id"], q["choices"][0]["id"] if answer is None else answer, 1000)
+    assert result["level"] == level

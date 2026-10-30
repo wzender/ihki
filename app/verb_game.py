@@ -584,6 +584,11 @@ class VerbExerciseGenerator:
         if not q:
             raise LookupError("question expired or already answered")
         response_ms = max(0, min(int(response_ms), 300_000))
+        # The level goes back with the result so the server's game event can tell פועל יוצא (1–5) from
+        # בונים פועל עם איתן (6–8); both answer through this one endpoint.
+        return {**self._graded(q, answer, response_ms), "level": q.mode}
+
+    def _graded(self, q: StoredQuestion, answer: Any, response_ms: int) -> dict[str, Any]:
         if q.mode in EITAN_LEVELS:
             return self._eitan_answer(q, answer, response_ms)
         if q.mode == 2:
