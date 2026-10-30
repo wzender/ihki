@@ -2797,6 +2797,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         result = SpeechEvaluationService(app.state.scorer).evaluate(
             wav, phrase, diagnostics=bool(user and user["teacher"]))
         result["level"] = question.mode
+        if result.get("outcome") == "correct":   # only once it is right, so the chat can show and say it
+            result["expected"] = {"tr": question.correct["tr"], "ar": question.correct["ar"]}
         if user and result.get("counts_as_attempt"):
             attempt_id = str(uuid.uuid4())
             tasks.add_task(app.state.auth.record, user["token"], {

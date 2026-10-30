@@ -157,8 +157,9 @@ def test_conversation_accepts_a_typed_reply(game):
     for text in (stored["tr"], bare, stored["ar"], f"{q['pronoun']['transliteration']} {bare}"):
         result = game.check_text(q["question_id"], text)
         assert result["correct"] and result["counts_as_attempt"] and result["variant"]["tr"] == stored["tr"]
+        assert result["expected"] == {"tr": stored["tr"], "ar": stored["ar"]}   # the chat writes and says it
     wrong = game.check_text(q["question_id"], "שטויות")
-    assert not wrong["correct"] and wrong["counts_as_attempt"]
+    assert not wrong["correct"] and wrong["counts_as_attempt"] and "expected" not in wrong
     assert game.sessions.get(q["question_id"])   # a typed try leaves the question open, like a spoken one
     with pytest.raises(LookupError):
         game.check_text(game.question(4, ["1"], tenses=["past"])["question_id"], bare)

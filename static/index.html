@@ -7756,7 +7756,10 @@ async function verbChatReply(q,{text,blob,url},btn,status){   // Level 5: the re
   const ok=result.outcome==="correct";
   said.ok=ok;verbReact(bubble,ok);verbSpokenTally(q,ok);
   const teacher=(line,label)=>{verbChatHistory.push({kind:"teacher",tr:line,he:label});teacherSays(line,label)};
-  if(ok){teacher("נכון! 👏");verbNextAfterCorrect();return}
+  if(ok){   // the teacher writes the expected answer and says it, then the next question
+    const exp=result.expected||{};teacher(exp.tr?`נכון! 👏\n${exp.tr}`:"נכון! 👏");
+    btn.disabled=true;await playVerbTeacher(q.question_id,exp.ar||"");btn.disabled=false;
+    if(verbQuestion===q)verbNextAfterCorrect();return}
   q.misses=(q.misses||0)+1;
   if(q.misses>=2)return verbWalkThrough(q,teacher,result.variant?.ar||"",btn);
   // first miss: a hint, never the answer — the "הוא" past and future, so the student still has to find the ending

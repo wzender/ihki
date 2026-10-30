@@ -551,6 +551,7 @@ class VerbExerciseGenerator:
         ok = _typed(text) in question.correct["accepted"]
         return {"outcome": "correct" if ok else "needs_work", "correct": ok, "counts_as_attempt": True,
                 "variant": {"tr": question.correct["tr"], "ar": question.correct["ar"]}, "heard_tr": text.strip(),
+                **({"expected": {"tr": question.correct["tr"], "ar": question.correct["ar"]}} if ok else {}),
                 "message": "נכון" if ok else "עוד לא. הקשיבו לתשובה ונסו שוב."}
 
     def walk_through(self, question_id: str) -> list[dict[str, str]]:
