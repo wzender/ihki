@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import functools
+import asyncio
 import logging
 import os
 import secrets
@@ -31,10 +32,48 @@ APPROVAL_TTL = 10 * 60
 MAX_APPROVALS = 100
 MUTATION_LIMIT = 20
 MUTATION_WINDOW = 60
+MCP_READ_TIMEOUT = float(os.environ.get("MCP_READ_TIMEOUT_SECONDS", "15"))
+MCP_READ_WORKERS = max(1, int(os.environ.get("MCP_READ_WORKERS", "8")))
+_read_slots = threading.BoundedSemaphore(MCP_READ_WORKERS)
 
 
 def _ms(started: float) -> int:
     return int((time.monotonic() - started) * 1000)
+
+
+async def _bounded_read(fn: Callable[[], Any]) -> Any:
+    """Run a synchronous, read-only storage operation without blocking MCP's event loop.
+
+    Abandoning at the deadline is safe only for reads and prepare/preview operations.
+    A dedicated bounded set of daemon workers prevents slow Supabase calls from
+    exhausting either the ASGI loop or FastAPI's shared worker pool.
+    """
+    if not _read_slots.acquire(blocking=False):
+        raise AuthUnavailable("upstream worker capacity exhausted")
+    loop = asyncio.get_running_loop()
+    future = loop.create_future()
+
+    def deliver(method: str, value: Any) -> None:
+        if not future.done():
+            getattr(future, method)(value)
+
+    def run() -> None:
+        try:
+            value = fn()
+        except BaseException as exc:
+            if not loop.is_closed():
+                loop.call_soon_threadsafe(deliver, "set_exception", exc)
+        else:
+            if not loop.is_closed():
+                loop.call_soon_threadsafe(deliver, "set_result", value)
+        finally:
+            _read_slots.release()
+
+    threading.Thread(target=run, name="mcp-read", daemon=True).start()
+    try:
+        return await asyncio.wait_for(future, timeout=MCP_READ_TIMEOUT)
+    except asyncio.TimeoutError as exc:
+        raise AuthUnavailable("upstream request timed out") from exc
 
 
 @dataclass(frozen=True)
@@ -171,9 +210,9 @@ class SupabaseTokenVerifier:
             return None
         started = time.monotonic()
         try:
-            # SupabaseAuth is deliberately synchronous throughout ihki. Keeping the same
-            # verifier path also avoids retaining a worker/thread beyond an MCP request.
-            user = resolve_access(auth, token, fresh_permissions=True)
+            # SupabaseAuth uses urllib. Never put its network round trips on the ASGI loop:
+            # one slow auth check would otherwise stop every Streamable HTTP session.
+            user = await _bounded_read(lambda: resolve_access(auth, token, fresh_permissions=True))
         except AuthUnavailable as exc:
             # Fail closed. The diagnostics wrapper turns this 401 into a retryable 503, so the
             # client does not discard a valid token because Supabase was briefly unreachable.
@@ -239,7 +278,12 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                     diagnostics.note(tool_outcome="tool_crashed", tool_error=category, tool_ms=_ms(started))
                     diagnostics.log_crash(f"tool:{fn.__name__}", exc)
                     rid = diagnostics.request_id()
-                    return {"ok": False, "error": f"אירעה שגיאה פנימית. מספר אסמכתה: {rid}",
+                    message = (f"שירות הנתונים לא הגיב בזמן. נסו שוב. מספר אסמכתה: {rid}"
+                               if category == "supabase_timeout" else
+                               f"שירות הנתונים אינו זמין כרגע. נסו שוב. מספר אסמכתה: {rid}"
+                               if category.startswith("supabase_") else
+                               f"אירעה שגיאה פנימית. מספר אסמכתה: {rid}")
+                    return {"ok": False, "error": message,
                             "error_category": category, "request_id": rid}
                 diagnostics.note(tool_ms=_ms(started))
                 if isinstance(answer, dict) and answer.get("ok") is False:
@@ -469,7 +513,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         if current is None or store is None:
             return {"ok": False, "error": "מרחב העבודה אינו זמין", "classes": []}
         try:
-            answer = teacher_operations.workspace(store, current)
+            answer = await _bounded_read(lambda: teacher_operations.workspace(store, current))
             return {"ok": True, **answer}
         except teacher_operations.TeacherOperationError as exc:
             diagnostics.note_refusal(exc)
@@ -483,25 +527,28 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         if current is None or store is None:
             return {"ok": False, "error": "אפשרויות הניהול אינן זמינות"}
         try:
-            if teacher_operations.is_subject_admin(current):
-                collections = class_management.available_collections(current, content_collections())
-            else:
-                subjects = {row.get("subject") for row in teacher_operations.visible_classes(store, current)}
-                collections = [{"id": str(item["id"]), "name": str(item["name"]),
-                                "subject": str(item["subject"]),
-                                "content_count": len(item.get("content_ids") or []),
-                                "assignment_behavior": "snapshot_current_content"}
-                               for item in content_collections() if item.get("subject") in subjects]
-            result = {"collections": collections}
-            result["topics"] = [{"id": topic, "lesson": lesson}
-                                 for topic, lesson in getattr(app.state, "class_topics", {}).items()
-                                 if any(lesson in row.get("lessons", ())
-                                        for row in teacher_operations.visible_classes(store, current))]
-            result["voices"] = list(getattr(app.state, "teacher_voice_names", ()))
-            result["placements"] = [{"lesson": lesson, "minimum": 0, "maximum": count}
-                                    for lesson, count in getattr(app.state, "lesson_topic_counts", {}).items()]
-            if teacher_operations.is_subject_admin(current):
-                result.update(teacher_operations.public_content(store, current))
+            def read_options():
+                rows = teacher_operations.visible_classes(store, current)
+                if teacher_operations.is_subject_admin(current):
+                    collections = class_management.available_collections(current, content_collections())
+                else:
+                    subjects = {row.get("subject") for row in rows}
+                    collections = [{"id": str(item["id"]), "name": str(item["name"]),
+                                    "subject": str(item["subject"]),
+                                    "content_count": len(item.get("content_ids") or []),
+                                    "assignment_behavior": "snapshot_current_content"}
+                                   for item in content_collections() if item.get("subject") in subjects]
+                result = {"collections": collections}
+                result["topics"] = [{"id": topic, "lesson": lesson}
+                                     for topic, lesson in getattr(app.state, "class_topics", {}).items()
+                                     if any(lesson in row.get("lessons", ()) for row in rows)]
+                result["voices"] = list(getattr(app.state, "teacher_voice_names", ()))
+                result["placements"] = [{"lesson": lesson, "minimum": 0, "maximum": count}
+                                        for lesson, count in getattr(app.state, "lesson_topic_counts", {}).items()]
+                if teacher_operations.is_subject_admin(current):
+                    result.update(teacher_operations.public_content(store, current))
+                return result
+            result = await _bounded_read(read_options)
             return {"ok": True, **result}
         except (teacher_operations.TeacherOperationError, class_management.ClassManagementError) as exc:
             diagnostics.note_refusal(exc)
@@ -533,21 +580,22 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             teacher_audit(operation, current, "refused", reason="rate_limit")
             return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
         try:
-            if operation in teacher_operations.CLASS_OPERATIONS:
-                topic_map = dict(getattr(app.state, "class_topics", {}))
-                daily_ids = None
-                if dailies is not None or operation in {"schedule_daily_video", "unschedule_daily_video"}:
-                    try:
-                        daily_ids = {row["id"] for row in store.level_videos("dailies", fresh=True)}
-                    except (AuthUnavailable, AssertionError, AttributeError) as exc:
-                        raise teacher_operations.TeacherOperationError(f"ספריית הסרטונים היומיים אינה זמינה: {exc}") from exc
-                plan = teacher_operations.prepare_class(
-                    store, current, operation, class_id=class_id, name=name, subject=subject,
-                    students=students, teachers=teachers, content_ids=content_ids, homeworks=homeworks,
-                    dailies=dailies, email=email, nickname=nickname,
-                    topic_lessons=topic_map or None, daily_video_ids=daily_ids)
-            else:
-                plan = teacher_operations.prepare_content(
+            def prepare():
+                if operation in teacher_operations.CLASS_OPERATIONS:
+                    topic_map = dict(getattr(app.state, "class_topics", {}))
+                    daily_ids = None
+                    if dailies is not None or operation in {"schedule_daily_video", "unschedule_daily_video"}:
+                        try:
+                            daily_ids = {row["id"] for row in store.level_videos("dailies", fresh=True)}
+                        except (AuthUnavailable, AssertionError, AttributeError) as exc:
+                            raise teacher_operations.TeacherOperationError(
+                                f"ספריית הסרטונים היומיים אינה זמינה: {exc}") from exc
+                    return teacher_operations.prepare_class(
+                        store, current, operation, class_id=class_id, name=name, subject=subject,
+                        students=students, teachers=teachers, content_ids=content_ids, homeworks=homeworks,
+                        dailies=dailies, email=email, nickname=nickname,
+                        topic_lessons=topic_map or None, daily_video_ids=daily_ids)
+                return teacher_operations.prepare_content(
                     store, current, operation, item_id=item_id, title=title, url=url, level=level,
                     lesson=lesson, lines=lines, voices=voices, pos=pos, ord=ord,
                     ordered_items=ordered_items,
@@ -556,6 +604,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                     allowed_levels=set(getattr(app.state, "teacher_levels", ())) or None,
                     allowed_voices=set(getattr(app.state, "teacher_voice_names", ())) or None,
                     lesson_topic_counts=dict(getattr(app.state, "lesson_topic_counts", {})))
+            plan = await _bounded_read(prepare)
             approval_id, _ = class_approvals.prepare(str(current["id"]), plan)
             teacher_audit(operation, current, "prepared", plan)
             return {"ok": True, "approval_id": approval_id, "operation": operation,

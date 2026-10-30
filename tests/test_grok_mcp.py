@@ -1,5 +1,6 @@
 """The Grok connector has a deliberately tiny, independently authenticated scope."""
 import asyncio
+import time
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
@@ -839,6 +840,96 @@ def test_streamable_http_manages_library_end_to_end_and_browser_still_opens(monk
         "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "position": 1}]
     assert renamed == {"ok": True, "video_id": 1, "title": "שם חדש"}
     assert page.status_code == 200 and "ניהול" in page.text
+
+
+def test_streamable_http_prepares_daily_video_without_publishing(monkeypatch):
+    """Exercise the real protocol, OAuth verifier, permission check and preview path."""
+    monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
+    monkeypatch.setenv("SAWTAK_API_KEY", "")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    auth = LibraryAuth()
+    app = create_app(scorer_for(emissions(["w"])), auth=auth)
+
+    async def request():
+        async with app.router.lifespan_context(app):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.post("/mcp/", json={"jsonrpc": "2.0", "id": 1,
+                    "method": "tools/call", "params": {"name": "prepare_teacher_change", "arguments": {
+                        "operation": "create_daily_video", "title": "Daily", "level": "1",
+                        "url": "https://youtu.be/dQw4w9WgXcQ"}}}, headers={
+                        "Authorization": "Bearer teacher-session", "Accept": "application/json, text/event-stream"})
+                return response
+
+    response = asyncio.run(request())
+    prepared = response.json()["result"]["structuredContent"]
+    assert response.status_code == 200 and prepared["ok"] and prepared["published"] is False
+    assert prepared["preview"]["target"]["title"] == "Daily"
+    assert auth.daily_videos == []
+
+
+def test_slow_teacher_options_does_not_block_concurrent_mcp_request(monkeypatch):
+    monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
+    monkeypatch.setenv("SAWTAK_API_KEY", "")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+
+    class SlowCatalogAuth(LibraryAuth):
+        def level_videos(self, table, fresh=False):
+            if table == "dailies":
+                time.sleep(.2)
+            return super().level_videos(table, fresh)
+
+    app = create_app(scorer_for(emissions(["w"])), auth=SlowCatalogAuth())
+
+    async def request():
+        async with app.router.lifespan_context(app):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                headers = {"Authorization": "Bearer teacher-session", "Accept": "application/json, text/event-stream"}
+                def body(request_id, name):
+                    return {"jsonrpc": "2.0", "id": request_id, "method": "tools/call",
+                            "params": {"name": name, "arguments": {}}}
+                slow = asyncio.create_task(client.post("/mcp/", json=body(1, "list_teacher_options"), headers=headers))
+                await asyncio.sleep(.02)
+                started = time.monotonic()
+                fast = await client.post("/mcp/", json=body(2, "get_system_health"), headers=headers)
+                elapsed = time.monotonic() - started
+                return await slow, fast, elapsed
+
+    slow, fast, elapsed = asyncio.run(request())
+    assert slow.status_code == fast.status_code == 200
+    assert fast.json()["result"]["structuredContent"]["ok"] is True
+    assert elapsed < .15
+
+
+def test_teacher_options_upstream_timeout_returns_error_instead_of_hanging(monkeypatch):
+    import app.grok_mcp as grok_mcp
+    monkeypatch.setattr(grok_mcp, "MCP_READ_TIMEOUT", .05)
+    monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
+    monkeypatch.setenv("SAWTAK_API_KEY", "")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+
+    class HungCatalogAuth(LibraryAuth):
+        def level_videos(self, table, fresh=False):
+            time.sleep(.3)
+            return super().level_videos(table, fresh)
+
+    app = create_app(scorer_for(emissions(["w"])), auth=HungCatalogAuth())
+
+    async def request():
+        async with app.router.lifespan_context(app):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+                                         base_url="http://test") as client:
+                started = time.monotonic()
+                response = await client.post("/mcp/", json={"jsonrpc": "2.0", "id": 1,
+                    "method": "tools/call", "params": {"name": "list_teacher_options", "arguments": {}}},
+                    headers={"Authorization": "Bearer teacher-session",
+                             "Accept": "application/json, text/event-stream"})
+                return response, time.monotonic() - started
+
+    response, elapsed = asyncio.run(request())
+    result = response.json()["result"]["structuredContent"]
+    assert response.status_code == 200 and result["ok"] is False
+    assert result["error_category"] == "supabase_timeout"
+    assert "request_id" in result and elapsed < .25
 
 
 def test_oauth_discovery_challenge_and_consent_routes(monkeypatch):
