@@ -768,12 +768,16 @@ class SupabaseAuth:
     def _get_object(self, bucket: str, name: str) -> tuple[bytes, str]:
         """A recording of a private storage bucket and its media type."""
         req = urllib.request.Request(
-            f"{self.url}/storage/v1/object/{bucket}/{urllib.parse.quote(name)}",
+            f"{self.url}/storage/v1/object/authenticated/{bucket}/{urllib.parse.quote(name)}",
             headers={"Authorization": f"Bearer {self.secret}", "apikey": self.secret, "User-Agent": "ihki/1.0"})
         try:
             with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
                 data = res.read()
                 media_type = res.headers.get_content_type()
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode(errors="replace")[:300]
+            suffix = f": {detail}" if detail else ""
+            raise AuthUnavailable(f"{bucket} audio unavailable: Supabase answered {e.code}{suffix}") from e
         except (urllib.error.URLError, TimeoutError) as e:
             raise AuthUnavailable(f"{bucket} audio unavailable: {e}") from e
         if media_type == "application/octet-stream":
