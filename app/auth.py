@@ -124,8 +124,6 @@ OPERATIONAL_ERROR_OUTCOMES = frozenset({
     "poll_failed", "timed_out", "unavailable", "rejected", "exception",
 })
 CLASSES_TTL = 60  # seconds the class list is trusted without reading it again (each sign-in check uses it)
-# One-time migration boundary requested on 24 Oct 2026: the then-current seven days remain in Supabase forever.
-DEFAULT_AUDIO_MIGRATION_CUTOFF = "2026-10-17T00:00:00+03:00"
 CREATE_LEARNER_CLASS_STATE = (
     "create table public.learner_class_state (email text not null, "
     "class_id bigint not null references public.classes (id) on delete cascade, current_lesson text not null, "
@@ -185,14 +183,13 @@ class HFAudioStore:
 class SupabaseAuth:
     def __init__(self, url: str, key: str, teachers: frozenset[str] = frozenset(), secret: str = "",
                  tutors: frozenset[str] = frozenset(), developers: frozenset[str] = frozenset(),
-                 audio_store: HFAudioStore | None = None, audio_migrate_before: str = ""):
+                 audio_store: HFAudioStore | None = None):
         self.url, self.key = url.rstrip("/"), key
         self.teachers = teachers  # lower-case emails of the accounts with the management panel
         self.tutors = tutors  # lower-case emails of the accounts that flag a wrong score, besides the teachers
         self.developers = developers  # bootstrap accounts; only developers may use the lab
         self.secret = secret  # reads every student's rows and the classes; empty = the panel has no data
         self.audio_store = audio_store
-        self.audio_migrate_before = audio_migrate_before
         self._cache: dict[str, tuple[float, dict]] = {}
         self._classes: tuple[float, list[dict]] | None = None
         self._videos: tuple[float, list[dict]] | None = None
@@ -810,51 +807,42 @@ class SupabaseAuth:
         raise AuthUnavailable(f"{bucket} audio unavailable ({'; '.join(errors)})")
 
     def migrate_legacy_audio(self) -> None:
-        """One-way migration before a fixed cutoff; newer legacy Supabase files remain indefinitely."""
-        if not self.audio_store or not self.secret or not self.audio_migrate_before:
+        """Moves the recordings still in Supabase Storage to the Hugging Face bucket, in the background."""
+        if not self.audio_store or not self.secret:
             return
         threading.Thread(target=self._migrate_legacy_audio, name="ihki-audio-migration", daemon=True).start()
 
+    def _list_objects(self, bucket: str, prefix: str = "") -> list[str]:
+        """Every object name in a Supabase Storage bucket (folders walked)."""
+        names = []
+        for offset in range(0, 10_000_000, 1000):
+            items = self._admin(f"/storage/v1/object/list/{bucket}", "POST",
+                                {"prefix": prefix, "limit": 1000, "offset": offset}) or []
+            for item in items:
+                path = f"{prefix}{item['name']}"
+                names += self._list_objects(bucket, path + "/") if item.get("id") is None else [path]
+            if len(items) < 1000:
+                return names
+        return names
+
     def _migrate_legacy_audio(self) -> None:
-        """Copy pre-cutoff audio to HF, then remove only the successfully copied Supabase objects."""
-        cutoff = self.audio_migrate_before
-        marker = hashlib.sha256(cutoff.encode()).hexdigest()[:16] + ".complete"
-        try:
-            self.audio_store.get("_migration", marker)
-            return
-        except Exception:
-            pass
-        complete = True
-        try:
-            for table, bucket in (("flags", "flags"), ("lab_samples", "lab")):
-                rows = []
-                for offset in range(0, 10_000_000, PAGE):
-                    query = urllib.parse.urlencode({"select": "audio,created_at", "audio": "not.is.null",
-                                                    "created_at": f"lt.{cutoff}", "order": "created_at.asc",
-                                                    "limit": PAGE, "offset": offset})
-                    batch = self._admin(f"/rest/v1/{table}?{query}") or []
-                    rows.extend(batch)
-                    if len(batch) < PAGE:
-                        break
-                copied = []
-                for row in rows:
-                    name = row.get("audio")
-                    if not name:
-                        continue
-                    try:
-                        data, _mime = self._get_object(bucket, name)
-                        self.audio_store.put(bucket, name, data)
-                        copied.append(name)
-                    except Exception as e:
-                        complete = False
-                        log.warning("old %s audio %s not migrated; Supabase copy retained: %s", bucket, name, e)
-                if copied and self._delete_objects(bucket, copied):
-                    log.info("migrated %d old %s recordings to Hugging Face and removed Supabase copies",
-                             len(copied), bucket)
-            if complete:
-                self.audio_store.put("_migration", marker, cutoff.encode())
-        except Exception as e:
-            log.warning("legacy audio migration failed: %s", e)
+        """Copy each Supabase recording to HF, then remove only the copied ones; runs each startup until Supabase is empty."""
+        for bucket in ("flags", "lab"):
+            try:
+                names = self._list_objects(bucket)
+            except Exception as e:
+                log.warning("%s recordings in Supabase not listed; none moved: %s", bucket, e)
+                continue
+            copied = []
+            for name in names:
+                try:
+                    data, _mime = self._get_object(bucket, name)
+                    self.audio_store.put(bucket, name, data)
+                    copied.append(name)
+                except Exception as e:
+                    log.warning("%s audio %s not moved to Hugging Face; Supabase copy kept: %s", bucket, name, e)
+            if copied and self._delete_objects(bucket, copied):
+                log.info("moved %d %s recordings from Supabase to Hugging Face", len(copied), bucket)
 
     def ensure_backup_bucket(self) -> None:
         """Create the private application-backup bucket on first use."""
@@ -1425,10 +1413,14 @@ def load_auth() -> SupabaseAuth | None:
         log.warning("TEACHER_EMAILS is set without SUPABASE_SECRET_KEY: the management panel has no data to show")
     if tutors and not secret:
         log.warning("TUTORS_EMAIL is set without SUPABASE_SECRET_KEY: a flag cannot be saved")
+    # recordings go to a Hugging Face bucket, never Supabase: AUDIO_BUCKET, else the TTS cache's bucket.
+    # Supabase Storage keeps them only when neither is set (a local setup), or with AUDIO_BUCKET=supabase.
     audio_store = None
-    if bucket := os.environ.get("AUDIO_BUCKET", "").strip():
+    bucket = os.environ.get("AUDIO_BUCKET", "").strip() or os.environ.get("TTS_BUCKET", "").strip()
+    if bucket and bucket.lower() != "supabase":
         audio_store = HFAudioStore(bucket, os.environ.get("AUDIO_BUCKET_PREFIX", "ihki-audio"),
                                    os.environ.get("HF_TOKEN", "").strip() or None)
         log.info("voice reports use Hugging Face bucket %s", bucket)
-    cutoff = os.environ.get("AUDIO_MIGRATE_BEFORE", DEFAULT_AUDIO_MIGRATION_CUTOFF).strip()
-    return SupabaseAuth(url, key, teachers, secret, tutors, developers, audio_store, cutoff)
+    else:
+        log.warning("recordings are kept in Supabase Storage: set AUDIO_BUCKET (or TTS_BUCKET) to a Hugging Face bucket")
+    return SupabaseAuth(url, key, teachers, secret, tutors, developers, audio_store)

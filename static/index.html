@@ -606,7 +606,7 @@ html.a11y-contrast{--e-a:#d8b4ff;--e-t:#8fd0ff;--e-y:#70ff9b;--e-n:#ffb45b;--e-s
 .verb-badge{display:inline-block;padding:1px 8px;border-radius:9px;background:var(--amber-bg);color:var(--amber);font:700 12px var(--f-body);vertical-align:middle}
 /* Pronoun-driven animation: איתן falls into the future form; ב falls in before it in the present. */
 .fall-game{display:flex;flex:1;flex-direction:column;align-items:center;gap:14px;text-align:center}.fall-base small,.fall-help{color:var(--muted);font-weight:700}.fall-base .tr{display:block;font:700 clamp(34px,11vw,50px)/1.5 var(--f-tr)}.fall-base .ar,.fall-ar{font:700 25px/1.5 var(--f-ar);color:var(--muted)}
-.fall-picker{display:flex;align-items:center;gap:8px;width:100%;font-weight:800}.fall-picker select{flex:1;min-width:0;padding:9px 12px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:700 16px var(--f-body)}
+.fall-search{width:100%;box-sizing:border-box;padding:9px 14px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:600 16px var(--f-body)}.fall-picker{display:flex;align-items:center;gap:8px;width:100%;font-weight:800}.fall-picker select{flex:1;min-width:0;padding:9px 12px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:700 16px var(--f-body)}
 .fall-tense{display:flex;gap:7px}.fall-tense button{min-width:100px;padding:9px;border:2px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font-weight:800}.fall-tense button.on{border-color:var(--olive);background:var(--olive);color:var(--on-olive)}
 .fall-pronouns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;width:100%}.fall-pronouns button{min-height:55px;padding:5px 3px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-weight:800}.fall-pronouns button small{display:block;color:var(--muted);font:500 12px/1.4 var(--f-tr)}.fall-pronouns button.on{border-color:var(--amber);background:var(--amber-bg)}
 .fall-stage{display:grid;place-items:center;min-height:150px;width:100%;padding:12px;box-sizing:border-box;border-radius:18px;background:var(--olive-soft)}.fall-word{display:flex;align-items:baseline;justify-content:center;direction:rtl;font:800 clamp(36px,12vw,54px)/1.5 var(--f-tr);letter-spacing:.04em}.fall-letter{display:inline-block;color:var(--e,var(--e-a));animation:letter-fall .7s cubic-bezier(.2,1.35,.45,1) both}.fall-letter.present{--e:var(--e-s);animation-delay:.3s}.fall-body{display:inline-block}.fall-suffix{color:var(--e-s)}
@@ -1618,6 +1618,7 @@ html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-mot
 @media(max-width:420px){.a11y-launch{top:max(8px,env(safe-area-inset-top));left:8px}.a11y-panel{left:8px;width:calc(100vw - 16px)}}
 </style>
 __BETTER_STACK_RUM__
+<script src="/static/shadda.js?v=__ASSET_V__"></script>   <!-- a shadda on a Hebrew letter, anywhere on the page -->
 </head>
 <body class="home">
 <button class="a11y-launch" id="a11yLaunch" type="button" aria-label="פתיחת סרגל נגישות" aria-controls="a11yPanel" aria-expanded="false" title="נגישות">♿</button>
@@ -2119,14 +2120,15 @@ try{ if(localStorage.getItem("ihki.student")==="1"&&Object.keys(localStorage).so
 </dialog>
 <dialog id="verbGuideDlg" aria-labelledby="verbGuideTitle">
   <div class="dlg-head"><h2 id="verbGuideTitle">איך מתרגלים תגובה בשיחה?</h2><button class="btn" id="verbGuideClose">סגירה</button></div>
-  <p class="dlg-text">המורה שולחת שאלה בערבית באותיות עבריות. הפועל שאותו צריך להטות מופיע בסוגריים בתוך השאלה.</p>
+  <p class="dlg-text">המורה שולחת שאלה בעברית. הפועל שאותו צריך להטות מופיע בסוגריים, ועונים בערבית.</p>
   <p class="dlg-text">ענו לפי כינוי הגוף והזמן שבשאלה: כתבו בשורה למטה, או לחצו על המיקרופון ושלחו הודעה קולית.</p>
   <div class="verb-conversation verb-guide-example" aria-label="דוגמה לשיחה">
-    <div class="verb-chat-msg in">שוּ עַמֵל אִמְבַּארֵח? (אכל)<small>מה הוא עשה אתמול?</small></div>
+    <div class="verb-chat-msg in">מה הוא עשה אתמול? (אכל)</div>
     <div class="verb-chat-msg out"><span class="sh">הוּ</span> אַכַּל<span class="verb-react" role="img" aria-label="המורה: נכון">👍</span></div>
-    <div class="verb-chat-msg in">נכון! 👏</div>
+    <div class="verb-chat-msg in">נכון! 👏
+אַכַּל</div>
   </div>
-  <p class="dlg-text">בזמן הבדיקה המורה "מקלידה", ואז מגיבה על ההודעה שלכם: 👍 נכון, 🤔 עוד לא. כשעוד לא, תקבלו רמז — הפועל בעבר ובעתיד בגוף הוא — ותנסו שוב. אם גם הניסיון השני לא הצליח, המורה תראה צעד אחר צעד איך מגיעים לתשובה, ונעבור לשאלה הבאה.</p>
+  <p class="dlg-text">בזמן הבדיקה המורה "מקלידה", ואז מגיבה על ההודעה שלכם: 👍 נכון, 🤔 עוד לא. כשנכון, המורה כותבת את התשובה הצפויה באותיות עבריות ומשמיעה אותה בקול, ואז עוברים לשאלה הבאה. כשעוד לא, תקבלו רמז — הפועל בעבר ובעתיד בגוף הוא — ותנסו שוב. אם גם הניסיון השני לא הצליח, המורה תראה צעד אחר צעד איך מגיעים לתשובה, ונעבור לשאלה הבאה.</p>
   <div class="row"><button class="btn primary" id="verbGuideGo">הבנתי, מתחילים</button></div>
 </dialog>
 <dialog id="phoneDlg" aria-labelledby="phoneTitle">
@@ -2311,7 +2313,7 @@ const band=s=>s>=75?"good":s>=50?"mid":"bad";
 
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
 // Transliteration text: a letter carrying the doubling mark (U+0651) becomes <span class="sh">letter</span>
-const SHADDA=/([\u05D0-\u05EA][\u0591-\u05C7]*)\u0651([\u0591-\u05C7]*)/g;
+const SHADDA=/([\u05D0-\u05EA]['\u05F3]?[\u0591-\u05C7]*)\u0651([\u0591-\u05C7]*)/g;
 function trNode(text){const f=document.createDocumentFragment(),box=document.createElement("span");setTr(box,text);f.append(...box.childNodes);return f}
 function setTr(el,text){
   el.textContent=""; let at=0;
@@ -7563,7 +7565,7 @@ function startVerbRound(){
   verbN=0;verbStreak=0;verbRecent=[];verbChatAudioUrls.forEach(URL.revokeObjectURL);verbChatAudioUrls=[];verbChatHistory=[];
   verbDailyLevels=verbPath==="daily"?shuffleCopy([1,2,3,4,5,1,2,3,4,5]):[];
   const conversation=verbPath==="learn"&&verbLevel===5;$("verbHelp").hidden=!conversation;$("verbDlg").classList.toggle("chat",conversation);verbFitViewport();
-  if(conversation)verbChatHistory.push({kind:"teacher_intro",tr:"ענו בקול לפי הזמן וכינוי הגוף שבשאלה."});
+  if(conversation)verbChatHistory.push({kind:"teacher_intro",tr:"ענו לפי הזמן וכינוי הגוף שבשאלה: כתבו את התשובה בשורה למטה, או לחצו על המיקרופון 🎤 ושלחו הודעה קולית."});
   $("verbClose").textContent="חזרה";$("verbMenu").hidden=true;$("verbBoard").hidden=false;
   if(conversation&&!store.get("ihki.verbConversationGuide",false)){store.set("ihki.verbConversationGuide",true);verbGuideStarts=true;$("verbGuideDlg").showModal()}else nextVerb();
 }
@@ -7604,7 +7606,7 @@ function drawVerbQuestion(){
   if(q.level>=4){
     let chat=null;
     if(q.conversation){
-      verbChatHistory.push({kind:"question",tr:`${q.conversation.transliteration} (${q.verb.name})`,he:q.conversation.hebrew});
+      verbChatHistory.push({kind:"question",tr:`${q.conversation.hebrew} (${q.verb.name})`});   // Hebrew only: the Arabic question's verb (עמלת, עמלתי…) would give the ending away
       chat=mark("verb-conversation","","div");
       for(const item of verbChatHistory){
         if(item.kind==="hint"){const hint=mark("verb-chat-hint","","div");hint.append(mark("","עוד לא. רמז קטן על הפועל (הוא):","b"),mark("",`עבר: ${item.past}`,"p"),mark("",`עתיד: ${item.future}`,"p"));chat.append(hint);continue}
@@ -7913,9 +7915,9 @@ async function submitEitan(answer,ui){
 }
 
 /* "אותיות נופלות": choose a pronoun; איתן falls into the future, and ב joins it in the present. */
-let fallingData=null, fallingTense="future", fallingForm=null;
+let fallingData=null, fallingTense="future", fallingForm=null, fallingQuery="";
 async function openFallingLetters(){
-  const dlg=$("verbDlg"); fallingTense="future"; fallingForm=null; verbQuestion=null;
+  const dlg=$("verbDlg"); fallingTense="future"; fallingForm=null; fallingQuery=""; verbQuestion=null;
   $("verbTitle").textContent="אותיות נופלות"; $("verbMenu").hidden=true; $("verbBoard").hidden=false;
   $("verbClose").textContent="חזרה";
   $("verbFeedback").textContent=""; $("verbProgress").textContent="בחרו זמן וכינוי גוף"; $("verbStreak").textContent="אית״ן + ב׳"; $("verbBar").style.width="0";
@@ -7930,8 +7932,18 @@ async function loadFallingVerb(verb=""){
 function drawFallingLetters(){
   const q=fallingData, board=$("verbBoard"), game=mark("fall-game","","div"); board.replaceChildren(game);
   const picker=mark("fall-picker","","label"), select=mark("","","select"); picker.append("בחרו פועל",select);
-  for(const verb of q.verbs){const option=mark("",verb.name,"option");option.value=verb.id;option.selected=verb.id===q.verb.id;select.append(option)}
-  select.onchange=async()=>{$("verbBoard").textContent="טוען…";await loadFallingVerb(select.value)};
+  // the search narrows the list: by the Hebrew meaning, without points, or by the Arabic
+  const search=document.createElement("input"); search.type="search"; search.className="fall-search"; search.dir="rtl";
+  search.placeholder="חיפוש פועל…"; search.setAttribute("aria-label","חיפוש פועל"); search.autocomplete="off"; search.value=fallingQuery;
+  const fill=()=>{
+    const want=vtPlain(fallingQuery.trim()), shown=q.verbs.filter(v=>!want||vtPlain(v.name).includes(want)||v.id.includes(fallingQuery.trim()));
+    select.replaceChildren();
+    if(!shown.some(v=>v.id===q.verb.id)){const none=mark("",shown.length?`${shown.length} פעלים — בחרו`:"לא נמצא פועל","option");none.value="";none.selected=true;none.disabled=true;select.append(none)}
+    for(const verb of shown){const option=mark("",verb.name,"option");option.value=verb.id;option.selected=verb.id===q.verb.id;select.append(option)}
+  };
+  fill(); search.oninput=()=>{fallingQuery=search.value;fill()};
+  search.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();const first=[...select.options].find(o=>o.value);if(first&&first.value!==q.verb.id){select.value=first.value;select.onchange()}}};
+  select.onchange=async()=>{if(!select.value)return;$("verbBoard").textContent="טוען…";await loadFallingVerb(select.value)};
   const base=mark("fall-base","","div"); base.append(mark("",`${q.base.label} · ${q.verb.name}`,"small"),mark("tr",q.base.transliteration,"span"));
   const tense=mark("fall-tense","","div");
   for(const [id,label] of [["future","עתיד · אית״ן"],["present","הווה · ב׳"]]){const b=mark(id===fallingTense?"on":"",label,"button");b.type="button";b.onclick=()=>{fallingTense=id;drawFallingLetters()};tense.append(b)}
@@ -7940,7 +7952,7 @@ function drawFallingLetters(){
   else drawFallingTarget(fallingForm,stage);
   for(const form of q.forms){const p=form.pronoun,b=mark(fallingForm?.pronoun.id===p.id?"on":"",p.hebrew,"button");b.type="button";b.append(mark("",p.transliteration,"small"));b.onclick=()=>{fallingForm=form;drawFallingLetters()};pronouns.append(b)}
   const next=mark("btn","פועל אחר ←","button");next.type="button";next.onclick=async()=>{$("verbBoard").textContent="טוען…";await loadFallingVerb()};
-  game.append(picker,base,tense,help,stage,pronouns,next);
+  game.append(search,picker,base,tense,help,stage,pronouns,next);
 }
 function drawFallingTarget(form,stage){
   const future=form.future, parts=future.parts, present=fallingTense==="present", word=mark("fall-word","","div");

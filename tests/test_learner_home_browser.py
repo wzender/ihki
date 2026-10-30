@@ -74,7 +74,7 @@ addEventListener("load",async()=>{
       email:typeof ME_EMAIL!=="undefined"?ME_EMAIL:null,signIn:typeof sb!=="undefined"&&!!sb,view:view(),
       dialogs:[...document.querySelectorAll("dialog[open]")].map(d=>d.id),prompt:(document.getElementById("prompt")||{}).textContent};
   }
-  const pre=document.createElement("pre"); pre.id="result"; pre.textContent=JSON.stringify(out); document.body.append(pre);
+  const pre=document.createElement("pre"); pre.id="result"; pre.textContent=JSON.stringify(out).replace(/[\u0080-\uffff]/g,c=>"\\\\u"+c.charCodeAt(0).toString(16).padStart(4,"0")); document.body.append(pre);   // escaped: the page turns a shadda in text into a span
 });
 </script>"""
 
@@ -586,3 +586,28 @@ def test_a_finished_lesson_offers_a_review_and_another_lesson_without_moving_on(
     assert r["titles"] == ["תרגול קצר", "בחירת שיעור אחר"]
     assert "סיימתם את שיעור 5" in r["note"] and "שיעור 5" in r["lesson"]   # the class's lesson is not advanced
     assert site.auth.rows[("dana@x.com", 7)]["current_lesson"] == "5"
+
+
+FALLING_SEARCH = """
+await sleep(1500);
+openFallingLetters();
+await until(()=>document.querySelector(".fall-search"));
+const search=()=>document.querySelector(".fall-search"), names=()=>[...document.querySelector(".fall-picker select").options].filter(o=>o.value).map(o=>o.textContent);
+out.all=names();
+search().value="שא"; search().dispatchEvent(new Event("input"));
+out.filtered=names();
+search().value="זזז"; search().dispatchEvent(new Event("input"));
+out.none=[...document.querySelector(".fall-picker select").options].map(o=>o.textContent);
+search().value="ביקר"; search().dispatchEvent(new Event("input"));
+search().dispatchEvent(new KeyboardEvent("keydown",{key:"Enter"}));
+await until(()=>document.querySelector(".fall-base small")?.textContent.includes("ביקר"));
+out.loaded=document.querySelector(".fall-base small").textContent; out.kept=search().value;
+"""
+
+
+def test_falling_letters_search_filters_the_verbs(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", FALLING_SEARCH)
+    assert len(r["all"]) > 3 and r["filtered"] == ["שאל"]
+    assert r["none"] == ["לא נמצא פועל"]
+    assert "ביקר" in r["loaded"] and r["kept"] == "ביקר"

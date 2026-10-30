@@ -73,6 +73,7 @@ CLASSES = [
     {"id": 8, "name": "ב2", "emails": ["dana@x.com"], "lessons": ["2.1", "2.2"]},
     {"id": 9, "name": "מעורבת", "emails": ["dana@x.com"], "lessons": ["5", "2.1"]},
     {"id": 10, "name": "אחרת", "emails": ["other@x.com"], "lessons": ["1"]},
+    {"id": 11, "name": "שלב ב", "emails": ["beth@x.com", "gil@x.com"], "lessons": ["2.1", "2.2", "2.3", "2.4", "2.5", "2.6"]},
 ]
 
 
@@ -243,3 +244,16 @@ def test_the_class_week_is_totals_only_without_teachers(client):
     assert week == [{"name": "א1", "students": 2, "said": 10, "active": 2, "mine": 4, "goal": 2 * CLASS_WEEK_GOAL}]
     assert {"id-dana", "id-rina"} in asked and not any("id-t" in ids for ids in asked)   # the teacher is not counted
     assert client.get("/api/class/week").status_code == 401
+
+
+def test_verb_games_offer_every_verb_up_to_the_learners_lesson(client):
+    meta = lambda who: client.get("/api/verb-game", headers=as_(who)).json()
+    building = lambda who: {v["name"] for v in meta(who)["eitan_verbs"]}
+    past = lambda who: {v["name"] for v in meta(who)["verbs"]}
+    assert building("other") == {"שאל", "ישב"}   # a class of lesson 1 only
+    # a stage ב class knows all of stage א: lessons 1-10's verbs too, up to the class's last lesson (2.6)
+    assert {"שאל", "ישב", "בא", "שיחק"} <= building("beth")
+    assert {"אכל", "בא", "שיחק", "עזר"} <= past("beth") and "רץ" not in past("beth")   # רץ is 2.7's
+    # with a current lesson chosen, up to it: 2.5 has הביא (2.5) but not עזר (2.6)
+    client.fake.rows[("gil@x.com", 11)] = {"current_lesson": "2.5"}
+    assert "הביא" in past("gil") and "עזר" not in past("gil") and "שיחק" in past("gil")

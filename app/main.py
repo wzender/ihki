@@ -2690,12 +2690,30 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"levels": LEVELS, "lessons": LESSONS, "categories": CATEGORIES, "games": GAMES, "phrases": public_phrases(),
                 "voices": [{"id": i, "name": n} for n, i in playback_voices().items()]}
 
+    reached_cache: dict[str, tuple[float, dict]] = {}
+
     def verb_lessons(user: dict | None) -> list[str]:
-        """Lessons available to this learner, using the existing class rules."""
+        """Every lesson from the start of the course up to where this learner is: a stage ב student at lesson 2.5 knows
+        all of stage א's verbs and 2.1-2.5's. Where a learner is, per class: the current lesson they chose, else the
+        class's last lesson; the furthest of their classes counts."""
         if not user or user["teacher"] or not user["classes"]:
             return READY_LESSONS
-        return [lesson for lesson in READY_LESSONS
-                if any(lesson in lessons_of(course) for course in user["classes"])]
+        email = user["email"].lower()
+        at, saved = reached_cache.get(email, (0.0, {}))
+        if time.monotonic() - at > 60 and hasattr(app.state.auth, "current_lessons"):
+            try:
+                got = app.state.auth.current_lessons(email)
+                saved = got if isinstance(got, dict) else {}
+            except AuthUnavailable as e:
+                log.warning("current lessons not read for the verb games: %s", e)
+            reached_cache[email] = (time.monotonic(), saved)
+        reach = -1
+        for course in user["classes"]:
+            own = lessons_of(course)
+            last = saved_lesson(course, saved) or (own[-1] if own else None)
+            if last in ALL_LESSONS:
+                reach = max(reach, ALL_LESSONS.index(last))
+        return [lesson for lesson in READY_LESSONS if lesson in ALL_LESSONS[:reach + 1]]
 
     @app.get("/api/verb-game", dependencies=[Depends(require("games.use"))])
     def verb_game(user: dict | None = Depends(signed_in)):

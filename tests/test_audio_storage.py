@@ -45,6 +45,12 @@ class AudioAuth(SupabaseAuth):
         return True
 
     def _admin(self, path, method="GET", body=None, prefer="return=representation", timeout=10):
+        if path.startswith("/storage/v1/object/list/"):   # one folder level, as Supabase lists it
+            bucket, prefix = path.rsplit("/", 1)[1], body["prefix"]
+            names = [n[len(prefix):] for b, n in self.supabase if b == bucket and n.startswith(prefix)]
+            items = sorted({n.split("/")[0] + ("/" if "/" in n else "") for n in names})
+            page = items[body["offset"]:body["offset"] + body["limit"]]
+            return [{"name": i.rstrip("/"), "id": None if i.endswith("/") else i} for i in page]
         table = "flags" if "/flags?" in path else "lab_samples"
         return self.rows[table]
 
@@ -68,31 +74,34 @@ def test_audio_prefers_hf_and_falls_back_to_supabase():
     assert auth._get_audio("flags", "legacy.webm", datetime.now(timezone.utc).isoformat())[0] == b"legacy"
 
 
-def test_migration_deletes_only_successfully_mirrored_supabase_audio():
+def test_migration_moves_every_supabase_recording_and_keeps_only_failed_ones():
     mirror, auth = MemoryAudio(), AudioAuth(MemoryAudio())
     auth.audio_store = mirror
-    auth.audio_migrate_before = datetime.now(timezone.utc).isoformat()
-    old = (datetime.now(timezone.utc) - timedelta(days=8)).isoformat()
-    auth.rows["flags"] = [{"audio": "yes.webm", "created_at": old},
-                          {"audio": "no.webm", "created_at": old}]
-    auth.supabase[("flags", "yes.webm")] = (b"yes", "audio/webm")
+    auth.supabase[("flags", "2026-09/yes.webm")] = (b"yes", "audio/webm")
+    auth.supabase[("flags", "2026-10/new.webm")] = (b"new", "audio/webm")   # recent ones move too
     auth.supabase[("flags", "no.webm")] = (b"no", "audio/webm")
+    auth.supabase[("lab", "a.wav")] = (b"lab", "audio/wav")
     mirror.fail.add("no.webm")
     auth._migrate_legacy_audio()
-    assert mirror.files[("flags", "yes.webm")] == b"yes"
-    assert ("flags", "yes.webm") not in auth.supabase
-    assert auth.supabase[("flags", "no.webm")][0] == b"no"
+    assert mirror.files[("flags", "2026-09/yes.webm")] == b"yes" and mirror.files[("flags", "2026-10/new.webm")] == b"new"
+    assert mirror.files[("lab", "a.wav")] == b"lab"
+    assert set(auth.supabase) == {("flags", "no.webm")}   # only the one HF refused stays, for the next startup
+    mirror.fail.clear()
+    auth._migrate_legacy_audio()
+    assert not auth.supabase and mirror.files[("flags", "no.webm")] == b"no"
 
 
-def test_completed_migration_is_not_scanned_again():
-    mirror, auth = MemoryAudio(), AudioAuth(MemoryAudio())
-    auth.audio_store = mirror
-    auth.audio_migrate_before = "2026-10-17T00:00:00+03:00"
-    auth._migrate_legacy_audio()
-    auth.rows["flags"] = [{"audio": "late.webm", "created_at": "2026-10-01T00:00:00Z"}]
-    auth.supabase[("flags", "late.webm")] = (b"late", "audio/webm")
-    auth._migrate_legacy_audio()
-    assert ("flags", "late.webm") in auth.supabase
+def test_recordings_default_to_the_tts_bucket(monkeypatch):
+    from app.auth import load_auth
+    monkeypatch.setenv("SUPABASE_URL", "https://p.supabase.co")
+    monkeypatch.setenv("SUPABASE_PUBLISHABLE_KEY", "key")
+    monkeypatch.delenv("AUDIO_BUCKET", raising=False)
+    monkeypatch.setenv("TTS_BUCKET", "owner/storage")
+    assert load_auth().audio_store.bucket_id == "owner/storage"
+    monkeypatch.setenv("AUDIO_BUCKET", "owner/audio")
+    assert load_auth().audio_store.bucket_id == "owner/audio"
+    monkeypatch.setenv("AUDIO_BUCKET", "supabase")
+    assert load_auth().audio_store is None
 
 
 def test_hf_path_keeps_audio_namespaces_separate():
