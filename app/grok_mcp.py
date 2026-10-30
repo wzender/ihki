@@ -1,6 +1,7 @@
 """Restricted MCP connector through which Grok can manage library videos."""
 from __future__ import annotations
 
+import functools
 import logging
 import os
 import secrets
@@ -20,6 +21,7 @@ from . import library
 from . import class_management
 from . import monitoring
 from . import teacher_operations
+from . import mcp_diagnostics as diagnostics
 from .access import has_permission, resolve_access
 from .auth import AuthUnavailable
 
@@ -29,6 +31,10 @@ APPROVAL_TTL = 10 * 60
 MAX_APPROVALS = 100
 MUTATION_LIMIT = 20
 MUTATION_WINDOW = 60
+
+
+def _ms(started: float) -> int:
+    return int((time.monotonic() - started) * 1000)
 
 
 @dataclass(frozen=True)
@@ -132,6 +138,23 @@ def oauth_urls(app) -> tuple[str, str]:
     return public.rstrip("/") + "/", (supabase + "/auth/v1" if supabase else "https://invalid.invalid/auth/v1")
 
 
+def mcp_access_decision(user: dict[str, Any] | None) -> tuple[bool, str]:
+    """Whether a resolved identity may use the MCP connector, and why.
+
+    Allowed: managers (the panel's "ניהול" role ``admin``, TEACHER_EMAILS, developers), i.e.
+    anyone with ``management.access``, and teachers assigned to at least one class.
+    """
+    if not user:
+        return False, "unknown_user"
+    if user.get("denied"):
+        return False, "not_in_any_class"
+    if has_permission(user, "management.access"):
+        return True, "manager"
+    if user.get("teaches"):
+        return True, "class_teacher"
+    return False, "no_management_or_teaching"
+
+
 class SupabaseTokenVerifier:
     """Validate OAuth and require management access or a current teaching assignment."""
 
@@ -140,17 +163,41 @@ class SupabaseTokenVerifier:
 
     async def verify_token(self, token: str) -> AccessToken | None:
         auth = getattr(self.app.state, "auth", None)
-        if auth is None or not token:
+        if auth is None:
+            diagnostics.note(auth="supabase_not_configured")
             return None
+        if not token:
+            diagnostics.note(auth="no_token")
+            return None
+        started = time.monotonic()
         try:
             # SupabaseAuth is deliberately synchronous throughout ihki. Keeping the same
             # verifier path also avoids retaining a worker/thread beyond an MCP request.
             user = resolve_access(auth, token, fresh_permissions=True)
         except AuthUnavailable as exc:
-            log.warning("MCP OAuth verification unavailable: %s", exc)
+            # Fail closed. The diagnostics wrapper turns this 401 into a retryable 503, so the
+            # client does not discard a valid token because Supabase was briefly unreachable.
+            category = diagnostics.classify_upstream(exc)
+            diagnostics.note(auth=category, auth_ms=_ms(started))
+            log.warning("mcp_upstream rid=%s where=verify_token category=%s detail=%s",
+                        diagnostics.request_id(), category, diagnostics.redact(str(exc))[:200])
+            diagnostics.note(auth_unavailable=True)
             return None
-        if not user or user.get("denied") or not (has_permission(user, "management.access") or user.get("teaches")):
+        except Exception as exc:
+            category = diagnostics.crash_category(exc)
+            diagnostics.note(auth=category if category.startswith("supabase_") else "verifier_crashed",
+                             auth_ms=_ms(started), auth_unavailable=True)
+            diagnostics.log_crash("verify_token", exc)
             return None
+        auth_ms = _ms(started)
+        if not user:
+            diagnostics.note(auth="token_rejected", auth_ms=auth_ms)
+            return None
+        allowed, reason = mcp_access_decision(user)
+        if not allowed:
+            diagnostics.note(auth="access_denied", auth_ms=auth_ms, auth_detail=reason)
+            return None
+        diagnostics.note(auth="ok", auth_ms=auth_ms, actor=str(user.get("id") or "-"))
         _, issuer = oauth_urls(self.app)
         actor = {key: user.get(key) for key in ("id", "email", "roles", "subject", "permissions")}
         return AccessToken(token=token, client_id="supabase-oauth", scopes=["openid", "email"],
@@ -172,6 +219,36 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         auth=AuthSettings(issuer_url=AnyHttpUrl(issuer_url), resource_server_url=AnyHttpUrl(resource_url),
                           validate_token_resource=False, required_scopes=[]),
     )
+    def tool(**options):
+        """``server.tool`` plus timing, outcome notes, and a safe answer instead of a crash.
+
+        An unexpected exception is logged with a redacted traceback and becomes
+        ``{"ok": False, "error_category", "request_id"}`` so the client shows a reference
+        the logs can be searched for, rather than a generic protocol error.
+        """
+        register = server.tool(**options)
+
+        def decorate(fn):
+            @functools.wraps(fn)
+            async def run(*args, **kwargs):
+                started = time.monotonic()
+                try:
+                    answer = await fn(*args, **kwargs)
+                except Exception as exc:
+                    category = diagnostics.crash_category(exc)
+                    diagnostics.note(tool_outcome="tool_crashed", tool_error=category, tool_ms=_ms(started))
+                    diagnostics.log_crash(f"tool:{fn.__name__}", exc)
+                    rid = diagnostics.request_id()
+                    return {"ok": False, "error": f"אירעה שגיאה פנימית. מספר אסמכתה: {rid}",
+                            "error_category": category, "request_id": rid}
+                diagnostics.note(tool_ms=_ms(started))
+                if isinstance(answer, dict) and answer.get("ok") is False:
+                    record = diagnostics.current() or {}
+                    diagnostics.note(tool_outcome="refused", tool_error=record.get("tool_error") or "refused")
+                return answer
+            return register(run)
+        return decorate
+
     approvals = approvals or ApprovalStore()
     class_approvals = class_approvals or ClassApprovalStore()
     limiter = limiter or MutationLimiter()
@@ -184,7 +261,11 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             return actor_provider()
         access = get_access_token()
         value = (access.claims or {}).get("ihki_actor") if access else None
-        return value if isinstance(value, dict) else None
+        if not isinstance(value, dict):
+            # The verifier accepted the token but the tool cannot see it: a context/transport bug.
+            diagnostics.note(tool_error="actor_missing" if access is None else "actor_claims_missing")
+            return None
+        return value
 
     def initial_lessons() -> dict[str, str]:
         return dict(getattr(app.state, "initial_class_lessons", {}))
@@ -230,9 +311,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             return {"ok": True, **answer}
         except library.LibraryError as exc:
             library.audit(auth(), action, action, "refused", reason=type(exc).__name__)
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description="List the digital-library videos in their current order. Returns no learner data.",
+    @tool(description="List the digital-library videos in their current order. Returns no learner data.",
                  structured_output=True)
     async def list_library_videos() -> dict[str, Any]:
         try:
@@ -242,9 +324,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                 for at, video in enumerate(videos)
             ]}
         except library.LibraryError as exc:
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc), "videos": []}
 
-    @server.tool(description="Validate a YouTube or Vimeo video and create a ten-minute approval. This does not publish it.",
+    @tool(description="Validate a YouTube or Vimeo video and create a ten-minute approval. This does not publish it.",
                  structured_output=True)
     async def prepare_library_video(title: str, url: str) -> dict[str, Any]:
         def prepare() -> dict[str, Any]:
@@ -256,7 +339,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                     "expires_in_seconds": APPROVAL_TTL, "published": False}
         return result("prepare_library_video", prepare)
 
-    @server.tool(description="Publish a previously prepared video after the teacher explicitly confirms the shown title and URL.",
+    @tool(description="Publish a previously prepared video after the teacher explicitly confirms the shown title and URL.",
                  structured_output=True)
     async def publish_library_video(approval_id: str) -> dict[str, Any]:
         def publish() -> dict[str, Any]:
@@ -269,7 +352,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                     "url": item.url, "published": True}
         return result("publish_library_video", publish)
 
-    @server.tool(description="Rename an existing digital-library video without changing its URL or position.",
+    @tool(description="Rename an existing digital-library video without changing its URL or position.",
                  structured_output=True)
     async def rename_library_video(video_id: int, title: str) -> dict[str, Any]:
         def rename() -> dict[str, Any]:
@@ -278,7 +361,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             return {"video_id": video_id, "title": clean_title}
         return result("rename_library_video", rename)
 
-    @server.tool(description="List only classes in the current manager's scope and their student emails/nicknames.",
+    @tool(description="List only classes in the current manager's scope and their student emails/nicknames.",
                  structured_output=True)
     async def list_classes() -> dict[str, Any]:
         current, store = actor(), auth()
@@ -287,9 +370,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         try:
             return {"ok": True, "classes": class_management.public_classes(store, current)}
         except class_management.ClassManagementError as exc:
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc), "classes": []}
 
-    @server.tool(description=("List stable curriculum stage or collection identifiers assignable in the current "
+    @tool(description=("List stable curriculum stage or collection identifiers assignable in the current "
                               "manager's subject scope. Assignment snapshots the collection's current content ids."),
                  structured_output=True)
     async def list_class_content_collections() -> dict[str, Any]:
@@ -301,9 +385,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                 current, content_collections()), "assignment_behavior": "snapshot_current_content",
                 "future_content_included": False}
         except class_management.ClassManagementError as exc:
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc), "collections": []}
 
-    @server.tool(description=("Verify the actual stored content access of one class in the current manager's scope. "
+    @tool(description=("Verify the actual stored content access of one class in the current manager's scope. "
                               "Separates complete collections, partial collections, and unknown content ids."),
                  structured_output=True)
     async def get_class_content_access(class_id: int) -> dict[str, Any]:
@@ -314,9 +399,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             return {"ok": True, **class_management.content_access(
                 store, current, class_id, content_collections())}
         except class_management.ClassManagementError as exc:
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Prepare one class change for confirmation. Allowed operations: create_class, rename_class, "
+    @tool(description=("Prepare one class change for confirmation. Allowed operations: create_class, rename_class, "
                               "add_student, remove_student. This does not mutate data."), structured_output=True)
     async def prepare_class_change(
         operation: Literal["create_class", "rename_class", "add_student", "remove_student"],
@@ -349,9 +435,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                     "expires_in_seconds": APPROVAL_TTL, "published": False}
         except class_management.ClassManagementError as exc:
             class_audit("prepare_class_change", current, "refused", reason=type(exc).__name__)
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description="Publish a prepared class change only after the teacher explicitly confirms its exact effect.",
+    @tool(description="Publish a prepared class change only after the teacher explicitly confirms its exact effect.",
                  structured_output=True)
     async def publish_class_change(approval_id: str) -> dict[str, Any]:
         current, store = actor(), auth()
@@ -371,9 +458,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             return {"ok": True, **answer, "published": True}
         except class_management.ClassManagementError as exc:
             class_audit("publish_class_change", current, "refused", reason=type(exc).__name__)
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Return the current teacher's minimized class workspace. Class teachers see assigned "
+    @tool(description=("Return the current teacher's minimized class workspace. Class teachers see assigned "
                               "classes; subject administrators see their subject; developers see all subjects. "
                               "Returns no permission-administration or learner-progress data."), structured_output=True)
     async def get_teacher_workspace() -> dict[str, Any]:
@@ -384,9 +472,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             answer = teacher_operations.workspace(store, current)
             return {"ok": True, **answer}
         except teacher_operations.TeacherOperationError as exc:
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc), "classes": []}
 
-    @server.tool(description=("List stable options for teacher operations: curriculum collections and, for subject "
+    @tool(description=("List stable options for teacher operations: curriculum collections and, for subject "
                               "administrators, shared daily videos, lesson videos, and authored texts. "
                               "Permission settings are never returned."), structured_output=True)
     async def list_teacher_options() -> dict[str, Any]:
@@ -415,9 +504,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                 result.update(teacher_operations.public_content(store, current))
             return {"ok": True, **result}
         except (teacher_operations.TeacherOperationError, class_management.ClassManagementError) as exc:
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Prepare exactly one allowlisted teacher operation and return its exact preview. "
+    @tool(description=("Prepare exactly one allowlisted teacher operation and return its exact preview. "
                               "This never changes data. Permission, role, entitlement, account, OAuth, subject-scope, "
                               "credential, and secret administration are not supported."), structured_output=True)
     async def prepare_teacher_change(
@@ -472,9 +562,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                     "preview": plan["preview"], "expires_in_seconds": APPROVAL_TTL, "published": False}
         except teacher_operations.TeacherOperationError as exc:
             teacher_audit(operation, current, "refused", reason=type(exc).__name__)
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Publish one unexpired prepared teacher change after explicit confirmation. "
+    @tool(description=("Publish one unexpired prepared teacher change after explicit confirmation. "
                               "The approval is actor-bound, single-use, and rejected when target state or scope changed."),
                  structured_output=True)
     async def publish_teacher_change(approval_id: str) -> dict[str, Any]:
@@ -497,9 +588,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             return {"ok": True, **answer, "published": True}
         except teacher_operations.TeacherOperationError as exc:
             teacher_audit(plan.get("operation", "unknown"), current, "refused", plan, type(exc).__name__)
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Return a read-only daily or weekly aggregate activity series for one authorized class "
+    @tool(description=("Return a read-only daily or weekly aggregate activity series for one authorized class "
                               "or all classes in the current manager's scope. Returns no learner identities."),
                  structured_output=True)
     async def get_activity_timeseries(
@@ -515,9 +607,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         except monitoring.MonitoringError as exc:
             log.info("MCP activity outcome=refused actor_id=%s class_id=%s range=%s..%s reason=%s",
                      current.get("id"), class_id, from_date, to_date, type(exc).__name__)
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Return read-only, privacy-thresholded hourly aggregates of persisted practice "
+    @tool(description=("Return read-only, privacy-thresholded hourly aggregates of persisted practice "
                               "attempts for one authorized class or all visible classes. This is not app presence, "
                               "does not identify learners, and does not send notifications."), structured_output=True)
     async def get_hourly_activity(
@@ -535,9 +628,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         except monitoring.MonitoringError as exc:
             log.info("MCP hourly activity outcome=refused actor_id=%s class_id=%s range=%s..%s reason=%s",
                      current.get("id"), class_id, from_date, to_date, type(exc).__name__)
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Return privacy-thresholded current activity for one authorized class or all visible "
+    @tool(description=("Return privacy-thresholded current activity for one authorized class or all visible "
                               "classes. Recent persisted practice never implies that learners are online; current "
                               "presence is available only for an active live-class heartbeat session."),
                  structured_output=True)
@@ -557,9 +651,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         except monitoring.MonitoringError as exc:
             log.info("MCP current activity outcome=refused actor_id=%s class_id=%s window=%s reason=%s",
                      current.get("id"), class_id, window_minutes, type(exc).__name__)
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Return a read-only coarse application health summary. Never returns logs, errors, "
+    @tool(description=("Return a read-only coarse application health summary. Never returns logs, errors, "
                               "credentials, internal addresses, or configuration values."), structured_output=True)
     async def get_system_health() -> dict[str, Any]:
         current = actor()
@@ -568,9 +663,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         try:
             return {"ok": True, **monitoring.system_health(app, current)}
         except monitoring.MonitoringError as exc:
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Return a read-only aggregate count of structured operational failures by safe "
+    @tool(description=("Return a read-only aggregate count of structured operational failures by safe "
                               "category and day. Never returns raw logs, exception text, requests, identities, "
                               "or individual events; live connection failures are a server-observed lower bound."),
                  structured_output=True)
@@ -589,9 +685,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                      answer["status"], current.get("id"), from_date, to_date, category)
             return {"ok": True, **answer}
         except monitoring.MonitoringError as exc:
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Answer how many users enabled notifications or can be attempted via Push for one "
+    @tool(description=("Answer how many users enabled notifications or can be attempted via Push for one "
                               "authorized class or all visible classes. Returns privacy-thresholded aggregate user "
                               "and device coverage only; it never sends notifications or exposes subscriptions, "
                               "tokens, endpoints, or identities, and discloses that permission state is not stored."),
@@ -607,9 +704,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                      answer["status"], current.get("id"), class_id)
             return {"ok": True, **answer}
         except monitoring.MonitoringError as exc:
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Return a read-only privacy-thresholded ranking of difficult exercises for one "
+    @tool(description=("Return a read-only privacy-thresholded ranking of difficult exercises for one "
                               "authorized class or all classes in the current manager's scope. Returns aggregates "
                               "only and never identifies learners."), structured_output=True)
     async def get_exercise_difficulty(
@@ -630,9 +728,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         except monitoring.MonitoringError as exc:
             log.info("MCP difficulty outcome=refused actor_id=%s class_id=%s range=%s..%s reason=%s",
                      current.get("id"), class_id, from_date, to_date, type(exc).__name__)
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Return read-only privacy-thresholded aggregates of learner reports that suspect "
+    @tool(description=("Return read-only privacy-thresholded aggregates of learner reports that suspect "
                               "system scoring errors. Reports are not proof of errors; no identities, recordings, "
                               "answers, notes, or raw attempts are returned."), structured_output=True)
     async def get_system_error_reports(
@@ -654,9 +753,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                      answer["status"], current.get("id"), class_id, from_date, to_date)
             return {"ok": True, **answer}
         except monitoring.MonitoringError as exc:
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Return measured pronunciation errors from stored phoneme diagnostics for one "
+    @tool(description=("Return measured pronunciation errors from stored phoneme diagnostics for one "
                               "authorized class or all visible classes. Returns aggregates only and never infers "
                               "linguistic difficulty when diagnostics are missing."), structured_output=True)
     async def get_pronunciation_difficulties(
@@ -676,9 +776,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         except monitoring.MonitoringError as exc:
             log.info("MCP pronunciation outcome=refused actor_id=%s class_id=%s range=%s..%s reason=%s",
                      current.get("id"), class_id, from_date, to_date, type(exc).__name__)
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Return a privacy-thresholded learning progress series for one authorized class or "
+    @tool(description=("Return a privacy-thresholded learning progress series for one authorized class or "
                               "all visible classes, optionally restricted to a stable exercise identifier."),
                  structured_output=True)
     async def get_learning_progress(
@@ -696,9 +797,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                      answer["status"], current.get("id"), class_id, from_date, to_date)
             return {"ok": True, **answer}
         except monitoring.MonitoringError as exc:
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Compare privacy-thresholded learning difficulty across authorized classes using "
+    @tool(description=("Compare privacy-thresholded learning difficulty across authorized classes using "
                               "normalized participation and exercise-exposure metrics. Returns no learner identities."),
                  structured_output=True)
     async def compare_class_difficulties(
@@ -717,9 +819,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                      answer["status"], current.get("id"), len(answer["classes"]), from_date, to_date)
             return {"ok": True, **answer}
         except monitoring.MonitoringError as exc:
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @server.tool(description=("Identify privacy-thresholded exercise and topic bottlenecks from repeated failures "
+    @tool(description=("Identify privacy-thresholded exercise and topic bottlenecks from repeated failures "
                               "and measured improvement. Recommendations are labeled separately from observations."),
                  structured_output=True)
     async def get_learning_bottlenecks(
@@ -738,6 +841,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                      answer["status"], current.get("id"), class_id, from_date, to_date, answer["returned"])
             return {"ok": True, **answer}
         except monitoring.MonitoringError as exc:
+            diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
     raw = server.streamable_http_app(
@@ -747,4 +851,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         max_request_body_size=64 * 1024,
         host="0.0.0.0",
     )
-    return server, raw, raw
+    log.info("mcp_startup resource=%s issuer_configured=%s auth_store=%s stateless=true json_response=true",
+             resource_url, not issuer_url.startswith("https://invalid.invalid"),
+             type(getattr(app.state, "auth", None)).__name__)
+    return server, diagnostics.McpDiagnostics(raw), raw

@@ -843,3 +843,49 @@ def test_mutations_are_bounded_but_listing_remains_available():
     refused = call(server, "prepare_library_video", {"title": "later", "url": "https://youtu.be/abcdefghijk"})
     assert refused["ok"] is False and "דקה" in refused["error"]
     assert call(server, "list_library_videos")["ok"] is True
+
+
+def _mcp_post(app, name, token="teacher-session"):
+    """Call one tool over Streamable HTTP through the real OAuth verifier (no actor_provider)."""
+    async def request():
+        async with app.router.lifespan_context(app):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+                                         base_url="http://test") as client:
+                return await client.post("/mcp/", json={
+                    "jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": name, "arguments": {}}},
+                    headers={"Authorization": f"Bearer {token}", "Accept": "application/json, text/event-stream"})
+    return asyncio.run(request())
+
+
+@pytest.mark.parametrize("tool", ["get_system_health", "get_current_activity"])
+def test_monitoring_tools_answer_through_the_real_oauth_verifier(monkeypatch, tool):
+    monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
+    monkeypatch.setenv("SAWTAK_API_KEY", "")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    response = _mcp_post(create_app(scorer_for(emissions(["w"])), auth=LibraryAuth()), tool)
+    assert response.status_code == 200, response.text
+    result = response.json()["result"]
+    assert result["isError"] is False and result["structuredContent"]["ok"] is True
+
+
+@pytest.mark.parametrize("tool", ["get_system_health", "get_current_activity"])
+def test_dropped_supabase_connection_during_verification_is_not_an_http_500(monkeypatch, tool):
+    """A raw connection error in the verifier used to escape as HTTP 500, which clients show as -32603."""
+    import http.client
+    monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
+    monkeypatch.setenv("SAWTAK_API_KEY", "")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+
+    class DroppingAuth(LibraryAuth):
+        def access_for(self, user_id, fresh=False):
+            raise http.client.RemoteDisconnected("Remote end closed connection without response")
+
+    response = _mcp_post(create_app(scorer_for(emissions(["w"])), auth=DroppingAuth()), tool)
+    # Fail closed with a retryable 503 (a 401 would make the client throw away a valid token),
+    # and hand the client a reference that matches the server's log line.
+    assert response.status_code == 503 and response.headers["retry-after"]
+    error = response.json()["error"]
+    assert error["code"] == -32603 and error["data"]["category"] == "supabase_connection_dropped"
+    assert error["data"]["request_id"] == response.headers["x-request-id"]
+    assert f"ref {response.headers['x-request-id']}" in error["message"]
+    assert "teacher-session" not in response.text

@@ -30,7 +30,13 @@ def resolve_access(a: SupabaseAuth, token: str, *, fresh_permissions: bool = Fal
     user = a.user(token)
     if user is None:
         return None
-    email = user["email"].lower()
+    return resolve_user_access(a, user, token=token, fresh_permissions=fresh_permissions)
+
+
+def resolve_user_access(a: SupabaseAuth, user: dict, *, token: str = "",
+                        fresh_permissions: bool = False) -> dict:
+    """The application identity of an already-identified Supabase user ({"id", "email"})."""
+    email = str(user.get("email") or "").strip().lower()
     classes = a.classes()
     mine = [c for c in classes if email in c["emails"]]
     teaches = [c for c in classes if email in (c.get("teachers") or [])]

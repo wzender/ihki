@@ -62,6 +62,7 @@ Without them the service is open, as before.
 """
 from __future__ import annotations
 
+import http.client
 import json
 import hashlib
 import logging
@@ -80,6 +81,32 @@ from zoneinfo import ZoneInfo
 
 log = logging.getLogger("ihki.auth")
 TIMEOUT = 10
+# urlopen wraps connect errors in URLError, but a connection dropped while waiting for the
+# response (RemoteDisconnected, ConnectionResetError, IncompleteRead, SSL errors) escapes raw.
+NETWORK_ERRORS = (urllib.error.URLError, http.client.HTTPException, OSError, ValueError)
+# A connection that closed before any answer: safe to retry once for a read (GET).
+DROPPED = (ConnectionError, http.client.RemoteDisconnected, http.client.IncompleteRead,
+           http.client.BadStatusLine)
+
+
+def _dropped(exc: BaseException) -> bool:
+    return isinstance(exc, DROPPED) or (isinstance(exc, urllib.error.URLError)
+                                        and not isinstance(exc, urllib.error.HTTPError)
+                                        and isinstance(exc.reason, DROPPED))
+
+
+def _open_json(req: urllib.request.Request, timeout: float, *, read=json.load):
+    """urlopen + parse; a read (GET) whose connection is dropped before an answer is retried once."""
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            return read(res)
+    except Exception as exc:
+        if req.get_method() != "GET" or not _dropped(exc):
+            raise
+        log.warning("supabase connection dropped (%s); retrying the read once", type(exc).__name__)
+        time.sleep(0.2)
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            return read(res)
 CACHE_TTL = 300  # seconds a checked token is trusted without asking again
 CACHE_MAX = 2000
 PAGE = 1000  # rows per request: Supabase's default ceiling
@@ -187,14 +214,13 @@ class SupabaseAuth:
             headers={"Authorization": f"Bearer {token}", "apikey": self.key, "User-Agent": "ihki/1.0"},
         )
         try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
-                data = json.load(res)
+            data = _open_json(req, TIMEOUT)
         except urllib.error.HTTPError as e:
             if e.code in (400, 401, 403):
                 return None
             raise AuthUnavailable(f"supabase answered {e.code}") from e
-        except (urllib.error.URLError, TimeoutError, ValueError) as e:
-            raise AuthUnavailable(str(e)) from e
+        except NETWORK_ERRORS as e:
+            raise AuthUnavailable(str(e) or type(e).__name__) from e
         if not data.get("id"):
             return None
         user = {"id": data["id"], "email": data.get("email", "")}
@@ -298,15 +324,14 @@ class SupabaseAuth:
             headers={"Authorization": f"Bearer {self.secret}", "apikey": self.secret, "Content-Type": "application/json",
                      "Prefer": prefer, "User-Agent": "ihki/1.0"})
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as res:
-                return json.loads(res.read() or b"null")
+            return _open_json(req, timeout, read=lambda res: json.loads(res.read() or b"null"))
         except urllib.error.HTTPError as e:
             detail = e.read().decode(errors="replace")[:300]
             if e.code == 409:
                 raise ClassConflict(detail) from e
             raise AuthUnavailable(f"supabase answered {e.code}: {detail}") from e
-        except (urllib.error.URLError, TimeoutError, ValueError) as e:
-            raise AuthUnavailable(str(e)) from e
+        except NETWORK_ERRORS as e:
+            raise AuthUnavailable(str(e) or type(e).__name__) from e
 
     def backup_rows(self) -> dict[str, list[dict]]:
         """All application-owned table rows. Tables not installed in an older deployment are omitted."""

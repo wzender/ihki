@@ -68,6 +68,7 @@ from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, T
                     DEFAULT_MODEL as DEFAULT_TUTOR_MODEL, TutorUnavailable, load_tutor, tutor_client)
 from .verb_game import VerbExerciseGenerator
 from .grok_mcp import build as build_grok_mcp, oauth_urls
+from .mcp_diagnostics import McpPathNormalizer
 from . import library as video_library
 from . import teacher_operations
 from .access import (DEFAULT_ENTITLEMENTS, DEFAULT_ROLES, ENTITLEMENTS, ENTITLEMENT_PERMISSIONS,
@@ -573,6 +574,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     app.state.mcp_build_info = {"version": metadata["version"], "revision": metadata["commit"][:40]}
     app.state.mcp_server, mcp_app, app.state.mcp_http = build_grok_mcp(app)
     app.mount("/mcp", mcp_app, name="mcp")
+    app.add_middleware(McpPathNormalizer)  # /mcp would otherwise 307 to http:// behind the Space proxy
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
     def signed_in(request: Request) -> dict | None:
