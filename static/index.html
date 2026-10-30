@@ -7527,7 +7527,7 @@ function drawVerbLevels(){
 function verbFitViewport(){   // the chat follows the visible area, so the typing row stays above the phone's keyboard
   const dlg=$("verbDlg"), vv=window.visualViewport;if(!vv||!dlg.classList.contains("chat"))return;
   dlg.style.setProperty("--vvh",`${vv.height}px`);dlg.style.setProperty("--vvt",`${vv.offsetTop}px`);
-  const chat=dlg.querySelector(".verb-conversation");if(chat)chat.scrollTop=chat.scrollHeight;
+  const chat=dlg.querySelector(".verb-conversation");if(chat)chat.pin?chat.pin():chat.scrollTop=chat.scrollHeight;
 }
 window.visualViewport?.addEventListener("resize",verbFitViewport);window.visualViewport?.addEventListener("scroll",verbFitViewport);
 function showVerbHub(){
@@ -7610,7 +7610,7 @@ function drawVerbQuestion(){
         if(item.kind==="student_answer"){const msg=verbStudentAnswer(item.text,item.url);if(item.ok!==undefined)verbReact(msg,item.ok);chat.append(msg);continue}
         const incoming=item.kind==="question"||item.kind==="correct_answer"||item.kind==="teacher_intro"||item.kind==="teacher",msg=mark(`verb-chat-msg ${incoming?"in":"out"}`+(item.current?" verb-answer":""),"","div");msg.append(document.createTextNode(item.tr));if(item.he)msg.append(mark("",item.he,"small"));chat.append(msg);
       }
-      board.append(chat);chat.scrollTop=chat.scrollHeight;
+      board.append(verbPinChat(chat));
       // WhatsApp-style bottom row: type a reply, or tap the mic for a voice message (the button turns into ➤ while typing)
       const compose=mark("verb-compose","","div"), status=mark("verb-compose-status","","p"), row=mark("verb-compose-row","","div"), input=document.createElement("input"), send=mark("mic verb-send","","button");
       input.type="text";input.dir="rtl";input.placeholder="כתבו תשובה או הקליטו";input.setAttribute("aria-label","תשובה בכתב");input.autocomplete="off";input.spellcheck=false;
@@ -7724,9 +7724,20 @@ async function scoreVerbSpeech(blob,btn,status,actions){   // Level 4: one big m
 function verbReact(bubble,ok){   // the teacher's WhatsApp-style reaction on the student's message
   bubble.querySelector(".verb-react")?.remove();const r=mark("verb-react",ok?"👍":"🤔","span");r.setAttribute("role","img");r.setAttribute("aria-label",ok?"המורה: נכון":"המורה: עוד לא");bubble.append(r);
 }
-function verbChatScroll(){const chat=$("verbBoard").querySelector(".verb-conversation");if(chat)chat.scrollTop=chat.scrollHeight;return chat}
+function verbPinChat(chat){   // like a real chat: stay on the newest message while the chat grows or resizes, unless the reader scrolled up
+  let follow=true,user=false,first=true;
+  const near=()=>chat.scrollHeight-chat.scrollTop-chat.clientHeight<48;
+  const toEnd=()=>{if(!follow)return;chat.scrollTo({top:chat.scrollHeight,behavior:first||matchMedia("(prefers-reduced-motion:reduce)").matches?"instant":"smooth"});if(chat.clientHeight)first=false};
+  for(const e of ["wheel","touchmove","keydown"])chat.addEventListener(e,()=>{user=true},{passive:true});
+  chat.addEventListener("scroll",()=>{if(near()){follow=true;user=false}else if(user)follow=false});
+  const ro=new ResizeObserver(toEnd);ro.observe(chat);for(const c of chat.children)ro.observe(c);
+  new MutationObserver(list=>{for(const m of list)for(const n of m.addedNodes)if(n.nodeType===1)ro.observe(n);toEnd()}).observe(chat,{childList:true,subtree:true,characterData:true});
+  chat.pin=force=>{if(force){follow=true;user=false}toEnd()};
+  return chat;
+}
+function verbChatScroll(force){const chat=$("verbBoard").querySelector(".verb-conversation");if(chat)chat.pin?chat.pin(force):chat.scrollTop=chat.scrollHeight;return chat}
 async function verbChatReply(q,{text,blob,url},btn,status){   // Level 5: the reply goes into the chat, the teacher "types" while checking
-  const chat=verbChatScroll();if(!chat)return;
+  const chat=verbChatScroll(true);if(!chat)return;   // sending a reply always jumps to the bottom
   const bubble=verbStudentAnswer(text||"🎤 הודעה קולית",url);chat.append(bubble);
   const typing=mark("verb-typing","","div");typing.setAttribute("aria-label","המורה בודק…");typing.setAttribute("role","status");typing.append(mark("","","i"),mark("","","i"),mark("","","i"));chat.append(typing);verbChatScroll();
   btn.disabled=true;status.textContent="";
