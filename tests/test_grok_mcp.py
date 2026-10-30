@@ -136,7 +136,7 @@ def test_narrow_tools_are_discoverable():
         "get_exercise_difficulty",
         "get_system_error_reports",
         "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",
-        "get_learning_bottlenecks"]
+        "get_learning_bottlenecks", "get_game_popularity"]
     assert all(tool.output_schema for tool in tools)
     difficulty = next(tool for tool in tools if tool.name == "get_exercise_difficulty")
     assert set(difficulty.input_schema["properties"]) == {
@@ -693,6 +693,49 @@ def test_progress_comparison_and_bottleneck_tools_are_structured_scoped_and_read
     assert call(server, "compare_class_difficulties", {**common, "class_ids": [999]})["ok"] is False
 
 
+def test_game_popularity_tool_is_scoped_aggregate_read_only_and_refuses_non_managers():
+    actor = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
+             "subject": "ערבית", "permissions": ["management.access"]}
+
+    class GameAuth(LibraryAuth):
+        def __init__(self):
+            super().__init__()
+            self.class_rows = [{"id": 1, "name": "א", "subject": "ערבית",
+                                "emails": ["one@example.com", "two@example.com", "three@example.com"]}]
+            self.reads = []
+
+        def users(self):
+            return [{"id": "u1", "email": "one@example.com"}, {"id": "u2", "email": "two@example.com"},
+                    {"id": "u3", "email": "three@example.com"}]
+
+        def scoped_game_rows(self, source, ids, since, until, *, cats=()):
+            self.reads.append((source, ids))
+            if source != "tutor_chats":
+                return [], False
+            return [{"id": f"c{n}", "user_id": f"u{n % 3 + 1}", "created_at": "2026-10-20T10:00:00+00:00",
+                     "turns": 3} for n in range(6)], False
+
+    server, _ = connector(GameAuth(), actor=actor)
+    tools = asyncio.run(server.list_tools())
+    schema = next(tool for tool in tools if tool.name == "get_game_popularity").input_schema
+    assert set(schema["properties"]) == {"from_date", "to_date", "class_id", "timezone"}
+    assert set(schema["required"]) == {"from_date", "to_date"}
+
+    auth = GameAuth()
+    server, _ = connector(auth, actor=actor)
+    before = list(auth.events)
+    result = call(server, "get_game_popularity", {"from_date": "2026-10-02", "to_date": "2026-10-29"})
+    assert result["ok"] and result["answer"]["most_distinct_players"] == ["yalla-nedaber"]
+    assert all(ids == {"u1", "u2", "u3"} for _, ids in auth.reads)
+    assert not any(word in str(result) for word in ("example.com", "'u1'", "created_at", "messages"))
+    assert auth.events == before
+
+    teacher = {"id": "t-1", "roles": ["teacher"], "permissions": ["students.view"]}
+    server, _ = connector(GameAuth(), actor=teacher)
+    refused = call(server, "get_game_popularity", {"from_date": "2026-10-02", "to_date": "2026-10-29"})
+    assert refused == {"ok": False, "error": "אין הרשאת ניהול"}
+
+
 def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
     monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
     monkeypatch.setenv("SUPABASE_URL", "")
@@ -727,7 +770,7 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
         "get_exercise_difficulty",
         "get_system_error_reports",
         "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",
-        "get_learning_bottlenecks"]
+        "get_learning_bottlenecks", "get_game_popularity"]
 
 
 def test_existing_library_api_is_compatible_and_mcp_token_has_no_api_authority(monkeypatch):

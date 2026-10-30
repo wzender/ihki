@@ -1200,6 +1200,46 @@ class SupabaseAuth:
         result = (rows[:limit], len(rows) > limit)
         return (*result, True) if include_diagnostics else result
 
+    # The fixed, allowlisted reads behind game popularity: table, minimal columns, the user column, extra filters.
+    # Nothing here selects answers, messages, emails, scores or audio.
+    GAME_SOURCES = {
+        "game_attempts": ("attempts", "id,user_id,cat,created_at", "user_id", ()),
+        "verb_game_events": ("system_events", "id,actor_id,created_at,level:details->>level", "actor_id",
+                             (("kind", "eq.game"), ("label", "eq.פועל יוצא"))),
+        "tutor_chats": ("tutor_chats", "id,user_id,created_at,turns", "user_id", ()),
+    }
+
+    def scoped_game_rows(self, source: str, user_ids: set[str], since: datetime, until: datetime, *,
+                         cats: tuple[str, ...] = (), limit: int = MAX_DIFFICULTY_ATTEMPTS) -> tuple[list[dict], bool]:
+        """Minimal game-activity rows of authorized users with ``since <= created_at < until``.
+
+        Returns at most ``limit`` rows plus a truncation signal, so the caller can refuse rather than undercount.
+        The rows stay on the server; callers return aggregates only.
+        """
+        table, fields, user_field, filters = self.GAME_SOURCES[source]
+        ids = sorted({str(user_id) for user_id in user_ids if str(user_id)})
+        if not ids:
+            return [], False
+        if source == "game_attempts":
+            if not cats:
+                return [], False
+            filters = (("cat", f"in.({','.join(cats)})"),)
+        limit = max(1, min(int(limit), MAX_DIFFICULTY_ATTEMPTS))
+        wanted, rows = limit + 1, []
+        while len(rows) < wanted:
+            page = min(PAGE, wanted - len(rows))
+            query = urllib.parse.urlencode([
+                ("select", fields), (user_field, f"in.({','.join(ids)})"), *filters,
+                ("created_at", f"gte.{since.astimezone(timezone.utc).isoformat()}"),
+                ("created_at", f"lt.{until.astimezone(timezone.utc).isoformat()}"),
+                ("order", "created_at.asc,id.asc"), ("limit", page), ("offset", len(rows)),
+            ])
+            batch = self._admin(f"/rest/v1/{table}?{query}") or []
+            rows += batch
+            if len(batch) < page:
+                break
+        return rows[:limit], len(rows) > limit
+
     def activity(self, hours: int = 24, bucket_minutes: int = 15) -> dict:
         """Aggregated attempt counts for monitoring, without returning student identities.
 
