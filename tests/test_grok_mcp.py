@@ -693,7 +693,6 @@ def test_progress_comparison_and_bottleneck_tools_are_structured_scoped_and_read
     assert auth.events == before
     assert call(server, "compare_class_difficulties", {**common, "class_ids": [999]})["ok"] is False
 
-
 def test_game_popularity_tool_is_scoped_aggregate_read_only_and_refuses_non_managers():
     actor = {"id": "admin-1", "email": "admin@example.com", "roles": ["admin"],
              "subject": "ערבית", "permissions": ["management.access"]}
