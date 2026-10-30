@@ -44,6 +44,13 @@ def test_off_without_key_or_secret():
     assert not pushes.Push(FakeAuth(), "not-a-key").on
     assert pushes.Push(FakeAuth(), pushes.new_private_key()).on
 
+    class KeyOnlyAuth:
+        secret = "configured"
+        developers = frozenset()
+
+    unsupported = pushes.Push(KeyOnlyAuth(), pushes.new_private_key())
+    assert not unsupported.on and unsupported.why == "push subscription storage is not supported"
+
 
 def test_save_refuses_what_is_not_a_subscription():
     p = pushes.Push(FakeAuth(), pushes.new_private_key())

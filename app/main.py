@@ -78,6 +78,7 @@ from .class_management import (ClassManagementError, normalize_class_name, parse
                                visible_classes)
 from .error_telemetry import record_failure
 from . import log_errors
+from .observability import TraceContextFilter, configure_tracing, rum_snippet
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 load_dotenv(STATIC.parent / ".env")
@@ -96,6 +97,7 @@ def _configure_better_stack_logging() -> None:
         host = f"https://{host}"
     handler = LogtailHandler(source_token=token, host=host)
     handler.setLevel(logging.INFO)
+    handler.addFilter(TraceContextFilter())
     logging.getLogger().addHandler(handler)
     log.info("Better Stack log forwarding enabled")
 
@@ -571,6 +573,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             reminders.cancel()
 
     app = FastAPI(title="ihki", lifespan=lifespan)
+    configure_tracing(app)
     app.state.auth = auth or load_auth()
     app.state.verb_game = VerbExerciseGenerator()
     app.state.live = LiveStore()
@@ -716,8 +719,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         html = (STATIC / "index.html").read_text(encoding="utf-8")
         a: SupabaseAuth | None = app.state.auth
         version = build_version()
+        rum_token = os.environ.get("BETTER_STACK_RUM_TOKEN", "").strip()
+        rum_environment = os.environ.get("BETTER_STACK_ENVIRONMENT", "production").strip() or "production"
+        rum_identify = os.environ.get("BETTER_STACK_IDENTIFY_USERS", "").strip().lower() in {"1", "true", "yes", "on"}
+        rum = rum_snippet(rum_token, rum_environment, version.split(" ")[0], rum_identify)
         marks = {"__VERSION__": version, "__ASSET_V__": version.split(" ")[0], "__SUPABASE_URL__": a.url if a else "",
                  "__SUPABASE_KEY__": a.key if a else "", "__SUBJECT__": subject, "__HOME__": home, **SUBJECTS[subject]}
+        marks["__BETTER_STACK_RUM__"] = rum
         for mark, value in marks.items():
             html = html.replace(mark, value)
         return HTMLResponse(html, headers={"Cache-Control": "no-cache"})

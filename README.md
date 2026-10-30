@@ -98,6 +98,14 @@ The teacher only needs that link. Free Spaces sleep after inactivity, so the fir
 
 Optional. With `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` set, the page asks for a sign-in (through Supabase Auth): with Google, or with a link sent to the student's email (no password), for one without a Google account. The practice endpoints refuse calls without a session. Who may sign in is set by the teacher's classes (see below). Without the two values the service is open.
 
+### Better Stack observability
+
+`BETTER_STACK_SOURCE_TOKEN` and `BETTER_STACK_INGESTING_HOST` forward server logs and OpenTelemetry request spans. Logs emitted inside a request carry the matching trace and span IDs. Static assets and health polling are excluded from tracing.
+
+`BETTER_STACK_RUM_TOKEN` is the public application token from Better Stack's **Applications → Frontend** settings. When present, the page collects browser sessions, auto-captured interactions, frontend errors, and—if enabled in Better Stack—session replays. Configure masking and exclusions in Better Stack before enabling replay; form controls are excluded there by default. `BETTER_STACK_ENVIRONMENT` defaults to `production`.
+
+Sessions are anonymous by default. `BETTER_STACK_IDENTIFY_USERS=true` associates a signed-in session only with the account's opaque Supabase UUID; the integration never sends an email, name, answer, recording, or score as user metadata. Keep this off unless the deployment's privacy policy permits per-user observability.
+
 The email link needs, in Supabase: Authentication → Sign In / Providers → Email enabled; Authentication → URL Configuration → the app's address as the Site URL (or among the Redirect URLs); and Authentication → Emails → SMTP Settings → your own SMTP server, as Supabase's built-in one sends only to the project's team members, a few emails an hour.
 
 Each scored recording adds metadata to the table `attempts`, written with the student's own token so row-level security ties the row to them. The recording bytes are never written to this table or to Storage. Only a teacher/tutor's explicit `/api/flags` report stores its recording in the private `flags` bucket. Create `attempts` once in the Supabase SQL editor:

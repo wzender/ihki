@@ -31,20 +31,26 @@ class LibraryAuth:
     tutors = frozenset()
 
     def __init__(self):
-        self.videos = []
+        self.library_videos = []
         self.daily_videos = []
         self.class_rows = []
         self.events = []
 
     def level_videos(self, table, fresh=False):
         assert table in {"library", "dailies"}
-        return list(self.videos if table == "library" else self.daily_videos)
+        return list(self.library_videos if table == "library" else self.daily_videos)
+
+    def videos(self, fresh=False):
+        return []
+
+    def texts(self, fresh=False):
+        return []
 
     def add_level_video(self, table, level, title, url):
-        self.videos.append({"id": len(self.videos) + 1, "level": level, "title": title, "url": url})
+        self.library_videos.append({"id": len(self.library_videos) + 1, "level": level, "title": title, "url": url})
 
     def rename_level_video(self, table, video_id, title):
-        next(video for video in self.videos if video["id"] == video_id)["title"] = title
+        next(video for video in self.library_videos if video["id"] == video_id)["title"] = title
 
     def log_event(self, kind, actor, label, details):
         self.events.append((kind, actor, label, details))
@@ -169,7 +175,7 @@ def test_narrow_tools_are_discoverable():
 
 def test_list_and_rename_return_only_library_metadata():
     auth = LibraryAuth()
-    auth.videos = [{"id": 7, "level": "", "title": "ישן", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    auth.library_videos = [{"id": 7, "level": "", "title": "ישן", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
                     "student_email": "must-not-leak@example.com"}]
     server, _ = connector(auth)
     listed = call(server, "list_library_videos")
@@ -403,8 +409,7 @@ def test_full_teacher_subject_content_tools_and_options_end_to_end():
     class ContentAuth(LibraryAuth):
         def __init__(self):
             super().__init__()
-            self.library_rows = self.videos
-            del self.videos
+            self.library_rows = self.library_videos
             self.daily_rows = [{"id": 1, "level": "1", "title": "יום", "url": "https://youtu.be/abcdefghijk"}]
             self.lesson_videos = []
             self.text_rows = []
@@ -909,6 +914,7 @@ def test_slow_teacher_options_does_not_block_concurrent_mcp_request(monkeypatch)
 
     slow, fast, elapsed = asyncio.run(request())
     assert slow.status_code == fast.status_code == 200
+    assert slow.json()["result"]["structuredContent"]["ok"] is True
     assert fast.json()["result"]["structuredContent"]["ok"] is True
     assert elapsed < .15
 

@@ -304,11 +304,12 @@ def apply_class(auth: SupabaseAuth, actor: dict[str, Any], plan: dict[str, Any])
 def _content_rows(auth: SupabaseAuth, kind: str) -> list[dict[str, Any]]:
     try:
         if kind == "daily_video": return list(auth.level_videos("dailies", fresh=True))
-        if kind == "lesson_video": return list(auth.videos(fresh=True))
-        if kind == "lesson_text": return list(auth.texts(fresh=True))
-    except (AuthUnavailable, AttributeError) as exc:
+        method = getattr(auth, {"lesson_video": "videos", "lesson_text": "texts"}.get(kind, ""), None)
+        if not callable(method):
+            raise AttributeError(f"storage adapter has no callable {kind} reader")
+        return list(method(fresh=True))
+    except (AuthUnavailable, AttributeError, TypeError) as exc:
         raise TeacherOperationError(f"התוכן אינו זמין: {exc}") from exc
-    raise TeacherOperationError("סוג התוכן אינו מורשה")
 
 
 def public_content(auth: SupabaseAuth, actor: dict[str, Any]) -> dict[str, Any]:

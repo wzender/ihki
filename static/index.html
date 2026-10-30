@@ -1616,6 +1616,7 @@ html.a11y-links a{text-decoration:underline!important;text-decoration-thickness:
 html.a11y-reduce-motion *,html.a11y-reduce-motion *::before,html.a11y-reduce-motion *::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
 @media(max-width:420px){.a11y-launch{top:max(8px,env(safe-area-inset-top));left:8px}.a11y-panel{left:8px;width:calc(100vw - 16px)}}
 </style>
+__BETTER_STACK_RUM__
 </head>
 <body class="home">
 <button class="a11y-launch" id="a11yLaunch" type="button" aria-label="פתיחת סרגל נגישות" aria-controls="a11yPanel" aria-expanded="false" title="נגישות">♿</button>
@@ -2247,6 +2248,15 @@ const $=id=>document.getElementById(id);
 /* Sign-in: Google through Supabase. The server fills the two values in; when they are empty (no project configured) the app is open. */
 const AUTH_URL="__SUPABASE_URL__", AUTH_KEY="__SUPABASE_KEY__";
 const sb=AUTH_URL&&window.supabase?supabase.createClient(AUTH_URL,AUTH_KEY):null;
+/* Better Stack RUM auto-captures session actions and frontend errors. User association is an explicit opt-in. */
+const rumUser=user=>{
+  if(!window.IHKI_RUM?.enabled||typeof window.betterstack!=="function") return;
+  if(!user||!window.IHKI_RUM.identifyUsers) return betterstack('user',null);
+  betterstack('user',{id:user.id});   // opaque Supabase UUID only; never send email, name, answers, or scores
+};
+const rumTrack=(name,data={})=>{
+  if(window.IHKI_RUM?.enabled&&typeof window.betterstack==="function") betterstack('track',name,data);
+};
 /* A failure the student sees: in words, never a status code (that goes to the console). */
 const oops=(what="משהו השתבש")=>navigator.onLine===false?"אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב.":`${what}, נסו שוב בעוד רגע 🙏`;
 let sessionRefresh=null;
@@ -2254,7 +2264,16 @@ const refreshSession=()=>sessionRefresh||(sessionRefresh=sb.auth.refreshSession(
 async function api(url,opts={}){   // refresh once on 401; only a freshly issued token being refused proves the sign-in is no longer valid
   if(!sb) return fetch(url,opts);
   const current=await sb.auth.getSession().catch(error=>({data:{session:null},error}));
-  const request=token=>fetch(url,{...opts,headers:{...opts.headers,Authorization:"Bearer "+(token||"")}});
+  const request=async token=>{
+    try{
+      const response=await fetch(url,{...opts,headers:{...opts.headers,Authorization:"Bearer "+(token||"")}});
+      if(response.status>=500) rumTrack('api-error',{status:response.status,method:opts.method||"GET"});
+      return response;
+    }catch(error){
+      rumTrack('api-network-error',{method:opts.method||"GET"});
+      throw error;
+    }
+  };
   const token=current.data?.session?.access_token||"";
   let res=await request(token);
   if(res.status!==401) return res;
@@ -8934,6 +8953,7 @@ if(AUTH_URL){
     };
     $("classExit").onclick=$("pickExit").onclick=()=>logout.click();   // the same exit, from the class pill's dialogs
     sb.auth.onAuthStateChange((_e,session)=>{
+      rumUser(session?.user||null);
       login.hidden=mail.hidden=$("tagline").hidden=!!session; logout.hidden=$("classExit").hidden=$("pickExit").hidden=!session;
       logout.title=session?session.user.email||"":"";
       if(!session){ asked=""; start.hidden=roles.hidden=true; denied.hidden=true; login.focus({preventScroll:true}); return; }

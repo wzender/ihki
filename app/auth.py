@@ -1421,8 +1421,6 @@ def load_auth() -> SupabaseAuth | None:
     teachers, tutors, developers = emails("TEACHER_EMAILS"), emails("TUTORS_EMAIL"), emails("DEVELOPER_EMAILS")
     secret = os.environ.get("SUPABASE_SECRET_KEY", "").strip()
     log.info("sign-in on: %s", "the students of the classes" if secret else "any account (no SUPABASE_SECRET_KEY)")
-    if os.environ.get("ALLOWED_EMAILS", "").strip():
-        log.warning("ALLOWED_EMAILS is no longer read: the teacher lists the students in the panel's classes")
     if teachers and not secret:
         log.warning("TEACHER_EMAILS is set without SUPABASE_SECRET_KEY: the management panel has no data to show")
     if tutors and not secret:

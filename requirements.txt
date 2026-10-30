@@ -10,6 +10,9 @@ huggingface_hub>=1.16  # Storage Bucket API (batch_bucket_files, list_bucket_tre
 # torch: CPU build installed separately in the Dockerfile (see README for local installs)
 python-dotenv>=1.0
 logtail-python>=0.4.1  # optionally forwards Python logs to Better Stack
+opentelemetry-sdk>=1.28,<2
+opentelemetry-exporter-otlp-proto-http>=1.28,<2
+opentelemetry-instrumentation-fastapi>=0.49b0,<1
 anthropic>=1.0  # the AI tutor game בחכי ערבי (app/tutor.py)
 cryptography>=42  # the API keys set in the panel are kept encrypted (app/keystore.py)
 pywebpush>=2.0  # the daily video's morning reminder (app/push.py)

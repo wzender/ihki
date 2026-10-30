@@ -63,6 +63,10 @@ class Push:
             self.why = "VAPID_PRIVATE_KEY is not set"
         elif not getattr(auth, "secret", ""):
             self.why = "SUPABASE_SECRET_KEY is not set"
+        elif not callable(getattr(auth, "_admin", None)):
+            # Small test/deployment adapters may support sign-in or key storage without
+            # implementing the private PostgREST access required by push subscriptions.
+            self.why = "push subscription storage is not supported"
         else:
             try:
                 self.public = public_key(self.private)
