@@ -24,18 +24,36 @@ Summary line fields:
 
 Nothing here logs tokens, request arguments, response bodies, or learner data. Crash
 details (tracebacks) are logged separately with tokens and keys redacted.
+
+Every failed ``tools/call`` also gets exactly one ERROR line, ``mcp_tool_failure {json}``,
+whatever the HTTP status: a refusal answered as ``ok: false``, an SDK ``isError`` result
+(bad arguments, unknown tool), a JSON-RPC error, a 401/503 from authentication, or a crash.
+JSON fields:
+  ts             UTC timestamp (ISO 8601)
+  tool           tool name
+  request_id     the rid above; correlation_id is the caller's X-Request-Id / X-Correlation-Id
+                 when it sent one, else the rid; jsonrpc_id is the JSON-RPC message id
+  duration_ms    total time in the server (tool_ms: time inside the tool)
+  category       one of FAILURE_CATEGORIES
+  code           stable machine-readable reason, e.g. daily_video_field_missing, rate_limited
+  reason         safe diagnostic text: the teacher-facing message or field names, redacted
+  app_version    deployed build version
+  resources      allowlisted ids only (operation, class_id, item_id, video_id, video_ids)
+  actor          verified user id (UUID); status, outcome as in the summary line
 """
 from __future__ import annotations
 
 import contextvars
 import json
 import logging
+import os
 import re
 import secrets
 import socket
 import time
 import traceback
 import urllib.error
+from datetime import datetime, timezone
 from typing import Any
 
 from .auth import AuthUnavailable
@@ -124,6 +142,79 @@ def crash_category(exc: BaseException) -> str:
     return classify_upstream(exc) if _is_upstream(exc) else f"internal_{type(exc).__name__}"
 
 
+FAILURE_CATEGORIES = frozenset({
+    "invalid_arguments",  # the call does not match the tool's input schema, or names no tool
+    "validation",         # business rule refused the request
+    "not_found",          # the target does not exist or is outside the caller's scope
+    "conflict",           # the target changed, or a name is taken
+    "authentication",     # no token, or the token was rejected
+    "authorization",      # authenticated but not allowed
+    "rate_limited",       # mutation limit reached
+    "timeout",            # an upstream (Supabase) call or the read deadline timed out
+    "upstream",           # database / upstream service failed or is not configured
+    "protocol",           # JSON-RPC or HTTP-level rejection
+    "internal",           # unhandled exception
+})
+RESOURCE_KEYS = ("operation", "class_id", "item_id", "video_id", "video_ids")
+REASON_LIMIT = 300
+_SAFE_ID = re.compile(r"[A-Za-z0-9._:-]{1,64}")
+
+
+def _snake(name: str) -> str:
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+
+
+def note_failure(category: str, code: str, reason: str = "", *, replace: bool = False) -> None:
+    """Record why the current tool call failed. The first, most specific record wins unless ``replace``."""
+    record = _diag.get()
+    if record is None or (record.get("failure") and not replace):
+        return
+    record["failure"] = {"category": category if category in FAILURE_CATEGORIES else "internal",
+                         "code": code, "reason": redact(str(reason))[:REASON_LIMIT]}
+
+
+def note_resources(**ids: Any) -> None:
+    """Attach allowlisted resource ids (never emails, names or free text) to the failure line."""
+    record = _diag.get()
+    if record is None:
+        return
+    resources = record.setdefault("resources", {})
+    for key, value in ids.items():
+        if key not in RESOURCE_KEYS or value is None or value == []:
+            continue
+        if isinstance(value, list):
+            value = [item for item in value if isinstance(item, int) and not isinstance(item, bool)][:20]
+        elif not (isinstance(value, int) and not isinstance(value, bool)):
+            value = str(value)[:60]
+        resources[key] = value
+
+
+def failure_from_exception(exc: BaseException) -> tuple[str, str, str]:
+    """(category, code, reason) for a refusal raised as a safe domain error."""
+    code = str(getattr(exc, "code", "") or _snake(type(exc).__name__))
+    reason = str(exc)
+    detail = str(getattr(exc, "detail", "") or "")
+    if detail:
+        reason += f" [{detail}]"
+    cause = exc.__cause__
+    if cause is not None and _is_upstream(cause):
+        upstream = classify_upstream(cause)
+        return ("timeout" if upstream == "supabase_timeout" else "upstream"), code, f"{reason} <- {upstream}"
+    category = getattr(exc, "category", None)
+    if category not in FAILURE_CATEGORIES:
+        category = "upstream" if "Unavailable" in type(exc).__name__ else "validation"
+    return category, code, reason
+
+
+def failure_from_crash(category: str, exc: BaseException) -> tuple[str, str, str]:
+    """(category, code, reason) for an unexpected exception; the reason is the type, never its message."""
+    if category == "supabase_timeout":
+        return "timeout", category, type(exc).__name__
+    if category.startswith("supabase_"):
+        return "upstream", category, type(exc).__name__
+    return "internal", category, type(exc).__name__
+
+
 def note_refusal(exc: BaseException) -> None:
     """Record why a tool refused: the exception type, and its upstream cause when there is one."""
     cause = exc.__cause__
@@ -134,6 +225,7 @@ def note_refusal(exc: BaseException) -> None:
             log.warning("mcp_upstream rid=%s where=tool category=%s detail=%s", request_id(),
                         classify_upstream(cause), redact(str(cause))[:200])
     note(tool_error=detail)
+    note_failure(*failure_from_exception(exc))
 
 
 def log_crash(where: str, exc: BaseException) -> None:
@@ -181,11 +273,62 @@ def _response_outcome(body: bytes, content_type: str) -> tuple[str, str]:
     return "ok", ""
 
 
+def _argument_fields(text: str) -> str:
+    """``field:error_type`` pairs from a pydantic message; the rejected input values are left out."""
+    fields, current = [], ""
+    for line in text.splitlines()[1:]:
+        if line and not line[0].isspace():
+            current = line.strip()[:80]
+        elif current:
+            match = re.search(r"\[type=(\w+)", line)
+            if match:
+                fields.append(f"{current}:{match.group(1)}")
+                current = ""
+    return ";".join(fields[:10])
+
+
+def _response_failure(body: bytes, content_type: str) -> tuple[str, str, str] | None:
+    """(category, code, reason) read from a failed JSON-RPC response, for failures no tool code recorded."""
+    if "json" not in content_type:
+        return None
+    try:
+        message = json.loads(body or b"null")
+    except (ValueError, UnicodeDecodeError):
+        return None
+    if isinstance(message, list):
+        message = message[0] if message else {}
+    if not isinstance(message, dict):
+        return None
+    error = message.get("error")
+    if isinstance(error, dict):
+        code = error.get("code")
+        category = "invalid_arguments" if code in {-32600, -32601, -32602, -32700} else "protocol"
+        if isinstance(error.get("data"), dict) and error["data"].get("category"):
+            code = error["data"]["category"]
+        return category, f"jsonrpc_{code}" if isinstance(code, int) else str(code), str(error.get("message") or "")
+    result = message.get("result")
+    if not isinstance(result, dict):
+        return None
+    if result.get("isError"):
+        text = " ".join(str(item.get("text") or "") for item in result.get("content") or []
+                        if isinstance(item, dict))
+        if "validation error" in text:
+            return "invalid_arguments", "invalid_arguments", "fields=" + _argument_fields(text.split(": ", 1)[-1])
+        if text.startswith("Unknown tool"):
+            return "invalid_arguments", "unknown_tool", text
+        return "internal", "tool_error", text
+    content = result.get("structuredContent")
+    if isinstance(content, dict) and content.get("ok") is False:
+        return "validation", "refused", str(content.get("error") or "")
+    return None
+
+
 class McpDiagnostics:
     """ASGI wrapper: request id, one summary line per request, and a JSON-RPC body on crashes."""
 
-    def __init__(self, app):
+    def __init__(self, app, *, version: str | None = None):
         self.app = app
+        self.version = (version or os.environ.get("APP_VERSION", "").strip() or "unknown")[:40]
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -275,9 +418,8 @@ class McpDiagnostics:
             self._summarize(record, scope, headers, bytes(request_body), bytes(response_body),
                             response, crashed, started)
 
-    @staticmethod
-    def _summarize(record, scope, headers, request_body, response_body, response, crashed, started):
-        _, method, tool = _jsonrpc_info(request_body)
+    def _summarize(self, record, scope, headers, request_body, response_body, response, crashed, started):
+        jsonrpc_id, method, tool = _jsonrpc_info(request_body)
         status = response["status"]
         outcome, error = _response_outcome(response_body, response["content_type"])
         if crashed is not None:
@@ -313,6 +455,50 @@ class McpDiagnostics:
             log.warning("mcp_request %s%s", line, " slow=true" if ms >= SLOW_MS else "")
         else:
             log.info("mcp_request %s", line)
+        if method == "tools/call" and outcome != "ok":
+            self._log_tool_failure(record, headers, jsonrpc_id, tool, status, outcome, error, ms,
+                                   response_body, response["content_type"])
+
+    def _log_tool_failure(self, record, headers, jsonrpc_id, tool, status, outcome, error, ms,
+                          response_body, content_type):
+        """The single ERROR line for a failed tool call, classified from the most specific source."""
+        auth = str(record.get("auth", ""))
+        failure = record.get("failure")
+        if outcome == "unauthorized":
+            failure = ({"category": "authorization", "code": "access_denied",
+                        "reason": str(record.get("auth_detail", ""))} if auth == "access_denied" else
+                       {"category": "authentication", "code": auth or "unauthorized", "reason": ""})
+        elif outcome == "auth_unavailable":
+            failure = {"category": "timeout" if auth == "supabase_timeout" else "upstream",
+                       "code": auth or "supabase_unavailable", "reason": "token verification"}
+        elif outcome == "server_crashed":
+            failure = {"category": "internal", "code": "server_crashed", "reason": error}
+        elif not failure:
+            parsed = _response_failure(response_body, content_type)
+            if parsed is None and status >= 400:
+                parsed = ("protocol", f"http_{status}", "")
+            category, code, reason = parsed or ("internal", outcome or "unknown", error)
+            failure = {"category": category, "code": code, "reason": redact(reason)[:REASON_LIMIT]}
+        incoming = headers.get("x-request-id") or headers.get("x-correlation-id") or ""
+        payload = {
+            "ts": datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+            "event": "mcp_tool_failure",
+            "tool": tool or "-",
+            "request_id": record["rid"],
+            "correlation_id": incoming if _SAFE_ID.fullmatch(incoming) else record["rid"],
+            "jsonrpc_id": str(jsonrpc_id)[:40] if jsonrpc_id is not None else None,
+            "duration_ms": ms,
+            "tool_ms": record.get("tool_ms"),
+            "category": failure["category"],
+            "code": failure["code"],
+            "reason": failure.get("reason", ""),
+            "app_version": self.version,
+            "status": status,
+            "outcome": outcome,
+            "actor": record.get("actor"),
+            "resources": record.get("resources") or {},
+        }
+        log.error("mcp_tool_failure %s", json.dumps(payload, ensure_ascii=False, default=str))
 
 
 class McpPathNormalizer:

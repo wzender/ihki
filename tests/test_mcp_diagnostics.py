@@ -27,7 +27,7 @@ def _env(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
 
 
-def post(app, tool="get_system_health", *, path="/mcp/", token=TOKEN, arguments=None):
+def post(app, tool="get_system_health", *, path="/mcp/", token=TOKEN, arguments=None, extra=None):
     async def request():
         async with app.router.lifespan_context(app):
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
@@ -36,6 +36,7 @@ def post(app, tool="get_system_health", *, path="/mcp/", token=TOKEN, arguments=
                            "User-Agent": "grok-connector/1.0"}
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
+                headers.update(extra or {})
                 return await client.post(path, headers=headers, json={
                     "jsonrpc": "2.0", "id": 7, "method": "tools/call",
                     "params": {"name": tool, "arguments": arguments or {}}})
@@ -242,3 +243,143 @@ def test_a_dropped_read_is_retried_once_but_a_write_is_not(flaky_server):
     with pytest.raises(AuthUnavailable):
         auth._admin("/rest/v1/classes", "POST", {"name": "x"})
     assert seen["n"] == 1
+
+
+def failure(caplog, response) -> dict:
+    """The single ``mcp_tool_failure`` ERROR record for this response, parsed."""
+    import json
+    rid = response.headers["x-request-id"]
+    records = [r for r in caplog.records if r.getMessage().startswith("mcp_tool_failure ")
+               and json.loads(r.getMessage().split(" ", 1)[1])["request_id"] == rid]
+    assert len(records) == 1, [r.getMessage() for r in caplog.records]
+    assert records[0].levelno == logging.ERROR
+    return json.loads(records[0].getMessage().split(" ", 1)[1])
+
+
+def no_failure_logged(caplog):
+    assert not [r for r in caplog.records if r.getMessage().startswith("mcp_tool_failure ")]
+
+
+class ScheduleAuth(LibraryAuth):
+    def __init__(self):
+        super().__init__()
+        self.daily_videos = [{"id": 3, "level": "1", "title": "daily", "url": "https://youtu.be/x"}]
+        self.class_rows = [{"id": 25, "name": "ז1", "subject": "", "emails": ["s@example.com"], "nicknames": {},
+                            "teachers": [], "lessons": ["1"], "homeworks": [], "dailies": []}]
+
+
+@pytest.mark.parametrize("item", [{"video_id": 3, "date": "2026-11-05"}, {"id": 3, "date": "2026-11-05"}])
+def test_schedule_with_the_wrong_daily_key_is_an_error_line_naming_the_field(caplog, item):
+    caplog.set_level(logging.INFO)
+    auth = ScheduleAuth()
+    response = post(create_app(scorer_for(emissions(["w"])), auth=auth), "prepare_teacher_change", arguments={
+        "operation": "schedule_daily_video", "class_id": 25, "dailies": [item]})
+    assert response.status_code == 200
+    answer = response.json()["result"]["structuredContent"]
+    assert answer["ok"] is False and '"video"' in answer["error"]
+    line = failure(caplog, response)
+    assert line["category"] == "validation" and line["code"] == "daily_video_field_missing"
+    assert "keys=" in line["reason"] and line["tool"] == "prepare_teacher_change"
+    assert line["resources"] == {"operation": "schedule_daily_video", "class_id": 25, "video_ids": [3]}
+    assert line["ts"].endswith("Z") and line["app_version"] and line["actor"] == "teacher-1"
+    assert isinstance(line["duration_ms"], int) and line["correlation_id"] == line["request_id"]
+    assert auth.class_rows[0]["dailies"] == []  # prepare never changes data
+    no_secrets(caplog)
+
+
+def test_schedule_with_the_video_key_prepares_and_logs_no_failure(caplog):
+    caplog.set_level(logging.INFO)
+    response = post(create_app(scorer_for(emissions(["w"])), auth=ScheduleAuth()), "prepare_teacher_change",
+                    arguments={"operation": "schedule_daily_video", "class_id": 25,
+                               "dailies": [{"video": 3, "date": "2026-11-05"}]})
+    assert response.json()["result"]["structuredContent"]["ok"] is True
+    no_failure_logged(caplog)
+
+
+def test_arguments_rejected_by_the_schema_are_an_error_line_without_values(caplog):
+    caplog.set_level(logging.INFO)
+    response = post(create_app(scorer_for(emissions(["w"])), auth=ScheduleAuth()), "prepare_teacher_change",
+                    arguments={"operation": "schedule_daily_video", "class_id": "secret-ish", "dailies": [3]})
+    assert response.json()["result"]["isError"] is True
+    line = failure(caplog, response)
+    assert line["category"] == "invalid_arguments" and line["code"] == "invalid_arguments"
+    assert "class_id:int_parsing" in line["reason"] and "dailies.0:dict_type" in line["reason"]
+    assert "secret-ish" not in line["reason"]
+
+
+def test_unknown_tool_is_an_error_line(caplog):
+    caplog.set_level(logging.INFO)
+    response = post(create_app(scorer_for(emissions(["w"])), auth=LibraryAuth()), "no_such_tool")
+    line = failure(caplog, response)
+    assert line["category"] in {"invalid_arguments", "protocol"} and line["tool"] == "no_such_tool"
+
+
+@pytest.mark.parametrize("token, category, code", [
+    (None, "authentication", "no_token"), ("malformed", "authentication", "token_rejected")])
+def test_authentication_failures_are_error_lines(caplog, token, category, code):
+    caplog.set_level(logging.INFO)
+    response = post(create_app(scorer_for(emissions(["w"])), auth=LibraryAuth()), token=token)
+    line = failure(caplog, response)
+    assert response.status_code == 401 and line["category"] == category and line["code"] == code
+
+
+def test_authorization_failure_is_an_error_line(caplog):
+    caplog.set_level(logging.INFO)
+
+    class StudentAuth(LibraryAuth):
+        teachers = frozenset()
+
+        def access_for(self, user_id, fresh=False):
+            return {"roles": ["student"], "entitlements": [], "subject": ""}
+
+    line = failure(caplog, post(create_app(scorer_for(emissions(["w"])), auth=StudentAuth())))
+    assert line["category"] == "authorization" and line["code"] == "access_denied"
+    assert line["reason"] == "no_management_or_teaching"
+
+
+def test_verifier_timeout_is_an_error_line(caplog):
+    caplog.set_level(logging.INFO)
+
+    class SlowAuth(LibraryAuth):
+        def access_for(self, user_id, fresh=False):
+            raise AuthUnavailable("timed out")
+
+    line = failure(caplog, post(create_app(scorer_for(emissions(["w"])), auth=SlowAuth())))
+    assert line["category"] == "timeout" and line["code"] == "supabase_timeout"
+
+
+def test_upstream_refusal_and_crash_are_error_lines(caplog, monkeypatch):
+    caplog.set_level(logging.INFO)
+
+    class SlowStore(LibraryAuth):
+        def users(self):
+            raise AuthUnavailable("timed out")
+
+    monkeypatch.setattr(monitoring, "visible_classes", lambda *a, **k: [
+        {"id": 1, "name": "a", "subject": "ערבית", "emails": ["s@example.com"]}])
+    line = failure(caplog, post(create_app(scorer_for(emissions(["w"])), auth=SlowStore()), "get_current_activity"))
+    assert line["category"] == "timeout" and line["code"] == "monitoring_unavailable"
+
+    caplog.clear()
+    monkeypatch.setattr(monitoring, "current_activity", lambda *a, **k: 1 / 0)
+    line = failure(caplog, post(create_app(scorer_for(emissions(["w"])), auth=LibraryAuth()), "get_current_activity"))
+    assert line["category"] == "internal" and line["code"] == "internal_ZeroDivisionError"
+    assert line["reason"] == "ZeroDivisionError"
+
+
+def test_caller_correlation_id_is_kept_and_unsafe_ids_are_replaced(caplog):
+    caplog.set_level(logging.INFO)
+    def app():
+        return create_app(scorer_for(emissions(["w"])), auth=LibraryAuth())
+
+    line = failure(caplog, post(app(), token=None, extra={"X-Request-Id": "grok-abc.123"}))
+    assert line["correlation_id"] == "grok-abc.123"
+    caplog.clear()
+    line = failure(caplog, post(app(), token=None, extra={"X-Request-Id": "bad id; drop table"}))
+    assert line["correlation_id"] == line["request_id"]
+
+
+def test_success_logs_no_failure_line(caplog):
+    caplog.set_level(logging.INFO)
+    assert post(create_app(scorer_for(emissions(["w"])), auth=LibraryAuth())).status_code == 200
+    no_failure_logged(caplog)

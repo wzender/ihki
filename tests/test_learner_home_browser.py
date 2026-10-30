@@ -63,9 +63,9 @@ try{ Object.defineProperty(Notification,"permission",{get:()=>"default"}); }catc
 addEventListener("load",async()=>{
   try{
     const entry=()=>["startBtn","practiceBtn"].map(id=>document.getElementById(id)).find(b=>!b.hidden&&b.offsetParent);
-    await until(()=>entry());   // the start button, or for an account with more screens, "practice"
+    await until(()=>ENTERED||entry());   // "practice", for an account with more screens; a student goes straight in
     out.pushCan=PUSH_CAN;
-    entry().click();
+    if(!ENTERED) entry().click();
     await (async()=>{ %s })();
   }catch(e){
     out.error=String(e&&e.stack||e);

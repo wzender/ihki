@@ -271,11 +271,18 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             @functools.wraps(fn)
             async def run(*args, **kwargs):
                 started = time.monotonic()
+                dailies = kwargs.get("dailies")
+                diagnostics.note_resources(
+                    operation=kwargs.get("operation"), class_id=kwargs.get("class_id"),
+                    item_id=kwargs.get("item_id"), video_id=kwargs.get("video_id"),
+                    video_ids=[item.get("video", item.get("video_id", item.get("id")))
+                               for item in dailies if isinstance(item, dict)] if isinstance(dailies, list) else None)
                 try:
                     answer = await fn(*args, **kwargs)
                 except Exception as exc:
                     category = diagnostics.crash_category(exc)
                     diagnostics.note(tool_outcome="tool_crashed", tool_error=category, tool_ms=_ms(started))
+                    diagnostics.note_failure(*diagnostics.failure_from_crash(category, exc), replace=True)
                     diagnostics.log_crash(f"tool:{fn.__name__}", exc)
                     rid = diagnostics.request_id()
                     message = (f"שירות הנתונים לא הגיב בזמן. נסו שוב. מספר אסמכתה: {rid}"
@@ -289,6 +296,13 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                 if isinstance(answer, dict) and answer.get("ok") is False:
                     record = diagnostics.current() or {}
                     diagnostics.note(tool_outcome="refused", tool_error=record.get("tool_error") or "refused")
+                    # Refusals that were not raised as a domain error: name them here, once, for every tool.
+                    tool_error = str(record.get("tool_error") or "")
+                    if tool_error.startswith("actor_"):
+                        diagnostics.note_failure("authorization", tool_error, "verified token carries no actor")
+                    elif getattr(app.state, "auth", None) is None:
+                        diagnostics.note_failure("upstream", "store_not_configured", "Supabase is not configured")
+                    diagnostics.note_failure("validation", "refused", str(answer.get("error") or ""))
                 return answer
             return register(run)
         return decorate
@@ -317,9 +331,21 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
     def content_collections() -> list[dict[str, Any]]:
         return list(getattr(app.state, "class_content_collections", []))
 
+    def note_audit_refusal(outcome: str, reason: str) -> None:
+        """Classify refusals that are audited by reason rather than raised as a domain error."""
+        if outcome != "refused":
+            return
+        if reason == "rate_limit":
+            diagnostics.note_failure("rate_limited", "rate_limited",
+                                     f"more than {MUTATION_LIMIT} mutations in {MUTATION_WINDOW}s")
+        elif reason == "invalid_approval":
+            diagnostics.note_failure("validation", "approval_invalid",
+                                     "approval unknown, expired, already used, or owned by another user")
+
     def class_audit(action: str, current: dict[str, Any] | None, outcome: str,
                     result: dict[str, Any] | None = None, reason: str = "") -> None:
         safe = result or {}
+        note_audit_refusal(outcome, reason)
         log.info("Grok class action=%s outcome=%s class_id=%s email=%s reason=%s", action, outcome,
                  safe.get("class_id"), safe.get("email"), reason)
         store = auth()
@@ -334,6 +360,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
     def teacher_audit(operation: str, current: dict[str, Any], outcome: str,
                       plan: dict[str, Any] | None = None, reason: str = "") -> None:
         safe = plan or {}
+        note_audit_refusal(outcome, reason)
         target_id = safe.get("class_id") or safe.get("item_id")
         log.info("MCP teacher operation=%s outcome=%s target_id=%s reason=%s",
                  operation, outcome, target_id, reason)
@@ -347,6 +374,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
     def result(action: str, operation: Callable[[], dict[str, Any]]) -> dict[str, Any]:
         if not limiter.allow():
             library.audit(auth(), action, action, "refused", reason="rate_limit")
+            note_audit_refusal("refused", "rate_limit")
             return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
         try:
             answer = operation()
@@ -556,7 +584,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
 
     @tool(description=("Prepare exactly one allowlisted teacher operation and return its exact preview. "
                               "This never changes data. Permission, role, entitlement, account, OAuth, subject-scope, "
-                              "credential, and secret administration are not supported."), structured_output=True)
+                              "credential, and secret administration are not supported. Each dailies item is "
+                              "{\"video\": <daily video id>, \"date\": \"YYYY-MM-DD\"}; schedule_daily_video "
+                              "replaces the class's whole daily schedule, so include the items to keep."),
+                 structured_output=True)
     async def prepare_teacher_change(
         operation: Literal[
             "create_class", "update_class", "delete_class", "add_student", "remove_student",
@@ -926,4 +957,5 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
     log.info("mcp_startup resource=%s issuer_configured=%s auth_store=%s stateless=true json_response=true",
              resource_url, not issuer_url.startswith("https://invalid.invalid"),
              type(getattr(app.state, "auth", None)).__name__)
-    return server, diagnostics.McpDiagnostics(raw), raw
+    version = str((getattr(app.state, "mcp_build_info", None) or {}).get("version") or "")
+    return server, diagnostics.McpDiagnostics(raw, version=version or None), raw

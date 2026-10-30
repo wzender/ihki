@@ -38,14 +38,23 @@ MAX_DAILIES = 400
 
 
 class TeacherOperationError(ValueError):
-    """Safe error suitable for an MCP result."""
+    """Safe error suitable for an MCP result.
+
+    ``code`` is a stable machine-readable reason for logs; ``category`` is the failure family
+    (validation, not_found, conflict, authorization, upstream). The message is shown to the teacher.
+    """
+
+    def __init__(self, message: str, *, code: str = "teacher_operation_refused", category: str = "validation",
+                 detail: str = ""):
+        super().__init__(message)
+        self.code, self.category, self.detail = code, category, detail
 
 
 def _rows(auth: SupabaseAuth, *, fresh: bool = True) -> list[dict[str, Any]]:
     try:
         return list(auth.classes(fresh=fresh))
     except AuthUnavailable as exc:
-        raise TeacherOperationError(f"כיתות אינן זמינות: {exc}") from exc
+        raise TeacherOperationError(f"כיתות אינן זמינות: {exc}", code="classes_unavailable", category="upstream") from exc
 
 
 def is_developer(actor: dict[str, Any]) -> bool:
@@ -72,10 +81,10 @@ def visible_classes(auth: SupabaseAuth, actor: dict[str, Any], *, fresh: bool = 
 
 def _find(auth: SupabaseAuth, actor: dict[str, Any], class_id: object) -> dict[str, Any]:
     if not isinstance(class_id, int) or isinstance(class_id, bool) or class_id <= 0:
-        raise TeacherOperationError("הכיתה לא נמצאה")
+        raise TeacherOperationError("הכיתה לא נמצאה", code="class_not_found", category="not_found")
     found = next((row for row in visible_classes(auth, actor) if row.get("id") == class_id), None)
     if found is None:
-        raise TeacherOperationError("הכיתה לא נמצאה")
+        raise TeacherOperationError("הכיתה לא נמצאה", code="class_not_found", category="not_found")
     return deepcopy(found)
 
 
@@ -89,7 +98,7 @@ def _normalized_row(row: dict[str, Any]) -> dict[str, Any]:
             emails.append(email)
     raw_nicks = result.get("nicknames") or {}
     if not isinstance(raw_nicks, dict):
-        raise TeacherOperationError("רשימת הכינויים אינה תקינה")
+        raise TeacherOperationError("רשימת הכינויים אינה תקינה", code="nicknames_invalid")
     for email in emails:
         nickname = " ".join(str(raw_nicks.get(email) or "").split())[:MAX_NICKNAME]
         if nickname:
@@ -100,40 +109,49 @@ def _normalized_row(row: dict[str, Any]) -> dict[str, Any]:
         if email not in teachers:
             teachers.append(email)
     if not set(teachers) <= set(emails):
-        raise TeacherOperationError("מורה של הכיתה צריך להיות אחד מהתלמידים הרשומים בה")
+        raise TeacherOperationError("מורה של הכיתה צריך להיות אחד מהתלמידים הרשומים בה", code="teacher_not_class_member")
     lessons = result.get("lessons")
     if not isinstance(lessons, list) or not lessons or not all(isinstance(item, str) and item for item in lessons):
-        raise TeacherOperationError("בחרו לפחות שיעור או יחידה אחת לכיתה")
+        raise TeacherOperationError("בחרו לפחות שיעור או יחידה אחת לכיתה", code="class_lessons_missing")
     lessons = list(dict.fromkeys(lessons))
     homeworks = result.get("homeworks") or []
     if not isinstance(homeworks, list) or len(homeworks) > MAX_HOMEWORKS or not all(isinstance(item, dict) for item in homeworks):
-        raise TeacherOperationError("שיעורי הבית לא תקינים")
+        raise TeacherOperationError("שיעורי הבית לא תקינים", code="homeworks_invalid")
     normalized_homeworks = []
     for item in homeworks:
         topic, due = str(item.get("topic") or "").strip(), str(item.get("due") or "").strip()
         if not topic:
             continue
         if any(existing["topic"] == topic for existing in normalized_homeworks):
-            raise TeacherOperationError("אותו נושא מופיע פעמיים בשיעורי הבית")
+            raise TeacherOperationError("אותו נושא מופיע פעמיים בשיעורי הבית", code="homework_topic_duplicate")
         try:
             due_value = date.fromisoformat(due).isoformat() if due else None
         except ValueError as exc:
-            raise TeacherOperationError("התאריך של שיעורי הבית לא תקין") from exc
+            raise TeacherOperationError("התאריך של שיעורי הבית לא תקין", code="homework_date_invalid") from exc
         normalized_homeworks.append({"topic": topic, "due": due_value})
     dailies = result.get("dailies") or []
     if not isinstance(dailies, list) or len(dailies) > MAX_DAILIES or not all(isinstance(item, dict) for item in dailies):
-        raise TeacherOperationError("הסרטונים היומיים לא תקינים")
+        raise TeacherOperationError("הסרטונים היומיים לא תקינים", code="dailies_invalid")
     normalized_dailies, seen_videos = [], set()
     for item in dailies:
         video, day = item.get("video"), str(item.get("date") or "").strip()
         if not day:
             continue
-        if not isinstance(video, int) or isinstance(video, bool) or video <= 0 or video in seen_videos:
-            raise TeacherOperationError("סרטון יומי אינו תקין או מופיע פעמיים")
+        if "video" not in item:
+            # A common caller mistake is {"video_id": ...} or {"id": ...}: name the expected key.
+            keys = ",".join(sorted(str(key)[:30] for key in item)[:10])
+            raise TeacherOperationError('בכל סרטון יומי צריך את השדה "video" עם מזהה הסרטון, ואת השדה "date"',
+                                        code="daily_video_field_missing", detail=f"keys={keys}")
+        if not isinstance(video, int) or isinstance(video, bool) or video <= 0:
+            raise TeacherOperationError("מזהה הסרטון היומי אינו תקין", code="daily_video_id_invalid",
+                                        detail=f"type={type(video).__name__}")
+        if video in seen_videos:
+            raise TeacherOperationError("אותו סרטון יומי מופיע פעמיים", code="daily_video_duplicate",
+                                        detail=f"video={video}")
         try:
             normalized_day = date.fromisoformat(day).isoformat()
         except ValueError as exc:
-            raise TeacherOperationError("התאריך של הסרטון היומי לא תקין") from exc
+            raise TeacherOperationError("התאריך של הסרטון היומי לא תקין", code="daily_video_date_invalid") from exc
         seen_videos.add(video)
         normalized_dailies.append({"video": video, "date": normalized_day})
     result.update(emails=sorted(emails), nicknames=nicknames, teachers=teachers, lessons=lessons,
@@ -169,14 +187,14 @@ def workspace(auth: SupabaseAuth, actor: dict[str, Any]) -> dict[str, Any]:
 
 def _ensure_admin(actor: dict[str, Any]) -> None:
     if not is_subject_admin(actor):
-        raise TeacherOperationError("הפעולה משפיעה על כיתות נוספות או על שיוך מורים ודורשת מנהל/ת מקצוע")
+        raise TeacherOperationError("הפעולה משפיעה על כיתות נוספות או על שיוך מורים ודורשת מנהל/ת מקצוע", code="subject_admin_required", category="authorization")
 
 
 def _ensure_unique_name(auth: SupabaseAuth, actor: dict[str, Any], name: str, class_id: int | None = None) -> None:
     folded = name.casefold()
     for row in visible_classes(auth, actor):
         if row.get("id") != class_id and " ".join(str(row.get("name") or "").split()).casefold() == folded:
-            raise TeacherOperationError(f"כבר יש כיתה בשם {row.get('name')}")
+            raise TeacherOperationError(f"כבר יש כיתה בשם {row.get('name')}", code="class_name_taken", category="conflict")
 
 
 def _diff(before: dict[str, Any] | None, after: dict[str, Any] | None) -> list[dict[str, Any]]:
@@ -193,7 +211,7 @@ def prepare_class(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *, 
                   topic_lessons: dict[str, str] | None = None,
                   daily_video_ids: set[int] | None = None) -> dict[str, Any]:
     if operation not in CLASS_OPERATIONS:
-        raise TeacherOperationError("פעולת הכיתה אינה מורשית")
+        raise TeacherOperationError("פעולת הכיתה אינה מורשית", code="class_operation_not_allowed", category="authorization")
     if operation in ADMIN_ONLY_CLASS_OPERATIONS:
         _ensure_admin(actor)
     before = None if operation == "create_class" else _find(auth, actor, class_id)
@@ -208,7 +226,7 @@ def prepare_class(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *, 
         chosen_subject = own_subject or " ".join(str(subject or "").split())
         legacy_manager = str(actor.get("email") or "").lower() in getattr(auth, "teachers", ())
         if not chosen_subject and not legacy_manager:
-            raise TeacherOperationError("יש לבחור מקצוע לכיתה")
+            raise TeacherOperationError("יש לבחור מקצוע לכיתה", code="class_subject_missing")
         after = {"name": name, "subject": chosen_subject, "emails": [], "nicknames": {}, "teachers": [],
                  "lessons": list(content_ids or []), "homeworks": list(homeworks or []), "dailies": list(dailies or [])}
         for student in students or []:
@@ -242,11 +260,11 @@ def prepare_class(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *, 
             if student_nickname: nicks[student_email] = student_nickname
         elif operation == "remove_student":
             if student_email in (after.get("teachers") or []):
-                raise TeacherOperationError("אי אפשר להסיר מורה מהכיתה דרך רשימת התלמידים")
-            if student_email not in emails: raise TeacherOperationError("התלמיד/ה אינו/ה בכיתה")
+                raise TeacherOperationError("אי אפשר להסיר מורה מהכיתה דרך רשימת התלמידים", code="teacher_removal_via_students")
+            if student_email not in emails: raise TeacherOperationError("התלמיד/ה אינו/ה בכיתה", code="student_not_in_class", category="not_found")
             emails.remove(student_email); nicks.pop(student_email, None)
         else:
-            if student_email not in emails: raise TeacherOperationError("התלמיד/ה אינו/ה בכיתה")
+            if student_email not in emails: raise TeacherOperationError("התלמיד/ה אינו/ה בכיתה", code="student_not_in_class", category="not_found")
             if student_nickname: nicks[student_email] = student_nickname
             else: nicks.pop(student_email, None)
         after.update(emails=emails, nicknames=nicks)
@@ -260,16 +278,16 @@ def prepare_class(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *, 
         assigned = list(after.get("teachers") or [])
         if operation == "assign_class_teacher":
             if teacher_email not in (after.get("emails") or []):
-                raise TeacherOperationError("מורה של הכיתה צריך להיות אחד מהתלמידים הרשומים בה")
+                raise TeacherOperationError("מורה של הכיתה צריך להיות אחד מהתלמידים הרשומים בה", code="teacher_not_class_member")
             if teacher_email not in assigned: assigned.append(teacher_email)
         elif teacher_email in assigned: assigned.remove(teacher_email)
         after["teachers"] = assigned
     after = _normalized_row(after)
     if topic_lessons is not None and any(topic_lessons.get(item["topic"]) not in after["lessons"]
                                          for item in after["homeworks"]):
-        raise TeacherOperationError("שיעורי הבית הם נושא מאחד משיעורי הכיתה")
+        raise TeacherOperationError("שיעורי הבית הם נושא מאחד משיעורי הכיתה", code="homework_topic_not_in_lessons")
     if daily_video_ids is not None and any(item["video"] not in daily_video_ids for item in after["dailies"]):
-        raise TeacherOperationError("סרטון יומי אינו בספרייה")
+        raise TeacherOperationError("סרטון יומי אינו בספרייה", code="daily_video_not_in_library", category="not_found")
     _ensure_unique_name(auth, actor, after["name"], before.get("id") if before else None)
     return {"operation": operation, "class_id": before.get("id") if before else None,
             "class_name": after["name"], "state": class_fingerprint(before) if before else None,
@@ -282,13 +300,13 @@ def apply_class(auth: SupabaseAuth, actor: dict[str, Any], plan: dict[str, Any])
     if operation in ADMIN_ONLY_CLASS_OPERATIONS: _ensure_admin(actor)
     if operation == "delete_class":
         current = _find(auth, actor, plan["class_id"])
-        if class_fingerprint(current) != plan.get("state"): raise TeacherOperationError("הכיתה השתנתה; הכינו את הפעולה מחדש")
+        if class_fingerprint(current) != plan.get("state"): raise TeacherOperationError("הכיתה השתנתה; הכינו את הפעולה מחדש", code="class_changed_since_prepare", category="conflict")
         try: auth.delete_class(current["id"])
-        except AuthUnavailable as exc: raise TeacherOperationError(f"שמירת הכיתה נכשלה: {exc}") from exc
+        except AuthUnavailable as exc: raise TeacherOperationError(f"שמירת הכיתה נכשלה: {exc}", code="class_save_failed", category="upstream") from exc
         return {"operation": operation, "class_id": current["id"], "class_name": current["name"], "deleted": True}
     before = None if operation == "create_class" else _find(auth, actor, plan.get("class_id"))
     if before is not None and class_fingerprint(before) != plan.get("state"):
-        raise TeacherOperationError("הכיתה השתנתה; הכינו את הפעולה מחדש")
+        raise TeacherOperationError("הכיתה השתנתה; הכינו את הפעולה מחדש", code="class_changed_since_prepare", category="conflict")
     after = _normalized_row(plan["after"])
     _ensure_unique_name(auth, actor, after["name"], before.get("id") if before else None)
     try:
@@ -296,7 +314,7 @@ def apply_class(auth: SupabaseAuth, actor: dict[str, Any], plan: dict[str, Any])
                         after["lessons"], after["homeworks"], after["dailies"], after["subject"],
                         teachers=after["teachers"])
     except (AuthUnavailable, ClassConflict, KeyError) as exc:
-        raise TeacherOperationError(f"שמירת הכיתה נכשלה: {exc}") from exc
+        raise TeacherOperationError(f"שמירת הכיתה נכשלה: {exc}", code="class_save_failed", category="upstream") from exc
     return {"operation": operation, "class_id": before.get("id") if before else None,
             "class_name": after["name"], "result": _public_class(after)}
 
@@ -309,7 +327,7 @@ def _content_rows(auth: SupabaseAuth, kind: str) -> list[dict[str, Any]]:
             raise AttributeError(f"storage adapter has no callable {kind} reader")
         return list(method(fresh=True))
     except (AuthUnavailable, AttributeError, TypeError) as exc:
-        raise TeacherOperationError(f"התוכן אינו זמין: {exc}") from exc
+        raise TeacherOperationError(f"התוכן אינו זמין: {exc}", code="content_unavailable", category="upstream") from exc
 
 
 def public_content(auth: SupabaseAuth, actor: dict[str, Any]) -> dict[str, Any]:
@@ -328,7 +346,7 @@ def prepare_content(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *
                     normalize_url=None, allowed_lessons: set[str] | None = None,
                     allowed_levels: set[str] | None = None, allowed_voices: set[str] | None = None,
                     lesson_topic_counts: dict[str, int] | None = None) -> dict[str, Any]:
-    if operation not in CONTENT_OPERATIONS: raise TeacherOperationError("פעולת התוכן אינה מורשית")
+    if operation not in CONTENT_OPERATIONS: raise TeacherOperationError("פעולת התוכן אינה מורשית", code="content_operation_not_allowed", category="authorization")
     _ensure_admin(actor)
     kind = ("lesson_content" if operation == "reorder_lesson_content" else
             "daily_video" if "daily_video" in operation else
@@ -337,11 +355,11 @@ def prepare_content(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *
             if kind == "lesson_content" else _content_rows(auth, kind))
     state = catalog_fingerprint(rows)
     current = next((row for row in rows if row.get("id") == item_id), None) if item_id else None
-    if operation.startswith(("update_", "delete_")) and current is None: raise TeacherOperationError("פריט התוכן לא נמצא")
+    if operation.startswith(("update_", "delete_")) and current is None: raise TeacherOperationError("פריט התוכן לא נמצא", code="content_item_not_found", category="not_found")
     if kind.endswith("video") and not operation.startswith("delete_"):
         clean_title = library.normalize_title(title or (current or {}).get("title"))
         clean_url = (normalize_url(url) if url and normalize_url else str(url or (current or {}).get("url") or ""))
-        if not clean_url: raise TeacherOperationError("צריך קישור לסרטון")
+        if not clean_url: raise TeacherOperationError("צריך קישור לסרטון", code="video_url_missing")
         item = {**(current or {}), "title": clean_title, "url": clean_url}
         if kind == "daily_video": item["level"] = level or item.get("level") or ""
         else: item.update(lesson=lesson or item.get("lesson") or "", pos=int(pos), ord=int(ord))
@@ -350,7 +368,7 @@ def prepare_content(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *
         clean_lines = deepcopy(lines if lines is not None else (current or {}).get("lines") or [])
         if not clean_lines or len(clean_lines) > 200 or not all(isinstance(pair, list) and len(pair) == 2 and
                 all(isinstance(value, str) and value.strip() for value in pair) for pair in clean_lines):
-            raise TeacherOperationError("שורות הטקסט אינן תקינות או אינן תואמות")
+            raise TeacherOperationError("שורות הטקסט אינן תקינות או אינן תואמות", code="text_lines_invalid")
         item = {**(current or {}), "title": clean_title, "lesson": lesson or (current or {}).get("lesson") or "",
                 "lines": [[value.strip() for value in pair] for pair in clean_lines],
                 "voices": list(voices if voices is not None else (current or {}).get("voices") or []),
@@ -363,19 +381,19 @@ def prepare_content(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *
         if not proposed or any((str(row.get("kind")), row.get("id")) not in allowed or
                                not isinstance(row.get("pos"), int) or not isinstance(row.get("ord"), int)
                                for row in proposed):
-            raise TeacherOperationError("סדר תוכן השיעור אינו תקין")
+            raise TeacherOperationError("סדר תוכן השיעור אינו תקין", code="lesson_order_invalid")
     if item and kind == "daily_video" and allowed_levels is not None and item.get("level") not in allowed_levels:
-        raise TeacherOperationError("שלב הסרטון היומי אינו תקין")
+        raise TeacherOperationError("שלב הסרטון היומי אינו תקין", code="daily_video_level_invalid")
     if item and kind in {"lesson_video", "lesson_text"} and allowed_lessons is not None and item.get("lesson") not in allowed_lessons:
-        raise TeacherOperationError("התוכן משויך לשיעור שאינו זמין")
+        raise TeacherOperationError("התוכן משויך לשיעור שאינו זמין", code="content_lesson_unavailable")
     if item and kind == "lesson_text" and allowed_voices is not None:
         item_voices = item.get("voices") or []
         if item_voices and (len(item_voices) != 2 or not set(item_voices) <= allowed_voices):
-            raise TeacherOperationError("לשיחה בוחרים שני קולות מהרשימה")
+            raise TeacherOperationError("לשיחה בוחרים שני קולות מהרשימה", code="dialogue_voices_invalid")
     if item and kind in {"lesson_video", "lesson_text"}:
         maximum = (lesson_topic_counts or {}).get(item.get("lesson"))
         if item.get("pos", 0) < 0 or (maximum is not None and item.get("pos", 0) > maximum):
-            raise TeacherOperationError("מיקום התוכן בשיעור אינו תקין")
+            raise TeacherOperationError("מיקום התוכן בשיעור אינו תקין", code="lesson_position_invalid")
     destructive = operation.startswith("delete_")
     preview = {"destructive": destructive, "operation": operation, "target": {key: item.get(key) for key in
                ("id", "title", "lesson", "level", "pos", "ord", "rule_read_words") if item and key in item}}
@@ -390,7 +408,7 @@ def apply_content(auth: SupabaseAuth, actor: dict[str, Any], plan: dict[str, Any
     current_rows = (_content_rows(auth, "lesson_video") + _content_rows(auth, "lesson_text")
                     if kind == "lesson_content" else _content_rows(auth, kind))
     if catalog_fingerprint(current_rows) != plan["state"]:
-        raise TeacherOperationError("קטלוג התוכן השתנה; הכינו את הפעולה מחדש")
+        raise TeacherOperationError("קטלוג התוכן השתנה; הכינו את הפעולה מחדש", code="content_changed_since_prepare", category="conflict")
     item = plan.get("item") or {}
     try:
         if kind == "daily_video":
@@ -406,17 +424,17 @@ def apply_content(auth: SupabaseAuth, actor: dict[str, Any], plan: dict[str, Any
             if operation == "create_lesson_video": auth.add_video(item["lesson"], item["title"], item["url"], item["pos"], item["ord"])
             elif operation == "delete_lesson_video": auth.delete_video(plan["item_id"])
             elif operation == "update_lesson_video":
-                if not hasattr(auth, "update_video"): raise TeacherOperationError("עדכון סרטון קיים אינו נתמך באחסון")
+                if not hasattr(auth, "update_video"): raise TeacherOperationError("עדכון סרטון קיים אינו נתמך באחסון", code="video_update_unsupported", category="upstream")
                 auth.update_video(plan["item_id"], item)
         elif kind == "lesson_text":
             if operation == "create_lesson_text": auth.add_text(item["lesson"], item["title"], item["voices"], item["lines"], item["pos"], item["ord"])
             elif operation == "delete_lesson_text": auth.delete_text(plan["item_id"])
             elif operation == "update_lesson_text":
-                if not hasattr(auth, "update_text"): raise TeacherOperationError("עדכון טקסט קיים אינו נתמך באחסון")
+                if not hasattr(auth, "update_text"): raise TeacherOperationError("עדכון טקסט קיים אינו נתמך באחסון", code="text_update_unsupported", category="upstream")
                 auth.update_text(plan["item_id"], item)
         if operation == "reorder_lesson_content":
             auth.place([(str(row["kind"]), int(row["id"]), int(row["pos"]), int(row["ord"]))
                         for row in plan.get("ordered_items") or []])
     except (AuthUnavailable, KeyError, AttributeError) as exc:
-        raise TeacherOperationError(f"שמירת התוכן נכשלה: {exc}") from exc
+        raise TeacherOperationError(f"שמירת התוכן נכשלה: {exc}", code="content_save_failed", category="upstream") from exc
     return {"operation": operation, "item_id": plan.get("item_id"), "title": item.get("title"), "published": True}

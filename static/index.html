@@ -8917,7 +8917,8 @@ $("labBtn").onclick=()=>{ enter(); showLab(); };
 $("startBtn").focus({preventScroll:true});
 /* With sign-in configured, the start button waits behind the Google button and, under it, the email one: Supabase
    sends the address a link that opens the page signed in (no password). A teacher gets two buttons in the start
-   button's place: practice, as a student does, or the management panel. */
+   button's place: practice, as a student does, or the management panel. A signed-in account with only practice skips
+   the button and goes straight to the home. */
 if(!AUTH_URL){
   untilWheelStops(); $("startBtn").hidden=true; $("roles").hidden=false; $("manageBtn").hidden=$("labBtn").hidden=true; $("nav").querySelector('[data-view="library"]').hidden=false;
   loadTutor();   // an open service: the tutor game, when the server has its key
@@ -8981,8 +8982,13 @@ if(AUTH_URL){
         if(MY_CLASSES.length===1) MY_CLASS=mine[0];
         else{ const last=MY_CLASSES.find(c=>c.name===store.get("ihki.class","")); if(last) useClass(last); }   // the class practised in last
         const management=can("management.access"), laboratory=can("lab.access"), library=can("library.view"), practice=can("practice.use")||can("path.use")||can("games.use")||can("tutor.use");
-        untilWheelStops(); start.hidden=!ok||management||laboratory; roles.hidden=!management&&!laboratory; $("practiceBtn").hidden=!practice; $("nav").querySelector('[data-view="library"]').hidden=!library; $("manageBtn").hidden=$("toManage").hidden=!management; $("labBtn").hidden=!laboratory; $("mLab").hidden=!laboratory; denied.hidden=ok;
-        if(ok){ $("nav").querySelector('[data-view="live"]').hidden=!LIVE_TAB_ENABLED; loadLive(true); [...roles.querySelectorAll("button:not([hidden])"),start].find(x=>!x.hidden)?.focus({preventScroll:true}); loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); if(document.body.dataset.view==="home") drawNav(); }); loadContent(); loadWriting(); loadTutor(); }
+        const straight=ok&&!management&&!laboratory;   // practice is the only way in: no start button, straight to the home
+        untilWheelStops(); start.hidden=!ok||management||laboratory||straight; roles.hidden=!management&&!laboratory; $("practiceBtn").hidden=!practice; $("nav").querySelector('[data-view="library"]').hidden=!library; $("manageBtn").hidden=$("toManage").hidden=!management; $("labBtn").hidden=!laboratory; $("mLab").hidden=!laboratory; denied.hidden=ok;
+        if(ok){ $("nav").querySelector('[data-view="live"]').hidden=!LIVE_TAB_ENABLED; loadLive(true); [...roles.querySelectorAll("button:not([hidden])"),start].find(x=>!x.hidden)?.focus({preventScroll:true});
+          const progress=loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); if(document.body.dataset.view==="home") drawNav(); });
+          // the home opens once the progress is in (or after 5s, so a slow server does not leave the logo up); click() runs math.js's start too
+          if(straight) Promise.race([progress.catch(()=>{}),new Promise(r=>setTimeout(r,5000))]).then(()=>{ if(!ENTERED) start.click(); });
+          loadContent(); loadWriting(); loadTutor(); }
       }catch(e){ untilWheelStops(); start.hidden=false; throw e; } },0);   // a failure here still lets the student in, and shows under the logo
     });
   }
