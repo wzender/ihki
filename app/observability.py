@@ -16,6 +16,21 @@ _lock = threading.Lock()
 _provider_configured = False
 
 
+def current_traceparent() -> str:
+    """Return the active span as a W3C traceparent, or nothing outside a valid span."""
+    try:
+        from opentelemetry import trace
+
+        context = trace.get_current_span().get_span_context()
+        if context.is_valid:
+            flags = int(context.trace_flags) & 0xFF
+            return f"00-{context.trace_id:032x}-{context.span_id:016x}-{flags:02x}"
+    except Exception:
+        # A response must not fail because optional tracing is unavailable.
+        pass
+    return ""
+
+
 def rum_snippet(token: str, environment: str, release: str, identify_users: bool) -> str:
     """Return the public Better Stack browser loader, or nothing when disabled."""
     token = token.strip()

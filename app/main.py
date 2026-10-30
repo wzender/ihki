@@ -78,7 +78,7 @@ from .class_management import (ClassManagementError, normalize_class_name, parse
                                visible_classes)
 from .error_telemetry import record_failure
 from . import log_errors
-from .observability import TraceContextFilter, configure_tracing, rum_snippet
+from .observability import TraceContextFilter, configure_tracing, current_traceparent, rum_snippet
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 load_dotenv(STATIC.parent / ".env")
@@ -728,7 +728,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         marks["__BETTER_STACK_RUM__"] = rum
         for mark, value in marks.items():
             html = html.replace(mark, value)
-        return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+        headers = {"Cache-Control": "no-cache"}
+        if traceparent := current_traceparent():
+            # Better Stack's JS tag reads this entry from the navigation PerformanceResourceTiming object and
+            # continues the backend request trace for the browser's pageload span.
+            headers["Server-Timing"] = f'traceparent;desc="{traceparent}"'
+        return HTMLResponse(html, headers=headers)
 
     # the subject "/" opens: Arabic, or on a Space of its own another one (HOME_SUBJECT=math on mathly); each also has its own path
     home = os.environ.get("HOME_SUBJECT", "").strip() or "arabic"

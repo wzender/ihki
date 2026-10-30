@@ -1,6 +1,6 @@
 import logging
 
-from app.observability import TraceContextFilter, configure_tracing, rum_snippet
+from app.observability import TraceContextFilter, configure_tracing, current_traceparent, rum_snippet
 
 
 def test_rum_is_absent_without_public_application_token():
@@ -28,3 +28,29 @@ def test_tracing_is_disabled_without_credentials(monkeypatch):
 
 def test_log_filter_is_safe_outside_a_span():
     assert TraceContextFilter().filter(logging.LogRecord("test", logging.INFO, __file__, 1, "ok", (), None))
+
+
+def test_current_traceparent_formats_active_span(monkeypatch):
+    class Context:
+        is_valid = True
+        trace_id = 0x0AF7651916CD43DD8448EB211C80319C
+        span_id = 0xB7AD6B7169203331
+        trace_flags = 1
+
+    class Span:
+        @staticmethod
+        def get_span_context():
+            return Context()
+
+    monkeypatch.setattr("opentelemetry.trace.get_current_span", lambda: Span())
+    assert current_traceparent() == "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"
+
+
+def test_current_traceparent_is_empty_without_valid_span(monkeypatch):
+    class Span:
+        @staticmethod
+        def get_span_context():
+            return type("Context", (), {"is_valid": False})()
+
+    monkeypatch.setattr("opentelemetry.trace.get_current_span", lambda: Span())
+    assert current_traceparent() == ""
