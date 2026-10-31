@@ -8978,7 +8978,7 @@ if(!AUTH_URL){
   loadTutor();   // an open service: the tutor game, when the server has its key
 }
 if(AUTH_URL){
-  const start=$("startBtn"), login=$("loginBtn"), logout=$("logoutBtn"), roles=$("roles"), mail=$("mailForm");
+  const start=$("startBtn"), login=$("loginBtn"), logout=$("logoutBtn"), roles=$("roles"), mail=$("mailForm"), tagline=$("tagline");
   start.hidden=true; login.hidden=false;
   if(!sb){ login.disabled=true; login.textContent="הכניסה לא זמינה כרגע"; }
   else{
@@ -9009,7 +9009,7 @@ if(AUTH_URL){
     $("classExit").onclick=$("pickExit").onclick=()=>logout.click();   // the same exit, from the class pill's dialogs
     sb.auth.onAuthStateChange((_e,session)=>{
       rumUser(session?.user||null);
-      login.hidden=mail.hidden=$("tagline").hidden=!!session; logout.hidden=$("classExit").hidden=$("pickExit").hidden=!session;
+      login.hidden=mail.hidden=tagline.hidden=!!session; logout.hidden=$("classExit").hidden=$("pickExit").hidden=!session;
       logout.title=session?session.user.email||"":"";
       if(!session){ asked=""; $("logo-splash")?.classList.remove("skip"); start.hidden=roles.hidden=true; denied.hidden=true; login.focus({preventScroll:true}); return; }
       if(asked===session.user.id) return;

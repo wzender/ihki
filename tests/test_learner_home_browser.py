@@ -45,9 +45,10 @@ class PageAuth(AppAuth):
 def fake_supabase(email):
     session = {"access_token": email.split("@")[0], "user": {"id": f"id-{email}", "email": email}}
     return f"""<script>
+window.__testSession={json.dumps(session)};
 window.supabase={{createClient:()=>({{auth:{{
   getSession:async()=>({{data:{{session:{json.dumps(session)}}}}}),
-  onAuthStateChange:cb=>{{ setTimeout(()=>cb("SIGNED_IN",{json.dumps(session)}),0); return {{data:{{subscription:{{unsubscribe(){{}}}}}}}}; }},
+  onAuthStateChange:cb=>{{ window.__authCallback=cb; setTimeout(()=>cb("SIGNED_IN",window.__testSession),0); return {{data:{{subscription:{{unsubscribe(){{}}}}}}}}; }},
   signOut:async()=>({{}}), signInWithOAuth:async()=>({{}}), signInWithOtp:async()=>({{}})}}}})}};
 </script>"""
 
@@ -184,6 +185,22 @@ def test_first_visit_asks_the_lesson_then_shows_the_home_without_a_reminder_prom
     assert json.loads(r["local"]) == {"lesson": "5", "synced": True}
     assert site.auth.rows[("dana@x.com", 7)]["current_lesson"] == "5"
     assert r["pushPrompt"] is False
+
+
+AUTH_REFRESH_AFTER_ENTRY = """
+await until(()=>ENTERED);
+await until(()=>!document.getElementById("logo-splash"));
+let authError=""; addEventListener("error",event=>{authError=String(event.error||event.message)});
+window.__authCallback("TOKEN_REFRESHED",window.__testSession);
+await sleep(100);
+out.authError=authError;
+out.stillEntered=ENTERED;
+"""
+
+
+def test_token_refresh_after_splash_is_removed_does_not_touch_missing_elements(site):
+    result = site("dana@x.com", AUTH_REFRESH_AFTER_ENTRY)
+    assert result["authError"] == "" and result["stillEntered"] is True
 
 
 RETURN_VISIT = """
