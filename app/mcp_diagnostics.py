@@ -61,6 +61,9 @@ from .auth import AuthUnavailable
 log = logging.getLogger("ihki.mcp")
 
 SLOW_MS = 5_000          # a request slower than this is logged as a warning: it blocks the event loop
+# Methods that hold the connection open by design (the client waits for notifications), so
+# their duration is how long the client stayed connected, not server slowness.
+LONG_LIVED_METHODS = frozenset({"subscriptions/listen"})
 PARSE_LIMIT = 64 * 1024  # bytes of request/response body kept for reading the method and outcome
 
 _diag: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar("ihki_mcp_diag", default=None)
@@ -449,10 +452,11 @@ class McpDiagnostics:
             "client": redact(headers.get("user-agent", "-"))[:60].replace(" ", "_"),
         }
         line = " ".join(f"{key}={value}" for key, value in fields.items())
+        slow = ms >= SLOW_MS and method not in LONG_LIVED_METHODS
         if outcome in {"server_crashed", "tool_crashed"} or status >= 500:
             log.error("mcp_request %s", line)
-        elif outcome not in {"ok"} or ms >= SLOW_MS:
-            log.warning("mcp_request %s%s", line, " slow=true" if ms >= SLOW_MS else "")
+        elif outcome not in {"ok"} or slow:
+            log.warning("mcp_request %s%s", line, " slow=true" if slow else "")
         else:
             log.info("mcp_request %s", line)
         if method == "tools/call" and outcome != "ok":
