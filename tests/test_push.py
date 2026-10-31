@@ -145,6 +145,7 @@ def test_admin_sends_to_everyone_or_to_a_class(monkeypatch, tmp_path):
         return None
     monkeypatch.setenv("VAPID_PRIVATE_KEY", pushes.new_private_key())
     monkeypatch.setattr(pushes, "loop", no_loop)
+    monkeypatch.setattr(pushes, "status_loop", no_loop)
     sent = []
     monkeypatch.setattr(pushes.Push, "send", lambda self, row, msg: sent.append((row["email"], msg["title"])) or True)
     auth = BroadcastAuth()
@@ -163,4 +164,46 @@ def test_admin_sends_to_everyone_or_to_a_class(monkeypatch, tmp_path):
         assert c.post("/api/push/broadcast", headers=teacher, json={"title": "x", "class": "אין"}).status_code == 404
         assert c.post("/api/push/broadcast", headers=teacher, json={"title": ""}).status_code == 400
         assert c.post("/api/push/broadcast", headers=student, json={"title": "x"}).status_code == 403
+        sent.clear()
+        r = c.post("/api/push/status", headers=teacher)
+        assert r.status_code == 200 and r.json()["message"]["tag"] == "status"   # the fake table ignores the email filter
+        assert sent and {t for _, t in sent} == {r.json()["message"]["title"]}
+        assert c.post("/api/push/status", headers=student).status_code == 403
     assert [e[0] for e in auth.events] == ["push", "push"]
+
+
+def test_status_payload_verdicts():
+    ok = pushes.status_payload({"components": {"database": "healthy", "text_to_speech": "not_configured"},
+                                "build": "abc123", "errors": {"model": 0}, "activity": {"attempts": 40, "active_students": 3}})
+    assert ok["title"] == "✅ ihki OK" and "abc123" in ok["body"] and "3 students, 40 attempts" in ok["body"]
+    warn = pushes.status_payload({"components": {}, "errors": {"model": 2, "database": 5, "tts": 0}})
+    assert warn["title"] == "⚠️ ihki: 7 errors yesterday" and "database 5, model 2" in warn["body"]
+    down = pushes.status_payload({"components": {"database": "unavailable"}, "errors": None})
+    assert down["title"].startswith("🔴") and "database" in down["title"] and "errors: unknown" in down["body"]
+
+
+def test_status_loop_sends_once_in_its_hour(monkeypatch):
+    import asyncio
+    from datetime import datetime
+
+    rows = [{"endpoint": "https://a", "p256dh": "k", "auth": "a", "email": "Dev@x.com"},
+            {"endpoint": "https://b", "p256dh": "k", "auth": "a", "email": "student@x.com"}]
+    p = pushes.Push(FakeAuth(rows), pushes.new_private_key())
+    sent = []
+    monkeypatch.setattr(p, "send", lambda row, msg: sent.append((row["endpoint"], msg["title"])) or True)
+    times = iter([datetime(2026, 11, 1, 7, 55), datetime(2026, 11, 1, 8, 0), datetime(2026, 11, 1, 8, 5)])
+
+    async def no_wait(_):
+        pass
+
+    monkeypatch.setattr(pushes.asyncio, "sleep", no_wait)
+
+    def now():
+        try:
+            return next(times)
+        except StopIteration:
+            raise asyncio.CancelledError
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(pushes.status_loop(p, lambda: {"dev@x.com"}, lambda: {"components": {}, "errors": {}}, now, 8))
+    assert sent == [("https://a", "✅ ihki OK")]

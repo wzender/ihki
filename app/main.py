@@ -567,10 +567,16 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         app.state.push = pushes.load_push(app.state.auth)
         reminders = (asyncio.create_task(pushes.loop(app.state.push, daily_today, lambda: datetime.now(LOCAL_TZ)))
                      if app.state.push and app.state.push.on else None)
+        status_hour = os.environ.get("STATUS_PUSH_HOUR", "8").strip().lower()
+        status = (asyncio.create_task(pushes.status_loop(
+                      app.state.push, lambda: set(getattr(app.state.auth, "developers", ()) or ()), morning_status,
+                      lambda: datetime.now(LOCAL_TZ), max(0, min(23, int(status_hour)))))
+                  if app.state.push and app.state.push.on and status_hour.isdigit() else None)
         async with app.state.mcp_server.session_manager.run():
             yield
-        if reminders:
-            reminders.cancel()
+        for task in (reminders, status):
+            if task:
+                task.cancel()
 
     app = FastAPI(title="ihki", lifespan=lifespan)
     configure_tracing(app)
@@ -705,6 +711,25 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                     if v["date"] == day:
                         found.setdefault(v["id"], v)
         return list(found.values())
+
+    def morning_status() -> dict:
+        """What the developers' morning push tells (see pushes.status_payload); each part is left out if it fails."""
+        from . import monitoring
+        actor = {"roles": ["developer"], "permissions": ["*"]}
+        yesterday = (datetime.now(LOCAL_TZ).date() - timedelta(days=1)).isoformat()
+        report: dict = {"build": build_metadata().get("version", ""), "errors": None, "activity": None,
+                        "components": monitoring.system_health(app, actor)["components"]}
+        try:
+            report["errors"] = monitoring.error_summary(app.state.auth, actor, from_date=yesterday,
+                                                        to_date=yesterday)["counts_by_category"]
+        except Exception as e:
+            log.warning("morning status: errors unknown (%s)", e)
+        try:
+            report["activity"] = monitoring.activity_timeseries(app.state.auth, actor, from_date=yesterday,
+                                                                to_date=yesterday)["summary"]
+        except Exception as e:
+            log.warning("morning status: activity unknown (%s)", e)
+        return report
 
     def phrase_of(phrase_id: int) -> dict:
         """A phrase of the bank, or a line of a teacher's text; 404 for any other id."""
@@ -2423,6 +2448,17 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         message = pushes.payload(videos) if videos else {**pushes.payload([{"title": "ככה תיראה התזכורת לסרטון היומי"}]),
                                                        "title": "🔔 התזכורות פועלות"}
         return {"devices": len(rows), "sent": sum(p.send(r, message) for r in rows)}
+
+    @app.post("/api/push/status")
+    def push_status_now(_a: SupabaseAuth = Depends(require("*")), user: dict | None = Depends(signed_in)):
+        """Sends the developers' morning status to the caller's devices now (it goes by itself at STATUS_PUSH_HOUR)."""
+        p = push_on()
+        try:
+            rows = p.mine(user["email"])
+        except AuthUnavailable as e:
+            raise HTTPException(503, str(e))
+        message = pushes.status_payload(morning_status())
+        return {"devices": len(rows), "sent": p.send_many(rows, message), "message": message}
 
     def push_audience(a: SupabaseAuth, actor: dict | None, rows: list[dict]) -> tuple[dict[str, list[dict]], list[dict]]:
         """An admin's reach: the subscriptions of each class they manage (its students and teachers), and those of

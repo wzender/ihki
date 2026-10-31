@@ -12,6 +12,10 @@ Env:  VAPID_PRIVATE_KEY  (the server's push key; make one with  python -m app.pu
                           Changing it drops every subscription: each device has to turn the reminders on again.)
       VAPID_SUBJECT      (a contact the push services may write to, "mailto:..."; default: the first developer's email)
       PUSH_HOUR          (the hour of the reminder in Jerusalem, 0-23; default 8)
+      STATUS_PUSH_HOUR   (the hour of the developers' morning status in Jerusalem, 0-23; default 8; "off" turns it off)
+
+The developers' morning status (status_payload, status_loop) goes to the devices of DEVELOPER_EMAILS: is everything up,
+how many errors the server saw yesterday, and yesterday's activity.
 """
 from __future__ import annotations
 
@@ -190,6 +194,57 @@ async def loop(push: Push, today_of: Callable[[str, bool], list[dict]], now: Cal
             log.warning("daily video reminders not sent: %s", e)
         except Exception:
             log.exception("daily video reminders failed")
+        await asyncio.sleep(CHECK_EVERY)
+
+
+def status_payload(report: dict) -> dict:
+    """The developers' morning status: one verdict line, then the numbers.
+    `report`: {"components": {name: state}, "build": str, "errors": {category: n} | None,
+               "activity": {"attempts", "active_students"} | None}."""
+    broken = [k for k, v in (report.get("components") or {}).items() if v not in ("healthy", "not_configured")]
+    errors = report.get("errors")
+    total = sum(errors.values()) if errors is not None else None
+    if broken:
+        title = "🔴 ihki: " + ", ".join(broken) + " down"
+    elif total:
+        title = f"⚠️ ihki: {total} errors yesterday"
+    else:
+        title = "✅ ihki OK"
+    lines = [f"build {report.get('build') or '?'}"]
+    if errors is None:
+        lines.append("errors: unknown")
+    elif total:
+        top = sorted(((n, k) for k, n in errors.items() if n), reverse=True)[:3]
+        lines.append("errors: " + ", ".join(f"{k} {n}" for n, k in top))
+    else:
+        lines.append("no errors yesterday")
+    act = report.get("activity")
+    if act is not None:
+        lines.append(f"yesterday: {act.get('active_students', 0)} students, {act.get('attempts', 0)} attempts")
+    return {"title": title[:MAX_TITLE], "body": "\n".join(lines)[:MAX_BODY], "url": "/",
+            "tag": "status"}
+
+
+async def status_loop(push: Push, recipients: Callable[[], set[str]], report: Callable[[], dict],
+                      now: Callable[[], datetime], hour: int) -> None:
+    """Once a day, in the hour from `hour`:00 in Jerusalem, sends the status to the devices of `recipients()`.
+    Kept in memory only, so a restart during that hour may send it a second time."""
+    sent_on = None
+    while True:
+        try:
+            t = now()
+            day = t.date()
+            if t.hour == hour and sent_on != day:
+                emails = {e.lower() for e in recipients()}
+                rows = [r for r in await asyncio.to_thread(push.every) if r.get("email", "").lower() in emails]
+                msg = status_payload(await asyncio.to_thread(report))
+                n = await asyncio.to_thread(push.send_many, rows, msg)
+                sent_on = day
+                log.info("morning status sent to %d of %d devices: %s", n, len(rows), msg["title"])
+        except AuthUnavailable as e:
+            log.warning("morning status not sent: %s", e)
+        except Exception:
+            log.exception("morning status failed")
         await asyncio.sleep(CHECK_EVERY)
 
 
