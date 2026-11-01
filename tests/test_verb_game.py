@@ -194,8 +194,11 @@ def test_falling_letters_starts_with_he_past_and_adds_future_or_present_prefix(g
     q = game.falling_letters(["1"])
     verb = STAGE_A_VERBS[q["verb"]["id"]]
     assert {v["id"] for v in q["verbs"]} == {"يسأل", "يقعد"}
+    assert {v["gizra"] for v in q["verbs"]} == {"גזרת פַעַל"}   # each verb with its class, to group the list by
     assert q["base"]["label"] == "הוא · עבר"
     assert q["base"]["arabic"] == verb["past"][3]["ar"]
+    assert q["base_future"] == {"label": "הוא · עתיד", "arabic": verb["future"][3]["ar"],
+                                "transliteration": verb["future"][3]["tr"]}   # the past always with its future
     assert len(q["forms"]) == len(PRONOUNS)
     for i, form in enumerate(q["forms"]):
         assert form["pronoun"]["id"] == PRONOUNS[i][0]
@@ -210,6 +213,15 @@ def test_falling_letters_starts_with_he_past_and_adds_future_or_present_prefix(g
     assert chosen["verb"]["id"] == "يقعد"
     with pytest.raises(LookupError):
         game.falling_letters(["1"], verb_id="يشرب")
+
+
+def test_falling_letters_speech_is_the_he_past_then_the_future(game):
+    verb = STAGE_A_VERBS["يقعد"]
+    ar, ipa = game.falling_speech(["1"], "يقعد")
+    assert ar == f'{verb["past"][3]["ar"]} {verb["future"][3]["ar"]}'
+    assert ipa == f'{verb["past"][3]["ipas"][0]} | {verb["future"][3]["ipas"][0]}'
+    with pytest.raises(LookupError):
+        game.falling_speech(["1"], "يشرب")   # not unlocked yet
 
 
 def test_build_question_grades_past_and_future_together(game):

@@ -766,9 +766,11 @@ def system_error_reports(auth: Any, actor: dict[str, Any], *, from_date: object,
         item["rank"] = index
 
     attempt_ids = {item["attempt_id"] for item in filtered_attempts if item.get("attempt_id")}
-    missing_attempt_ids = len(filtered_attempts) - len(attempt_ids)
+    missing_attempt_ids = sum(1 for item in filtered_attempts if not item.get("attempt_id"))
     linked_reports = [item for item in filtered_flags if item.get("attempt_id") in attempt_ids]
     unlinked_reports = len(filtered_flags) - len(linked_reports)
+    reports_without_id = sum(1 for item in filtered_flags if not item.get("attempt_id"))
+    identified = [item["stamp"] for item in filtered_attempts if item.get("attempt_id")]
     reported_failures = {item["attempt_id"] for item in linked_reports}
     exact_linkage = unlinked_reports == 0 and missing_attempt_ids == 0 and report_type is None and review_status is None
     unavailable_reason = ("filtered_report_scope" if report_type is not None or review_status is not None else
@@ -781,6 +783,18 @@ def system_error_reports(auth: Any, actor: dict[str, Any], *, from_date: object,
         "denominator_attempts": len(filtered_attempts),
         "linked_reports": len(linked_reports), "unlinked_reports": unlinked_reports,
         "attempts_without_attempt_id": missing_attempt_ids,
+        # what the index is missing, so a caller can say why it is unavailable instead of estimating it
+        "coverage": {
+            "attempts_with_attempt_id": len(filtered_attempts) - missing_attempt_ids,
+            "attempts_without_attempt_id": missing_attempt_ids,
+            "attempt_id_coverage_percent": round((len(filtered_attempts) - missing_attempt_ids) * 100
+                                                 / len(filtered_attempts), 1) if filtered_attempts else None,
+            "first_identified_attempt_date": min(identified).date().isoformat() if identified else None,
+            "reports_without_attempt_id": reports_without_id,
+            "reports_with_attempt_not_in_scope": unlinked_reports - reports_without_id,
+            "note": ("Attempts saved before attempt_id existed, and reports filed before linkage, cannot be "
+                     "matched to each other; no reliability percentage is estimated from partial coverage."),
+        },
         "reason": None if exact_linkage else unavailable_reason,
         "interpretation": "Report-based reliability; every uniquely linked flagged attempt counts as one reported failure.",
     }

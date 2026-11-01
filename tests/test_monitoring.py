@@ -643,7 +643,31 @@ def test_system_error_reports_rates_reviews_duplicates_and_scope_are_honest():
     assert data["breakdowns"]["class_counts_are_additive"] is False
     assert data["reliability_index"]["status"] == "unavailable"
     assert data["reliability_index"]["reason"] == "attempts_without_attempt_id"
+    assert data["reliability_index"]["value_percent"] is None
+    coverage = data["reliability_index"]["coverage"]
+    assert coverage["attempts_without_attempt_id"] == 30 and coverage["attempt_id_coverage_percent"] == 0.0
+    assert coverage["reports_without_attempt_id"] == 15 and coverage["first_identified_attempt_date"] is None
     assert not any(secret in str(data) for secret in ("example.com", "u1", "outside"))
+
+
+def test_system_error_reports_partial_linkage_reports_coverage_not_a_percentage():
+    # the week of 2026-10-26: attempts before the attempt_id deploy have none, later ones do; one report predates it
+    auth = ReportAuth()
+    emails = ["one@example.com", "two@example.com", "three@example.com", "four@example.com"]
+    auth.attempt_rows = [attempt(i, f"u{((i - 1) % 4) + 1}", "x", 70, i,
+                                 **({"attempt_id": f"attempt-{i}"} if i > 4 else {})) for i in range(1, 13)]
+    auth.flag_rows = [{**report_flag(i, emails[(i - 1) % 4]), **({"attempt_id": f"attempt-{i + 4}"} if i > 1 else {})}
+                      for i in range(1, 6)]
+    data = system_error_reports(auth, ACTOR, from_date="2026-10-25", to_date="2026-10-26",
+                                min_attempts=5, today=date(2026, 10, 26))
+    index = data["reliability_index"]
+    assert index["status"] == "unavailable" and index["value_percent"] is None
+    assert index["reported_failure_attempts"] is None
+    assert index["coverage"]["attempts_without_attempt_id"] == 4
+    assert index["coverage"]["attempt_id_coverage_percent"] == round(8 * 100 / 12, 1)
+    assert index["coverage"]["reports_without_attempt_id"] == 1
+    assert index["coverage"]["reports_with_attempt_not_in_scope"] == 0
+    assert data["totals"]["flagged_attempt_rate"] is None
 
 
 def test_system_error_reports_suppression_no_data_filters_and_permissions():

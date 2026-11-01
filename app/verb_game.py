@@ -16,7 +16,7 @@ from typing import Any
 from .conjugation import (FUTURE_PREFIX, FUTURE_SUFFIX, FUTURE_SUFFIX_TILES, PAST_SUFFIX, PAST_SUFFIX_TILES,
                           PAST_SUFFIX_TR, PREFIX_TILES, STAGE_A_VERBS, compose, lead, plain)
 from .grammar import PRONOUNS, VERBS
-from .workbook import LEX, _present_of
+from .workbook import LEX, _present_of, _verb_hint
 
 
 VERB_META = {
@@ -158,6 +158,15 @@ def _distance(a: str, b: str) -> int:
     return row[-1]
 
 
+def gizra_of(verb_id: str) -> str:
+    """The verb's weak/stem class as the workbook names it ("גזרת ע״ו"), for grouping the verbs; "" when unknown."""
+    verb = STAGE_A_VERBS[verb_id]
+    try:
+        return _verb_hint(verb["lesson"], verb["past"][3]["ar"])[1]
+    except KeyError:   # a lesson the workbook gives no class for
+        return ""
+
+
 @dataclass
 class StoredQuestion:
     mode: int
@@ -251,13 +260,23 @@ class VerbExerciseGenerator:
                            "parts": future["tr_parts"]},
                 "present": {"arabic": present(future["ar"], i)},
             })
-        base = verb["past"][3]
+        base, base_future = verb["past"][3], verb["future"][3]
         return {
             "verb": {"id": verb_id, "name": verb["name"], "draft": verb["draft"]},
-            "verbs": [{"id": key, "name": STAGE_A_VERBS[key]["name"]} for key in verbs],
+            "verbs": [{"id": key, "name": STAGE_A_VERBS[key]["name"], "gizra": gizra_of(key)} for key in verbs],
             "base": {"label": "הוא · עבר", "arabic": base["ar"], "transliteration": base["tr"]},
+            "base_future": {"label": "הוא · עתיד", "arabic": base_future["ar"],
+                            "transliteration": base_future["tr"]},
             "forms": forms,
         }
+
+    def falling_speech(self, lessons: list[str], verb_id: str, drafts: bool = False) -> tuple[str, str]:
+        """(Arabic, IPA) of an unlocked verb's "הוא" past and future said together, as the game plays it."""
+        if verb_id not in self.eitan_available(lessons, drafts):
+            raise LookupError("verb is not unlocked")
+        verb = STAGE_A_VERBS[verb_id]
+        past, future = verb["past"][3], verb["future"][3]
+        return f'{past["ar"]} {future["ar"]}', f'{past["ipas"][0]} | {future["ipas"][0]}'
 
     def _target(self, verbs: list[str], mastery: dict, recent: list[str], tense: str = "past",
                 kind: str = "") -> tuple[str, int]:

@@ -1,7 +1,7 @@
 """Texts the teacher adds in the panel: a story or a dialogue, practised line by line like the course's conversation.
 
 The teacher gives each line twice: in Hebrew, and in Arabic written in Hebrew letters, as the course writes it
-(pointed, geresh for the sounds Hebrew lacks, ّ for doubling: כִּיף חַאלַכּ). The scorer needs the line's phonemes
+(pointed, geresh for the sounds Hebrew lacks and דֿ for ض, ّ for doubling: כִּיף חַאלַכּ). The scorer needs the line's phonemes
 and the answer's voice needs it in Arabic letters, so each word is read here:
   a word of the course (LEX in workbook.py), found by its transliteration, gets the course's own Arabic spelling and
   accepted pronunciations. Dagesh, shva and the final letters' forms are not compared, and a word written without
@@ -18,6 +18,7 @@ from .workbook import LEX, _variants
 SHVA, DAGESH, SHADDA = "\u05b0", "\u05bc", "\u0651"
 MARKS = re.compile("[\u05b0-\u05bc\u05c1\u05c2\u05c7\u0651]")
 GERESH = "'\u05f3\u2019\u2018`\u00b4"
+RAFE = "\u05bf"   # דֿ: the course writes ض with a rafe above, the old ד' is still read
 FINALS = {"ך": "כ", "ם": "מ", "ן": "נ", "ף": "פ", "ץ": "צ"}
 VOWEL_OF = {"\u05b7": "a", "\u05b8": "a", "\u05b2": "a", "\u05b4": "i", "\u05bb": "u", "\u05b6": "e", "\u05b1": "e",
             "\u05b5": "E", "\u05b9": "o", "\u05ba": "o", "\u05b3": "o", "\u05c7": "o"}   # E: tsere, i alone and eː before י
@@ -38,7 +39,7 @@ def _clusters(word: str) -> list[Cluster]:
     for ch in re.sub(r"\([^)]*\)", "", word):
         if "א" <= ch <= "ת":
             out.append([FINALS.get(ch, ch), False, ""])
-        elif out and ch in GERESH:
+        elif out and (ch in GERESH or ch == RAFE and out[-1][0] == "ד"):
             out[-1][1] = True
         elif out and MARKS.fullmatch(ch):
             out[-1][2] += ch

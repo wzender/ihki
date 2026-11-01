@@ -2,13 +2,13 @@
 
 Used wherever Arabic is shown for a specific variant or word, so every variant gets a reading
 without hand-writing one. Follows the conventions of the hand-written `tr` hints: pointed Hebrew,
-geresh for sounds Hebrew lacks (ח' ע' ג' ד' ט'), and the Arabic shadda (ّ, the small w above
+geresh for sounds Hebrew lacks (ח' ע' ג' ט'), דֿ (rafe above) for ض, and the Arabic shadda (ّ, the small w above
 the letter) for geminates, as the course material writes it. A dagesh only marks the stops בּ כּ.
 """
 
 CONSONANTS = {
     "ʔ": "א", "b": "בּ", "t": "ת", "dʒ": "ג'", "ħ": "ח", "x": "ח'", "d": "ד", "r": "ר", "z": "ז",
-    "s": "ס", "ʃ": "ש", "sˤ": "צ", "dˤ": "ד'", "tˤ": "ט", "ðˤ": "ט'", "ʕ": "ע", "ɣ": "ע'", "f": "פ",
+    "s": "ס", "ʃ": "ש", "sˤ": "צ", "dˤ": "דֿ", "tˤ": "ט", "ðˤ": "ט'", "ʕ": "ע", "ɣ": "ע'", "f": "פ",
     "q": "ק", "k": "כּ", "g": "ג", "l": "ל", "m": "מ", "n": "נ", "h": "ה", "w": "ו", "j": "י",
     # rural realisations (pronunciation-rules.md, section 1)
     "tʃ": "צ'", "θ": "ת'", "ð": "ד״",
@@ -32,6 +32,32 @@ def _letter(base: str, marks: str) -> str:
     return base[0] + marks + base[1:] if len(base) > 1 and base[1] != "\u05bc" else base + marks
 
 
+HAMZAS = "أإءؤئآ"
+PREFIXES = ("ال", "و", "ف", "ب", "ل", "ك", "وال", "بال", "فال", "كال", "لل")
+
+
+def _qaf_as_q(phs: list[str], ar_word: str) -> list[str]:
+    """Turn into q only the ʔ that stands for a ق, not one that stands for an alef or a hamza:
+    اتقل (ʔ a t ʔ a l) is אַתְקַל, not קַתְקַל. The word's ʔ sources (ق, a hamza, or an alef that
+    starts the word after its prefixes) are matched to the IPA's ʔ in order. When they do not
+    match, every ʔ but a word-initial alef's is taken as ق."""
+    sources = []
+    for i, ch in enumerate(ar_word):
+        if ch == "ق":
+            sources.append("q")
+        elif ch in HAMZAS or (ch == "ا" and (ar_word[:i] in PREFIXES or (i == 0 and not ar_word.startswith("ال")))):
+            sources.append("ʔ")
+    slots = [k for k, ph in enumerate(phs) if ph in ("ʔ", "q")]   # where the IPA says ʔ or q
+    out = list(phs)
+    if len(sources) == len(slots):
+        for k, src in zip(slots, sources):
+            if out[k] == "ʔ":
+                out[k] = src
+        return out
+    starts_with_alef = ar_word[:1] in HAMZAS + "ا" and phs[:1] == ["ʔ"]
+    return [ph if ph != "ʔ" or (k == 0 and starts_with_alef) else "q" for k, ph in enumerate(phs)]
+
+
 def word_letters(ipa_word: str, ar_word: str = "") -> list[tuple[str, list[int]]]:
     """The word letter by letter: each Hebrew letter (with its points) and the positions, in the IPA word,
     of the phonemes it stands for, so that a score per phoneme can colour the letters. The bracketed
@@ -42,7 +68,7 @@ def word_letters(ipa_word: str, ar_word: str = "") -> list[tuple[str, list[int]]
     article ال that is swallowed by the next consonant is shown in brackets: אִ(ל)דַّכְּתוֹר."""
     phs = ipa_word.split()
     if "ق" in ar_word:
-        phs = ["q" if ph == "ʔ" else ph for ph in phs]
+        phs = _qaf_as_q(phs, ar_word)
     final_a = "ה" if ar_word.endswith(("ة", "ه")) else "א"
     # written ال, said as a vowel + doubled consonant: the ل is silent
     silent_l = (ar_word.startswith("ال") and len(phs) > 2 and phs[0] in VOWELS

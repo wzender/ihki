@@ -44,7 +44,7 @@ from logtail import LogtailHandler
 
 from .arabic_diacritics import point_arabic, tts_arabic
 from . import lab
-from .auth import AuthUnavailable, ClassConflict, MAX_MONITOR_ATTEMPTS, SupabaseAuth, load_auth
+from .auth import AuthUnavailable, ClassConflict, FlagExists, MAX_MONITOR_ATTEMPTS, SupabaseAuth, load_auth
 from .keystore import (CREATE_APP_SECRETS, MAX_LEN as MAX_KEY_LEN, MIGRATE_APP_SECRETS, NAMES as KEY_NAMES, KeyRefused,
                        check as check_key, load_keys)
 from .live import LiveConflict, LiveStore
@@ -228,8 +228,14 @@ MIGRATE_ATTEMPT_IDS = ("alter table public.attempts add column if not exists att
                        "create unique index if not exists attempts_attempt_id_idx on public.attempts(attempt_id) "
                        "where attempt_id is not null; create index if not exists flags_attempt_id_idx "
                        "on public.flags(attempt_id) where attempt_id is not null;")
+# One report per attempt: a retry after a lost response returns the first report instead of storing a second one.
+MIGRATE_FLAG_UNIQUE = ("create unique index if not exists flags_attempt_id_unique on public.flags(attempt_id) "
+                       "where attempt_id is not null;")
+# A report can arrive while its attempt's row is still being written (after the score response): look again briefly.
+ATTEMPT_LOOKUP_WAITS = (0.4, 0.8, 0)
 FLAG_STATUSES = frozenset({"pending", "confirmed", "rejected", "fixed"})
 FLAG_CATEGORIES = frozenset({"recognition", "valid_variant", "alternative_answer", "noise", "other"})
+FLAG_KINDS = frozenset({"", "heard", "answer"})   # what a tutor said was wrong: "" from pages before the choice
 CREATE_CALIBRATIONS = ("create table public.calibrations (id bigint generated always as identity primary key, "
                        "expected text not null, heard text not null, floor numeric not null default 70, "
                        "scope text not null default 'global', phrase text not null default '', evidence jsonb not null default '{}', "
@@ -616,7 +622,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         try:
             user = resolve_access(a, token.strip()) if scheme.lower() == "bearer" and token.strip() else None
         except AuthUnavailable as e:
-            record_failure(a, "authentication")
+            # identity: Supabase Auth could not check the token; data: the token was fine but the account's classes or
+            # permissions could not be read. Only these fixed values are recorded and logged, never the token or message.
+            kind, stage = getattr(e, "kind", "unavailable"), getattr(e, "stage", "data")
+            record_failure(a, "authentication" if stage == "identity" else "database",
+                           timed_out=kind == "timed_out", rejected=kind == "rejected")
+            log.warning("sign-in check failed: stage=%s kind=%s", stage, kind)
             raise HTTPException(503, f"sign-in check failed: {e}")
         if user is None:
             raise HTTPException(401, "sign in required")
@@ -2802,6 +2813,23 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except LookupError as e:
             raise HTTPException(404, str(e))
 
+    @app.get("/api/verb-game/falling/tts", dependencies=[Depends(require("games.use"))])
+    def verb_falling_tts(verb: str, user: dict | None = Depends(signed_in)):
+        """The playback voice saying the verb's "הוא" past and future together, when the game moves to a verb."""
+        try:
+            ar, ipa = app.state.verb_game.falling_speech(verb_lessons(user), verb, drafts=bool(user and user["teacher"]))
+        except LookupError as e:
+            raise HTTPException(404, str(e))
+        if app.state.tts is None:
+            raise HTTPException(503, "tts not configured")
+        try:
+            data, used = app.state.tts.wav(tts_arabic(ar, ipa), RAEF_VOICE_ID)
+        except TTSUnavailable as e:
+            raise HTTPException(503, str(e))
+        return Response(data, media_type="audio/wav", headers={
+            "Cache-Control": "private, no-store", "X-TTS-Provider": "sawtakarabi.ai",
+            "X-TTS-Voice-Id": urllib.parse.quote(used), "X-TTS-Voice-Name": urllib.parse.quote(voice_name(used))})
+
     @app.post("/api/verb-game/answer", dependencies=[Depends(require("games.use"))])
     def verb_answer(tasks: BackgroundTasks, body: dict = Body(...), user: dict | None = Depends(signed_in)):
         """Grade one opaque question once and return feedback plus measured client response time."""
@@ -2911,6 +2939,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             _question, phrase = app.state.verb_game.speech_phrase(question_id)
         except LookupError as e:
             raise HTTPException(410, str(e))
+        attempt_id, existing = report_attempt(attempt_id, user, phrase)
+        if existing:
+            return existing
         data = audio.file.read(MAX_UPLOAD + 1)
         if len(data) > MAX_UPLOAD:
             raise HTTPException(413, "recording too long")
@@ -3792,13 +3823,20 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.post("/api/flags")
     def flag(phrase_id: int = Form(...), audio: UploadFile = File(...), note: str = Form(""),
-             attempt_id: str | None = Form(None),
+             attempt_id: str | None = Form(None), kind: str = Form(""),
              user: dict | None = Depends(signed_in)):
-        """A tutor's flag: this recording of the phrase was said right and the score was wrong. It is scored again in
-        memory. The structured diagnosis is kept in `flags` and the audio in its private Storage bucket."""
+        """A tutor's flag: the system was wrong about this recording of the phrase. `kind` says how: "heard" (the
+        pronunciation was not recognised right) or "answer" (the system's answer was wrong); "" for older pages. It is
+        scored again in memory. The structured diagnosis, with the kind, is kept in `flags` and the audio in its
+        private Storage bucket."""
         if not user or not user["tutor"]:
             raise HTTPException(403, "tutors only")
+        if kind not in FLAG_KINDS:
+            raise HTTPException(400, "invalid flag kind")
         phrase = phrase_of(phrase_id)
+        attempt_id, existing = report_attempt(attempt_id, user, phrase)
+        if existing:
+            return existing
         data = audio.file.read(MAX_UPLOAD + 1)
         if len(data) > MAX_UPLOAD:
             raise HTTPException(413, "recording too long")
@@ -3814,15 +3852,50 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         # The trace already contains every value used by the dashboard. The dense heatmap is only a display aid
         # for the immediate scoring screen and would make every database report unnecessarily large.
         result.pop("phoneme_heatmap", None)
+        if kind:
+            result["report_kind"] = kind   # in the stored result, so no new column is needed
         return save_flag(phrase, result, note, user, data, audio.content_type or "application/octet-stream", attempt_id)
+
+    def report_attempt(attempt_id: str | None, user: dict, phrase: dict) -> tuple[str | None, dict | None]:
+        """The attempt a report may be linked to, and the report already kept for it (a retry), before any scoring.
+
+        A link is kept only when the attempt row exists, belongs to the reporter and is on the same exercise. The page
+        gets the id with the score while the row is written after the response, so a missing row is looked up again
+        for a moment; one that never appears (its insert failed) leaves the report unlinked rather than pointing at
+        nothing. Another account's attempt, or another exercise's, is refused: the page sent the wrong id."""
+        if not attempt_id:
+            return None, None
+        try:
+            clean = str(uuid.UUID(attempt_id))
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(400, "invalid attempt_id")
+        a = app.state.auth
+        try:
+            link = None
+            for wait in ATTEMPT_LOOKUP_WAITS:
+                link = a.attempt_link(clean)
+                if link:
+                    break
+                time.sleep(wait)
+            if link is None:
+                log.warning("report stored unlinked: its attempt was never persisted")
+                return None, None
+            if str(link.get("user_id")) != str(user["id"]):
+                raise HTTPException(400, "attempt_id belongs to another account")
+            if link.get("phrase") != phrase.get("key", phrase["he"]) or link.get("cat") != phrase["cat"]:
+                raise HTTPException(400, "attempt_id belongs to another exercise")
+            existing = a.flag_for_attempt(clean)
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        if existing:
+            return clean, {"ok": True, "audio": bool(existing.get("audio")), "flag": existing, "duplicate": True}
+        return clean, None
 
     def save_flag(phrase: dict, result: dict, note: str, user: dict, audio_data: bytes, audio_mime: str,
                   attempt_id: str | None = None) -> dict:
-        """Store a reviewed-score candidate and its recording from a bank or dynamic verb-game phrase."""
-        try:
-            clean_attempt_id = str(uuid.UUID(attempt_id)) if attempt_id else None
-        except (ValueError, TypeError, AttributeError):
-            raise HTTPException(400, "invalid attempt_id")
+        """Store a reviewed-score candidate and its recording from a bank or dynamic verb-game phrase.
+        `attempt_id` was checked by report_attempt."""
+        clean_attempt_id = attempt_id
         row = {"email": user["email"].lower(), "cat": phrase["cat"], "phrase": phrase.get("key", phrase["he"]),
                "he": phrase["he"], "ar": result["variant"]["ar"], "ipa": result["variant"]["ipa"],
                "heard_ipa": result["heard_ipa"], "score": result["score"], "unrelated": bool(result["unrelated"]),
@@ -3833,6 +3906,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         name = f"{date.today():%Y-%m}/{uuid.uuid4().hex}.{ext}"
         try:
             kept = app.state.auth.add_flag(row, audio_data, mime, name)
+        except FlagExists:   # a retry that raced the first submission past report_attempt
+            existing = app.state.auth.flag_for_attempt(clean_attempt_id) if clean_attempt_id else None
+            if existing:
+                return {"ok": True, "audio": bool(existing.get("audio")), "flag": existing, "duplicate": True}
+            raise HTTPException(409, "הדיווח כבר נשמר")
         except AuthUnavailable as e:
             if "answered 404" in str(e):
                 raise HTTPException(503, "הטבלה flags לא קיימת ב-Supabase. הריצו ב-SQL Editor: "

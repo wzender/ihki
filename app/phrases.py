@@ -79,7 +79,7 @@ PHRASES = [
         ("مش مشكلة", "m i ʃ | m u ʃ k i l e"),
         ("ما في مشكلة", "m aː | f i | m u ʃ k i l e"),
     ]),
-    dict(cat="talk", he="נתראה מחר", tr="בְּנְשוּף בַּעְד' בֻּכְּרַה", variants=[
+    dict(cat="talk", he="נתראה מחר", tr="בְּנְשוּף בַּעְדֿ בֻּכְּרַה", variants=[
         ("بنشوف بعض بكرة", "b n ʃ uː f | b a ʕ dˤ | b u k r a"),
         ("منشوف بعض بكرة", "m n ʃ uː f | b a ʕ dˤ | b u k r a"),
         ("بنشوفك بكرة", "b n ʃ uː f a k | b u k r a"),

@@ -352,6 +352,39 @@ def test_another_word_with_forgivable_vowels_is_still_unrelated(phones):
     assert r["unrelated"] and r["score"] <= 30
 
 
+THOUSAND = {"variants": [("الف", "ʔ a l f"), ("الف", "ʔ a l i f")]}   # אלף (1,000)
+
+
+def test_a_vowel_before_a_short_word_is_edge_noise():
+    # report 179 (2026-10-26): الف heard as "i ʔ a l": a hesitation vowel before the word and a weak final f.
+    # Counted as two whole differences out of 3.25 the gate said "different sentence" and capped 63 at 30, hiding
+    # the one useful tip (the missing f). Rule 33 counts the edge vowel like a breath.
+    r = custom_scorer(["f"], ["i", "ʔ", "a", "l"]).score(None, THOUSAND, diagnostics=True)
+    assert r["trace"]["unrelated"]["distance"] == 1.25
+    assert not r["unrelated"] and not r["trace"]["sentence"]["capped"]
+    assert any(i["missing"] for i in r["issues"]) or r["tips"]          # the learner is told what was missing
+
+
+def test_edge_vowel_rule_can_be_switched_off():
+    s = custom_scorer(["f"], ["i", "ʔ", "a", "l"])
+    s.set_disabled({"edge_vowel"})
+    r = s.score(None, THOUSAND, diagnostics=True)
+    assert r["trace"]["unrelated"]["distance"] == 2.0          # a whole difference, as before the rule
+
+
+def test_a_vowel_inside_the_word_still_counts_in_full():
+    # only the edges are forgiven: "ʔ a l e f" with a dropped f elsewhere is not cheaper
+    r = custom_scorer(["f", "b"], ["ʔ", "a", "b", "f", "a"]).score(None, THOUSAND, diagnostics=True)
+    assert r["trace"]["unrelated"]["distance"] >= 1.25
+
+
+@pytest.mark.parametrize("phones", [["i", "ʃ", "a", "m", "s"], ["e", "d", "a", "ʃ", "u", "m", "a"]])
+def test_another_word_with_an_edge_vowel_is_still_unrelated(phones):
+    assert custom_scorer(["f", "u"], phones).score(None, THOUSAND)["unrelated"]
+    r = custom_scorer(SON_SYMS, phones).score(None, SON)
+    assert r["unrelated"] and r["score"] <= 30
+
+
 def test_confident_consonants_veto_the_unrelated_gate():
     # every vowel replaced by ʃ, the consonants clean. A strict gate calls it unrelated unless the alignment veto,
     # which sees the consonants peaking where the sentence has them, overrules it
@@ -2028,6 +2061,21 @@ def test_letters_cover_the_word_and_its_phonemes(p):
             assert [j for _, at in letters for j in at] == list(range(len(w.split())))   # each phoneme once, in order
 
 
+def test_dad_is_written_with_a_rafe():
+    # ض is דֿ (a rafe above the ד, the vowel below); the old ד' is still read, a plain ד stays د
+    from app.texts import read_line
+    import unicodedata
+
+    from app.translit import word_to_hebrew
+
+    nfc = lambda t: unicodedata.normalize("NFC", t)
+    assert nfc(word_to_hebrew("b eː dˤ a", "بيضة")) == nfc("בֵּידַֿה") and nfc(word_to_hebrew("b eː dˤ", "بيض")) == nfc("בֵּידֿ")
+    for tr in ("בֵּידַֿה", "בֵּידֿ", "בֵּיד'ַה"):
+        assert read_line(tr)[0][0][2][0].split()[2] == "dˤ"
+    assert read_line("בַּעַדֿ")[0][0][0] == read_line("בַּעַד'")[0][0][0] == "بعض"
+    assert read_line("בֵּידַה")[0][0][2][0].split()[2] == "d"
+
+
 def test_result_scores_each_letter():
     # ħ said as χ: of الحمام, the ח is the weak letter and the rest are fine
     s = scorer_for(emissions(["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m"]))
@@ -2154,7 +2202,11 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         assert row["email"] == "t@b.c" and row["cat"] == TOILET["cat"] and row["he"] == TOILET["he"] and row["note"] == "אמרתי ח נכונה"
         assert row["ipa"] == "w eː n | i l ħ a m m aː m" and "χ" in row["heard_ipa"] and row["score"] == row["result"]["score"] < 100
         assert row["result"]["tips"][0]["key"] == "ħ>x" and row["result"]["trace"]["tokens"]
-        assert "phoneme_heatmap" not in row["result"]
+        assert "phoneme_heatmap" not in row["result"] and "report_kind" not in row["result"]   # an older page: no kind
+        assert send(c, "t", kind="bogus").status_code == 400 and len(a.flags) == 1
+        assert send(c, "t", kind="heard").status_code == 200 and a.flags[-1]["result"]["report_kind"] == "heard"
+        assert send(c, "t", kind="answer").status_code == 200 and a.flags[-1]["result"]["report_kind"] == "answer"
+        del a.flags[1:]
         assert send(c, "t", phrase_id=10**6).status_code == 404
         a.teachers = frozenset({"s@b.c"})   # a teacher flags too
         assert c.get("/api/me", headers={"Authorization": "Bearer s"}).json()["tutor"] is True and send(c, "s").status_code == 200

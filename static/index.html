@@ -605,7 +605,7 @@ html.a11y-contrast{--e-a:#d8b4ff;--e-t:#8fd0ff;--e-y:#70ff9b;--e-n:#ffb45b;--e-s
 .eitan-table{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 14px}.eitan-table div{display:flex;align-items:baseline;justify-content:space-between;gap:6px;border-bottom:1px solid var(--line)}.eitan-table .tr{font:19px/1.7 var(--f-tr)}.eitan-table div.hit{background:var(--amber-bg)}
 .verb-badge{display:inline-block;padding:1px 8px;border-radius:9px;background:var(--amber-bg);color:var(--amber);font:700 12px var(--f-body);vertical-align:middle}
 /* Pronoun-driven animation: איתן falls into the future form; ב falls in before it in the present. */
-.fall-game{display:flex;flex:1;flex-direction:column;align-items:center;gap:14px;text-align:center}.fall-base small,.fall-help{color:var(--muted);font-weight:700}.fall-base .tr{display:block;font:700 clamp(34px,11vw,50px)/1.5 var(--f-tr)}.fall-base .ar,.fall-ar{font:700 25px/1.5 var(--f-ar);color:var(--muted)}
+.fall-game{display:flex;flex:1;flex-direction:column;align-items:center;gap:14px;text-align:center}.fall-base small,.fall-help{color:var(--muted);font-weight:700}.fall-base .tr{display:block;font:700 clamp(34px,11vw,50px)/1.5 var(--f-tr)}.fall-base .fall-reveal{margin:4px 0;padding:2px 14px}.fall-base .fall-reveal.revealed{cursor:default}.fall-base .fall-hint{display:block;font-weight:600}.fall-base .fall-hint:empty{display:none}.fall-base .fall-play{margin-top:4px;font-size:13px}.fall-base .ar,.fall-ar{font:700 25px/1.5 var(--f-ar);color:var(--muted)}
 .fall-search{width:100%;box-sizing:border-box;padding:9px 14px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:600 16px var(--f-body)}.fall-picker{display:flex;align-items:center;gap:8px;width:100%;font-weight:800}.fall-picker select{flex:1;min-width:0;padding:9px 12px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:700 16px var(--f-body)}
 .fall-tense{display:flex;gap:7px}.fall-tense button{min-width:100px;padding:9px;border:2px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font-weight:800}.fall-tense button.on{border-color:var(--olive);background:var(--olive);color:var(--on-olive)}
 .fall-pronouns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;width:100%}.fall-pronouns button{min-height:55px;padding:5px 3px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-weight:800}.fall-pronouns button small{display:block;color:var(--muted);font:500 12px/1.4 var(--f-tr)}.fall-pronouns button.on{border-color:var(--amber);background:var(--amber-bg)}
@@ -716,6 +716,8 @@ body.driving .mic::before{display:none} body.driving .mic-zone.two{display:flex}
 .flag-box{align-self:flex-start}
 .flag-box>.flag-link{border:0;padding:0;background:none;cursor:pointer;color:var(--muted);font:inherit;font-size:13px;text-decoration:underline;text-underline-offset:3px}
 .flag-box .sub{flex-basis:100%;margin:0}
+.flag-kinds{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.flag-kinds .btn{font-size:13px}
 .flag-facts{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:8px 0 0}
 .flag-facts dt{color:var(--muted);font-size:13px;white-space:nowrap}
 .flag-facts dd{margin:0;min-width:0;overflow-wrap:anywhere}
@@ -1778,6 +1780,10 @@ try{ if(localStorage.getItem("ihki.student")==="1"&&Object.keys(localStorage).so
       <ul class="tips" id="tips"></ul>
       <div class="flag-box" id="flagBox" hidden>
         <button class="flag-link" id="flagBtn" title="ההקלטה, הציון ומה שהמודל שמע נשמרים למורה">🚩 המערכת טעתה?</button>
+        <div class="flag-kinds" id="flagKinds" hidden>
+          <button class="btn" data-kind="heard">המערכת לא זיהתה נכון את ההגייה</button>
+          <button class="btn" data-kind="answer">התשובה של המערכת לא הייתה נכונה</button>
+        </div>
         <p class="sub" id="flagMsg" role="status"></p>
       </div>
     </section>
@@ -4902,14 +4908,20 @@ function drawPhoneTrack(data){
   const seconds=(data.duration_ms||0)/1000;
   for(const part of [0,.25,.5,.75,1]) c.fillText(seconds?`${(seconds*part).toFixed(1)}s`:Math.round(part*100)+"%",label+part*plot,height-axis/2);
 }
-/* A tutor's flag under the score: one click sends the recording back to the server, which scores it again and keeps
-   it with what it made of it (the table `flags`), for the teacher. */
-$("flagBtn").onclick=async()=>{
-  const rec=lastRec, btn=$("flagBtn"), msg=$("flagMsg");
+/* A tutor's flag under the score sends the recording back to the server, which scores it again and keeps it with what
+   it made of it (the table `flags`), for the teacher. On a path exercise the link first asks which kind of mistake it
+   was (the pronunciation was misheard, or the system's answer was wrong), and the kind is kept too; elsewhere (a daily
+   session, a game) one click sends it. */
+const FLAG_KINDS={heard:"המערכת לא זיהתה נכון את ההגייה",answer:"התשובה של המערכת לא הייתה נכונה"};
+const pathExercise=()=>!daily&&!!cur&&ALL_CATS.some(c=>c.id===cur.cat);
+$("flagBtn").onclick=()=>{ if(pathExercise()) $("flagKinds").hidden=!$("flagKinds").hidden; else sendFlag(""); };
+for(const b of $("flagKinds").querySelectorAll("button[data-kind]")) b.onclick=()=>sendFlag(b.dataset.kind);
+async function sendFlag(kind){
+  const rec=lastRec, btn=$("flagBtn"), kinds=$("flagKinds"), msg=$("flagMsg");
   if(!rec) return;
-  btn.disabled=true; msg.textContent="שומר…";
+  btn.disabled=true; kinds.hidden=true; msg.textContent="שומר…";
   try{
-    const fd=new FormData(); fd.append("phrase_id",rec.id); fd.append("audio",rec.blob,"rec");
+    const fd=new FormData(); fd.append("phrase_id",rec.id); fd.append("audio",rec.blob,"rec"); if(kind) fd.append("kind",kind);
     if(rec.attempt_id) fd.append("attempt_id",rec.attempt_id);
     const res=await api("/api/flags",{method:"POST",body:fd});
     if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error(e.detail||res.status); }
@@ -4917,7 +4929,7 @@ $("flagBtn").onclick=async()=>{
     msg.textContent=out.audio?"האבחון וקובץ הקול נשמרו למורה.":"האבחון נשמר, אך קובץ הקול לא נשמר.";
     if(out.flag){ drawFlag(out.flag,out.audio); $("flagDlg").showModal(); }
   }catch(err){ msg.textContent="הדיווח לא נשמר: "+err.message; btn.disabled=false; }
-};
+}
 /* What a flag kept, in words: the sentence, what the model heard in its place, each word's score and the sounds it
    marked down. `f` is the row of `flags` as the server answered it. */
 function drawFlag(f,audio){
@@ -4927,6 +4939,7 @@ function drawFlag(f,audio){
   const ar=text=>{ const s=mark("ar",text); s.lang="ar"; return s; };
   const list=items=>{ const ul=document.createElement("ul"); for(const parts of items){ const li=document.createElement("li"); li.append(...parts); ul.append(li); } return ul; };
   const grade=s=>mark(band(s),Math.round(s),"b");
+  if(FLAG_KINDS[r.report_kind]) fact("סוג הדיווח",FLAG_KINDS[r.report_kind]);
   fact("המשפט",f.he);
   fact("התשובה הנכונה",tr(r.variant.tr)," · ",ar(f.ar));
   fact("המודל שמע",tr(r.heard_tr));
@@ -4966,7 +4979,7 @@ function render(r){
     lastPhone=r; $("phoneBtn").hidden=false; $("phoneBtn").disabled=false;
   }
   $("flagBox").hidden=!(TUTOR&&lastRec&&lastRec.id===cur.id);
-  $("flagBtn").disabled=false; $("flagMsg").textContent="";
+  $("flagBtn").disabled=false; $("flagKinds").hidden=true; $("flagMsg").textContent="";
   $("status").textContent=r.score<30?"רוצים לנסות שוב? לחצו על המיקרופון":"לחצו כדי לנסות שוב";
   $("nextBtn").classList.add("primary");
   $("score").textContent=r.score;
@@ -4985,8 +4998,12 @@ function render(r){
   $("whyHint").hidden=!hasWhy(r); $("whyHint").textContent=WHY_HINT;
   const tips=$("tips"); tips.innerHTML="";
   if(r.unrelated){
-    const li=document.createElement("li");
-    li.innerHTML='<span class="what">ההקלטה לא דומה למשפט הצפוי</span><span>ייתכן שבחרתם ניסוח אחר. גלו את מילות התשובה ונסו את הנוסח המוצע.</span>';
+    /* a one- or two-word answer is rarely "another phrasing": it is usually a sound before it, or its end cut off */
+    const li=document.createElement("li"), short=((r.variant||{}).tr||"").trim().split(/\s+/).length<=2;
+    li.innerHTML=short
+      ?'<span class="what">לא זיהינו את התשובה</span><span>הקשיבו לתשובה ואמרו רק אותה: בלי „אֶה” לפניה, ועד ההגה האחרון בסופה.</span>'
+      :'<span class="what">ההקלטה לא דומה למשפט הצפוי</span><span>ייתכן שבחרתם ניסוח אחר. גלו את מילות התשובה ונסו את הנוסח המוצע.</span>';
+    if(r.heard_tr){ const heard=document.createElement("span"); heard.append("המערכת שמעה: "); const h=document.createElement("span"); setTr(h,r.heard_tr); heard.append(h); li.append(heard); }
     tips.appendChild(li);
   }
   for(const t of r.tips){
@@ -5740,7 +5757,7 @@ const ACCESS_COLUMNS=[
 /* The "מודלים" tab: the phoneme models this server can score with (app/models.py), what each was measured to do
    on the Minerva test lines, and a switch (developers only) that loads another one beside the running one. */
 let MODELS=null, modelsError="", modelsPoll=0;
-const MODEL_SOUNDS=[["ħ","ח (ح)"],["ʕ","ע (ع)"],["tˤ","ט (ط)"],["sˤ","צ (ص)"],["dˤ","ד׳ (ض)"],["long_vowels","תנועות ארוכות"]];
+const MODEL_SOUNDS=[["ħ","ח (ح)"],["ʕ","ע (ع)"],["tˤ","ט (ط)"],["sˤ","צ (ص)"],["dˤ","דֿ (ض)"],["long_vowels","תנועות ארוכות"]];
 async function loadModels(){
   modelsError="";
   try{ const res=await api("/api/admin/models"), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); MODELS=data; }
@@ -6088,7 +6105,7 @@ setInterval(()=>{
 },60000);
 
 const FLAG_CATEGORIES={recognition:"המודל לא זיהה הגייה תקינה",valid_variant:"וריאנט הגייה תקין",alternative_answer:"תשובה חלופית נכונה",noise:"רעש או הקלטה בעייתית",other:"אחר"};
-const PHONE_NAMES={"ħ":"ח (ح)","ʕ":"ע (ع)","x":"ח׳ (خ)","χ":"ח׳ (خ)","ɣ":"ע׳ (غ)","r":"ר (ر)","q":"ק (ق)","ʔ":"א/ק (ء/ق)","h":"ה (ه)","sˤ":"צ (ص)","tˤ":"ט (ط)","dˤ":"ד׳ (ض)","ðˤ":"ט׳ (ظ)","k":"כ (ك)","s":"ס (س)","t":"ת (ت)","d":"ד (د)","z":"ז (ز)","ʃ":"ש (ش)","dʒ":"ג׳ (ج)","b":"ב (ب)","f":"פ (ف)","m":"מ (م)","n":"נ (ن)","l":"ל (ل)","w":"ו (و)","j":"י (ي)","g":"ג (ج)","_":"לא נשמע"};
+const PHONE_NAMES={"ħ":"ח (ح)","ʕ":"ע (ع)","x":"ח׳ (خ)","χ":"ח׳ (خ)","ɣ":"ע׳ (غ)","r":"ר (ر)","q":"ק (ق)","ʔ":"א/ק (ء/ق)","h":"ה (ه)","sˤ":"צ (ص)","tˤ":"ט (ط)","dˤ":"דֿ (ض)","ðˤ":"ט׳ (ظ)","k":"כ (ك)","s":"ס (س)","t":"ת (ت)","d":"ד (د)","z":"ז (ز)","ʃ":"ש (ش)","dʒ":"ג׳ (ج)","b":"ב (ب)","f":"פ (ف)","m":"מ (م)","n":"נ (ن)","l":"ל (ل)","w":"ו (و)","j":"י (ي)","g":"ג (ج)","_":"לא נשמע"};
 const phoneName=p=>PHONE_NAMES[p]||({a:"אַ",i:"אִ",u:"אֻ",e:"אֶ",o:"אוֹ","aː":"אַא","iː":"אִי","uː":"אוּ","eː":"אֵי","oː":"אוֹ"}[p])||p;
 async function loadActivity(){
   activityError="";
@@ -6329,11 +6346,20 @@ function drawFlags(){
       const reporter=mark("meta",`${f.email||"ללא משתמש"}`,"p"), age=flagAge(f.created_at); if(age) reporter.append(" · ",age);
       reporter.append(" · ",`מודל: ${f.model||"לא ידוע"}`);
       detailCell.append(reporter);
+      /* which exercise this is, and what the stored diagnosis can and cannot tell the reviewer */
+      const topic=ALL_CATS.find(c=>c.id===f.cat)||GAMES.find(g=>g.id===f.cat);
+      detailCell.append(mark("",`התרגיל: ${f.he||f.phrase||"—"}`+(topic?` · ${topic.name}${topic.lesson?` · שיעור ${topic.lesson}`:""}`:` · ${f.cat||""}`),"p"));
+      const facts=[f.attempt_id?"מקושר לניסיון התרגול שעליו דווח":"לא מקושר לניסיון (דיווח מלפני הקישור, או שהניסיון לא נשמר)"];
+      if(f.unrelated) facts.push("המערכת קבעה „משפט אחר?”: הציון הוגבל ל־30 בלי טיפים");
+      if(!f.audio) facts.push("אין הקלטה שמורה");
+      detailCell.append(mark("meta",facts.join(" · "),"p"));
+      if(FLAG_KINDS[result.report_kind]) detailCell.append(mark("",`סוג הדיווח: ${FLAG_KINDS[result.report_kind]}`,"p"));
       if(f.note) detailCell.append(mark("",`הערת המדווח/ת: ${f.note}`,"p"));
       const field=document.createElement("fieldset"); field.append(mark("","אילו אבחנות של המערכת היו שגויות?","legend"));
       for(const issue of issues){ const label=document.createElement("label"), input=document.createElement("input"); input.type="checkbox"; input.checked=true; input._issue=issue; label.append(input,issue.label); field.append(label); }
       if(issues.length) detailCell.append(field); else detailCell.append(mark("meta","בדיווח הזה אין פונמה שסומנה במפורש; עדיין אפשר לסווג ולאשר אותו.","p"));
       const category=document.createElement("select"); for(const [value,label] of Object.entries(FLAG_CATEGORIES)){ const o=document.createElement("option"); o.value=value; o.textContent=label; category.append(o); }
+      if(result.report_kind==="answer") category.value="other";   // "heard" matches the first option, recognition
       const note=document.createElement("textarea"); note.maxLength=500; note.rows=2; note.placeholder="הערת בדיקה (לא חובה)";
       const diagnose=mark("btn","לוח אבחון","button"), extras=mark("row","");
       diagnose.disabled=!result.trace; diagnose.title=result.trace?"פתיחת האבחון המלא, כולל טבלת ההגאים":"הדיווח ישן ואינו כולל נתוני trace";
@@ -6353,18 +6379,19 @@ function drawFlags(){
       };
       extras.append(category,diagnose); detailCell.append(extras,note);
       const confirmCell=document.createElement("td"), rejectCell=document.createElement("td");
-      const confirm=mark("btn primary","אישור","button"), reject=mark("btn danger","דחייה","button");
+      const confirm=mark("btn primary","אישור","button"), reject=mark("btn danger","דחייה","button"), fixed=mark("btn","תוקן","button");
+      fixed.title="הטעות אושרה וכבר תוקנה (בתשובות, בכללים או במודל)";
       const save=async status=>{
-        confirm.disabled=reject.disabled=true; msg.textContent="שומר…";
+        confirm.disabled=reject.disabled=fixed.disabled=true; msg.textContent="שומר…";
         const false_issues=selectedIssues();
         try{
           const res=await api(`/api/flags/${f.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status,category:category.value,false_issues,review_note:note.value})});
           const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status);
           flagsLoaded=false; await loadFlags(); drawManage();
-        }catch(err){ msg.textContent="השמירה נכשלה: "+err.message; confirm.disabled=reject.disabled=false; }
+        }catch(err){ msg.textContent="השמירה נכשלה: "+err.message; confirm.disabled=reject.disabled=fixed.disabled=false; }
       };
-      confirm.onclick=()=>save("confirmed"); reject.onclick=()=>save("rejected");
-      confirmCell.append(confirm); rejectCell.append(reject,msg);
+      confirm.onclick=()=>save("confirmed"); reject.onclick=()=>save("rejected"); fixed.onclick=()=>save("fixed");
+      confirmCell.append(confirm," ",fixed); rejectCell.append(reject,msg);
       row.append(mark("",f.score??"—","td"),said,heard,copyCell,confirmCell,rejectCell,toggleCell); table.append(row,detail);
     }
   }
@@ -6373,7 +6400,7 @@ function drawFlags(){
 /* Same payload as the trace page's "מידע להתייעצות על ה־pipeline": no user identity, no audio. */
 function flagChatText(f){
   const result=f.result||{}, t=result.trace||{};
-  const context={he:f.he||f.phrase,ar:f.ar||"",prompt_he:f.he||f.phrase,answer_ar:f.ar,expected_ipa:f.ipa,model:f.model,version:f.version,report_note:f.note||"",
+  const context={he:f.he||f.phrase,ar:f.ar||"",prompt_he:f.he||f.phrase,answer_ar:f.ar,expected_ipa:f.ipa,model:f.model,version:f.version,report_note:f.note||"",report_kind:result.report_kind||"",
     reported_false_issues:flagIssues(f).map(i=>({word:i.word,expected:i.expected,heard:i.heard}))};
   const trace={...t,tokens:(t.tokens||[]).map(({curves,...token})=>token),frames:t.frames?{count:t.frames.count,ms:t.frames.ms}:null};
   const publicResult={...result,trace};
@@ -7936,7 +7963,7 @@ async function submitEitan(answer,ui){
 }
 
 /* "אותיות נופלות": choose a pronoun; איתן falls into the future, and ב joins it in the present. */
-let fallingData=null, fallingTense="future", fallingForm=null, fallingQuery="";
+let fallingData=null, fallingTense="future", fallingForm=null, fallingQuery="", fallingShown=false;   // fallingShown: the base forms were revealed
 async function openFallingLetters(){
   const dlg=$("verbDlg"); fallingTense="future"; fallingForm=null; fallingQuery=""; verbQuestion=null;
   $("verbTitle").textContent="אותיות נופלות"; $("verbMenu").hidden=true; $("verbBoard").hidden=false;
@@ -7948,7 +7975,20 @@ async function openFallingLetters(){
 async function loadFallingVerb(verb=""){
   const r=await api("/api/verb-game/falling"+(verb?`?verb=${encodeURIComponent(verb)}`:"")).catch(()=>null);
   if(!r||!r.ok){$("verbBoard").textContent="המשחק ייפתח אחרי שילמדו את פעלי שלב א׳.";return}
-  fallingData=await r.json(); fallingForm=null; drawFallingLetters();
+  fallingData=await r.json(); fallingForm=null; fallingShown=false; drawFallingLetters();
+  const q=fallingData; sayFallingVerb(q.verb.id,q.base.arabic+(q.base_future?" "+q.base_future.arabic:""));   // each new verb is heard, past then future
+}
+const fallingSounds=new Map();   // verb id -> object URL of its past + future
+let fallingSaying=0;
+async function sayFallingVerb(verb,fallback){
+  const n=++fallingSaying, live=()=>n===fallingSaying&&$("verbDlg").open&&fallingData?.verb.id===verb;
+  let url=fallingSounds.get(verb);
+  if(!url){
+    try{ const res=await api(`/api/verb-game/falling/tts?verb=${encodeURIComponent(verb)}`);
+      if(res.ok){ url=URL.createObjectURL(await res.blob()); fallingSounds.set(verb,url); } }catch{}
+  }
+  if(!live()) return;   // another verb, or the game closed, while the sound was loading
+  if(url) await playUrl(url,true); else if(fallback) await speakLocal(fallback,"ar");
 }
 function drawFallingLetters(){
   const q=fallingData, board=$("verbBoard"), game=mark("fall-game","","div"); board.replaceChildren(game);
@@ -7960,12 +8000,27 @@ function drawFallingLetters(){
     const want=vtPlain(fallingQuery.trim()), shown=q.verbs.filter(v=>!want||vtPlain(v.name).includes(want)||v.id.includes(fallingQuery.trim()));
     select.replaceChildren();
     if(!shown.some(v=>v.id===q.verb.id)){const none=mark("",shown.length?`${shown.length} פעלים — בחרו`:"לא נמצא פועל","option");none.value="";none.selected=true;none.disabled=true;select.append(none)}
-    for(const verb of shown){const option=mark("",verb.name,"option");option.value=verb.id;option.selected=verb.id===q.verb.id;select.append(option)}
+    // grouped by the verb's גזרה, the groups in the order the course first teaches them
+    const groups=new Map(); for(const verb of shown){const g=verb.gizra||"אחר";if(!groups.has(g))groups.set(g,[]);groups.get(g).push(verb)}
+    for(const [g,list] of groups){const group=mark("","","optgroup");group.label=g;select.append(group);
+      for(const verb of list){const option=mark("",verb.name,"option");option.value=verb.id;option.selected=verb.id===q.verb.id;group.append(option)}}
   };
   fill(); search.oninput=()=>{fallingQuery=search.value;fill()};
   search.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();const first=[...select.options].find(o=>o.value);if(first&&first.value!==q.verb.id){select.value=first.value;select.onchange()}}};
   select.onchange=async()=>{if(!select.value)return;$("verbBoard").textContent="טוען…";await loadFallingVerb(select.value)};
-  const base=mark("fall-base","","div"); base.append(mark("",`${q.base.label} · ${q.verb.name}`,"small"),mark("tr",q.base.transliteration,"span"));
+  // the verb's base, "הוא" in the past and the future together (as the course teaches a verb), and its sound
+  const base=mark("fall-base","","div"), fut=q.base_future, play=mark("btn fall-play","▶ השמעה","button"); play.type="button";
+  play.title="עבר ועתיד"; play.onclick=()=>sayFallingVerb(q.verb.id,q.base.arabic+(fut?" "+fut.arabic:""));
+  // the forms are hidden, as in the exercises: try to recall them, then click the card to reveal
+  const reveal=mark("word-reveal fall-reveal"+(fallingShown?" revealed":""),"","div"), forms=mark("tr",fut?`${q.base.transliteration} · ${fut.transliteration}`:q.base.transliteration,"span");
+  reveal.append(forms);
+  if(!fallingShown){
+    reveal.setAttribute("role","button"); reveal.tabIndex=0; reveal.setAttribute("aria-label","גלו את הפועל"); forms.setAttribute("aria-hidden","true");
+    const show=()=>{fallingShown=true; revealWord(reveal); reveal.removeAttribute("role"); reveal.removeAttribute("tabindex"); reveal.onclick=reveal.onkeydown=null; hint.remove()};
+    reveal.onclick=show; reveal.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();show()}};
+  }
+  const hint=mark("fall-hint",fallingShown?"":"נסו להיזכר, ואז לחצו לגילוי","small");
+  base.append(mark("",`${fut?"הוא · עבר ועתיד":q.base.label} · ${q.verb.name}`,"small"),reveal,hint,play);
   const tense=mark("fall-tense","","div");
   for(const [id,label] of [["future","עתיד · אית״ן"],["present","הווה · ב׳"]]){const b=mark(id===fallingTense?"on":"",label,"button");b.type="button";b.onclick=()=>{fallingTense=id;drawFallingLetters()};tense.append(b)}
   const help=mark("fall-help",fallingForm?"לחצו על גוף אחר וראו מה נופל":"בחרו כינוי גוף כדי לבנות את הפועל","p"), stage=mark("fall-stage","","div"), pronouns=mark("fall-pronouns","","div");

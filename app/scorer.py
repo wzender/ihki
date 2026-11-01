@@ -622,7 +622,8 @@ class Scorer:
         - a consonant heard as the competitor its exemption forgave (b/p, t/d): 0. The exemptions that forgive a
           dropped sound (_FREE_DROPS) do not forgive a replaced one;
         - a deletion: 0 for _FREE_DROPS, 0.25 for another exempted short vowel, else 1;
-        - edge noise (_EDGE_NOISE before the first or after the last sound): 0.25;
+        - edge noise (_EDGE_NOISE before the first or after the last sound): 0.25; with rule 33 (edge_vowel) on, a
+          vowel there too (a hesitation "e-" before a one-word answer, a release after its last consonant);
         - a sound in `lost` (the native reference lost it too, under ref_noise_floor) replaced or dropped: 0.25.
         Returns (distance, weight): weight is the sum of the deletion costs, the sounds that can be wrong at all, and
         at least half the sounds, so a short word does not turn unrelated on one stray sound."""
@@ -651,8 +652,13 @@ class Scorer:
         def dele_cost(j):
             return min(dele(j), 0.25) if j in lost else dele(j)
 
+        edge_vowels = self._on("edge_vowel")
+
         def ins(h, j):
-            return 0.25 if j in (0, n) and name(h) in self._EDGE_NOISE else 1.0
+            if j not in (0, n):
+                return 1.0
+            heard = name(h)
+            return 0.25 if heard in self._EDGE_NOISE or (edge_vowels and heard in self._ANY_VOWEL) else 1.0
 
         weight = max(1.0, n / 2, sum(dele(j) for j in range(n)))   # the same with or without `lost`
         return weighted_edit_distance(heard_ids, [t.id for t in toks], sub, dele_cost, ins), weight

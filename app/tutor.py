@@ -257,7 +257,7 @@ say so kindly and ask again in simpler words. Never use Modern Standard Arabic: 
 of the course (شو، وين، كيف، قدّيش، بدّي، كتير، هلّق). Keep each message to one or two short sentences.
 
 Arabic in Hebrew letters ("Hebrew letters" below) is written exactly as the course writes it, as in the lesson lines
-below: pointed Hebrew; ח' for خ, ע' for غ, ג' for ج, ד' for ض, ט' for ظ, ת' for ث; ح is ח, ع is ע, ص is צ, ط is ט,
+below: pointed Hebrew; ח' for خ, ע' for غ, ג' for ج, דֿ (ד with a rafe above, no geresh: בֵּידַֿה, בֵּידֿ) for ض, ט' for ظ, ת' for ث; ح is ח, ع is ע, ص is צ, ط is ט,
 ق is ק; the shadda ّ after a doubled letter; a hyphen before a pronoun suffix (אִסְמַ-כּ, חַאלֵ-כּ, עִנְד-י).
 
 Every answer has these fields:

@@ -146,11 +146,36 @@ BACKUP_NATURAL_KEYS = {"writings": "user_id,topic", "tutors": "email", "scoring_
 
 
 class AuthUnavailable(RuntimeError):
-    pass
+    """Supabase could not answer. `kind` says how, `stage` where, both from fixed lists so they can be recorded
+    without the message: kind is "timed_out", "rejected" (429, rate limited) or "unavailable" (5xx, other HTTP
+    error, connection failure); stage is "identity" (Supabase Auth checking a token) or "data" (a table read
+    with the secret key, such as the account's permissions)."""
+
+    def __init__(self, message: str = "", *, kind: str = "unavailable", stage: str = "data"):
+        super().__init__(message)
+        self.kind, self.stage = kind, stage
+
+
+def _failure_kind(exc: BaseException) -> str:
+    """How a request to Supabase failed, as one of AuthUnavailable's kinds."""
+    if isinstance(exc, urllib.error.HTTPError):
+        return "rejected" if exc.code == 429 else "unavailable"
+    reason = getattr(exc, "reason", None)
+    if isinstance(exc, TimeoutError) or isinstance(reason, TimeoutError) or "timed out" in str(reason or exc).lower():
+        return "timed_out"
+    return "unavailable"
 
 
 class ClassConflict(ValueError):
     """Supabase refused a class: its name is taken."""
+
+
+class FlagExists(ValueError):
+    """A report for this attempt is already stored (flags_attempt_id_unique)."""
+
+
+# Columns added to `attempts` after it was created; an insert into a table not migrated yet is retried without them.
+OPTIONAL_ATTEMPT_COLUMNS = ("issues", "model", "version", "attempt_id")
 
 
 class HFAudioStore:
@@ -219,9 +244,9 @@ class SupabaseAuth:
         except urllib.error.HTTPError as e:
             if e.code in (400, 401, 403):
                 return None
-            raise AuthUnavailable(f"supabase answered {e.code}") from e
+            raise AuthUnavailable(f"supabase answered {e.code}", kind=_failure_kind(e), stage="identity") from e
         except NETWORK_ERRORS as e:
-            raise AuthUnavailable(str(e) or type(e).__name__) from e
+            raise AuthUnavailable(str(e) or type(e).__name__, kind=_failure_kind(e), stage="identity") from e
         if not data.get("id"):
             return None
         user = {"id": data["id"], "email": data.get("email", "")}
@@ -241,17 +266,36 @@ class SupabaseAuth:
         try:
             urllib.request.urlopen(request(row), timeout=TIMEOUT).close()
         except urllib.error.HTTPError as e:
-            if e.code == 400 and any(k in row for k in ("issues", "model", "version", "attempt_id")):
-                legacy = {k: v for k, v in row.items() if k not in ("issues", "model", "version", "attempt_id")}
+            # Retry without only the optional columns the error names as missing (a table not migrated yet). Any
+            # other 400 is not retried: dropping attempt_id there would leave the learner's page holding an id that
+            # no row has, so a later report would point at nothing.
+            detail = e.read().decode(errors="replace")[:300] if e.code == 400 else ""
+            missing = [k for k in OPTIONAL_ATTEMPT_COLUMNS if k in row and f"'{k}'" in detail]
+            if missing:
+                legacy = {k: v for k, v in row.items() if k not in missing}
                 try:
                     urllib.request.urlopen(request(legacy), timeout=TIMEOUT).close()
-                    log.warning("attempt stored without issue diagnostics; migrate the attempts table (see README)")
+                    log.warning("attempt stored without %s; migrate the attempts table (see README)", ",".join(missing))
                     return
                 except (urllib.error.URLError, TimeoutError) as retry:
                     e = retry
-            log.warning("attempt not recorded: %s", e)
+            log.warning("attempt not recorded: HTTP %s", getattr(e, "code", "?"))
         except (urllib.error.URLError, TimeoutError) as e:  # HTTPError is a URLError
-            log.warning("attempt not recorded: %s", e)
+            log.warning("attempt not recorded: %s", type(e).__name__)
+
+    def attempt_link(self, attempt_id: str) -> dict | None:
+        """Who made one persisted attempt and on which exercise ({attempt_id, user_id, cat, phrase}), or None when no
+        row has this id. Used to check a report against its reporter; no score, answer or audio is read."""
+        query = urllib.parse.urlencode({"select": "attempt_id,user_id,cat,phrase", "attempt_id": f"eq.{attempt_id}",
+                                        "limit": 1})
+        rows = self._admin(f"/rest/v1/attempts?{query}") or []
+        return rows[0] if rows else None
+
+    def flag_for_attempt(self, attempt_id: str) -> dict | None:
+        """The report already kept for this attempt (the oldest, if an old duplicate exists), or None."""
+        query = urllib.parse.urlencode({"select": "*", "attempt_id": f"eq.{attempt_id}", "order": "id.asc", "limit": 1})
+        rows = self._admin(f"/rest/v1/flags?{query}") or []
+        return rows[0] if rows else None
 
     def attempts(self, token: str) -> list[dict]:
         """The student's non-empty scored recordings, newest first: cat, phrase, score, unrelated, created_at.
@@ -330,9 +374,9 @@ class SupabaseAuth:
             detail = e.read().decode(errors="replace")[:300]
             if e.code == 409:
                 raise ClassConflict(detail) from e
-            raise AuthUnavailable(f"supabase answered {e.code}: {detail}") from e
+            raise AuthUnavailable(f"supabase answered {e.code}: {detail}", kind=_failure_kind(e)) from e
         except NETWORK_ERRORS as e:
-            raise AuthUnavailable(str(e) or type(e).__name__) from e
+            raise AuthUnavailable(str(e) or type(e).__name__, kind=_failure_kind(e)) from e
 
     def backup_rows(self) -> dict[str, list[dict]]:
         """All application-owned table rows. Tables not installed in an older deployment are omitted."""
@@ -883,10 +927,27 @@ class SupabaseAuth:
         return [r for r in (rows or []) if str(r.get("name", "")).endswith(".zip")]
 
     def add_flag(self, row: dict, audio: bytes, mime: str, name: str) -> bool:
-        """Keeps a flagged score and its recording in HF, or Supabase when HF is not configured."""
+        """Keeps a flagged score and its recording in HF, or Supabase when HF is not configured.
+        Raises FlagExists when the unique index on flags.attempt_id already holds a report for this attempt (a retry
+        that raced the first submission); the recording just uploaded is then removed again."""
         kept = self._put_audio("flags", name, audio, mime)
-        self._admin("/rest/v1/flags", "POST", {**row, "audio": name if kept else None})
+        try:
+            self._admin("/rest/v1/flags", "POST", {**row, "audio": name if kept else None})
+        except ClassConflict as e:   # _admin's name for any 409
+            if kept:
+                self._delete_audio("flags", name)
+            raise FlagExists(str(e)) from e
         return kept
+
+    def _delete_audio(self, bucket: str, name: str) -> None:
+        """Best effort: an orphaned recording is logged, never raised."""
+        try:
+            if self.audio_store:
+                self.audio_store.delete(bucket, [name])
+            else:
+                self._delete_objects(bucket, [name])
+        except Exception as e:
+            log.warning("%s audio not removed: %s", bucket, type(e).__name__)
 
     def list_flags(self, status: str = "pending") -> list[dict]:
         """Flagged scores for the teacher's review, newest first."""

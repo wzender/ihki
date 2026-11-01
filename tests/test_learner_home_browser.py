@@ -610,7 +610,7 @@ await sleep(1500);
 openFallingLetters();
 await until(()=>document.querySelector(".fall-search"));
 const search=()=>document.querySelector(".fall-search"), names=()=>[...document.querySelector(".fall-picker select").options].filter(o=>o.value).map(o=>o.textContent);
-out.all=names();
+out.all=names(); out.groups=[...document.querySelectorAll(".fall-picker optgroup")].map(g=>g.label);
 search().value="שא"; search().dispatchEvent(new Event("input"));
 out.filtered=names();
 search().value="זזז"; search().dispatchEvent(new Event("input"));
@@ -619,6 +619,10 @@ search().value="ביקר"; search().dispatchEvent(new Event("input"));
 search().dispatchEvent(new KeyboardEvent("keydown",{key:"Enter"}));
 await until(()=>document.querySelector(".fall-base small")?.textContent.includes("ביקר"));
 out.loaded=document.querySelector(".fall-base small").textContent; out.kept=search().value;
+out.both=document.querySelector(".fall-base .tr").textContent; out.play=!!document.querySelector(".fall-base .fall-play");
+const card=document.querySelector(".fall-base .fall-reveal"); out.hidden=!card.classList.contains("revealed")&&getComputedStyle(card.firstElementChild).filter!=="none";
+card.click(); out.shown=card.classList.contains("revealed")&&!document.querySelector(".fall-base .fall-hint");
+document.querySelector(".fall-pronouns button").click(); out.stays=document.querySelector(".fall-base .fall-reveal").classList.contains("revealed");
 """
 
 
@@ -627,4 +631,7 @@ def test_falling_letters_search_filters_the_verbs(site):
     r = site("dana@x.com", FALLING_SEARCH)
     assert len(r["all"]) > 3 and r["filtered"] == ["שאל"]
     assert r["none"] == ["לא נמצא פועל"]
-    assert "ביקר" in r["loaded"] and r["kept"] == "ביקר"
+    assert r["groups"][:3] == ["גזרת פַעַל", "גזרת ל״א", "גזרת ע״ו"]   # grouped by גזרה, in the course's order
+    assert "ביקר" in r["loaded"] and "עבר ועתיד" in r["loaded"] and r["kept"] == "ביקר"
+    assert " · " in r["both"] and r["play"]   # the past and the future side by side, and a button to hear them
+    assert r["hidden"] and r["shown"] and r["stays"]   # hidden until clicked, then kept while the pronouns change
