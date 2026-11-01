@@ -926,6 +926,9 @@ class SupabaseAuth:
                            {"prefix": "", "limit": 100, "offset": 0, "sortBy": {"column": "name", "order": "desc"}})
         return [r for r in (rows or []) if str(r.get("name", "")).endswith(".zip")]
 
+    def delete_backups(self, names: list[str]) -> bool:
+        return self._delete_objects("backups", names)
+
     def add_flag(self, row: dict, audio: bytes, mime: str, name: str) -> bool:
         """Keeps a flagged score and its recording in HF, or Supabase when HF is not configured.
         Raises FlagExists when the unique index on flags.attempt_id already holds a report for this attempt (a retry

@@ -42,3 +42,41 @@ def test_final_scores_returns_distinct_best_rows():
         {"user_id": "u1", "cat": "c", "phrase": "a", "score": 80, "created_at": "new"},
         {"user_id": "u2", "cat": "c", "phrase": "a", "score": 70, "created_at": "other"},
     ]
+
+
+def _store(names):
+    from types import SimpleNamespace
+    s = SimpleNamespace(names=list(names), deleted=[])
+    s.list_backups = lambda: [{"name": n} for n in s.names]
+    s.save_backup = lambda name, data: s.names.append(name)
+
+    def delete(old):
+        s.deleted += old
+        s.names = [n for n in s.names if n not in old]
+        return True
+    s.delete_backups = delete
+    return s
+
+
+def test_daily_backup_made_once_and_keeps_newest_ten():
+    from datetime import date
+    from app import backups
+    old = [f"ihki-backup-2026-10-{d:02d}_03-00-00.zip" for d in range(1, 13)]
+    store = _store(old)
+    make = lambda a: ("ihki-backup-2026-11-01_03-00-00.zip", b"zip")
+
+    assert backups.run_once(store, make, date(2026, 11, 1), 10) == "ihki-backup-2026-11-01_03-00-00.zip"
+    assert len(store.names) == 10
+    assert sorted(store.deleted) == old[:3]
+    assert "ihki-backup-2026-11-01_03-00-00.zip" in store.names
+
+    assert backups.run_once(store, make, date(2026, 11, 1), 10) is None   # today's already there
+    assert len(store.names) == 10
+
+
+def test_daily_backup_skipped_when_manual_backup_exists_today():
+    from datetime import date
+    from app import backups
+    store = _store(["ihki-backup-2026-11-01_00-10-00.zip"])
+    assert backups.run_once(store, lambda a: 1 / 0, date(2026, 11, 1), 10) is None
+    assert store.deleted == []

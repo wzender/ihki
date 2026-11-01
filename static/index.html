@@ -1097,7 +1097,7 @@ body.manage #manage{width:100%;max-width:none}
 .rule-desc{flex-basis:100%;font-size:13px;color:var(--muted)}
 .rule-note{flex-basis:100%;font-size:12px;color:var(--amber)}
 .rule-warn{padding:8px 10px;border-radius:10px;background:var(--amber-bg);color:var(--amber);font-size:13px}
-.rule-warn code{display:block;margin-top:4px;white-space:pre-wrap;word-break:break-all}.flag-patterns{width:100%;border-collapse:collapse;text-align:start}.flag-patterns :is(th,td){padding:6px;border-bottom:1px solid var(--line)}.flag-pending td{vertical-align:middle}.flag-pending tr.flag-detail>td{background:var(--surface);padding:10px 12px}.flag-detail p{margin:0 0 8px}.flag-detail .meta{color:var(--muted);font-size:13px}.flag-detail fieldset{border:0;margin:0 0 8px;padding:0;display:flex;flex-wrap:wrap;gap:7px}.flag-detail fieldset label{display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid var(--line);border-radius:9px}.flag-detail :is(select,textarea){font:inherit;border:1px solid var(--line);border-radius:9px;padding:7px;background:var(--surface);color:var(--ink)}.flag-detail textarea{width:100%;resize:vertical;margin-top:8px}.flag-pending .flag-said{font:inherit;font-size:17px;background:none;border:0;padding:0;color:var(--ink);text-align:start}.flag-pending button.flag-said{cursor:pointer;text-decoration:underline dotted;text-underline-offset:4px}.flag-group>.flag-pending{margin-inline-start:12px;width:calc(100% - 12px)}
+.rule-warn code{display:block;margin-top:4px;white-space:pre-wrap;word-break:break-all}.flag-patterns{width:100%;border-collapse:collapse;text-align:start}.flag-patterns :is(th,td){padding:6px;border-bottom:1px solid var(--line)}.flag-pending td{vertical-align:middle}.flag-pending tr.flag-detail>td{background:var(--surface);padding:10px 12px}.flag-detail p{margin:0 0 8px}.flag-detail .meta{color:var(--muted);font-size:13px}.flag-detail fieldset{border:0;margin:0 0 8px;padding:0;display:flex;flex-wrap:wrap;gap:7px}.flag-detail fieldset label{display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid var(--line);border-radius:9px}.flag-detail :is(select,textarea){font:inherit;border:1px solid var(--line);border-radius:9px;padding:7px;background:var(--surface);color:var(--ink)}.flag-detail textarea{width:100%;resize:vertical;margin-top:8px}.flag-pending .flag-said{font:inherit;font-size:17px;background:none;border:0;padding:0;color:var(--ink);text-align:start}.flag-pending button.flag-said{cursor:pointer;text-decoration:underline dotted;text-underline-offset:4px}.flag-group>.flag-pending{margin-inline-start:12px;width:calc(100% - 12px)}.flag-kind{display:inline-block;padding:3px 9px;border-radius:999px;font:700 12px/1.2 var(--f-body);white-space:nowrap;background:var(--surface);color:var(--muted);border:1px solid var(--line)}.flag-kind.heard{background:var(--amber-bg);color:var(--amber);border-color:var(--amber)}.flag-kind.answer{background:var(--sumac-bg);color:var(--sumac);border-color:var(--sumac)}.flag-head .activity-ranges{margin-top:8px}
 .activity{display:flex;flex-direction:column;gap:12px}.activity-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.activity-head h2{margin:0}.activity-head p{margin:3px 0 0;color:var(--muted);font-size:13px}
 .activity-ranges{display:flex;flex-wrap:wrap;gap:5px}.activity-ranges button{padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:700 13px/1 var(--f-body);cursor:pointer}.activity-ranges button[aria-pressed=true]{border-color:var(--olive);background:var(--olive);color:var(--on-olive)}
 .activity-head select{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}
@@ -4913,6 +4913,8 @@ function drawPhoneTrack(data){
    was (the pronunciation was misheard, or the system's answer was wrong), and the kind is kept too; elsewhere (a daily
    session, a game) one click sends it. */
 const FLAG_KINDS={heard:"המערכת לא זיהתה נכון את ההגייה",answer:"התשובה של המערכת לא הייתה נכונה"};
+const FLAG_KIND_SHORT={heard:"זיהוי הגייה שגוי",answer:"טעות של המערכת","":"סוג לא צוין"};   // tags and filter in the pending list
+const flagKind=f=>FLAG_KINDS[(f.result||{}).report_kind]?f.result.report_kind:"";
 const pathExercise=()=>!daily&&!!cur&&ALL_CATS.some(c=>c.id===cur.cat);
 $("flagBtn").onclick=()=>{ if(pathExercise()) $("flagKinds").hidden=!$("flagKinds").hidden; else sendFlag(""); };
 for(const b of $("flagKinds").querySelectorAll("button[data-kind]")) b.onclick=()=>sendFlag(b.dataset.kind);
@@ -6290,9 +6292,20 @@ function drawFlags(){
     }
     card.append(table); box.append(card);
   }
-  const pending=FLAG_REVIEWS.pending, head=mark("card flag-head",""); box.append(head);
+  const allPending=FLAG_REVIEWS.pending, head=mark("card flag-head",""); box.append(head);
   head.append(mark("","דיווחים שממתינים לבדיקה","h2"));
-  if(!pending.length){ head.append(mark("meta","אין כרגע דיווחים שממתינים לבדיקה.","p")); return; }
+  if(!allPending.length){ head.append(mark("meta","אין כרגע דיווחים שממתינים לבדיקה.","p")); return; }
+  /* the two kinds of report need different fixes: recognition (model/calibration) vs the system's answer (content) */
+  const kindCount=k=>allPending.filter(f=>flagKind(f)===k).length;
+  const kinds=["heard","answer",""].filter(k=>k||kindCount(""));
+  if(flagKindFilter!=="all"&&!kindCount(flagKindFilter)) flagKindFilter="all";
+  const filters=mark("activity-ranges","");
+  for(const k of ["all",...kinds]){
+    const b=mark("",`${k==="all"?"הכול":FLAG_KIND_SHORT[k]} (${k==="all"?allPending.length:kindCount(k)})`,"button");
+    b.setAttribute("aria-pressed",String(flagKindFilter===k)); b.onclick=()=>{ flagKindFilter=k; drawManage(); }; filters.append(b);
+  }
+  head.append(filters);
+  const pending=flagKindFilter==="all"?allPending:allPending.filter(f=>flagKind(f)===flagKindFilter);
   const flagScore=f=>Number.isFinite(Number(f.score))?Number(f.score):101;
   const flagDay=f=>{ const d=new Date(f.created_at); return !f.created_at||Number.isNaN(d.getTime())?"unknown":`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
   const byDate=new Map; for(const f of pending){ const day=flagDay(f); if(!byDate.has(day)) byDate.set(day,[]); byDate.get(day).push(f); }
@@ -6307,7 +6320,7 @@ function drawFlags(){
     const models=[...new Set(flags.map(f=>f.model||"לא ידוע"))].join(", ");
     summary.append(mark("",label,"b"),mark("meta",` · ${flags.length} ${flags.length===1?"דיווח":"דיווחים"} · ${people} ${people===1?"מדווח/ת":"מדווחים"} · מודל: ${models}`)); group.append(summary); box.append(group);
     const table=mark("flag-patterns flag-pending","","table"), headRow=document.createElement("tr");
-    for(const x of ["ציון","מה התלמיד/ה אמר/ה","מה המודל שמע","אבחון ל־pipeline","","",""]) headRow.append(mark("",x,"th"));
+    for(const x of ["ציון","סוג","מה התלמיד/ה אמר/ה","מה המודל שמע","אבחון ל־pipeline","","",""]) headRow.append(mark("",x,"th"));
     table.append(headRow); group.append(table);
     for(const f of [...flags].sort((a,b)=>flagScore(a)-flagScore(b)||(a.email||"").localeCompare(b.email||""))){
       const result=f.result||{}, row=document.createElement("tr"), msg=mark("msg","");
@@ -6339,7 +6352,7 @@ function drawFlags(){
       copyCell.append(copy);
       /* expandable detail row: reporter, issue checkboxes, category, reviewer note, full diagnostic */
       const issues=flagIssues(f), detail=document.createElement("tr"), detailCell=document.createElement("td"), openKey=`flag-${f.id}`;
-      detail.className="flag-detail"; detail.hidden=flagGroupOpen[openKey]!==true; detailCell.colSpan=7; detail.append(detailCell);
+      detail.className="flag-detail"; detail.hidden=flagGroupOpen[openKey]!==true; detailCell.colSpan=8; detail.append(detailCell);
       const toggleCell=document.createElement("td"), toggle=mark("btn",detail.hidden?"פרטים ▾":"פרטים ▴","button");
       toggle.onclick=()=>{ detail.hidden=!detail.hidden; flagGroupOpen[openKey]=!detail.hidden; toggle.textContent=detail.hidden?"פרטים ▾":"פרטים ▴"; };
       toggleCell.append(toggle);
@@ -6392,7 +6405,8 @@ function drawFlags(){
       };
       confirm.onclick=()=>save("confirmed"); reject.onclick=()=>save("rejected"); fixed.onclick=()=>save("fixed");
       confirmCell.append(confirm," ",fixed); rejectCell.append(reject,msg);
-      row.append(mark("",f.score??"—","td"),said,heard,copyCell,confirmCell,rejectCell,toggleCell); table.append(row,detail);
+      const kindCell=document.createElement("td"), kind=flagKind(f); kindCell.append(mark(`flag-kind ${kind}`,FLAG_KIND_SHORT[kind],"span"));
+      row.append(mark("",f.score??"—","td"),kindCell,said,heard,copyCell,confirmCell,rejectCell,toggleCell); table.append(row,detail);
     }
   }
 }
@@ -6568,11 +6582,12 @@ function drawBackupControls(box){
     create.disabled=false; fill();
   };
   actions.append(create,select,restore,download,msg);
-  card.append(mark("","גיבוי ושחזור","h2"),mark("sub","הגיבויים נשמרים לפי חותמת זמן וכוללים את נתוני האפליקציה ואת הציון הטוב ביותר של כל תלמיד בכל משפט. היסטוריית הניסיונות וההקלטות אינן נשמרות. השחזור ממזג את הגיבוי ואינו מוחק נתונים חדשים. משתמשי ההתחברות עצמם וגיבויי התשתית של Supabase אינם כלולים.","p"),actions);
+  card.append(mark("","גיבוי ושחזור","h2"),mark("sub","הגיבויים נשמרים לפי חותמת זמן וכוללים את נתוני האפליקציה ואת הציון הטוב ביותר של כל תלמיד בכל משפט. היסטוריית הניסיונות וההקלטות אינן נשמרות. השחזור ממזג את הגיבוי ואינו מוחק נתונים חדשים. משתמשי ההתחברות עצמם וגיבויי התשתית של Supabase אינם כלולים. גיבוי אוטומטי נוצר כל יום בשלוש בלילה, ונשמרים 10 הגיבויים האחרונים בלבד.","p"),actions);
   box.append(card);
 }
 
 const flagGroupOpen={};   // score band -> whether its pending-report group is open
+let flagKindFilter="all";   // pending reports shown: "all", or one report kind ("heard", "answer", "")
 let systemActivityOpen=false;   // the recent activity starts closed; a redraw keeps it as the teacher left it
 function drawSystemActivity(box){
   const outer=mark("card system-activity",""), card=document.createElement("details"), summary=document.createElement("summary");

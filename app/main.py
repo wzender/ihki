@@ -51,6 +51,7 @@ from .live import LiveConflict, LiveStore
 from .math_photo import (DAILY_PHOTOS, MAX_PHOTO, MEDIA_TYPES as PHOTO_TYPES, PhotoSolver, PhotoUnavailable, math_model,
                          photo_client)
 from .math_skills import algebra9
+from . import backups as daily_backups
 from . import push as pushes
 from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
@@ -578,9 +579,15 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                       app.state.push, lambda: set(getattr(app.state.auth, "developers", ()) or ()), morning_status,
                       lambda: datetime.now(LOCAL_TZ), max(0, min(23, int(status_hour)))))
                   if app.state.push and app.state.push.on and status_hour.isdigit() else None)
+        backup_hour = os.environ.get("BACKUP_HOUR", "3").strip().lower()
+        backup = (asyncio.create_task(daily_backups.loop(
+                      app.state.auth, make_backup_archive, lambda: datetime.now(LOCAL_TZ),
+                      max(0, min(23, int(backup_hour))), int(os.environ.get("BACKUP_KEEP", "10") or 10)))
+                  if isinstance(app.state.auth, SupabaseAuth) and app.state.auth.secret and backup_hour.isdigit()
+                  else None)
         async with app.state.mcp_server.session_manager.run():
             yield
-        for task in (reminders, status):
+        for task in (reminders, status, backup):
             if task:
                 task.cancel()
 
