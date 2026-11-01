@@ -21,8 +21,12 @@ Summary line fields:
   outcome    ok | refused (tool answered ok=false) | tool_crashed | jsonrpc_error | http_error |
              unauthorized | auth_unavailable (503, retryable) | server_crashed
   error      exception type, JSON-RPC error code, or refusal reason; never its message
+  ip         caller address (first X-Forwarded-For hop), on 401 lines only
+  token_sub  the user id inside a rejected token, read WITHOUT verifying it (anyone can forge
+             one), on 401 lines only; logged only when it looks like a UUID
 
-Nothing here logs tokens, request arguments, response bodies, or learner data. Crash
+Nothing here logs tokens, request arguments, response bodies, or learner data. Caller IPs are
+logged only for failed logins (401), to trace who keeps sending bad tokens. Crash
 details (tracebacks) are logged separately with tokens and keys redacted.
 
 Every failed ``tools/call`` also gets exactly one ERROR line, ``mcp_tool_failure {json}``,
@@ -43,7 +47,10 @@ JSON fields:
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import contextvars
+import ipaddress
 import json
 import logging
 import os
@@ -82,6 +89,36 @@ def redact(text: str) -> str:
     for pattern, replacement in _SECRETS:
         text = pattern.sub(replacement, text)
     return text
+
+
+_UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+
+
+def caller_ip(scope, headers) -> str:
+    """The caller's address: the first X-Forwarded-For hop (the HF proxy adds it), else the socket peer."""
+    candidates = [part.strip() for part in headers.get("x-forwarded-for", "").split(",")[:1]]
+    candidates.append(str((scope.get("client") or ("",))[0]))
+    for candidate in candidates:
+        try:
+            return str(ipaddress.ip_address(candidate))
+        except ValueError:
+            continue
+    return "-"
+
+
+def unverified_token_sub(authorization: str) -> str:
+    """The ``sub`` claim of a bearer JWT, NOT verified. A hint only; anything but a UUID gives "-"."""
+    scheme, _, token = authorization.partition(" ")
+    parts = token.strip().split(".")
+    if scheme.lower() != "bearer" or len(parts) != 3:
+        return "-"
+    try:
+        payload = parts[1] + "=" * (-len(parts[1]) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload))
+    except (ValueError, binascii.Error):
+        return "-"
+    sub = claims.get("sub") if isinstance(claims, dict) else None
+    return sub.lower() if isinstance(sub, str) and _UUID.fullmatch(sub) else "-"
 
 
 def current() -> dict[str, Any] | None:
@@ -450,7 +487,11 @@ class McpDiagnostics:
             "tool_ms": record.get("tool_ms", "-"), "outcome": outcome, "error": error or "-",
             "protocol": headers.get("mcp-protocol-version", "-")[:20],
             "client": redact(headers.get("user-agent", "-"))[:60].replace(" ", "_"),
+            "ip": "-", "token_sub": "-",
         }
+        if status == 401:
+            fields["ip"] = caller_ip(scope, headers)
+            fields["token_sub"] = unverified_token_sub(headers.get("authorization", ""))
         line = " ".join(f"{key}={value}" for key, value in fields.items())
         slow = ms >= SLOW_MS and method not in LONG_LIVED_METHODS
         if outcome in {"server_crashed", "tool_crashed"} or status >= 500:

@@ -77,6 +77,47 @@ def test_missing_or_rejected_token_is_named(caplog, token, expected):
     assert line["outcome"] == "unauthorized" and line["auth"] == expected and line["tool"] == "get_system_health"
 
 
+def _jwt(claims) -> str:
+    import base64, json
+    enc = lambda obj: base64.urlsafe_b64encode(json.dumps(obj).encode()).rstrip(b"=").decode()
+    return f"{enc({'alg': 'HS256'})}.{enc(claims)}.c2ln"
+
+
+def test_rejected_token_logs_caller_ip_and_unverified_sub(caplog):
+    caplog.set_level(logging.INFO)
+    sub = "3F2B8C1A-0D4E-4A5B-9C6D-7E8F90A1B2C3"
+    token = _jwt({"sub": sub, "exp": 1})
+    response = post(create_app(scorer_for(emissions(["w"])), auth=LibraryAuth()), token=token,
+                    extra={"X-Forwarded-For": "203.0.113.7, 10.0.0.2"})
+    assert response.status_code == 401
+    line = summary(caplog, response)
+    assert line["auth"] == "token_rejected"
+    assert line["ip"] == "203.0.113.7" and line["token_sub"] == sub.lower()
+    assert token not in "\n".join(r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.parametrize("token", ["malformed", _jwt({"sub": "admin; rm -rf"}), _jwt(["not", "a", "dict"]),
+                                   "a.!!!.c"])
+def test_unverified_sub_is_only_logged_when_it_is_a_uuid(caplog, token):
+    caplog.set_level(logging.INFO)
+    response = post(create_app(scorer_for(emissions(["w"])), auth=LibraryAuth()), token=token)
+    line = summary(caplog, response)
+    assert line["token_sub"] == "-" and line["ip"] != "-"  # falls back to the socket peer
+
+
+def test_successful_requests_do_not_log_ip(caplog):
+    caplog.set_level(logging.INFO)
+    response = post(create_app(scorer_for(emissions(["w"])), auth=LibraryAuth()),
+                    extra={"X-Forwarded-For": "203.0.113.7"})
+    line = summary(caplog, response)
+    assert response.status_code == 200 and line["ip"] == "-" and line["token_sub"] == "-"
+
+
+def test_bad_forwarded_for_falls_back_to_peer():
+    assert diagnostics.caller_ip({"client": ("198.51.100.4", 1)}, {"x-forwarded-for": "nonsense"}) == "198.51.100.4"
+    assert diagnostics.caller_ip({}, {}) == "-"
+
+
 def test_access_denied_is_named_with_reason(caplog):
     caplog.set_level(logging.INFO)
 
