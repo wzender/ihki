@@ -605,7 +605,7 @@ html.a11y-contrast{--e-a:#d8b4ff;--e-t:#8fd0ff;--e-y:#70ff9b;--e-n:#ffb45b;--e-s
 .eitan-table{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 14px}.eitan-table div{display:flex;align-items:baseline;justify-content:space-between;gap:6px;border-bottom:1px solid var(--line)}.eitan-table .tr{font:19px/1.7 var(--f-tr)}.eitan-table div.hit{background:var(--amber-bg)}
 .verb-badge{display:inline-block;padding:1px 8px;border-radius:9px;background:var(--amber-bg);color:var(--amber);font:700 12px var(--f-body);vertical-align:middle}
 /* Pronoun-driven animation: איתן falls into the future form; ב falls in before it in the present. */
-.fall-game{display:flex;flex:1;flex-direction:column;align-items:center;gap:14px;text-align:center}.fall-base small,.fall-help{color:var(--muted);font-weight:700}.fall-base .tr{display:block;font:700 clamp(34px,11vw,50px)/1.5 var(--f-tr)}.fall-base .fall-reveal{margin:4px 0;padding:2px 14px}.fall-base .fall-reveal.revealed{cursor:default}.fall-base .fall-hint{display:block;font-weight:600}.fall-base .fall-hint:empty{display:none}.fall-base .fall-play{margin-top:4px;font-size:13px}.fall-base .ar,.fall-ar{font:700 25px/1.5 var(--f-ar);color:var(--muted)}
+.fall-game{display:flex;flex:1;flex-direction:column;align-items:center;gap:14px;text-align:center}.fall-base small,.fall-help{color:var(--muted);font-weight:700}.fall-base .tr{display:block;font:700 clamp(34px,11vw,50px)/1.5 var(--f-tr)}.fall-base .fall-reveal{position:relative;margin:4px 0;padding:2px 14px}.fall-base .fall-reveal:not(.revealed)>*{visibility:hidden}.fall-base .fall-reveal:not(.revealed)::after{content:"?";position:absolute;inset:0;display:grid;place-items:center;font:700 clamp(30px,9vw,42px)/1 var(--f-body);color:var(--muted)}.fall-base .fall-reveal.revealed{cursor:default}.fall-base .fall-hint{display:block;font-weight:600}.fall-base .fall-hint:empty{display:none}.fall-base .fall-play{margin-top:4px;font-size:13px}.fall-base .ar,.fall-ar{font:700 25px/1.5 var(--f-ar);color:var(--muted)}
 .fall-search{width:100%;box-sizing:border-box;padding:9px 14px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:600 16px var(--f-body)}.fall-picker{display:flex;align-items:center;gap:8px;width:100%;font-weight:800}.fall-picker select{flex:1;min-width:0;padding:9px 12px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:700 16px var(--f-body)}
 .fall-tense{display:flex;gap:7px}.fall-tense button{min-width:100px;padding:9px;border:2px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font-weight:800}.fall-tense button.on{border-color:var(--olive);background:var(--olive);color:var(--on-olive)}
 .fall-pronouns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;width:100%}.fall-pronouns button{min-height:55px;padding:5px 3px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-weight:800}.fall-pronouns button small{display:block;color:var(--muted);font:500 12px/1.4 var(--f-tr)}.fall-pronouns button.on{border-color:var(--amber);background:var(--amber-bg)}
@@ -7975,8 +7975,7 @@ async function openFallingLetters(){
 async function loadFallingVerb(verb=""){
   const r=await api("/api/verb-game/falling"+(verb?`?verb=${encodeURIComponent(verb)}`:"")).catch(()=>null);
   if(!r||!r.ok){$("verbBoard").textContent="המשחק ייפתח אחרי שילמדו את פעלי שלב א׳.";return}
-  fallingData=await r.json(); fallingForm=null; fallingShown=false; drawFallingLetters();
-  const q=fallingData; sayFallingVerb(q.verb.id,q.base.arabic+(q.base_future?" "+q.base_future.arabic:""));   // each new verb is heard, past then future
+  fallingData=await r.json(); fallingForm=null; fallingShown=false; drawFallingLetters();   // the verb is heard only once its card is revealed
 }
 const fallingSounds=new Map();   // verb id -> object URL of its past + future
 let fallingSaying=0;
@@ -8010,13 +8009,14 @@ function drawFallingLetters(){
   select.onchange=async()=>{if(!select.value)return;$("verbBoard").textContent="טוען…";await loadFallingVerb(select.value)};
   // the verb's base, "הוא" in the past and the future together (as the course teaches a verb), and its sound
   const base=mark("fall-base","","div"), fut=q.base_future, play=mark("btn fall-play","▶ השמעה","button"); play.type="button";
-  play.title="עבר ועתיד"; play.onclick=()=>sayFallingVerb(q.verb.id,q.base.arabic+(fut?" "+fut.arabic:""));
+  const say=()=>sayFallingVerb(q.verb.id,q.base.arabic+(fut?" "+fut.arabic:""));   // past then future
+  play.title="עבר ועתיד"; play.onclick=say; play.hidden=!fallingShown;
   // the forms are hidden, as in the exercises: try to recall them, then click the card to reveal
   const reveal=mark("word-reveal fall-reveal"+(fallingShown?" revealed":""),"","div"), forms=mark("tr",fut?`${q.base.transliteration} · ${fut.transliteration}`:q.base.transliteration,"span");
   reveal.append(forms);
   if(!fallingShown){
     reveal.setAttribute("role","button"); reveal.tabIndex=0; reveal.setAttribute("aria-label","גלו את הפועל"); forms.setAttribute("aria-hidden","true");
-    const show=()=>{fallingShown=true; revealWord(reveal); reveal.removeAttribute("role"); reveal.removeAttribute("tabindex"); reveal.onclick=reveal.onkeydown=null; hint.remove()};
+    const show=()=>{fallingShown=true; revealWord(reveal); reveal.removeAttribute("role"); reveal.removeAttribute("tabindex"); reveal.onclick=reveal.onkeydown=null; hint.remove(); play.hidden=false; say()};
     reveal.onclick=show; reveal.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();show()}};
   }
   const hint=mark("fall-hint",fallingShown?"":"נסו להיזכר, ואז לחצו לגילוי","small");

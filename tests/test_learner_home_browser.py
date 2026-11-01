@@ -619,9 +619,9 @@ search().value="ביקר"; search().dispatchEvent(new Event("input"));
 search().dispatchEvent(new KeyboardEvent("keydown",{key:"Enter"}));
 await until(()=>document.querySelector(".fall-base small")?.textContent.includes("ביקר"));
 out.loaded=document.querySelector(".fall-base small").textContent; out.kept=search().value;
-out.both=document.querySelector(".fall-base .tr").textContent; out.play=!!document.querySelector(".fall-base .fall-play");
-const card=document.querySelector(".fall-base .fall-reveal"); out.hidden=!card.classList.contains("revealed")&&getComputedStyle(card.firstElementChild).filter!=="none";
-card.click(); out.shown=card.classList.contains("revealed")&&!document.querySelector(".fall-base .fall-hint");
+out.both=document.querySelector(".fall-base .tr").textContent; out.playHidden=document.querySelector(".fall-base .fall-play").hidden;
+const card=document.querySelector(".fall-base .fall-reveal"); out.hidden=!card.classList.contains("revealed")&&getComputedStyle(card.firstElementChild).visibility==="hidden";
+card.click(); out.shown=card.classList.contains("revealed")&&!document.querySelector(".fall-base .fall-hint"); out.play=!document.querySelector(".fall-base .fall-play").hidden;
 document.querySelector(".fall-pronouns button").click(); out.stays=document.querySelector(".fall-base .fall-reveal").classList.contains("revealed");
 """
 
@@ -633,5 +633,5 @@ def test_falling_letters_search_filters_the_verbs(site):
     assert r["none"] == ["לא נמצא פועל"]
     assert r["groups"][:3] == ["גזרת פַעַל", "גזרת ל״א", "גזרת ע״ו"]   # grouped by גזרה, in the course's order
     assert "ביקר" in r["loaded"] and "עבר ועתיד" in r["loaded"] and r["kept"] == "ביקר"
-    assert " · " in r["both"] and r["play"]   # the past and the future side by side, and a button to hear them
+    assert " · " in r["both"] and r["playHidden"] and r["play"]   # past and future side by side; the sound button only after the reveal
     assert r["hidden"] and r["shown"] and r["stays"]   # hidden until clicked, then kept while the pronouns change
