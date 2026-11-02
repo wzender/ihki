@@ -2429,16 +2429,20 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"ok": True}
 
     @app.post("/api/push/test")
-    def push_test(user: dict | None = Depends(signed_in)):
-        """Sends the caller's devices a notification now: today's daily video, or a sample when there is none."""
+    def push_test(body: dict | None = Body(None), user: dict | None = Depends(signed_in)):
+        """Sends the caller's devices a notification now: today's daily video, or a sample when there is none.
+        With {"look": "daily"} the sample is the morning reminder exactly as a student gets it (for the admin to see)."""
         p = push_on()
         try:
             rows = p.mine(user["email"])
             videos = daily_today(user["email"], bool(user.get("teacher")))
         except AuthUnavailable as e:
             raise HTTPException(503, str(e))
-        message = pushes.payload(videos) if videos else {**pushes.payload([{"title": "ככה תיראה התזכורת לסרטון היומי"}]),
-                                                       "title": "🔔 התזכורות פועלות"}
+        if (body or {}).get("look") == "daily":
+            message = pushes.payload(videos or [{"title": "דוגמה: כאן יופיע שם הסרטון של היום"}])
+        else:
+            message = pushes.payload(videos) if videos else {**pushes.payload([{"title": "ככה תיראה התזכורת לסרטון היומי"}]),
+                                                           "title": "🔔 התזכורות פועלות"}
         return {"devices": len(rows), "sent": sum(p.send(r, message) for r in rows)}
 
     @app.post("/api/push/status")
@@ -2498,12 +2502,33 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.post("/api/push/broadcast")
     def push_broadcast(body: dict = Body(...), a: SupabaseAuth = Depends(admin_only), actor: dict | None = Depends(signed_in)):
-        """An admin's notification ({"title", "body", "class": a class's name, or "" for everyone}) sent now."""
+        """An admin's notification ({"title", "body", "class": a class's name, or "" for everyone}) sent now.
+        With "video" ("lib-<id>" or "daily-<id>") it is a video's: a tap opens the app on that video. With "me": true
+        it goes only to the admin's own devices, to see how it looks."""
         p = push_on()
+        video = str(body.get("video") or "")
         try:
-            msg = pushes.message(str(body.get("title") or ""), str(body.get("body") or ""))
+            if video:
+                kind, _, vid = video.partition("-")
+                if kind not in ("lib", "daily") or not vid.isdigit():
+                    raise HTTPException(400, "bad video")
+                found = next((v for v in a.level_videos("library" if kind == "lib" else "dailies", fresh=True)
+                              if str(v["id"]) == vid), None)
+                if not found:
+                    raise HTTPException(404, "no such video")
+                msg = pushes.video_message(str(body.get("title") or ""), str(body.get("body") or ""), video, found["title"])
+            else:
+                msg = pushes.message(str(body.get("title") or ""), str(body.get("body") or ""))
         except ValueError as e:
             raise HTTPException(400, str(e))
+        except AuthUnavailable as e:
+            raise HTTPException(503, str(e))
+        if body.get("me"):
+            try:
+                rows = p.mine(actor["email"] if actor else "")
+            except AuthUnavailable as e:
+                raise HTTPException(503, str(e))
+            return {"devices": len(rows), "sent": p.send_many(rows, msg)}
         target = str(body.get("class") or "")
         try:
             by_class, everyone = push_audience(a, actor, p.every())

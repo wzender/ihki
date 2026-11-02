@@ -175,6 +175,16 @@ def message(title: str, body: str) -> dict:
     return {"title": title, "body": body, "url": "/", "tag": f"msg-{datetime.now().timestamp():.0f}"}
 
 
+VIDEO_TITLE = "🎬 סרטון חדש מחכה לכם"
+
+
+def video_message(title: str, body: str, ref: str, video_title: str) -> dict:
+    """An admin's notification of one video (`ref`: "lib-<id>" of the library or "daily-<id>" of the daily videos): a tap
+    opens the app on it. The title and the message may be left empty: a set title, and the video's name."""
+    msg = message(" ".join(title.split()) or VIDEO_TITLE, body.strip() or video_title)
+    return {**msg, "url": f"/?video={ref}", "tag": f"video-{ref}"}
+
+
 def payload(videos: list[dict]) -> dict:
     """What the service worker shows: the day's video (or how many there are)."""
     body = videos[0]["title"] if len(videos) == 1 else f"{len(videos)} סרטונים חדשים: " + " · ".join(v["title"] for v in videos)

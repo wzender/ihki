@@ -402,6 +402,12 @@ body.memory-game{overflow:hidden}
 .notify-who{display:flex;flex-direction:column;gap:4px;font:700 14px var(--f-body)}
 .notify-note{margin:0;min-height:1.3em;color:var(--muted);font:600 14px/1.4 var(--f-body)}
 .notify-note.ok{color:var(--olive)}
+.notify-kind{display:flex;gap:8px}
+.notify-kind label{flex-direction:row;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--line);border-radius:999px;cursor:pointer;font:600 15px var(--f-body)}
+.notify-kind label:has(:checked){border-color:var(--olive);background:var(--olive-soft);color:var(--olive)}
+.notify-form small{font-weight:500;color:var(--muted)}
+.notify-form .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.notify-form .row .sep{flex:1}
 #pushDlg .push-bell{font-size:44px;line-height:1;margin:4px 0 8px}
 #pushDlg h2{font:400 24px/1.2 var(--f-display);margin:0 0 6px}
 #pushDlg .row{justify-content:center}
@@ -1706,7 +1712,7 @@ __BETTER_STACK_RUM__
 /* A device that a student signed in on last (ihki.student, set below) and that still holds the session skips the opening
    screen: the home fades in once the account is checked. Anyone else (signed out, a teacher) gets it as before, except
    when the daily video's reminder opened the page: then a signed-in teacher skips it too, straight to the video. */
-try{ if((localStorage.getItem("ihki.student")==="1"||/[?&]view=daily\b/.test(location.search))&&Object.keys(localStorage).some(k=>/^sb-.*-auth-token$/.test(k))) document.getElementById("logo-splash").classList.add("skip"); }catch{}
+try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/.test(location.search))&&Object.keys(localStorage).some(k=>/^sb-.*-auth-token$/.test(k))) document.getElementById("logo-splash").classList.add("skip"); }catch{}
 </script>
 <script>
 /* While the opening screen is up, an error that stops the page's start shows under the logo: a phone has no console to read it in. */
@@ -2061,10 +2067,12 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&]view=daily\b/.test(loc
   <form id="notifyForm" class="notify-form">
     <label>למי<select id="notifyTo"></select></label>
     <div class="notify-who"><b id="notifyWhoTitle">מי הפעיל התראות</b><ul class="notify-people" id="notifyPeople"></ul></div>
+    <div class="notify-kind" role="radiogroup" aria-label="סוג ההתראה"><label><input type="radio" name="notifyKind" value="" checked>הודעה</label><label><input type="radio" name="notifyKind" value="video">סרטון</label></div>
+    <label id="notifyVideoRow" hidden>הסרטון<select id="notifyVideo"></select><small>לחיצה על ההתראה פותחת את האפליקציה על הסרטון הזה. תלמיד שהסרטון לא פתוח לו (מדור שלא סומן לכיתה, או סרטון יומי בלי תאריך) מגיע למסך הסרטונים.</small></label>
     <label>כותרת<input id="notifyHead" maxlength="60" required placeholder="למשל: אין שיעור מחר"></label>
     <label>הודעה<textarea id="notifyBody" maxlength="240" rows="3" placeholder="לא חובה"></textarea></label>
     <p class="notify-note" id="notifyNote" aria-live="polite"></p>
-    <div class="row"><button class="btn primary" id="notifySend">שליחה</button></div>
+    <div class="row"><button class="btn primary" id="notifySend">שליחה</button><button class="btn" type="button" id="notifyMe">שליחה אליי לבדיקה</button><span class="sep"></span><button class="btn" type="button" id="notifyDaily" title="שולח למכשירים שלך את תזכורת הבוקר של הסרטון היומי, כמו שתלמיד מקבל">תזכורת סרטון יומי לדוגמה</button></div>
   </form>
 </dialog>
 <dialog id="pushDlg" aria-labelledby="pushTitle" aria-describedby="pushText">
@@ -2658,6 +2666,33 @@ async function openNotify(classes){
     }
   };
   to.onchange=drawPeople;
+  const kinds=[...document.querySelectorAll('[name="notifyKind"]')], pick=$("notifyVideo");
+  const kind=()=>kinds.find(k=>k.checked).value;
+  const drawKind=()=>{   // a video's notification: its title and message may stay empty (a set title, and the video's name)
+    const video=kind()==="video"; $("notifyVideoRow").hidden=!video; head.required=!video;
+    head.placeholder=video?"🎬 סרטון חדש מחכה לכם":"למשל: אין שיעור מחר"; body.placeholder=video?"שם הסרטון":"לא חובה";
+    if(video&&!pick.options.length){
+      const group=(label,list,ref)=>{ if(!list.length) return; const g=document.createElement("optgroup"); g.label=label;
+        for(const v of list){ const o=document.createElement("option"); o.value=ref(v); o.textContent=v.title; g.append(o); } pick.append(g); };
+      const leaves=libLeaves();
+      for(const leaf of leaves) group(`ספרייה · ${leaf.label}`,LIBRARY.filter(v=>v.section===leaf.id),v=>`lib-${v.id}`);
+      group("ספרייה",LIBRARY.filter(v=>!leaves.some(l=>l.id===v.section)),v=>`lib-${v.id}`);
+      for(const level of ALL_LEVELS) group(`סרטונים יומיים · ${level.name}`,DAILIES.filter(v=>v.level===level.id),v=>`daily-${v.id}`);
+      if(!pick.options.length){ const o=document.createElement("option"); o.value=""; o.textContent="אין סרטונים"; pick.append(o); }
+    }
+  };
+  for(const k of kinds) k.onchange=drawKind; drawKind();
+  const payload=extra=>JSON.stringify({title:head.value,body:body.value,class:to.value,...(kind()==="video"?{video:pick.value}:{}),...extra});
+  const okToSend=()=>{ if(kind()==="video"&&!pick.value){ note.textContent="בחרו סרטון."; return false; } if(kind()!=="video"&&!head.value.trim()){ head.focus(); return false; } return true; };
+  const toMe=async(button,run)=>{   // to the admin's own devices only: to see how it looks
+    button.disabled=true; note.className="notify-note"; note.textContent="שולח אליך…";
+    try{ const res=await run(), d=await res.json().catch(()=>({})); if(!res.ok) throw new Error(d.detail||res.status);
+      note.className=d.devices?"notify-note ok":"notify-note"; note.textContent=d.devices?`נשלח ל-${d.sent} מתוך ${d.devices} המכשירים שלך ✓`:"במכשירים שלך ההתראות לא מופעלות. מפעילים אותן במסך הסרטונים."; }
+    catch(e){ note.textContent="השליחה נכשלה: "+e.message; }
+    finally{ button.disabled=false; }
+  };
+  $("notifyMe").onclick=()=>{ if(okToSend()) toMe($("notifyMe"),()=>api("/api/push/broadcast",{method:"POST",headers:{"Content-Type":"application/json"},body:payload({me:true})})); };
+  $("notifyDaily").onclick=()=>toMe($("notifyDaily"),()=>api("/api/push/test",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({look:"daily"})}));
   const draw=()=>{
     const keep=to.value; to.replaceChildren();
     const opt=(value,label)=>{ const o=document.createElement("option"); o.value=value; o.textContent=label; to.append(o); };
@@ -2674,13 +2709,13 @@ async function openNotify(classes){
   }catch(e){ note.textContent="לא ניתן לשלוח כרגע: "+e.message; counts.people=[]; drawPeople(); }
   $("notifyClose").onclick=()=>dlg.close();
   $("notifyForm").onsubmit=async ev=>{
-    ev.preventDefault(); if(!head.value.trim()) return head.focus();
+    ev.preventDefault(); if(!okToSend()) return;
     const n=to.value?counts.classes[to.value]??0:counts.all, who=to.value?`כיתת ${to.value}`:"כל המשתמשים";
     if(!n){ note.textContent=`ב${who} עוד אף אחד לא הפעיל התראות.`; return; }
     if(!confirm(`לשלוח את ההתראה ל${who} (${n} מכשירים)?`)) return;
     send.disabled=true; note.className="notify-note"; note.textContent="שולח…";
     try{
-      const res=await api("/api/push/broadcast",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:head.value,body:body.value,class:to.value})}), d=await res.json().catch(()=>({}));
+      const res=await api("/api/push/broadcast",{method:"POST",headers:{"Content-Type":"application/json"},body:payload()}), d=await res.json().catch(()=>({}));
       if(!res.ok) throw new Error(d.detail||res.status);
       note.className="notify-note ok"; note.textContent=`נשלח ל-${d.sent} מתוך ${d.devices} מכשירים ✓`+(d.sent<d.devices?" (מכשירים שלא קיבלו כנראה ביטלו את ההתראות)":"");
       head.value=body.value="";
@@ -9128,7 +9163,19 @@ const ready=fetch("/api/phrases").then(r=>{ if(!r.ok) throw new Error(`phrases: 
 </script>
 <script>
 /* The opening screen stays until the start button is pressed. */
-function fromReminder(){ return new URLSearchParams(location.search).get("view")==="daily"; }   // the daily video's reminder opened the page
+function fromReminder(){ const q=new URLSearchParams(location.search); return q.get("view")==="daily"||q.has("video"); }   // a video's notification opened the page
+function reminderSearch(){ const q=new URLSearchParams(location.search); return q.has("video")?"?video="+encodeURIComponent(q.get("video")):q.get("view")==="daily"?"?view=daily":""; }
+let contentReady=Promise.resolve();   // the videos, once loadContent is under way: a notified video waits for them
+async function openNotified(search){   // what a video's notification asks for: the daily videos, or one video ("lib-<id>" or "daily-<id>")
+  const ref=new URLSearchParams(search).get("video");
+  if(!ref){ showView("daily"); window.scrollTo(0,0); return; }
+  showView("library"); window.scrollTo(0,0);   // the videos screen, under the video (and where a video the student may not open leaves them)
+  await contentReady.catch(()=>{});
+  const [kind,id]=ref.split("-"), daily=kind==="daily", list=daily?[...dailyVideos(),...DAILIES]:LIBRARY;
+  const v=list.find(x=>String(x.id)===id&&x.embed); if(!v) return;
+  const seen=daily?dailyWatched:libWatched; seen[v.id]=1; store.set(daily?"ihki.dailyWatched":"ihki.libWatched",seen);
+  playVideo(v,true); showView("library");   // drawn again, with the video marked
+}
 function enter(){
   const splash=$("logo-splash");
   $("wrap").inert=false; splash.classList.add("done"); setTimeout(()=>splash.remove(),700);
@@ -9136,7 +9183,7 @@ function enter(){
   const choosing=MY_CLASSES.length>1&&!MY_CLASS;
   if(choosing) askClass();   // in several classes and none practised in before: which one? (its lesson question follows, from useClass)
   if(AUTH_URL&&!can("path.use")){ if(can("games.use")||can("tutor.use")) showView("games"); else if(can("library.view")) showView("library"); }
-  if(fromReminder()){ history.replaceState(null,"",location.pathname); showView("daily"); }   // from the morning reminder: its videos before the lesson question or the home
+  if(fromReminder()){ const search=location.search; history.replaceState(null,"",location.pathname); openNotified(search); }   // from a video's notification: the video before the lesson question or the home
   (choosing?Promise.resolve(false):lessonFlow()).catch(()=>false);   // the reminder is offered after a good moment, not on entering (see pushMoment)
 }
 $("startBtn").onclick=$("practiceBtn").onclick=enter;
@@ -9199,7 +9246,7 @@ if(AUTH_URL){
         const ok=!res||res.status!==403;   // a server that cannot be reached is not a refusal
         const me=res&&res.ok?await res.json().catch(()=>({})):{}, teacher=!!me.teacher;
         // an account belongs on its subject's pages (its class's, or an admin's own): a math student who opens "/" goes to /math
-        if(me.subject&&me.subject!==document.documentElement.dataset.subject){ location.replace((me.subject===document.documentElement.dataset.home?"/":"/"+me.subject)+(fromReminder()?"?view=daily":"")); return; }
+        if(me.subject&&me.subject!==document.documentElement.dataset.subject){ location.replace((me.subject===document.documentElement.dataset.home?"/":"/"+me.subject)+reminderSearch()); return; }
         ME_SUBJECT=me.subject||"";
         ME_PERMISSIONS=new Set(me.permissions||[]); ME_ROLES=me.roles||[]; ME_ENTITLEMENTS=me.entitlements||[];
         if(res&&res.ok) pushSync();   // this device's reminders go to the account now signed in
@@ -9224,7 +9271,7 @@ if(AUTH_URL){
           const progress=loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); if(document.body.dataset.view==="home") drawNav(); });
           // the home opens once the progress is in (or after 5s, so a slow server does not leave the logo up); click() runs math.js's start too
           if(straight||toVideo) Promise.race([progress.catch(()=>{}),new Promise(r=>setTimeout(r,5000))]).then(()=>{ if(!ENTERED) (straight?start:$("practiceBtn")).click(); });
-          loadContent(); loadWriting(); loadTutor(); }
+          contentReady=loadContent(); loadWriting(); loadTutor(); }
       }catch(e){ $("logo-splash")?.classList.remove("skip"); untilWheelStops(); start.hidden=false; throw e; } },0);   // a failure here still lets the student in, and shows under the logo
     });
   }
@@ -9257,9 +9304,10 @@ if("serviceWorker" in navigator){
   addEventListener("load",()=>navigator.serviceWorker.register("/service-worker.js").catch(()=>{}));
   // the daily video's reminder, tapped while the app is open: its videos, without loading the page again
   navigator.serviceWorker.addEventListener("message",e=>{
-    if(!e.data||e.data.type!=="daily-video") return;
-    if(ENTERED){ for(const d of document.querySelectorAll("dialog[open]")) if(d.id!=="editDlg"&&d.id!=="newDlg") d.close(); showView("daily"); window.scrollTo(0,0); return; }
-    history.replaceState(null,"",location.pathname+"?view=daily");   // still on the opening screen: enter() opens the videos
+    if(!e.data||e.data.type!=="notified") return;
+    const search=new URL(e.data.url,location.origin).search;
+    if(ENTERED){ for(const d of document.querySelectorAll("dialog[open]")) if(d.id!=="editDlg"&&d.id!=="newDlg") d.close(); openNotified(search); return; }
+    history.replaceState(null,"",location.pathname+search);   // still on the opening screen: enter() opens the video
     const start=$("startBtn"), practice=$("practiceBtn");
     if(!start.hidden) start.click(); else if(!$("roles").hidden&&!practice.hidden) practice.click();   // the account was checked already
   });

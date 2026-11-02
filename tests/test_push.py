@@ -207,3 +207,47 @@ def test_status_loop_sends_once_in_its_hour(monkeypatch):
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(pushes.status_loop(p, lambda: {"dev@x.com"}, lambda: {"components": {}, "errors": {}}, now, 8))
     assert sent == [("https://a", "✅ ihki OK")]
+
+
+def test_video_message_opens_the_video_and_fills_what_was_left_empty():
+    m = pushes.video_message("", "", "lib-7", "בוגרים מספרים: דנה")
+    assert m["title"] == pushes.VIDEO_TITLE and m["body"] == "בוגרים מספרים: דנה"
+    assert m["url"] == "/?video=lib-7" and m["tag"] == "video-lib-7"
+    assert pushes.video_message("כותרת", "הודעה", "daily-3", "x")["title"] == "כותרת"
+
+
+def test_admin_sends_a_video_and_a_copy_to_their_own_devices(monkeypatch, tmp_path):
+    from fastapi.testclient import TestClient
+    from test_scoring import emissions, scorer_for
+    from app.main import create_app
+    from app.tts import SawtakTTS
+    from app.tutor import Tutor
+
+    async def no_loop(*a, **k):
+        return None
+
+    class VideoAuth(BroadcastAuth):
+        def level_videos(self, table, fresh=False):
+            return [{"id": 7, "level": "graduates", "title": "סיפור של בוגרת", "url": "https://vimeo.com/1"}] \
+                if table == "library" else [{"id": 3, "level": "1", "title": "יומי", "url": "https://vimeo.com/2"}]
+    monkeypatch.setenv("VAPID_PRIVATE_KEY", pushes.new_private_key())
+    monkeypatch.setattr(pushes, "loop", no_loop)
+    monkeypatch.setattr(pushes, "status_loop", no_loop)
+    sent = []
+    monkeypatch.setattr(pushes.Push, "send", lambda self, row, msg: sent.append(msg) or True)
+    auth = VideoAuth()
+    teacher = {"Authorization": "Bearer teacher"}
+    with TestClient(create_app(scorer_for(emissions(["ħ"])), SawtakTTS("k", cache_dir=tmp_path), auth=auth,
+                               tutor=Tutor(object()))) as c:
+        r = c.post("/api/push/broadcast", headers=teacher, json={"video": "lib-7", "class": "א1"})
+        assert r.json() == {"devices": 3, "sent": 3}
+        assert {(m["title"], m["body"], m["url"]) for m in sent} == {(pushes.VIDEO_TITLE, "סיפור של בוגרת", "/?video=lib-7")}
+        sent.clear()
+        assert c.post("/api/push/broadcast", headers=teacher, json={"video": "daily-3", "me": True}).status_code == 200
+        assert sent and sent[0]["url"] == "/?video=daily-3"
+        assert c.post("/api/push/broadcast", headers=teacher, json={"video": "lib-99"}).status_code == 404
+        assert c.post("/api/push/broadcast", headers=teacher, json={"video": "x-1"}).status_code == 400
+        sent.clear()
+        assert c.post("/api/push/test", headers=teacher, json={"look": "daily"}).status_code == 200
+        assert sent and sent[0]["title"] == "🎬 הסרטון היומי מחכה לכם" and sent[0]["url"] == "/?view=daily"
+    assert len(auth.events) == 1   # the class's send is logged; the admin's own copy is not
