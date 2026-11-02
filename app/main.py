@@ -1764,7 +1764,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def lab_minerva(a: SupabaseAuth = Depends(lab_only)):
         """The imported Minerva audio joined with its reviewed JSON sentence metadata."""
         try:
-            samples = a.lab_samples(full=True)
+            samples = a.lab_samples(full=True, speaker="מינרווה")
         except AuthUnavailable as e:
             raise lab_error(e)
         manifest = lab.minerva_metadata()
@@ -1831,7 +1831,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not isinstance(word, int) or word < 0 or not isinstance(excluded, bool):
             raise HTTPException(400, "invalid word exclusion")
         try:
-            row = next((s for s in a.lab_samples(full=True) if s.get("id") == sample_id), None)
+            row = next(iter(a.lab_samples(full=True, ids=[sample_id])), None)
         except AuthUnavailable as e:
             raise lab_error(e)
         if row is None:
@@ -1975,7 +1975,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except ValueError:
             raise HTTPException(400, "invalid results")
         try:
-            samples = [s for s in a.lab_samples(full=True) if s["id"] in results]
+            samples = a.lab_samples(full=True, ids=results)
         except AuthUnavailable as e:
             raise lab_error(e)
         keep = ("recordings", "unrelated", "right", "false_flags", "planted", "caught", "frr", "detection", "good_share")
@@ -2013,7 +2013,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except ValueError:
             raise HTTPException(400, "invalid results")
         try:
-            samples = [s for s in a.lab_samples(full=True) if s["id"] in results]
+            samples = a.lab_samples(full=True, ids=results)
         except AuthUnavailable as e:
             raise lab_error(e)
         try:

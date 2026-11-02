@@ -70,6 +70,7 @@ import mimetypes
 import os
 import re
 import tempfile
+import gzip
 import threading
 import time
 import urllib.error
@@ -96,8 +97,21 @@ def _dropped(exc: BaseException) -> bool:
                                         and isinstance(exc.reason, DROPPED))
 
 
-def _open_json(req: urllib.request.Request, timeout: float, *, read=json.load):
-    """urlopen + parse; a read (GET) whose connection is dropped before an answer is retried once."""
+def _read_body(res) -> bytes:
+    """A response's bytes, unzipped when Supabase sent them gzipped (see _open_json)."""
+    data = res.read()
+    return gzip.decompress(data) if data and (res.headers.get("Content-Encoding") or "").lower() == "gzip" else data
+
+
+def _read_json(res):
+    return json.loads(_read_body(res) or b"null")
+
+
+def _open_json(req: urllib.request.Request, timeout: float, *, read=_read_json):
+    """urlopen + parse; a read (GET) whose connection is dropped before an answer is retried once.
+    Asks for gzip: Supabase bills egress by the bytes sent, and its JSON shrinks about 8x."""
+    if not req.has_header("Accept-encoding"):
+        req.add_header("Accept-Encoding", "gzip")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as res:
             return read(res)
@@ -364,9 +378,10 @@ class SupabaseAuth:
 
     def _get(self, path: str, token: str, key: str):
         req = urllib.request.Request(
-            self.url + path, headers={"Authorization": f"Bearer {token}", "apikey": key, "User-Agent": "ihki/1.0"})
+            self.url + path, headers={"Authorization": f"Bearer {token}", "apikey": key, "User-Agent": "ihki/1.0",
+                                      "Accept-Encoding": "gzip"})
         with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
-            return json.load(res)
+            return json.loads(_read_body(res) or b"null")
 
     def _admin(self, path: str, method: str = "GET", body: dict | None = None, prefer: str = "return=representation",
                timeout: int = TIMEOUT):
@@ -378,7 +393,7 @@ class SupabaseAuth:
             headers={"Authorization": f"Bearer {self.secret}", "apikey": self.secret, "Content-Type": "application/json",
                      "Prefer": prefer, "User-Agent": "ihki/1.0"})
         try:
-            return _open_json(req, timeout, read=lambda res: json.loads(res.read() or b"null"))
+            return _open_json(req, timeout)
         except urllib.error.HTTPError as e:
             detail = e.read().decode(errors="replace")[:300]
             if e.code == 409:
@@ -1043,14 +1058,25 @@ class SupabaseAuth:
         self._admin("/rest/v1/lab_samples", "POST", {**row, "audio": name if kept else None}, prefer="return=minimal")
         return kept
 
-    def lab_samples(self, full: bool = False) -> list[dict]:
-        """The lab's recordings, oldest first: what labels each one (and, with `full`, the scorer's whole result)."""
+    def lab_samples(self, full: bool = False, *, ids=None, speaker: str | None = None) -> list[dict]:
+        """The lab's recordings, oldest first: what labels each one (and, with `full`, the scorer's whole result).
+        `ids` / `speaker` narrow it in the database: the full rows are large, and Supabase bills every byte read."""
         cols = "*" if full else "id,item,speaker,label,mistake,score,heard_ipa,flagged,model,audio,created_at"
+        if ids is not None:
+            wanted = sorted({int(i) for i in ids})
+            rows = []
+            for k in range(0, len(wanted), 200):   # keeps the URL short
+                chunk = ",".join(map(str, wanted[k:k + 200]))
+                query = urllib.parse.urlencode({"select": cols, "order": "id.asc", "id": f"in.({chunk})"})
+                rows += self._admin(f"/rest/v1/lab_samples?{query}") or []
+            return [r for r in rows if speaker is None or (r.get("speaker") or "") == speaker]
         # PostgREST caps a response (1000 rows by default), so the table is read in pages by id.
         rows, last, page = [], 0, 500 if full else 1000
         while True:
-            query = urllib.parse.urlencode({"select": cols, "order": "id.asc", "id": f"gt.{last}", "limit": page})
-            batch = self._admin(f"/rest/v1/lab_samples?{query}") or []
+            where = {"select": cols, "order": "id.asc", "id": f"gt.{last}", "limit": page}
+            if speaker is not None:
+                where["speaker"] = f"eq.{speaker}"
+            batch = self._admin(f"/rest/v1/lab_samples?{urllib.parse.urlencode(where)}") or []
             rows.extend(batch)
             if len(batch) < page:
                 return rows

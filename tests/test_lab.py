@@ -65,10 +65,12 @@ class FakeAuth:
     def ranked(self, fresh=False):
         return frozenset()
 
-    def lab_samples(self, full=False):
+    def lab_samples(self, full=False, *, ids=None, speaker=None):
         if self.missing:
             raise AuthUnavailable("supabase answered 404: no table")
-        return self.samples
+        wanted = None if ids is None else {int(i) for i in ids}
+        return [s for s in self.samples if (wanted is None or s["id"] in wanted)
+                and (speaker is None or (s.get("speaker") or "") == speaker)]
 
     def add_lab_sample(self, row, audio, mime, name):
         if self.missing:
