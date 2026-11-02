@@ -10,6 +10,7 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Callable, Literal
 
 from mcp.server.auth.middleware.auth_context import get_access_token
@@ -246,11 +247,22 @@ class SupabaseTokenVerifier:
                            subject=str(user["id"]), claims={"iss": issuer, "ihki_actor": actor})
 
 
+# The library's upload sections by name, for the instructions and the tool descriptions: a request such as
+# "add a video to בוגרים מספרים" names a section, and its words are not to be read as a topic ("graduates", "numbers").
+LIBRARY_SECTION_NAMES = "; ".join(f"{library.label(leaf)} ({leaf})" for leaf in library.LEAVES)
+
+
 def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimiter | None = None,
           class_approvals: ClassApprovalStore | None = None,
           actor_provider: Callable[[], dict[str, Any] | None] | None = None):
     """Return ``(server, authenticated ASGI app, raw Starlette app)``."""
     resource_url, issuer_url = oauth_urls(app)
+    build_info = getattr(app.state, "mcp_build_info", None) or {}
+    started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    version_line = (f"This connection was opened against server version {build_info.get('version') or 'unknown'}, "
+                    f"last updated {build_info.get('updated_at') or 'unknown'}. When the teacher asks which version "
+                    "is running, call get_server_version: if it reports another version, tell them the server was "
+                    "updated and that a new chat picks up the new tools and instructions.")
     server = MCPServer(
         "ihki-digital-library",
         instructions=("Prefer get_teacher_workspace, list_teacher_options, prepare_teacher_change, and "
@@ -261,7 +273,11 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                       "prepare_user_access_change and publish_user_access_change; a class's digital-library sections "
                       "are set with prepare_teacher_change operation set_class_library_sections. "
                       "Digital-library videos go into one section (list_library_sections): when the teacher does not "
-                      "name the section, ask which one before preparing; for a list, use prepare_library_videos."),
+                      "name the section, ask which one before preparing; for a list, use prepare_library_videos. "
+                      f"The library's sections are: {LIBRARY_SECTION_NAMES}. When a request names one of them (for "
+                      "example \"add a video to בוגרים מספרים\"), it means a digital-library video in that section: "
+                      "use prepare_library_video, not a daily video, and do not read the section's name as a topic. "
+                      + version_line),
         token_verifier=SupabaseTokenVerifier(app),
         auth=AuthSettings(issuer_url=AnyHttpUrl(issuer_url), resource_server_url=AnyHttpUrl(resource_url),
                           validate_token_resource=False, required_scopes=[]),
@@ -395,7 +411,8 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             return {"ok": False, "error": str(exc)}
 
     @tool(description=("List the digital library's sections and sub-sections. A video is uploaded to one leaf "
-                       "section (a section without sub-sections); a section name may be given in Hebrew."),
+                       "section (a section without sub-sections); a section name may be given in Hebrew. "
+                       f"The sections: {LIBRARY_SECTION_NAMES}."),
           structured_output=True)
     async def list_library_sections() -> dict[str, Any]:
         return {"ok": True, "sections": library.public_sections(),
@@ -437,7 +454,8 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
 
     @tool(description=("Validate a YouTube or Vimeo video for one library section and create a ten-minute approval. "
                        "This does not publish it. `section` is required: if the teacher did not name one, ask which "
-                       "section (see list_library_sections) before calling."), structured_output=True)
+                       "section (see list_library_sections) before calling. Use this when a teacher asks to add a "
+                       f"video to a section by its name; the sections: {LIBRARY_SECTION_NAMES}."), structured_output=True)
     async def prepare_library_video(title: str, url: str, section: str = "") -> dict[str, Any]:
         def prepare() -> dict[str, Any]:
             return prepare_one(title, url, library.resolve_section(section))
@@ -596,6 +614,13 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             class_audit("publish_class_change", current, "refused", reason=type(exc).__name__)
             diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
+
+    @tool(description=("Return the server's version and when it was last updated (deployed), to check that the "
+                       "connector works with the current one. Returns no user or class data."), structured_output=True)
+    async def get_server_version() -> dict[str, Any]:
+        return {"ok": True, "version": str(build_info.get("version") or "unknown"),
+                "updated_at": str(build_info.get("updated_at") or "unknown"),
+                "revision": str(build_info.get("revision") or "unknown")[:12], "running_since": started_at}
 
     @tool(description=("Return the current teacher's minimized class workspace. Class teachers see assigned "
                               "classes; subject administrators see their subject; developers see all subjects. "

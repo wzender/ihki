@@ -139,7 +139,7 @@ def test_narrow_tools_are_discoverable():
         "publish_library_video", "publish_library_videos", "rename_library_video",
         "list_classes", "list_class_content_collections", "get_class_content_access",
         "prepare_class_change", "publish_class_change",
-        "get_teacher_workspace", "list_teacher_options", "prepare_teacher_change", "publish_teacher_change",
+        "get_server_version", "get_teacher_workspace", "list_teacher_options", "prepare_teacher_change", "publish_teacher_change",
         "list_user_access", "prepare_user_access_change", "publish_user_access_change",
         "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_error_summary", "get_notification_coverage",
         "get_exercise_difficulty",
@@ -815,7 +815,7 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
         "publish_library_video", "publish_library_videos", "rename_library_video",
         "list_classes", "list_class_content_collections", "get_class_content_access",
         "prepare_class_change", "publish_class_change",
-        "get_teacher_workspace", "list_teacher_options", "prepare_teacher_change", "publish_teacher_change",
+        "get_server_version", "get_teacher_workspace", "list_teacher_options", "prepare_teacher_change", "publish_teacher_change",
         "list_user_access", "prepare_user_access_change", "publish_user_access_change",
         "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_error_summary", "get_notification_coverage",
         "get_exercise_difficulty",
@@ -1090,3 +1090,11 @@ def test_dropped_supabase_connection_during_verification_is_not_an_http_500(monk
     assert error["data"]["request_id"] == response.headers["x-request-id"]
     assert f"ref {response.headers['x-request-id']}" in error["message"]
     assert "teacher-session" not in response.text
+
+
+def test_server_version_reports_the_build_and_its_update_time():
+    server, _ = connector(LibraryAuth())
+    answer = call(server, "get_server_version")
+    assert answer["ok"] is True
+    assert set(answer) == {"ok", "version", "updated_at", "revision", "running_since"}
+    assert "get_server_version" in server.instructions

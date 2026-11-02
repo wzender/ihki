@@ -618,7 +618,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     app.state.teacher_levels = list(LEVEL_IDS)
     app.state.lesson_topic_counts = dict(LESSON_TOPICS)
     metadata = build_metadata()
-    app.state.mcp_build_info = {"version": metadata["version"], "revision": metadata["commit"][:40]}
+    app.state.mcp_build_info = {"version": metadata["version"], "revision": metadata["commit"][:40],
+                                "updated_at": metadata["updated_at"]}
     app.state.mcp_server, mcp_app, app.state.mcp_http = build_grok_mcp(app)
     app.mount("/mcp", mcp_app, name="mcp")
     app.add_middleware(McpPathNormalizer)  # /mcp would otherwise 307 to http:// behind the Space proxy
