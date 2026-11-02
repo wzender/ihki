@@ -983,9 +983,21 @@ body.manage #manage{width:100%;max-width:none}
 #manage.models :is(#mClasses,#mContent,#mFlags,#mAccess,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.models) #mModels{display:none}
 .lib-pick{list-style:none;margin:6px 0 0;padding:0;text-align:start}.lib-pick ul{list-style:none;margin:2px 0 4px;padding-inline-start:20px}.lib-pick label{display:flex;gap:6px;align-items:center;padding:2px 0;font-size:14px}
 .access-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;margin:8px 0}.access-find{flex:1 1 220px;max-width:340px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--surface);color:inherit}
-.access-group{margin:12px 0;border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:var(--surface)}.access-group>summary{cursor:pointer;font-size:17px;padding:2px 0}.access-group>summary span{color:var(--muted)}.access-group>p{margin:4px 0 8px}
+.access-group,.access-features{margin:12px 0;border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:var(--surface)}:is(.access-group,.access-features)>summary{cursor:pointer;font-size:17px;padding:2px 0}.access-group>summary span{color:var(--muted)}:is(.access-group,.access-features)>p{margin:4px 0 8px}
 .access-badge{display:inline-block;margin-top:3px;padding:1px 8px;border-radius:999px;background:var(--line);color:var(--muted);font-size:12px;font-weight:600}
-.access-scroll{overflow:auto}.access-table{width:100%;border-collapse:collapse}.access-table :is(th,td){padding:8px 10px;border-bottom:1px solid var(--line);text-align:center}.access-table th{font-size:13px;white-space:nowrap;color:var(--muted)}.access-table :is(th,td):first-child{text-align:start;min-width:220px}.access-table td:first-child{font-weight:700}.access-table td:first-child small{display:block;color:var(--muted);font-weight:400;direction:ltr;overflow:hidden;text-overflow:ellipsis}.access-table input[type=checkbox]{width:18px;height:18px}.access-table select{padding:6px 8px;font:inherit;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:inherit}.access-table .save-cell{min-width:90px}
+.access-scroll{overflow:auto}.access-table{width:100%;border-collapse:collapse}.access-table :is(th,td){padding:8px 10px;border-bottom:1px solid var(--line);text-align:center}.access-table th{font-size:13px;white-space:nowrap;color:var(--muted)}.access-table :is(th,td):first-child{text-align:start;min-width:220px}.access-table td:first-child{font-weight:700}.access-table td:first-child small{display:block;color:var(--muted);font-weight:400;direction:ltr;overflow:hidden;text-overflow:ellipsis}.access-table input[type=checkbox]{width:18px;height:18px}.access-table select{padding:6px 8px;font:inherit;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:inherit}.access-table .save-cell{min-width:90px;white-space:nowrap}.access-table .save-cell select{margin-inline-end:6px}
+.access-table th{white-space:pre-line!important;line-height:1.2;vertical-align:bottom}
+.tier-features td:first-child{font-weight:600!important}.tier-features{max-width:640px}
+.access-table td.yes{color:var(--olive);font-weight:800}.access-table td.no{color:var(--muted)}.access-table td.no:not(.own){opacity:.6}
+.access-table .access-cell{all:unset;cursor:pointer;display:inline-grid;place-items:center;min-width:30px;height:28px;border-radius:8px}
+.access-table .access-cell:hover{background:var(--line)}
+.access-table .access-cell.saving{position:relative;cursor:wait;animation:access-pulse 1s ease-in-out infinite}
+.access-table .access-cell.saving::after{content:"";position:absolute;inset:2px;border-radius:50%;border:2px solid currentColor;border-inline-end-color:transparent;animation:access-spin .8s linear infinite;opacity:.55}
+@keyframes access-pulse{50%{opacity:.45}}@keyframes access-spin{to{transform:rotate(360deg)}}
+.access-toast{position:fixed;inset-inline:0;bottom:18px;margin:auto;width:max-content;max-width:min(92vw,520px);padding:10px 16px;border-radius:12px;background:var(--olive);color:var(--on-olive);font:600 15px/1.3 var(--f-body);box-shadow:0 6px 20px rgb(0 0 0/.18);opacity:0;transform:translateY(12px);transition:opacity .2s,transform .2s;pointer-events:none;z-index:50}
+.access-toast.on{opacity:1;transform:none}.access-toast.bad{background:var(--sumac);color:#fff}
+@media (prefers-reduced-motion:reduce){.access-table .access-cell.saving,.access-table .access-cell.saving::after{animation:none}}.access-table .access-cell:focus-visible{outline:2px solid var(--olive)}
+.access-table td.own .access-cell{box-shadow:inset 0 0 0 2px currentColor}   /* set by hand for this account */
 #mModes{grid-template-columns:repeat(6,1fr)}
 /* the developers' model comparison under a result: one column per model, the same recording */
 .cmp-box{margin-top:6px;border-top:1px dashed var(--line);padding-top:8px;display:flex;flex-direction:column;gap:8px}
@@ -1180,6 +1192,9 @@ body.manage #manage{width:100%;max-width:none}
 .vadd[open]>summary{margin-bottom:10px}
 .vadd input[name=url]{direction:ltr;text-align:left}
 #videoDlg{width:min(94vw,860px)}
+#videoDlg .dlg-head{gap:8px}
+#videoDlg #videoFull{margin-inline-start:auto}
+#videoDlg #videoFull+#videoClose{margin-inline-start:0}
 #videoBox iframe{display:block;width:100%;aspect-ratio:16/9;border:0;border-radius:10px;background:#000}
 #writeTask{white-space:pre-line;margin:0 0 12px}
 #writeLines{margin:0;padding-inline-start:1.5em;display:grid;gap:8px}
@@ -1997,7 +2012,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
   </form>
 </dialog>
 <dialog id="videoDlg" aria-labelledby="videoTitle">
-  <div class="dlg-head"><h2 id="videoTitle"></h2><button class="btn" id="videoClose">סגירה</button></div>
+  <div class="dlg-head"><h2 id="videoTitle"></h2><button class="btn" id="videoFull" hidden>⛶ מסך מלא</button><button class="btn" id="videoClose">סגירה</button></div>
   <div id="videoBox"></div>
 </dialog>
 <dialog id="writeDlg" aria-labelledby="writeTitle">
@@ -2787,19 +2802,19 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     drawHome(box);
   }else if(view==="games"){
     if(tutorList&&TUTOR_INFO&&TUTOR_INFO.available){ drawTutorList(box); return; }   // יאללה נדבר's scenarios, in the tab's place
-    const games=can("games.use")?GAMES.filter(game=>!game.hidden):[];
+    const games=can("games.use")?GAMES.filter(game=>!game.hidden&&(!game.bubble||can("games.bubble"))):[];   // each game may be switched off for the tier (list_feature_access)
     box.append(mark("","משחקים","h2"));
-    if(can("games.use")&&VERB_GAME_VISIBLE){
+    if(can("games.use")&&can("games.verb")&&VERB_GAME_VISIBLE){
       const switcher=mark("now","","button");
       switcher.append(mark("","↻","i"),mark("","פועל יוצא","b"),mark("","מהבנה לשליפה מהירה של הטיית הפועל","small"));
       switcher.onclick=()=>openVerbGame(); box.append(switcher);
     }
-    if(can("games.use")&&(EITAN_GAME_VISIBLE||FREE)){
+    if(can("games.use")&&can("games.eitan")&&(EITAN_GAME_VISIBLE||FREE)){
       const eitan=mark("now","","button");
       eitan.append(mark("","🧩","i"),mark("","בונים פועל עם איתן","b"),mark("","עבר ועתיד יחד, מאותיות איתן ומהסיומות, כמו בעברית","small"));
       eitan.onclick=()=>openVerbGame(true); box.append(eitan);
     }
-    if(can("games.use")&&EITAN_GAME_VISIBLE){
+    if(can("games.use")&&can("games.falling")&&EITAN_GAME_VISIBLE){
       const falling=mark("now","","button");
       falling.append(mark("","🔤","i"),mark("","אותיות נופלות","b"),mark("","בחרו גוף וראו את אית״ן — ואת ב׳ בהווה — נופלות למקום","small"));
       falling.onclick=openFallingLetters; box.append(falling);
@@ -3704,6 +3719,9 @@ function playVideo(v,preview){   // preview: the teacher looks at it from the pa
   if(!preview){ watched[v.id]=1; store.set("ihki.watched",watched); }
 }
 $("videoClose").onclick=()=>$("videoDlg").close();
+// the whole screen for the video. An iPhone cannot do it for a frame (only the player's own button, inside it), so there it stays hidden
+$("videoFull").hidden=!document.fullscreenEnabled;
+$("videoFull").onclick=()=>{ const f=$("videoBox").querySelector("iframe"); f?.requestFullscreen?.().then(()=>screen.orientation?.lock?.("landscape").catch(()=>{})).catch(()=>{}); };
 $("videoDlg").addEventListener("close",()=>{   // without its frame the video stops playing
   $("videoBox").replaceChildren(); if(home&&!document.body.classList.contains("manage")) drawPath(true); });
 /* A topic the student writes in (its category has `write`: the task, and how many sentences): the workbook's homework.
@@ -6096,16 +6114,85 @@ function sectionPicker(tree,chosen,label,onChange){
   for(const node of tree||[]) add(node,list,null);
   return {el:list,value:()=>boxes.filter(({input,parent})=>input.checked&&!(parent&&parent.checked)).map(({input})=>input.value)};
 }
+/* What the permission editor shows of each account (GET /api/access/users "opens", see access.what_opens): a column
+   for each, in this order. "\n" breaks a heading. */
+const ACCESS_COLS=[["level:1","שלב א"],["level:2","שלב ב"],["path.all_lessons","כל\nהשיעורים"],["path","מסלול"],["practice","תרגול"],
+  ["games","משחקים"],["games.verb","פועל\nיוצא"],["games.eitan","בונים פועל\nעם איתן"],["games.falling","אותיות\nנופלות"],["games.bubble","פועל\nזמני"],["tutor","יאללה\nנדבר"],
+  ["lib:d1","ספרייה\nשלב א"],["lib:d2","ספרייה\nשלב ב"],["lib:guides","ספרייה\nמנחים ומתרגלים"],["library.all_sections","כל\nהספרייה"],["management","ניהול"],["lab","מעבדה"]];
+const ACCESS_OWN=new Set(ACCESS_COLS.map(([k])=>k).filter(k=>k!=="management"&&k!=="lab"));   // what one account may be given or denied on its own (not ניהול, not the lab)
+function accessOpens(o,key){
+  if(key.startsWith("level:")) return (o.levels||[]).includes("*")||(o.levels||[]).includes(key.slice(6));
+  if(key.startsWith("lib:")) return (o.library||[]).includes(key.slice(4));
+  return !!o[key];
+}
+/* The features each group starts with (access.FEATURES): a click turns one on or off for the whole group; everyone in it
+   gets it at once, but for what was set by hand for one account. A framed cell differs from the code's default; a 🔒
+   one is fixed by the server's FEATURE_PINS. */
+/* A permission cell while its change is saved: the new value at once, pulsing with a small spinner, until the screen is
+   drawn again (the server works out every account anew, which takes a moment). Returns how to put the old one back. */
+function accessSaving(b,td,next){
+  const was={text:b.textContent,cls:td.className};
+  b.disabled=true; b.classList.add("saving"); b.setAttribute("aria-busy","true");
+  b.textContent=next?"✓":"—"; td.classList.toggle("yes",next); td.classList.toggle("no",!next);
+  return ()=>{ b.textContent=was.text; td.className=was.cls; b.classList.remove("saving"); b.removeAttribute("aria-busy"); b.disabled=false; };
+}
+function redrawAccess(msg){   // the screen again from ACCESS as it is now, where it was scrolled and with its search
+  const y=window.scrollY, q=$("mAccess").querySelector(".access-find")?.value||"";
+  drawAccess(); if(msg) $("mAccess").querySelector("p.sub").textContent=msg;
+  const find=$("mAccess").querySelector(".access-find"); if(find&&q){ find.value=q; find.oninput(); }
+  window.scrollTo(0,y);
+}
+function accessToast(text,bad){   // a word at the bottom of the screen, wherever the list is scrolled
+  let t=$("accessToast"); if(!t){ t=mark("access-toast","","div"); t.id="accessToast"; t.setAttribute("role","status"); document.body.append(t); }
+  t.textContent=text; t.classList.toggle("bad",!!bad); t.classList.add("on");
+  clearTimeout(t._hide); t._hide=setTimeout(()=>t.classList.remove("on"),2600);
+}
+function drawTierFeatures(note){
+  const group=mark("access-features","","details"), sum=document.createElement("summary"), tiers=["admin","teacher","student"];
+  group.open=true; sum.append(mark("","תכונות לפי קבוצה","b")); group.append(sum,mark("sub","מה כל קבוצה מקבלת. שינוי כאן חל מיד על כל מי שבקבוצה, חוץ ממה שנקבע ידנית למשתמש מסוים בטבלאות למטה. מסגרת: שונה מברירת המחדל.","p"));
+  if(ACCESS.feature_setup){ const code=mark("",ACCESS.feature_setup,"code"); code.dir="ltr"; group.append(mark("setup","כדי לשנות תכונות לפי קבוצה, צריך ליצור טבלה ב-Supabase (SQL Editor):","p"),code); }
+  const table=mark("access-table tier-features","","table"), head=document.createElement("tr");
+  head.append(mark("","תכונה","th")); for(const t of tiers) head.append(mark("",`${TIER_INFO[t].name}\n${(ACCESS.tier_counts||{})[t]??0} חשבונות`,"th"));
+  const thead=document.createElement("thead"), body=document.createElement("tbody"); thead.append(head); table.append(thead,body);
+  for(const f of ACCESS.features){
+    const tr=document.createElement("tr"); tr.append(mark("",f.name,"td"));
+    for(const t of tiers){
+      const st=f.tiers[t], td=mark(st.enabled?"yes":"no","","td"), b=mark("access-cell",st.fixed_by_server?(st.enabled?"🔒✓":"🔒—"):(st.enabled?"✓":"—"),"button"); b.type="button";
+      if(st.enabled!==st.default) td.classList.add("own");
+      b.disabled=!!st.fixed_by_server||!!ACCESS.feature_setup;
+      b.title=st.fixed_by_server?"קבוע בהגדרות השרת (FEATURE_PINS)":`${f.name} ל${TIER_INFO[t].name}: ${st.enabled?"פעיל":"כבוי"}${st.enabled!==st.default?" (שונה מברירת המחדל)":""}. לחיצה ${st.enabled?"מכבה":"מפעילה"} לכל הקבוצה.`;
+      b.onclick=async()=>{
+        const n=(ACCESS.tier_counts||{})[t]??0;
+        if(!confirm(`${st.enabled?"לכבות":"להפעיל"} את ${f.name} ל${TIER_INFO[t].name} (${n} חשבונות)?\nמי שנקבע לו ידנית אחרת לא ישתנה.`)) return;
+        const undo=accessSaving(b,td,!st.enabled);
+        try{
+          const res=await api("/api/access/features",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({feature:f.key,tier:t,enabled:!st.enabled})});
+          const d=await res.json().catch(()=>({})); if(!res.ok) throw new Error(d.detail||res.status);
+          const msg=`${f.name} ${!st.enabled?"הופעל":"כובה"} ל${TIER_INFO[t].name}.`;
+          ACCESS.features=d.features||ACCESS.features;
+          for(const u of ACCESS.users||[]) if(d.opens&&d.opens[u.id]) u.opens=d.opens[u.id];   // that group's accounts only
+          accessToast(msg); redrawAccess(msg);
+        }catch(e){ undo(); note.textContent=`השינוי לא נשמר: ${e.message}`; accessToast("השינוי לא נשמר",true); note.scrollIntoView({block:"center",behavior:"smooth"}); }
+      };
+      td.append(b); tr.append(td);
+    }
+    body.append(tr);
+  }
+  const scroll=mark("access-scroll",""); scroll.append(table); group.append(scroll);
+  return group;
+}
 function drawAccess(){
   const box=$("mAccess"); box.replaceChildren();
   box.append(mark("","משתמשים והרשאות","h2"));
   if(accessError){ box.append(mark("setup",`ההרשאות לא זמינות: ${accessError}`,"p")); return; }
   if(!ACCESS){ box.append(mark("sub","טוען…","p")); return; }
   if(ACCESS.setup){ const code=mark("",ACCESS.setup,"code"); code.dir="ltr"; box.append(mark("setup","יש ליצור את טבלאות ההרשאות ב-Supabase:","p"),code); return; }
-  const note=mark("sub","כל משתמש נמצא באחת משלוש הקבוצות. העבירו משתמש לקבוצה אחרת ושמרו. מדורי הספרייה הדיגיטלית והשיעורים במסלול של תלמידים נקבעים בעריכת הכיתה (טאב כיתות)."+(can("lab.access")?" גישה למעבדה נותנים רק מפתחים.":""),"p");
+  const note=mark("sub","כל משתמש נמצא באחת משלוש הקבוצות. העבירו משתמש לקבוצה אחרת ושמרו. מדורי הספרייה הדיגיטלית והשיעורים במסלול של תלמידים נקבעים בעריכת הכיתה (טאב כיתות). לחיצה על ✓ או — נותנת או חוסמת רק למשתמש הזה (מסומן במסגרת); לחיצה נוספת מחזירה לברירת המחדל."+(can("lab.access")?" גישה למעבדה נותנים רק מפתחים.":""),"p");
   const find=Object.assign(document.createElement("input"),{type:"search",placeholder:"חיפוש לפי שם או מייל",className:"access-find"}); find.setAttribute("aria-label","חיפוש משתמש");
   const saveAll=mark("btn primary","שמירת כל השינויים","button"), actions=mark("access-actions","");
   actions.append(find,saveAll); box.append(note,actions);
+  if((ACCESS.users||[]).length&&!ACCESS.users.some(u=>u.opens)) box.append(mark("setup","פירוט ההרשאות לא זמין: השרת עוד לא עודכן לגרסה שמחשבת אותו. הפעילו אותו מחדש (או העלו את העדכון) ורעננו.","p"));
+  if(ACCESS.features) box.append(drawTierFeatures(note));
   const lab=can("lab.access"), rows=[];
   const save=async(r)=>{
     const {user,select,dev,btn}=r, body={tier:select.value,...(lab&&dev?{developer:dev.checked}:{})};
@@ -6121,7 +6208,9 @@ function drawAccess(){
     group.open=true; sum.append(mark("",TIER_INFO[tier].name,"b"),mark("",` · ${users.length}`,"span")); group.append(sum,mark("sub",TIER_INFO[tier].what,"p"));
     if(!users.length){ group.append(mark("meta","אין משתמשים בקבוצה הזו.","p")); box.append(group); continue; }
     const table=mark("access-table","","table"), head=document.createElement("tr");
-    for(const h of ["משתמש","קבוצה",...(lab?["מעבדה"]:[]),""]) head.append(mark("",h,"th"));
+    head.append(mark("","משתמש","th"));
+    for(const [,h] of ACCESS_COLS){ const th=mark("",h,"th"); head.append(th); }
+    head.append(mark("","העברה לקבוצה","th"));
     const thead=document.createElement("thead"), body=document.createElement("tbody"); thead.append(head); table.append(thead,body);
     for(const user of users){
       const tr=document.createElement("tr"), who=document.createElement("td"), email=mark("",user.email,"small"); email.dir="ltr";
@@ -6132,14 +6221,37 @@ function drawAccess(){
       for(const t of ["admin","teacher","student"]) select.add(new Option(TIER_INFO[t].name,t));
       select.value=tier; select.disabled=locked||fixedTier;
       if(fixedTier) select.title="נקבע בהגדרות השרת (TEACHER_EMAILS)"; else if(user.id===ACCESS.me) select.title="אי אפשר לשנות את ההרשאות של עצמך";
-      const tdSel=document.createElement("td"); tdSel.append(select); tr.append(who,tdSel);
+      tr.append(who);
       let dev=null;
-      if(lab){ const td=document.createElement("td"); dev=document.createElement("input"); dev.type="checkbox"; dev.checked=!!user.developer; dev.disabled=locked||(user.fixed||[]).includes("developer"); dev.setAttribute("aria-label",`מעבדה: ${user.name||user.email}`); td.append(dev); tr.append(td); }
-      const btn=mark("btn primary","שמירה","button"), tdBtn=mark("save-cell","","td"); btn.disabled=true; tdBtn.append(btn); tr.append(tdBtn);
+      const opens=user.opens||{}, yes=(ok,label)=>{ const td=mark(ok?"yes":"no",ok?"✓":"—","td"); td.title=`${label}: ${ok?"יש":"אין"}`; return td; };
+      for(const [key,label] of ACCESS_COLS){
+        if(key==="lab"&&lab){   // a developer gives or takes the lab here
+          const td=document.createElement("td"); dev=document.createElement("input"); dev.type="checkbox"; dev.checked=!!user.developer; dev.disabled=locked||(user.fixed||[]).includes("developer"); dev.setAttribute("aria-label",`מעבדה: ${user.name||user.email}`); td.append(dev); tr.append(td); continue;
+        }
+        if(!user.opens){ tr.append(mark("no","?","td")); continue; }
+        const name=label.replace(/\n/g," "), ok=accessOpens(opens,key), td=yes(ok,name), set=(opens.overrides||{})[key];
+        if(ACCESS_OWN.has(key)&&user.id!==ACCESS.me){   // the account's own exception: a click turns it over, a second click returns to the default
+          const b=mark("access-cell",ok?"✓":"—","button"); b.type="button"; td.replaceChildren(b);
+          if(set!==undefined){ td.classList.add("own"); b.title=`${name}: ${set?"ניתן":"נחסם"} ידנית למשתמש הזה. לחיצה מחזירה למה שהקבוצה והכיתה נותנות.`; }
+          else b.title=`${name}: ${ok?"יש":"אין"} (לפי הקבוצה והכיתה). לחיצה ${ok?"חוסמת":"נותנת"} רק למשתמש הזה.`;
+          b.onclick=async()=>{
+            const undo=accessSaving(b,td,!ok);
+            try{
+              const res=await api(`/api/access/users/${user.id}/overrides`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({key,value:set!==undefined?null:!ok})});
+              const d=await res.json().catch(()=>({})); if(!res.ok) throw new Error(d.detail||res.status);
+              const msg=`${user.name||user.email}: ${name} ${set!==undefined?"חזר לברירת המחדל":!ok?"ניתן":"נחסם"}.`;
+              if(d.opens) user.opens=d.opens; else await loadAccess();   // the row of this account alone
+              accessToast(msg); redrawAccess(msg);
+            }catch(e){ undo(); note.textContent=`השינוי לא נשמר: ${e.message}`; accessToast("השינוי לא נשמר",true); note.scrollIntoView({block:"center",behavior:"smooth"}); }
+          };
+        }
+        tr.append(td);
+      }
+      const btn=mark("btn primary","שמירה","button"), tdBtn=mark("save-cell","","td"); btn.disabled=true; tdBtn.append(select,btn); tr.append(tdBtn);
       const r={user,select,dev,btn,tr,dirty:false}; rows.push(r);
       const mark_=()=>{ r.dirty=select.value!==user.tier||(dev&&dev.checked!==!!user.developer); btn.disabled=!r.dirty||locked; };
       select.onchange=mark_; if(dev) dev.onchange=mark_;
-      btn.onclick=async()=>{ if(await save(r)){ note.textContent=`${user.name||user.email} נשמר/ה ב${TIER_INFO[user.tier].name}.`; drawAccess(); } };
+      btn.onclick=async()=>{ if(await save(r)){ const msg=`${user.name||user.email} נשמר/ה ב${TIER_INFO[user.tier].name}.`; await loadAccess(); drawAccess(); $("mAccess").querySelector("p.sub").textContent=msg; } };
       body.append(tr);
     }
     const scroll=mark("access-scroll",""); scroll.append(table); group.append(scroll); box.append(group);
@@ -6152,7 +6264,7 @@ function drawAccess(){
     for(const r of dirty) if(await save(r)) saved++;
     saveAll.disabled=false;
     const msg=saved===dirty.length?`נשמרו הרשאות עבור ${saved} משתמשים.`:`נשמרו ${saved} מתוך ${dirty.length} משתמשים. בדקו את השורות שלא נשמרו.`;
-    drawAccess(); $("mAccess").querySelector("p.sub").textContent=msg;
+    await loadAccess(); drawAccess(); $("mAccess").querySelector("p.sub").textContent=msg;
   };
 }
 function selectManageMode(){

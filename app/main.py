@@ -73,7 +73,7 @@ from .grok_mcp import build as build_grok_mcp, oauth_urls
 from .mcp_diagnostics import McpPathNormalizer
 from . import library as video_library
 from . import teacher_operations
-from .access import (ENTITLEMENTS, TIER_NAMES, TIERS, AccessChangeError, account_rows, change_tier,
+from .access import (CREATE_FEATURE_ACCESS, ENTITLEMENTS, FEATURES, TIER_NAMES, effective_features, feature_table, TIERS, AccessChangeError, account_rows, change_tier, clean_overrides, what_opens,
                      class_sections, has_permission, resolve_access)
 from .class_management import (ClassManagementError, normalize_class_name, normalize_meetings, parse_roster,
                                visible_classes)
@@ -280,6 +280,9 @@ MIGRATE_USER_ACCESS = ("alter table public.user_access add column if not exists 
                        "where 'path' = any(entitlements) and not ('practice' = any(entitlements)); "
                        "alter table public.user_access add constraint valid_entitlements check "
                        f"(entitlements <@ {ENTITLEMENTS_SQL});")
+# an account's own exceptions to its tier and classes (access.clean_overrides), set from the permission editor
+MIGRATE_ACCESS_OVERRIDES = ("alter table public.user_access add column if not exists overrides jsonb not null "
+                            "default '{}'::jsonb; notify pgrst, 'reload schema';")
 MAX_NOTE = 500
 MIGRATE_ATTEMPT_ISSUES = ("alter table public.attempts add column if not exists issues jsonb not null default '[]'::jsonb, "
                           "add column if not exists model text not null default '', "
@@ -652,9 +655,38 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             if app.state.auth is None:  # authentication is optional in local/open deployments
                 return app.state.auth
             if not has_permission(user, permission):
-                raise HTTPException(403, f"missing permission: {permission}")
+                raise HTTPException(403, refused(permission))
             return app.state.auth
         return allowed
+
+    feature_named = {perm: name for name, _d, perms in FEATURES.values() for perm in perms}
+
+    def refused(permission: str) -> str:
+        """The 403's words: a learner feature by its Hebrew name (it may be switched off for the account's tier)."""
+        name = feature_named.get(permission)
+        return f"{name} אינו זמין בחשבון הזה (missing permission: {permission})" if name else \
+            f"missing permission: {permission}"
+
+    def need(user: dict | None, permission: str) -> None:
+        if app.state.auth is not None and not has_permission(user, permission):
+            raise HTTPException(403, refused(permission))
+
+    def verb_level_allowed(user: dict | None, level: int) -> None:
+        """פועל יוצא is levels 1-5 of the verb game; בונים פועל עם איתן is 6 and on. Each can be switched off."""
+        need(user, "games.eitan" if level >= 6 else "games.verb")
+
+    def verb_question_allowed(user: dict | None, question_id: str) -> None:
+        question = app.state.verb_game.sessions.get(str(question_id))
+        if question is not None:
+            verb_level_allowed(user, question.mode)
+
+    bubble_games = {g["id"] for g in GAMES if g.get("bubble")}
+
+    def bubble_allowed(user: dict | None, phrase: dict) -> None:
+        """A sentence of פועל זמני (a bubble game) is the game's, not תרגול's: the games' switches hold."""
+        if phrase.get("cat") in bubble_games:
+            need(user, "games.use")
+            need(user, "games.bubble")
 
     admin_only = require("management.access")
     lab_only = require("lab.access")
@@ -811,6 +843,17 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"},
         )
 
+    lesson_level = {l["id"]: l.get("level") for l in LESSONS}
+
+    def with_levels(ids: list[str], user: dict | None) -> list[str]:
+        """Lessons with the account's own level exceptions (access.clean_overrides): a level given adds its lessons,
+        one taken away removes them. In the course's order."""
+        given = (user or {}).get("level_overrides") or {}
+        if not given:
+            return ids
+        return [l for l in ALL_LESSONS if given.get(lesson_level.get(l)) is not False
+                and (l in ids or given.get(lesson_level.get(l)) is True)]
+
     @app.get("/api/me")
     def me(user: dict | None = Depends(signed_in)):
         """Who is signed in, their classes (each with its lessons, its homework, see `homework_of`, and its daily
@@ -821,8 +864,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         asks this right after sign-in to learn whether the account is let in."""
         mine = user["classes"] if user else []
         can_all = bool(user and ({"*", "exercises.use_all"} & set(user.get("permissions", ()))))
-        lessons = ALL_LESSONS if not mine or can_all else \
-            [l for l in ALL_LESSONS if any(l in lessons_of(c) for c in mine)]
+        lessons = with_levels(ALL_LESSONS if not mine or can_all else
+                              [l for l in ALL_LESSONS if any(l in lessons_of(c) for c in mine)], user)
         # a teacher is in no class, and sees the daily videos of every class, each once by its earliest day
         every: dict[int, dict] = {}
         can_manage = bool(user and ({"*", "management.access"} & set(user.get("permissions", ()))))
@@ -846,7 +889,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 "roles": user.get("roles", []) if user else [], "entitlements": user.get("entitlements", []) if user else [],
                 "permissions": user.get("permissions", []) if user else ["*"],
                 **({"dailies": sorted(every.values(), key=lambda d: (d["date"], d["id"]))} if can_all else {}),
-                "classes": [{"id": c.get("id"), "name": c["name"], "lessons": class_lessons(c), **homework_of(c, topics()),
+                "classes": [{"id": c.get("id"), "name": c["name"],
+                             "lessons": class_lessons(c) if is_math(c) else with_levels(class_lessons(c), user),
+                             **homework_of(c, topics()),
                              "dailies": dailies_of(c, daily_rows()), "level": class_level(c),
                              "current_lesson": saved_lesson(c, saved),
                              **({"teacher": True} if email in (c.get("teachers") or []) else {}),
@@ -1218,8 +1263,92 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if rows is None:
             return {"users": [], "setup": CREATE_USER_ACCESS, "migration": MIGRATE_USER_ACCESS,
                     "me": actor["id"] if actor else ""}
-        return {"users": account_rows(a, users, rows), "setup": "", "migration": "",
+        try:
+            opens = what_opens(a, users, rows, class_levels, LEVEL_IDS)
+            table = feature_table(a)
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        listed = account_rows(a, users, rows)
+        return {"users": [{**u, "opens": opens.get(u["id"])} for u in listed],
+                "features": features_list(table),
+                "feature_setup": "" if table is not None else CREATE_FEATURE_ACCESS,
+                "tier_counts": {t: sum(u["tier"] == t for u in listed) for t in TIERS},
+                "setup": "", "migration": "", "levels": [{"id": v["id"], "name": v["name"]} for v in LEVELS],
                 "tiers": [{"id": t, "name": TIER_NAMES[t]} for t in TIERS], "me": actor["id"] if actor else ""}
+
+    lesson_levels = {l["id"]: l.get("level") for l in LESSONS}
+
+    def class_levels(c: dict) -> set[str]:   # a class saved before classes had lessons studies all of them
+        if is_math(c):
+            return set()
+        return {lesson_levels[l] for l in (lessons_of(c) or lesson_levels) if lesson_levels.get(l)}
+
+    def features_list(table: list[dict] | None) -> list[dict]:
+        """The features each tier starts with: a manager's switch over the code's default; the server may pin one."""
+        state = effective_features(table)
+        return [{"key": k, "name": name, "tiers": {t: state[t][k] for t in TIERS}} for k, (name, _d, _p) in FEATURES.items()]
+
+    @app.put("/api/access/features")
+    def update_feature(body: dict = Body(...), a: SupabaseAuth = Depends(require("users.manage")),
+                       actor: dict | None = Depends(signed_in)):
+        """A tier's switch of one learner feature from the permission editor: {"feature", "tier", "enabled": true,
+        false, or null (back to the default)}. The same checks as the MCP's publish_feature_access_change: no pinned
+        value, and audited. Everyone in the tier gets it on their next request, but for their own exceptions."""
+        key, tier, enabled = str(body.get("feature") or ""), str(body.get("tier") or ""), body.get("enabled")
+        if key not in FEATURES or tier not in TIERS or (enabled is not None and not isinstance(enabled, bool)):
+            raise HTTPException(400, "feature, tier (admin, teacher, student) and enabled (true, false or null)")
+        if not actor:
+            raise HTTPException(403, "sign in required")
+        try:
+            table = getattr(a, "feature_rows", lambda fresh=False: None)(fresh=True)
+            if table is None:
+                raise HTTPException(503, f"טבלת feature_access לא קיימת. הריצו ב-SQL Editor של Supabase: {CREATE_FEATURE_ACCESS}")
+            now = effective_features(table)[tier][key]
+            if now["fixed_by_server"]:
+                raise HTTPException(403, f"{FEATURES[key][0]} קבוע בהגדרות השרת (FEATURE_PINS) עבור {TIER_NAMES[tier]}")
+            after = now["default"] if enabled is None else enabled
+            a.set_feature(tier, key, None if after == now["default"] else after, now["enabled"], after, actor)
+            # what the screen draws again: the features, and the accounts of that tier (the others did not change)
+            rows = a.access_rows() or []
+            members = [u for u in account_rows(a, a.users(), rows) if u["tier"] == tier]
+            opens = what_opens(a, members, rows, class_levels, LEVEL_IDS)
+            features = features_list(a.feature_rows())
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        return {"ok": True, "feature": key, "tier": tier, "before": now["enabled"], "after": after,
+                "features": features, "opens": opens}
+
+    @app.put("/api/access/users/{target_id}/overrides")
+    def update_overrides(target_id: str, body: dict = Body(...),
+                         a: SupabaseAuth = Depends(require("users.manage")),
+                         actor: dict | None = Depends(signed_in)):
+        """One of an account's own exceptions: {"key": "level:<id>" | "lib:<section>" | practice | games | tutor | path,
+        "value": true (given), false (taken away), or null (as its tier and classes give)}. Nobody changes their own."""
+        key, value = str(body.get("key") or ""), body.get("value")
+        if value is not None and not isinstance(value, bool):
+            raise HTTPException(400, "value must be true, false or null")
+        if not clean_overrides({key: True}) or (key.startswith("level:") and key[6:] not in LEVEL_IDS):
+            raise HTTPException(400, "unknown permission")
+        if not actor or target_id == actor.get("id"):
+            raise HTTPException(403, "אי אפשר לשנות את ההרשאות של עצמך")
+        try:
+            target = next((u for u in a.users() if u["id"] == target_id), None) or \
+                next((u for u in a.users(fresh=True) if u["id"] == target_id), None)
+            if not target:
+                raise HTTPException(404, "החשבון לא נמצא")
+            overrides = clean_overrides((a.access_for(target_id, fresh=True) or {}).get("overrides"))
+            if value is None:
+                overrides.pop(key, None)
+            else:
+                overrides[key] = value
+            a.set_overrides(target, overrides, actor)
+            row = a.access_for(target_id, fresh=True)   # that account's row alone: the screen draws it again
+            opens = what_opens(a, [target], [{**row, "user_id": target_id}] if row else [], class_levels, LEVEL_IDS)
+        except AuthUnavailable as e:
+            if "overrides" in str(e).lower():
+                raise HTTPException(503, f"חסרה עמודה בטבלת ההרשאות. הריצו ב-SQL Editor של Supabase: {MIGRATE_ACCESS_OVERRIDES}")
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        return {"ok": True, "overrides": overrides, "opens": opens.get(target_id)}
 
     @app.put("/api/access/users/{target_id}")
     def update_access(target_id: str, body: dict = Body(...),
@@ -2812,6 +2941,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         """Create a Level 1--5 exercise; answers remain server-side."""
         try:
             level = int(body.get("level", 1))
+            verb_level_allowed(user, level)
             mastery = body.get("mastery") if isinstance(body.get("mastery"), dict) else {}
             recent = body.get("recent") if isinstance(body.get("recent"), list) else []
             tenses = body.get("tenses") if isinstance(body.get("tenses"), list) else None
@@ -2823,7 +2953,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except LookupError as e:
             raise HTTPException(404, str(e))
 
-    @app.get("/api/verb-game/falling", dependencies=[Depends(require("games.use"))])
+    @app.get("/api/verb-game/falling", dependencies=[Depends(require("games.use")), Depends(require("games.falling"))])
     def verb_falling(verb: str = "", user: dict | None = Depends(signed_in)):
         """A learned verb and its forms for the falling איתן/present-prefix game."""
         try:
@@ -2833,7 +2963,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except LookupError as e:
             raise HTTPException(404, str(e))
 
-    @app.get("/api/verb-game/falling/tts", dependencies=[Depends(require("games.use"))])
+    @app.get("/api/verb-game/falling/tts", dependencies=[Depends(require("games.use")), Depends(require("games.falling"))])
     def verb_falling_tts(verb: str, user: dict | None = Depends(signed_in)):
         """The playback voice saying the verb's "הוא" past and future together, when the game moves to a verb."""
         try:
@@ -2852,6 +2982,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.post("/api/verb-game/answer", dependencies=[Depends(require("games.use"))])
     def verb_answer(tasks: BackgroundTasks, body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        verb_question_allowed(user, str(body.get("question_id", "")))
         """Grade one opaque question once and return feedback plus measured client response time."""
         try:
             result = app.state.verb_game.answer(str(body.get("question_id", "")), body.get("answer"),
@@ -2865,7 +2996,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(410, str(e))
 
     @app.post("/api/verb-game/pair", dependencies=[Depends(require("games.use"))])
-    def verb_pair(body: dict = Body(...)):
+    def verb_pair(body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        verb_question_allowed(user, str(body.get("question_id", "")))
         """Check one Level 2 pair immediately; the full question remains available."""
         try:
             correct = app.state.verb_game.check_pair(
@@ -2877,7 +3009,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(410, str(e))
 
     @app.post("/api/verb-game/text", dependencies=[Depends(require("games.use"))])
-    def verb_text(body: dict):
+    def verb_text(body: dict, user: dict | None = Depends(signed_in)):
+        verb_question_allowed(user, str(body.get("question_id", "")))
         """Check a typed reply in the Level 5 conversation."""
         text = str(body.get("text", ""))[:200]
         if not text.strip():
@@ -2888,7 +3021,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(410, str(e))
 
     @app.post("/api/verb-game/walk-through", dependencies=[Depends(require("games.use"))])
-    def verb_walk_through(body: dict):
+    def verb_walk_through(body: dict, user: dict | None = Depends(signed_in)):
+        verb_question_allowed(user, str(body.get("question_id", "")))
         """The teacher's step-by-step answer after a second miss in the conversation; ends the question."""
         try:
             return {"steps": app.state.verb_game.walk_through(str(body.get("question_id", "")))}
@@ -2899,6 +3033,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def verb_speech(tasks: BackgroundTasks, audio: UploadFile = File(...), question_id: str = Form(...),
                     user: dict | None = Depends(signed_in)):
         """Evaluate Levels 4–5 audio without turning uncertain recognition into an error."""
+        verb_question_allowed(user, question_id)
         try:
             question, phrase = app.state.verb_game.speech_phrase(question_id)
         except LookupError as e:
@@ -2929,8 +3064,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return result
 
     @app.get("/api/verb-game/tts/{question_id}", dependencies=[Depends(require("games.use"))])
-    def verb_tts(question_id: str):
+    def verb_tts(question_id: str, user: dict | None = Depends(signed_in)):
         """The teacher playback voice saying a dynamic spoken-verb answer."""
+        verb_question_allowed(user, question_id)
         try:
             _question, phrase = app.state.verb_game.speech_phrase(question_id)
         except LookupError as e:
@@ -3061,11 +3197,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 "dialect_realisations_missing": {k: sorted(v) for k, v in s.vocab.class_missing.items()}}
 
     @app.get("/api/tts/{phrase_id}", dependencies=[Depends(require("practice.use"))])
-    def tts_phrase(phrase_id: int):
+    def tts_phrase(phrase_id: int, user: dict | None = Depends(signed_in)):
         """The model answer in the playback voice (SAWTAK_VOICE_ID, else Raef), or a dialogue line's own voice.
         503 tells the page to use the device voice."""
         names = {i: n for n, i in {**playback_voices(), **LINE_VOICES}.items()}
         phrase = phrase_of(phrase_id)
+        bubble_allowed(user, phrase)
         text = tts_arabic(*phrase["variants"][0])
         if app.state.tts is None:
             raise HTTPException(503, "tts not configured")
@@ -3785,9 +3922,10 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return model_settings_payload(model_id, user)
 
     @app.get("/api/prompt-audio/{phrase_id}", dependencies=[Depends(require("practice.use"))])
-    def prompt_audio(phrase_id: int, engine: str = "gtts"):
+    def prompt_audio(phrase_id: int, engine: str = "gtts", user: dict | None = Depends(signed_in)):
         """The Hebrew prompt read aloud (edge-tts or gTTS). 503 tells the page to stay silent."""
         phrase = phrase_of(phrase_id)
+        bubble_allowed(user, phrase)
         if engine not in ENGINES:
             raise HTTPException(400, "unknown engine")
         try:
@@ -3814,6 +3952,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def score(tasks: BackgroundTasks, phrase_id: int = Form(...), audio: UploadFile = File(...),
               user: dict | None = Depends(signed_in)):
         phrase = phrase_of(phrase_id)
+        bubble_allowed(user, phrase)
         data = audio.file.read(MAX_UPLOAD + 1)
         if len(data) > MAX_UPLOAD:
             raise HTTPException(413, "recording too long")

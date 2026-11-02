@@ -43,6 +43,10 @@ class TierAuth(LibraryAuth):
     def set_access(self, target, roles, entitlements, actor):
         self.access[target["id"]] = {"roles": roles, "entitlements": entitlements, "subject": ""}
 
+    def set_overrides(self, target, overrides, actor):
+        row = self.access.setdefault(target["id"], {"roles": ["student", "flagger"], "entitlements": [], "subject": ""})
+        row["overrides"] = dict(overrides)
+
     def save_class(self, class_id, name, emails, nicknames, lessons, homeworks=(), dailies=None,
                    subject="", teachers=None, library_sections=None):
         row = next(r for r in self.class_rows if r["id"] == class_id)
@@ -66,9 +70,9 @@ def test_each_tier_opens_what_it_should():
     auth.access["student-1"] = {"roles": ["teacher", "flagger"], "entitlements": []}
     trainer = who(auth, "student-1", "student@example.com")
     perms = set(trainer["permissions"])
-    assert {"tutor.use", "games.use", "practice.use", "path.use", "library.view", "flags.create",
+    assert {"games.use", "practice.use", "path.use", "library.view", "flags.create",
             "exercises.use_all"} <= perms
-    assert not perms & {"management.access", "users.manage", "mcp.use", "lab.access"}
+    assert not perms & {"tutor.use", "management.access", "users.manage", "mcp.use", "lab.access"}   # יאללה נדבר: managers only
     assert trainer["tier"] == "teacher" and trainer["library_sections"] == library.LEAVES
 
     # a student keeps no יאללה נדבר even with the old per-user permission saved
@@ -181,3 +185,61 @@ def test_a_manager_sets_a_class_library_sections_through_the_mcp():
     assert auth.class_rows[0]["library_sections"] == ["d2", "village"]
     assert not call(server, "prepare_teacher_change", {"operation": "set_class_library_sections", "class_id": 1,
                                                        "library_sections": ["אין כזה"]})["ok"]
+
+
+def test_the_page_shows_what_each_account_opens(monkeypatch):
+    auth = TierAuth({"dev-1": {"roles": ["developer", "student"], "entitlements": []}}, developers={"dev@example.com"})
+
+    async def steps(client):
+        return (await client.get("/api/access/users", headers=MANAGER)).json()
+
+    out = run(auth, steps, monkeypatch)
+    opens = {u["email"]: u["opens"] for u in out["users"]}
+    student, manager, dev = opens["student@example.com"], opens["teacher@example.com"], opens["dev@example.com"]
+    # a student: their class's lesson 1 (שלב א) and its one library section; no יאללה נדבר, ניהול or מעבדה
+    assert student["levels"] == ["1"] and student["library"] == ["village"]
+    assert student["practice"] and student["games"] and student["path"]
+    assert not (student["tutor"] or student["management"] or student["lab"])
+    # a manager: every level and section, ניהול, but not the lab; a developer has the lab too
+    assert manager["levels"] == ["1", "2"] and manager["library"] == library.LEAVES
+    assert manager["tutor"] and manager["management"] and not manager["lab"]
+    assert dev["lab"] and dev["management"]
+    assert [lv["name"] for lv in out["levels"]] == ["שלב א", "שלב ב"]
+
+
+def test_one_account_is_given_or_denied_on_its_own(monkeypatch):
+    auth = TierAuth()
+
+    async def steps(client):
+        put = lambda key, value: client.put("/api/access/users/student-1/overrides", headers=MANAGER,
+                                            json={"key": key, "value": value})
+        out = {}
+        for key, value in (("tutor", True), ("lib:guides", True), ("lib:village", False), ("level:2", True),
+                           ("games", False)):
+            out[key] = (await put(key, value)).status_code
+        out["list"] = (await client.get("/api/access/users", headers=MANAGER)).json()
+        out["me"] = (await client.get("/api/me", headers=STUDENT)).json()
+        out["back"] = (await put("games", None)).status_code
+        out["after"] = (await client.get("/api/access/users", headers=MANAGER)).json()
+        out["bad"] = (await put("management", True)).status_code
+        out["level"] = (await put("level:9", True)).status_code
+        out["self"] = (await client.put("/api/access/users/teacher-1/overrides", headers=MANAGER,
+                                        json={"key": "tutor", "value": False})).status_code
+        out["student"] = (await client.put("/api/access/users/student-1/overrides", headers=STUDENT,
+                                           json={"key": "tutor", "value": True})).status_code
+        return out
+
+    out = run(auth, steps, monkeypatch)
+    assert {out[k] for k in ("tutor", "lib:guides", "lib:village", "level:2", "games")} == {200}
+    opens = next(u["opens"] for u in out["list"]["users"] if u["id"] == "student-1")
+    assert opens["tutor"] and not opens["games"] and opens["path"]
+    assert opens["library"] == ["guides"] and opens["levels"] == ["1", "2"]
+    assert opens["overrides"] == {"tutor": True, "lib:guides": True, "lib:village": False, "level:2": True, "games": False}
+    # the student gets it: יאללה נדבר, no games, and the lessons of שלב ב beside their class's lesson 1
+    perms = set(out["me"]["permissions"])
+    assert "tutor.use" in perms and "games.use" not in perms
+    levels = {l["id"]: l["level"] for l in __import__("app.main", fromlist=["LESSONS"]).LESSONS}
+    assert "2" in {levels[l] for l in out["me"]["classes"][0]["lessons"]} and "1" in out["me"]["classes"][0]["lessons"]
+    assert out["back"] == 200
+    assert next(u["opens"] for u in out["after"]["users"] if u["id"] == "student-1")["games"]
+    assert out["bad"] == 400 and out["level"] == 400 and out["self"] == 403 and out["student"] == 403

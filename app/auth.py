@@ -223,6 +223,7 @@ class SupabaseAuth:
         self._texts: tuple[float, list[dict]] | None = None
         self._ranked: tuple[float, frozenset[str] | None] | None = None
         self._access: dict[str, tuple[float, dict | None]] = {}
+        self._features: tuple[float, list[dict] | None] | None = None   # the tiers' feature switches, briefly kept
         self._level_videos: dict[str, tuple[float, list[dict]]] = {}   # by table: the daily videos, the library
         self._users: tuple[float, list[dict]] | None = None
         self._users_fetch = threading.Lock()   # one request reads the account list; the others wait and reuse it
@@ -1173,8 +1174,8 @@ class SupabaseAuth:
             return hit[1]
         try:
             rows = self._admin("/rest/v1/user_access?" + urllib.parse.urlencode({
-                "user_id": f"eq.{user_id}", "select": "user_id,email,roles,entitlements,subject,updated_at"}))
-            value = rows[0] if rows else None
+                "user_id": f"eq.{user_id}", "select": "*"}))   # with subject and overrides, where the table has them
+            value = {"subject": "", "overrides": {}, **rows[0]} if rows else None
         except AuthUnavailable as e:
             if "subject" in str(e).lower():
                 rows = self._admin("/rest/v1/user_access?" + urllib.parse.urlencode({
@@ -1191,7 +1192,7 @@ class SupabaseAuth:
     def access_rows(self) -> list[dict] | None:
         """All explicit access assignments, or None until the user_access table is installed."""
         try:
-            return self._admin("/rest/v1/user_access?select=user_id,email,roles,entitlements,subject,updated_at") or []
+            return [{"subject": "", "overrides": {}, **r} for r in (self._admin("/rest/v1/user_access?select=*") or [])]
         except AuthUnavailable as e:
             if "subject" in str(e).lower():
                 return [{**r, "subject": ""} for r in
@@ -1217,6 +1218,68 @@ class SupabaseAuth:
         except AuthUnavailable as e:
             log.warning("access changed but audit row was not stored: %s", e)
         self.log_event("permission", actor, target["email"], {"roles": roles, "entitlements": entitlements})
+
+    def feature_rows(self, fresh: bool = False) -> list[dict] | None:
+        """The managers' feature switches per tier ([{"tier", "feature_key", "enabled"}]), or None until the
+        feature_access table is created. Kept for CLASSES_TTL, and dropped at once by set_feature, so an open session
+        gets a change on its next request."""
+        now = time.monotonic()
+        with self._lock:
+            hit = self._features
+        if not fresh and hit and hit[0] > now:
+            return hit[1]
+        if not self.secret:
+            return None
+        try:
+            value = self._admin("/rest/v1/feature_access?select=tier,feature_key,enabled") or []
+        except AuthUnavailable as e:
+            if "answered 404" not in str(e) and "feature_access" not in str(e):
+                raise
+            value = None
+        with self._lock:
+            self._features = (now + CLASSES_TTL, value)
+        return value
+
+    def set_feature(self, tier: str, key: str, enabled: bool | None, before: bool, after: bool, actor: dict) -> None:
+        """A tier's switch of one feature: True or False, or None to go back to the default (`after` is the value
+        that then holds). Audited."""
+        if enabled is None:
+            self._admin("/rest/v1/feature_access?" + urllib.parse.urlencode(
+                {"tier": f"eq.{tier}", "feature_key": f"eq.{key}"}), "DELETE", prefer="return=minimal")
+        else:
+            self._admin("/rest/v1/feature_access?on_conflict=tier,feature_key", "POST",
+                        {"tier": tier, "feature_key": key, "enabled": enabled, "updated_by": actor["id"],
+                         "updated_at": datetime.now(timezone.utc).isoformat()},
+                        prefer="resolution=merge-duplicates,return=minimal")
+        with self._lock:
+            self._features = None
+            self._access.clear()
+        try:
+            self._admin("/rest/v1/feature_access_audit", "POST",
+                        {"tier": tier, "feature_key": key, "old_enabled": before,
+                         "new_enabled": after, "changed_by": actor["id"]},
+                        prefer="return=minimal")
+        except AuthUnavailable as e:
+            log.warning("feature changed but audit row was not stored: %s", e)
+        self.log_event("permission", actor, f"{key} · {tier}", {"feature": key, "tier": tier, "enabled": enabled})
+
+    def set_overrides(self, target: dict, overrides: dict, actor: dict) -> None:
+        """An account's own exceptions to its tier and classes (access.clean_overrides). An account with no access row
+        gets one with the table's defaults (a student). AuthUnavailable names the column when the table lacks it."""
+        old = self.access_for(target["id"], fresh=True)
+        row = {"user_id": target["id"], "email": target["email"].lower(), "overrides": overrides,
+               "updated_at": datetime.now(timezone.utc).isoformat(), "updated_by": actor["id"]}
+        self._admin("/rest/v1/user_access?on_conflict=user_id", "POST", row,
+                    prefer="resolution=merge-duplicates,return=minimal")
+        with self._lock:
+            self._access.pop(target["id"], None)
+        try:
+            self._admin("/rest/v1/access_audit", "POST",
+                        {"target_user_id": target["id"], "changed_by": actor["id"],
+                         "old_access": old or {}, "new_access": row}, prefer="return=minimal")
+        except AuthUnavailable as e:
+            log.warning("access changed but audit row was not stored: %s", e)
+        self.log_event("permission", actor, target["email"], {"overrides": overrides})
 
     def set_admin_subject(self, target: dict, subject: str, actor: dict) -> None:
         """Set an admin's subject without changing their access assignment."""

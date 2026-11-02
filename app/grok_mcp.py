@@ -24,7 +24,8 @@ from . import class_management
 from . import monitoring
 from . import teacher_operations
 from . import mcp_diagnostics as diagnostics
-from .access import (TIER_NAMES, TIERS, AccessChangeError, account_rows, change_tier, has_permission,
+from .access import (CREATE_FEATURE_ACCESS, FEATURES, OVERRIDE_OF_FEATURE, TIER_NAMES, TIERS, AccessChangeError,
+                     account_rows, change_tier, clean_overrides, effective_features, feature_table, has_permission,
                      resolve_access)
 from .auth import AuthUnavailable
 
@@ -272,6 +273,9 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                       "account between the three tiers (מנהלים, מתרגלים, תלמידים) with list_user_access, "
                       "prepare_user_access_change and publish_user_access_change; a class's digital-library sections "
                       "are set with prepare_teacher_change operation set_class_library_sections. "
+                      "A learner feature (each game, יאללה נדבר, practice, path, every lesson or library section) is "
+                      "turned on or off for whole tiers with list_feature_access, prepare_feature_access_change and "
+                      "publish_feature_access_change; what a tier has is always what list_feature_access says. "
                       "Digital-library videos go into one section (list_library_sections): when the teacher does not "
                       "name the section, ask which one before preparing; for a list, use prepare_library_videos. "
                       f"The library's sections are: {LIBRARY_SECTION_NAMES}. When a request names one of them (for "
@@ -615,6 +619,128 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
+    def feature_state(store) -> tuple[dict[str, dict[str, dict]], bool]:
+        """The effective features per tier, and whether the feature_access table exists."""
+        rows = feature_table(store)
+        return effective_features(rows), rows is not None
+
+    @tool(description=("List the learner features (games each by itself, יאללה נדבר, practice, path, every lesson, "
+                       "every library section) with, for each tier, its default, its effective value, whether a "
+                       "manager overrode it, and fixed_by_server when the server's settings pin it. One account's own "
+                       "exception (set in the permission screen) wins over its tier. Managers only."),
+          structured_output=True)
+    async def list_feature_access(tier: Literal["admin", "teacher", "student"] | None = None) -> dict[str, Any]:
+        current, store, error = access_manager()
+        if current is None:
+            return {"ok": False, "error": error, "features": []}
+        try:
+            state, installed = await _bounded_read(lambda: feature_state(store))
+        except AuthUnavailable as exc:
+            return {"ok": False, "error": f"Supabase לא זמין: {exc}", "features": []}
+        tiers = [tier] if tier else list(TIERS)
+        features = [{"key": key, "name": name,
+                     "tiers": {t: {k: v for k, v in state[t][key].items() if v or k == "enabled" or k == "default"}
+                               for t in tiers}}
+                    for key, (name, _defaults, _perms) in FEATURES.items()]
+        return {"ok": True, "features": features, "tier_names": {t: TIER_NAMES[t] for t in tiers},
+                **({} if installed else {"note": "טבלת feature_access עוד לא נוצרה: כל השכבות בברירת המחדל. "
+                                                 f"כדי לשנות, הריצו ב-SQL Editor של Supabase: {CREATE_FEATURE_ACCESS}"})}
+
+    @tool(description=("Prepare turning one learner feature (a key from list_feature_access) on or off for some "
+                       "tiers, or \"all\" of them. Shows, for each tier, the value before and after and how many "
+                       "accounts it has (counts only), and how many of them keep their own exception. Returns a "
+                       "ten-minute approval; this does not change data. Publish with publish_feature_access_change "
+                       "only after the manager explicitly confirms."), structured_output=True)
+    async def prepare_feature_access_change(feature_key: str, tiers: list[Literal["admin", "teacher", "student"]] | Literal["all"],
+                                            enabled: bool) -> dict[str, Any]:
+        current, store, error = access_manager()
+        if current is None:
+            return {"ok": False, "error": error}
+        if not limiter.allow():
+            access_audit("prepare_feature_access_change", current, "refused", reason="rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        if feature_key not in FEATURES:
+            return {"ok": False, "error": "אין תכונה כזו. האפשרויות: " + ", ".join(FEATURES)}
+        chosen = list(TIERS) if tiers == "all" else [t for t in TIERS if t in (tiers or [])]
+        if not chosen:
+            return {"ok": False, "error": "בחרו שכבה אחת לפחות: admin, teacher, student או all"}
+        try:
+            def read():
+                state, installed = feature_state(store)
+                rows = store.access_rows() or []
+                return state, installed, account_rows(store, store.users(fresh=True), rows), rows
+            state, installed, people, rows = await _bounded_read(read)
+        except (AuthUnavailable, AccessChangeError) as exc:
+            return {"ok": False, "error": str(exc)}
+        if not installed:
+            return {"ok": False, "error": f"טבלת feature_access לא קיימת. הריצו ב-SQL Editor של Supabase: {CREATE_FEATURE_ACCESS}"}
+        name = FEATURES[feature_key][0]
+        pinned = [t for t in chosen if state[t][feature_key]["fixed_by_server"] and state[t][feature_key]["enabled"] != enabled]
+        if pinned:
+            access_audit("prepare_feature_access_change", current, "refused", reason="fixed_by_server")
+            return {"ok": False, "error": f"{name} קבוע בהגדרות השרת (FEATURE_PINS) עבור "
+                                          + ", ".join(TIER_NAMES[t] for t in pinned) + " ואי אפשר לשנות אותו כאן."}
+        own_key = OVERRIDE_OF_FEATURE.get(feature_key)
+        own = {r["user_id"]: clean_overrides(r.get("overrides")).get(own_key) for r in rows} if own_key else {}
+        preview = {}
+        for t in chosen:
+            members = [u for u in people if u["tier"] == t]
+            before = state[t][feature_key]["enabled"]
+            preview[t] = {"tier_name": TIER_NAMES[t], "before": before, "after": enabled, "changes": before != enabled,
+                          "accounts": len(members),
+                          "keep_their_own": sum(own.get(u["id"]) is not None and own.get(u["id"]) != enabled for u in members)}
+        if not any(p["changes"] for p in preview.values()):
+            return {"ok": False, "error": f"{name} כבר {'פעיל' if enabled else 'כבוי'} בשכבות שנבחרו", "preview": preview}
+        plan = {"operation": "set_feature", "feature": feature_key, "enabled": enabled,
+                "before": {t: p["before"] for t, p in preview.items()}}
+        approval_id, _ = class_approvals.prepare(str(current["id"]), plan)
+        access_audit("prepare_feature_access_change", current, "prepared")
+        return {"ok": True, "approval_id": approval_id, "feature": {"key": feature_key, "name": name},
+                "preview": preview, "expires_in_seconds": APPROVAL_TTL, "published": False}
+
+    @tool(description=("Publish a prepared feature change after the manager explicitly confirms the shown feature "
+                       "and tiers. Single-use, bound to the manager who prepared it, expires after ten minutes, and "
+                       "refused when a tier's value changed meanwhile. Open sessions get it on their next request."),
+          structured_output=True)
+    async def publish_feature_access_change(approval_id: str) -> dict[str, Any]:
+        current, store, error = access_manager()
+        if current is None:
+            return {"ok": False, "error": error}
+        if not limiter.allow():
+            access_audit("publish_feature_access_change", current, "refused", reason="rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        item = class_approvals.consume(approval_id, str(current["id"]))
+        if item is None or item.plan.get("operation") != "set_feature":
+            access_audit("publish_feature_access_change", current, "refused", reason="invalid_approval")
+            return {"ok": False, "error": "האישור אינו תקף, פג תוקף, שייך למשתמש אחר או כבר נוצל."}
+        plan = item.plan
+        key, enabled = plan["feature"], plan["enabled"]
+        try:
+            def publish() -> dict[str, Any]:
+                state = effective_features(store.feature_rows(fresh=True))
+                if any(state[t][key]["enabled"] != before for t, before in plan["before"].items()):
+                    raise AccessChangeError(409, "ההגדרה השתנתה מאז ההכנה. הכינו את השינוי מחדש")
+                done = {}
+                for t, before in plan["before"].items():
+                    if before == enabled:
+                        continue
+                    if state[t][key]["fixed_by_server"]:
+                        raise AccessChangeError(403, "התכונה קבועה בהגדרות השרת (FEATURE_PINS)")
+                    # the default needs no row: going back to it removes the switch
+                    store.set_feature(t, key, None if enabled == state[t][key]["default"] else enabled,
+                                      before, enabled, current)
+                    done[t] = {"before": before, "after": enabled}
+                return done
+            done = await _bounded_read(publish)
+        except AccessChangeError as exc:
+            access_audit("publish_feature_access_change", current, "refused", reason=f"http_{exc.status}")
+            diagnostics.note_refusal(exc)
+            return {"ok": False, "error": str(exc)}
+        except AuthUnavailable as exc:
+            return {"ok": False, "error": f"Supabase לא זמין: {exc}"}
+        access_audit("publish_feature_access_change", current, "success")
+        return {"ok": True, "feature": {"key": key, "name": FEATURES[key][0]}, "changed": done, "published": True}
+
     @tool(description=("Return the server's version and when it was last updated (deployed), to check that the "
                        "connector works with the current one. Returns no user or class data."), structured_output=True)
     async def get_server_version() -> dict[str, Any]:
@@ -768,9 +894,9 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    TIER_HELP = ("מנהלים: everything but the lab, and this MCP; מתרגלים: every exercise, game, path lesson and "
-                 "library section, but not ניהול and not this MCP; תלמידים: practice, games but יאללה נדבר, bug "
-                 "reports, and the path and library sections of their classes.")
+    TIER_HELP = ("מנהלים also have ניהול and this MCP; the learner features each tier has (games, יאללה נדבר, "
+                 "practice, path, every lesson or library section) change: see list_feature_access for the effective "
+                 "features of each tier. The lab is the developers' alone.")
 
     def access_manager() -> tuple[dict[str, Any] | None, Any, str]:
         current, store = actor(), auth()
