@@ -2191,10 +2191,9 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         a = c.app.state.auth
         assert c.get("/api/me", headers={"Authorization": "Bearer t"}).json()["tutor"] is True
         assert c.get("/api/me", headers={"Authorization": "Bearer s"}).json()["tutor"] is True   # everyone reports by default
-        a.access_for = {"u2": {"roles": ["student"], "entitlements": ["practice"]}}.get   # unless a manager took it away
-        assert "tutor" not in c.get("/api/me", headers={"Authorization": "Bearer s"}).json()
+        a.access_for = {"u2": {"roles": ["student"], "entitlements": ["practice"]}}.get   # a student's tier always reports
+        assert c.get("/api/me", headers={"Authorization": "Bearer s"}).json()["tutor"] is True
         assert c.post("/api/flags", data={"phrase_id": pid}, files={"audio": ("rec", b"x", "audio/wav")}).status_code == 401
-        assert send(c, "s").status_code == 403 and not a.flags   # tutors only
         del a.access_for
         r = send(c, "t", note="  אמרתי  ח נכונה ")
         row, = a.flags
@@ -2269,8 +2268,8 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         assert rank("s", email="s@b.c", tutor=True).status_code == 403   # teachers only (s is not in a class either)
         a.cls[0]["emails"].append("s@b.c"); a.teachers = frozenset({"t@b.c"})
         no_report = lambda: setattr(a, "access_for", {"u2": {"roles": ["student"], "entitlements": ["practice"]}}.get)
-        no_report()   # the rank matters once a manager removed the default
-        assert rank("s", email="s@b.c", tutor=True).status_code == 403 and "tutor" not in c.get("/api/me", headers=tok("s")).json()
+        no_report()   # every student reports problems (the תלמידים tier), with or without the rank
+        assert rank("s", email="s@b.c", tutor=True).status_code == 403 and c.get("/api/me", headers=tok("s")).json()["tutor"] is True
         del a.access_for
         assert rank("t", email="nobody", tutor=True).status_code == 400 and rank("t", email="s@b.c", tutor="yes").status_code == 400
         assert rank("t", email=" S@b.c ", tutor=True).status_code == 200 and a.rank == {"s@b.c"} and a.by == "t@b.c"
@@ -2280,7 +2279,7 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         panel = c.get("/api/class", headers=tok("t")).json()
         assert [(s["email"], s["tutor"], s.get("tutor_fixed")) for s in panel["students"]] == [("s@b.c", True, None), ("other@b.c", False, None)]
         assert rank("t", email="s@b.c", tutor=False).status_code == 200
-        no_report(); assert "tutor" not in c.get("/api/me", headers=tok("s")).json(); del a.access_for
+        no_report(); assert c.get("/api/me", headers=tok("s")).json()["tutor"] is True; del a.access_for
         a.rank = frozenset({"out@b.c"})   # ranked, but in no class: not let in
         known = a.user
         a.user = lambda token: {"id": "u3", "email": "out@b.c"} if token == "x" else known(token)

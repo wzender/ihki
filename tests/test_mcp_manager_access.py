@@ -80,5 +80,5 @@ def test_decision_reasons():
     store = Store(teachers=MANAGERS)
     assert mcp_access_decision(resolve_user_access(store, store.user(f"token-{MANAGERS[1]}"))) == (True, "manager")
     assert mcp_access_decision(resolve_user_access(store, store.user("token-s@x.com"))) == (
-        False, "no_management_or_teaching")
+        False, "not_a_manager")
     assert mcp_access_decision(None) == (False, "unknown_user")

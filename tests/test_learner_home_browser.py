@@ -505,17 +505,22 @@ def test_home_resumes_an_open_story_before_its_first_score_even_from_an_earlier_
 PRIORITY = """
 await sleep(1500);
 const titles=()=>[...document.querySelectorAll("#vids .focus-action strong")].map(s=>s.textContent);
+const btn=document.getElementById("vidsBtn");
 out.first=titles();
 out.homework=document.querySelector("#vids .focus-action").getAttribute("aria-label");
-document.querySelectorAll("#vids .focus-action")[1].click();   // today's video: watched now
+out.btnShown=!btn.hidden&&getComputedStyle(btn).display!=="none"; out.btnNew=btn.classList.contains("new");
+out.navLibrary=!!document.querySelector('#nav [data-view="library"]');
+btn.click(); await sleep(200);
+out.view=view(); out.headings=[...document.querySelectorAll("#vids h2,#vids h3")].map(h=>h.textContent);
+document.querySelector("#vids button.now").click();   // today's video: watched now
 await sleep(300);
 document.querySelectorAll("dialog[open]").forEach(d=>d.close());
 showView("home"); await sleep(100);
-out.afterWatching=titles();
+out.afterWatching=titles(); out.btnNewAfter=btn.classList.contains("new");
 """
 
 
-def test_homework_then_todays_video_then_the_lesson(site):
+def test_todays_video_waits_on_the_videos_button_not_the_home(site):
     from datetime import date, timedelta
     today, tomorrow = date.today().isoformat(), (date.today() + timedelta(days=1)).isoformat()
     site.auth.layout[0] = dict(site.auth.layout[0], homeworks=[{"topic": "l4-say", "due": tomorrow}],
@@ -523,10 +528,12 @@ def test_homework_then_todays_video_then_the_lesson(site):
     site.auth.daily_rows = [{"id": 1, "level": "1", "title": "ברוכים הבאים", "url": "https://vimeo.com/76979871"}]
     site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
     r = site("dana@x.com", PRIORITY)
-    assert r["first"][:2] == ["שיעורי בית", "הסרטון של היום"] and r["first"][2].startswith("ממשיכים ב")
-    assert len(r["first"]) == 3   # the short activity gives way to the three before it
+    assert r["first"][0] == "שיעורי בית" and r["first"][1].startswith("ממשיכים ב")
+    assert "הסרטון של היום" not in r["first"] and len(r["first"]) <= 3
     assert "מגישים מחר" in r["homework"]
-    assert "הסרטון של היום" not in r["afterWatching"] and len(r["afterWatching"]) == 3
+    assert r["btnShown"] and r["btnNew"] and not r["navLibrary"]   # in the top row, marked; no longer a tab
+    assert r["view"] == "library" and r["headings"][:2] == ["סרטונים", "הסרטון של היום"]
+    assert r["btnNewAfter"] is False and r["first"] == r["afterWatching"]
 
 
 SHORT = """
@@ -635,3 +642,76 @@ def test_falling_letters_search_filters_the_verbs(site):
     assert "ביקר" in r["loaded"] and "עבר ועתיד" in r["loaded"] and r["kept"] == "ביקר"
     assert " · " in r["both"] and r["playHidden"] and r["play"]   # past and future side by side; the sound button only after the reveal
     assert r["hidden"] and r["shown"] and r["stays"]   # hidden until clicked, then kept while the pronouns change
+
+
+CONTENT_SECTIONS = """
+await sleep(1200);
+document.getElementById("toManage").click();
+await sleep(300);
+document.querySelector('#mModes [data-mode="content"]').click();
+await until(()=>document.querySelector("#mContent .csec"));
+const sums=sel=>[...document.querySelectorAll(sel)].map(s=>s.textContent.slice(0,s.textContent.length-(s.querySelector("small")||{textContent:""}).textContent.length).trim());
+out.top=sums("#mContent > .csec > summary");
+const digital=document.querySelector("#mContent > .csec");
+out.sub=sums("#mContent > .csec:first-of-type .csub > summary");
+digital.open=true; digital.querySelector(".csub").open=true;
+out.stageOneCards=[...digital.querySelector(".csub").querySelectorAll(".card h2")].slice(0,2).map(h=>h.firstChild.textContent);
+"""
+
+
+def test_the_content_tab_is_split_into_the_library_sections(site):
+    r = site("boss@x.com", CONTENT_SECTIONS)
+    assert r["top"] == ["1. מערכת דיגיטלית", "2. בוגרים מספרים", "3. טיולים בכפר", "4. פרקי אבות עם אמיר",
+                        "5. חַאחַ׳אם עידן", "6. מנחים ומתרגלים"]
+    assert r["sub"] == ["שלב א", "שלב ב", "שלב ג", "שלב ד", "נִתמרַן"]   # the page draws the shadda itself, outside the text
+    assert r["stageOneCards"] == ["סרטונים במדור", "סרטונים יומיים"]   # its shelf, then the level's own content
+
+
+ACCESS_TIERS = """
+await sleep(1200);
+document.getElementById("toManage").click();
+await sleep(300);
+document.querySelector('#mModes [data-mode="access"]').click();
+await until(()=>document.querySelector("#mAccess .access-group"));
+const groups=()=>[...document.querySelectorAll("#mAccess .access-group")];
+out.groups=groups().map(g=>g.querySelector("summary b").textContent);
+out.emails=groups().map(g=>[...g.querySelectorAll("tbody td:first-child small")].map(s=>s.textContent));
+const row=[...document.querySelectorAll("#mAccess tbody tr")].find(r=>r.textContent.includes("dana@x.com"));
+const sel=row.querySelector("select"), save=row.querySelector(".save-cell button");
+out.saveBefore=save.disabled; sel.value="teacher"; sel.dispatchEvent(new Event("change")); out.saveAfter=save.disabled;
+save.click();
+await until(()=>groups()[1].textContent.includes("dana@x.com"));
+out.moved=groups()[1].querySelector("tbody td:first-child small").textContent;
+out.selfLocked=[...document.querySelectorAll("#mAccess tbody tr")].find(r=>r.textContent.includes("boss@x.com")).querySelector("select").disabled;
+// the class dialog: the library sections its students see; a section covers its sub-sections
+document.querySelector('#mModes [data-mode="classes"]').click();
+await until(()=>CLASS&&CLASS.library_tree);
+editClass({id:1,name:"א",emails:["dana@x.com"],nicknames:{},lessons:[ALL_LESSONS[0].id],homeworks:[],dailies:[],library_sections:["digital","avot"]});
+const boxes=[...document.querySelectorAll("#editLibrary input")];
+out.ticked=boxes.filter(b=>b.checked).map(b=>b.value);
+out.locked=boxes.filter(b=>b.disabled).map(b=>b.value);
+let sent=null; const real=window.fetch;
+window.fetch=async(url,opts={})=>{ if(String(url).includes("/api/classes/")){ sent=JSON.parse(opts.body); return new Response("{}",{status:200}); } return real(url,opts); };
+boxes.find(b=>b.value==="digital").click(); boxes.find(b=>b.value==="d2").click();
+document.getElementById("editForm").requestSubmit();
+await until(()=>sent);
+out.sent=sent.library_sections;
+"""
+
+
+def test_permissions_are_three_groups_and_a_class_picks_its_library_sections(site):
+    access = {"id-dana@x.com": {"roles": ["student", "flagger"], "entitlements": []}}
+    site.auth.users = lambda fresh=False: [{"id": f"id-{e}", "email": e, "name": e.split("@")[0]}
+                                           for e in ("boss@x.com", "dana@x.com")]
+    site.auth.access_rows = lambda: [{"user_id": k, **v} for k, v in access.items()]
+    site.auth.access_for = lambda user_id, fresh=False: access.get(user_id)
+    site.auth.set_access = lambda target, roles, entitlements, actor: access.__setitem__(
+        target["id"], {"roles": roles, "entitlements": entitlements})
+    r = site("boss@x.com", ACCESS_TIERS)
+    assert r["groups"] == ["מנהלים", "מתרגלים", "תלמידים"]
+    assert r["emails"] == [["boss@x.com"], [], ["dana@x.com"]]
+    assert r["saveBefore"] and not r["saveAfter"] and r["moved"] == "dana@x.com" and r["selfLocked"]
+    assert "teacher" in access["id-dana@x.com"]["roles"]
+    assert r["ticked"] == ["digital", "d1", "d2", "d3", "d4", "nitmaran", "avot"]
+    assert r["locked"] == ["d1", "d2", "d3", "d4", "nitmaran"]
+    assert r["sent"] == ["d2", "avot"]   # unticking the section frees its sub-sections; one picked alone

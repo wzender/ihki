@@ -12,6 +12,15 @@ from .auth import AuthUnavailable, ClassConflict, SupabaseAuth
 
 MAX_CLASS_NAME = 80
 MAX_NICKNAME = 40
+MAX_MEETINGS = 7
+# a class's weekly meetings: day 0 is Sunday, as the Hebrew week starts
+WEEKDAYS = ("ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת")
+_DAY_NAMES = {**{name: k for k, name in enumerate(WEEKDAYS)},
+              **{name: k for k, name in enumerate(("sunday", "monday", "tuesday", "wednesday",
+                                                   "thursday", "friday", "saturday"))},
+              **{name: k for k, name in enumerate(("sun", "mon", "tue", "wed", "thu", "fri", "sat"))},
+              **{f"{chr(0x5d0 + k)}'": k for k in range(6)}, "ש'": 6}
+_TIME = re.compile(r"([01]?\d|2[0-3]):([0-5]\d)")
 EMAIL = re.compile(r"[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+")
 OPERATIONS = frozenset({"create_class", "rename_class", "add_student", "remove_student"})
 PRESERVED = ("name", "emails", "nicknames", "lessons", "homeworks", "dailies", "subject", "teachers")
@@ -81,6 +90,39 @@ def parse_roster(text: str) -> tuple[list[str], dict[str, str]]:
         if len(found) == 1 and rest:
             nicknames[found[0].lower()] = rest[:MAX_NICKNAME]
     return sorted(emails), nicknames
+
+
+def _weekday(value: object) -> int:
+    if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 6:
+        return value
+    text = " ".join(str(value or "").replace("׳", "'").split()).lower()
+    if text in _DAY_NAMES:   # "ב'" is Monday
+        return _DAY_NAMES[text]
+    # "ביום רביעי", "ימי רביעי", "בשני", "Wednesdays": no day's own name starts with ב
+    text = text.removeprefix("ב").removeprefix("יום ").removeprefix("ימי ").removesuffix("s")
+    if text in _DAY_NAMES:
+        return _DAY_NAMES[text]
+    raise ClassManagementError("יום המפגש אינו תקין (ראשון עד שבת)")
+
+
+def normalize_meetings(value: object) -> list[dict[str, Any]]:
+    """A class's weekly meetings as [{"day": 0 (Sunday) to 6, "time": "HH:MM"}], sorted and each slot once.
+    A day may also be a Hebrew or English day name, as a chat gives it."""
+    if not isinstance(value, list) or len(value) > MAX_MEETINGS or not all(isinstance(item, dict) for item in value):
+        raise ClassManagementError(f"מפגשי הכיתה אינם תקינים (עד {MAX_MEETINGS} בשבוע)")
+    meetings = set()
+    for item in value:
+        found = _TIME.fullmatch(str(item.get("time") or "").strip())
+        if not found:
+            raise ClassManagementError("שעת המפגש אינה תקינה (למשל 20:30)")
+        meetings.add((_weekday(item.get("day")), f"{int(found[1]):02d}:{found[2]}"))
+    return [{"day": day, "time": time} for day, time in sorted(meetings)]
+
+
+def meetings_text(meetings: list[dict[str, Any]] | None) -> str:
+    """"ימי רביעי ב־20:30", or several joined with " · "; "" for none."""
+    return " · ".join(f"ימי {WEEKDAYS[m['day']]} ב־{m['time']}" for m in meetings or []
+                      if isinstance(m, dict) and m.get("day") in range(7))
 
 
 def normalize_student(email: object, nickname: object = "") -> tuple[str, str]:
@@ -224,8 +266,11 @@ def _save(auth: SupabaseAuth, row: dict) -> None:
     args = (int(row["id"]), row["name"], list(row.get("emails") or []), dict(row.get("nicknames") or {}),
             list(row.get("lessons") or []), list(row.get("homeworks") or []), list(row.get("dailies") or []),
             str(row.get("subject") or ""))
+    sections = {"library_sections": list(row["library_sections"])} if row.get("library_sections") is not None else {}
+    if row.get("meetings"):
+        sections["meetings"] = list(row["meetings"])
     try:
-        auth.save_class(*args, teachers=list(row.get("teachers") or []))
+        auth.save_class(*args, teachers=list(row.get("teachers") or []), **sections)
     except TypeError:
         auth.save_class(*args)
 

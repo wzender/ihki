@@ -73,9 +73,9 @@ from .grok_mcp import build as build_grok_mcp, oauth_urls
 from .mcp_diagnostics import McpPathNormalizer
 from . import library as video_library
 from . import teacher_operations
-from .access import (DEFAULT_ENTITLEMENTS, DEFAULT_ROLES, ENTITLEMENTS, ENTITLEMENT_PERMISSIONS,
-                     ROLES, ROLE_PERMISSIONS, has_permission, resolve_access)
-from .class_management import (ClassManagementError, normalize_class_name, parse_roster,
+from .access import (ENTITLEMENTS, TIER_NAMES, TIERS, AccessChangeError, account_rows, change_tier,
+                     class_sections, has_permission, resolve_access)
+from .class_management import (ClassManagementError, normalize_class_name, normalize_meetings, parse_roster,
                                visible_classes)
 from .error_telemetry import record_failure
 from . import log_errors
@@ -251,13 +251,15 @@ CREATE_SCORING_RULES = ("create table public.scoring_rules (id text primary key,
 # The students the teacher gave the tutor's rank (see auth.py): theirs in every class, so it is kept by email.
 CREATE_TUTORS = ("create table public.tutors (email text primary key, granted_by text not null default '', "
                  "created_at timestamptz not null default now()); alter table public.tutors enable row level security;")
+# every entitlement the permissions table accepts: the fixed ones and one per library section (library.SECTIONS)
+ENTITLEMENTS_SQL = "array[" + ",".join(f"'{e}'" for e in sorted(ENTITLEMENTS)) + "]::text[]"
 CREATE_USER_ACCESS = ("create table public.user_access (user_id uuid primary key references auth.users(id) on delete cascade, "
                       "email text not null, roles text[] not null default array['student','flagger']::text[], "
                       "entitlements text[] not null default '{}'::text[], subject text not null default '', "
                       "updated_at timestamptz not null default now(), "
                       "updated_by uuid references auth.users(id), "
                       "constraint valid_roles check (roles <@ array['student','teacher','flagger','admin','developer']::text[]), "
-                      "constraint valid_entitlements check (entitlements <@ array['practice','games','tutor','path','library']::text[])); "
+                      f"constraint valid_entitlements check (entitlements <@ {ENTITLEMENTS_SQL})); "
                       "create unique index user_access_email_idx on public.user_access (lower(email)); "
                       "alter table public.user_access enable row level security; "
                       "create table public.access_audit (id bigint generated always as identity primary key, "
@@ -277,7 +279,7 @@ MIGRATE_USER_ACCESS = ("alter table public.user_access add column if not exists 
                        "update public.user_access set entitlements = array_append(entitlements, 'practice') "
                        "where 'path' = any(entitlements) and not ('practice' = any(entitlements)); "
                        "alter table public.user_access add constraint valid_entitlements check "
-                       "(entitlements <@ array['practice','games','tutor','path','library']::text[]);")
+                       f"(entitlements <@ {ENTITLEMENTS_SQL});")
 MAX_NOTE = 500
 MIGRATE_ATTEMPT_ISSUES = ("alter table public.attempts add column if not exists issues jsonb not null default '[]'::jsonb, "
                           "add column if not exists model text not null default '', "
@@ -303,7 +305,9 @@ MIGRATE_CLASSES = ("alter table public.classes add column if not exists nickname
                    "add column if not exists homeworks jsonb not null default '[]', "
                    "add column if not exists dailies jsonb not null default '[]', "
                    "add column if not exists subject text not null default 'ערבית', "
-                   "add column if not exists teachers text[] not null default '{}'; "
+                   "add column if not exists teachers text[] not null default '{}', "
+                   "add column if not exists library_sections text[], "
+                   "add column if not exists meetings jsonb not null default '[]'; "
                    "update public.classes set subject = 'ערבית' where subject = '';")
 MAX_HOMEWORKS = 30
 
@@ -1088,7 +1092,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if ranked is None:
             setup.append({"what": "הטבלה tutors לא קיימת ב-Supabase, ולכן אי אפשר לתת לתלמיד דרגת מדווח/ת (דגל 🚩 מתחת לציון).",
                           "sql": CREATE_TUTORS})
-        return {"classes": [{**c, "lessons": class_lessons(c), **homework_of(c, lesson_of)} for c in classes], "students": students,
+        return {"classes": [{**c, "lessons": class_lessons(c), **homework_of(c, lesson_of),
+                             "library_sections": class_sections(c)} for c in classes],
+                "library_tree": video_library.public_sections(), "students": students,
                 "setup": setup}
 
     @app.get("/api/activity")
@@ -1200,7 +1206,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.get("/api/access/users")
     def access_users(a: SupabaseAuth = Depends(require("users.manage")),
                      actor: dict | None = Depends(signed_in)):
-        """All accounts and their explicit roles/entitlements for the permission editor."""
+        """Every account with its tier (מנהלים, מתרגלים, תלמידים) for the permission editor; see access.account_rows."""
         if not hasattr(a, "access_rows"):
             return {"users": [], "setup": CREATE_USER_ACCESS, "migration": MIGRATE_USER_ACCESS,
                     "me": actor["id"] if actor else ""}
@@ -1211,69 +1217,22 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if rows is None:
             return {"users": [], "setup": CREATE_USER_ACCESS, "migration": MIGRATE_USER_ACCESS,
                     "me": actor["id"] if actor else ""}
-        assigned = {r["user_id"]: r for r in rows}
-        result = []
-        for account in users:
-            row = assigned.get(account["id"], {})
-            email = account["email"].lower()
-            roles = set(row.get("roles") or ["student"]) if row else set(DEFAULT_ROLES)
-            fixed = []
-            if email in getattr(a, "teachers", ()):
-                roles.update({"teacher", "admin", "flagger"}); fixed += ["teacher", "admin", "flagger"]
-            if email in getattr(a, "tutors", ()):
-                roles.add("flagger"); fixed.append("flagger")
-            if email in getattr(a, "developers", ()):
-                roles.add("developer"); fixed.append("developer")
-            entitlements = (set(row.get("entitlements") or []) if row else set(DEFAULT_ENTITLEMENTS)) & ENTITLEMENTS
-            effective = set().union(*(ROLE_PERMISSIONS[r] for r in roles & ROLES))
-            effective.update(*[ENTITLEMENT_PERMISSIONS[e] for e in entitlements])
-            result.append({**account, "roles": sorted(roles & ROLES),
-                           "entitlements": sorted(entitlements), "permissions": sorted(effective),
-                           "fixed_roles": sorted(set(fixed))})
-        # A successful read cannot tell us which CHECK expression PostgreSQL has, and showing the
-        # migration unconditionally makes it look unfinished even after it was run.  If an old
-        # constraint rejects a newly selected entitlement, update_access returns the migration there.
-        return {"users": result, "setup": "", "migration": "",
-                "me": actor["id"] if actor else ""}
+        return {"users": account_rows(a, users, rows), "setup": "", "migration": "",
+                "tiers": [{"id": t, "name": TIER_NAMES[t]} for t in TIERS], "me": actor["id"] if actor else ""}
 
     @app.put("/api/access/users/{target_id}")
     def update_access(target_id: str, body: dict = Body(...),
                       a: SupabaseAuth = Depends(require("users.manage")),
                       actor: dict | None = Depends(signed_in)):
-        roles, entitlements = body.get("roles"), body.get("entitlements")
-        if not isinstance(roles, list) or not roles or not all(isinstance(x, str) for x in roles):
-            raise HTTPException(400, "roles must be a non-empty list")
-        if not isinstance(entitlements, list) or not all(isinstance(x, str) for x in entitlements):
-            raise HTTPException(400, "entitlements must be a list")
-        roles, entitlements = set(roles), set(entitlements)
-        if not roles <= ROLES or not entitlements <= ENTITLEMENTS:
-            raise HTTPException(400, "unknown role or entitlement")
-        if not actor or target_id == actor["id"]:
-            raise HTTPException(403, "you cannot change your own access")
-        is_developer = "*" in actor.get("permissions", ())
+        """Puts an account in a tier: {"tier": "admin" | "teacher" | "student"}, and for a developer acting,
+        "developer": true or false (the lab). See access.TIERS for what each tier opens."""
+        developer = body.get("developer")
+        if developer is not None and not isinstance(developer, bool):
+            raise HTTPException(400, "developer must be true or false")
         try:
-            users = a.users()
-            target = next((u for u in users if u["id"] == target_id), None)
-            if not target:   # signed up just now: the list is reused for a minute
-                users = a.users(fresh=True)
-                target = next((u for u in users if u["id"] == target_id), None)
-            if not target:
-                raise HTTPException(404, "account not found")
-            old = a.access_for(target_id) if hasattr(a, "access_for") else None
-            old_roles = set((old or {}).get("roles") or ["student"])
-            if (("developer" in roles) != ("developer" in old_roles)) and not is_developer:
-                raise HTTPException(403, "only developers can change developer access")
-            if target["email"].lower() in getattr(a, "developers", ()) and "developer" not in roles:
-                raise HTTPException(403, "this developer is configured by the server")
-            if "developer" in old_roles and "developer" not in roles:
-                rows = a.access_rows() or []
-                remaining = sum("developer" in (r.get("roles") or []) and r.get("user_id") != target_id for r in rows)
-                remaining += sum(e != target["email"].lower() for e in getattr(a, "developers", ()))
-                if not remaining:
-                    raise HTTPException(409, "the last developer cannot be removed")
-            a.set_access(target, sorted(roles), sorted(entitlements), actor)
-        except HTTPException:
-            raise
+            change_tier(a, actor, target_id, str(body.get("tier") or ""), developer)
+        except AccessChangeError as e:
+            raise HTTPException(e.status, str(e))
         except AuthUnavailable as e:
             if "answered 404" in str(e):
                 raise HTTPException(503, f"permissions table is missing; run: {CREATE_USER_ACCESS}")
@@ -2093,7 +2052,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if "answered 404" in str(e):
             return ("הטבלה classes לא קיימת ב-Supabase. צרו אותה ב-SQL Editor (הפקודה ב-README); "
                     "אם כבר נוצרה, הריצו שם: notify pgrst, 'reload schema';")
-        if any(col in str(e) for col in ("nicknames", "lessons", "homework", "'due'", "dailies", "subject", "teachers")):   # a table made before them
+        if any(col in str(e) for col in ("nicknames", "lessons", "homework", "'due'", "dailies", "subject", "teachers", "library_sections", "meetings")):   # a table made before them
             return f"לטבלה classes חסרות עמודות. הריצו ב-SQL Editor של Supabase: {MIGRATE_CLASSES}"
         return f"Supabase לא זמין: {e}"
 
@@ -2138,6 +2097,17 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             teachers = list(dict.fromkeys(e.strip().lower() for e in teachers if e.strip()))
             if not set(teachers) <= set(emails):
                 raise HTTPException(400, "מורה של הכיתה צריך להיות אחד מהתלמידים הרשומים בה")
+        sections = body.get("library_sections")   # without it, the class keeps the library sections it has
+        if sections is not None:
+            if not isinstance(sections, list) or not all(isinstance(x, str) and x in video_library.NODES for x in sections):
+                raise HTTPException(400, "מדור לא מוכר בספרייה הדיגיטלית. רעננו ונסו שוב")
+            sections = list(dict.fromkeys(sections))
+        meetings = body.get("meetings")   # [{"day": 0 (Sunday) to 6, "time": "HH:MM"}]; without it they stay as they are
+        if meetings is not None:
+            try:
+                meetings = normalize_meetings(meetings)
+            except ClassManagementError as e:
+                raise HTTPException(400, str(e))
         listed = [] if math else body.get("homeworks")
         if listed is None:
             listed = [{"topic": body.get("homework"), "due": body.get("due")}]
@@ -2182,6 +2152,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 raise HTTPException(409, f"כבר יש כיתה בשם {taken}")
             # a class that has no daily videos, and had none, is saved without them: a table made before them takes it
             had = any(c["id"] == id and c.get("dailies") for c in visible)
+            if not meetings and not any(c["id"] == id and c.get("meetings") for c in visible):
+                meetings = None   # likewise a class without weekly meetings
             if (id is None and hasattr(a, "access_for") and actor and "admin" in actor.get("roles", ())
                     and "developer" not in actor.get("roles", ()) and not subject):
                 raise HTTPException(409, "לא הוגדר מקצוע למנהל/ת. מפתח/ת צריך להגדיר אותו בניטור.")
@@ -2191,7 +2163,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 a, actor or {}, "create_class" if id is None else "update_class", class_id=id,
                 name=name, subject=subject, students=students, teachers=teachers,
                 content_ids=lessons, homeworks=homeworks,
-                dailies=(dailies if dailies is not None else ([] if id is None else None)))
+                dailies=(dailies if dailies is not None else ([] if id is None else None)),
+                library_sections=sections, meetings=meetings)
             teacher_operations.apply_class(a, actor or {}, plan)
         except ClassConflict:
             raise HTTPException(409, f"כבר יש כיתה בשם {name}")
@@ -2544,16 +2517,21 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/library", dependencies=[Depends(require("library.view"))])
     def library(user: dict | None = Depends(signed_in)):
-        """The video library, which stands outside the path and is one for every level and class: id, title, url
-        (for a teacher only) and embed (its player) of each, in the teacher's order (see `order_library`)."""
+        """The video library, which stands outside the path and is split into sections (library.SECTIONS): of the
+        sections the user may watch, id, section, title, url (for a teacher only) and embed (its player) of each video,
+        in the teacher's order (see `order_library`); and the section tree, with the leaf sections the user sees."""
+        sections = video_library.public_sections()
         if not user:
-            return {"library": []}
+            return {"library": [], "sections": sections, "visible": []}
+        visible = list(user.get("library_sections") or [])
         try:
             rows = app.state.auth.level_videos("library")
         except AuthUnavailable as e:
             raise HTTPException(503, f"library not available: {e}")
-        return {"library": [{"id": v["id"], "title": v["title"], **({"url": v["url"]} if user["teacher"] else {}),
-                             "embed": video_embed(v["url"])} for v in rows]}
+        return {"library": [{"id": v["id"], "section": video_library.section_of(v), "title": v["title"],
+                             **({"url": v["url"]} if user["teacher"] else {}), "embed": video_embed(v["url"])}
+                            for v in rows if video_library.section_of(v) in visible],
+                "sections": sections, "visible": visible}
 
     def add_level_video(table: str, body: dict, a: SupabaseAuth, user: dict | None) -> dict:
         # a daily video is a level's; the library is one for every level (its `level` is empty)
@@ -2608,11 +2586,14 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.post("/api/library")
     def add_library(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
                     user: dict | None = Depends(signed_in)):
-        """Adds a video to the library: {"title", "url": a Vimeo or YouTube link}."""
+        """Adds a video to a section of the library: {"section": a leaf section's id or name, "title", "url": a Vimeo or
+        YouTube link}. Without a section it goes to the one the library's videos stood in before there were sections."""
         try:
+            given = body.get("section", body.get("level", ""))
+            section = video_library.resolve_section(given) if given else video_library.LEGACY_SECTION
             title = video_library.normalize_title(body.get("title", ""))
             url = video_library.normalize_url(body.get("url", ""), video_link)
-            video_library.add(a, title, url, reject_duplicate=False)
+            video_library.add(a, title, url, section=section, reject_duplicate=False)
         except video_library.LibraryError as e:
             if isinstance(e, video_library.LibraryUnavailable):
                 raise HTTPException(503, level_store_error("library", AuthUnavailable(str(e))))
@@ -2620,7 +2601,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             if detail == "זה לא קישור לסרטון ב-Vimeo או ב-YouTube":
                 detail += ". הדביקו קישור כמו https://vimeo.com/1233611297/d46ac373c8 או https://youtu.be/dQw4w9WgXcQ"
             raise HTTPException(400, detail)
-        a.log_event("content", user, title, {"type": "library", "level": ""})
+        a.log_event("content", user, title, {"type": "library", "level": section})
         return {"ok": True}
 
     @app.delete("/api/library/{video_id}")
@@ -2629,12 +2610,15 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.put("/api/library/order")
     def order_library(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
-        """Puts the library's videos in the teacher's order: {"order": [id]}, every video of the library once."""
-        order = body.get("order")
+        """Puts a section's videos in the teacher's order: {"section", "order": [id]}, every video of the section once
+        (without a section, every video of the library)."""
+        order, section = body.get("order"), body.get("section")
         if not isinstance(order, list) or not all(isinstance(i, int) and not isinstance(i, bool) for i in order):
             raise HTTPException(400, "the order is a list of video ids")
         try:
-            if len(set(order)) != len(order) or set(order) != {v["id"] for v in a.level_videos("library", fresh=True)}:   # added or deleted meanwhile, in another tab
+            ids = {v["id"] for v in a.level_videos("library", fresh=True)
+                   if section is None or video_library.section_of(v) == section}
+            if len(set(order)) != len(order) or set(order) != ids:   # added or deleted meanwhile, in another tab
                 raise HTTPException(409, "הספריה השתנתה. רעננו ונסו שוב")
             a.order_level_videos("library", order)
         except AuthUnavailable as e:
@@ -2643,10 +2627,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.put("/api/library/{video_id}")
     def rename_library(video_id: int, body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only)):
-        """Gives a video of the library another name: {"title"}."""
+        """Gives a video of the library another name, or moves it to another section: {"title"} and/or {"section"}."""
         try:
-            title = video_library.normalize_title(body.get("title", ""))
-            video_library.rename(a, video_id, title)
+            if "section" in body:
+                video_library.move(a, video_id, video_library.resolve_section(body.get("section")))
+            if "title" in body or "section" not in body:
+                title = video_library.normalize_title(body.get("title", ""))
+                video_library.rename(a, video_id, title)
         except video_library.LibraryUnavailable as e:
             raise HTTPException(503, level_store_error("library", AuthUnavailable(str(e))))
         except video_library.LibraryError as e:

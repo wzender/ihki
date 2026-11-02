@@ -523,6 +523,7 @@ class SupabaseAuth:
                     r["homework"], r["due"] = r.get("homework") or "", r.get("due") or None
                     r["homeworks"], r["dailies"] = r.get("homeworks") or [], r.get("dailies") or []
                     r["teachers"] = [str(e).lower() for e in (r.get("teachers") or [])]
+                    r["meetings"] = r.get("meetings") or []
             except AuthUnavailable as e:
                 if "answered 404" not in str(e):
                     raise
@@ -544,10 +545,13 @@ class SupabaseAuth:
 
     def save_class(self, id: int | None, name: str, emails: list[str], nicknames: dict[str, str],
                    lessons: list[str], homeworks: list[dict] = (), dailies: list[dict] | None = None,
-                   subject: str = "", teachers: list[str] | None = None) -> None:
+                   subject: str = "", teachers: list[str] | None = None,
+                   library_sections: list[str] | None = None, meetings: list[dict] | None = None) -> None:
         """Adds a class (id None) or replaces one's name, emails, nicknames, lessons and homeworks ([{"topic", "due"}]),
-        and its daily videos' days ([{"video", "date"}]; None leaves them as they are, so a table made before them
-        still takes a class that has none). A name already taken raises ClassConflict."""
+        the library sections it opens to its students (None leaves them as they are; see access.class_sections),
+        its daily videos' days ([{"video", "date"}]; None leaves them as they are, so a table made before them
+        still takes a class that has none) and its weekly meetings ([{"day": 0-6, Sunday first, "time": "HH:MM"}];
+        None leaves them as they are). A name already taken raises ClassConflict."""
         first = homeworks[0] if homeworks else {"topic": "", "due": None}   # the columns of a class with one homework
         body = {"name": name, "emails": emails, "nicknames": nicknames, "lessons": lessons,
                 "homework": first["topic"], "due": first["due"], "homeworks": list(homeworks)}
@@ -555,6 +559,10 @@ class SupabaseAuth:
             body["dailies"] = list(dailies)
         if teachers is not None:
             body["teachers"] = list(teachers)
+        if library_sections is not None:
+            body["library_sections"] = list(library_sections)
+        if meetings is not None:
+            body["meetings"] = list(meetings)
         if id is None:
             body["subject"] = subject
             self._admin("/rest/v1/classes", "POST", body)

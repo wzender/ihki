@@ -230,7 +230,7 @@ function plot(g){
 
 // the start button (and a teacher's "תרגול") opens the math path once the opening screen is gone
 const arabicEnter=enter;
-const enterMath=()=>{ arabicEnter(); if(!AUTH_URL||can("path.use")) show(); };
+const enterMath=()=>{ const toVideo=fromReminder(); arabicEnter(); if((!AUTH_URL||can("path.use"))&&!toVideo) show(); };   // the reminder's video first
 document.getElementById("startBtn").onclick=document.getElementById("practiceBtn").onclick=enterMath;
 
 // the manage panel: "לתרגול" goes to the math path, and "תוכן" lists the math path (units and their skills) in

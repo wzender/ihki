@@ -23,7 +23,8 @@ from . import class_management
 from . import monitoring
 from . import teacher_operations
 from . import mcp_diagnostics as diagnostics
-from .access import has_permission, resolve_access
+from .access import (TIER_NAMES, TIERS, AccessChangeError, account_rows, change_tier, has_permission,
+                     resolve_access)
 from .auth import AuthUnavailable
 
 
@@ -81,6 +82,10 @@ class Approval:
     title: str
     url: str
     expires_at: float
+    section: str = library.LEGACY_SECTION
+
+
+MAX_BATCH_VIDEOS = 50
 
 
 class ApprovalStore:
@@ -94,12 +99,12 @@ class ApprovalStore:
         while len(self._items) >= MAX_APPROVALS:
             self._items.pop(next(iter(self._items)))
 
-    def prepare(self, title: str, url: str) -> tuple[str, Approval]:
+    def prepare(self, title: str, url: str, section: str = library.LEGACY_SECTION) -> tuple[str, Approval]:
         now = self.clock()
         with self._lock:
             self._prune(now)
             approval_id = secrets.token_urlsafe(24)
-            item = Approval(title, url, now + APPROVAL_TTL)
+            item = Approval(title, url, now + APPROVAL_TTL, section)
             self._items[approval_id] = item
         return approval_id, item
 
@@ -180,22 +185,20 @@ def oauth_urls(app) -> tuple[str, str]:
 def mcp_access_decision(user: dict[str, Any] | None) -> tuple[bool, str]:
     """Whether a resolved identity may use the MCP connector, and why.
 
-    Allowed: managers (the panel's "ניהול" role ``admin``, TEACHER_EMAILS, developers), i.e.
-    anyone with ``management.access``, and teachers assigned to at least one class.
+    Allowed: managers only (the tier מנהלים: the role ``admin``, TEACHER_EMAILS, developers), i.e. anyone with
+    ``mcp.use``. מתרגלים and students are refused, also when they teach a class.
     """
     if not user:
         return False, "unknown_user"
     if user.get("denied"):
         return False, "not_in_any_class"
-    if has_permission(user, "management.access"):
+    if has_permission(user, "mcp.use"):
         return True, "manager"
-    if user.get("teaches"):
-        return True, "class_teacher"
-    return False, "no_management_or_teaching"
+    return False, "not_a_manager"
 
 
 class SupabaseTokenVerifier:
-    """Validate OAuth and require management access or a current teaching assignment."""
+    """Validate OAuth and require a manager (see `mcp_access_decision`)."""
 
     def __init__(self, app):
         self.app = app
@@ -253,7 +256,12 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         instructions=("Prefer get_teacher_workspace, list_teacher_options, prepare_teacher_change, and "
                       "publish_teacher_change for scoped class and instructional-content management. Always prepare "
                       "a mutation, show its exact effect, and publish only after explicit confirmation. Never offer "
-                      "account, role, permission, entitlement, subject-assignment, OAuth, credential, or secret changes."),
+                      "subject-assignment, lab (developer), OAuth, credential, or secret changes. A manager may move an "
+                      "account between the three tiers (מנהלים, מתרגלים, תלמידים) with list_user_access, "
+                      "prepare_user_access_change and publish_user_access_change; a class's digital-library sections "
+                      "are set with prepare_teacher_change operation set_class_library_sections. "
+                      "Digital-library videos go into one section (list_library_sections): when the teacher does not "
+                      "name the section, ask which one before preparing; for a list, use prepare_library_videos."),
         token_verifier=SupabaseTokenVerifier(app),
         auth=AuthSettings(issuer_url=AnyHttpUrl(issuer_url), resource_server_url=AnyHttpUrl(resource_url),
                           validate_token_resource=False, required_scopes=[]),
@@ -386,43 +394,99 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @tool(description="List the digital-library videos in their current order. Returns no learner data.",
-                 structured_output=True)
+    @tool(description=("List the digital library's sections and sub-sections. A video is uploaded to one leaf "
+                       "section (a section without sub-sections); a section name may be given in Hebrew."),
+          structured_output=True)
+    async def list_library_sections() -> dict[str, Any]:
+        return {"ok": True, "sections": library.public_sections(),
+                "upload_targets": [{"id": leaf, "name": library.label(leaf)} for leaf in library.LEAVES]}
+
+    @tool(description=("List the digital-library videos in their current order, each with its section. "
+                       "Returns no learner data."), structured_output=True)
     async def list_library_videos() -> dict[str, Any]:
         try:
             videos = library.rows(auth(), fresh=True)
-            return {"ok": True, "videos": [
-                {"id": video["id"], "title": video["title"], "url": video["url"], "position": at + 1}
-                for at, video in enumerate(videos)
-            ]}
+            positions: dict[str, int] = {}
+            listed = []
+            for video in videos:
+                section = library.section_of(video)
+                positions[section] = positions.get(section, 0) + 1
+                listed.append({"id": video["id"], "title": video["title"], "url": video["url"], "section": section,
+                               "section_name": library.label(section), "position": positions[section]})
+            return {"ok": True, "videos": listed}
         except library.LibraryError as exc:
             diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc), "videos": []}
 
-    @tool(description="Validate a YouTube or Vimeo video and create a ten-minute approval. This does not publish it.",
-                 structured_output=True)
-    async def prepare_library_video(title: str, url: str) -> dict[str, Any]:
+    def prepare_one(title: str, url: str, section: str) -> dict[str, Any]:
+        clean_title = library.normalize_title(title)
+        clean_url = library.normalize_url(url, app.state.video_link)
+        library.ensure_unique(auth(), clean_url, fresh=True)
+        approval_id, item = approvals.prepare(clean_title, clean_url, section)
+        return {"approval_id": approval_id, "title": item.title, "url": item.url, "section": section,
+                "section_name": library.label(section), "expires_in_seconds": APPROVAL_TTL, "published": False}
+
+    def publish_one(approval_id: str) -> dict[str, Any]:
+        item = approvals.consume(approval_id)
+        if item is None:
+            raise library.LibraryError("האישור אינו תקף, פג תוקף או כבר נוצל. הכינו את הסרטון מחדש.")
+        library.add(auth(), item.title, item.url, section=item.section)
+        created = next((video for video in library.rows(auth(), fresh=True) if video.get("url") == item.url), None)
+        return {"video_id": created.get("id") if created else None, "title": item.title, "url": item.url,
+                "section": item.section, "section_name": library.label(item.section), "published": True}
+
+    @tool(description=("Validate a YouTube or Vimeo video for one library section and create a ten-minute approval. "
+                       "This does not publish it. `section` is required: if the teacher did not name one, ask which "
+                       "section (see list_library_sections) before calling."), structured_output=True)
+    async def prepare_library_video(title: str, url: str, section: str = "") -> dict[str, Any]:
         def prepare() -> dict[str, Any]:
-            clean_title = library.normalize_title(title)
-            clean_url = library.normalize_url(url, app.state.video_link)
-            library.ensure_unique(auth(), clean_url, fresh=True)
-            approval_id, item = approvals.prepare(clean_title, clean_url)
-            return {"approval_id": approval_id, "title": item.title, "url": item.url,
-                    "expires_in_seconds": APPROVAL_TTL, "published": False}
+            return prepare_one(title, url, library.resolve_section(section))
         return result("prepare_library_video", prepare)
 
-    @tool(description="Publish a previously prepared video after the teacher explicitly confirms the shown title and URL.",
+    @tool(description=("Validate a list of YouTube or Vimeo videos for one library section and create a ten-minute "
+                       "approval for each. This does not publish them. Each item is {\"title\", \"url\"}. `section` "
+                       "is required: if the teacher did not name one, ask which section (see list_library_sections)."),
+          structured_output=True)
+    async def prepare_library_videos(videos: list[dict[str, str]], section: str = "") -> dict[str, Any]:
+        def prepare() -> dict[str, Any]:
+            target = library.resolve_section(section)
+            if not videos:
+                raise library.LibraryError("אין סרטונים ברשימה")
+            if len(videos) > MAX_BATCH_VIDEOS:
+                raise library.LibraryError(f"אפשר להכין עד {MAX_BATCH_VIDEOS} סרטונים בבת אחת")
+            prepared, refused, seen = [], [], set()
+            for at, video in enumerate(videos, 1):
+                try:
+                    one = prepare_one(str((video or {}).get("title", "")), str((video or {}).get("url", "")), target)
+                    if one["url"] in seen:
+                        approvals.consume(one["approval_id"])
+                        raise library.LibraryError("הסרטון מופיע ברשימה יותר מפעם אחת")
+                    seen.add(one["url"])
+                    prepared.append(one)
+                except library.LibraryError as exc:
+                    refused.append({"item": at, "title": str((video or {}).get("title", "")), "error": str(exc)})
+            return {"section": target, "section_name": library.label(target), "prepared": prepared,
+                    "refused": refused, "expires_in_seconds": APPROVAL_TTL, "published": False}
+        return result("prepare_library_videos", prepare)
+
+    @tool(description="Publish a previously prepared video after the teacher explicitly confirms the shown title, URL and section.",
                  structured_output=True)
     async def publish_library_video(approval_id: str) -> dict[str, Any]:
+        return result("publish_library_video", lambda: publish_one(approval_id))
+
+    @tool(description=("Publish several prepared videos after the teacher explicitly confirms the shown list and "
+                       "section. Each approval is used once; one that fails does not stop the others."),
+          structured_output=True)
+    async def publish_library_videos(approval_ids: list[str]) -> dict[str, Any]:
         def publish() -> dict[str, Any]:
-            item = approvals.consume(approval_id)
-            if item is None:
-                raise library.LibraryError("האישור אינו תקף, פג תוקף או כבר נוצל. הכינו את הסרטון מחדש.")
-            library.add(auth(), item.title, item.url)
-            created = next((video for video in library.rows(auth(), fresh=True) if video.get("url") == item.url), None)
-            return {"video_id": created.get("id") if created else None, "title": item.title,
-                    "url": item.url, "published": True}
-        return result("publish_library_video", publish)
+            published, refused = [], []
+            for approval_id in approval_ids[:MAX_BATCH_VIDEOS]:
+                try:
+                    published.append(publish_one(approval_id))
+                except library.LibraryError as exc:
+                    refused.append({"approval_id": approval_id, "error": str(exc)})
+            return {"published": published, "refused": refused}
+        return result("publish_library_videos", publish)
 
     @tool(description="Rename an existing digital-library video without changing its URL or position.",
                  structured_output=True)
@@ -583,10 +647,16 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             return {"ok": False, "error": str(exc)}
 
     @tool(description=("Prepare exactly one allowlisted teacher operation and return its exact preview. "
-                              "This never changes data. Permission, role, entitlement, account, OAuth, subject-scope, "
+                              "This never changes data. Permission tiers use prepare_user_access_change; account, OAuth, subject-scope, "
                               "credential, and secret administration are not supported. Each dailies item is "
                               "{\"video\": <daily video id>, \"date\": \"YYYY-MM-DD\"}; schedule_daily_video "
-                              "replaces the class's whole daily schedule, so include the items to keep."),
+                              "replaces the class's whole daily schedule, so include the items to keep. "
+                              "set_class_library_sections (and update_class) take library_sections: the digital-"
+                              "library sections the class's students see (ids or names from list_library_sections; "
+                              "a section covers its sub-sections; [] shows none) and replace the class's whole list. "
+                              "set_class_schedule (and create_class/update_class) take meetings: the class's weekly "
+                              "meetings, [{\"day\": \"רביעי\", \"time\": \"20:30\"}] (day: a Hebrew or English day "
+                              "name, or 0=Sunday..6=Saturday); they replace the whole list, [] means no fixed meeting."),
                  structured_output=True)
     async def prepare_teacher_change(
         operation: Literal[
@@ -595,14 +665,16 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             "schedule_daily_video", "unschedule_daily_video", "assign_class_teacher", "remove_class_teacher",
             "create_daily_video", "update_daily_video", "delete_daily_video", "create_lesson_video",
             "update_lesson_video", "delete_lesson_video", "create_lesson_text", "update_lesson_text",
-            "delete_lesson_text", "reorder_lesson_content"],
+            "delete_lesson_text", "reorder_lesson_content", "set_class_library_sections",
+            "set_class_schedule"],
         class_id: int | None = None, name: str | None = None, subject: str | None = None,
         students: list[dict[str, str]] | None = None, teachers: list[str] | None = None,
         content_ids: list[str] | None = None, homeworks: list[dict[str, Any]] | None = None,
         dailies: list[dict[str, Any]] | None = None, email: str = "", nickname: str = "",
         item_id: int | None = None, title: str = "", url: str = "", level: str = "", lesson: str = "",
         lines: list[list[str]] | None = None, voices: list[str] | None = None, pos: int = 0, ord: int = 0,
-        ordered_items: list[dict[str, Any]] | None = None,
+        ordered_items: list[dict[str, Any]] | None = None, library_sections: list[str] | None = None,
+        meetings: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         current, store = actor(), auth()
         if current is None or store is None:
@@ -624,8 +696,8 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                     return teacher_operations.prepare_class(
                         store, current, operation, class_id=class_id, name=name, subject=subject,
                         students=students, teachers=teachers, content_ids=content_ids, homeworks=homeworks,
-                        dailies=dailies, email=email, nickname=nickname,
-                        topic_lessons=topic_map or None, daily_video_ids=daily_ids)
+                        dailies=dailies, email=email, nickname=nickname, library_sections=library_sections,
+                        meetings=meetings, topic_lessons=topic_map or None, daily_video_ids=daily_ids)
                 return teacher_operations.prepare_content(
                     store, current, operation, item_id=item_id, title=title, url=url, level=level,
                     lesson=lesson, lines=lines, voices=voices, pos=pos, ord=ord,
@@ -670,6 +742,119 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             teacher_audit(plan.get("operation", "unknown"), current, "refused", plan, type(exc).__name__)
             diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
+
+    TIER_HELP = ("מנהלים: everything but the lab, and this MCP; מתרגלים: every exercise, game, path lesson and "
+                 "library section, but not ניהול and not this MCP; תלמידים: practice, games but יאללה נדבר, bug "
+                 "reports, and the path and library sections of their classes.")
+
+    def access_manager() -> tuple[dict[str, Any] | None, Any, str]:
+        current, store = actor(), auth()
+        if current is None or store is None:
+            return None, None, "אין הרשאת ניהול"
+        if not has_permission(current, "users.manage"):
+            return None, None, "רק מנהלים יכולים לשנות הרשאות"
+        if not hasattr(store, "access_rows"):
+            return None, None, "טבלת ההרשאות אינה מוגדרת"
+        return current, store, ""
+
+    def accounts(store) -> list[dict[str, Any]]:
+        rows = store.access_rows()
+        if rows is None:
+            raise AccessChangeError(503, "טבלת ההרשאות user_access לא קיימת ב-Supabase")
+        return account_rows(store, store.users(fresh=True), rows)
+
+    def find_account(store, who: str) -> dict[str, Any]:
+        wanted = str(who or "").strip().lower()
+        found = next((u for u in accounts(store) if wanted in (str(u["id"]).lower(), u["email"].lower())), None)
+        if found is None:
+            raise AccessChangeError(404, "אין חשבון עם הכתובת הזו. החשבון נוצר בכניסה הראשונה של המשתמש/ת")
+        return found
+
+    def access_audit(action: str, current: dict[str, Any], outcome: str, reason: str = "") -> None:
+        note_audit_refusal(outcome, reason)
+        log.info("MCP access action=%s outcome=%s reason=%s", action, outcome, reason)
+
+    @tool(description=("List every account with its permission tier (admin=מנהלים, teacher=מתרגלים, "
+                       "student=תלמידים), whether it has the lab (developer), and whether the server's settings fix "
+                       "it. Managers only. " + TIER_HELP), structured_output=True)
+    async def list_user_access(tier: Literal["admin", "teacher", "student"] | None = None) -> dict[str, Any]:
+        current, store, error = access_manager()
+        if current is None:
+            return {"ok": False, "error": error, "users": []}
+        try:
+            rows = await _bounded_read(lambda: accounts(store))
+        except AccessChangeError as exc:
+            return {"ok": False, "error": str(exc), "users": []}
+        users = [{"user_id": u["id"], "email": u["email"], **({"name": u["name"]} if u.get("name") else {}),
+                  "tier": u["tier"], "tier_name": TIER_NAMES[u["tier"]], "developer": u["developer"],
+                  **({"fixed_by_server": u["fixed"]} if u["fixed"] else {})}
+                 for u in rows if tier is None or u["tier"] == tier]
+        return {"ok": True, "tiers": [{"id": t, "name": TIER_NAMES[t]} for t in TIERS], "users": users,
+                "counts": {t: sum(u["tier"] == t for u in rows) for t in TIERS}}
+
+    @tool(description=("Prepare moving one account (by email) to a permission tier: admin (מנהלים), teacher "
+                       "(מתרגלים) or student (תלמידים). Shows the change and returns a ten-minute approval; this does "
+                       "not change data. Publish with publish_user_access_change only after the manager explicitly "
+                       "confirms. The lab (developer) is not changed here. " + TIER_HELP), structured_output=True)
+    async def prepare_user_access_change(email: str, tier: Literal["admin", "teacher", "student"]) -> dict[str, Any]:
+        current, store, error = access_manager()
+        if current is None:
+            return {"ok": False, "error": error}
+        if not limiter.allow():
+            access_audit("prepare_user_access_change", current, "refused", reason="rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        try:
+            target = await _bounded_read(lambda: find_account(store, email))
+            if target["id"] == current.get("id"):
+                raise AccessChangeError(403, "אי אפשר לשנות את ההרשאות של עצמך")
+            if target["tier"] == tier:
+                raise AccessChangeError(409, f"{target['email']} כבר ב{TIER_NAMES[tier]}")
+            if "tier" in target["fixed"]:
+                raise AccessChangeError(403, "המנהל הזה מוגדר בהגדרות השרת (TEACHER_EMAILS)")
+            if target["developer"] and "*" not in (current.get("permissions") or ()):
+                raise AccessChangeError(403, "רק מפתחים יכולים לשנות הרשאות של מפתח")
+        except AccessChangeError as exc:
+            access_audit("prepare_user_access_change", current, "refused", reason=f"http_{exc.status}")
+            diagnostics.note_refusal(exc)
+            return {"ok": False, "error": str(exc)}
+        plan = {"operation": "set_user_tier", "user_id": target["id"], "email": target["email"],
+                "before": target["tier"], "tier": tier}
+        approval_id, _ = class_approvals.prepare(str(current["id"]), plan)
+        access_audit("prepare_user_access_change", current, "prepared")
+        return {"ok": True, "approval_id": approval_id, "email": target["email"],
+                "before": {"tier": target["tier"], "name": TIER_NAMES[target["tier"]]},
+                "after": {"tier": tier, "name": TIER_NAMES[tier]},
+                "expires_in_seconds": APPROVAL_TTL, "published": False}
+
+    @tool(description=("Publish a prepared permission-tier change after the manager explicitly confirms the shown "
+                       "account and tiers. Single-use, bound to the manager who prepared it, and refused when the "
+                       "account's tier changed meanwhile."), structured_output=True)
+    async def publish_user_access_change(approval_id: str) -> dict[str, Any]:
+        current, store, error = access_manager()
+        if current is None:
+            return {"ok": False, "error": error}
+        if not limiter.allow():
+            access_audit("publish_user_access_change", current, "refused", reason="rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        item = class_approvals.consume(approval_id, str(current["id"]))
+        if item is None or item.plan.get("operation") != "set_user_tier":
+            access_audit("publish_user_access_change", current, "refused", reason="invalid_approval")
+            return {"ok": False, "error": "האישור אינו תקף, פג תוקף, שייך למשתמש אחר או כבר נוצל."}
+        plan = item.plan
+        try:
+            def publish() -> dict[str, Any]:
+                now = find_account(store, plan["user_id"])
+                if now["tier"] != plan["before"]:
+                    raise AccessChangeError(409, "ההרשאות של החשבון השתנו מאז ההכנה. הכינו את השינוי מחדש")
+                return change_tier(store, current, plan["user_id"], plan["tier"])
+            done = await _bounded_read(publish)
+        except AccessChangeError as exc:
+            access_audit("publish_user_access_change", current, "refused", reason=f"http_{exc.status}")
+            diagnostics.note_refusal(exc)
+            return {"ok": False, "error": str(exc)}
+        access_audit("publish_user_access_change", current, "success")
+        return {"ok": True, "email": done["target"]["email"], "tier": done["after"],
+                "tier_name": TIER_NAMES[done["after"]], "published": True}
 
     @tool(description=("Return a read-only daily or weekly aggregate activity series for one authorized class "
                               "or all classes in the current manager's scope. Returns no learner identities."),

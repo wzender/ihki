@@ -130,7 +130,7 @@ def test_access_denied_is_named_with_reason(caplog):
     response = post(create_app(scorer_for(emissions(["w"])), auth=StudentAuth()))
     assert response.status_code == 401
     line = summary(caplog, response)
-    assert line["auth"] == "access_denied" and line["auth_detail"] == "no_management_or_teaching"
+    assert line["auth"] == "access_denied" and line["auth_detail"] == "not_a_manager"
 
 
 @pytest.mark.parametrize("error, category", [
@@ -375,7 +375,7 @@ def test_authorization_failure_is_an_error_line(caplog):
 
     line = failure(caplog, post(create_app(scorer_for(emissions(["w"])), auth=StudentAuth())))
     assert line["category"] == "authorization" and line["code"] == "access_denied"
-    assert line["reason"] == "no_management_or_teaching"
+    assert line["reason"] == "not_a_manager"
 
 
 def test_verifier_timeout_is_an_error_line(caplog):

@@ -75,6 +75,17 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 .help{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;border:1px solid var(--olive);background:var(--surface);color:var(--olive);font:700 17px/1 var(--f-body);text-decoration:none;box-shadow:0 2px 0 var(--line)}
 .help:hover{background:var(--olive-soft)}
 #myClass:empty+.help{margin-inline-start:auto}
+/* the videos (daily and library) in the top row, beside the help: amber with a dot while today's video is unwatched */
+.vidbtn{position:relative;flex:none;display:flex;align-items:center;gap:6px;height:34px;padding-block:0;padding-inline:10px 12px;border-radius:999px;border:1px solid var(--olive);background:var(--surface);color:var(--olive);box-shadow:0 2px 0 var(--line);font:700 14px/1 var(--f-body);white-space:nowrap;cursor:pointer}
+.vidbtn svg{width:16px;height:16px}
+.vidbtn:hover,.vidbtn[aria-current=page]{background:var(--olive-soft)}
+.vidbtn:active{transform:translateY(1px);box-shadow:0 1px 0 var(--line)}
+.vidbtn.new{border-color:var(--amber);background:var(--amber-bg);color:var(--amber)}
+.vidbtn.new::after{content:"";position:absolute;top:-4px;inset-inline-end:-3px;width:11px;height:11px;border-radius:50%;background:var(--orange);border:2px solid var(--bg)}
+#myClass:empty~.vidbtn,#myClass:empty~.vidbtn[hidden]+.help{margin-inline-start:auto}
+#myClass{min-width:0}
+@media (max-width:360px){.vidbtn{padding-inline:9px}.vidbtn span{display:none}}
+body:not(.home) .vidbtn,body.manage .vidbtn{display:none}
 .guidetip{flex:0 0 100%;display:flex;align-items:center;gap:8px;padding-block:6px;padding-inline:12px 6px;border-radius:12px;background:var(--olive-soft);border:1px solid var(--olive)}
 .guidetip a{flex:1;min-width:0;color:var(--olive-deep);font-weight:700;text-decoration:none}
 .guidetip button{flex:none;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:15px;cursor:pointer}
@@ -313,6 +324,7 @@ body.memory-game{overflow:hidden}
 @media (prefers-reduced-motion:reduce){.mini-bead::after,.card.bubblemode .prompt::after,.mg-back i,.mg-win .big{animation:none}.mg-rot{transition-duration:.2s}}
 #vids button.now{padding-block:16px;background:var(--olive);border-color:var(--olive);color:var(--on-olive);box-shadow:0 3px 0 var(--olive-deep);font-size:17px}
 #vids button.now i,#vids button.now small{color:inherit}
+#vids button .watch{grid-column:1/-1;justify-self:start;margin-top:8px;padding:8px 18px;border-radius:999px;background:var(--surface);color:var(--olive);font:700 15px/1.2 var(--f-body)}   /* today's video: a clear button to watch it */
 /* Refer a friend: a compact campaign page inside the home navigation, with the two rewards kept visually distinct. */
 .refer{display:flex;flex-direction:column;gap:14px}
 .refer>header{display:block;text-align:center;padding:8px 6px 2px}
@@ -963,7 +975,11 @@ body.manage #manage{width:100%;max-width:none}
 #manage.flags :is(#mClasses,#mContent,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.flags) #mFlags{display:none}
 #manage.access :is(#mClasses,#mContent,#mFlags,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.access) #mAccess{display:none}
 #manage.models :is(#mClasses,#mContent,#mFlags,#mAccess,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.models) #mModels{display:none}
-.access-actions{display:flex;justify-content:flex-end;margin:8px 0}.access-scroll{overflow:auto}.access-table{width:100%;border-collapse:collapse;min-width:1180px}.access-table :is(th,td){padding:9px 10px;border-bottom:1px solid var(--line);text-align:center}.access-table th{position:sticky;top:0;background:var(--surface);font-size:13px;white-space:nowrap;z-index:1}.access-table th>span{display:block;margin-bottom:4px}.access-table .access-all{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-weight:600;cursor:pointer}.access-table .access-all small{font-size:11px}.access-table :is(th,td):first-child{text-align:start;position:sticky;right:0;background:var(--surface);z-index:2;min-width:260px}.access-table td:first-child{font-weight:700}.access-table td:first-child small{display:block;color:var(--muted);font-weight:400;direction:ltr;overflow:hidden;text-overflow:ellipsis}.access-table input{width:18px;height:18px}.access-table .save-cell{min-width:96px}
+.lib-pick{list-style:none;margin:6px 0 0;padding:0;text-align:start}.lib-pick ul{list-style:none;margin:2px 0 4px;padding-inline-start:20px}.lib-pick label{display:flex;gap:6px;align-items:center;padding:2px 0;font-size:14px}
+.access-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;margin:8px 0}.access-find{flex:1 1 220px;max-width:340px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--surface);color:inherit}
+.access-group{margin:12px 0;border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:var(--surface)}.access-group>summary{cursor:pointer;font-size:17px;padding:2px 0}.access-group>summary span{color:var(--muted)}.access-group>p{margin:4px 0 8px}
+.access-badge{display:inline-block;margin-top:3px;padding:1px 8px;border-radius:999px;background:var(--line);color:var(--muted);font-size:12px;font-weight:600}
+.access-scroll{overflow:auto}.access-table{width:100%;border-collapse:collapse}.access-table :is(th,td){padding:8px 10px;border-bottom:1px solid var(--line);text-align:center}.access-table th{font-size:13px;white-space:nowrap;color:var(--muted)}.access-table :is(th,td):first-child{text-align:start;min-width:220px}.access-table td:first-child{font-weight:700}.access-table td:first-child small{display:block;color:var(--muted);font-weight:400;direction:ltr;overflow:hidden;text-overflow:ellipsis}.access-table input[type=checkbox]{width:18px;height:18px}.access-table select{padding:6px 8px;font:inherit;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:inherit}.access-table .save-cell{min-width:90px}
 #mModes{grid-template-columns:repeat(6,1fr)}
 /* the developers' model comparison under a result: one column per model, the same recording */
 .cmp-box{margin-top:6px;border-top:1px dashed var(--line);padding-top:8px;display:flex;flex-direction:column;gap:8px}
@@ -1132,6 +1148,7 @@ body.manage #manage{width:100%;max-width:none}
 .clevel::-webkit-details-marker{display:none}
 .clevel::before{content:"◂";font:700 16px/1 var(--f-body);color:var(--muted);transition:transform .12s}
 .csec[open]>.clevel::before{transform:rotate(-90deg)}
+.csub{margin-inline-start:14px}.csub>.clevel{font-size:20px;padding:10px 12px}.csec>.csub:not(:last-child){margin-bottom:8px}
 .clevel small{font:600 13px/1.3 var(--f-body);color:var(--muted)}
 .csoon{margin:0;padding:10px 14px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:15px}
 .chead h2 small{display:block;margin-top:4px;font:600 13px/1.3 var(--f-body);color:var(--muted)}
@@ -1244,8 +1261,13 @@ body.manage #manage{width:100%;max-width:none}
   #editHwHead span:nth-child(n+3){display:none}
   #editHws .hwrow{padding-bottom:6px;border-bottom:1px solid var(--line)}
 }
+.cform .meetrow{display:grid;grid-template-columns:minmax(0,9em) 7.5em 2.6em;gap:4px 8px;align-items:center}
+.cform .meetrow>*{min-width:0;box-sizing:border-box;width:100%}
+#editMeets{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+#editMeets:empty{display:none}
 .cform .dayrow{display:grid;grid-template-columns:minmax(0,1fr) 9.2em;gap:4px 8px;align-items:center;font-weight:500}
 .cform .dayrow>*{min-width:0;box-sizing:border-box}
+.cform .lib-pick label,.cform .teacher-picks label{flex-direction:row;font-weight:500}   /* checkbox lists in the class dialog: the box beside its name, not above it */
 .dailies{display:flex;flex-direction:column;gap:6px}
 .dailies .note{margin:0;color:var(--muted);font-size:14px}
 #editHws{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
@@ -1591,7 +1613,7 @@ html[data-subject="math"] #tagline{color:#F4F2EC}
 .install-actions .primary{background:var(--olive);color:var(--on-olive)}
 /* The math class (/math) opens on its own logo, on black (the logo's ink is light for it), with the buttons in its blue. */
 html[data-subject="math"] #logo-splash{background:#000}
-html[data-subject="math"] #nav [data-view="library"]{display:none}   /* the digital library is Arabic videos */
+html[data-subject="math"] #vidsBtn{display:none!important}   /* the digital library is Arabic videos */
 html[data-subject="math"] :is(#startBtn,#loginBtn,#roles button){background:#2F5597}
 html[data-subject="math"] #roles :is(#manageBtn,#labBtn){background:#000;color:#7FA6F0;box-shadow:inset 0 0 0 2px #7FA6F0}
 html[data-subject="math"] #mailForm span{color:#9EA7A0}
@@ -1682,8 +1704,9 @@ __BETTER_STACK_RUM__
 <div id="logo-splash"><img src="__SPLASH_LOGO__" alt="__SPLASH_ALT__" width="489" height="225"><button id="startBtn">__START_LABEL__</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="manageBtn">ניהול</button><button id="labBtn">מעבדה</button></div><p id="tagline" hidden>__TAGLINE__</p><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="denied" hidden>הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.<button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
 <script>
 /* A device that a student signed in on last (ihki.student, set below) and that still holds the session skips the opening
-   screen: the home fades in once the account is checked. Anyone else (signed out, a teacher) gets it as before. */
-try{ if(localStorage.getItem("ihki.student")==="1"&&Object.keys(localStorage).some(k=>/^sb-.*-auth-token$/.test(k))) document.getElementById("logo-splash").classList.add("skip"); }catch{}
+   screen: the home fades in once the account is checked. Anyone else (signed out, a teacher) gets it as before, except
+   when the daily video's reminder opened the page: then a signed-in teacher skips it too, straight to the video. */
+try{ if((localStorage.getItem("ihki.student")==="1"||/[?&]view=daily\b/.test(location.search))&&Object.keys(localStorage).some(k=>/^sb-.*-auth-token$/.test(k))) document.getElementById("logo-splash").classList.add("skip"); }catch{}
 </script>
 <script>
 /* While the opening screen is up, an error that stops the page's start shows under the logo: a phone has no console to read it in. */
@@ -1700,6 +1723,7 @@ try{ if(localStorage.getItem("ihki.student")==="1"&&Object.keys(localStorage).so
     <div class="brand">אהלא וסהלא</div>
     <button id="myClass"></button>
     <div class="where"><small id="lessonName"></small><span id="catName"></span></div>
+    <button class="vidbtn" id="vidsBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>סרטונים</span></button>
     <a class="help" id="helpLink" href="/static/guide.html" title="איך מתרגלים: מדריך קצר" aria-label="איך מתרגלים: מדריך קצר">?</a>
     <div class="sub maphint">בחרו נושא במסלול ותרגלו אותו בקול</div>
     <div class="guidetip" id="guideTip" hidden><a href="/static/guide.html">חדשים כאן? מדריך של דקה ←</a><button type="button" id="guideTipClose" aria-label="סגירה" title="סגירה">✕</button></div>
@@ -1719,7 +1743,7 @@ try{ if(localStorage.getItem("ihki.student")==="1"&&Object.keys(localStorage).so
     </span>
   </button>
   <section id="vids" aria-live="polite"></section>
-  <nav id="nav" aria-label="ניווט"><button data-view="home" hidden>בית</button><button data-view="">מסלול</button><button data-view="live" hidden>שיעור חי</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="library" hidden>סרטונים</button><button data-view="refer">חבר מביא חבר</button></nav>
+  <nav id="nav" aria-label="ניווט"><button data-view="home" hidden>בית</button><button data-view="">מסלול</button><button data-view="live" hidden>שיעור חי</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="refer">חבר מביא חבר</button></nav>
   <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
   <section class="live-page" id="liveView" aria-live="polite"></section>
   <button id="toNow" hidden></button>
@@ -1924,10 +1948,13 @@ try{ if(localStorage.getItem("ihki.student")==="1"&&Object.keys(localStorage).so
   <div class="dlg-head"><h2 id="editTitle"></h2><button class="btn" id="editClose">סגירה</button></div>
   <form class="cform" id="editForm">
     <label>שם הכיתה<input id="editName" required maxlength="80" placeholder="למשל: אוקטובר 2026" autocomplete="off"></label>
+    <fieldset class="lpick"><legend>מפגשים קבועים<small>היום והשעה שבהם הכיתה נפגשת כל שבוע, למשל ימי רביעי ב־20:30. אפשר כמה.</small></legend>
+      <div id="editMeets"></div><button class="btn" type="button" id="editMeetAdd">+ הוספת מפגש</button></fieldset>
     <fieldset class="lpick"><legend>השיעורים<small>התלמידים של הכיתה רואים במסלול רק אותם. שיעור מקווקו עוד לא מוכן: הוא ייפתח לכיתה כשיהיה.</small></legend><div id="editLessons"></div></fieldset>
     <fieldset class="lpick"><legend>שיעורי בית<small>נושא לכל שיעורי בית, ותאריך הגשה אם רוצים. אפשר כמה, למשל הנושא האחרון של כל שיעור. התלמידים רואים כל אחד מסומן במסלול, עם הימים שנשארו; בפאנל רואים מי סיים.</small></legend>
       <div class="hwrow" id="editHwHead" aria-hidden="true"><span>שיעור</span><span>נושא</span><span>עד תאריך</span><span></span></div><div id="editHws"></div><button class="btn" type="button" id="editHwAdd">+ הוספת שיעורי בית</button></fieldset>
-    <fieldset class="lpick"><legend>סרטונים יומיים<small>הסרטונים של הרמות שהכיתה לומדת, מהספרייה שתחת „תוכן”. קבעו תאריך לסרטון, ומאותו יום התלמידים רואים אותו בכפתור „סרטון יומי” שמעל המסלול, והוא מסומן עד שצופים בו. סרטון בלי תאריך לא מוצג לכיתה.</small></legend><div class="dailies" id="editDailies"></div></fieldset>
+    <fieldset class="lpick"><legend>סרטונים יומיים<small>הסרטונים של הרמות שהכיתה לומדת, מהספרייה שתחת „תוכן”. קבעו תאריך לסרטון, ומאותו יום התלמידים רואים אותו בכפתור „סרטונים” שבראש המסך, והוא מסומן עד שצופים בו. סרטון בלי תאריך לא מוצג לכיתה.</small></legend><div class="dailies" id="editDailies"></div></fieldset>
+    <fieldset class="lpick"><legend>ספרייה דיגיטלית<small>המדורים שהתלמידים של הכיתה רואים בספרייה הדיגיטלית. מדור מסומן כולל את כל תתי־המדורים שלו. מתרגלים ומנהלים רואים תמיד את כל המדורים.</small></legend><div id="editLibrary"></div></fieldset>
     <label>התלמידים<small>שורה לכל תלמיד: כתובת הדוא"ל שבה הוא נכנס, ואחריה כינוי אם רוצים. בכיתה רואים את הכינוי, או את השם מ-Google. תלמיד יכול להיות בכמה כיתות.</small>
       <textarea id="editEmails" spellcheck="false" placeholder="dana@gmail.com דנה&#10;avi@gmail.com"></textarea></label>
     <fieldset class="lpick" id="editTeachersField" hidden><legend>מורי הכיתה<small>בחרו אחד או יותר מתלמידי הכיתה. ההרשאה היא לכיתה הזו בלבד.</small></legend><div class="teacher-picks" id="editTeachers"></div></fieldset>
@@ -1954,7 +1981,7 @@ try{ if(localStorage.getItem("ihki.student")==="1"&&Object.keys(localStorage).so
     <section>
       <label>מה שיעורי הבית של הכיתה?<small>נושא אחד שהכיתה מתרגלת עכשיו, למשל שיחה. התלמידים רואים אותו מסומן במסלול, ואתם רואים בפאנל מי סיים. אפשר גם לדלג ולבחור אחר כך, ובעריכת הכיתה להוסיף עוד שיעורי בית, לכל שיעור.</small><select id="newHw"></select></label>
       <label id="newDueBox">עד איזה יום?<small>לא חובה.</small><input type="date" id="newDue"></label>
-      <fieldset class="lpick" id="newDailiesBox"><legend>באילו ימים צופים בסרטונים היומיים?<small>קבעו תאריך לכל סרטון של הרמה, ומאותו יום התלמידים רואים אותו בכפתור „סרטון יומי” שמעל המסלול. לא חובה: סרטון בלי תאריך לא מוצג לכיתה, ואפשר לקבוע אחר כך.</small></legend><div class="dailies" id="newDailies"></div></fieldset>
+      <fieldset class="lpick" id="newDailiesBox"><legend>באילו ימים צופים בסרטונים היומיים?<small>קבעו תאריך לכל סרטון של הרמה, ומאותו יום התלמידים רואים אותו בכפתור „סרטונים” שבראש המסך. לא חובה: סרטון בלי תאריך לא מוצג לכיתה, ואפשר לקבוע אחר כך.</small></legend><div class="dailies" id="newDailies"></div></fieldset>
     </section>
     <section>
       <dl id="newSummary"></dl>
@@ -2180,7 +2207,7 @@ try{ if(localStorage.getItem("ihki.student")==="1"&&Object.keys(localStorage).so
       <li>לוחצים <b>שמירה</b>.</li></ol>
     <p>חוזרים על השלב הזה לכל כיתה שצריכה לראות את הסרטון; כל כיתה יכולה לקבל תאריך אחר.</p>
     <h3>מה התלמידים רואים</h3>
-    <ul><li>מהתאריך שנקבע, הסרטון מופיע בכפתור <b>סרטון יומי</b> שמעל המסלול. הכפתור מודגש עד שהתלמיד פותח את הסרטון.</li>
+    <ul><li>מהתאריך שנקבע, הסרטון מופיע בכפתור <b>סרטונים</b> שבראש המסך. הכפתור מודגש בנקודה כתומה עד שהתלמיד פותח את הסרטון.</li>
       <li>ביום שאין בו סרטון חדש, הכפתור פותח את רשימת הסרטונים הקודמים, כך שאפשר להשלים יום שהוחמץ.</li>
       <li>סרטון שהתאריך שלו עוד לא הגיע לא מוצג.</li></ul>
     <h3>אם משהו לא עובד</h3>
@@ -2191,32 +2218,35 @@ try{ if(localStorage.getItem("ihki.student")==="1"&&Object.keys(localStorage).so
     <ul><li><b>שינוי תאריך או ביטול:</b> בעריכת הכיתה משנים או מרוקנים את שדה התאריך ושומרים.</li>
       <li><b>מחיקת הסרטון:</b> ב<b>תוכן</b>, בכרטיס <b>סרטונים יומיים</b>, לוחצים <b>מחיקה</b> ליד הסרטון. גם כיתות שכבר קבעו לו תאריך יפסיקו לראות אותו.</li></ul>
   </article>
-  <article data-guide="library" data-title="איך מוסיפים סרטונים לספריה הדיגיטלית" hidden>
-    <p>הספריה הדיגיטלית משותפת לכל השלבים: סרטון שנוסף אליה פתוח מיד לכל התלמידים, בכל כיתה. בשונה מסרטון יומי, לא קובעים לו תאריך ולא משייכים אותו לכיתה.</p>
+  <article data-guide="library" data-title="איך מוסיפים סרטונים למדורי הספריה" hidden>
+    <p>הספריה הדיגיטלית מחולקת למדורים: <b>מערכת דיגיטלית</b> (ובה שלב א, שלב ב, שלב ג, שלב ד ו-נִתמרַّן), <b>בוגרים מספרים</b>, <b>טיולים בכפר</b>, <b>פרקי אבות עם אמיר</b>, <b>חַאחַ׳אם עידן</b> ו<b>מנחים ומתרגלים</b>. כל סרטון שייך למדור אחד, ותלמיד רואה רק את המדורים שקיבל אליהם הרשאה. בשונה מסרטון יומי, לא קובעים לו תאריך ולא משייכים אותו לכיתה.</p>
     <h3>לפני שמתחילים</h3>
     <ul><li>נכנסים עם חשבון של מורה ולוחצים על <b>ניהול</b> במסך הפתיחה.</li>
       <li>מכינים קישור לסרטון ב-Vimeo או ב-YouTube. ב-Vimeo מעתיקים את הקישור מכפתור השיתוף (למשל <code>https://vimeo.com/1233611297/d46ac373c8</code>); החלק שאחרי המספר הוא מה שפותח סרטון לא רשום, אז לא למחוק אותו.</li></ul>
     <h3>הוספת סרטון</h3>
     <ol><li>בראש הפאנל בוחרים בחלק <b>תוכן</b>.</li>
-      <li>לוחצים על <b>ספריה דיגיטלית</b> (השורה הראשונה, מעל השלבים) כדי לפתוח אותה.</li>
-      <li>בכרטיס <b>הסרטונים שבספריה</b> לוחצים על <b>+ הוספת סרטון לספריה</b>.</li>
+      <li>פותחים את המדור (ובמערכת דיגיטלית, גם את תת-המדור, למשל <b>שלב א</b>).</li>
+      <li>בכרטיס <b>סרטונים במדור</b> לוחצים על <b>+ הוספת סרטון למדור</b>.</li>
       <li>ממלאים <b>שם הסרטון</b> (עד 80 תווים) ו<b>קישור ל-Vimeo או ל-YouTube</b>.</li>
       <li>לוחצים <b>הוספה</b>.</li></ol>
     <p>הסרטון מופיע ברשימה של הכרטיס. כפתור <b>צפייה</b> שלידו מאפשר לבדוק שהוא נפתח כמו שצריך. כדי להוסיף סרטונים נוספים חוזרים על שלבים 3 עד 5; סרטון חדש נוסף בסוף הרשימה.</p>
     <h3>שינוי שם ושינוי סדר</h3>
     <ul><li><b>שינוי שם:</b> לוחצים <b>שינוי שם</b> ליד הסרטון, מקלידים את השם החדש ומאשרים.</li>
-      <li><b>שינוי סדר:</b> בחיצים <b>↑</b> ו-<b>↓</b> שבשורה של הסרטון מזיזים אותו מקום אחד למעלה או למטה. התלמידים רואים את הסרטונים באותו סדר.</li></ul>
+      <li><b>שינוי סדר:</b> בחיצים <b>↑</b> ו-<b>↓</b> שבשורה של הסרטון מזיזים אותו מקום אחד למעלה או למטה בתוך המדור. התלמידים רואים את הסרטונים באותו סדר.</li>
+      <li><b>העברה למדור אחר:</b> בוחרים את המדור החדש ברשימה שבשורה של הסרטון.</li></ul>
     <h3>מה התלמידים רואים</h3>
-    <ul><li>התלמידים מגיעים לסרטונים דרך הכפתור <b>ספרייה דיגיטלית</b> במסך הפתיחה.</li>
-      <li>כל תלמיד רואה את כל הסרטונים, בלי קשר לשלב או לכיתה שלו.</li>
+    <ul><li>התלמידים מגיעים לסרטונים דרך הכפתור <b>סרטונים</b> שבראש המסך, ליד שם הכיתה.</li>
+      <li>כל תלמיד רואה את המדורים שקיבל אליהם הרשאה, כל מדור תחת כותרת משלו. את ההרשאות נותנים ב<b>הרשאות</b>, בעמודה <b>סרטונים</b>: הרשאה למדור כוללת את כל תתי-המדורים שלו. מורים ומנהלים רואים את כל המדורים.</li>
+      <li>הרשאת „ספרייה דיגיטלית” הישנה היא עכשיו הרשאה ל<b>שלב א</b>, שם נמצאים הסרטונים שהיו בספריה לפני החלוקה.</li>
       <li>סרטון בספריה אינו תרגול, ולכן הוא לא נספר בהתקדמות או בציונים.</li></ul>
     <h3>אם משהו לא עובד</h3>
     <ul><li><b>"זה לא קישור לסרטון":</b> בודקים שהקישור הוא של Vimeo או YouTube ושהועתק במלואו.</li>
       <li><b>הודעה שהטבלה <code>library</code> לא קיימת:</b> מריצים פעם אחת ב-SQL Editor של Supabase את הפקודה שמופיעה בהודעה.</li>
       <li><b>הודעה שלטבלה <code>library</code> חסרה עמודה (בהזזת סרטון):</b> מריצים פעם אחת ב-SQL Editor של Supabase את הפקודה שמופיעה בהודעה.</li>
-      <li><b>תלמיד לא רואה סרטון חדש:</b> שירענן את הדף; הרשימה מתעדכנת אצל התלמידים תוך כדקה.</li></ul>
+      <li><b>תלמיד לא רואה סרטון חדש:</b> בודקים שיש לו הרשאה למדור, ושירענן את הדף; הרשימה מתעדכנת אצל התלמידים תוך כדקה.</li>
+      <li><b>הודעה שטבלת ההרשאות צריכה שדרוג (בשמירת הרשאה למדור):</b> מריצים פעם אחת ב-SQL Editor של Supabase את הפקודה שמופיעה בהודעה.</li></ul>
     <h3>מחיקה</h3>
-    <p>ב<b>תוכן</b>, בכרטיס <b>הסרטונים שבספריה</b>, לוחצים <b>מחיקה</b> ליד הסרטון ומאשרים. הסרטון נעלם לכל התלמידים. את הקישור אי אפשר לערוך: כדי לשנות אותו, מוחקים ומוסיפים מחדש.</p>
+    <p>ב<b>תוכן</b>, בכרטיס <b>סרטונים במדור</b>, לוחצים <b>מחיקה</b> ליד הסרטון ומאשרים. הסרטון נעלם לכל התלמידים. את הקישור אי אפשר לערוך: כדי לשנות אותו, מוחקים ומוסיפים מחדש.</p>
   </article>
   <article data-guide="homework" data-title="איך מגדירים שיעורי בית" hidden>
     <p>שיעורי בית הם נושא מתוך אחד השיעורים של הכיתה. אפשר להגדיר כמה מטלות במקביל, ולכל אחת לקבוע תאריך הגשה משלה.</p>
@@ -2413,6 +2443,13 @@ function endDaily(){   // past the session's last sentence: back to the path, an
    The library: videos that are not on the path, the same ones for every level and class. */
 const dailyVideos=()=>{ const d=today(), seen=new Set(); return (FREE?TEACHER_DAILIES:(MY_CLASS?[MY_CLASS]:MY_CLASSES).flatMap(k=>k.dailies||[])).filter(v=>v.date<=d&&!seen.has(v.id)&&seen.add(v.id)).sort((a,b)=>b.date.localeCompare(a.date)); };
 const libVideos=()=>LIBRARY;
+let LIB_OK=false;   // the account may open the digital library (library.view)
+function syncVidsBtn(){   // the videos button in the top row: shown when there is something to open, marked while today's video waits
+  const b=$("vidsBtn"), d=today(), mine=dailyVideos(), fresh=mine.filter(v=>v.date===d&&!dailyWatched[v.id]).length;
+  b.hidden=!LIB_OK&&!mine.length; b.classList.toggle("new",fresh>0);
+  b.setAttribute("aria-label",fresh?(fresh===1?"סרטונים: סרטון חדש להיום":`סרטונים: ${fresh} סרטונים חדשים להיום`):"סרטונים");
+  if(document.body.dataset.view==="library") b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
+}
 /* The focused home (static/learner_home.js; openspec/changes/add-focused-learner-home). A signed-in student of an Arabic
    class of one level tells, once for each class, which lesson the class is on now; the home then offers at most three
    actions in the path's place, and the path opens at that lesson. Teachers, the open service, a class's own teachers and
@@ -2484,10 +2521,9 @@ function homeLesson(){   // the current lesson, its topics, and whether every on
   const l=LESSONS.find(x=>x.id===currentLesson()), cats=l?lessonItems(l.id).filter(it=>it.c).map(it=>it.c):[];
   return {l,cats,done:cats.length>0&&cats.every(c=>topicT(c).over)};
 }
-function homeActions(){   // in this order, the first three that can start: homework, today's video, the lesson, a short round
-  const {l,cats,done}=homeLesson(), d=today();
+function homeActions(){   // in this order, the first three that can start: homework, the lesson, a short round (today's video is on the videos button)
+  const {l,cats,done}=homeLesson();
   const hw=homeworks().filter(h=>!h.t.over).sort((a,b)=>(a.left??1e9)-(b.left??1e9))[0];
-  const vids=dailyVideos().filter(v=>v.date===d&&!dailyWatched[v.id]);
   // `cat` is written as soon as a topic opens, so it is the strongest record of what the learner meant to do next.
   // Resume it even before its first saved score (notably, a story left on its first line), and even when the learner
   // opened it from an earlier lesson than the class's current one. Once it is complete, return to the current lesson.
@@ -2499,9 +2535,6 @@ function homeActions(){   // in this order, the first three that can start: home
   return LH.pickActions([
     hw&&{kind:"homework",target:"topic:"+hw.c.id,ready:true,title:"שיעורי בית",state:hw.state,go:hw.t.done?"המשיכו":"התחילו",minutes:LH.minutesFor(left(hw.c)),
          detail:hw.left==null?hw.c.name:`${hw.c.name} · ${hw.msg}`,run:()=>openCat(hw.c)},
-    vids.length>0&&{kind:"video",target:"video:"+vids[0].id,ready:true,title:"הסרטון של היום",go:"צפו",
-         detail:vids.length===1?vids[0].title:`${vids.length} סרטונים חדשים`,
-         run:()=>{ if(vids.length!==1) return showView("daily"); dailyWatched[vids[0].id]=1; store.set("ihki.dailyWatched",dailyWatched); playVideo(vids[0],true); }},
     next&&{kind:"continue",target:"topic:"+next.id,ready:true,title:`ממשיכים ב${nextLesson?.name||l.name}`,detail:next.name,go:"המשיכו",minutes:LH.minutesFor(left(next)),run:()=>openCat(next)},
     plan&&{kind:"short",target:"short",ready:true,title:"תרגול קצר",minutes:LH.minutesFor(plan.ids.length),
          detail:`${plan.ids.length} משפטים ${plan.kind==="review"?"לשיפור":"חדשים מהשיעור"}`,run:()=>startShort(plan.ids)},
@@ -2686,7 +2719,7 @@ async function askPush(){
     try{
       const sub=await pushOn(st.key);
       store.set("ihki.pushAsked",sub?"never":new Date().toISOString().slice(0,10)); dlg.close();
-    }catch(e){ text.textContent="לא הצלחנו להפעיל את התזכורת. אפשר לנסות שוב ממסך „סרטון יומי”."; yes.hidden=true; no.textContent="סגירה"; }
+    }catch(e){ text.textContent="לא הצלחנו להפעיל את התזכורת. אפשר לנסות שוב ממסך „סרטונים”."; yes.hidden=true; no.textContent="סגירה"; }
     finally{ yes.disabled=false; }
   };
   dlg.showModal(); yes.focus();
@@ -2706,11 +2739,12 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     if(b.dataset.view===view) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
   }
   $("nav").querySelector('[data-view="home"]').hidden=!focusOn(); syncHomeLabels();
-  $("nav").querySelector('[data-view="refer"]').hidden=focusOn();
+  $("nav").querySelector('[data-view="refer"]').hidden=focusOn(); syncVidsBtn();
   box.replaceChildren(); if(!view) return;
   const row=(v,seen,key,when,now)=>{   // a video: its name, its day, and whether it was opened (on this device)
     const b=mark(now?"now":"","","button"), t=document.createElement("bdi"); t.textContent=v.title;
     b.append(mark("","▶\uFE0E","i"),t); if(seen[v.id]) b.append(mark("seen","✓ צפיתם","small")); if(when) b.append(mark("when",when,"small"));
+    if(now) b.append(mark("watch","▶\uFE0E צפייה בסרטון","span"));
     b.onclick=()=>{ seen[v.id]=1; store.set(key,seen); playVideo(v,true); };   // the box closing draws this again
     box.append(b);
   };
@@ -2807,10 +2841,25 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
       }catch{ button.textContent="לא הצלחנו להעתיק"; }
       setTimeout(()=>button.textContent="העתקת ההודעה",2200);
     };
-  }else{
-    box.append(mark("","ספריה דיגיטלית","h2"));
-    if(!libVideos().length) box.append(mark("","עוד אין סרטונים בספריה.","p"));
-    for(const v of libVideos()) row(v,libWatched,"ihki.libWatched","");
+  }else{   // the videos button: today's video, the earlier daily ones, then the digital library
+    const mine=dailyVideos(), now=mine.filter(v=>v.date===d), was=mine.filter(v=>v.date<d), back=mark("back","","button");
+    back.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> '+(focusOn()?"חזרה לדף הבית":"חזרה למסלול"); back.onclick=backHome;
+    box.append(back,mark("","סרטונים","h2"));
+    if(mine.length){
+      box.append(pushRow());
+      if(now.length){ box.append(mark("","הסרטון של היום","h3")); for(const v of now) row(v,dailyWatched,"ihki.dailyWatched","הסרטון של היום",true); }
+      if(was.length){ box.append(mark("","סרטונים יומיים קודמים","h3")); for(const v of was) row(v,dailyWatched,"ihki.dailyWatched",dayWord(v.date)); }
+    }
+    if(LIB_OK){   // the library, a heading for each section the user may watch that has videos (the server sends only those)
+      const vids=libVideos(), leaves=libLeaves(), known=new Set(leaves.map(x=>x.id));
+      if(!vids.length) box.append(mark("",mine.length?"עוד אין סרטונים בספריה.":"עוד אין סרטונים.","p"));
+      for(const leaf of leaves){
+        const here=vids.filter(v=>v.section===leaf.id); if(!here.length) continue;
+        box.append(mark("",leaf.label,"h3")); for(const v of here) row(v,libWatched,"ihki.libWatched","");
+      }
+      const rest=vids.filter(v=>!known.has(v.section)); if(rest.length){ box.append(mark("","ספריה דיגיטלית","h3")); for(const v of rest) row(v,libWatched,"ihki.libWatched",""); }
+    }
+    if(!mine.length&&!LIB_OK) box.append(mark("","עוד אין סרטונים.","p"));
   }
 }
 /* The verb table. Its verbs are the "פועל זמני" game's: every verb once, in the lesson that first teaches it, with its
@@ -3402,6 +3451,7 @@ async function liveRecord(){
 }
 const referTab=$("nav").querySelector('[data-view="refer"]'), referSeenKey="ihki.referSeen.2027";
 if(!store.get(referSeenKey,false)) referTab.classList.add("promo");
+$("vidsBtn").onclick=()=>showView("library");
 function openRefer(){ store.set(referSeenKey,true); referTab.classList.remove("promo"); showView("refer"); }
 for(const b of $("nav").children) b.onclick=()=>{
   if(b===referTab) return openRefer();
@@ -3583,7 +3633,9 @@ const STEP=108, SWAY=[0,.7,1,.7,0,-.7,-1,-.7];   // the road: the way down from 
 let drawnW=0, nowWatch=null;
 /* A lesson's videos (the teacher adds them in the panel's content part) stand on the path among its topics, where the
    teacher put them. A video opens in a box over the page; the ones already opened are marked, on this device only. */
-let LIBRARY=[], libWatched=store.get("ihki.libWatched",{});   // the video library, one for every level: {id, title, embed} (with url, for a teacher); {library video id: 1}
+let LIBRARY=[], libWatched=store.get("ihki.libWatched",{});   // the video library, in sections: {id, section, title, embed} (with url, for a teacher); {library video id: 1}
+let LIB_SECTIONS=[];   // the library's sections (app/library.py SECTIONS): [{id, name, children?}], in their order
+const libLeaves=(nodes=LIB_SECTIONS,path=[])=>nodes.flatMap(n=>n.children?libLeaves(n.children,[...path,n.name]):[{id:n.id,name:n.name,label:[...path,n.name].join(" · ")}]);
 let DAILIES=[], dailyWatched=store.get("ihki.dailyWatched",{});   // the library, for a teacher: {id, level, title, url, embed}; {daily video id: the day it was opened on}
 let VIDEOS=[], watched=store.get("ihki.watched",{});   // {id, lesson, title, url, embed, pos, ord} of the student's lessons; {video id: 1}
 /* A lesson's topics in the path's order: the course's own, {c, n} with the topic's number, and among them what the teacher
@@ -3600,7 +3652,7 @@ async function loadContent(){   // the videos, and the texts: their topics and l
     await ready;
     const [v,t,d,b]=await Promise.all([api("/api/videos"),api("/api/texts"),FREE?api("/api/dailies"):null,api("/api/library")]);
     if(v.ok) VIDEOS=(await v.json()).videos||[];
-    if(b.ok) LIBRARY=(await b.json()).library||[];
+    if(b.ok){ const lib=await b.json(); LIBRARY=lib.library||[]; LIB_SECTIONS=lib.sections||[]; }
     if(d&&d.ok) DAILIES=(await d.json()).dailies||[];
     if(t.ok){
       const d=await t.json(), old=new Set(ALL_CATS.filter(c=>c.text).map(c=>c.id));
@@ -5746,16 +5798,13 @@ function drawBuild(info,model){
   box.replaceChildren(title,mark("","מידע טכני לזיהוי הגרסה שפועלת כעת.","p"),list);
   box.hidden=false;
 }
-const ACCESS_COLUMNS=[
-  {label:"תרגול",kind:"entitlements",value:"practice",permission:"practice.use"},
-  {label:"ניהול",kind:"roles",value:"admin",permission:"management.access"},
-  {label:"מעבדה",kind:"roles",value:"developer",permission:"lab.access"},
-  {label:"משחקים",kind:"entitlements",value:"games",permission:"games.use"},
-  {label:"ספרייה דיגיטלית",kind:"entitlements",value:"library",permission:"library.view"},
-  {label:"דיווחי תקלות",kind:"roles",value:"flagger",permission:"flags.create"},
-  {label:"יאללה נדבר",kind:"entitlements",value:"tutor",permission:"tutor.use"},
-  {label:"מסלול",kind:"entitlements",value:"path",permission:"path.use"},
-];
+/* The three tiers of "משתמשים והרשאות" (app/access.py TIERS): each opens a fixed set; a student's path and library
+   sections come from their classes. The lab is a developer's, given only by a developer. */
+const TIER_INFO={
+  admin:{name:"מנהלים",what:"הכול חוץ מהמעבדה: תרגול, כל המשחקים כולל יאללה נדבר, כל המסלול וכל מדורי הספרייה, דיווחי תקלות, ניהול, וחיבור ה־MCP."},
+  teacher:{name:"מתרגלים",what:"כל החומר: תרגול, כל המשחקים כולל יאללה נדבר, כל המסלול וכל מדורי הספרייה, ודיווחי תקלות. בלי ניהול ובלי MCP."},
+  student:{name:"תלמידים",what:"תרגול, משחקים (בלי יאללה נדבר) ודיווחי תקלות; המסלול ומדורי הספרייה הדיגיטלית לפי הכיתה. בלי MCP."},
+};
 /* The "מודלים" tab: the phoneme models this server can score with (app/models.py), what each was measured to do
    on the Minerva test lines, and a switch (developers only) that loads another one beside the running one. */
 let MODELS=null, modelsError="", modelsPoll=0;
@@ -5991,67 +6040,85 @@ async function loadAccess(){
     ACCESS=data;
   }catch(e){ ACCESS=null; accessError=e.message; }
 }
+/* A checklist of the library's sections (ACCESS/CLASS library tree): a section's box covers its sub-sections, which
+   then show ticked and locked. Returns {el, value()}: the ids ticked, a section's alone when it covers its own. */
+function sectionPicker(tree,chosen,label,onChange){
+  const has=new Set(chosen||[]), list=mark("lib-pick","","ul"), boxes=[];
+  const add=(node,into,parent)=>{
+    const li=document.createElement("li"), lab=document.createElement("label"), input=document.createElement("input");
+    input.type="checkbox"; input.value=node.id; input.checked=has.has(node.id)||!!(parent&&parent.checked);
+    input.setAttribute("aria-label",`${label}: ${node.name}`);
+    lab.append(input,node.name); li.append(lab); into.append(li); boxes.push({input,parent});
+    if(node.children){
+      const sub=document.createElement("ul"); li.append(sub);
+      const kids=node.children.map(child=>add(child,sub,input));
+      const cover=()=>{ for(const k of kids){ if(input.checked) k.checked=true; k.disabled=input.checked; } };
+      input.addEventListener("change",()=>{ if(!input.checked) for(const k of kids) k.checked=false; cover(); }); cover();
+    }
+    input.addEventListener("change",()=>onChange&&onChange());
+    return input;
+  };
+  for(const node of tree||[]) add(node,list,null);
+  return {el:list,value:()=>boxes.filter(({input,parent})=>input.checked&&!(parent&&parent.checked)).map(({input})=>input.value)};
+}
 function drawAccess(){
   const box=$("mAccess"); box.replaceChildren();
-  const title=mark("","משתמשים והרשאות","h2"); box.append(title);
+  box.append(mark("","משתמשים והרשאות","h2"));
   if(accessError){ box.append(mark("setup",`ההרשאות לא זמינות: ${accessError}`,"p")); return; }
   if(!ACCESS){ box.append(mark("sub","טוען…","p")); return; }
   if(ACCESS.setup){ const code=mark("",ACCESS.setup,"code"); code.dir="ltr"; box.append(mark("setup","יש ליצור את טבלאות ההרשאות ב-Supabase:","p"),code); return; }
-  const note=mark("sub","כל עמודה היא הרשאה נפרדת. יאללה נדבר מופרד ממשחקים כי הוא משתמש בשירות API בתשלום. רק מפתחים יכולים לתת גישה למעבדה.","p"); box.append(note);
-  if(ACCESS.migration){ const details=document.createElement("details"), summary=document.createElement("summary"), code=mark("",ACCESS.migration,"code"); summary.textContent="שדרוג טבלת הרשאות קיימת"; code.dir="ltr"; details.className="setup"; details.append(summary,code); box.append(details); }
-  const scroll=mark("access-scroll",""), table=mark("access-table","","table"), head=document.createElement("thead"), hr=document.createElement("tr");
-  const allFor=col=>[...table.querySelectorAll('tbody input[type="checkbox"]')].filter(x=>!x.disabled&&x.dataset.kind===col.kind&&x.value===col.value);
-  const syncAll=()=>{
-    for(const col of ACCESS_COLUMNS){
-      const master=head.querySelector(`input[data-kind="${col.kind}"][value="${col.value}"]`), inputs=allFor(col), marked=inputs.filter(x=>x.checked).length;
-      master.checked=!!inputs.length&&marked===inputs.length; master.indeterminate=marked>0&&marked<inputs.length; master.disabled=!inputs.length;
-    }
-  };
-  hr.append(mark("","משתמש","th"));
-  for(const col of ACCESS_COLUMNS){
-    const th=document.createElement("th"), label=mark("",col.label,"span"), all=document.createElement("input"), allLabel=mark("access-all","","label");
-    all.type="checkbox"; all.dataset.kind=col.kind; all.value=col.value; all.setAttribute("aria-label",`סימון כל המשתמשים: ${col.label}`); all.title=`סימון כל המשתמשים בעמודה ${col.label}`;
-    all.onchange=()=>{ for(const input of allFor(col)){ input.checked=all.checked; input.closest("tr").dataset.dirty="1"; } syncAll(); };
-    allLabel.append(all,mark("","הכול","small")); th.append(label,allLabel); hr.append(th);
-  }
-  hr.append(mark("","","th")); head.append(hr); table.append(head);
-  const body=document.createElement("tbody");
-  const selected=(row,kind)=>[...row.querySelectorAll(`input[data-kind="${kind}"]:checked`)].map(x=>x.value);
-  const saveRow=async(row,user,save)=>{
-    const roles=[...(user.roles||[]).filter(x=>!["admin","developer","flagger"].includes(x)),...selected(row,"roles")], entitlements=selected(row,"entitlements");
-    if(!roles.length) roles.push("student");
-    save.disabled=true;
+  const note=mark("sub","כל משתמש נמצא באחת משלוש הקבוצות. העבירו משתמש לקבוצה אחרת ושמרו. מדורי הספרייה הדיגיטלית והשיעורים במסלול של תלמידים נקבעים בעריכת הכיתה (טאב כיתות)."+(can("lab.access")?" גישה למעבדה נותנים רק מפתחים.":""),"p");
+  const find=Object.assign(document.createElement("input"),{type:"search",placeholder:"חיפוש לפי שם או מייל",className:"access-find"}); find.setAttribute("aria-label","חיפוש משתמש");
+  const saveAll=mark("btn primary","שמירת כל השינויים","button"), actions=mark("access-actions","");
+  actions.append(find,saveAll); box.append(note,actions);
+  const lab=can("lab.access"), rows=[];
+  const save=async(r)=>{
+    const {user,select,dev,btn}=r, body={tier:select.value,...(lab&&dev?{developer:dev.checked}:{})};
+    btn.disabled=true;
     try{
-      const res=await api(`/api/access/users/${user.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({roles,entitlements})});
+      const res=await api(`/api/access/users/${user.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
       const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status);
-      user.roles=roles; user.entitlements=entitlements; delete row.dataset.dirty; save.disabled=false; return true;
-    }catch(e){ note.textContent="השמירה נכשלה: "+e.message; save.disabled=false; return false; }
+      user.tier=body.tier; if(dev) user.developer=dev.checked; r.dirty=false; return true;
+    }catch(e){ note.textContent=`השמירה של ${user.name||user.email} נכשלה: ${e.message}`; btn.disabled=false; return false; }
   };
-  for(const user of ACCESS.users||[]){
-    const row=document.createElement("tr"), who=document.createElement("td"), email=mark("",user.email,"small"), rowLocked=user.id===ACCESS.me||((user.fixed_roles||[]).includes("developer")&&!can("lab.access")); email.dir="ltr"; who.append(user.name||user.email,email); row.append(who);
-    for(const col of ACCESS_COLUMNS){
-      const td=document.createElement("td"), input=document.createElement("input"); input.type="checkbox"; input.dataset.kind=col.kind; input.value=col.value; input.checked=(user[col.kind]||[]).includes(col.value)||(user.permissions||[]).includes("*")||(user.permissions||[]).includes(col.permission);
-      input.setAttribute("aria-label",`${col.label}: ${user.name||user.email}`);
-      input.disabled=rowLocked||(col.value==="developer"&&!can("lab.access"))||(user.fixed_roles||[]).includes(col.value);
-      input.onchange=()=>{ row.dataset.dirty="1"; syncAll(); };
-      if((user.fixed_roles||[]).includes(col.value)) input.title="נקבע בהגדרות השרת"; td.append(input); row.append(td);
+  for(const tier of ["admin","teacher","student"]){
+    const users=(ACCESS.users||[]).filter(u=>u.tier===tier), group=mark("access-group","","details"), sum=document.createElement("summary");
+    group.open=true; sum.append(mark("",TIER_INFO[tier].name,"b"),mark("",` · ${users.length}`,"span")); group.append(sum,mark("sub",TIER_INFO[tier].what,"p"));
+    if(!users.length){ group.append(mark("meta","אין משתמשים בקבוצה הזו.","p")); box.append(group); continue; }
+    const table=mark("access-table","","table"), head=document.createElement("tr");
+    for(const h of ["משתמש","קבוצה",...(lab?["מעבדה"]:[]),""]) head.append(mark("",h,"th"));
+    const thead=document.createElement("thead"), body=document.createElement("tbody"); thead.append(head); table.append(thead,body);
+    for(const user of users){
+      const tr=document.createElement("tr"), who=document.createElement("td"), email=mark("",user.email,"small"); email.dir="ltr";
+      who.append(user.name||user.email,email);
+      if(user.developer) who.append(mark("access-badge","מפתח · מעבדה","span"));
+      const fixedTier=(user.fixed||[]).includes("tier"), locked=user.id===ACCESS.me||(user.developer&&!lab);
+      const select=document.createElement("select"); select.setAttribute("aria-label",`הקבוצה של ${user.name||user.email}`);
+      for(const t of ["admin","teacher","student"]) select.add(new Option(TIER_INFO[t].name,t));
+      select.value=tier; select.disabled=locked||fixedTier;
+      if(fixedTier) select.title="נקבע בהגדרות השרת (TEACHER_EMAILS)"; else if(user.id===ACCESS.me) select.title="אי אפשר לשנות את ההרשאות של עצמך";
+      const tdSel=document.createElement("td"); tdSel.append(select); tr.append(who,tdSel);
+      let dev=null;
+      if(lab){ const td=document.createElement("td"); dev=document.createElement("input"); dev.type="checkbox"; dev.checked=!!user.developer; dev.disabled=locked||(user.fixed||[]).includes("developer"); dev.setAttribute("aria-label",`מעבדה: ${user.name||user.email}`); td.append(dev); tr.append(td); }
+      const btn=mark("btn primary","שמירה","button"), tdBtn=mark("save-cell","","td"); btn.disabled=true; tdBtn.append(btn); tr.append(tdBtn);
+      const r={user,select,dev,btn,tr,dirty:false}; rows.push(r);
+      const mark_=()=>{ r.dirty=select.value!==user.tier||(dev&&dev.checked!==!!user.developer); btn.disabled=!r.dirty||locked; };
+      select.onchange=mark_; if(dev) dev.onchange=mark_;
+      btn.onclick=async()=>{ if(await save(r)){ note.textContent=`${user.name||user.email} נשמר/ה ב${TIER_INFO[user.tier].name}.`; drawAccess(); } };
+      body.append(tr);
     }
-    const save=mark("btn primary","שמירה","button"), saveCell=mark("save-cell","","td"); saveCell.append(save); row.append(saveCell); save.disabled=rowLocked;
-    save.onclick=async()=>{ if(await saveRow(row,user,save)) note.textContent=`ההרשאות של ${user.name||user.email} נשמרו.`; };
-    row._access={user,save};
-    body.append(row);
+    const scroll=mark("access-scroll",""); scroll.append(table); group.append(scroll); box.append(group);
   }
-  const saveAll=mark("btn primary","שמירת כל השינויים","button"), actions=mark("access-actions","","div"); actions.append(saveAll);
+  find.oninput=()=>{ const q=find.value.trim().toLowerCase(); for(const r of rows) r.tr.hidden=!!q&&!`${r.user.name||""} ${r.user.email}`.toLowerCase().includes(q); };
   saveAll.onclick=async()=>{
-    const rows=[...body.rows].filter(row=>row.dataset.dirty&&row._access);
-    if(!rows.length){ note.textContent="אין שינויים לשמור."; return; }
+    const dirty=rows.filter(r=>r.dirty);
+    if(!dirty.length){ note.textContent="אין שינויים לשמור."; return; }
     saveAll.disabled=true; let saved=0;
-    for(const row of rows){ const {user,save}=row._access; if(await saveRow(row,user,save)) saved++; }
-    saveAll.disabled=false; syncAll();
-    if(saved===rows.length) note.textContent=`נשמרו הרשאות עבור ${saved} משתמשים.`;
-    else note.textContent=`נשמרו ${saved} מתוך ${rows.length} משתמשים. בדקו את השורות שלא נשמרו.`;
+    for(const r of dirty) if(await save(r)) saved++;
+    saveAll.disabled=false;
+    const msg=saved===dirty.length?`נשמרו הרשאות עבור ${saved} משתמשים.`:`נשמרו ${saved} מתוך ${dirty.length} משתמשים. בדקו את השורות שלא נשמרו.`;
+    drawAccess(); $("mAccess").querySelector("p.sub").textContent=msg;
   };
-  table.append(body); syncAll(); scroll.append(table); box.append(actions,scroll);
 }
 function selectManageMode(){
   $("mModes").hidden=false;
@@ -6927,6 +6994,7 @@ function drawClasses(classes){
     const facts=mark("facts","","dl"), fact=(what,...value)=>{ const dd=document.createElement("dd"); dd.append(...value); facts.append(mark("",what,"dt"),dd); };
     const math=isMathClass(c);
     fact("מקצוע",c.subject||"לא הוגדר");
+    if((c.meetings||[]).length) fact("מפגשים",meetingsLine(c.meetings));
     if(math) fact("יחידות",unitsLine(c.lessons));
     else fact("שיעורים",lessonsLine(ALL_LESSONS.filter(l=>c.lessons.includes(l.id))));
     const mine=CLASS.students.filter(s=>c.name in s.classes);
@@ -6974,7 +7042,7 @@ function drawContent(){
   // the videos that stand outside the path, a card each: the library, which is one for every level and so comes first, and
   // under each level its daily videos, which a class gives their days. `level` is the level's id; none for the library
   const vcard=(into,level,table,all,what,one,none,hint,gone,sample)=>{
-    const mine=level==null?all:all.filter(v=>v.level===level), card=mark("card",""), top=mark("chead",""), name=mark("",what,"h2"), list=mark("clist","","ol"), adds=mark("cadds","");
+    const mine=all.filter(v=>(table==="library"?v.section:v.level)===level), card=mark("card",""), top=mark("chead",""), name=mark("",what,"h2"), list=mark("clist","","ol"), adds=mark("cadds","");
     name.append(mark("",`${mine.length?mine.length+" סרטונים":"עוד אין סרטונים"} · ${none}`,"small")); top.append(name);
     for(const v of mine){
       const row=mark("crow added","","li"), text=mark("two",""), title=mark("","","b"), t=document.createElement("bdi"), link=document.createElement("small"), acts=mark("acts","");
@@ -6986,27 +7054,45 @@ function drawContent(){
         row.dataset.id="library"+v.id; up.title="הזזה למעלה: מוקדם יותר בספריה"; down.title="הזזה למטה: מאוחר יותר בספריה";
         up.setAttribute("aria-label",`${up.title}, ${v.title}`); down.setAttribute("aria-label",`${down.title}, ${v.title}`);
         up.disabled=!at; down.disabled=at===mine.length-1;
-        up.onclick=()=>moveShelf(mine,at,-1,list); down.onclick=()=>moveShelf(mine,at,1,list); name.onclick=()=>renameShelf(v);
-        acts.append(up,down,see,name,del);
+        up.onclick=()=>moveShelf(mine,at,-1,list,level); down.onclick=()=>moveShelf(mine,at,1,list,level); name.onclick=()=>renameShelf(v);
+        const where=document.createElement("select"); where.className="btn"; where.title="העברה למדור אחר"; where.setAttribute("aria-label",`העברה למדור אחר, ${v.title}`);
+        for(const leaf of libLeaves()) where.add(new Option(leaf.label,leaf.id,false,leaf.id===v.section));
+        where.onchange=()=>shelfTo(v,where.value);
+        acts.append(up,down,see,name,where,del);
       }else acts.append(see,del);
       row.append(mark("","▶︎","i"),text,acts); list.append(row);
     }
     adder(adds,`+ הוספת ${one}`,[field("שם הסרטון","title",{maxLength:80,placeholder:sample}),
         field("קישור ל-Vimeo או ל-YouTube","url",{inputMode:"url",placeholder:"https://vimeo.com/1233611297/d46ac373c8"})],hint,
-      async f=>{ const res=await send(`/api/${table}`,"POST",{level:level||"",title:f.elements.title.value,url:f.elements.url.value}); return res.ok?"":refused(res,"ההוספה"); });
+      async f=>{ const res=await send(`/api/${table}`,"POST",{[table==="library"?"section":"level"]:level||"",title:f.elements.title.value,url:f.elements.url.value}); return res.ok?"":refused(res,"ההוספה"); });
     card.append(top,...(mine.length?[list]:[]),adds); into.append(card);
   };
   const wide=store.get("ihki.copen",{});   // the levels left open: each one opens and closes on its name, and stays so
-  const fold=(key,name,note)=>{   // a part of the page that opens and closes on its name
+  const fold=(key,name,note,into=box)=>{   // a part of the page that opens and closes on its name
     const sec=document.createElement("details"), sum=mark("clevel",name,"summary");
-    sum.append(mark("",note,"small")); sec.className="csec"; sec.open=!!wide[key]; sec.append(sum); box.append(sec);
+    sum.append(mark("",note,"small")); sec.className="csec"; sec.open=!!wide[key]; sec.append(sum); into.append(sec);
     sec.ontoggle=()=>{ wide[key]=sec.open?1:0; store.set("ihki.copen",wide); };
     return sec;
   };
-  vcard(fold("library","ספריה דיגיטלית",`${LIBRARY.length?LIBRARY.length+" סרטונים":"עוד אין סרטונים"} · משותפת לכל הרמות`),null,"library",LIBRARY,"הסרטונים שבספריה","סרטון לספריה","משותפת לכל הרמות: נפתחת לתלמידים המורשים מהכפתור „סרטונים” בסרגל התחתון","הסרטון נוסף לספריה הדיגיטלית. תלמידים שקיבלו הרשאה רואים אותו דרך הכפתור „סרטונים” בסרגל התחתון.","","למשל: שיר לסיום");
-  for(const g of byLevel(ALL_LESSONS)){
-    const sec=fold(g.level.id,g.level.name,`${lessonsWord(g.lessons)} · ${g.lessons.filter(l=>!l.soon).length} מוכנים`);
-    vcard(sec,g.level.id,"dailies",DAILIES,"סרטונים יומיים","סרטון יומי","את התאריך של כל סרטון קובעים בעריכת הכיתה","הסרטון נוסף לסרטונים היומיים של הרמה. כדי שתלמידים יראו אותו, קובעים לו תאריך בעריכת הכיתה: מאותו יום הוא מופיע להם בכפתור „סרטון יומי” שמעל המסלול."," גם הכיתות שקבעו לו תאריך לא יראו אותו עוד.","למשל: יום 1 · ברכות");
+  // the library's sections, in order: מערכת דיגיטלית holds the course's levels (each with its lessons and daily videos,
+  // and the videos of its own shelf), and the other sections hold only their videos. A video stands in one leaf section.
+  const shelf=(into,leaf)=>vcard(into,leaf.id,"library",LIBRARY,"סרטונים במדור","סרטון למדור",`${leaf.label} · נפתח לתלמידים שקיבלו הרשאה למדור`,
+    `הסרטון נוסף למדור ${leaf.label}. תלמידים שקיבלו הרשאה למדור רואים אותו בכפתור „סרטונים” שבראש המסך.`,"","למשל: שיר לסיום");
+  const count=ids=>{ const n=LIBRARY.filter(v=>ids.includes(v.section)).length; return n?`${n} סרטונים`:"עוד אין סרטונים"; };
+  const levels=byLevel(ALL_LESSONS), leaves=libLeaves();
+  LIB_SECTIONS.forEach((top,k)=>{
+    const mineLeaves=libLeaves([top]).map(x=>x.id);
+    const sec=fold("lib-"+top.id,`${k+1}. ${top.name}`,top.children?`${top.children.length} תתי-מדורים · ${count(mineLeaves)}`:count(mineLeaves));
+    if(!top.children){ shelf(sec,leaves.find(x=>x.id===top.id)); return; }
+    for(const child of top.children){
+      const g=levels.find(g=>g.level.id===child.level), leaf=leaves.find(x=>x.id===child.id);
+      const sub=fold("lib-"+child.id,child.name,[g&&`${lessonsWord(g.lessons)} · ${g.lessons.filter(l=>!l.soon).length} מוכנים`,count([child.id])].filter(Boolean).join(" · "),sec);
+      sub.classList.add("csub"); shelf(sub,leaf);
+      if(g) drawLevel(sub,g);
+    }
+  });
+  function drawLevel(sec,g){
+    vcard(sec,g.level.id,"dailies",DAILIES,"סרטונים יומיים","סרטון יומי","את התאריך של כל סרטון קובעים בעריכת הכיתה","הסרטון נוסף לסרטונים היומיים של הרמה. כדי שתלמידים יראו אותו, קובעים לו תאריך בעריכת הכיתה: מאותו יום הוא מופיע להם בכפתור „סרטונים” שבראש המסך."," גם הכיתות שקבעו לו תאריך לא יראו אותו עוד.","למשל: יום 1 · ברכות");
     for(let k=0;k<g.lessons.length;k++){
       const l=g.lessons[k];
       if(l.soon){   // the lessons still to come, a run of them in one line
@@ -7087,16 +7173,23 @@ async function moveItem(l,items,at,step,list){   // a video or a text changes pl
   const me=id(items[at]), moved=[...$("mContent").querySelectorAll(".crow.added")].find(r=>r.dataset.id===me.kind+me.id);   // the keyboard stays on what moved
   const again=moved&&[...moved.querySelectorAll(".move")].find((b,k)=>k===(step<0?0:1)&&!b.disabled)||moved&&moved.querySelector(".move:not(:disabled)"); if(again) again.focus({preventScroll:true});
 }
-async function moveShelf(all,at,step,list){   // a video of the library changes places with its neighbour
+async function moveShelf(all,at,step,list,section){   // a video of a library section changes places with its neighbour
   const order=all.map(v=>v.id), me=order[at]; [order[at],order[at+step]]=[order[at+step],order[at]];
   list.querySelectorAll("button").forEach(b=>b.disabled=true);
   try{
-    const res=await send("/api/library/order","PUT",{order});
+    const res=await send("/api/library/order","PUT",{section,order});
     if(!res.ok) alert(await refused(res,"ההזזה"));
   }catch{ alert("השרת לא זמין."); }
   await loadContent(); drawContent();
   const moved=[...$("mContent").querySelectorAll(".crow.added")].find(r=>r.dataset.id==="library"+me);   // the keyboard stays on what moved
   const again=moved&&[...moved.querySelectorAll(".move")].find((b,k)=>k===(step<0?0:1)&&!b.disabled)||moved&&moved.querySelector(".move:not(:disabled)"); if(again) again.focus({preventScroll:true});
+}
+async function shelfTo(v,section){   // a library video moves to another section
+  try{
+    const res=await send(`/api/library/${v.id}`,"PUT",{section});
+    if(!res.ok) alert(await refused(res,"ההעברה"));
+  }catch{ alert("השרת לא זמין."); }
+  await loadContent(); drawContent();
 }
 async function renameShelf(v){
   const title=(prompt("שם הסרטון (עד 80 תווים):",v.title)||"").trim();
@@ -7328,7 +7421,7 @@ function dailyRows(box,levels,days){
 }
 const daysOf=(days,levels)=>DAILIES.filter(v=>levels.includes(v.level)&&days[v.id]).map(v=>({video:v.id,date:days[v.id]}));
 const editLevels=()=>{ const on=[...$("editLessons").querySelectorAll(".chips :checked")].map(b=>b.value); return ALL_LEVELS.filter(v=>ALL_LESSONS.some(l=>l.level===v.id&&on.includes(l.id))).map(v=>v.id); };
-let editing=null, editDays={}, editTeacherSet=new Set();
+let editing=null, editDays={}, editTeacherSet=new Set(), editLibrary=null;
 function editTeacherChoices(){
   const box=$("editTeachers"), found=($("editEmails").value.match(/[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+/g)||[]).map(e=>e.toLowerCase());
   editTeacherSet=new Set([...editTeacherSet].filter(e=>found.includes(e))); box.replaceChildren();
@@ -7340,12 +7433,25 @@ function editTeacherChoices(){
     row.append(tick,text); box.append(row);
   }
 }
+/* The class's weekly meetings: a row each, a day (0 is Sunday) and a time. */
+const WEEKDAYS=["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
+const meetingsLine=ms=>(ms||[]).map(m=>`ימי ${WEEKDAYS[m.day]} ב־${m.time}`).join(" · ");
+function meetRow(day,time){
+  const row=mark("meetrow",""), sel=document.createElement("select"), at=Object.assign(document.createElement("input"),{type:"time",value:time||"",required:true}), del=mark("btn","✕","button");
+  WEEKDAYS.forEach((d,k)=>sel.add(new Option(`יום ${d}`,k))); sel.value=String(day??3);
+  sel.setAttribute("aria-label","יום המפגש"); at.setAttribute("aria-label","שעת המפגש");
+  del.type="button"; del.title="הסרת המפגש"; del.setAttribute("aria-label",del.title); del.onclick=()=>row.remove();
+  row.append(sel,at,del); $("editMeets").append(row); return sel;
+}
+const meetRows=()=>[...$("editMeets").children].map(r=>({day:+r.querySelector("select").value,time:r.querySelector("input").value}));
+$("editMeetAdd").onclick=()=>{ const last=meetRows().pop(); meetRow(last?(last.day+1)%7:3,last?last.time:"20:30").focus(); };
 function editClass(c){
   editing=c;
   $("editTeachersField").hidden=!LIVE_TAB_ENABLED;
   editTeacherSet=new Set(c&&c.teachers||[]);
   $("editTitle").textContent=c?`עריכת ${c.name}`:"כיתה חדשה";
   $("editName").value=c?c.name:"";
+  $("editMeets").replaceChildren(); for(const m of c&&c.meetings||[]) meetRow(m.day,m.time);
   // a math class picks units of the math path, and has no homework or daily videos; any other picks Arabic lessons
   const math=isMathClass(c), lessonsBox=$("editLessons").closest("fieldset"), legend=lessonsBox.querySelector("legend"), note=legend.querySelector("small");
   note.dataset.text??=note.textContent; legend.firstChild.textContent=math?"היחידות":"השיעורים";
@@ -7371,6 +7477,8 @@ function editClass(c){
     boxes.forEach(b=>b.onchange=()=>{ sync(); days(); }); sync();
   }
   editDays=Object.fromEntries((c&&c.dailies||[]).map(d=>[d.video,d.date])); days();
+  editLibrary=sectionPicker(CLASS&&CLASS.library_tree||[],c?c.library_sections||[]:["d1"],"מדור בספרייה");
+  $("editLibrary").replaceChildren(editLibrary.el);
   $("editHws").replaceChildren(); if(!math) for(const h of hwOf(c,ALL_CATS)) hwRow(h.c.id,h.due);
   $("editEmails").value=c?c.emails.map(e=>[e,c.nicknames&&c.nicknames[e]].filter(Boolean).join(" ")).join("\n"):"";
   $("editSave").textContent=c?"שמירה":"פתיחת הכיתה"; $("editDelete").hidden=!c; $("editMsg").textContent="";
@@ -7415,12 +7523,12 @@ $("editForm").onsubmit=e=>{
   e.preventDefault();
   const lessons=[...$("editLessons").querySelectorAll(".chips :checked")].map(b=>b.value), math=isMathClass(editing);
   if(!lessons.length){ $("editMsg").textContent=math?"בחרו לפחות יחידה אחת.":"בחרו לפחות שיעור אחד."; return; }
-  const who={name:$("editName").value,emails:$("editEmails").value,...(LIVE_TAB_ENABLED?{teachers:[...editTeacherSet]}:{})};
+  const who={name:$("editName").value,emails:$("editEmails").value,...(LIVE_TAB_ENABLED?{teachers:[...editTeacherSet]}:{}),...(editLibrary?{library_sections:editLibrary.value()}:{}),meetings:meetRows()};
   if(math){ sendClass(editing?"PUT":"POST",{...who,lessons,...(editing?{}:{subject:MATH_LABEL})}); return; }
   const homeworks=hwRows();
   if(homeworks.some(h=>!lessons.includes((ALL_CATS.find(c=>c.id===h.topic)||{}).lesson))){ $("editMsg").textContent="שיעורי הבית הם נושאים משיעורי הכיתה: סמנו את השיעור שלהם למעלה, או הסירו אותם."; return; }
   if(new Set(homeworks.map(h=>h.topic)).size<homeworks.length){ $("editMsg").textContent="אותו נושא מופיע פעמיים בשיעורי הבית."; return; }
-  sendClass(editing?"PUT":"POST",{name:$("editName").value,emails:$("editEmails").value,...(LIVE_TAB_ENABLED?{teachers:[...editTeacherSet]}:{}),lessons,homeworks,dailies:daysOf(editDays,editLevels())});
+  sendClass(editing?"PUT":"POST",{...who,lessons,homeworks,dailies:daysOf(editDays,editLevels())});
 };
 $("editDelete").onclick=()=>{
   if(confirm(`למחוק את הכיתה ${editing.name}? התלמידים שלה לא יוכלו להיכנס עוד. ההקלטות וההתקדמות שלהם נשמרות.`)) sendClass("DELETE");
@@ -9020,6 +9128,7 @@ const ready=fetch("/api/phrases").then(r=>{ if(!r.ok) throw new Error(`phrases: 
 </script>
 <script>
 /* The opening screen stays until the start button is pressed. */
+function fromReminder(){ return new URLSearchParams(location.search).get("view")==="daily"; }   // the daily video's reminder opened the page
 function enter(){
   const splash=$("logo-splash");
   $("wrap").inert=false; splash.classList.add("done"); setTimeout(()=>splash.remove(),700);
@@ -9027,7 +9136,7 @@ function enter(){
   const choosing=MY_CLASSES.length>1&&!MY_CLASS;
   if(choosing) askClass();   // in several classes and none practised in before: which one? (its lesson question follows, from useClass)
   if(AUTH_URL&&!can("path.use")){ if(can("games.use")||can("tutor.use")) showView("games"); else if(can("library.view")) showView("library"); }
-  if(new URLSearchParams(location.search).get("view")==="daily"){ history.replaceState(null,"",location.pathname); showView("daily"); }   // from the morning reminder: its videos before the lesson question or the home
+  if(fromReminder()){ history.replaceState(null,"",location.pathname); showView("daily"); }   // from the morning reminder: its videos before the lesson question or the home
   (choosing?Promise.resolve(false):lessonFlow()).catch(()=>false);   // the reminder is offered after a good moment, not on entering (see pushMoment)
 }
 $("startBtn").onclick=$("practiceBtn").onclick=enter;
@@ -9044,8 +9153,9 @@ $("startBtn").focus({preventScroll:true});
    button's place: practice, as a student does, or the management panel. A signed-in account with only practice skips
    the button and goes straight to the home. */
 if(!AUTH_URL){
-  untilWheelStops(); $("startBtn").hidden=true; $("roles").hidden=false; $("manageBtn").hidden=$("labBtn").hidden=true; $("nav").querySelector('[data-view="library"]').hidden=false;
+  untilWheelStops(); $("startBtn").hidden=true; $("roles").hidden=false; $("manageBtn").hidden=$("labBtn").hidden=true; LIB_OK=true;
   loadTutor();   // an open service: the tutor game, when the server has its key
+  if(fromReminder()) setTimeout(()=>{ if(!ENTERED) $("practiceBtn").click(); },0);   // from the reminder: straight to the video
 }
 if(AUTH_URL){
   const start=$("startBtn"), login=$("loginBtn"), logout=$("logoutBtn"), roles=$("roles"), mail=$("mailForm"), tagline=$("tagline");
@@ -9089,7 +9199,7 @@ if(AUTH_URL){
         const ok=!res||res.status!==403;   // a server that cannot be reached is not a refusal
         const me=res&&res.ok?await res.json().catch(()=>({})):{}, teacher=!!me.teacher;
         // an account belongs on its subject's pages (its class's, or an admin's own): a math student who opens "/" goes to /math
-        if(me.subject&&me.subject!==document.documentElement.dataset.subject){ location.replace(me.subject===document.documentElement.dataset.home?"/":"/"+me.subject); return; }
+        if(me.subject&&me.subject!==document.documentElement.dataset.subject){ location.replace((me.subject===document.documentElement.dataset.home?"/":"/"+me.subject)+(fromReminder()?"?view=daily":"")); return; }
         ME_SUBJECT=me.subject||"";
         ME_PERMISSIONS=new Set(me.permissions||[]); ME_ROLES=me.roles||[]; ME_ENTITLEMENTS=me.entitlements||[];
         if(res&&res.ok) pushSync();   // this device's reminders go to the account now signed in
@@ -9107,12 +9217,13 @@ if(AUTH_URL){
         else{ const last=MY_CLASSES.find(c=>c.name===store.get("ihki.class","")); if(last) useClass(last); }   // the class practised in last
         const management=can("management.access"), laboratory=can("lab.access"), library=can("library.view"), practice=can("practice.use")||can("path.use")||can("games.use")||can("tutor.use");
         const straight=ok&&!management&&!laboratory;   // practice is the only way in: no start button, straight to the home
-        store.set("ihki.student",straight?1:0); if(!straight) $("logo-splash")?.classList.remove("skip");
-        untilWheelStops(); start.hidden=!ok||management||laboratory||straight; roles.hidden=!management&&!laboratory; $("practiceBtn").hidden=!practice; $("nav").querySelector('[data-view="library"]').hidden=!library; $("manageBtn").hidden=$("toManage").hidden=!management; $("labBtn").hidden=!laboratory; $("mLab").hidden=!laboratory; denied.hidden=ok;
+        const toVideo=ok&&practice&&fromReminder();   // from the reminder: no opening screen, a teacher's too
+        store.set("ihki.student",straight?1:0); if(!straight&&!toVideo) $("logo-splash")?.classList.remove("skip");
+        untilWheelStops(); start.hidden=!ok||management||laboratory||straight; roles.hidden=!management&&!laboratory; $("practiceBtn").hidden=!practice; LIB_OK=library; $("manageBtn").hidden=$("toManage").hidden=!management; $("labBtn").hidden=!laboratory; $("mLab").hidden=!laboratory; denied.hidden=ok;
         if(ok){ $("nav").querySelector('[data-view="live"]').hidden=!LIVE_TAB_ENABLED; loadLive(true); [...roles.querySelectorAll("button:not([hidden])"),start].find(x=>!x.hidden)?.focus({preventScroll:true});
           const progress=loadProgress().then(()=>{ if(PHRASES.length&&$("wrap").inert) startCat(); if(document.body.dataset.view==="home") drawNav(); });
           // the home opens once the progress is in (or after 5s, so a slow server does not leave the logo up); click() runs math.js's start too
-          if(straight) Promise.race([progress.catch(()=>{}),new Promise(r=>setTimeout(r,5000))]).then(()=>{ if(!ENTERED) start.click(); });
+          if(straight||toVideo) Promise.race([progress.catch(()=>{}),new Promise(r=>setTimeout(r,5000))]).then(()=>{ if(!ENTERED) (straight?start:$("practiceBtn")).click(); });
           loadContent(); loadWriting(); loadTutor(); }
       }catch(e){ $("logo-splash")?.classList.remove("skip"); untilWheelStops(); start.hidden=false; throw e; } },0);   // a failure here still lets the student in, and shows under the logo
     });
@@ -9144,6 +9255,14 @@ if(AUTH_URL){
 })();
 if("serviceWorker" in navigator){
   addEventListener("load",()=>navigator.serviceWorker.register("/service-worker.js").catch(()=>{}));
+  // the daily video's reminder, tapped while the app is open: its videos, without loading the page again
+  navigator.serviceWorker.addEventListener("message",e=>{
+    if(!e.data||e.data.type!=="daily-video") return;
+    if(ENTERED){ for(const d of document.querySelectorAll("dialog[open]")) if(d.id!=="editDlg"&&d.id!=="newDlg") d.close(); showView("daily"); window.scrollTo(0,0); return; }
+    history.replaceState(null,"",location.pathname+"?view=daily");   // still on the opening screen: enter() opens the videos
+    const start=$("startBtn"), practice=$("practiceBtn");
+    if(!start.hidden) start.click(); else if(!$("roles").hidden&&!practice.hidden) practice.click();   // the account was checked already
+  });
 }
 </script>
 <script src="/static/math.js?v=__ASSET_V__" defer></script>

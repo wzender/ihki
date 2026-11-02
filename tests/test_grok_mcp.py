@@ -135,10 +135,12 @@ def test_narrow_tools_are_discoverable():
     server, _ = connector(LibraryAuth())
     tools = asyncio.run(server.list_tools())
     assert [tool.name for tool in tools] == [
-        "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
+        "list_library_sections", "list_library_videos", "prepare_library_video", "prepare_library_videos",
+        "publish_library_video", "publish_library_videos", "rename_library_video",
         "list_classes", "list_class_content_collections", "get_class_content_access",
         "prepare_class_change", "publish_class_change",
         "get_teacher_workspace", "list_teacher_options", "prepare_teacher_change", "publish_teacher_change",
+        "list_user_access", "prepare_user_access_change", "publish_user_access_change",
         "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_error_summary", "get_notification_coverage",
         "get_exercise_difficulty",
         "get_system_error_reports",
@@ -167,7 +169,9 @@ def test_narrow_tools_are_discoverable():
         "review_status", "interval", "limit", "min_attempts"}
     coverage = next(tool for tool in tools if tool.name == "get_notification_coverage")
     assert set(coverage.input_schema["properties"]) == {"class_id"}
-    assert not any(word in tool.name for tool in tools
+    # the managers' permission tools move an account between the three tiers, and nothing else of an account
+    access = {"list_user_access", "prepare_user_access_change", "publish_user_access_change"}
+    assert not any(word in tool.name for tool in tools if tool.name not in access
                    for word in ("user", "role", "permission", "entitlement", "oauth", "secret", "grade", "recording",
                                 "sql", "log", "environment", "timeline", "remediate", "restart", "shell",
                                 "learner", "raw_attempt", "abandonment", "answer", "calibration"))
@@ -180,10 +184,11 @@ def test_list_and_rename_return_only_library_metadata():
     server, _ = connector(auth)
     listed = call(server, "list_library_videos")
     assert listed == {"ok": True, "videos": [{"id": 7, "title": "ישן",
-        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "position": 1}]}
+        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "section": "d1",
+        "section_name": "מערכת דיגיטלית · שלב א", "position": 1}]}
     assert call(server, "rename_library_video", {"video_id": 7, "title": "  שם   חדש "}) == {
         "ok": True, "video_id": 7, "title": "שם חדש"}
-    assert auth.videos[0]["url"].endswith("dQw4w9WgXcQ")
+    assert auth.library_videos[0]["url"].endswith("dQw4w9WgXcQ")
     assert call(server, "rename_library_video", {"video_id": 99, "title": "x"})["ok"] is False
     assert call(server, "rename_library_video", {"video_id": 7, "title": ""})["ok"] is False
     assert auth.events and all("token" not in str(event).lower() for event in auth.events)
@@ -193,28 +198,67 @@ def test_prepare_publish_is_expiring_single_use_and_rechecks_duplicates():
     clock, auth = Clock(), LibraryAuth()
     server, _ = connector(auth, clock)
     prepared = call(server, "prepare_library_video", {
-        "title": "  ברכות   בערבית ", "url": "https://youtu.be/dQw4w9WgXcQ?t=10"})
-    assert prepared["ok"] and not prepared["published"]
+        "title": "  ברכות   בערבית ", "url": "https://youtu.be/dQw4w9WgXcQ?t=10", "section": "טיולים בכפר"})
+    assert prepared["ok"] and not prepared["published"] and prepared["section"] == "village"
     assert prepared["title"] == "ברכות בערבית"
     assert prepared["url"] == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     published = call(server, "publish_library_video", {"approval_id": prepared["approval_id"]})
-    assert published["ok"] and published["published"] and len(auth.videos) == 1
+    assert published["ok"] and published["published"] and len(auth.library_videos) == 1
+    assert auth.library_videos[0]["level"] == "village" and published["section_name"] == "טיולים בכפר"
     assert call(server, "publish_library_video", {"approval_id": prepared["approval_id"]})["ok"] is False
     assert call(server, "prepare_library_video", {
-        "title": "כפול", "url": "https://youtu.be/dQw4w9WgXcQ"})["ok"] is False
+        "title": "כפול", "url": "https://youtu.be/dQw4w9WgXcQ", "section": "village"})["ok"] is False
 
-    other = call(server, "prepare_library_video", {"title": "אחר", "url": "https://vimeo.com/1233611297/d46ac373c8"})
-    auth.videos.append({"id": 2, "level": "", "title": "נוסף במקביל", "url": other["url"]})
+    other = call(server, "prepare_library_video", {"title": "אחר", "url": "https://vimeo.com/1233611297/d46ac373c8",
+                                                   "section": "village"})
+    auth.library_videos.append({"id": 2, "level": "", "title": "נוסף במקביל", "url": other["url"]})
     assert call(server, "publish_library_video", {"approval_id": other["approval_id"]})["ok"] is False
 
-    expiring = call(server, "prepare_library_video", {"title": "פג", "url": "https://youtu.be/abc12345678"})
+    expiring = call(server, "prepare_library_video", {"title": "פג", "url": "https://youtu.be/abc12345678",
+                                                      "section": "village"})
     clock.now += 601
     assert call(server, "publish_library_video", {"approval_id": expiring["approval_id"]})["ok"] is False
 
 
+def test_a_video_needs_a_section_and_the_answer_names_the_choices():
+    auth = LibraryAuth()
+    server, _ = connector(auth)
+    sections = call(server, "list_library_sections")
+    assert [s["name"] for s in sections["sections"]] == [
+        "מערכת דיגיטלית", "בוגרים מספרים", "טיולים בכפר", "פרקי אבות עם אמיר", "חַאחַ׳אם עידן", "מנחים ומתרגלים"]
+    assert [c["name"] for c in sections["sections"][0]["children"]] == ["שלב א", "שלב ב", "שלב ג", "שלב ד", "נִתמרַّן"]
+    missing = call(server, "prepare_library_video", {"title": "x", "url": "https://youtu.be/dQw4w9WgXcQ"})
+    assert missing["ok"] is False and "לאיזה מדור" in missing["error"] and "טיולים בכפר" in missing["error"]
+    parent = call(server, "prepare_library_video", {"title": "x", "url": "https://youtu.be/dQw4w9WgXcQ",
+                                                    "section": "מערכת דיגיטלית"})
+    assert parent["ok"] is False and "שלב ב" in parent["error"]
+    sub = call(server, "prepare_library_video", {"title": "x", "url": "https://youtu.be/dQw4w9WgXcQ", "section": "נתמרן"})
+    assert sub["ok"] and sub["section"] == "nitmaran"
+
+
+def test_a_list_of_videos_is_prepared_and_published_into_one_section():
+    auth = LibraryAuth()
+    auth.library_videos = [{"id": 1, "level": "", "title": "קיים", "url": "https://www.youtube.com/watch?v=aaaaaaaaaaa"}]
+    server, _ = connector(auth)
+    prepared = call(server, "prepare_library_videos", {"section": "טיולים בכפר", "videos": [
+        {"title": "הכפר הראשון", "url": "https://youtu.be/bbbbbbbbbbb"},
+        {"title": "הכפר השני", "url": "https://vimeo.com/76979871"},
+        {"title": "כבר בספרייה", "url": "https://youtu.be/aaaaaaaaaaa"},
+        {"title": "פעמיים", "url": "https://youtu.be/bbbbbbbbbbb"},
+        {"title": "לא קישור", "url": "https://example.com/x"}]})
+    assert prepared["ok"] and prepared["section"] == "village" and len(prepared["prepared"]) == 2
+    assert [r["item"] for r in prepared["refused"]] == [3, 4, 5]
+    assert "שלב א" in prepared["refused"][0]["error"]   # where the duplicate already stands
+    assert len(auth.library_videos) == 1   # nothing published yet
+    published = call(server, "publish_library_videos", {"approval_ids": [p["approval_id"] for p in prepared["prepared"]]})
+    assert published["ok"] and len(published["published"]) == 2 and not published["refused"]
+    assert [v["level"] for v in auth.library_videos] == ["", "village", "village"]
+    assert call(server, "prepare_library_videos", {"videos": [{"title": "x", "url": "https://youtu.be/ccccccccccc"}]})["ok"] is False
+
+
 def test_invalid_and_unavailable_operations_are_safe():
     server, _ = connector(LibraryAuth())
-    assert call(server, "prepare_library_video", {"title": "x", "url": "https://example.com/x"})["ok"] is False
+    assert call(server, "prepare_library_video", {"title": "x", "url": "https://example.com/x", "section": "d1"})["ok"] is False
     assert call(server, "prepare_library_video", {"title": "", "url": "https://youtu.be/dQw4w9WgXcQ"})["ok"] is False
     unavailable, _ = connector(UnavailableAuth())
     assert call(unavailable, "list_library_videos")["ok"] is False
@@ -251,9 +295,9 @@ def test_oauth_verifier_requires_current_management_permission():
     assert asyncio.run(verifier.verify_token("teacher-session")) is None
     auth.class_rows = [{"id": 1, "name": "assigned", "subject": "ערבית", "emails": [],
                         "teachers": ["teacher@example.com"], "lessons": ["1"]}]
-    assigned = asyncio.run(verifier.verify_token("teacher-session"))
-    assert assigned and "management.access" not in assigned.claims["ihki_actor"]["permissions"]
-    auth.class_rows[0]["teachers"] = []
+    # teaching a class does not open the MCP: it is the managers' alone, and a מתרגל is refused too
+    assert asyncio.run(verifier.verify_token("teacher-session")) is None
+    auth.roles = ["teacher", "flagger"]
     assert asyncio.run(verifier.verify_token("teacher-session")) is None
     assert asyncio.run(verifier.verify_token("malformed")) is None
     assert auth.fresh == [True, True, True, True]
@@ -767,10 +811,12 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
     assert initialized.status_code == 200
     assert initialized.json()["result"]["serverInfo"]["name"] == "ihki-digital-library"
     assert [tool["name"] for tool in discovered.json()["result"]["tools"]] == [
-        "list_library_videos", "prepare_library_video", "publish_library_video", "rename_library_video",
+        "list_library_sections", "list_library_videos", "prepare_library_video", "prepare_library_videos",
+        "publish_library_video", "publish_library_videos", "rename_library_video",
         "list_classes", "list_class_content_collections", "get_class_content_access",
         "prepare_class_change", "publish_class_change",
         "get_teacher_workspace", "list_teacher_options", "prepare_teacher_change", "publish_teacher_change",
+        "list_user_access", "prepare_user_access_change", "publish_user_access_change",
         "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_error_summary", "get_notification_coverage",
         "get_exercise_difficulty",
         "get_system_error_reports",
@@ -844,7 +890,7 @@ def test_streamable_http_manages_library_end_to_end_and_browser_still_opens(monk
                     return response.json()["result"]["structuredContent"]
 
                 prepared = await tool("prepare_library_video", {
-                    "title": "  דרך גרוק ", "url": "https://youtu.be/dQw4w9WgXcQ?t=4"})
+                    "title": "  דרך גרוק ", "url": "https://youtu.be/dQw4w9WgXcQ?t=4", "section": "בוגרים מספרים"})
                 published = await tool("publish_library_video", {"approval_id": prepared["approval_id"]})
                 listed = await tool("list_library_videos")
                 renamed = await tool("rename_library_video", {"video_id": published["video_id"], "title": "שם חדש"})
@@ -855,7 +901,8 @@ def test_streamable_http_manages_library_end_to_end_and_browser_still_opens(monk
     assert prepared["ok"] and not prepared["published"]
     assert published["ok"] and published["published"]
     assert listed["videos"] == [{"id": 1, "title": "דרך גרוק",
-        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "position": 1}]
+        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "section": "graduates",
+        "section_name": "בוגרים מספרים", "position": 1}]
     assert renamed == {"ok": True, "video_id": 1, "title": "שם חדש"}
     assert page.status_code == 200 and "ניהול" in page.text
 
@@ -991,9 +1038,10 @@ def test_mutations_are_bounded_but_listing_remains_available():
     server, _ = connector(auth, clock)
     for number in range(20):
         result = call(server, "prepare_library_video", {
-            "title": str(number), "url": f"https://youtu.be/{number:011d}"})
+            "title": str(number), "url": f"https://youtu.be/{number:011d}", "section": "d2"})
         assert result["ok"]
-    refused = call(server, "prepare_library_video", {"title": "later", "url": "https://youtu.be/abcdefghijk"})
+    refused = call(server, "prepare_library_video", {"title": "later", "url": "https://youtu.be/abcdefghijk",
+                                                     "section": "d2"})
     assert refused["ok"] is False and "דקה" in refused["error"]
     assert call(server, "list_library_videos")["ok"] is True
 

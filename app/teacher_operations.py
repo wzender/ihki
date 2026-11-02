@@ -11,10 +11,10 @@ import hashlib
 import json
 from typing import Any
 
-from .access import has_permission
+from .access import class_sections, has_permission
 from .auth import AuthUnavailable, ClassConflict, SupabaseAuth
 from .class_management import (ClassManagementError, EMAIL, MAX_CLASS_NAME, MAX_NICKNAME,
-                               normalize_class_name, normalize_student)
+                               normalize_class_name, normalize_student, meetings_text, normalize_meetings)
 from . import library
 from .texts import text_phrases
 
@@ -23,7 +23,7 @@ CLASS_OPERATIONS = frozenset({
     "create_class", "update_class", "delete_class", "add_student", "remove_student",
     "update_student_nickname", "set_class_content", "assign_homework", "remove_homework",
     "schedule_daily_video", "unschedule_daily_video", "assign_class_teacher",
-    "remove_class_teacher",
+    "remove_class_teacher", "set_class_library_sections", "set_class_schedule",
 })
 CONTENT_OPERATIONS = frozenset({
     "create_daily_video", "update_daily_video", "delete_daily_video",
@@ -154,6 +154,20 @@ def _normalized_row(row: dict[str, Any]) -> dict[str, Any]:
             raise TeacherOperationError("התאריך של הסרטון היומי לא תקין", code="daily_video_date_invalid") from exc
         seen_videos.add(video)
         normalized_dailies.append({"video": video, "date": normalized_day})
+    if result.get("meetings") is not None:
+        try:
+            result["meetings"] = normalize_meetings(result["meetings"])
+        except ClassManagementError as exc:
+            raise TeacherOperationError(str(exc), code="class_meetings_invalid") from exc
+    sections = result.get("library_sections")   # None: a class saved before it had sections (see access.class_sections)
+    if sections is not None:
+        if not isinstance(sections, list) or not all(isinstance(item, str) for item in sections):
+            raise TeacherOperationError("מדורי הספרייה אינם תקינים", code="library_sections_invalid")
+        unknown = [item for item in sections if item not in library.NODES]
+        if unknown:
+            raise TeacherOperationError("אין בספרייה מדור כזה. " + library.choices(), code="library_section_unknown",
+                                        detail=f"unknown={','.join(unknown)[:200]}")
+        result["library_sections"] = list(dict.fromkeys(sections))
     result.update(emails=sorted(emails), nicknames=nicknames, teachers=teachers, lessons=lessons,
                   homeworks=normalized_homeworks, dailies=normalized_dailies,
                   subject=" ".join(str(result.get("subject") or "").split()))
@@ -163,6 +177,10 @@ def _normalized_row(row: dict[str, Any]) -> dict[str, Any]:
 def class_fingerprint(row: dict[str, Any]) -> str:
     keys = ("id", "name", "emails", "nicknames", "teachers", "lessons", "homeworks", "dailies", "subject")
     value = {key: row.get(key) for key in keys}
+    if row.get("library_sections") is not None:   # a class without them keeps the fingerprint it had
+        value["library_sections"] = row["library_sections"]
+    if row.get("meetings"):   # nor do classes without meetings
+        value["meetings"] = row["meetings"]
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
                                      separators=(",", ":")).encode()).hexdigest()
 
@@ -177,7 +195,10 @@ def _public_class(row: dict[str, Any]) -> dict[str, Any]:
             "students": [{"email": email, **({"nickname": row["nicknames"][email]}
                           if row.get("nicknames", {}).get(email) else {})} for email in row.get("emails") or []],
             "teachers": list(row.get("teachers") or []), "content_ids": list(row.get("lessons") or []),
-            "homeworks": deepcopy(row.get("homeworks") or []), "scheduled_daily_videos": deepcopy(row.get("dailies") or [])}
+            "homeworks": deepcopy(row.get("homeworks") or []), "scheduled_daily_videos": deepcopy(row.get("dailies") or []),
+            "meetings": deepcopy(row.get("meetings") or []), "meetings_text": meetings_text(row.get("meetings")),
+            "library_sections": class_sections(row),
+            "library_sections_names": [library.label(item) for item in class_sections(row) if item in library.NODES]}
 
 
 def workspace(auth: SupabaseAuth, actor: dict[str, Any]) -> dict[str, Any]:
@@ -198,7 +219,7 @@ def _ensure_unique_name(auth: SupabaseAuth, actor: dict[str, Any], name: str, cl
 
 
 def _diff(before: dict[str, Any] | None, after: dict[str, Any] | None) -> list[dict[str, Any]]:
-    keys = ("name", "subject", "emails", "nicknames", "teachers", "lessons", "homeworks", "dailies")
+    keys = ("name", "subject", "emails", "nicknames", "teachers", "lessons", "homeworks", "dailies", "library_sections", "meetings")
     return [{"field": key, "before": deepcopy((before or {}).get(key)), "after": deepcopy((after or {}).get(key))}
             for key in keys if (before or {}).get(key) != (after or {}).get(key)]
 
@@ -208,12 +229,18 @@ def prepare_class(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *, 
                   students: list[dict[str, str]] | None = None, teachers: list[str] | None = None,
                   content_ids: list[str] | None = None, homeworks: list[dict[str, Any]] | None = None,
                   dailies: list[dict[str, Any]] | None = None, email: str = "", nickname: str = "",
+                  library_sections: list[str] | None = None, meetings: list[dict[str, Any]] | None = None,
                   topic_lessons: dict[str, str] | None = None,
                   daily_video_ids: set[int] | None = None) -> dict[str, Any]:
     if operation not in CLASS_OPERATIONS:
         raise TeacherOperationError("פעולת הכיתה אינה מורשית", code="class_operation_not_allowed", category="authorization")
     if operation in ADMIN_ONLY_CLASS_OPERATIONS:
         _ensure_admin(actor)
+    if library_sections is not None:   # ids or Hebrew names, as a chat gives them
+        try:
+            library_sections = [library.resolve_node(item) for item in library_sections]
+        except library.LibraryError as exc:
+            raise TeacherOperationError(str(exc), code="library_section_unknown") from exc
     before = None if operation == "create_class" else _find(auth, actor, class_id)
     if operation == "delete_class":
         return {"operation": operation, "class_id": before["id"], "class_name": before["name"],
@@ -229,6 +256,10 @@ def prepare_class(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *, 
             raise TeacherOperationError("יש לבחור מקצוע לכיתה", code="class_subject_missing")
         after = {"name": name, "subject": chosen_subject, "emails": [], "nicknames": {}, "teachers": [],
                  "lessons": list(content_ids or []), "homeworks": list(homeworks or []), "dailies": list(dailies or [])}
+        if library_sections is not None:
+            after["library_sections"] = list(library_sections)
+        if meetings is not None:
+            after["meetings"] = list(meetings)
         for student in students or []:
             student_email, student_nickname = normalize_student(student.get("email"), student.get("nickname"))
             if student_email not in after["emails"]:
@@ -251,6 +282,8 @@ def prepare_class(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *, 
         if content_ids is not None: after["lessons"] = list(content_ids)
         if homeworks is not None: after["homeworks"] = list(homeworks)
         if dailies is not None: after["dailies"] = list(dailies)
+        if library_sections is not None: after["library_sections"] = list(library_sections)
+        if meetings is not None: after["meetings"] = list(meetings)
     elif operation in {"add_student", "remove_student", "update_student_nickname"}:
         student_email, student_nickname = normalize_student(email, nickname)
         emails = list(after.get("emails") or [])
@@ -273,6 +306,16 @@ def prepare_class(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *, 
     elif operation == "remove_homework": after["homeworks"] = []
     elif operation == "schedule_daily_video": after["dailies"] = list(dailies or [])
     elif operation == "unschedule_daily_video": after["dailies"] = []
+    elif operation == "set_class_library_sections":
+        if library_sections is None:
+            raise TeacherOperationError("בחרו את מדורי הספרייה שהכיתה תראה (רשימה ריקה: אף מדור). "
+                                        + library.choices(), code="library_sections_missing")
+        after["library_sections"] = list(library_sections)
+    elif operation == "set_class_schedule":
+        if meetings is None:
+            raise TeacherOperationError('כתבו את מפגשי הכיתה, למשל [{"day": "רביעי", "time": "20:30"}] (רשימה ריקה: אין מפגש קבוע)',
+                                        code="class_meetings_missing")
+        after["meetings"] = list(meetings)
     elif operation in {"assign_class_teacher", "remove_class_teacher"}:
         teacher_email, _ = normalize_student(email)
         assigned = list(after.get("teachers") or [])
@@ -312,7 +355,11 @@ def apply_class(auth: SupabaseAuth, actor: dict[str, Any], plan: dict[str, Any])
     try:
         auth.save_class(before.get("id") if before else None, after["name"], after["emails"], after["nicknames"],
                         after["lessons"], after["homeworks"], after["dailies"], after["subject"],
-                        teachers=after["teachers"])
+                        teachers=after["teachers"],
+                        **({"library_sections": after["library_sections"]}
+                           if after.get("library_sections") is not None else {}),
+                        **({"meetings": after["meetings"]}   # a class that never had meetings: a table made before them takes it
+                           if after.get("meetings") or (before or {}).get("meetings") else {}))
     except (AuthUnavailable, ClassConflict, KeyError) as exc:
         raise TeacherOperationError(f"שמירת הכיתה נכשלה: {exc}", code="class_save_failed", category="upstream") from exc
     return {"operation": operation, "class_id": before.get("id") if before else None,

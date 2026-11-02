@@ -287,9 +287,18 @@ The page reads these rows back through `GET /api/progress` (best score and tries
 
 ### The teacher
 
-Access is managed from **ניהול → הרשאות**. Its matrix grants practice, management, Lab, games, the digital library,
-problem reporting, יאללה נדבר, and the learning path independently. יאללה נדבר has its own permission because each
-conversation uses the paid model API; unlike the other student features it is off until explicitly granted.
+Access is managed from **ניהול → הרשאות** (משתמשים והרשאות). Every account is in one of three tiers, and the tier
+alone decides what it may open (`app/access.py`, `TIERS`):
+
+- **מנהלים** (`admin`): everything except the Lab — practice, every game including יאללה נדבר, the whole path and
+  every library section, problem reporting, management, and the MCP connector. Managers can also move accounts
+  between tiers through the MCP (`list_user_access`, `prepare_user_access_change`, `publish_user_access_change`).
+- **מתרגלים** (`teacher`): all the material — practice, every game including יאללה נדבר, the whole path and every
+  library section, problem reporting — but no management and no MCP.
+- **תלמידים** (`student`): practice, the games except יאללה נדבר, problem reporting, and the path lessons and
+  digital-library sections of their classes. A class's library sections are chosen in its dialog under **כיתות**
+  (MCP: `prepare_teacher_change` with `set_class_library_sections`); a class saved before then opens שלב א.
+
 Developers have full access including the Lab; admins do not receive Lab access. `DEVELOPER_EMAILS` bootstraps one or more developer
 accounts; keep at least one there to prevent a database mistake from locking every developer out. Existing
 `TEACHER_EMAILS` accounts retain the old management abilities during migration, but no longer receive Lab access.
@@ -957,6 +966,8 @@ create table public.classes (
   due        date,                                 -- the day the homework is due, if it has one
   homeworks  jsonb  not null default '[]',         -- every homework of the class: [{"topic": ..., "due": ...}]
   dailies    jsonb  not null default '[]',         -- the days of its daily videos: [{"video": id, "date": ...}]
+  library_sections text[],                         -- the library sections its students see; null = שלב א only
+  meetings   jsonb  not null default '[]',         -- when it meets each week: [{"day": 3, "time": "20:30"}], 0 = Sunday
   created_at timestamptz not null default now()
 );
 alter table public.classes enable row level security;
@@ -972,7 +983,9 @@ alter table public.classes add column if not exists nicknames jsonb not null def
                            add column if not exists homeworks jsonb not null default '[]',
                            add column if not exists teachers text[] not null default '{}',
                            add column if not exists dailies jsonb not null default '[]',
-                           add column if not exists subject text not null default 'ערבית';
+                           add column if not exists subject text not null default 'ערבית',
+                           add column if not exists library_sections text[],
+                           add column if not exists meetings jsonb not null default '[]';
 update public.classes set subject = 'ערבית' where subject = '';
 ```
 
