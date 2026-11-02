@@ -13,6 +13,12 @@ Env:  VAPID_PRIVATE_KEY  (the server's push key; make one with  python -m app.pu
       VAPID_SUBJECT      (a contact the push services may write to, "mailto:..."; default: the first developer's email)
       PUSH_HOUR          (the hour of the reminder in Jerusalem, 0-23; default 8)
       STATUS_PUSH_HOUR   (the hour of the developers' morning status in Jerusalem, 0-23; default 8; "off" turns it off)
+      STREAK_PUSH_HOUR   (the hour of the evening streak reminder in Jerusalem, 0-23; default 19; "off" turns it off)
+
+The evening streak reminder (streak_payload, remind_streaks, streak_loop): an account whose practice streak is at least
+STREAK_MIN days and who has not practised yet today gets one notification that evening, so the streak is not lost.
+Its tap opens "/?from=push-streak", and the page reports the open (POST /api/push/opened), so the system events show
+how many were sent and how many were opened.
 
 The developers' morning status (status_payload, status_loop) goes to the devices of DEVELOPER_EMAILS: is everything up,
 how many errors the server saw yesterday, and yesterday's activity.
@@ -34,10 +40,12 @@ log = logging.getLogger("ihki.push")
 CHECK_EVERY = 300   # seconds between looks at the clock
 MAX_ENDPOINT = 1000
 CREATE_PUSH_SUBS = ("create table public.push_subs (endpoint text primary key, email text not null, p256dh text not null, "
-                    "auth text not null, every_class boolean not null default false, last_daily date, "
+                    "auth text not null, every_class boolean not null default false, last_daily date, last_streak date, "
                     "created_at timestamptz not null default now()); "
                     "alter table public.push_subs enable row level security; "
                     "revoke all on public.push_subs from anon, authenticated;")
+MIGRATE_STREAK = "alter table public.push_subs add column if not exists last_streak date;"
+STREAK_MIN = 2   # days: a shorter streak is not worth an evening notification
 
 
 def _b64(raw: bytes) -> str:
@@ -108,9 +116,9 @@ class Push:
         q = {"endpoint": f"eq.{endpoint}", **({"email": f"eq.{email.lower()}"} if email else {})}
         self.auth._admin("/rest/v1/push_subs?" + urllib.parse.urlencode(q), "DELETE", prefer="return=minimal")
 
-    def _sent(self, endpoint: str, day: str) -> None:
+    def _sent(self, endpoint: str, day: str, column: str = "last_daily") -> None:
         self.auth._admin("/rest/v1/push_subs?" + urllib.parse.urlencode({"endpoint": f"eq.{endpoint}"}), "PATCH",
-                         {"last_daily": day}, prefer="return=minimal")
+                         {column: day}, prefer="return=minimal")
 
     # sending
     def send(self, row: dict, payload: dict) -> bool:
@@ -163,16 +171,39 @@ class Push:
                 self._sent(row["endpoint"], day)
         return sent
 
+    def remind_streaks(self, streaks_of: Callable[[set[str]], dict[str, dict]], day: str) -> int:
+        """Sends the evening streak reminder (see streak_payload) to each subscription not reminded on `day`; how many went.
+        `streaks_of(emails)` gives each account's practice streak ({"current", "last", ...}, see main.practice_streak);
+        an account it leaves out gets nothing."""
+        try:
+            rows = self._rows("&" + urllib.parse.urlencode({"or": f"(last_streak.is.null,last_streak.lt.{day})"}))
+        except AuthUnavailable as e:
+            if "last_streak" in str(e):
+                raise AuthUnavailable(f"push_subs has no column last_streak; run in Supabase's SQL editor: {MIGRATE_STREAK}") from e
+            raise
+        if not rows:
+            return 0
+        streaks = streaks_of({r["email"].lower() for r in rows})
+        sent = 0
+        for row in rows:
+            msg = streak_payload(streaks.get(row["email"].lower()), day)
+            if msg and self.send(row, msg):
+                sent += 1
+                self._sent(row["endpoint"], day, "last_streak")
+        return sent
+
 
 MAX_TITLE, MAX_BODY = 60, 240
 
 
 def message(title: str, body: str) -> dict:
-    """An admin's notification; ValueError when it is empty or too long. Each has its own tag, so one does not replace another."""
+    """An admin's notification; ValueError when it is empty or too long. Each has its own tag, so one does not replace another.
+    Its tap opens the app with the message in the address ("from=push-msg"), and the app shows it again in a window."""
     title, body = " ".join(title.split()), body.strip()
     if not title or len(title) > MAX_TITLE or len(body) > MAX_BODY:
         raise ValueError(f"a title of 1-{MAX_TITLE} characters, and a message of up to {MAX_BODY}")
-    return {"title": title, "body": body, "url": "/", "tag": f"msg-{datetime.now().timestamp():.0f}"}
+    url = "/?" + urllib.parse.urlencode({"from": "push-msg", "title": title, "body": body})
+    return {"title": title, "body": body, "url": url, "tag": f"msg-{datetime.now().timestamp():.0f}"}
 
 
 VIDEO_TITLE = "🎬 סרטון חדש מחכה לכם"
@@ -189,6 +220,37 @@ def payload(videos: list[dict]) -> dict:
     """What the service worker shows: the day's video (or how many there are)."""
     body = videos[0]["title"] if len(videos) == 1 else f"{len(videos)} סרטונים חדשים: " + " · ".join(v["title"] for v in videos)
     return {"title": "🎬 הסרטון היומי מחכה לכם", "body": body, "url": "/?view=daily", "tag": "daily-video"}
+
+
+def streak_payload(streak: dict | None, day: str) -> dict | None:
+    """The evening reminder for one account's streak, or None when there is nothing to remind of: no streak of at least
+    STREAK_MIN days, or the account practised already on `day`. When yesterday was missed, practising today is what lets
+    the streak's free day (יום חופש) keep it, and the message says so."""
+    if not streak or streak.get("current", 0) < STREAK_MIN or not streak.get("last") or streak["last"] >= day:
+        return None
+    missed = (date.fromisoformat(day) - date.fromisoformat(streak["last"])).days >= 2
+    body = ("אתמול לא היה תרגול, אבל אם תתרגלו היום יום החופש ישמור על הרצף." if missed
+            else "עוד לא תרגלתם היום. כמה דקות של תרגול ושומרים עליו.")
+    return {"title": f"🔥 רצף של {streak['current']} ימים", "body": body, "url": "/?from=push-streak", "tag": "streak"}
+
+
+async def streak_loop(push: Push, streaks_of: Callable[[set[str]], dict[str, dict]], now: Callable[[], datetime],
+                      hour: int, logged: Callable[[int], None] = lambda n: None) -> None:
+    """Looks at the clock every CHECK_EVERY seconds and sends the streak reminders from `hour` on (each device once a
+    day, kept in push_subs.last_streak). `logged(n)` is told how many went, in each round that sent any."""
+    while True:
+        try:
+            t = now()
+            if t.hour >= hour:
+                n = await asyncio.to_thread(push.remind_streaks, streaks_of, t.date().isoformat())
+                if n:
+                    log.info("streak reminders sent: %d", n)
+                    logged(n)
+        except AuthUnavailable as e:
+            log.warning("streak reminders not sent: %s", e)
+        except Exception:
+            log.exception("streak reminders failed")
+        await asyncio.sleep(CHECK_EVERY)
 
 
 async def loop(push: Push, today_of: Callable[[str, bool], list[dict]], now: Callable[[], datetime]) -> None:

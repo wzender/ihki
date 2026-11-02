@@ -104,6 +104,7 @@ def serve(auth, monkeypatch, tmp_path):
     async def no_loop(*a, **k):
         return None
     monkeypatch.setattr(pushes, "loop", no_loop)   # no reminders are sent while the page is driven
+    monkeypatch.setattr(pushes, "streak_loop", no_loop)
     cases = {}
     app = create_app(scorer_for(emissions(["ħ"])), SawtakTTS("k", cache_dir=tmp_path), auth=auth)
 
@@ -211,7 +212,13 @@ document.querySelector("#vids .focus-path").click();
 await sleep(100);
 out.pathView=view();
 out.rewardOnPath=getComputedStyle(document.getElementById("rewardShelf")).display!=="none";
-out.pathShortcuts=[...document.querySelectorAll("#today button")].map(b=>b.textContent.trim());
+out.pathShortcuts=[...document.querySelectorAll("#today button:not(.path-stats)")].map(b=>b.textContent.trim());
+const stats=document.querySelector("#today .path-stats"), todayBox=document.getElementById("today");
+out.stats=stats&&{shown:stats.offsetParent!==null,sticky:getComputedStyle(todayBox).position,
+  parts:[...stats.children].map(c=>c.className.split(" ")[0]),note:stats.querySelector(".ps-note").textContent,
+  oneLine:[...stats.querySelectorAll(".ps-streak,.ps-n,.ps-day")].every((e,_,a)=>Math.abs(e.getBoundingClientRect().top-a[0].getBoundingClientRect().top)<6),
+  fits:stats.scrollWidth<=stats.clientWidth+1};
+if(stats){ stats.click(); out.statsOpens=open("rewardsDlg"); document.getElementById("rewardsDlg").close(); }
 const cur=document.querySelector("#path [aria-current]"), heads=[...document.querySelectorAll("#path .chapter")];
 const at=heads.findIndex(h=>h.dataset.lesson==="5");
 out.inLesson5=!!cur&&at>=0&&!!(heads[at].compareDocumentPosition(cur)&Node.DOCUMENT_POSITION_FOLLOWING)
@@ -231,6 +238,10 @@ def test_a_later_visit_opens_the_home_and_the_path_at_the_current_lesson(site):
     assert r["pathView"] == "" and r["lessonsOnPath"] == ["3", "4", "5"]
     assert r["rewardOnPath"] is False
     assert r["pathShortcuts"] == []   # daily practice and homework are no longer path shortcuts
+    # instead, a sticky bar sums up the home's rewards on one line, and opens the collection
+    assert r["stats"] == {"shown": True, "sticky": "sticky", "parts": ["ps-streak", "ps-n", "ps-n", "ps-n", "ps-day", "ps-note"],
+                          "note": r["stats"]["note"], "oneLine": True, "fits": True}
+    assert r["stats"]["note"] and r["statsOpens"] is True
     assert r["inLesson5"] and r["inView"]   # lessons 3 and 4 are unfinished too, yet the path opens at lesson 5
     assert r["pushPrompt"] is False         # not on entering: the prompt waits for a good moment
 
@@ -715,3 +726,20 @@ def test_permissions_are_three_groups_and_a_class_picks_its_library_sections(sit
     assert r["ticked"] == ["digital", "d1", "d2", "d3", "d4", "nitmaran", "avot"]
     assert r["locked"] == ["d1", "d2", "d3", "d4", "nitmaran"]
     assert r["sent"] == ["d2", "avot"]   # unticking the section frees its sub-sections; one picked alone
+
+
+ADMIN_MESSAGE = """
+await until(()=>open("msgDlg"));
+out.title=document.getElementById("msgTitle").textContent; out.body=document.getElementById("msgText").textContent;
+out.search=location.search;
+document.getElementById("msgOk").click(); out.closed=!open("msgDlg");
+"""
+
+
+def test_an_admins_message_is_shown_again_when_its_notification_is_tapped(site):
+    import urllib.parse
+    from app import push as pushes
+    url = pushes.message("אין שיעור מחר", "נתראה ביום ראשון")["url"]
+    r = site("dana@x.com", ADMIN_MESSAGE, "?" + urllib.parse.urlparse(url).query)
+    assert r["title"] == "אין שיעור מחר" and r["body"] == "נתראה ביום ראשון"
+    assert r["search"] == "" and r["closed"] is True   # the address is left clean, and the window closes

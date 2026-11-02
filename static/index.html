@@ -96,6 +96,25 @@ body:not(.home) .help,body.manage .help,body:not(.home) .guidetip,body.manage .g
 #today{position:sticky;top:0;z-index:7;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:stretch;width:100%;max-width:460px;margin:0 auto;padding:6px 0;background:var(--bg)}
 #today button{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;min-width:0;padding:8px 6px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 15px/1.2 var(--f-body);text-align:start;cursor:pointer}
 #today button{text-align:center} #today button:disabled{cursor:default;color:var(--muted)}
+/* The path's sticky progress bar (drawToday): the streak, the beads, the misbahas and today's goal, in one line on a phone */
+#today.stats{display:block;padding:6px 0 8px}
+#today .path-stats{display:grid;grid-template-columns:auto repeat(3,auto) minmax(0,1fr);align-items:center;gap:6px 10px;width:100%;padding:7px 12px;border:2px solid var(--olive);border-radius:14px;background:linear-gradient(135deg,var(--surface),var(--olive-soft));color:var(--ink);font:700 15px/1.1 var(--f-body);text-align:start;box-shadow:0 3px 0 color-mix(in srgb,var(--olive) 32%,var(--line));cursor:pointer}
+#today .path-stats>span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+#today .ps-streak{color:var(--orange);font-size:17px}
+#today .ps-streak.cold{color:var(--muted);filter:grayscale(1)}
+#today .ps-bead{width:14px;height:14px;box-sizing:border-box;border:2px solid var(--bead-rim,#52624b);border-radius:50%;background:radial-gradient(circle at 32% 27%,var(--bead-hi,#dce7d4) 0 9%,var(--bead-mid,#769064) 23%,var(--bead-lo,#405136) 72%)}
+#today .ps-bead.gold{border-color:#9b690b;background:radial-gradient(circle at 32% 27%,#fff3a7 0 9%,#e4b83e 27%,#9d6509 75%)}
+#today .ps-gold{color:#865b08}
+#today .ps-day{justify-self:end;gap:6px!important}
+#today .ps-bar{width:44px;height:7px;border-radius:4px;background:color-mix(in srgb,var(--orange) 22%,transparent);overflow:hidden}
+#today .ps-bar b{display:block;height:100%;width:var(--day,0%);background:var(--ok);border-radius:inherit}
+#today .ps-day small{font:700 12px/1 var(--f-body);color:var(--muted)}
+#today .ps-note{grid-column:1/-1;font:600 12.5px/1.25 var(--f-body);color:var(--olive);white-space:normal!important}
+#today .ps-note.urgent{color:var(--orange)}
+#today .bump{animation:ps-bump .6s ease-out}
+@keyframes ps-bump{40%{transform:scale(1.35)}}
+@media (prefers-reduced-motion:reduce){#today .bump{animation:none}}
+@media (max-width:360px){#today .path-stats{gap:6px 7px;padding:7px 9px;font-size:14px}#today .ps-bar{width:30px}}
 #today small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px/1.25 var(--f-body);color:var(--muted)}
 /* all three alike, outlined and none filled: a filled one reads as the screen one is in */
 #today button{border-color:var(--olive)} #today button:not(:disabled){color:var(--olive)} #today button:not(:disabled) small{color:inherit}
@@ -387,7 +406,8 @@ body.memory-game{overflow:hidden}
 #vids .focus-more{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 #vids .focus :is(.focus-refer,.focus-path){display:flex;justify-content:center;min-height:48px;color:var(--olive)}
 #vids .focus button:focus-visible{outline:2px solid var(--olive);outline-offset:2px}
-#pushDlg{width:min(92vw,380px);text-align:center}
+#pushDlg,#msgDlg{width:min(92vw,380px);text-align:center}
+#msgDlg .push-bell{font-size:44px;line-height:1;margin:4px 0 8px}#msgDlg h2{font:400 24px/1.2 var(--f-display);margin:0 0 6px}#msgDlg .dlg-text{white-space:pre-line}#msgDlg .row{justify-content:center}
 #notifyDlg{width:min(92vw,440px)}
 .notify-form{display:flex;flex-direction:column;gap:12px}
 .notify-form label{display:flex;flex-direction:column;gap:4px;font:700 14px var(--f-body)}
@@ -2096,6 +2116,12 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
   <p class="dlg-text" id="pushText"></p>
   <div class="row"><button class="btn primary" id="pushYes">כן, הזכירו לי</button><button class="btn" id="pushNo">לא עכשיו</button></div>
 </dialog>
+<dialog id="msgDlg" aria-labelledby="msgTitle" aria-describedby="msgText">
+  <div class="push-bell" aria-hidden="true">📣</div>
+  <h2 id="msgTitle"></h2>
+  <p class="dlg-text" id="msgText"></p>
+  <div class="row"><button class="btn primary" id="msgOk">הבנתי</button></div>
+</dialog>
 <dialog id="dailyDlg" aria-labelledby="dailyTitle">
   <div class="dlg-head"><h2 id="dailyTitle"></h2></div>
   <p class="dlg-text" id="dailyText"></p>
@@ -2606,10 +2632,10 @@ const PUSH_STANDALONE=matchMedia("(display-mode: standalone)").matches||navigato
 const PUSH_CAN="serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
 let pushInfo=null;   // the server's {key, hour}, read once
 async function pushState(){   // {key, hour, sub}: key is empty when the server sends no reminders
-  if(!PUSH_CAN) return {key:"",hour:8,sub:null};
+  if(!PUSH_CAN) return {key:"",hour:8,streakHour:null,sub:null};
   pushInfo=pushInfo||await api("/api/push").then(r=>r.ok?r.json():{}).catch(()=>({}));
   const sub=await navigator.serviceWorker.ready.then(reg=>reg.pushManager.getSubscription()).catch(()=>null);
-  return {key:pushInfo.key||"",hour:pushInfo.hour??8,sub};
+  return {key:pushInfo.key||"",hour:pushInfo.hour??8,streakHour:pushInfo.streak_hour??null,sub};
 }
 async function pushOn(key,quiet=false){   // asks the permission (call it from a tap) and subscribes; the subscription, or null
   if(await Notification.requestPermission()!=="granted") return null;
@@ -2645,15 +2671,16 @@ function pushRow(){
     else row.hidden=true;
     return row;
   }
-  let key="", sub=null, hour=8;
+  let key="", sub=null, hour=8, streakHour=null;
   const draw=()=>{
     row.hidden=!key; if(!key) return;
     if(Notification.permission==="denied") return set("🔕 ההתראות חסומות",false,"אפשר לאשר אותן בהגדרות האתר בדפדפן.");
-    if(sub) set("🔔 תזכורת כל בוקר פעילה",true,`בשעה ${hour}:00, ביום שיש סרטון · לחצו לביטול`);
-    else set("🔔 הזכירו לי כל בוקר",false,"התראה כשיש סרטון חדש");
+    const evening=streakHour==null?"":` · בערב (${streakHour}:00) כשהרצף עוד לא נשמר היום`;
+    if(sub) set("🔔 תזכורת כל בוקר פעילה",true,`בשעה ${hour}:00, ביום שיש סרטון${evening} · לחצו לביטול`);
+    else set("🔔 הזכירו לי כל בוקר",false,"התראה כשיש סרטון חדש"+(streakHour==null?"":", ותזכורת ערב לשמור על הרצף"));
   };
   row.hidden=true;
-  pushState().then(st=>{ ({key,hour,sub}=st); draw(); });
+  pushState().then(st=>{ ({key,hour,sub,streakHour}=st); draw(); });
   btn.onclick=async()=>{
     btn.disabled=true;
     try{ if(sub){ await pushOff(sub); sub=null; store.set("ihki.pushOff",true); } else sub=await pushOn(key); draw(); }
@@ -3507,9 +3534,33 @@ for(const b of $("nav").children) b.onclick=()=>{
   if(b===referTab) return openRefer();
   if(b.dataset.view===""&&focusOn()) openFullPath(); else showView(b.dataset.view);   // the path tab opens at the current lesson
 };
-function drawToday(){   // path shortcuts moved to the focused home or were removed
+let pathStatsBefore=null;   // the counts the bar showed last, so a number that grew can bump
+function drawToday(){   // the path's sticky progress bar: what the home's reward shelf tells, in one line, and a word on today
   const box=$("today");
-  box.replaceChildren(); box.hidden=true; drawNav();
+  box.replaceChildren(); box.classList.toggle("stats",!!PHRASES.length); box.hidden=!PHRASES.length; drawNav();
+  if(!PHRASES.length) return;
+  applySkin();
+  const got=rewardItems(), gold=got.filter(x=>x.gold).length, regular=got.length-gold, misbahas=lessonRewards().length;
+  const streak=combinedStreak(), said=todaySaid().length, practised=said>0||localPracticeDays().includes(today());
+  const bar=mark("path-stats","","button"); bar.type="button";
+  const fire=mark("ps-streak"+(practised||!streak.current?"":" cold"),`🔥 ${streak.current}`);
+  const reg=mark("ps-n"), gld=mark("ps-n ps-gold"), msb=mark("ps-n",`📿 ${misbahas}`);
+  reg.append(mark("ps-bead","","i"),String(regular)); gld.append(mark("ps-bead gold","","i"),String(gold));
+  const day=mark("ps-day"), fill=mark("ps-bar"), b=document.createElement("b"); fill.append(b);
+  day.style.setProperty("--day",`${Math.min(100,said/DAILY_GOAL*100)}%`);
+  day.append(fill,mark("",said>=DAILY_GOAL?"✓ היום":`${said}/${DAILY_GOAL} היום`,"small"));
+  const note=!got.length&&!streak.current?["אמרו משפט ראשון ← החרוז הראשון שלכם",false]
+    :streak.current&&!practised?["משפט אחד היום, והרצף נשמר",true]
+    :said>=DAILY_GOAL?[`היעד היומי הושג! ${said} משפטים היום`,false]
+    :said?[`עוד ${DAILY_GOAL-said} ${DAILY_GOAL-said===1?"משפט":"משפטים"} ליעד היומי`,false]
+    :[`${got.length} חרוזים כבר נאספו · ממשיכים?`,false];
+  bar.append(fire,reg,gld,msb,day,mark("ps-note"+(note[1]?" urgent":""),note[0],"small"));
+  bar.setAttribute("aria-label",`רצף ${streak.current} ימים, ${regular} חרוזים רגילים, ${gold} חרוזי זהב, ${misbahas} מסבחות, היום ${said} מתוך ${DAILY_GOAL} משפטים. ${note[0]}. פתיחת האוסף`);
+  const now={streak:streak.current,regular,gold,misbahas};
+  if(pathStatsBefore) for(const [k,el] of [["streak",fire],["regular",reg],["gold",gld],["misbahas",msb]]) if(now[k]>pathStatsBefore[k]) el.classList.add("bump");
+  pathStatsBefore=now;
+  bar.onclick=()=>{ drawRewards(); $("rewardsDlg").showModal(); };
+  box.append(bar);
 }
 const localPracticeDays=()=>store.get("ihki.practiceDays",[]).filter(d=>typeof d==="string");
 function currentWeekDays(){
@@ -9275,11 +9326,19 @@ const ready=fetch("/api/phrases").then(r=>{ if(!r.ok) throw new Error(`phrases: 
 </script>
 <script>
 /* The opening screen stays until the start button is pressed. */
-function fromReminder(){ const q=new URLSearchParams(location.search); return q.get("view")==="daily"||q.has("video"); }   // a video's notification opened the page
+function fromReminder(){ const q=new URLSearchParams(location.search); return q.get("view")==="daily"||q.has("video")||q.get("from")==="push-msg"; }   // a video's notification, or an admin's message, opened the page
+function pushOpened(from){ api("/api/push/opened",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({from})}).catch(()=>{}); }   // the server counts the opens
 function reminderSearch(){ const q=new URLSearchParams(location.search); return q.has("video")?"?video="+encodeURIComponent(q.get("video")):q.get("view")==="daily"?"?view=daily":""; }
 let contentReady=Promise.resolve();   // the videos, once loadContent is under way: a notified video waits for them
-async function openNotified(search){   // what a video's notification asks for: the daily videos, or one video ("lib-<id>" or "daily-<id>")
-  const ref=new URLSearchParams(search).get("video");
+async function openNotified(search){   // what a notification asks for: an admin's message shown again, the daily videos, or one video ("lib-<id>" or "daily-<id>")
+  const q=new URLSearchParams(search);
+  if(q.get("from")==="push-msg"){
+    const dlg=$("msgDlg"); $("msgTitle").textContent=q.get("title")||"הודעה"; $("msgText").textContent=q.get("body")||"";
+    $("msgText").hidden=!q.get("body"); $("msgOk").onclick=()=>dlg.close();
+    if(!dlg.open) dlg.showModal();
+    pushOpened("push-msg"); return;
+  }
+  const ref=q.get("video");
   if(!ref){ showView("daily"); window.scrollTo(0,0); return; }
   showView("library"); window.scrollTo(0,0);   // the videos screen, under the video (and where a video the student may not open leaves them)
   await contentReady.catch(()=>{});
@@ -9295,6 +9354,8 @@ function enter(){
   const choosing=MY_CLASSES.length>1&&!MY_CLASS;
   if(choosing) askClass();   // in several classes and none practised in before: which one? (its lesson question follows, from useClass)
   if(AUTH_URL&&!can("path.use")){ if(can("games.use")||can("tutor.use")) showView("games"); else if(can("library.view")) showView("library"); }
+  const opened=new URLSearchParams(location.search).get("from");   // the streak's notification tapped (an admin's message goes by fromReminder)
+  if(opened&&opened.startsWith("push-")&&opened!=="push-msg"){ history.replaceState(null,"",location.pathname); pushOpened(opened); }
   if(fromReminder()){ const search=location.search; history.replaceState(null,"",location.pathname); openNotified(search); }   // from a video's notification: the video before the lesson question or the home
   (choosing?Promise.resolve(false):lessonFlow()).catch(()=>false);   // the reminder is offered after a good moment, not on entering (see pushMoment)
 }

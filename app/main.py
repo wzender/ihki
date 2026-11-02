@@ -130,6 +130,7 @@ def subject_code(label: object) -> str:
     return next((code for code, name in SUBJECT_LABELS.items() if name == label), "")
 MODEL_ID = os.environ.get("MODEL_ID", "facebook/wav2vec2-xlsr-53-espeak-cv-ft")
 ENV_MODEL_ID = MODEL_ID  # the one the server starts with; the panel's "מודלים" tab can switch until a restart
+PUSH_OPEN_KINDS = {"push-streak", "push-msg"}   # the notifications whose opens the page reports (POST /api/push/opened)
 LOCAL_TZ = ZoneInfo("Asia/Jerusalem")  # a day of practice is the students' calendar day
 WARM_WORKERS = 3  # Sawtak requests the cache-warm sweep runs at once (tts.MAX_CONCURRENT and its pace apply)
 MAX_UPLOAD = 2_000_000  # bytes; 15 s of opus is ~100 KB
@@ -509,6 +510,7 @@ def weekly_practice_days(rows: list[dict]) -> int:
 
 CLASS_WEEK_GOAL = 25   # sentences a student, for the class's shared goal of the week
 CLASS_WEEK_TTL = 300   # seconds a class's week totals are kept before they are read again
+STREAK_LOOKBACK = 120   # days of practice read for the evening streak reminder (a longer streak shows as this many)
 FREEZE_DAYS = 7   # a missed day is forgiven once in this many days (the streak's "יום חופש")
 
 
@@ -586,6 +588,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                       app.state.push, lambda: set(getattr(app.state.auth, "developers", ()) or ()), morning_status,
                       lambda: datetime.now(LOCAL_TZ), max(0, min(23, int(status_hour)))))
                   if app.state.push and app.state.push.on and status_hour.isdigit() else None)
+        streak_hour = os.environ.get("STREAK_PUSH_HOUR", "19").strip().lower()
+        streaks = (asyncio.create_task(pushes.streak_loop(
+                       app.state.push, streaks_of, lambda: datetime.now(LOCAL_TZ), max(0, min(23, int(streak_hour))),
+                       lambda n: app.state.auth.log_event("push", None, "תזכורת רצף", {"kind": "streak", "sent": n})))
+                   if app.state.push and app.state.push.on and streak_hour.isdigit() else None)
         backup_hour = os.environ.get("BACKUP_HOUR", "3").strip().lower()
         backup = (asyncio.create_task(daily_backups.loop(
                       app.state.auth, make_backup_archive, lambda: datetime.now(LOCAL_TZ),
@@ -594,7 +601,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                   else None)
         async with app.state.mcp_server.session_manager.run():
             yield
-        for task in (reminders, status, backup):
+        for task in (reminders, status, streaks, backup):
             if task:
                 task.cancel()
 
@@ -766,6 +773,23 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                     if v["date"] == day:
                         found.setdefault(v["id"], v)
         return list(found.values())
+
+    def streaks_of(emails: set[str]) -> dict[str, dict]:
+        """The practice streak (see practice_streak) of each of these accounts that has signed in, from the last
+        STREAK_LOOKBACK days. Nothing when the rows were too many to read whole: a partial read could miss today's practice."""
+        a: SupabaseAuth | None = app.state.auth
+        if a is None or not hasattr(a, "scoped_attempts"):
+            return {}
+        ids = {u["id"]: u["email"].lower() for u in a.users() if u["email"].lower() in emails}
+        now = datetime.now(LOCAL_TZ)
+        rows, truncated = a.scoped_attempts(set(ids), now - timedelta(days=STREAK_LOOKBACK), now + timedelta(minutes=1))
+        if truncated:
+            log.warning("streak reminders skipped: too many attempts to read in %d days", STREAK_LOOKBACK)
+            return {}
+        by: dict[str, list[dict]] = {}
+        for r in rows:
+            by.setdefault(ids.get(r["user_id"], ""), []).append(r)
+        return {email: practice_streak(by.get(email, [])) for email in ids.values()}
 
     def morning_status() -> dict:
         """What the developers' morning push tells (see pushes.status_payload); each part is left out if it fails."""
@@ -2534,7 +2558,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def push_info():
         """The server's push key, for the page to subscribe with; empty when the reminders are off."""
         p = getattr(app.state, "push", None)
-        return {"key": p.public if p and p.on else "", "hour": p.hour if p else None}
+        streak = os.environ.get("STREAK_PUSH_HOUR", "19").strip()
+        return {"key": p.public if p and p.on else "", "hour": p.hour if p else None,
+                "streak_hour": max(0, min(23, int(streak))) if p and streak.isdigit() else None}
 
     @app.post("/api/push/subscribe")
     def push_subscribe(body: dict = Body(...), user: dict | None = Depends(signed_in)):
@@ -2567,12 +2593,28 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             videos = daily_today(user["email"], bool(user.get("teacher")))
         except AuthUnavailable as e:
             raise HTTPException(503, str(e))
-        if (body or {}).get("look") == "daily":
+        look = (body or {}).get("look")
+        if look == "daily":
             message = pushes.payload(videos or [{"title": "דוגמה: כאן יופיע שם הסרטון של היום"}])
+        elif look == "streak":   # the evening streak reminder, as a student with a 5-day streak gets it
+            today = datetime.now(LOCAL_TZ).date()
+            message = pushes.streak_payload({"current": 5, "last": (today - timedelta(days=1)).isoformat()},
+                                            today.isoformat())
         else:
             message = pushes.payload(videos) if videos else {**pushes.payload([{"title": "ככה תיראה התזכורת לסרטון היומי"}]),
                                                            "title": "🔔 התזכורות פועלות"}
         return {"devices": len(rows), "sent": sum(p.send(r, message) for r in rows)}
+
+    @app.post("/api/push/opened")
+    def push_opened(body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        """The page was opened from a notification ({"from": "push-streak"}): kept as a system event, so the opens can
+        be set against the sends ("push" events) to see whether a kind of reminder works."""
+        kind = str(body.get("from") or "")
+        if kind not in PUSH_OPEN_KINDS:
+            raise HTTPException(400, "unknown notification")
+        if app.state.auth:
+            app.state.auth.log_event("push_open", user, kind, {"kind": kind.removeprefix("push-")})
+        return {"ok": True}
 
     @app.post("/api/push/status")
     def push_status_now(_a: SupabaseAuth = Depends(require("*")), user: dict | None = Depends(signed_in)):

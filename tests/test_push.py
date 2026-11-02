@@ -104,7 +104,9 @@ def test_gone_subscription_is_deleted(monkeypatch):
 
 def test_message_is_checked_and_tagged_apart():
     m = pushes.message("  אין   שיעור מחר ", "נתראה ביום ראשון")
-    assert m["title"] == "אין שיעור מחר" and m["tag"].startswith("msg-") and m["url"] == "/"
+    assert m["title"] == "אין שיעור מחר" and m["tag"].startswith("msg-")
+    q = urllib.parse.parse_qs(urllib.parse.urlparse(m["url"]).query)   # the tap opens the app with the message to show again
+    assert m["url"].startswith("/?") and q == {"from": ["push-msg"], "title": ["אין שיעור מחר"], "body": ["נתראה ביום ראשון"]}
     for title, body in (("", "x"), ("x" * 61, ""), ("ok", "x" * 241)):
         with pytest.raises(ValueError):
             pushes.message(title, body)
@@ -146,6 +148,7 @@ def test_admin_sends_to_everyone_or_to_a_class(monkeypatch, tmp_path):
     monkeypatch.setenv("VAPID_PRIVATE_KEY", pushes.new_private_key())
     monkeypatch.setattr(pushes, "loop", no_loop)
     monkeypatch.setattr(pushes, "status_loop", no_loop)
+    monkeypatch.setattr(pushes, "streak_loop", no_loop)
     sent = []
     monkeypatch.setattr(pushes.Push, "send", lambda self, row, msg: sent.append((row["email"], msg["title"])) or True)
     auth = BroadcastAuth()
@@ -233,6 +236,7 @@ def test_admin_sends_a_video_and_a_copy_to_their_own_devices(monkeypatch, tmp_pa
     monkeypatch.setenv("VAPID_PRIVATE_KEY", pushes.new_private_key())
     monkeypatch.setattr(pushes, "loop", no_loop)
     monkeypatch.setattr(pushes, "status_loop", no_loop)
+    monkeypatch.setattr(pushes, "streak_loop", no_loop)
     sent = []
     monkeypatch.setattr(pushes.Push, "send", lambda self, row, msg: sent.append(msg) or True)
     auth = VideoAuth()
@@ -251,3 +255,125 @@ def test_admin_sends_a_video_and_a_copy_to_their_own_devices(monkeypatch, tmp_pa
         assert c.post("/api/push/test", headers=teacher, json={"look": "daily"}).status_code == 200
         assert sent and sent[0]["title"] == "🎬 הסרטון היומי מחכה לכם" and sent[0]["url"] == "/?view=daily"
     assert len(auth.events) == 1   # the class's send is logged; the admin's own copy is not
+
+
+# the evening streak reminder
+
+def test_streak_payload_only_for_a_streak_not_kept_yet_today():
+    day = "2026-11-02"
+    assert pushes.streak_payload(None, day) is None
+    assert pushes.streak_payload({"current": 1, "last": "2026-11-01"}, day) is None    # too short to remind of
+    assert pushes.streak_payload({"current": 6, "last": "2026-11-02"}, day) is None    # practised today
+    assert pushes.streak_payload({"current": 0, "last": "2026-10-20"}, day) is None    # already lost
+    m = pushes.streak_payload({"current": 6, "last": "2026-11-01"}, day)
+    assert m == {"title": "🔥 רצף של 6 ימים", "body": "עוד לא תרגלתם היום. כמה דקות של תרגול ושומרים עליו.",
+                 "url": "/?from=push-streak", "tag": "streak"}
+    assert "יום החופש" in pushes.streak_payload({"current": 4, "last": "2026-10-31"}, day)["body"]   # yesterday missed
+
+
+class StreakSubs(FakeAuth):
+    def _admin(self, path, method="GET", body=None, prefer=""):
+        if method == "GET":
+            self.calls.append((method, path, body))
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(path).query)
+            day = q.get("or", [""])[0].rpartition("lt.")[2].rstrip(")")
+            return [r for r in self.rows if not r.get("last_streak") or r["last_streak"] < day]
+        return super()._admin(path, method, body, prefer)
+
+
+def test_remind_streaks_once_a_day_and_only_when_at_stake(monkeypatch):
+    rows = [{"endpoint": f"https://p/{e}", "email": e, "p256dh": "k", "auth": "a"}
+            for e in ("A@x.com", "b@x.com", "c@x.com", "new@x.com")]
+    p = pushes.Push(StreakSubs(rows), pushes.new_private_key())
+    sent, asked = [], []
+    monkeypatch.setattr(p, "send", lambda row, msg: sent.append((row["email"], msg["tag"])) or True)
+
+    def streaks_of(emails):
+        asked.append(emails)
+        return {"a@x.com": {"current": 3, "last": "2026-11-01"},     # at stake
+                "b@x.com": {"current": 3, "last": "2026-11-02"},     # practised today
+                "c@x.com": {"current": 1, "last": "2026-11-01"}}     # too short; new@x.com has no streak
+    assert p.remind_streaks(streaks_of, "2026-11-02") == 1
+    assert sent == [("A@x.com", "streak")] and asked[0] == {"a@x.com", "b@x.com", "c@x.com", "new@x.com"}
+    assert p.remind_streaks(streaks_of, "2026-11-02") == 0     # a@x.com was marked for today
+    assert asked[-1] == {"b@x.com", "c@x.com", "new@x.com"}
+    assert p.remind_streaks(streaks_of, "2026-11-03") == 2     # a new day: a, and b whose last practice is now yesterday
+
+
+def test_missing_streak_column_says_how_to_add_it():
+    class NoColumn(FakeAuth):
+        def _admin(self, *a, **k):
+            raise AuthUnavailable("supabase answered 400: column push_subs.last_streak does not exist")
+    p = pushes.Push(NoColumn(), pushes.new_private_key())
+    with pytest.raises(AuthUnavailable, match="add column if not exists last_streak"):
+        p.remind_streaks(lambda emails: {}, "2026-11-02")
+
+
+def test_streak_loop_logs_what_went(monkeypatch):
+    import asyncio
+    from datetime import datetime
+
+    p = pushes.Push(FakeAuth(), pushes.new_private_key())
+    monkeypatch.setattr(p, "remind_streaks", lambda streaks_of, day: 2)
+    logged, times = [], iter([datetime(2026, 11, 2, 18, 55), datetime(2026, 11, 2, 19, 0)])
+
+    async def sleep(_):
+        if not logged:
+            return
+        raise asyncio.CancelledError
+    monkeypatch.setattr(pushes.asyncio, "sleep", sleep)
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(pushes.streak_loop(p, lambda e: {}, lambda: next(times), 19, logged.append))
+    assert logged == [2]   # nothing before 19:00, then one round
+
+
+class StreakAppAuth(BroadcastAuth):
+    def level_videos(self, table):
+        return []
+
+    def users(self, fresh=False):
+        return [{"id": "u1", "email": "s@b.c", "name": ""}, {"id": "u2", "email": "s2@b.c", "name": ""}]
+
+    def scoped_attempts(self, user_ids, since, until, limit=0):
+        from datetime import timedelta
+        self.asked = (set(user_ids), since, until)
+        day = lambda n: (until - timedelta(days=n)).isoformat()
+        return [{"user_id": "u1", "created_at": day(1)}, {"user_id": "u1", "created_at": day(2)},
+                {"user_id": "u1", "created_at": day(3)}], False
+
+
+def test_app_reads_streaks_counts_opens_and_shows_a_sample(monkeypatch, tmp_path):
+    from fastapi.testclient import TestClient
+    from test_scoring import emissions, scorer_for
+    from app.main import create_app
+    from app.tts import SawtakTTS
+    from app.tutor import Tutor
+
+    started = {}
+
+    async def no_loop(*a, **k):
+        return None
+
+    async def keep_streak_loop(push, streaks_of, now, hour, logged):
+        started.update(streaks_of=streaks_of, hour=hour, logged=logged)
+    monkeypatch.setenv("VAPID_PRIVATE_KEY", pushes.new_private_key())
+    monkeypatch.setenv("STREAK_PUSH_HOUR", "20")
+    monkeypatch.setattr(pushes, "loop", no_loop)
+    monkeypatch.setattr(pushes, "status_loop", no_loop)
+    monkeypatch.setattr(pushes, "streak_loop", keep_streak_loop)
+    sent = []
+    monkeypatch.setattr(pushes.Push, "send", lambda self, row, msg: sent.append(msg) or True)
+    auth = StreakAppAuth()
+    student = {"Authorization": "Bearer student"}
+    with TestClient(create_app(scorer_for(emissions(["ħ"])), SawtakTTS("k", cache_dir=tmp_path), auth=auth,
+                               tutor=Tutor(object()))) as c:
+        assert started["hour"] == 20 and c.get("/api/push", headers=student).json()["streak_hour"] == 20
+        streaks = started["streaks_of"]({"s@b.c", "nobody@b.c"})
+        assert set(streaks) == {"s@b.c"} and streaks["s@b.c"]["current"] == 3 and auth.asked[0] == {"u1"}
+        started["logged"](4)
+        assert c.post("/api/push/opened", headers=student, json={"from": "push-streak"}).json() == {"ok": True}
+        assert c.post("/api/push/opened", headers=student, json={"from": "anything"}).status_code == 400
+        assert c.post("/api/push/test", headers=student, json={"look": "streak"}).status_code == 200
+        assert sent and sent[-1]["tag"] == "streak"
+    assert [e for e in auth.events if e[0].startswith("push")] == [
+        ("push", "תזכורת רצף", {"kind": "streak", "sent": 4}), ("push_open", "push-streak", {"kind": "streak"})]

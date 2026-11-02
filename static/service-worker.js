@@ -1,4 +1,4 @@
-const CACHE = "ihki-shell-v27";
+const CACHE = "ihki-shell-v28";
 const SHELL = [
   "/static/manifest.webmanifest",
   "/static/icons/icon-192.png?v=2",
@@ -53,11 +53,11 @@ self.addEventListener("notificationclick", event => {
   const url = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin).href;
   event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(wins => {
     const mine = wins.filter(w => new URL(w.url).origin === self.location.origin);
-    // the app already open: it shows the daily videos itself (no reload, nothing lost); any other page of ours is sent there
+    // the app already open: it shows the daily videos, or an admin's message, itself (no reload, nothing lost); any other page of ours is sent there
     const app = mine.find(w => !new URL(w.url).pathname.startsWith("/static/"));
     if (app) {
       const q = new URL(url).searchParams;
-      if (q.get("view") === "daily" || q.has("video")) app.postMessage({ type: "notified", url });
+      if (q.get("view") === "daily" || q.has("video") || q.get("from") === "push-msg") app.postMessage({ type: "notified", url });
       return app.focus();
     }
     return mine[0] ? mine[0].navigate(url).then(w => (w || mine[0]).focus()) : self.clients.openWindow(url);

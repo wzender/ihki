@@ -581,6 +581,8 @@ alter table public.dailies enable row level security;
 
 On the "סרטון יומי" screen a student taps "🔔 הזכירו לי כל בוקר" to get a push notification on that device each morning that one of their classes has a daily video (a teacher's account: any class's). It goes at `PUSH_HOUR` (default 8) Jerusalem time, once a day per device, and opens the daily videos' screen. On an iPhone it works only from the app added to the home screen (iOS 16.4+). See `app/push.py`.
 
+The same devices get an evening streak reminder: at `STREAK_PUSH_HOUR` (default 19, `off` turns it off) Jerusalem time, an account with a practice streak of at least 2 days that has not practised yet today gets "🔥 רצף של N ימים" (once a day per device; when yesterday was missed, it says practising today lets the free day keep the streak). Its tap opens the app with `?from=push-streak`, and the page reports the open, so the system events hold both the sends (`push`, `{"kind": "streak", "sent": n}`) and the opens (`push_open`). It needs one column; run in Supabase's SQL editor: `alter table public.push_subs add column if not exists last_streak date;`
+
 Set the Space secret `VAPID_PRIVATE_KEY` (make one with `python -m app.push`; changing it drops every device's subscription), and create the table once:
 
 ```sql
