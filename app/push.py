@@ -44,7 +44,7 @@ CREATE_PUSH_SUBS = ("create table public.push_subs (endpoint text primary key, e
                     "created_at timestamptz not null default now()); "
                     "alter table public.push_subs enable row level security; "
                     "revoke all on public.push_subs from anon, authenticated;")
-MIGRATE_STREAK = "alter table public.push_subs add column if not exists last_streak date;"
+MIGRATE_STREAK = "alter table public.push_subs add column if not exists last_streak date; notify pgrst, 'reload schema';"
 STREAK_MIN = 2   # days: a shorter streak is not worth an evening notification
 
 

@@ -408,6 +408,10 @@ body.memory-game{overflow:hidden}
 #vids .focus button:focus-visible{outline:2px solid var(--olive);outline-offset:2px}
 #pushDlg,#msgDlg{width:min(92vw,380px);text-align:center}
 #msgDlg .push-bell{font-size:44px;line-height:1;margin:4px 0 8px}#msgDlg h2{font:400 24px/1.2 var(--f-display);margin:0 0 6px}#msgDlg .dlg-text{white-space:pre-line}#msgDlg .row{justify-content:center}
+#msgDlg .msg-list{display:flex;flex-direction:column;gap:8px;margin:8px 0 12px;max-height:55vh;overflow:auto;text-align:start}
+#msgDlg .msg-item{display:flex;flex-direction:column;gap:3px;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:700 15px/1.3 var(--f-body);text-align:start;cursor:pointer}
+#msgDlg .msg-item small{font:500 13.5px/1.35 var(--f-body);color:var(--muted);white-space:pre-line}
+#msgDlg .msg-item.plain{cursor:default}
 #notifyDlg{width:min(92vw,440px)}
 .notify-form{display:flex;flex-direction:column;gap:12px}
 .notify-form label{display:flex;flex-direction:column;gap:4px;font:700 14px var(--f-body)}
@@ -2120,7 +2124,8 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
   <div class="push-bell" aria-hidden="true">📣</div>
   <h2 id="msgTitle"></h2>
   <p class="dlg-text" id="msgText"></p>
-  <div class="row"><button class="btn primary" id="msgOk">הבנתי</button></div>
+  <div class="msg-list" id="msgList" hidden></div>
+  <div class="row"><button class="btn primary" id="msgGo" hidden></button><button class="btn" id="msgOk">הבנתי</button></div>
 </dialog>
 <dialog id="dailyDlg" aria-labelledby="dailyTitle">
   <div class="dlg-head"><h2 id="dailyTitle"></h2></div>
@@ -9327,17 +9332,50 @@ const ready=fetch("/api/phrases").then(r=>{ if(!r.ok) throw new Error(`phrases: 
 <script>
 /* The opening screen stays until the start button is pressed. */
 function fromReminder(){ const q=new URLSearchParams(location.search); return q.get("view")==="daily"||q.has("video")||q.get("from")==="push-msg"; }   // a video's notification, or an admin's message, opened the page
+/* Notifications still in the phone's tray (the dot on the app's icon): shown in the app on entering it, or on coming
+   back to it, and then cleared from the tray. A notification that was tapped is shown by openNotified instead. */
+function noticeAction(url){   // what a notification's button does: [label, run] (none for an admin's message)
+  const q=new URL(url||"/",location.origin).searchParams, search="?"+q.toString();
+  if(q.has("video")) return ["לצפייה בסרטון",()=>openNotified(search)];
+  if(q.get("view")==="daily") return ["לסרטון היומי",()=>openNotified(search)];
+  if(q.get("from")==="push-streak") return ["לתרגול",()=>goHome()];
+  return null;
+}
+function showNotices(items){   // items: [{title, body, url}], newest first: one is shown whole, several as a list
+  const dlg=$("msgDlg"), list=$("msgList"), go=$("msgGo"), one=items.length===1;
+  for(const it of items){ const from=new URL(it.url||"/",location.origin).searchParams.get("from"); if(from&&from.startsWith("push-")) pushOpened(from); }
+  $("msgTitle").textContent=one?items[0].title||"הודעה":`${items.length} התראות חדשות`;
+  $("msgText").textContent=one?items[0].body||"":""; $("msgText").hidden=!one||!items[0].body;
+  list.replaceChildren(); list.hidden=one;
+  if(!one) for(const it of items){
+    const act=noticeAction(it.url), row=mark("msg-item"+(act?"":" plain"),"","button"); row.type="button";
+    row.append(mark("",it.title||"הודעה","b")); if(it.body) row.append(mark("",it.body,"small"));
+    if(act){ row.title=act[0]; row.onclick=()=>{ dlg.close(); act[1](); }; } else row.tabIndex=-1;
+    list.append(row);
+  }
+  const act=one&&noticeAction(items[0].url); go.hidden=!act;
+  if(act){ go.textContent=act[0]; go.onclick=()=>{ dlg.close(); act[1](); }; }
+  $("msgOk").textContent=act?"אחר כך":"הבנתי"; $("msgOk").onclick=()=>dlg.close();
+  if(!dlg.open) dlg.showModal();
+}
+async function pendingNotices(){
+  try{
+    if(navigator.clearAppBadge) navigator.clearAppBadge().catch(()=>{});
+    if(!("serviceWorker" in navigator)||document.hidden||document.querySelector("dialog[open]")) return;   // another window first: shown on the next return
+    const reg=await navigator.serviceWorker.getRegistration(); if(!reg||!reg.getNotifications) return;
+    const found=await reg.getNotifications(); if(!found.length) return;
+    const items=found.map(n=>({title:n.title,body:n.body,url:n.data&&n.data.url})).reverse();
+    found.forEach(n=>n.close());
+    showNotices(items);
+  }catch(e){}
+}
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&ENTERED) setTimeout(pendingNotices,400); });
 function pushOpened(from){ api("/api/push/opened",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({from})}).catch(()=>{}); }   // the server counts the opens
 function reminderSearch(){ const q=new URLSearchParams(location.search); return q.has("video")?"?video="+encodeURIComponent(q.get("video")):q.get("view")==="daily"?"?view=daily":""; }
 let contentReady=Promise.resolve();   // the videos, once loadContent is under way: a notified video waits for them
 async function openNotified(search){   // what a notification asks for: an admin's message shown again, the daily videos, or one video ("lib-<id>" or "daily-<id>")
   const q=new URLSearchParams(search);
-  if(q.get("from")==="push-msg"){
-    const dlg=$("msgDlg"); $("msgTitle").textContent=q.get("title")||"הודעה"; $("msgText").textContent=q.get("body")||"";
-    $("msgText").hidden=!q.get("body"); $("msgOk").onclick=()=>dlg.close();
-    if(!dlg.open) dlg.showModal();
-    pushOpened("push-msg"); return;
-  }
+  if(q.get("from")==="push-msg"){ showNotices([{title:q.get("title")||"הודעה",body:q.get("body")||"",url:"/"+search}]); return; }
   const ref=q.get("video");
   if(!ref){ showView("daily"); window.scrollTo(0,0); return; }
   showView("library"); window.scrollTo(0,0);   // the videos screen, under the video (and where a video the student may not open leaves them)
@@ -9358,6 +9396,7 @@ function enter(){
   if(opened&&opened.startsWith("push-")&&opened!=="push-msg"){ history.replaceState(null,"",location.pathname); pushOpened(opened); }
   if(fromReminder()){ const search=location.search; history.replaceState(null,"",location.pathname); openNotified(search); }   // from a video's notification: the video before the lesson question or the home
   (choosing?Promise.resolve(false):lessonFlow()).catch(()=>false);   // the reminder is offered after a good moment, not on entering (see pushMoment)
+  setTimeout(pendingNotices,1200);   // after the lesson question, if any: the notifications left in the tray
 }
 $("startBtn").onclick=$("practiceBtn").onclick=enter;
 function untilWheelStops(){   // before showing the start buttons: how long the logo's wheel still rolls (it starts as the logo arrives)

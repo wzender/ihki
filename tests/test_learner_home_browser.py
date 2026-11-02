@@ -743,3 +743,31 @@ def test_an_admins_message_is_shown_again_when_its_notification_is_tapped(site):
     r = site("dana@x.com", ADMIN_MESSAGE, "?" + urllib.parse.urlparse(url).query)
     assert r["title"] == "אין שיעור מחר" and r["body"] == "נתראה ביום ראשון"
     assert r["search"] == "" and r["closed"] is True   # the address is left clean, and the window closes
+
+
+PENDING = """
+await sleep(1500); for(const d of document.querySelectorAll("dialog[open]")) d.close();
+const closed=[], fake=(title,body,url)=>({title,body,data:{url},close(){ closed.push(title); }});
+let tray=[fake("🎬 הסרטון היומי מחכה לכם","שלום","/?view=daily"),fake("אין שיעור מחר","נתראה","/?from=push-msg&title=x&body=y")];
+Object.defineProperty(navigator.serviceWorker,"getRegistration",{value:async()=>({getNotifications:async()=>tray.splice(0)})});
+await pendingNotices();
+out.many={open:open("msgDlg"),title:document.getElementById("msgTitle").textContent,
+  items:[...document.querySelectorAll("#msgList .msg-item b")].map(b=>b.textContent),closed:[...closed]};
+document.querySelector("#msgList .msg-item:not(.plain)").click(); await sleep(300);
+out.afterTap={open:open("msgDlg"),view:view()};
+tray=[fake("🔥 רצף של 4 ימים","עוד לא תרגלתם היום.","/?from=push-streak")];
+await pendingNotices();
+out.one={title:document.getElementById("msgTitle").textContent,text:document.getElementById("msgText").textContent,
+  go:document.getElementById("msgGo").hidden?null:document.getElementById("msgGo").textContent,list:!document.getElementById("msgList").hidden};
+document.getElementById("msgOk").click();
+await pendingNotices(); out.emptyStaysClosed=!open("msgDlg");
+"""
+
+
+def test_notifications_left_in_the_tray_are_shown_in_the_app_and_cleared(site):
+    r = site("dana@x.com", PENDING)
+    assert r["many"] == {"open": True, "title": "2 התראות חדשות", "items": ["אין שיעור מחר", "🎬 הסרטון היומי מחכה לכם"],
+                         "closed": ["🎬 הסרטון היומי מחכה לכם", "אין שיעור מחר"]}   # newest first, and gone from the tray
+    assert r["afterTap"] == {"open": False, "view": "daily"}
+    assert r["one"] == {"title": "🔥 רצף של 4 ימים", "text": "עוד לא תרגלתם היום.", "go": "לתרגול", "list": False}
+    assert r["emptyStaysClosed"] is True

@@ -145,6 +145,14 @@ BACKUP_NATURAL_KEYS = {"writings": "user_id,topic", "tutors": "email", "scoring_
                        "model_settings": "model"}
 
 
+def _missing_tutor_chats(e: Exception) -> str:
+    """When the table `tutor_chats` is missing: how to make it, for the log line."""
+    if "answered 404" not in str(e):
+        return ""
+    from .tutor import CREATE_TUTOR_CHATS
+    return f"; the table is missing, run in Supabase's SQL editor: {CREATE_TUTOR_CHATS} notify pgrst, 'reload schema';"
+
+
 class AuthUnavailable(RuntimeError):
     """Supabase could not answer. `kind` says how, `stage` where, both from fixed lists so they can be recorded
     without the message: kind is "timed_out", "rejected" (429, rate limited) or "unavailable" (5xx, other HTTP
@@ -1536,8 +1544,7 @@ class SupabaseAuth:
             self._admin("/rest/v1/tutor_chats?on_conflict=id", "POST", row,
                         prefer="resolution=merge-duplicates,return=minimal")
         except AuthUnavailable as e:
-            log.warning("a tutor conversation not kept%s: %s",
-                        " (the table `tutor_chats` is missing, see tutor.CREATE_TUTOR_CHATS)" if "answered 404" in str(e) else "", e)
+            log.warning("a tutor conversation not kept: %s%s", e, _missing_tutor_chats(e))
 
     def tutor_chats_since(self, user_id: str, since: str) -> int:
         """How many conversations with the tutor the student started since this ISO time. 0 when they cannot be read."""
@@ -1545,7 +1552,7 @@ class SupabaseAuth:
         try:
             return len(self._admin(f"/rest/v1/tutor_chats?{query}") or [])
         except AuthUnavailable as e:
-            log.warning("tutor conversations not counted: %s", e)
+            log.warning("tutor conversations not counted: %s%s", e, _missing_tutor_chats(e))
             return 0
 
     def all_attempt_issues(self) -> list[dict] | None:
