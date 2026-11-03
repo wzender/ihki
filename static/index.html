@@ -82,10 +82,17 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 .vidbtn:active{transform:translateY(1px);box-shadow:0 1px 0 var(--line)}
 .vidbtn.new{border-color:var(--amber);background:var(--amber-bg);color:var(--amber)}
 .vidbtn.new::after{content:"";position:absolute;top:-4px;inset-inline-end:-3px;width:11px;height:11px;border-radius:50%;background:var(--orange);border:2px solid var(--bg)}
-#myClass:empty~.vidbtn,#myClass:empty~.vidbtn[hidden]+.help{margin-inline-start:auto}
+#myClass:empty~.help{margin-inline-start:auto}
 #myClass{min-width:0}
-@media (max-width:360px){.vidbtn{padding-inline:9px}.vidbtn span{display:none}}
 body:not(.home) .vidbtn,body.manage .vidbtn{display:none}
+/* The videos button sits in the bottom-left corner of the "הערבית שכבר שלכם" panel, on the line of today's goal,
+   always with its label. It goes wherever the panel goes: hidden with it outside the home. */
+.reward-wrap{position:relative;width:100%;max-width:460px;margin:2px auto 10px}
+.reward-wrap>.reward-shelf{margin:0}
+.reward-wrap>.vidbtn{position:absolute;bottom:14px;left:15px;z-index:1}
+.reward-wrap>.reward-shelf[hidden]+.vidbtn{display:none}
+.reward-wrap:has(>.vidbtn:not([hidden])) .reward-week{display:flex;align-items:center;justify-content:flex-start;min-height:34px;padding-inline-end:118px}
+body:not(.home) .reward-wrap,body.manage .reward-wrap,body:not([data-view=home]) .reward-wrap{display:none}
 .guidetip{flex:0 0 100%;display:flex;align-items:center;gap:8px;padding-block:6px;padding-inline:12px 6px;border-radius:12px;background:var(--olive-soft);border:1px solid var(--olive)}
 .guidetip a{flex:1;min-width:0;color:var(--olive-deep);font-weight:700;text-decoration:none}
 .guidetip button{flex:none;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:15px;cursor:pointer}
@@ -1768,7 +1775,6 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
     <div class="brand">אהלא וסהלא</div>
     <button id="myClass"></button>
     <div class="where"><small id="lessonName"></small><span id="catName"></span></div>
-    <button class="vidbtn" id="vidsBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>סרטונים</span></button>
     <a class="help" id="helpLink" href="/static/guide.html" title="איך מתרגלים: מדריך קצר" aria-label="איך מתרגלים: מדריך קצר">?</a>
     <div class="sub maphint">בחרו נושא במסלול ותרגלו אותו בקול</div>
     <div class="guidetip" id="guideTip" hidden><a href="/static/guide.html">חדשים כאן? מדריך של דקה ←</a><button type="button" id="guideTipClose" aria-label="סגירה" title="סגירה">✕</button></div>
@@ -1777,6 +1783,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
   </header>
 
   <div id="today" hidden></div>
+  <div class="reward-wrap">
   <button class="reward-shelf" id="rewardShelf" type="button" hidden>
     <span class="streak-ring" id="rewardStreak">🔥 0</span>
     <span class="reward-copy"><b>הערבית שכבר שלכם</b><small id="rewardCopy">עוד לא נאספו משפטים</small><span class="reward-string" id="rewardString" aria-hidden="true" hidden></span></span>
@@ -1787,6 +1794,9 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
       <span class="reward-week" id="rewardWeek">🎯 היום: 0/5 משפטים</span>
     </span>
   </button>
+  <!-- outside the shelf (a button cannot hold a button), placed over its bottom-left corner by .reward-wrap -->
+  <button class="vidbtn" id="vidsBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>סרטונים</span></button>
+  </div>
   <section id="vids" aria-live="polite"></section>
   <nav id="nav" aria-label="ניווט"><button data-view="home" hidden>בית</button><button data-view="">מסלול</button><button data-view="live" hidden>שיעור חי</button><button data-view="verbs">פעלים</button><button data-view="games" hidden>משחקים</button><button data-view="refer">חבר מביא חבר</button></nav>
   <nav class="path" id="path" aria-label="מסלול הלימוד"></nav>
