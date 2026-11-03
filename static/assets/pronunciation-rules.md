@@ -349,6 +349,9 @@ scoring:
   word_min_weight: 0.35     # weakest phoneme contributes 35%; the other 65% is the word's phoneme mean
   severity_weight: {1: 1.0, 2: 1.5, 3: 2.0}
   sentence_score: "0.5 * weighted_phoneme_mean + 0.5 * mean(word_score)"
+  # rule short_target: a target whose weight W (consonant 1, vowel 0.5) is under this keeps only W / this of its
+  # shortfall: score = 100 - (100 - sentence_score) * W / 10. One mistake then costs a word what it costs a sentence.
+  min_effective_weight: 10
   bands: {excellent: 75, almost: 60}                                    # below 60 = try again
   max_tips: 3
   # default margin: flag when log P(competitor) - log P(target) >= log(1.0), i.e. competitor at least as likely

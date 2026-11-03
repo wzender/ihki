@@ -217,6 +217,10 @@ class ScorerConfig:
     max_tips: int | None = None     # None: as many as the rules document says (scoring.max_tips)
     near_vowel_floor: float = 90.0  # a vowel heard as its neighbour (i/e, u/o, a/ə, short/long) scores at least this
     word_min_weight: float = 0.35   # one weak phoneme matters, without dominating half of the whole word
+    # rule "short_target" (6.2): a target lighter than this (consonants 1, vowels 0.5) loses only weight / this of
+    # what it fell short of 100, as if the rest were said right, so one mistake costs a word what it costs a sentence
+    # of this weight. Heavier targets are scored exactly as before.
+    min_effective_weight: float = 10.0
     ref_min_mean: float = 60.0      # a native reference whose mean phoneme score is under this is not trusted
     # a sound the native reference scored under this, the model cannot measure in this phrase (ħ in رحنا: 0.2): the
     # learner's score on it is noise too, so it is given back in full and the unrelated gate does not count it
@@ -904,6 +908,10 @@ class Scorer:
         phone_mean = float(np.dot(weights, [p["score"] for p in phonemes]) / weights.sum())
         word_mean = float(np.mean([w["score"] for w in words]))
         overall = 0.5 * phone_mean + 0.5 * word_mean  # one wrong consonant must pull the sentence down
+        before_length = overall
+        length_scale = min(1.0, float(weights.sum()) / self.cfg.min_effective_weight)
+        if self._on("short_target") and length_scale < 1.0:
+            overall = 100.0 - (100.0 - overall) * length_scale
         if unrelated:
             overall = min(overall, 30.0)
         # most crucial first: the mistakes that change meaning (severity 3), then the worst-scoring sounds
@@ -954,6 +962,10 @@ class Scorer:
             result["trace"] = self._trace(fit, refs, bases, after_baseline, floors, scores, phonemes, checks, beyond,
                                           words, tips, tip_idx, set(issue_idx), phone_mean, word_mean, overall, heard,
                                           duration_s, refused)
+            result["trace"]["sentence"].update({
+                "before_length": round(before_length, 1), "weight": round(float(weights.sum()), 2),
+                "min_effective_weight": self.cfg.min_effective_weight,
+                "length_scale": round(length_scale, 3) if self._on("short_target") else 1.0})
         return result
 
     def _trace(self, fit: Fit, refs, bases, after_baseline, floors, scores, phonemes, checks, beyond,

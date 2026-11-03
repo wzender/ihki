@@ -101,7 +101,11 @@ def test_hebrew_chet_flagged_on_hammam():
     assert r["words"][0]["score"] > 90          # وين is fine
     assert r["tips"][0]["key"] == "ħ>x"
     assert r["tips"][0]["word"] == "الحمّام"
-    assert 50 <= r["score"] < 85              # one wrong consonant: "almost", not "excellent"
+    # two short words (weight 8): rule short_target makes one wrong consonant cost what it costs a sentence of 10
+    assert 75 <= r["score"] < 90
+    old = scorer_for(logp)
+    old.set_disabled({"short_target"})
+    assert 50 <= old.score(None, TOILET)["score"] < min(85, r["score"])  # without it: "almost", not "excellent"
 
 
 def test_applied_phrase_calibration_raises_only_the_matching_confusion():
@@ -875,7 +879,7 @@ def test_native_reference_keeps_real_errors():
     ref = scorer_for(emissions(MISHEARD)).reference(None, ALA)
     # the learner also says χ for ħ, which the voice did not
     r = scorer_for(emissions(["ʔ", "a", "l", "a", "i", "l", "χ", "a", "m", "aː", "m"])).score(None, ALA, [ref])
-    assert [t["key"] for t in r["tips"]] == ["ħ>x"] and r["score"] < 85
+    assert [t["key"] for t in r["tips"]] == ["ħ>x"] and r["score"] < 90   # short_target softens, the tip stays
     # a reference in which the model does not recognise the phrase is not a baseline
     assert scorer_for(emissions(["ʃ", "e", "k", "e", "d"])).reference(None, ALA) is None
     assert scorer_for(emissions(["ʕ", "χ", "l", "χ", "i", "l", "χ", "a", "χ", "aː", "χ"])).reference(None, ALA) is None
@@ -2385,7 +2389,10 @@ def test_teacher_trace_follows_every_stage():
     assert [s["stage"] for s in h["stages"]] == ["gop", "exemption", "insertion", "length", "baseline", "calibration"]
     assert h["stages"][0]["score"] < 50 and h["stages"][5]["applied"] and h["final"] == 60
     assert h["competitor"] == "χ" and h["rule"]["severity"] == 3 and not h["flagged"]
-    assert t["sentence"]["final"] == round(0.5 * t["sentence"]["phone_mean"] + 0.5 * t["sentence"]["word_mean"])
+    assert t["sentence"]["before_length"] == round(0.5 * t["sentence"]["phone_mean"] + 0.5 * t["sentence"]["word_mean"], 1)
+    sc = t["sentence"]["length_scale"]
+    assert sc == round(t["sentence"]["weight"] / t["sentence"]["min_effective_weight"], 3) < 1
+    assert abs(t["sentence"]["final"] - (100 - (100 - t["sentence"]["before_length"]) * sc)) <= 0.6
 
 
 def test_trace_carries_frames_curves_and_paths():
@@ -2830,7 +2837,10 @@ def test_long_vowel_said_short_is_a_mistake():
     p = r["words"][0]["phonemes"][3]
     assert p["ipa"] == "aː" and p["flagged"] and p["score"] <= 60 and p["heard"] == "a" and p["shortened"] < 1
     assert [t["key"] for t in r["tips"]] == ["vowel_length"] and r["tips"][0]["severity"] == 1
-    assert "החזיקו" in r["tips"][0]["text"] and r["score"] < held["score"] - 10
+    assert "החזיקו" in r["tips"][0]["text"] and r["score"] < held["score"]
+    old = zaman(2)
+    old.set_disabled({"short_target"})           # one word of weight 4: without short_target the mistake costs 10+
+    assert old.score(None, ZAMAN)["score"] < held["score"] - 10
     letter = next(l for l in r["words"][0]["letters"] if "א" in l["t"])
     assert letter["score"] <= 60 and "החזיקו" in letter["tip"]
 
@@ -2957,3 +2967,47 @@ def test_the_sawtak_voice_id_is_offered_for_playback_by_name(monkeypatch):
     assert list(voices)[: len(VOICES)] == list(VOICES) and voices["אַמִיר"] == "amir-voice-id"
     assert voice_name("amir-voice-id") == "אמיר"
     assert "amir-voice-id" not in BASELINE_VOICES.values()   # playback only: scores keep their baseline
+
+
+# ---------- rule short_target (6.2): one mistake costs a short word what it costs a sentence ----------
+
+WE = {"variants": [("احنا", "ʔ i ħ n a")]}                                     # אנחנו: weight 4
+LONG = {"variants": [("وين الحمّام انا ديش", "w eː n | i l ħ a m m aː m | ʔ a n a | d i ʃ")]}   # weight 10 + vowels
+
+
+def _both(scorer_of, phrase):
+    on, off = scorer_of(), scorer_of()
+    off.set_disabled({"short_target"})
+    return on.score(None, phrase, diagnostics=True), off.score(None, phrase, diagnostics=True)
+
+
+def test_one_wrong_consonant_no_longer_fails_a_short_word():
+    on, off = _both(lambda: scorer_for(emissions(["ʔ", "i", "χ", "n", "a"])), WE)
+    assert off["score"] < 75 <= on["score"] < 95
+    assert [t["key"] for t in on["tips"]] == [t["key"] for t in off["tips"]] == ["ħ>x"]   # the feedback is the same
+    assert on["words"] == off["words"]                                                     # and so are the letters
+    assert on["trace"]["sentence"]["length_scale"] == 0.4 and off["trace"]["sentence"]["length_scale"] == 1.0
+
+
+def test_a_short_word_said_right_keeps_its_score():
+    on, off = _both(lambda: scorer_for(emissions(["ʔ", "i", "ħ", "n", "a"])), WE)
+    assert on["score"] >= off["score"] >= 95
+
+
+def test_each_further_mistake_still_costs():
+    # weight 5: one ħ said χ 64 -> 86, two 53 -> 76 (just passing, as in a sentence of weight 10 said otherwise right)
+    one, _ = _both(lambda: scorer_for(emissions(["ʔ", "i", "χ", "n", "a", "ħ"])), {"variants": [("احنح", "ʔ i ħ n a ħ")]})
+    two, old = _both(lambda: scorer_for(emissions(["ʔ", "i", "χ", "n", "a", "χ"])), {"variants": [("احنح", "ʔ i ħ n a ħ")]})
+    assert old["score"] < 75 and 75 <= two["score"] < 80 < one["score"]
+
+
+def test_a_long_target_is_scored_exactly_as_before():
+    on, off = _both(lambda: scorer_for(emissions(["w", "eː", "n", "i", "l", "χ", "a", "m", "aː", "m",
+                                                   "ʔ", "a", "n", "a", "d", "i", "ʃ"])), LONG)
+    assert on["trace"]["sentence"]["weight"] >= 10 and on["trace"]["sentence"]["length_scale"] == 1.0
+    assert on["score"] == off["score"] and on["tips"] == off["tips"]
+
+
+def test_another_word_stays_capped_at_30():
+    on, _ = _both(lambda: scorer_for(emissions(["ʃ", "a", "l", "a", "m"])), WE)
+    assert on["unrelated"] and on["score"] <= 30
