@@ -212,7 +212,7 @@ document.querySelector("#vids .focus-path").click();
 await sleep(100);
 out.pathView=view();
 out.rewardOnPath=getComputedStyle(document.getElementById("rewardShelf")).display!=="none";
-out.pathShortcuts=[...document.querySelectorAll("#today button:not(.path-stats)")].map(b=>b.textContent.trim());
+out.pathShortcuts=[...document.querySelectorAll("#today button:not(.path-stats):not(#vidsBtn)")].map(b=>b.textContent.trim());
 const stats=document.querySelector("#today .path-stats"), todayBox=document.getElementById("today");
 out.stats=stats&&{shown:stats.offsetParent!==null,sticky:getComputedStyle(todayBox).position,
   parts:[...stats.children].map(c=>c.className.split(" ")[0]),note:stats.querySelector(".ps-note").textContent,
@@ -237,7 +237,7 @@ def test_a_later_visit_opens_the_home_and_the_path_at_the_current_lesson(site):
     assert any(a.startswith("ממשיכים ב") for a in r["actions"])
     assert r["pathView"] == "" and r["lessonsOnPath"] == ["3", "4", "5"]
     assert r["rewardOnPath"] is False
-    assert r["pathShortcuts"] == []   # daily practice and homework are no longer path shortcuts
+    assert r["pathShortcuts"] == []   # daily practice and homework are no longer path shortcuts (the videos button lives in the bar)
     # instead, a sticky bar sums up the home's rewards on one line, and opens the collection
     assert r["stats"] == {"shown": True, "sticky": "sticky", "parts": ["ps-streak", "ps-n", "ps-n", "ps-n", "ps-day", "ps-note"],
                           "note": r["stats"]["note"], "oneLine": True, "fits": True}
