@@ -24,7 +24,7 @@ TIERS = ("admin", "teacher", "student")
 TIER_NAMES = {"admin": "מנהלים", "teacher": "מתרגלים", "student": "תלמידים"}
 TIER_ROLES = {"admin": ("admin", "teacher", "flagger"), "teacher": ("teacher", "flagger"),
               "student": ("student", "flagger")}
-# what a saved student keeps outside every class (see `resolve_user_access`): not denied
+# what a saved student gets; outside every class a student is still denied (see `resolve_user_access`)
 TIER_ENTITLEMENTS = {"admin": (), "teacher": (), "student": ("practice", "games", "path")}
 _STUDENT = frozenset({"flags.create"})   # the learner features come from FEATURES, by tier
 _TEACHER = _STUDENT | {"students.view", "library.view"}
@@ -207,9 +207,12 @@ def resolve_user_access(a: SupabaseAuth, user: dict, *, token: str = "",
         roles.add("flagger")
     if email in getattr(a, "developers", ()):
         roles.add("developer")
-    privileged = roles - {"student"}
+    # Outside every class only staff, or an account given something of its own in the editor (a ✓), get in. A saved
+    # student row (its default "flagger" role and entitlements) is not enough: that let classless accounts see the
+    # whole path.
+    privileged = roles & {"teacher", "admin", "developer"} or email in getattr(a, "tutors", ())
     overrides = clean_overrides((assigned or {}).get("overrides"))
-    if classes and not mine and not teaches and not privileged and not entitlements and not any(overrides.values()):
+    if classes and not mine and not teaches and not privileged and not any(overrides.values()):
         return {**user, "denied": True, "permissions": [], "overrides": overrides}
     if not assigned:
         roles.update(DEFAULT_ROLES)

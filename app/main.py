@@ -878,6 +878,17 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return [l for l in ALL_LESSONS if given.get(lesson_level.get(l)) is not False
                 and (l in ids or given.get(lesson_level.get(l)) is True)]
 
+    def path_lessons(user: dict, pool: list[str], every: bool) -> list[str]:
+        """The lessons of `pool` the account studies: every one for `every` (a teacher, or the all-lessons permission)
+        and in an open deployment (no classes at all), else its classes' lessons, with its own level exceptions. An
+        account in no class starts from none: only a level given to it in the editor opens lessons."""
+        a = app.state.auth
+        if every or not (a and a.classes()):
+            base = pool
+        else:
+            base = [l for l in pool if any(l in lessons_of(c) for c in user["classes"])]
+        return [l for l in with_levels(base, user) if l in pool] if not user["classes"] else base
+
     @app.get("/api/me")
     def me(user: dict | None = Depends(signed_in)):
         """Who is signed in, their classes (each with its lessons, its homework, see `homework_of`, and its daily
@@ -888,8 +899,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         asks this right after sign-in to learn whether the account is let in."""
         mine = user["classes"] if user else []
         can_all = bool(user and ({"*", "exercises.use_all"} & set(user.get("permissions", ()))))
-        lessons = with_levels(ALL_LESSONS if not mine or can_all else
-                              [l for l in ALL_LESSONS if any(l in lessons_of(c) for c in mine)], user)
+        lessons = (path_lessons(user, ALL_LESSONS, can_all) if not mine else
+                   with_levels(ALL_LESSONS if can_all else
+                               [l for l in ALL_LESSONS if any(l in lessons_of(c) for c in mine)], user)) if user else ALL_LESSONS
         # a teacher is in no class, and sees the daily videos of every class, each once by its earliest day
         every: dict[int, dict] = {}
         can_manage = bool(user and ({"*", "management.access"} & set(user.get("permissions", ()))))
@@ -2360,8 +2372,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not user:
             return {"videos": []}
         mine = user["classes"]
-        lessons = READY_LESSONS if not mine or user["teacher"] else \
-            [l for l in READY_LESSONS if any(l in lessons_of(c) for c in mine)]
+        lessons = path_lessons(user, READY_LESSONS, user["teacher"])
         try:
             rows = app.state.auth.videos()
         except AuthUnavailable as e:
@@ -2450,8 +2461,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not user:
             return {"categories": [], "phrases": []}
         mine = user["classes"]
-        lessons = READY_LESSONS if not mine or user["teacher"] else \
-            [l for l in READY_LESSONS if any(l in lessons_of(c) for c in mine)]
+        lessons = path_lessons(user, READY_LESSONS, user["teacher"])
         rows = [r for l in lessons for r in placed(text_rows(), l)]
         return {"categories": [{"id": f"t{r['id']}", "name": r["title"], "lesson": r["lesson"], "story": True, "text": r["id"],
                                 **({"voices": r["voices"]} if r["voices"] else {}), "pos": r["pos"], "ord": r["ord"],

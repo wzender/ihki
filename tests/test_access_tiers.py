@@ -243,3 +243,20 @@ def test_one_account_is_given_or_denied_on_its_own(monkeypatch):
     assert out["back"] == 200
     assert next(u["opens"] for u in out["after"]["users"] if u["id"] == "student-1")["games"]
     assert out["bad"] == 400 and out["level"] == 400 and out["self"] == 403 and out["student"] == 403
+
+
+def test_a_student_in_no_class_is_let_in_only_by_a_level_given_to_them(monkeypatch):
+    # saved as a student in the editor, but in no class: that alone used to open the whole path
+    auth = TierAuth({"student-1": {"roles": ["flagger", "student"], "entitlements": ["games", "library", "path", "practice"]}})
+    auth.class_rows[0]["emails"] = ["other@example.com"]
+    assert who(auth, "student-1", "student@example.com").get("denied")
+
+    auth.access["student-1"]["overrides"] = {"level:1": True}   # a ✓ on שלב א for this account
+    assert not who(auth, "student-1", "student@example.com").get("denied")
+
+    async def steps(client):
+        return (await client.get("/api/me", headers=STUDENT)).json()
+
+    me = run(auth, steps, monkeypatch)
+    from app.main import LESSON_LEVEL
+    assert me["lessons"] and {LESSON_LEVEL[l] for l in me["lessons"]} == {"1"}
