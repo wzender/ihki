@@ -9,8 +9,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="__APP_NAME__">
 <link rel="manifest" href="__MANIFEST__">
-<link rel="icon" href="/static/icons/icon-192.png?v=2" sizes="192x192">
-<link rel="apple-touch-icon" href="/static/icons/icon-192.png?v=2">
+<link rel="icon" href="/static/icons/icon-192.png?v=3" sizes="192x192">
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png?v=3">
 <title>__TITLE__</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Secular+One&family=Noto+Naskh+Arabic:wght@500;700&family=Noto+Sans+Hebrew:wght@500;700&family=Noto+Sans+Mono&display=swap">
@@ -9430,9 +9430,24 @@ if(AUTH_URL){
     const say=t=>{ mailMsg.textContent=t; mailMsg.hidden=false; };
     if(/[#&?]error(_code)?=/.test(location.hash+location.search)){   // a link that was used already, or is too old
       say("הקישור כבר לא בתוקף. בקשו קישור חדש."); history.replaceState(null,"",here); }
+    /* A link sent to a mistyped address bounces, and Supabase restricts projects that bounce too often. A domain one or
+       two letters off a common one (gmial.com, gmail.co) asks first; sending the same text again sends it as typed. */
+    const DOMAINS=["gmail.com","walla.co.il","walla.com","hotmail.com","yahoo.com","icloud.com","outlook.com","live.com"];
+    const near=(a,b)=>{ const d=[...Array(b.length+1).keys()];
+      for(let i=1;i<=a.length;i++){ let p=d[0]; d[0]=i;
+        for(let j=1;j<=b.length;j++){ const t=d[j]; d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]===b[j-1]?0:1)); p=t; } }
+      return d[b.length]; };
+    const typo=to=>{ const m=/^([^@\s]+)@([^@\s]+)$/.exec(to.toLowerCase());
+      if(!m) return "";
+      if(DOMAINS.includes(m[2])) return null;
+      const best=DOMAINS.find(d=>near(m[2],d)<=2);
+      return best?`${m[1]}@${best}`:/\.[a-z]{2,}$/.test(m[2])?null:""; };
+    let warned="";
     mail.onsubmit=async e=>{
       e.preventDefault();
-      const to=$("mailIn").value.trim(), btn=$("mailBtn");
+      const to=$("mailIn").value.trim(), btn=$("mailBtn"), fix=typo(to);
+      if(fix==="") return say("הכתובת לא נראית תקינה. בדקו אותה ונסו שוב.");
+      if(fix&&warned!==to){ warned=to; return say(`האם התכוונתם ל־${fix}? אם הכתובת נכונה, לחצו שוב.`); }
       btn.disabled=true; mailMsg.hidden=true;
       const {error}=await sb.auth.signInWithOtp({email:to,options:{emailRedirectTo:here}}).catch(error=>({error}));
       btn.disabled=false;

@@ -1,9 +1,9 @@
-const CACHE = "ihki-shell-v28";
+const CACHE = "ihki-shell-v29";
 const SHELL = [
   "/static/manifest.webmanifest",
-  "/static/icons/icon-192.png?v=2",
-  "/static/icons/icon-512.png?v=2",
-  "/static/icons/icon-maskable-512.png?v=2",
+  "/static/icons/icon-192.png?v=3",
+  "/static/icons/icon-512.png?v=3",
+  "/static/icons/icon-maskable-512.png?v=3",
   "/static/logo-intro.svg",
   "/static/logo-math.svg",
   "/static/assets/arabic-calligraphy-path.webp"
@@ -43,7 +43,7 @@ self.addEventListener("push", event => {
   try { msg = event.data ? event.data.json() : {}; } catch { msg = { body: event.data && event.data.text() }; }
   event.waitUntil(self.registration.showNotification(msg.title || "אהלא וסהלא", {
     body: msg.body || "", tag: msg.tag || "ihki", lang: "he", dir: "rtl",
-    icon: "/static/icons/icon-192.png?v=2", badge: "/static/icons/icon-192.png?v=2",
+    icon: "/static/icons/icon-192.png?v=3", badge: "/static/icons/icon-192.png?v=3",
     data: { url: msg.url || "/" }
   }));
 });
