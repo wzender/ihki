@@ -212,7 +212,7 @@ document.querySelector("#vids .focus-path").click();
 await sleep(100);
 out.pathView=view();
 out.rewardOnPath=getComputedStyle(document.getElementById("rewardShelf")).display!=="none";
-out.pathShortcuts=[...document.querySelectorAll("#today button:not(.path-stats):not(#vidsBtn)")].map(b=>b.textContent.trim());
+out.pathShortcuts=[...document.querySelectorAll("#today button:not(.path-stats):not(#vidsBtn):not(.ps-tools button)")].map(b=>b.textContent.trim());
 const stats=document.querySelector("#today .path-stats"), todayBox=document.getElementById("today");
 out.stats=stats&&{shown:stats.offsetParent!==null,sticky:getComputedStyle(todayBox).position,
   parts:[...stats.children].map(c=>c.className.split(" ")[0]),note:stats.querySelector(".ps-note").textContent,

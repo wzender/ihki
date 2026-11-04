@@ -123,6 +123,7 @@ body:not(.home) .help,body.manage .help,body:not(.home) .guidetip,body.manage .g
 #today .ps-vids.new{border-color:var(--amber);background:var(--amber-bg);color:var(--amber)}
 #today .ps-vids span{display:inline}
 #today:has(.ps-vids:not([hidden])) .ps-note{display:flex;align-items:center;min-height:28px;padding-inline-end:104px}
+#today .ps-tools{display:flex;justify-content:center;gap:8px;margin-top:8px}#today .ps-tools[hidden]{display:none}
 #today .bump{animation:ps-bump .6s ease-out}
 @keyframes ps-bump{40%{transform:scale(1.35)}}
 @media (prefers-reduced-motion:reduce){#today .bump{animation:none}}
@@ -1780,7 +1781,6 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
     <div class="brand">אהלא וסהלא</div>
     <button id="myClass"></button>
     <div class="where"><small id="lessonName"></small><span id="catName"></span></div>
-        <div class="sub maphint helprow"><a class="help pill" id="helpLink" href="/static/guide.html" title="איך מתרגלים: מדריך קצר"><b aria-hidden="true">?</b> עזרה</a><button class="help pill" id="feedbackBtn" type="button" title="משוב: ספרו לנו מה עובד ומה לא" hidden><span aria-hidden="true">💬</span> משוב</button></div>
     <div class="guidetip" id="guideTip" hidden><a href="/static/guide.html">חדשים כאן? מדריך של דקה ←</a><button type="button" id="guideTipClose" aria-label="סגירה" title="סגירה">✕</button></div>
     <button class="drive" id="toManage" hidden>ניהול</button>
     <button class="drive" id="driveBtn" title="מצב נסיעה: האפליקציה מקריאה, מקשיבה ואומרת את ההערכה בקול"><svg class="ic" aria-hidden="true"><use href="#i-car"/></svg> עברו למצב נסיעה</button>
@@ -1788,7 +1788,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
 
   <!-- the path's progress bar (drawToday). The videos button stays in it across redraws, outside the bar's own button
        (a button cannot hold a button), in its bottom-left corner -->
-  <div id="today" hidden><button class="vidbtn ps-vids" id="vidsBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>סרטונים</span></button></div>
+  <div id="today" hidden><button class="vidbtn ps-vids" id="vidsBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>סרטונים</span></button><div class="ps-tools"><a class="help pill" id="helpLink" href="/static/guide.html" title="איך מתרגלים: מדריך קצר"><b aria-hidden="true">?</b> עזרה</a><button class="help pill" id="feedbackBtn" type="button" title="משוב: ספרו לנו מה עובד ומה לא" hidden><span aria-hidden="true">💬</span> משוב</button></div></div>
   <button class="reward-shelf" id="rewardShelf" type="button" hidden>
     <span class="streak-ring" id="rewardStreak">🔥 0</span>
     <span class="reward-copy"><b>הערבית שכבר שלכם</b><small id="rewardCopy">עוד לא נאספו משפטים</small><span class="reward-string" id="rewardString" aria-hidden="true" hidden></span></span>
@@ -3570,7 +3570,7 @@ for(const b of $("nav").children) b.onclick=()=>{
 let pathStatsBefore=null;   // the counts the bar showed last, so a number that grew can bump
 function drawToday(){   // the path's sticky progress bar: what the home's reward shelf tells, in one line, and a word on today
   const box=$("today");
-  [...box.children].forEach(c=>c.id!=="vidsBtn"&&c.remove()); box.classList.toggle("stats",!!PHRASES.length); box.hidden=!PHRASES.length; drawNav();
+  [...box.children].forEach(c=>c.id!=="vidsBtn"&&!c.classList.contains("ps-tools")&&c.remove()); box.classList.toggle("stats",!!PHRASES.length); box.hidden=!PHRASES.length; drawNav();
   if(!PHRASES.length) return;
   applySkin();
   const got=rewardItems(), gold=got.filter(x=>x.gold).length, regular=got.length-gold, misbahas=lessonRewards().length;
