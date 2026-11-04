@@ -43,6 +43,7 @@ from fastapi.staticfiles import StaticFiles
 from logtail import LogtailHandler
 
 from .arabic_diacritics import point_arabic, tts_arabic
+from . import feedback as feedback_notes
 from . import lab
 from .auth import AuthUnavailable, ClassConflict, FlagExists, MAX_MONITOR_ATTEMPTS, SupabaseAuth, load_auth
 from .keystore import (CREATE_APP_SECRETS, MAX_LEN as MAX_KEY_LEN, MIGRATE_APP_SECRETS, NAMES as KEY_NAMES, KeyRefused,
@@ -1608,6 +1609,59 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             if any(column in detail for column in ("status", "category", "false_issues", "reviewed_by", "attempt_id")):
                 raise HTTPException(503, f"לטבלה flags חסרות עמודות הבדיקה. הריצו ב-SQL Editor: {MIGRATE_FLAGS}")
             raise HTTPException(503, f"Supabase לא זמין: {e}")
+        return {"ok": True}
+
+    feedback_limit = feedback_notes.RateLimit()
+
+    def feedback_error(e: AuthUnavailable) -> HTTPException:
+        if "answered 404" in str(e):
+            return HTTPException(503, f"הטבלה feedback לא קיימת. הריצו ב-SQL Editor: {feedback_notes.CREATE_FEEDBACK}")
+        return HTTPException(503, f"Supabase לא זמין: {e}")
+
+    @app.post("/api/feedback")
+    def send_feedback(body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        """Keeps a note from any signed-in user: {kind, rating?, message?, screen?, item?, version?}. Text only."""
+        if not user or not app.state.auth:
+            raise HTTPException(503, "המשוב נשמר רק למשתמשים מחוברים")
+        try:
+            row = feedback_notes.clean(body)
+        except feedback_notes.FeedbackError as e:
+            raise HTTPException(400, str(e))
+        if not feedback_limit.allow(str(user["id"])):
+            raise HTTPException(429, "שלחתם הרבה הודעות בשעה האחרונה. נסו שוב מאוחר יותר.")
+        try:
+            app.state.auth.add_feedback({**row, "user_id": user["id"], "email": user["email"].lower()})
+        except AuthUnavailable as e:
+            log.warning("feedback not kept: %s", e)
+            raise feedback_error(e)
+        return {"ok": True}
+
+    @app.get("/api/feedback")
+    def list_feedback(status: str = Query(""), a: SupabaseAuth = Depends(teacher_only)):
+        """The users' notes for the teacher's panel, newest first; `status` limits them to new, read or done."""
+        if status and status not in feedback_notes.STATUSES:
+            raise HTTPException(400, "invalid feedback status")
+        try:
+            return {"feedback": a.list_feedback(status or None)}
+        except AuthUnavailable as e:
+            if "answered 404" in str(e):
+                return {"feedback": [], "setup": feedback_notes.CREATE_FEEDBACK}
+            raise feedback_error(e)
+
+    @app.put("/api/feedback/{feedback_id}")
+    def review_feedback(feedback_id: int, body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+                        user: dict | None = Depends(signed_in)):
+        """Marks a note new, read or done."""
+        status = body.get("status")
+        if status not in feedback_notes.STATUSES:
+            raise HTTPException(400, "invalid feedback status")
+        values = ({"status": "new", "handled_by": None, "handled_at": None} if status == "new" else
+                  {"status": status, "handled_by": user["email"].lower(),
+                   "handled_at": datetime.now(timezone.utc).isoformat()})
+        try:
+            a.review_feedback(feedback_id, values)
+        except AuthUnavailable as e:
+            raise feedback_error(e)
         return {"ok": True}
 
     @app.get("/api/flags/{flag_id}/audio")

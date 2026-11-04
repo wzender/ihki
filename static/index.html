@@ -74,6 +74,14 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 /* the student's guide (static/guide.html): a round "?" beside the class pill, and once, a line under the hint */
 .help{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;border:1px solid var(--olive);background:var(--surface);color:var(--olive);font:700 17px/1 var(--f-body);text-decoration:none;box-shadow:0 2px 0 var(--line)}
 .help:hover{background:var(--olive-soft)}
+#feedbackBtn{cursor:pointer}
+.helprow{display:flex;gap:8px;align-items:center}.help.pill{width:auto;height:34px;border-radius:999px;padding:0 14px;display:flex;gap:6px;font:700 15px/1 var(--f-body)}.help.pill b{font-size:16px}
+#feedbackDlg{width:min(92vw,460px);max-height:calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow:auto;overscroll-behavior:contain}#feedbackDlg .dlg-head h2 small{display:block;font:500 13px/1.35 var(--f-body);color:var(--muted);margin-top:4px}
+.feedback-form{display:flex;flex-direction:column;gap:12px}.feedback-form label{display:flex;flex-direction:column;gap:5px;font-weight:600}.feedback-form textarea{font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink);resize:vertical}
+.fb-kinds{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}.fb-kinds legend{font-weight:700;margin-bottom:4px}.fb-kinds label{flex-direction:row;align-items:center;gap:8px;font-weight:500;padding:8px 10px;border:1px solid var(--line);border-radius:10px}
+.fb-rating{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.fb-rating span{flex-basis:100%;font-weight:600}.fb-rating button{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 16px var(--f-body);cursor:pointer}.fb-rating button[aria-pressed=true]{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
+.fb-note{margin:0;min-height:1.3em;color:var(--muted);font-size:14px}
+.fb-inbox .fb-item{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-bottom:1px solid var(--line)}.fb-inbox .fb-item.done{opacity:.55}.fb-inbox .fb-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--muted)}.fb-inbox .fb-msg{white-space:pre-wrap;overflow-wrap:anywhere}.fb-inbox .fb-actions{display:flex;gap:8px}
 #myClass:empty+.help{margin-inline-start:auto}
 /* the videos (daily and library) in the top row, beside the help: amber with a dot while today's video is unwatched */
 .vidbtn{position:relative;flex:none;display:flex;align-items:center;gap:6px;height:34px;padding-block:0;padding-inline:10px 12px;border-radius:999px;border:1px solid var(--olive);background:var(--surface);color:var(--olive);box-shadow:0 2px 0 var(--line);font:700 14px/1 var(--f-body);white-space:nowrap;cursor:pointer}
@@ -1772,8 +1780,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
     <div class="brand">אהלא וסהלא</div>
     <button id="myClass"></button>
     <div class="where"><small id="lessonName"></small><span id="catName"></span></div>
-    <a class="help" id="helpLink" href="/static/guide.html" title="איך מתרגלים: מדריך קצר" aria-label="איך מתרגלים: מדריך קצר">?</a>
-    <div class="sub maphint">בחרו נושא במסלול ותרגלו אותו בקול</div>
+        <div class="sub maphint helprow"><a class="help pill" id="helpLink" href="/static/guide.html" title="איך מתרגלים: מדריך קצר"><b aria-hidden="true">?</b> עזרה</a><button class="help pill" id="feedbackBtn" type="button" title="משוב: ספרו לנו מה עובד ומה לא" hidden><span aria-hidden="true">💬</span> משוב</button></div>
     <div class="guidetip" id="guideTip" hidden><a href="/static/guide.html">חדשים כאן? מדריך של דקה ←</a><button type="button" id="guideTipClose" aria-label="סגירה" title="סגירה">✕</button></div>
     <button class="drive" id="toManage" hidden>ניהול</button>
     <button class="drive" id="driveBtn" title="מצב נסיעה: האפליקציה מקריאה, מקשיבה ואומרת את ההערכה בקול"><svg class="ic" aria-hidden="true"><use href="#i-car"/></svg> עברו למצב נסיעה</button>
@@ -2124,6 +2131,22 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
   <h2 id="pushTitle">כל הכבוד! רוצים תזכורת כל בוקר?</h2>
   <p class="dlg-text" id="pushText"></p>
   <div class="row"><button class="btn primary" id="pushYes">כן, הזכירו לי</button><button class="btn" id="pushNo">לא עכשיו</button></div>
+</dialog>
+<dialog id="feedbackDlg" aria-labelledby="feedbackTitle">
+  <div class="dlg-head"><h2 id="feedbackTitle">משוב<small>ספרו לנו מה עובד ומה לא. זה מגיע ישר למורים ולמפתחים</small></h2><button class="btn" type="button" id="feedbackClose">סגירה</button></div>
+  <form id="feedbackForm" class="feedback-form">
+    <fieldset class="fb-kinds" role="radiogroup" aria-label="על מה המשוב"><legend>על מה המשוב?</legend>
+      <label><input type="radio" name="fbKind" value="problem" checked>🐞 משהו לא עובד</label>
+      <label><input type="radio" name="fbKind" value="score">🎯 הציון נראה לי לא נכון</label>
+      <label><input type="radio" name="fbKind" value="idea">💡 רעיון או בקשה</label>
+      <label><input type="radio" name="fbKind" value="praise">❤️ משהו שאהבתי</label>
+    </fieldset>
+    <div class="fb-rating" role="radiogroup" aria-label="דירוג כללי"><span>איך החוויה באפליקציה?</span>
+      <button type="button" data-r="1" aria-label="1 מתוך 5">1</button><button type="button" data-r="2" aria-label="2 מתוך 5">2</button><button type="button" data-r="3" aria-label="3 מתוך 5">3</button><button type="button" data-r="4" aria-label="4 מתוך 5">4</button><button type="button" data-r="5" aria-label="5 מתוך 5">5</button></div>
+    <label>מה תרצו לספר?<textarea id="feedbackText" maxlength="1000" rows="4" placeholder="כמה מילים מספיקות. לא נשמרות הקלטות."></textarea></label>
+    <p class="fb-note" id="feedbackNote" aria-live="polite"></p>
+    <div class="row"><button class="btn primary" id="feedbackSend">שליחה</button></div>
+  </form>
 </dialog>
 <dialog id="msgDlg" aria-labelledby="msgTitle" aria-describedby="msgText">
   <div class="push-bell" aria-hidden="true">📣</div>
@@ -6328,6 +6351,64 @@ function drawAccess(){
     await loadAccess(); drawAccess(); $("mAccess").querySelector("p.sub").textContent=msg;
   };
 }
+// ---- feedback: any signed-in user can send a note (text only); the teachers' panel lists them ----
+const FEEDBACK_KINDS={problem:"🐞 משהו לא עובד",score:"🎯 ציון לא נכון",idea:"💡 רעיון",praise:"❤️ אהבו"};
+function feedbackContext(){
+  const nav=document.querySelector("#nav [aria-current=page]");
+  return {screen:(nav?.dataset.view||"path")||"path", item:(document.getElementById("lessonName")?.textContent||"").trim()+(document.getElementById("catName")?.textContent?" · "+document.getElementById("catName").textContent.trim():"")};
+}
+function initFeedback(){
+  const btn=$("feedbackBtn"), dlg=$("feedbackDlg"), form=$("feedbackForm"), note=$("feedbackNote"), send=$("feedbackSend");
+  if(!btn||btn.dataset.ready) return; btn.dataset.ready="1";
+  let rating=null;
+  const rates=[...document.querySelectorAll(".fb-rating button")];
+  const paint=()=>rates.forEach(b=>b.setAttribute("aria-pressed",String(+b.dataset.r===rating)));
+  rates.forEach(b=>b.onclick=()=>{ rating=rating===+b.dataset.r?null:+b.dataset.r; paint(); });
+  btn.onclick=()=>{ note.textContent=""; send.disabled=false; dlg.showModal(); $("feedbackClose").focus(); };   // not the text box: on an iPhone its keyboard would push the first lines out of view
+  $("feedbackClose").onclick=()=>dlg.close();
+  form.onsubmit=async e=>{
+    e.preventDefault(); send.disabled=true; note.textContent="שולח…";
+    const body={kind:form.elements.fbKind.value,rating,message:$("feedbackText").value,...feedbackContext()};
+    try{
+      const res=await api("/api/feedback",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok){ note.textContent=data.detail||"השליחה נכשלה. נסו שוב."; send.disabled=false; return; }
+      note.textContent="תודה! המשוב נשלח 🙏"; $("feedbackText").value=""; rating=null; paint();
+      setTimeout(()=>{ if(dlg.open) dlg.close(); },1200);
+    }catch(err){ note.textContent="אין חיבור. נסו שוב."; send.disabled=false; }
+  };
+}
+let FEEDBACK=null, feedbackError="";
+async function loadFeedback(){
+  try{
+    const res=await api("/api/feedback"), data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.detail||res.status);
+    FEEDBACK=data; feedbackError="";
+  }catch(err){ FEEDBACK=null; feedbackError=err.message; }
+}
+function drawFeedbackInbox(box){
+  const card=mark("card fb-inbox",""); card.append(mark("","משוב ממשתמשים","h2"));
+  if(feedbackError){ card.append(mark("meta","לא ניתן לטעון: "+feedbackError,"p")); box.append(card); return; }
+  if(!FEEDBACK){ card.append(mark("meta","טוען…","p")); box.append(card); loadFeedback().then(()=>{ if(mMode==="flags"&&document.body.classList.contains("manage")) drawFlags(); }); return; }
+  if(FEEDBACK.setup){ card.append(mark("meta","הטבלה feedback עדיין לא קיימת. הריצו ב-SQL Editor של Supabase:","p"),mark("meta",FEEDBACK.setup,"p")); box.append(card); return; }
+  const rows=FEEDBACK.feedback||[], open=rows.filter(r=>r.status==="new").length;
+  card.append(mark("meta",rows.length?`${open} חדשים מתוך ${rows.length}`:"עדיין לא התקבל משוב.","p"));
+  for(const r of rows.slice(0,50)){
+    const item=mark("fb-item"+(r.status==="done"?" done":""),""), head=mark("fb-head","");
+    head.append(mark("flag-kind",FEEDBACK_KINDS[r.kind]||r.kind),mark("",r.rating?"★".repeat(r.rating):""),mark("",r.email),mark("",[r.screen,r.item].filter(Boolean).join(" · ")),mark("",new Date(r.created_at).toLocaleString("he-IL")));
+    item.append(head);
+    if(r.message) item.append(mark("fb-msg",r.message,"p"));
+    const actions=mark("fb-actions","");
+    for(const [status,label] of [["read","נקרא"],["done","טופל"],["new","החזרה לחדש"]]){
+      if(r.status===status) continue;
+      const b=mark("btn",label,"button"); b.type="button";
+      b.onclick=async()=>{ b.disabled=true; const res=await api(`/api/feedback/${r.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})}); if(res.ok){ r.status=status; drawFlags(); } else b.disabled=false; };
+      actions.append(b);
+    }
+    item.append(actions); card.append(item);
+  }
+  box.append(card);
+}
 function selectManageMode(){
   $("mModes").hidden=false;
   for(const mode of ["classes","content","flags","access","models"]) $("manage").classList.toggle(mode,mMode===mode);
@@ -6513,6 +6594,7 @@ function drawFlags(){
   drawBackupControls(box);
   drawApiKeys(box);
   drawSystemActivity(box);
+  drawFeedbackInbox(box);
   drawTtsCacheControls(box);
   if(!flagsLoaded){ box.append(mark("card","טוען את הדיווחים…")); return; }
   drawScoringRules(box);
@@ -9394,6 +9476,7 @@ function enter(){
   const splash=$("logo-splash");
   $("wrap").inert=false; splash.classList.add("done"); setTimeout(()=>splash.remove(),700);
   ENTERED=true;
+  if(AUTH_URL){ $("feedbackBtn").hidden=false; initFeedback(); }   // feedback is kept per signed-in user
   const choosing=MY_CLASSES.length>1&&!MY_CLASS;
   if(choosing) askClass();   // in several classes and none practised in before: which one? (its lesson question follows, from useClass)
   if(AUTH_URL&&!can("path.use")){ if(can("games.use")||can("tutor.use")) showView("games"); else if(can("library.view")) showView("library"); }

@@ -989,6 +989,21 @@ class SupabaseAuth:
         query = urllib.parse.urlencode({"select": "*", "status": f"eq.{status}", "order": "created_at.desc"})
         return self._admin(f"/rest/v1/flags?{query}")
 
+    def add_feedback(self, row: dict) -> None:
+        """Keeps one user's feedback note (see feedback.py)."""
+        self._admin("/rest/v1/feedback", "POST", row, prefer="return=minimal")
+
+    def list_feedback(self, status: str | None = None, limit: int = 200) -> list[dict]:
+        """The feedback notes, newest first; one status, or all of them."""
+        query = {"select": "*", "order": "created_at.desc", "limit": int(limit)}
+        if status:
+            query["status"] = f"eq.{status}"
+        return self._admin(f"/rest/v1/feedback?{urllib.parse.urlencode(query)}") or []
+
+    def review_feedback(self, feedback_id: int, values: dict) -> None:
+        """Marks a note read or done, and by whom."""
+        self._admin(f"/rest/v1/feedback?id=eq.{int(feedback_id)}", "PATCH", values, prefer="return=minimal")
+
     def scoped_flags(self, emails: set[str], since: datetime, until: datetime,
                      limit: int = MAX_DIFFICULTY_ATTEMPTS) -> tuple[list[dict], bool]:
         """Bounded report metadata for authorized roster emails.
