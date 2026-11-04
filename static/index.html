@@ -119,11 +119,13 @@ body:not(.home) .help,body.manage .help,body:not(.home) .guidetip,body.manage .g
 #today .ps-note{grid-column:1/-1;font:600 12.5px/1.25 var(--f-body);color:var(--olive);white-space:normal!important}
 #today .ps-note.urgent{color:var(--orange)}
 /* the videos button, under "x/5 היום" in the bar's bottom-left corner, on the line of the note, with its label */
-#today .ps-vids{position:absolute;bottom:16px;left:14px;z-index:1;flex-direction:row;gap:5px;height:28px;padding:0 10px 0 8px;border-radius:999px;font:700 13px/1 var(--f-body)}
 #today .ps-vids.new{border-color:var(--amber);background:var(--amber-bg);color:var(--amber)}
 #today .ps-vids span{display:inline}
-#today:has(.ps-vids:not([hidden])) .ps-note{display:flex;align-items:center;min-height:28px;padding-inline-end:104px}
-#today .ps-tools{display:flex;justify-content:center;gap:8px;margin-top:8px}#today .ps-tools[hidden]{display:none}
+/* videos, help and feedback: one row inside the bar's frame, under the note (the bar is a button, so they are laid over it, not in it) */
+#today.stats{position:sticky}#today.stats .path-stats{padding-bottom:50px}
+#today .ps-tools{position:absolute;inset-inline:14px;bottom:14px;z-index:1;display:flex;gap:8px;align-items:center}
+#today .ps-tools :is(button,a){position:static;flex-direction:row;display:flex;align-items:center;gap:5px;height:30px;padding:0 11px;border-radius:999px;font:700 13px/1 var(--f-body);white-space:nowrap;margin:0;width:auto}
+#today .ps-tools button[hidden]{display:none}
 #today .bump{animation:ps-bump .6s ease-out}
 @keyframes ps-bump{40%{transform:scale(1.35)}}
 @media (prefers-reduced-motion:reduce){#today .bump{animation:none}}
@@ -1788,7 +1790,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
 
   <!-- the path's progress bar (drawToday). The videos button stays in it across redraws, outside the bar's own button
        (a button cannot hold a button), in its bottom-left corner -->
-  <div id="today" hidden><button class="vidbtn ps-vids" id="vidsBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>סרטונים</span></button><div class="ps-tools"><a class="help pill" id="helpLink" href="/static/guide.html" title="איך מתרגלים: מדריך קצר"><b aria-hidden="true">?</b> עזרה</a><button class="help pill" id="feedbackBtn" type="button" title="משוב: ספרו לנו מה עובד ומה לא" hidden><span aria-hidden="true">💬</span> משוב</button></div></div>
+  <div id="today" hidden><div class="ps-tools"><button class="vidbtn ps-vids" id="vidsBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>סרטונים</span></button><a class="help pill" id="helpLink" href="/static/guide.html" title="איך מתרגלים: מדריך קצר"><b aria-hidden="true">?</b> עזרה</a><button class="help pill" id="feedbackBtn" type="button" title="משוב: ספרו לנו מה עובד ומה לא" hidden><span aria-hidden="true">💬</span> משוב</button></div></div>
   <button class="reward-shelf" id="rewardShelf" type="button" hidden>
     <span class="streak-ring" id="rewardStreak">🔥 0</span>
     <span class="reward-copy"><b>הערבית שכבר שלכם</b><small id="rewardCopy">עוד לא נאספו משפטים</small><span class="reward-string" id="rewardString" aria-hidden="true" hidden></span></span>
