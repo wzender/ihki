@@ -102,3 +102,44 @@ def test_a_missing_table_gives_the_setup_sql(client):
     r = client.get("/api/feedback", headers=H("t"))
     assert r.json()["setup"] == feedback.CREATE_FEEDBACK
     assert client.post("/api/feedback", json={"kind": "idea", "message": "x"}, headers=H("s")).status_code == 503
+
+
+class FakePush:
+    on = True
+
+    def __init__(self):
+        self.sent = []
+
+    def notify(self, emails, message):
+        self.sent.append((emails, message))
+        return 1
+
+
+def test_a_note_notifies_the_developers(client):
+    client.app.state.auth.developers = frozenset({"dev@b.c"})
+    client.app.state.push = FakePush()
+    r = client.post("/api/feedback", json={"kind": "problem", "rating": 2, "message": "לא עובד", "screen": "path"},
+                    headers=H("s"))
+    assert r.status_code == 200
+    (emails, message), = client.app.state.push.sent
+    assert emails == {"dev@b.c"} and message["title"].startswith("💬 משהו לא עובד ★★")
+    assert "s@b.c" in message["body"] and "לא עובד" in message["body"]
+
+
+def test_a_failing_push_does_not_lose_the_note(client):
+    class Broken(FakePush):
+        def notify(self, emails, message):
+            raise RuntimeError("push service down")
+    client.app.state.auth.developers = frozenset({"dev@b.c"})
+    client.app.state.push = Broken()
+    assert client.post("/api/feedback", json={"kind": "idea", "message": "x"}, headers=H("s")).status_code == 200
+    assert len(client.app.state.auth.rows) == 1
+
+
+def test_no_push_when_there_are_no_developers_or_push_is_off(client):
+    client.app.state.push = FakePush()
+    client.post("/api/feedback", json={"kind": "idea", "message": "x"}, headers=H("s"))
+    client.app.state.auth.developers = frozenset({"dev@b.c"})
+    client.app.state.push.on = False
+    client.post("/api/feedback", json={"kind": "idea", "message": "y"}, headers=H("s"))
+    assert client.app.state.push.sent == []

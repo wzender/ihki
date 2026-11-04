@@ -155,6 +155,11 @@ class Push:
         with ThreadPoolExecutor(max_workers=min(8, len(rows))) as pool:
             return sum(pool.map(lambda r: self.send(r, message), rows))
 
+    def notify(self, emails: set[str], message: dict) -> int:
+        """One notification to every device of these accounts; how many went."""
+        wanted = {e.lower() for e in emails}
+        return self.send_many([r for r in self.every() if r.get("email", "").lower() in wanted], message)
+
     def mine(self, email: str) -> list[dict]:
         return self._rows("&" + urllib.parse.urlencode({"email": f"eq.{email.lower()}"}))
 
@@ -267,6 +272,16 @@ async def loop(push: Push, today_of: Callable[[str, bool], list[dict]], now: Cal
         except Exception:
             log.exception("daily video reminders failed")
         await asyncio.sleep(CHECK_EVERY)
+
+
+def feedback_message(row: dict, labels: dict[str, str]) -> dict:
+    """The developers' notification for one feedback note (see feedback.py): its kind and rating in the title, then who
+    sent it, from which screen, and the first words. Each has its own tag, so one does not replace another."""
+    stars = f" {'★' * row['rating']}" if row.get("rating") else ""
+    where = " · ".join(x for x in (row.get("email"), row.get("screen")) if x)
+    body = "\n".join(x for x in (where, row.get("message") or "") if x)
+    return {"title": f"💬 {labels.get(row.get('kind'), 'משוב')}{stars}"[:MAX_TITLE], "body": body[:MAX_BODY],
+            "url": "/", "tag": f"feedback-{datetime.now().timestamp():.3f}"}
 
 
 def status_payload(report: dict) -> dict:

@@ -1618,8 +1618,22 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             return HTTPException(503, f"הטבלה feedback לא קיימת. הריצו ב-SQL Editor: {feedback_notes.CREATE_FEEDBACK}")
         return HTTPException(503, f"Supabase לא זמין: {e}")
 
+    FEEDBACK_LABELS = {"problem": "משהו לא עובד", "score": "ציון לא נכון", "idea": "רעיון", "praise": "אהבו"}
+
+    def notify_developers(row: dict) -> None:
+        """A push to the developers' devices for a new note; never raises: the note is kept whatever happens here."""
+        push = app.state.push
+        developers = set(getattr(app.state.auth, "developers", ()) or ())
+        if not (push and push.on and developers):
+            return
+        try:
+            n = push.notify(developers, pushes.feedback_message(row, FEEDBACK_LABELS))
+            log.info("feedback push sent to %d devices", n)
+        except Exception as e:
+            log.warning("feedback push failed: %s", type(e).__name__)
+
     @app.post("/api/feedback")
-    def send_feedback(body: dict = Body(...), user: dict | None = Depends(signed_in)):
+    def send_feedback(background: BackgroundTasks, body: dict = Body(...), user: dict | None = Depends(signed_in)):
         """Keeps a note from any signed-in user: {kind, rating?, message?, screen?, item?, version?}. Text only."""
         if not user or not app.state.auth:
             raise HTTPException(503, "המשוב נשמר רק למשתמשים מחוברים")
@@ -1634,6 +1648,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except AuthUnavailable as e:
             log.warning("feedback not kept: %s", e)
             raise feedback_error(e)
+        background.add_task(notify_developers, {**row, "email": user["email"].lower()})
         return {"ok": True}
 
     @app.get("/api/feedback")
