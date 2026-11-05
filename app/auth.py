@@ -103,6 +103,14 @@ def _read_body(res) -> bytes:
     return gzip.decompress(data) if data and (res.headers.get("Content-Encoding") or "").lower() == "gzip" else data
 
 
+def _error_detail(e: urllib.error.HTTPError, limit: int = 300) -> str:
+    """An HTTP error's body as readable text: unzipped when gzipped, and never raising from the error path."""
+    try:
+        return _read_body(e).decode(errors="replace")[:limit]
+    except Exception:
+        return ""
+
+
 def _read_json(res):
     return json.loads(_read_body(res) or b"null")
 
@@ -292,7 +300,7 @@ class SupabaseAuth:
             # Retry without only the optional columns the error names as missing (a table not migrated yet). Any
             # other 400 is not retried: dropping attempt_id there would leave the learner's page holding an id that
             # no row has, so a later report would point at nothing.
-            detail = e.read().decode(errors="replace")[:300] if e.code == 400 else ""
+            detail = _error_detail(e) if e.code == 400 else ""
             missing = [k for k in OPTIONAL_ATTEMPT_COLUMNS if k in row and f"'{k}'" in detail]
             if missing:
                 legacy = {k: v for k, v in row.items() if k not in missing}
@@ -361,7 +369,7 @@ class SupabaseAuth:
         try:
             urllib.request.urlopen(req, timeout=TIMEOUT).close()
         except urllib.error.HTTPError as e:
-            raise AuthUnavailable(f"supabase answered {e.code}: {e.read().decode(errors='replace')[:300]}") from e
+            raise AuthUnavailable(f"supabase answered {e.code}: {_error_detail(e)}") from e
         except (urllib.error.URLError, TimeoutError) as e:
             raise AuthUnavailable(str(e)) from e
 
@@ -395,7 +403,7 @@ class SupabaseAuth:
         try:
             return _open_json(req, timeout)
         except urllib.error.HTTPError as e:
-            detail = e.read().decode(errors="replace")[:300]
+            detail = _error_detail(e)
             if e.code == 409:
                 raise ClassConflict(detail) from e
             raise AuthUnavailable(f"supabase answered {e.code}: {detail}", kind=_failure_kind(e)) from e
@@ -851,7 +859,7 @@ class SupabaseAuth:
                 data = res.read()
                 media_type = res.headers.get_content_type()
         except urllib.error.HTTPError as e:
-            detail = e.read().decode(errors="replace")[:300]
+            detail = _error_detail(e)
             suffix = f": {detail}" if detail else ""
             raise AuthUnavailable(f"{bucket} audio unavailable: Supabase answered {e.code}{suffix}") from e
         except (urllib.error.URLError, TimeoutError) as e:
@@ -948,7 +956,7 @@ class SupabaseAuth:
         try:
             urllib.request.urlopen(req, timeout=max(TIMEOUT, 60)).close()
         except urllib.error.HTTPError as e:
-            raise AuthUnavailable(f"supabase storage answered {e.code}: {e.read().decode(errors='replace')[:300]}") from e
+            raise AuthUnavailable(f"supabase storage answered {e.code}: {_error_detail(e)}") from e
         except (urllib.error.URLError, TimeoutError) as e:
             raise AuthUnavailable(str(e)) from e
 
