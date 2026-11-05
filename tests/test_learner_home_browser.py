@@ -162,7 +162,8 @@ out.focused=document.activeElement&&document.activeElement.id;
 out.actions=[...document.querySelectorAll("#vids .focus-action")].map(b=>b.getAttribute("aria-label"));
 out.rewardVisible=getComputedStyle(document.getElementById("rewardShelf")).display!=="none";
 out.dailyPracticeOnHome=[...document.querySelectorAll("#vids button")].some(b=>b.textContent.includes("תרגול יומי"));
-out.referOnHome=document.querySelector("#vids .focus-refer")?.textContent;
+out.referOnHome=document.querySelector("#vids .focus-refer strong")?.textContent;
+out.referNew=!!document.querySelector("#vids .focus-refer.promo");
 out.referInNav=!document.querySelector('#nav [data-view="refer"]').hidden;
 out.homeTab=!document.querySelector('#nav [data-view="home"]').hidden;
 out.where=document.querySelector("#vids .focus-where span").textContent;
@@ -180,7 +181,7 @@ def test_first_visit_asks_the_lesson_then_shows_the_home_without_a_reminder_prom
     assert r["focusInDialog"] and r["openAfterEscape"] and r["unchosen"] == "בחרו שיעור כדי להמשיך."
     assert r["focused"] == "focusTitle" and r["homeTab"] and r["noOverflow"]
     assert r["rewardVisible"] is True and r["dailyPracticeOnHome"] is False
-    assert r["referOnHome"] == "חבר מביא חבר" and r["referInNav"] is False
+    assert r["referOnHome"] == "חבר מביא חבר 🧡" and r["referNew"] is True and r["referInNav"] is False
     assert "שיעור 5" in r["where"] and "א1" in r["where"]
     assert 1 <= len(r["actions"]) <= 3
     assert json.loads(r["local"]) == {"lesson": "5", "synced": True}
@@ -341,13 +342,16 @@ document.querySelector("#vids .focus-refer").click();
 await until(()=>view()==="refer");
 out.view=view(); out.title=document.querySelector("#vids .refer h2").textContent;
 out.seen=localStorage.getItem("ihki.referSeen.2027");
+showView("home"); await sleep(100);
+out.stillNew=!!document.querySelector("#vids .focus-refer.promo");
 """
 
 
 def test_refer_a_friend_moves_from_the_nav_to_the_focused_home(site):
     site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
     r = site("dana@x.com", REFER)
-    assert r == {"pushCan": True, "navHidden": True, "view": "refer", "title": "חבר מביא חבר 🧡", "seen": "true"}
+    assert r == {"pushCan": True, "navHidden": True, "view": "refer", "title": "חבר מביא חבר 🧡", "seen": "true",
+                 "stillNew": False}   # once opened, the card is no longer marked
 
 
 REMINDER = """
@@ -379,10 +383,80 @@ out.homeTab=!document.querySelector('#nav [data-view="home"]').hidden;
 """
 
 
-def test_teachers_keep_the_path(site):
-    for teacher in ("boss@x.com", "t@x.com"):   # a teacher of the whole service, and a class's own teacher
-        r = site(teacher, PATH_FIRST)
-        assert r == {"pushCan": True, "view": "", "asked": False, "homeTab": False}, teacher
+def test_managers_keep_the_path_and_a_classs_own_teacher_is_its_student(site):
+    r = site("boss@x.com", PATH_FIRST)   # a manager of the whole service
+    assert r == {"pushCan": True, "view": "", "asked": False, "homeTab": False}
+    r = site("t@x.com", PATH_FIRST)      # a class's own teacher, a guide: asked for the lesson as its students are
+    assert r["asked"] is True
+
+
+TEACHER_NAV = """
+await sleep(1500);
+out.referTab=!document.querySelector('#nav [data-view="refer"]').hidden;
+showView("games"); await sleep(100); showView(""); await sleep(100);   // drawn again
+out.referTabAfter=!document.querySelector('#nav [data-view="refer"]').hidden;
+"""
+
+
+def test_teachers_have_no_refer_a_friend_tab(site):
+    r = site("boss@x.com", TEACHER_NAV)
+    assert r["referTab"] is False and r["referTabAfter"] is False
+
+
+PREVIEW = """
+await sleep(1500);
+const pill=document.getElementById("myClass"), tab=v=>!document.querySelector(`#nav [data-view="${v}"]`).hidden;
+const choices=()=>[...document.querySelectorAll("#picks button")];
+out.pill=pill.textContent;
+pill.click(); await until(()=>open("pickDlg"));
+out.choices=choices().map(b=>b.firstChild.textContent);
+choices().find(b=>b.firstChild.textContent==="כיתת א1").click();
+await until(()=>open("lessonDlg"));
+out.lessons=[...document.querySelectorAll("#lessonDlg input[name=lesson]")].map(r=>r.value);
+document.querySelector('#lessonDlg input[value="4"]').checked=true;
+document.querySelector("#lessonDlg form").requestSubmit();
+await until(()=>view()==="home");
+out.asStudent={pill:pill.textContent,where:document.querySelector("#vids .focus-where span").textContent,
+  refer:!!document.querySelector("#vids .focus-refer"),homeTab:tab("home"),referTab:tab("refer"),lessons:LESSONS.map(l=>l.id)};
+out.kept=localStorage.getItem("ihki.preview:boss@x.com");
+pill.click(); await until(()=>open("pickDlg"));
+choices()[0].click(); await sleep(300);   // every lesson again
+out.back={pill:pill.textContent,view:view(),homeTab:tab("home"),referTab:tab("refer"),many:LESSONS.length>3};
+"""
+
+
+def test_a_teacher_views_the_app_as_a_classs_student_and_back(site):
+    r = site("boss@x.com", PREVIEW)
+    assert r["pill"] == "👁 תצוגה כתלמיד"
+    assert r["choices"] == ["כל השיעורים", "כיתת א1", "כיתת אחרת"]
+    assert r["lessons"] == ["3", "4", "5"]
+    assert r["asStudent"] == {"pill": "👁 כתלמיד: כיתת א1", "where": r["asStudent"]["where"], "refer": True,
+                              "homeTab": True, "referTab": False, "lessons": ["3", "4", "5"]}
+    assert "שיעור 4" in r["asStudent"]["where"]
+    assert r["kept"] == "7"
+    assert ("boss@x.com", 7) not in site.auth.rows   # the teacher's choice is not a student's: the device keeps it
+    assert r["back"] == {"pill": "👁 תצוגה כתלמיד", "view": "", "homeTab": False, "referTab": False, "many": True}
+
+
+PREVIEW_PICK = """
+await sleep(1500);
+document.getElementById("myClass").click(); await until(()=>open("pickDlg"));
+[...document.querySelectorAll("#picks button")].find(b=>b.firstChild.textContent==="כיתת א1").click();
+await until(()=>open("lessonDlg"));
+document.querySelector('#lessonDlg input[value="4"]').checked=true;
+document.querySelector("#lessonDlg form").requestSubmit();
+await until(()=>view()==="home");
+"""
+PREVIEW_KEPT = """
+await sleep(1500);
+out.view=view(); out.pill=document.getElementById("myClass").textContent;
+"""
+
+
+def test_a_teachers_view_is_kept_for_the_next_visit(site):
+    site("boss@x.com", PREVIEW_PICK)
+    r = site("boss@x.com", PREVIEW_KEPT)   # the same browser profile: the lesson and the view were kept on the device
+    assert r == {"pushCan": True, "view": "home", "pill": "👁 כתלמיד: כיתת א1"}
 
 
 UNREACHABLE = """
@@ -430,6 +504,28 @@ def test_each_class_asks_for_its_own_lesson(site):
     assert site.auth.rows[("dana@x.com", 8)]["current_lesson"] == "2.2"
 
 
+SEVERAL_LEVELS = """
+await until(()=>open("lessonDlg"));
+const dlg=document.getElementById("lessonDlg");
+out.groups=[...dlg.querySelectorAll(".lesson-group")].map(g=>g.textContent);
+out.lessons=[...dlg.querySelectorAll("input[name=lesson]")].map(r=>r.value);
+out.where=dlg.querySelector(".lesson-where").textContent;
+dlg.querySelector('input[value="2.1"]').checked=true; dlg.querySelector("form").requestSubmit();
+await until(()=>view()==="home");
+out.home=document.querySelector("#vids .focus-where span").textContent;
+out.noOverflow=document.documentElement.scrollWidth<=innerWidth;
+"""
+
+
+def test_a_class_of_two_levels_asks_for_a_lesson_of_either(site):
+    site.auth.layout = [CLASSES[2]]   # lessons 5 and 2.1, like the guides' class
+    r = site("dana@x.com", SEVERAL_LEVELS)
+    assert r["lessons"] == ["5", "2.1"] and len(r["groups"]) == 2 and r["groups"][0] != r["groups"][1]
+    assert r["where"] == "כיתת מעורבת"   # no one level's name: each heads its own lessons
+    assert r["home"] == f"כיתת מעורבת · {r['groups'][1]} · שיעור 10"   # 2.1 is "שיעור 10", as is lesson 10 of level 1
+    assert r["noOverflow"] and site.auth.rows[("dana@x.com", 9)]["current_lesson"] == "2.1"
+
+
 AMBIGUOUS = """
 await until(()=>open("lessonDlg"));
 const dlg=document.getElementById("lessonDlg");
@@ -441,8 +537,8 @@ out.view=view(); out.open=open("lessonDlg"); out.pathShown=document.querySelecto
 """
 
 
-def test_a_class_of_two_levels_asks_for_a_correction_and_keeps_the_path(site):
-    site.auth.layout = [CLASSES[2]]   # lessons 5 and 2.1
+def test_a_class_that_names_no_lessons_asks_for_a_correction_and_keeps_the_path(site):
+    site.auth.layout = [dict(CLASSES[2], lessons=[])]   # it studies every lesson: no current one can be told
     r = site("dana@x.com", AMBIGUOUS)
     assert r["radios"] == 0 and "לתקן את הגדרות הכיתה" in r["message"]
     assert r["view"] == "" and r["open"] is False and r["pathShown"]
@@ -689,10 +785,11 @@ out.groups=groups().map(g=>g.querySelector("summary b").textContent);
 out.emails=groups().map(g=>[...g.querySelectorAll("tbody td:first-child small")].map(s=>s.textContent));
 const row=[...document.querySelectorAll("#mAccess tbody tr")].find(r=>r.textContent.includes("dana@x.com"));
 const sel=row.querySelector("select"), save=row.querySelector(".save-cell button");
-out.saveBefore=save.disabled; sel.value="teacher"; sel.dispatchEvent(new Event("change")); out.saveAfter=save.disabled;
+out.saveBefore=save.disabled; out.options=[...sel.options].map(o=>o.value);
+sel.value="admin"; sel.dispatchEvent(new Event("change")); out.saveAfter=save.disabled;
 save.click();
-await until(()=>groups()[1].textContent.includes("dana@x.com"));
-out.moved=groups()[1].querySelector("tbody td:first-child small").textContent;
+await until(()=>groups()[0].textContent.includes("dana@x.com"));
+out.moved=[...groups()[0].querySelectorAll("tbody td:first-child small")].map(s=>s.textContent);
 out.selfLocked=[...document.querySelectorAll("#mAccess tbody tr")].find(r=>r.textContent.includes("boss@x.com")).querySelector("select").disabled;
 // the class dialog: the library sections its students see; a section covers its sub-sections
 document.querySelector('#mModes [data-mode="classes"]').click();
@@ -710,7 +807,7 @@ out.sent=sent.library_sections;
 """
 
 
-def test_permissions_are_three_groups_and_a_class_picks_its_library_sections(site):
+def test_permissions_are_two_groups_and_a_class_picks_its_library_sections(site):
     access = {"id-dana@x.com": {"roles": ["student", "flagger"], "entitlements": []}}
     site.auth.users = lambda fresh=False: [{"id": f"id-{e}", "email": e, "name": e.split("@")[0]}
                                            for e in ("boss@x.com", "dana@x.com")]
@@ -719,10 +816,10 @@ def test_permissions_are_three_groups_and_a_class_picks_its_library_sections(sit
     site.auth.set_access = lambda target, roles, entitlements, actor: access.__setitem__(
         target["id"], {"roles": roles, "entitlements": entitlements})
     r = site("boss@x.com", ACCESS_TIERS)
-    assert r["groups"] == ["מנהלים", "מתרגלים", "תלמידים"]
-    assert r["emails"] == [["boss@x.com"], [], ["dana@x.com"]]
-    assert r["saveBefore"] and not r["saveAfter"] and r["moved"] == "dana@x.com" and r["selfLocked"]
-    assert "teacher" in access["id-dana@x.com"]["roles"]
+    assert r["groups"] == ["מנהלים", "תלמידים"] and r["options"] == ["admin", "student"]
+    assert r["emails"] == [["boss@x.com"], ["dana@x.com"]]
+    assert r["saveBefore"] and not r["saveAfter"] and "dana@x.com" in r["moved"] and r["selfLocked"]
+    assert "admin" in access["id-dana@x.com"]["roles"]
     assert r["ticked"] == ["digital", "d1", "d2", "d3", "d4", "nitmaran", "avot"]
     assert r["locked"] == ["d1", "d2", "d3", "d4", "nitmaran"]
     assert r["sent"] == ["d2", "avot"]   # unticking the section frees its sub-sections; one picked alone

@@ -188,7 +188,7 @@ def mcp_access_decision(user: dict[str, Any] | None) -> tuple[bool, str]:
     """Whether a resolved identity may use the MCP connector, and why.
 
     Allowed: managers only (the tier מנהלים: the role ``admin``, TEACHER_EMAILS, developers), i.e. anyone with
-    ``mcp.use``. מתרגלים and students are refused, also when they teach a class.
+    ``mcp.use``. Students are refused, also when they teach a class (a guide, מתרגל, is a student).
     """
     if not user:
         return False, "unknown_user"
@@ -270,7 +270,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                       "publish_teacher_change for scoped class and instructional-content management. Always prepare "
                       "a mutation, show its exact effect, and publish only after explicit confirmation. Never offer "
                       "subject-assignment, lab (developer), OAuth, credential, or secret changes. A manager may move an "
-                      "account between the three tiers (מנהלים, מתרגלים, תלמידים) with list_user_access, "
+                      "account between the two tiers (מנהלים, תלמידים) with list_user_access, "
                       "prepare_user_access_change and publish_user_access_change; a class's digital-library sections "
                       "are set with prepare_teacher_change operation set_class_library_sections. "
                       "A learner feature (each game, יאללה נדבר, practice, path, every lesson or library section) is "
@@ -629,7 +629,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                        "manager overrode it, and fixed_by_server when the server's settings pin it. One account's own "
                        "exception (set in the permission screen) wins over its tier. Managers only."),
           structured_output=True)
-    async def list_feature_access(tier: Literal["admin", "teacher", "student"] | None = None) -> dict[str, Any]:
+    async def list_feature_access(tier: Literal["admin", "student"] | None = None) -> dict[str, Any]:
         current, store, error = access_manager()
         if current is None:
             return {"ok": False, "error": error, "features": []}
@@ -651,7 +651,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                        "accounts it has (counts only), and how many of them keep their own exception. Returns a "
                        "ten-minute approval; this does not change data. Publish with publish_feature_access_change "
                        "only after the manager explicitly confirms."), structured_output=True)
-    async def prepare_feature_access_change(feature_key: str, tiers: list[Literal["admin", "teacher", "student"]] | Literal["all"],
+    async def prepare_feature_access_change(feature_key: str, tiers: list[Literal["admin", "student"]] | Literal["all"],
                                             enabled: bool) -> dict[str, Any]:
         current, store, error = access_manager()
         if current is None:
@@ -663,7 +663,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             return {"ok": False, "error": "אין תכונה כזו. האפשרויות: " + ", ".join(FEATURES)}
         chosen = list(TIERS) if tiers == "all" else [t for t in TIERS if t in (tiers or [])]
         if not chosen:
-            return {"ok": False, "error": "בחרו שכבה אחת לפחות: admin, teacher, student או all"}
+            return {"ok": False, "error": "בחרו שכבה אחת לפחות: admin, student או all"}
         try:
             def read():
                 state, installed = feature_state(store)
@@ -925,10 +925,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         note_audit_refusal(outcome, reason)
         log.info("MCP access action=%s outcome=%s reason=%s", action, outcome, reason)
 
-    @tool(description=("List every account with its permission tier (admin=מנהלים, teacher=מתרגלים, "
+    @tool(description=("List every account with its permission tier (admin=מנהלים, "
                        "student=תלמידים), whether it has the lab (developer), and whether the server's settings fix "
                        "it. Managers only. " + TIER_HELP), structured_output=True)
-    async def list_user_access(tier: Literal["admin", "teacher", "student"] | None = None) -> dict[str, Any]:
+    async def list_user_access(tier: Literal["admin", "student"] | None = None) -> dict[str, Any]:
         current, store, error = access_manager()
         if current is None:
             return {"ok": False, "error": error, "users": []}
@@ -943,11 +943,11 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         return {"ok": True, "tiers": [{"id": t, "name": TIER_NAMES[t]} for t in TIERS], "users": users,
                 "counts": {t: sum(u["tier"] == t for u in rows) for t in TIERS}}
 
-    @tool(description=("Prepare moving one account (by email) to a permission tier: admin (מנהלים), teacher "
-                       "(מתרגלים) or student (תלמידים). Shows the change and returns a ten-minute approval; this does "
+    @tool(description=("Prepare moving one account (by email) to a permission tier: admin (מנהלים) or "
+                       "student (תלמידים). Shows the change and returns a ten-minute approval; this does "
                        "not change data. Publish with publish_user_access_change only after the manager explicitly "
                        "confirms. The lab (developer) is not changed here. " + TIER_HELP), structured_output=True)
-    async def prepare_user_access_change(email: str, tier: Literal["admin", "teacher", "student"]) -> dict[str, Any]:
+    async def prepare_user_access_change(email: str, tier: Literal["admin", "student"]) -> dict[str, Any]:
         current, store, error = access_manager()
         if current is None:
             return {"ok": False, "error": error}

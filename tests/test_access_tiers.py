@@ -1,5 +1,5 @@
-"""The three permission tiers (מנהלים, מתרגלים, תלמידים): what each opens, how the page and the MCP move an account
-between them, and the library sections a class opens to its students."""
+"""The two permission tiers (מנהלים, תלמידים; a guide, מתרגל, is a student of their classes): what each opens, how the
+page and the MCP move an account between them, and the library sections a class opens to its students."""
 import asyncio
 
 import httpx
@@ -67,13 +67,13 @@ def test_each_tier_opens_what_it_should():
             "path.use", "library.view", "flags.create", "exercises.use_all"} <= admin
     assert "lab.access" not in admin and "*" not in admin
 
+    # there is no מתרגלים tier: an account saved in it (the role "teacher" without "admin") is a student of its classes
     auth.access["student-1"] = {"roles": ["teacher", "flagger"], "entitlements": []}
-    trainer = who(auth, "student-1", "student@example.com")
-    perms = set(trainer["permissions"])
-    assert {"games.use", "practice.use", "path.use", "library.view", "flags.create",
-            "exercises.use_all"} <= perms
-    assert not perms & {"tutor.use", "management.access", "users.manage", "mcp.use", "lab.access"}   # יאללה נדבר: managers only
-    assert trainer["tier"] == "teacher" and trainer["library_sections"] == library.LEAVES
+    guide = who(auth, "student-1", "student@example.com")
+    perms = set(guide["permissions"])
+    assert {"games.use", "practice.use", "path.use", "library.view", "flags.create"} <= perms
+    assert not perms & {"tutor.use", "management.access", "users.manage", "mcp.use", "lab.access", "exercises.use_all"}
+    assert guide["tier"] == "student" and guide["teacher"] is False and guide["library_sections"] == ["village"]
 
     # a student keeps no יאללה נדבר even with the old per-user permission saved
     auth.access["student-1"] = {"roles": ["student"], "entitlements": ["tutor", "practice"]}
@@ -101,21 +101,22 @@ def test_the_page_lists_tiers_and_moves_an_account(monkeypatch):
 
     async def steps(client):
         out = {"list": (await client.get("/api/access/users", headers=MANAGER)).json()}
-        out["move"] = await client.put("/api/access/users/student-1", headers=MANAGER, json={"tier": "teacher"})
+        out["student"] = await client.get("/api/access/users", headers=STUDENT)   # before student-1 is made a manager
+        out["move"] = await client.put("/api/access/users/student-1", headers=MANAGER, json={"tier": "admin"})
+        out["guide"] = await client.put("/api/access/users/student-1", headers=MANAGER, json={"tier": "teacher"})
         out["self"] = await client.put("/api/access/users/teacher-1", headers=MANAGER, json={"tier": "student"})
         out["dev"] = await client.put("/api/access/users/dev-1", headers=MANAGER, json={"tier": "student"})
         out["lab"] = await client.put("/api/access/users/student-1", headers=MANAGER,
-                                      json={"tier": "teacher", "developer": True})
+                                      json={"tier": "admin", "developer": True})
         out["bad"] = await client.put("/api/access/users/student-1", headers=MANAGER, json={"tier": "boss"})
-        out["student"] = await client.get("/api/access/users", headers=STUDENT)
         return out
 
     out = run(auth, steps, monkeypatch)
     tiers = {u["email"]: u["tier"] for u in out["list"]["users"]}
     assert tiers == {"teacher@example.com": "admin", "student@example.com": "student", "dev@example.com": "admin"}
-    assert [t["name"] for t in out["list"]["tiers"]] == ["מנהלים", "מתרגלים", "תלמידים"]
-    assert out["move"].status_code == 200
-    assert auth.access["student-1"] == {"roles": ["flagger", "teacher"], "entitlements": [], "subject": ""}
+    assert [t["name"] for t in out["list"]["tiers"]] == ["מנהלים", "תלמידים"]
+    assert out["move"].status_code == 200 and out["guide"].status_code == 400   # the מתרגלים tier is gone
+    assert auth.access["student-1"] == {"roles": ["admin", "flagger", "teacher"], "entitlements": [], "subject": ""}
     assert out["self"].status_code == 403 and out["dev"].status_code == 403 and out["lab"].status_code == 403
     assert out["bad"].status_code == 400 and out["student"].status_code == 403
 
@@ -150,16 +151,16 @@ def test_a_manager_moves_an_account_through_the_mcp():
     listed = call(server, "list_user_access", {})
     assert listed["ok"] and {u["email"]: u["tier"] for u in listed["users"]}["student@example.com"] == "student"
     assert call(server, "list_user_access", {"tier": "student"})["users"][0]["email"] == "student@example.com"
-    prepared = call(server, "prepare_user_access_change", {"email": "Student@Example.com", "tier": "teacher"})
-    assert prepared["ok"] and prepared["before"]["name"] == "תלמידים" and prepared["after"]["name"] == "מתרגלים"
+    prepared = call(server, "prepare_user_access_change", {"email": "Student@Example.com", "tier": "admin"})
+    assert prepared["ok"] and prepared["before"]["name"] == "תלמידים" and prepared["after"]["name"] == "מנהלים"
     assert "student-1" not in auth.access   # preparing changes nothing
     published = call(server, "publish_user_access_change", {"approval_id": prepared["approval_id"]})
-    assert published["ok"] and published["tier"] == "teacher"
-    assert "teacher" in auth.access["student-1"]["roles"]
+    assert published["ok"] and published["tier"] == "admin"
+    assert "admin" in auth.access["student-1"]["roles"]
     again = call(server, "publish_user_access_change", {"approval_id": prepared["approval_id"]})
     assert not again["ok"]   # single use
 
-    stale = call(server, "prepare_user_access_change", {"email": "student@example.com", "tier": "admin"})
+    stale = call(server, "prepare_user_access_change", {"email": "student@example.com", "tier": "student"})
     auth.access["student-1"] = {"roles": ["student", "flagger"], "entitlements": []}   # changed meanwhile on the page
     assert not call(server, "publish_user_access_change", {"approval_id": stale["approval_id"]})["ok"]
     assert not call(server, "prepare_user_access_change", {"email": "teacher@example.com", "tier": "student"})["ok"]

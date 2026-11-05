@@ -114,6 +114,7 @@ def test_me_has_class_ids_levels_and_no_lesson_before_a_choice(client):
     mine = classes_of(client, "dana")
     assert set(mine) == {7, 8, 9}
     assert [(mine[i]["level"], mine[i]["current_lesson"]) for i in (7, 8, 9)] == [("1", None), ("2", None), (None, None)]
+    assert [mine[i]["levels"] for i in (7, 8, 9)] == [["1"], ["2"], ["1", "2"]]   # a class of two levels is chosen in too
     assert "teacher" not in mine[7]
     assert classes_of(client, "t")[7]["teacher"] is True
 
@@ -140,11 +141,15 @@ def test_update_is_refused_outside_the_students_own_valid_choice(client):
                                                    headers=as_(who) if who else {}, **k).status_code
     assert put(None, 7, "5") == 401                 # not signed in
     assert put("dana", 10, "1") == 403              # someone else's class
-    assert put("t", 7, "5") == 403                  # the class's teacher keeps the path
-    assert put("dana", 9, "5") == 409               # lessons of two levels: the class must be fixed first
     assert put("dana", 7, "2.1") == 400             # a lesson of another class
     assert put("dana", 7, "") == 400
     assert client.fake.rows == {}
+    assert put("t", 7, "5") == 200                  # the class's own teacher (a guide) is its student too
+    assert put("dana", 9, "2.1") == 200             # a class of two levels: a lesson of either
+    assert set(client.fake.rows) == {("t@x.com", 7), ("dana@x.com", 9)}
+    named = client.fake.classes
+    client.fake.classes = lambda fresh=False: [dict(c, lessons=[]) if c["id"] == 9 else c for c in named()]
+    assert put("dana", 9, "1") == 409               # a class that names no lessons must be fixed first
 
 
 def test_unavailable_storage_keeps_me_working_and_refuses_the_save(client):
@@ -190,9 +195,9 @@ def test_the_servers_lesson_wins_and_a_devices_one_is_sent_again():
 
 
 def test_who_is_asked_for_a_lesson():
-    assert js('[LH.classState({level:"1"}),LH.classState({level:null}),LH.classState({level:"1",teacher:true}),'
-              'LH.classState({subject:"math",level:null}),LH.classState(null)]') == \
-        ["ok", "ambiguous", "teacher", "math", "none"]
+    assert js('[LH.classState({level:"1"}),LH.classState({level:null,levels:[]}),LH.classState({level:"1",teacher:true}),'
+              'LH.classState({level:null,levels:["1","2"]}),LH.classState({subject:"math",level:null}),LH.classState(null)]') == \
+        ["ok", "ambiguous", "ok", "ok", "math", "none"]   # a class's own teacher is asked as its students are
 
 
 def test_actions_keep_priority_drop_duplicates_and_what_cannot_start():

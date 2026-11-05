@@ -22,7 +22,7 @@ class SectionAuth(LibraryAuth):
 
     def access_for(self, user_id, fresh=False):
         if user_id == "student-1" and self.roles is not None:
-            return {"roles": self.roles, "entitlements": []}
+            return {"roles": self.roles, "entitlements": [], "overrides": getattr(self, "overrides", {})}
         return None
 
     def update_level_video(self, table, item_id, *, level, title, url):
@@ -47,9 +47,13 @@ def test_a_section_covers_its_sub_sections_and_students_see_their_classes_sectio
     assert old["library_sections"] == ["d1"]
     none = resolve_user_access(SectionAuth([]), student)
     assert none["library_sections"] == [] and "library.view" not in none["permissions"]
-    # a מתרגל sees every section, whatever their class opens
+    # a guide saved in the old מתרגלים tier is a student: their class's sections, and those given to them alone
     trainer = resolve_user_access(SectionAuth([], roles=["teacher", "flagger"]), student)
-    assert trainer["library_sections"] == library.LEAVES and trainer["tier"] == "teacher"
+    assert trainer["library_sections"] == [] and trainer["tier"] == "student"
+    auth = SectionAuth([], roles=["teacher", "flagger"])
+    auth.overrides = {"lib:guides": True}
+    guide = resolve_user_access(auth, student)
+    assert guide["library_sections"] == ["guides"] and "library.view" in guide["permissions"]
     teacher = resolve_user_access(SectionAuth(), {"id": "teacher-1", "email": "teacher@example.com"})
     assert teacher["library_sections"] == library.LEAVES
 

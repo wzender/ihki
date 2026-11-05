@@ -20,13 +20,13 @@ function resolveLesson(server,local,lessons){
   return {lesson:null,retry:false};
 }
 
-/* Whether a class's current lesson can be asked: "ok"; "math" (its own path, not asked); "teacher" (they teach it:
-   the path stays); "ambiguous" (its lessons are not of one level, so the class must be corrected); "none". */
+/* Whether a class's current lesson can be asked: "ok" (its lessons are of one level or several; a class's own teacher,
+   a guide, is asked as its students are); "math" (its own path, not asked); "ambiguous" (it names no lessons, so the
+   class must be corrected); "none". */
 function classState(cls){
   if(!cls) return "none";
   if(cls.subject==="math") return "math";
-  if(cls.teacher) return "teacher";
-  return cls.level?"ok":"ambiguous";
+  return cls.level||(cls.levels&&cls.levels.length)?"ok":"ambiguous";
 }
 
 /* The lessons daily practice takes its new sentences from, in turn: the homework's, the current one, the first
@@ -68,7 +68,8 @@ function el(tag,cls,text){
 }
 
 /* The home. `o`: {className, lessonName, actions: [{kind, title, detail, go, state, run}], done: the current lesson is
-   finished, onChange, onPath, onRefer}. Its heading takes the focus when `focus` is set. */
+   finished, onChange, onPath, onRefer (none: no refer card), referNew: the refer card is marked as new}. Its heading
+   takes the focus when `focus` is set. */
 function renderHome(box,o,focus){
   const page=el("section","focus"), head=el("header"), where=el("p","focus-where"), title=el("h2","","מה עושים עכשיו?");
   page.setAttribute("aria-labelledby","focusTitle"); title.id="focusTitle"; title.tabIndex=-1;
@@ -89,15 +90,22 @@ function renderHome(box,o,focus){
   });
   if(o.actions.length) page.append(list);
   else page.append(el("p","focus-note","אין כרגע פעילות מומלצת. אפשר להמשיך מהמסלול המלא."));
-  const more=el("div","focus-more"), refer=el("button","focus-refer","חבר מביא חבר"), path=el("button","focus-path","צפייה במסלול המלא");
-  refer.type=path.type="button"; refer.onclick=o.onRefer; path.onclick=o.onPath;
-  more.append(path,refer); page.append(more);   // the full path first (on the right, in RTL)
+  if(o.onRefer){   // refer a friend: a card of its own under the actions, marked until it is first opened
+    const refer=el("button","focus-refer"+(o.referNew?" promo":"")); refer.type="button";
+    refer.append(el("strong","","חבר מביא חבר 🧡"),el("span","focus-detail","200 ₪ הנחה לכם, 100 ₪ לחבר או לחברה"));
+    refer.setAttribute("aria-label","חבר מביא חבר: 200 ₪ הנחה לכם, 100 ₪ לחבר או לחברה"+(o.referNew?", הטבה חדשה":""));
+    refer.onclick=o.onRefer; page.append(refer);
+  }
+  const more=el("div","focus-more"), path=el("button","focus-path","צפייה במסלול המלא");
+  path.type="button"; path.onclick=o.onPath;
+  more.append(path); page.append(more);
   box.append(page);
   if(focus) title.focus({preventScroll:true});
   return page;
 }
 
-/* The question "which lesson is the class on now?" in `dlg`. `o`: {className, levelName, lessons: [{id, name}],
+/* The question "which lesson is the class on now?" in `dlg`. `o`: {className, levelName, lessons: [{id, name, group:
+   the level's name, for a class of several}],
    selected, required: Escape does not close it, error: a message in place of the lessons, onConfirm(id) (may be async;
    a thrown error is shown and the question stays), after(id): once it has closed, onPath}. */
 function openLessonDialog(dlg,o){
@@ -117,8 +125,9 @@ function openLessonDialog(dlg,o){
   }
   const form=el("form","lesson-form"), set=el("fieldset"), legend=el("legend","sr-only","השיעור הנוכחי");
   form.method="dialog"; set.append(legend);
-  let first=null;
+  let first=null, group=null;
   for(const l of o.lessons){
+    if(l.group&&l.group!==group){ group=l.group; set.append(el("p","lesson-group",group)); }   // a class of several levels: each one's heading
     const label=el("label","lesson-option"), radio=el("input");
     radio.type="radio"; radio.name="lesson"; radio.value=l.id; radio.checked=l.id===o.selected;
     label.append(radio,el("span","",l.name)); set.append(label);

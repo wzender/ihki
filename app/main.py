@@ -350,10 +350,20 @@ def class_level(c: dict) -> str | None:
     return next(iter(levels)) if len(levels) == 1 else None
 
 
+def named_levels(c: dict) -> list[str]:
+    """The course levels of the lessons an Arabic class names, in the course's order: its current lesson is chosen from
+    them, one level or several (a guides' class spans שלב א and שלב ב). None for a math class, nor for a class that
+    names no lessons (it studies every lesson): that class's configuration has to be corrected first."""
+    if is_math(c):
+        return []
+    named = set(c.get("lessons") or [])
+    return list(dict.fromkeys(LESSON_LEVEL[l] for l in ALL_LESSONS if l in named and l in LESSON_LEVEL))
+
+
 def saved_lesson(c: dict, saved: dict[int, str]) -> str | None:
     """The current lesson the student keeps for this class, when it is still one of the class's lessons."""
     lesson = saved.get(c.get("id"))
-    return lesson if lesson and class_level(c) and lesson in lessons_of(c) else None
+    return lesson if lesson and named_levels(c) and lesson in lessons_of(c) else None
 
 
 def homework_of(c: dict, topics: dict[str, str] = TOPIC_LESSON) -> dict:
@@ -920,19 +930,25 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 saved = got if isinstance(got, dict) else {}
             except AuthUnavailable as e:
                 log.warning("current lessons not read: %s", e)
+        rows = daily_rows() if user else []
+
+        def class_view(c: dict, who: dict | None) -> dict:   # a class as its student gets it
+            return {"id": c.get("id"), "name": c["name"],
+                    "lessons": class_lessons(c) if is_math(c) else with_levels(class_lessons(c), who),
+                    **homework_of(c, topics()), "dailies": dailies_of(c, rows), "level": class_level(c), "levels": named_levels(c),
+                    **({"subject": s} if (s := subject_code(c.get("subject"))) else {})}
+        # a teacher's "view as a student": every class as its students get it (no account's level exceptions, no
+        # current lesson: the teacher's choice in the preview stays on their device)
+        preview = [class_view(c, None) for c in app.state.auth.classes()] if user and user["teacher"] else []
         return {"email": user["email"] if user else "", "teacher": bool(user and user["teacher"]),
+                **({"preview_classes": preview} if preview else {}),
                 **({"subject": subject} if subject else {}),
                 **({"tutor": True} if user and user["tutor"] else {}),   # the page shows them the flag under a score
                 "roles": user.get("roles", []) if user else [], "entitlements": user.get("entitlements", []) if user else [],
                 "permissions": user.get("permissions", []) if user else ["*"],
                 **({"dailies": sorted(every.values(), key=lambda d: (d["date"], d["id"]))} if can_all else {}),
-                "classes": [{"id": c.get("id"), "name": c["name"],
-                             "lessons": class_lessons(c) if is_math(c) else with_levels(class_lessons(c), user),
-                             **homework_of(c, topics()),
-                             "dailies": dailies_of(c, daily_rows()), "level": class_level(c),
-                             "current_lesson": saved_lesson(c, saved),
-                             **({"teacher": True} if email in (c.get("teachers") or []) else {}),
-                             **({"subject": s} if (s := subject_code(c.get("subject"))) else {})} for c in mine],
+                "classes": [{**class_view(c, user), "current_lesson": saved_lesson(c, saved),
+                             **({"teacher": True} if email in (c.get("teachers") or []) else {})} for c in mine],
                 **({"teaches": [{"id": c["id"], "name": c["name"], "lessons": class_lessons(c)}
                                   for c in user.get("teaches", [])]} if user and user.get("teaches") else {}),
                 "lessons": lessons}
@@ -940,16 +956,17 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.put("/api/me/classes/{class_id}/current-lesson")
     def set_current_lesson(class_id: int, body: dict = Body(...), user: dict | None = Depends(signed_in)):
         """The lesson a student's class is on now ({"lesson": a lesson id}), kept for that student and class only. The
-        class must be one the caller studies in (not one they teach), of one level, and the lesson one of its lessons."""
+        class must be one the caller studies in (a class's own teacher, a guide, studies in it too), it must name its
+        lessons (of one level or several), and the lesson must be one of them."""
         a: SupabaseAuth | None = app.state.auth
         if a is None or user is None:
             raise HTTPException(401, "sign in required")
         email = user["email"].lower()
         course = next((c for c in user["classes"] if c.get("id") == class_id), None)
-        if course is None or email in (course.get("teachers") or []):
+        if course is None:
             raise HTTPException(403, "רק תלמיד/ה בכיתה יכול/ה לבחור את השיעור הנוכחי שלה")
-        if class_level(course) is None:
-            raise HTTPException(409, "בכיתה הזאת אין שלב אחד, ולכן אי אפשר לבחור שיעור. צריך לתקן את הגדרות הכיתה.")
+        if not named_levels(course):
+            raise HTTPException(409, "לכיתה הזאת לא נבחרו שיעורים, ולכן אי אפשר לבחור שיעור. צריך לתקן את הגדרות הכיתה.")
         lesson = str(body.get("lesson") or "").strip()
         if lesson not in lessons_of(course):
             raise HTTPException(400, "השיעור הזה אינו מהשיעורים של הכיתה")
@@ -1289,7 +1306,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.get("/api/access/users")
     def access_users(a: SupabaseAuth = Depends(require("users.manage")),
                      actor: dict | None = Depends(signed_in)):
-        """Every account with its tier (מנהלים, מתרגלים, תלמידים) for the permission editor; see access.account_rows."""
+        """Every account with its tier (מנהלים, תלמידים) for the permission editor; see access.account_rows."""
         if not hasattr(a, "access_rows"):
             return {"users": [], "setup": CREATE_USER_ACCESS, "migration": MIGRATE_USER_ACCESS,
                     "me": actor["id"] if actor else ""}
@@ -1391,7 +1408,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def update_access(target_id: str, body: dict = Body(...),
                       a: SupabaseAuth = Depends(require("users.manage")),
                       actor: dict | None = Depends(signed_in)):
-        """Puts an account in a tier: {"tier": "admin" | "teacher" | "student"}, and for a developer acting,
+        """Puts an account in a tier: {"tier": "admin" | "student"}, and for a developer acting,
         "developer": true or false (the lab). See access.TIERS for what each tier opens."""
         developer = body.get("developer")
         if developer is not None and not isinstance(developer, bool):

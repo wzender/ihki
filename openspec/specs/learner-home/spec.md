@@ -7,14 +7,20 @@ Define how a learner establishes their current class lesson and receives a small
 ## Requirements
 
 ### Requirement: Per-class current-lesson onboarding
-The application SHALL require an authenticated student to select the current lesson the first time they enter a class for which they have no saved selection, and SHALL restrict the choices to lessons in that class's single level.
+The application SHALL require an authenticated student to select the current lesson the first time they enter a class for which they have no saved selection, and SHALL restrict the choices to the lessons that class names, of one level or several. A class's own teacher (a guide, מתרגל) SHALL be onboarded as the class's students are; only managers keep the complete path.
 
 #### Scenario: Student enters a class for the first time
 - **GIVEN** the student has no saved current lesson for the selected class
 - **WHEN** the student enters the learning experience
 - **THEN** the application asks which lesson the class is currently studying
-- **AND** offers only lessons belonging to that class's level
+- **AND** offers only lessons belonging to that class
 - **AND** waits for a selection before showing the focused learner home
+
+#### Scenario: Class of several levels
+- **GIVEN** the selected class names lessons of more than one level (for example the guides' class, שלב א and שלב ב)
+- **WHEN** current-lesson onboarding begins
+- **THEN** the application lists the class's lessons under the name of each level
+- **AND** the focused home names the level with the current lesson, since lesson names repeat across levels
 
 #### Scenario: Student has multiple classes
 - **GIVEN** the student belongs to more than one class
@@ -22,11 +28,17 @@ The application SHALL require an authenticated student to select the current les
 - **THEN** the application asks for the current lesson of that class
 - **AND** keeps that selection independent of selections for the student's other classes
 
-#### Scenario: Class configuration does not identify one level
-- **GIVEN** the selected class contains lessons from zero or multiple levels
+#### Scenario: A class's own teacher
+- **GIVEN** the account is listed among a class's teachers and is not a manager
+- **WHEN** they enter the learning experience
+- **THEN** the application treats them as a student of that class: the same lessons, library, onboarding and focused home
+- **AND** keeps their current lesson as it keeps a student's
+
+#### Scenario: Class configuration names no lessons
+- **GIVEN** the selected class names no lessons (it studies every lesson)
 - **WHEN** current-lesson onboarding would begin
 - **THEN** the application explains that the class configuration must be corrected
-- **AND** does not offer lessons from an ambiguous level
+- **AND** does not offer lessons to choose from
 
 ### Requirement: Current-lesson persistence
 The application SHALL associate the selected current lesson with the authenticated student and class, restore it across devices when server persistence is available, and allow the student to change it without altering learning progress.

@@ -9,10 +9,12 @@ TRAINER = {"Authorization": "Bearer trainer-session"}
 
 
 class FeatureAuth(TierAuth):
-    """TierAuth with a trainer (מתרגלים) and the feature_access table in memory (None: not created)."""
+    """TierAuth with a guide saved in the old מתרגלים tier (now a student of their class), and the feature_access
+    table in memory (None: not created)."""
 
     def __init__(self, installed=True, **kw):
         super().__init__({"trainer-1": {"roles": ["teacher", "flagger"], "entitlements": []}}, **kw)
+        self.class_rows[0]["emails"].append("trainer@example.com")
         self.features = [] if installed else None
         self.audit = []
 
@@ -53,8 +55,7 @@ def test_without_switches_each_tier_has_its_defaults(monkeypatch):
         student = perms(auth, "student-1", "student@example.com")
         games = {"games.use", "games.verb", "games.eitan", "games.falling", "games.bubble"}
         assert games | {"practice.use", "path.use", "tutor.use", "exercises.use_all", "management.access"} <= admin
-        assert games | {"practice.use", "path.use", "exercises.use_all"} <= trainer
-        assert not trainer & {"tutor.use", "management.access", "mcp.use"}   # יאללה נדבר is off for מתרגלים too
+        assert trainer == student   # a guide is a student
         assert games | {"practice.use", "path.use"} <= student
         assert not student & {"tutor.use", "exercises.use_all", "management.access"}
 
@@ -75,12 +76,12 @@ def test_disabling_yalla_nedaber_for_everyone_and_back(monkeypatch):
 
     async def steps(client):
         out = {}
-        for who, headers in (("admin", MANAGER), ("trainer", TRAINER), ("student", STUDENT)):
+        for who, headers in (("admin", MANAGER), ("guide", TRAINER), ("student", STUDENT)):
             out[who] = {"api": (await client.get("/api/tutor", headers=headers)),
                         "me": (await client.get("/api/me", headers=headers)).json()}
         return out
     out = run(auth, steps, monkeypatch)
-    for who in ("admin", "trainer", "student"):
+    for who in ("admin", "guide", "student"):
         assert out[who]["api"].status_code == 403 and "יאללה נדבר" in out[who]["api"].json()["detail"]
         assert "tutor.use" not in out[who]["me"]["permissions"]   # the page hides the entry
 
@@ -116,16 +117,17 @@ def test_each_game_is_refused_at_the_api_when_switched_off(monkeypatch):
         q = lambda level: client.post("/api/verb-game/question", headers=STUDENT, json={"level": level})
         return {"verb": (await q(1)).status_code, "eitan": (await q(6)).status_code,
                 "falling": (await client.get("/api/verb-game/falling", headers=STUDENT)).status_code,
-                "trainer": (await client.post("/api/verb-game/question", headers=TRAINER, json={"level": 1})).status_code}
+                "guide": (await client.post("/api/verb-game/question", headers=TRAINER, json={"level": 1})).status_code,
+                "admin": (await client.post("/api/verb-game/question", headers=MANAGER, json={"level": 1})).status_code}
     out = run(auth, steps, monkeypatch)
-    assert out["verb"] == out["eitan"] == out["falling"] == 403
-    assert out["trainer"] != 403   # another tier keeps them
+    assert out["verb"] == out["eitan"] == out["falling"] == out["guide"] == 403   # a guide is a student
+    assert out["admin"] != 403   # another tier keeps them
 
 
 def test_a_pinned_feature_cannot_be_changed(monkeypatch):
     monkeypatch.setenv("FEATURE_PINS", "games.yalla_nedaber:student=off, practice:all=on")
     assert access.feature_pins() == {("student", "games.yalla_nedaber"): False, ("admin", "practice"): True,
-                                     ("teacher", "practice"): True, ("student", "practice"): True}
+                                     ("student", "practice"): True}
     auth = FeatureAuth()
     server, _ = connector(auth, actor=MCP_MANAGER)
     refused = call(server, "prepare_feature_access_change",
@@ -210,14 +212,14 @@ def test_the_permission_screen_switches_a_group_and_one_account(monkeypatch):
 
     out = run(auth, steps, monkeypatch)
     listed = out["list"]
-    assert listed["feature_setup"] == "" and listed["tier_counts"] == {"admin": 1, "teacher": 1, "student": 2}
+    assert listed["feature_setup"] == "" and listed["tier_counts"] == {"admin": 1, "student": 3}
     yalla = next(f for f in listed["features"] if f["key"] == "games.yalla_nedaber")
-    assert {t: v["enabled"] for t, v in yalla["tiers"].items()} == {"admin": True, "teacher": False, "student": False}
+    assert {t: v["enabled"] for t, v in yalla["tiers"].items()} == {"admin": True, "student": False}
     off = out["off"]
     assert {k: off[k] for k in ("ok", "feature", "tier", "before", "after")} == {
         "ok": True, "feature": "games.verb", "tier": "student", "before": True, "after": False}
     # the answer carries what the screen draws again: the features, and that tier's accounts alone
-    assert set(off["opens"]) == {"student-1", "dev-1"} and not off["opens"]["student-1"]["games.verb"]
+    assert set(off["opens"]) == {"student-1", "dev-1", "trainer-1"} and not off["opens"]["student-1"]["games.verb"]
     assert next(f for f in off["features"] if f["key"] == "games.verb")["tiers"]["student"]["enabled"] is False
     assert out["own_row"]["games.eitan"] is False and out["own_row"]["overrides"] == {"games.eitan": False}
     assert out["own"] == 200 and out["all"] == 200
@@ -225,6 +227,6 @@ def test_the_permission_screen_switches_a_group_and_one_account(monkeypatch):
     assert not opens["games.verb"] and not opens["games.eitan"] and opens["games.falling"]
     assert opens["library.all_sections"] and opens["library"] == list(__import__("app.library", fromlist=["x"]).LEAVES)
     verb = next(f for f in out["after"]["features"] if f["key"] == "games.verb")
-    assert verb["tiers"]["student"]["enabled"] is False and verb["tiers"]["teacher"]["enabled"] is True
+    assert verb["tiers"]["student"]["enabled"] is False and verb["tiers"]["admin"]["enabled"] is True
     assert out["back"]["after"] is True and auth.features == []
     assert out["student"] == 403 and out["bad"] == 400

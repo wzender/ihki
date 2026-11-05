@@ -15,24 +15,25 @@ ENTITLEMENTS = frozenset({"practice", "games", "tutor", "path", "library", *SECT
 DEFAULT_ENTITLEMENTS = frozenset({"practice", "games", "path", "library"})
 LEGACY_LIBRARY = {"library": ENTITLEMENT_PREFIX + LEGACY_SECTION}
 
-# Every account is in one of three tiers. The tier's roles give ניהול (admin), the MCP (admin) and the panel's student
-# views (teacher); the learner features (FEATURES below) each have a default per tier, which a manager may turn on or
+# Every account is in one of two tiers: managers and students. The managers' roles give ניהול and the MCP; the learner
+# features (FEATURES below) each have a default per tier, which a manager may turn on or
 # off for a whole tier (the feature_access table, through the MCP) and the server's FEATURE_PINS may fix. An account's
 # own exceptions (clean_overrides) come last and win. The lab is the developers' alone ("developer" is a role on top
 # of a tier, given only by a developer), and a developer keeps every feature whatever the tiers' switches say.
-TIERS = ("admin", "teacher", "student")
-TIER_NAMES = {"admin": "מנהלים", "teacher": "מתרגלים", "student": "תלמידים"}
-TIER_ROLES = {"admin": ("admin", "teacher", "flagger"), "teacher": ("teacher", "flagger"),
-              "student": ("student", "flagger")}
+# There is no tier of its own for the guides (מתרגלים): a guide is a student of their classes, and sees the app exactly as
+# its students do. An account whose roles are "teacher" without "admin" (the old מתרגלים tier) is a student.
+TIERS = ("admin", "student")
+TIER_NAMES = {"admin": "מנהלים", "student": "תלמידים"}
+TIER_ROLES = {"admin": ("admin", "teacher", "flagger"), "student": ("student", "flagger")}
 # what a saved student gets; outside every class a student is still denied (see `resolve_user_access`)
-TIER_ENTITLEMENTS = {"admin": (), "teacher": (), "student": ("practice", "games", "path")}
+TIER_ENTITLEMENTS = {"admin": (), "student": ("practice", "games", "path")}
 _STUDENT = frozenset({"flags.create"})   # the learner features come from FEATURES, by tier
 _TEACHER = _STUDENT | {"students.view", "library.view"}
 _ADMIN = _TEACHER | {"management.access", "users.manage", "classes.manage", "content.manage", "flags.review",
                      "mcp.use"}
 ROLE_PERMISSIONS = {
     "student": _STUDENT,   # library.view is added when one of their classes opens a library section
-    "teacher": _TEACHER,
+    "teacher": _STUDENT,   # with "admin" a manager's; alone, the old מתרגלים tier: a student's
     "flagger": frozenset({"flags.create"}),
     "admin": _ADMIN,
     "developer": frozenset({"*"}),
@@ -55,9 +56,9 @@ OVERRIDE_FEATURES = {"practice": ("practice.use", "exercises.use"), "games": ("g
 
 # The learner features a tier has or not: key -> (Hebrew name, default per tier, the permissions it gives).
 # library.all_sections gives no permission: it opens every library section instead of the classes' own.
-_ALL = {"admin": True, "teacher": True, "student": True}
+_ALL = {"admin": True, "student": True}
 FEATURES: dict[str, tuple[str, dict[str, bool], tuple[str, ...]]] = {
-    "games.yalla_nedaber": ("יאללה נדבר", {"admin": True, "teacher": False, "student": False}, ("tutor.use",)),
+    "games.yalla_nedaber": ("יאללה נדבר", {"admin": True, "student": False}, ("tutor.use",)),
     "games.all": ("משחקים (כל לשונית המשחקים)", _ALL, ("games.use",)),
     "games.verb": ("פועל יוצא", _ALL, ("games.verb",)),
     "games.eitan": ("בונים פועל עם איתן", _ALL, ("games.eitan",)),
@@ -65,10 +66,10 @@ FEATURES: dict[str, tuple[str, dict[str, bool], tuple[str, ...]]] = {
     "games.bubble": ("פועל זמני", _ALL, ("games.bubble",)),
     "practice": ("תרגול", _ALL, ("practice.use", "exercises.use")),
     "path": ("מסלול", _ALL, ("path.use",)),
-    "path.all_lessons": ("כל השיעורים (לא רק של הכיתות)", {"admin": True, "teacher": True, "student": False},
+    "path.all_lessons": ("כל השיעורים (לא רק של הכיתות)", {"admin": True, "student": False},
                          ("exercises.use_all",)),
     "library.all_sections": ("כל מדורי הספרייה (לא רק של הכיתות)",
-                             {"admin": True, "teacher": True, "student": False}, ()),
+                             {"admin": True, "student": False}, ()),
 }
 # a per-account exception (clean_overrides) of the same thing as a tier's feature
 OVERRIDE_OF_FEATURE = {"games.yalla_nedaber": "tutor", "games.all": "games", "practice": "practice", "path": "path",
@@ -144,7 +145,7 @@ def clean_overrides(value) -> dict[str, bool]:
 def tier_of(roles) -> str:
     """The tier of a set of roles: a developer counts as a manager."""
     roles = set(roles or ())
-    return "admin" if roles & {"admin", "developer"} else "teacher" if "teacher" in roles else "student"
+    return "admin" if roles & {"admin", "developer"} else "student"
 
 
 def class_sections(c: dict) -> list[str]:
@@ -189,8 +190,9 @@ def resolve_user_access(a: SupabaseAuth, user: dict, *, token: str = "",
     """The application identity of an already-identified Supabase user ({"id", "email"})."""
     email = str(user.get("email") or "").strip().lower()
     classes = a.classes()
-    mine = [c for c in classes if email in c["emails"]]
     teaches = [c for c in classes if email in (c.get("teachers") or [])]
+    # a class's own teacher (a guide) studies in it as its students do: the same lessons, library and home
+    mine = [c for c in classes if email in c["emails"] or c in teaches]
     member = bool(mine or teaches or not classes)
     roles, entitlements, assigned = {"student"}, set(DEFAULT_ENTITLEMENTS) if member else set(), None
     if hasattr(a, "access_for"):
@@ -210,7 +212,7 @@ def resolve_user_access(a: SupabaseAuth, user: dict, *, token: str = "",
     # Outside every class only staff, or an account given something of its own in the editor (a ✓), get in. A saved
     # student row (its default "flagger" role and entitlements) is not enough: that let classless accounts see the
     # whole path.
-    privileged = roles & {"teacher", "admin", "developer"} or email in getattr(a, "tutors", ())
+    privileged = roles & {"admin", "developer"} or email in getattr(a, "tutors", ())
     overrides = clean_overrides((assigned or {}).get("overrides"))
     if classes and not mine and not teaches and not privileged and not any(overrides.values()):
         return {**user, "denied": True, "permissions": [], "overrides": overrides}
@@ -237,7 +239,7 @@ def resolve_user_access(a: SupabaseAuth, user: dict, *, token: str = "",
             "level_overrides": {k[6:]: v for k, v in overrides.items() if k.startswith("level:")}, "roles": sorted(roles), "entitlements": sorted(entitlements),
             "library_sections": sections, "tier": tier_of(roles),
             "subject": str((assigned or {}).get("subject") or ""), "permissions": sorted(permissions),
-            "teacher": bool(roles & {"teacher", "admin", "developer"}),
+            "teacher": bool(roles & {"admin", "developer"}),   # a manager: every lesson, no class (a class's own teacher is its student)
             "tutor": "flags.create" in permissions or "*" in permissions, "classes": mine, "teaches": teaches}
 
 
@@ -320,7 +322,7 @@ def change_tier(a: SupabaseAuth, actor: dict | None, target_id: str, tier: str, 
     the MCP: nobody changes their own access; a server-set manager or developer stays one; only a developer touches the
     lab; the last developer stays. Returns {"target", "before", "after"}; raises AccessChangeError."""
     if tier not in TIERS:
-        raise AccessChangeError(400, "התפקיד הוא אחד מ: מנהלים, מתרגלים, תלמידים")
+        raise AccessChangeError(400, "התפקיד הוא אחד מ: מנהלים, תלמידים")
     if not actor or target_id == actor.get("id"):
         raise AccessChangeError(403, "אי אפשר לשנות את ההרשאות של עצמך")
     is_developer = "*" in (actor.get("permissions") or ())

@@ -390,6 +390,7 @@ body.memory-game{overflow:hidden}
 .lesson-option:has(input:checked){border-color:var(--olive);background:var(--olive-soft)}
 .lesson-option:focus-within{outline:2px solid var(--olive);outline-offset:1px}
 .lesson-option input{width:20px;height:20px;margin:0;accent-color:var(--olive)}
+.lesson-group{margin:8px 2px 0;color:var(--olive);font:700 14px/1.3 var(--f-body)}.lesson-group:first-of-type{margin-top:0}
 .lesson-status{min-height:1.3em;margin:8px 0;color:var(--sumac);font:600 14px/1.4 var(--f-body)}
 .lesson-error{margin:0 0 14px;font:600 15px/1.5 var(--f-body)}
 #vids .focus{display:flex;flex-direction:column;gap:12px}
@@ -418,8 +419,15 @@ body.memory-game{overflow:hidden}
 #vids .cw-bar{height:10px;border-radius:999px;background:var(--olive-soft);overflow:hidden}
 #vids .cw-bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--olive),var(--ok));background:linear-gradient(to left,var(--orange) var(--mine,0%),var(--olive) 0)}   /* the student's own part, in their colour, at the start */
 #vids .cw-note{color:var(--muted);font:600 13px/1.3 var(--f-body)}
-#vids .focus-more{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-#vids .focus :is(.focus-refer,.focus-path){display:flex;justify-content:center;min-height:48px;color:var(--olive)}
+#vids .focus-more{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+#vids .focus .focus-path{display:flex;justify-content:center;min-height:48px;color:var(--olive)}
+/* refer a friend on the home: a card in the campaign's orange; until it is first opened, the nav tab's "🎁 הטבה" mark */
+#vids .focus .focus-refer{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:64px;padding:12px 16px;border:2px solid var(--orange);border-radius:14px;background:color-mix(in srgb,var(--orange) 8%,var(--surface));color:var(--ink);text-align:start}
+#vids .focus .focus-refer strong{color:var(--orange);font:700 17px/1.3 var(--f-body)}
+#vids .focus .focus-refer .focus-detail{color:var(--muted);font:600 14px/1.35 var(--f-body)}
+#vids .focus .focus-refer.promo{animation:refer-pulse 1.8s ease-in-out infinite}
+#vids .focus .focus-refer.promo::after{content:"🎁 הטבה";position:absolute;top:-11px;inset-inline-end:12px;padding:2px 8px;border-radius:999px;background:var(--orange);color:#fff;font:700 12px/1.35 var(--f-body);box-shadow:0 2px 5px rgba(0,0,0,.2)}
+@media (prefers-reduced-motion:reduce){#vids .focus .focus-refer.promo{animation:none}}
 #vids .focus button:focus-visible{outline:2px solid var(--olive);outline-offset:2px}
 #pushDlg,#msgDlg{width:min(92vw,380px);text-align:center}
 #msgDlg .push-bell{font-size:44px;line-height:1;margin:4px 0 8px}#msgDlg h2{font:400 24px/1.2 var(--f-display);margin:0 0 6px}#msgDlg .dlg-text{white-space:pre-line}#msgDlg .row{justify-content:center}
@@ -2446,7 +2454,8 @@ function setTr(el,text){
 /* Home is the path: one road winding down the screen through every lesson. A lesson opens with a banner, which
    opens its first unfinished topic; its topics follow as buttons along the road, and a cup closes it.
    Every topic is open, whatever comes before it on the path. */
-let FREE=false;   // a teacher
+let FREE=false;   // a teacher, practising every lesson (not while they view the app as a class's student)
+let TEACHER_ACCOUNT=false, PREVIEW=null, PREVIEW_CLASSES=[], TEACHER_LESSONS=null;   // the account is a teacher's; the class they view as its student (null: every lesson); the classes they can; their own lessons
 let TUTOR_INFO=null, tc=null, tutorList=false;   // what /api/tutor allows this account; the open conversation; the games tab shows the scenarios
 let lastPhone=null;   // the latest ordinary recording's score response, for the teacher's phoneme observer
 let home=true;   // the path is on screen, not the practice card: nothing is read aloud or recorded
@@ -2535,9 +2544,9 @@ function syncVidsBtn(){   // the videos button in the path's progress bar: shown
   if(document.body.dataset.view==="library") b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
 }
 /* The focused home (static/learner_home.js; openspec/changes/add-focused-learner-home). A signed-in student of an Arabic
-   class of one level tells, once for each class, which lesson the class is on now; the home then offers at most three
-   actions in the path's place, and the path opens at that lesson. Teachers, the open service, a class's own teachers and
-   math classes keep the path. The choice is kept on the server (PUT /api/me/classes/{id}/current-lesson) and, for when the
+   class (of one level or several; a class's own teacher, a guide, is its student too) tells, once for each class, which
+   lesson the class is on now; the home then offers at most three actions in the path's place, and the path opens at that
+   lesson. Managers (outside "view as a student"), the open service and math classes keep the path. The choice is kept on the server (PUT /api/me/classes/{id}/current-lesson) and, for when the
    server cannot keep it, on the device under the account's own key, sent again on a later sign-in. */
 const LH=globalThis.LearnerHome;
 let ENTERED=false, LESSON_ASKED=false, FOCUS_HEADING=false;   // past the opening screen; the lesson question came up on this visit (no reminder prompt until the next one); the home's heading takes the focus
@@ -2555,11 +2564,12 @@ function restoreLessons(){   // on sign-in: each class's lesson, the server's, o
     const r=LH.resolveLesson(k.current_lesson,store.get(lessonKey(k),null),k.lessons||[]);
     k.currentLesson=r.lesson;
     if(r.lesson&&r.lesson===k.current_lesson) store.set(lessonKey(k),{lesson:r.lesson,synced:true});
-    else if(r.retry) saveLesson(k,r.lesson).catch(()=>{});
+    else if(r.retry&&!PREVIEW) saveLesson(k,r.lesson).catch(()=>{});
   }
 }
 async function saveLesson(k,id){   // throws when the server refuses the choice; when it cannot keep it, the device does
   const key=lessonKey(k); k.currentLesson=id; store.set(key,{lesson:id,synced:false});
+  if(PREVIEW) return;   // a teacher viewing as a student: the device keeps it (the server keeps a student's only)
   let res;
   try{ res=await api(`/api/me/classes/${k.id}/current-lesson`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({lesson:id})}); }
   catch(e){ return; }   // offline: the device keeps it
@@ -2575,10 +2585,11 @@ async function askLesson(required){   // the question; true when it came up
   const k=MY_CLASS; if(!k||!AUTH_URL||FREE||!can("path.use")) return false;
   const state=LH.classState(k); if(state!=="ok"&&state!=="ambiguous") return false;
   LESSON_ASKED=true;
-  const level=ALL_LEVELS.find(v=>v.id===k.level);
-  LH.openLessonDialog($("lessonDlg"),{className:k.name,levelName:level&&level.name,required,selected:k.currentLesson,
-    lessons:ALL_LESSONS.filter(l=>(k.lessons||[]).includes(l.id)).map(l=>({id:l.id,name:l.soon?`${l.name} (בקרוב)`:l.name})),
-    error:state==="ambiguous"?"בכיתה הזאת יש שיעורים מכמה שלבים, או שלא נבחרו לה שיעורים, ולכן אי אפשר לבחור את השיעור הנוכחי. בקשו מהמורה לתקן את הגדרות הכיתה. בינתיים אפשר ללמוד מהמסלול המלא.":"",
+  const level=ALL_LEVELS.find(v=>v.id===k.level), several=(k.levels||[]).length>1;   // a class of several levels: the lessons under each one's name
+  const levelName=id=>(ALL_LEVELS.find(v=>v.id===id)||{}).name||"";
+  LH.openLessonDialog($("lessonDlg"),{className:k.name,levelName:several?"":level&&level.name,required,selected:k.currentLesson,
+    lessons:ALL_LESSONS.filter(l=>(k.lessons||[]).includes(l.id)).map(l=>({id:l.id,name:l.soon?`${l.name} (בקרוב)`:l.name,...(several?{group:levelName(l.level)}:{})})),
+    error:state==="ambiguous"?"לכיתה הזאת לא נבחרו שיעורים, ולכן אי אפשר לבחור את השיעור הנוכחי. בקשו מהמורה לתקן את הגדרות הכיתה. בינתיים אפשר ללמוד מהמסלול המלא.":"",
     onConfirm:id=>saveLesson(k,id), after:()=>{ FOCUS_HEADING=true; goHome(); }, onPath:()=>showView("")});
   return true;
 }
@@ -2629,8 +2640,9 @@ function drawHome(box){
   if(!focusOn()){ delete document.body.dataset.view; return; }
   const {l,done}=homeLesson();
   drawRewardShelf();
-  const page=LH.renderHome(box,{className:MY_CLASS.name,lessonName:l?l.name:currentLesson(),done,actions:homeActions(),
-    onChange:()=>askLesson(false),onPath:openFullPath,onRefer:openRefer},FOCUS_HEADING);
+  const lv=l&&(MY_CLASS.levels||[]).length>1&&ALL_LEVELS.find(v=>v.id===l.level);   // a class of several levels: "שיעור 10" is in two of them
+  const page=LH.renderHome(box,{className:MY_CLASS.name,lessonName:l?(lv?`${lv.name} · ${l.name}`:l.name):currentLesson(),done,actions:homeActions(),
+    onChange:()=>askLesson(false),onPath:openFullPath,onRefer:openRefer,referNew:!store.get(referSeenKey,false)},FOCUS_HEADING);
   FOCUS_HEADING=false;
   drawClassWeek(page);
 }
@@ -2851,7 +2863,7 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     if(b.dataset.view===view) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
   }
   $("nav").querySelector('[data-view="home"]').hidden=!focusOn(); syncHomeLabels();
-  $("nav").querySelector('[data-view="refer"]').hidden=focusOn(); syncVidsBtn();
+  $("nav").querySelector('[data-view="refer"]').hidden=focusOn()||(TEACHER_ACCOUNT&&!PREVIEW); syncVidsBtn();   // the home has its own card; a teacher has no use for it, except as a student sees it
   box.replaceChildren(); if(!view) return;
   const row=(v,seen,key,when,now)=>{   // a video: its name, its day, and whether it was opened (on this device)
     const b=mark(now?"now":"","","button"), t=document.createElement("bdi"); t.textContent=v.title;
@@ -2927,7 +2939,7 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
       <p class="refer-message">היי 👋
 
 אני בקורס ערבית מדוברת של אַהְלַא וּסַהְלַא, וזה פשוט עובד. הערבית כבר יוצאת לי מהפה 😊
-שיעור אחד בשבוע של שעה וחצי (בזום) ועוד תרגול (בזום, מהבית או מכל מקום
+שיעור אחד בשבוע של שעה וחצי (בזום) ועוד תרגול (בזום, מהבית או מכל מקום)
 
 🎁 בגלל שהגעתם דרכי, מגיעה לכם 100 ₪ הנחה על ההצטרפות!
 
@@ -2939,7 +2951,7 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
 יַאללה, בואו נדבר ערבית ביחד 🧡</p>
       <p class="refer-terms">* המבצע בתוקף מעכשיו ועד 1.1.27, ואינו חל על אנשים שכבר הגיעו דרככם — ועליהם אנו מודים לכם!<br>* כדי ליהנות מההטבה, יש לעדכן אותנו בשם התלמיד/ה שהגיע/ה דרככם עד שבוע לאחר ההרשמה.</p>`;
     box.append(page);
-    const shareText=`היי 👋\n\nאני בקורס ערבית מדוברת של אַהְלַא וּסַהְלַא, וזה פשוט עובד. הערבית כבר יוצאת לי מהפה 😊\nשיעור אחד בשבוע של שעה וחצי (בזום) ועוד תרגול (בזום, מהבית או מכל מקום\n\n🎁 בגלל שהגעתם דרכי, מגיעה לכם 100 ₪ הנחה על ההצטרפות!\n\nמה עושים?\nשלחו וואטסאפ למרב וכתבו לה שאני שלחתי אותך ההודעה 👇\n📲 054-989-8292\n\n⏳ ההטבה לזמן מוגבל\nיַאללה, בואו נדבר ערבית ביחד 🧡`;
+    const shareText=`היי 👋\n\nאני בקורס ערבית מדוברת של אַהְלַא וּסַהְלַא, וזה פשוט עובד. הערבית כבר יוצאת לי מהפה 😊\nשיעור אחד בשבוע של שעה וחצי (בזום) ועוד תרגול (בזום, מהבית או מכל מקום)\n\n🎁 בגלל שהגעתם דרכי, מגיעה לכם 100 ₪ הנחה על ההצטרפות!\n\nמה עושים?\nשלחו וואטסאפ למרב וכתבו לה שאני שלחתי אותך ההודעה 👇\n📲 054-989-8292\n\n⏳ ההטבה לזמן מוגבל\nיַאללה, בואו נדבר ערבית ביחד 🧡`;
     $("referShare").href=`https://wa.me/?text=${encodeURIComponent(shareText)}`;
     $("referCopy").onclick=async e=>{
       const button=e.currentTarget, copyFallback=()=>{
@@ -4378,7 +4390,8 @@ function useClass(c){
 }
 async function askClass(){
   await ready;
-  const box=$("picks"), last=MY_CLASS?MY_CLASS.name:store.get("ihki.class","");
+  const box=$("picks"), last=MY_CLASS?MY_CLASS.name:store.get("ihki.class",""), title=$("pickTitle");
+  title.firstChild.textContent="באיזו כיתה מתרגלים עכשיו?"; title.querySelector("small").textContent="אפשר להחליף אחר כך, בלחיצה על שם הכיתה";
   box.innerHTML="";
   for(const c of MY_CLASSES){
     const b=mark(c.name===last?"last":"",c.name,"button"), ls=ALL_LESSONS.filter(l=>c.lessons.includes(l.id));
@@ -4389,8 +4402,40 @@ async function askClass(){
   $("pickMates").hidden=!MY_CLASS;   // the students of the class practised in now
   $("pickDlg").showModal(); (box.querySelector(".last")||box.firstChild).focus();
 }
-$("pickDlg").oncancel=e=>{ if(!MY_CLASS) e.preventDefault(); };   // Escape closes it only when a class was already chosen
-$("myClass").onclick=()=>{ if(MY_CLASSES.length>1) askClass(); else showMates(); };
+$("pickDlg").oncancel=e=>{ if(!MY_CLASS&&!TEACHER_ACCOUNT) e.preventDefault(); };   // Escape closes it only when a class was already chosen (a teacher's choice always)
+$("myClass").onclick=()=>{ if(TEACHER_ACCOUNT&&PREVIEW_CLASSES.length) askPreview(); else if(MY_CLASSES.length>1) askClass(); else showMates(); };
+/* A teacher's "view as a student": the app as a class's student sees it (its lessons only, the focused home, its
+   homework and videos), on the teacher's own progress. The teacher's lesson choice stays on the device. The class
+   pill opens the choice: every lesson (the teacher's practice) or a class. Kept on the device for the next visit. */
+const previewKey=()=>`ihki.preview:${ME_EMAIL}`;
+function syncPreviewPill(){
+  const p=$("myClass");
+  p.textContent=PREVIEW?`👁 כתלמיד: כיתת ${PREVIEW.name}`:"👁 תצוגה כתלמיד"; p.title="איך תלמיד בכיתה רואה את האפליקציה";
+  p.classList.add("many"); document.body.classList.add("class-exit");
+}
+async function askPreview(){
+  await ready;
+  const box=$("picks"), title=$("pickTitle");
+  title.firstChild.textContent="איך להציג את האפליקציה?"; title.querySelector("small").textContent="בתצוגה כתלמיד, ההתקדמות היא שלכם ולא של תלמיד";
+  box.innerHTML="";
+  const all=mark(PREVIEW?"":"last","כל השיעורים","button"); all.append(mark("","התרגול של המורה","small"));
+  all.onclick=()=>{ $("pickDlg").close(); setPreview(null); }; box.append(all);
+  for(const c of PREVIEW_CLASSES){
+    const b=mark(PREVIEW&&PREVIEW.id===c.id?"last":"",`כיתת ${c.name}`,"button"), ls=ALL_LESSONS.filter(l=>(c.lessons||[]).includes(l.id));
+    b.append(mark("",byLevel(ls).map(g=>`${g.level.name}: ${lessonsWord(g.lessons)}`).join(" · ")||"אין שיעורים","small"));
+    b.onclick=()=>{ $("pickDlg").close(); setPreview(c); }; box.append(b);
+  }
+  $("pickMates").hidden=true;
+  $("pickDlg").showModal(); (box.querySelector(".last")||box.firstChild).focus();
+}
+function setPreview(c){   // c: a class of PREVIEW_CLASSES, or null for every lesson
+  PREVIEW=c||null; store.set(previewKey(),c?c.id:null);
+  FREE=!c; MY_CLASSES=c?[c]:[]; MY_CLASS=null; classWeek=null;
+  if(ENTERED) showView("");
+  if(c){ restoreLessons(); useClass(c); }
+  else{ MY_LESSONS=TEACHER_LESSONS; if(ALL_LESSONS.length){ useLessons(MY_LESSONS); if(!home) showPath(); startCat(); } }
+  syncPreviewPill(); if(ENTERED){ drawNav(); drawToday(); }
+}
 $("pickMates").onclick=()=>{ $("pickDlg").close(); showMates(); };
 async function showMates(){   // the students of my classes, by the nickname the teacher gave or their Google name
   const box=$("mates"), note=$("matesNote");
@@ -5941,8 +5986,7 @@ function drawBuild(info,model){
    sections come from their classes. The lab is a developer's, given only by a developer. */
 const TIER_INFO={
   admin:{name:"מנהלים",what:"הכול חוץ מהמעבדה: תרגול, כל המשחקים כולל יאללה נדבר, כל המסלול וכל מדורי הספרייה, דיווחי תקלות, ניהול, וחיבור ה־MCP."},
-  teacher:{name:"מתרגלים",what:"כל החומר: תרגול, כל המשחקים כולל יאללה נדבר, כל המסלול וכל מדורי הספרייה, ודיווחי תקלות. בלי ניהול ובלי MCP."},
-  student:{name:"תלמידים",what:"תרגול, משחקים (בלי יאללה נדבר) ודיווחי תקלות; המסלול ומדורי הספרייה הדיגיטלית לפי הכיתה. בלי MCP."},
+  student:{name:"תלמידים",what:"תרגול, משחקים (בלי יאללה נדבר) ודיווחי תקלות; המסלול ומדורי הספרייה הדיגיטלית לפי הכיתה. בלי MCP. מתרגלים הם תלמידים של הכיתות שלהם."},
 };
 /* The "מודלים" tab: the phoneme models this server can score with (app/models.py), what each was measured to do
    on the Minerva test lines, and a switch (developers only) that loads another one beside the running one. */
@@ -6234,7 +6278,7 @@ function accessToast(text,bad){   // a word at the bottom of the screen, whereve
   clearTimeout(t._hide); t._hide=setTimeout(()=>t.classList.remove("on"),2600);
 }
 function drawTierFeatures(note){
-  const group=mark("access-features","","details"), sum=document.createElement("summary"), tiers=["admin","teacher","student"];
+  const group=mark("access-features","","details"), sum=document.createElement("summary"), tiers=["admin","student"];
   group.open=true; sum.append(mark("","תכונות לפי קבוצה","b")); group.append(sum,mark("sub","מה כל קבוצה מקבלת. שינוי כאן חל מיד על כל מי שבקבוצה, חוץ ממה שנקבע ידנית למשתמש מסוים בטבלאות למטה. מסגרת: שונה מברירת המחדל.","p"));
   if(ACCESS.feature_setup){ const code=mark("",ACCESS.feature_setup,"code"); code.dir="ltr"; group.append(mark("setup","כדי לשנות תכונות לפי קבוצה, צריך ליצור טבלה ב-Supabase (SQL Editor):","p"),code); }
   const table=mark("access-table tier-features","","table"), head=document.createElement("tr");
@@ -6289,7 +6333,7 @@ function drawAccess(){
       user.tier=body.tier; if(dev) user.developer=dev.checked; r.dirty=false; return true;
     }catch(e){ note.textContent=`השמירה של ${user.name||user.email} נכשלה: ${e.message}`; btn.disabled=false; return false; }
   };
-  for(const tier of ["admin","teacher","student"]){
+  for(const tier of ["admin","student"]){
     const users=(ACCESS.users||[]).filter(u=>u.tier===tier), group=mark("access-group","","details"), sum=document.createElement("summary");
     group.open=true; sum.append(mark("",TIER_INFO[tier].name,"b"),mark("",` · ${users.length}`,"span")); group.append(sum,mark("sub",TIER_INFO[tier].what,"p"));
     if(!users.length){ group.append(mark("meta","אין משתמשים בקבוצה הזו.","p")); box.append(group); continue; }
@@ -6304,7 +6348,7 @@ function drawAccess(){
       if(user.developer) who.append(mark("access-badge","מפתח · מעבדה","span"));
       const fixedTier=(user.fixed||[]).includes("tier"), locked=user.id===ACCESS.me||(user.developer&&!lab);
       const select=document.createElement("select"); select.setAttribute("aria-label",`הקבוצה של ${user.name||user.email}`);
-      for(const t of ["admin","teacher","student"]) select.add(new Option(TIER_INFO[t].name,t));
+      for(const t of ["admin","student"]) select.add(new Option(TIER_INFO[t].name,t));
       select.value=tier; select.disabled=locked||fixedTier;
       if(fixedTier) select.title="נקבע בהגדרות השרת (TEACHER_EMAILS)"; else if(user.id===ACCESS.me) select.title="אי אפשר לשנות את ההרשאות של עצמך";
       tr.append(who);
@@ -9572,13 +9616,18 @@ if(AUTH_URL){
         $("nav").querySelector('[data-view="games"]').hidden=!can("games.use")&&!can("tutor.use");
         const mine=me.classes||[];   // a teacher practises every lesson and is not asked for a class
         MY_CLASSES=teacher?[]:mine; MY_CLASS=null; FREE=teacher; TUTOR=!!me.tutor; TEACHER_DAILIES=me.dailies||[];
+        const page=document.documentElement.dataset;   // a teacher views the app as a student of this page's classes (not math's, which has no home)
+        TEACHER_ACCOUNT=teacher; PREVIEW=null;
+        PREVIEW_CLASSES=teacher&&page.subject!=="math"?(me.preview_classes||[]).filter(c=>(c.subject||page.home)===page.subject):[];
+        $("nav").querySelector('[data-view="refer"]').hidden=teacher;   // a teacher has no use for it (drawNav keeps this)
         restoreLessons();   // the lesson each class is on now, for the focused home
         $("myClass").textContent=mine.length>1?(teacher?`כיתות: ${mine.map(c=>c.name).join(" · ")}`:"בחירת כיתה"):mine.length?`כיתת ${mine[0].name}`:"";
         document.body.classList.toggle("class-exit",!!$("myClass").textContent);   // the pill shows: the exit moves into its dialogs
         $("myClass").classList.toggle("many",MY_CLASSES.length>1); $("myClass").title=MY_CLASSES.length>1?"מעבר לכיתה אחרת":"התלמידים בכיתה שלי";
-        MY_LESSONS=me.lessons||null; if(ALL_LESSONS.length) useLessons(MY_LESSONS);
+        MY_LESSONS=TEACHER_LESSONS=me.lessons||null; if(ALL_LESSONS.length) useLessons(MY_LESSONS);
         if(MY_CLASSES.length===1) MY_CLASS=mine[0];
         else{ const last=MY_CLASSES.find(c=>c.name===store.get("ihki.class","")); if(last) useClass(last); }   // the class practised in last
+        if(PREVIEW_CLASSES.length){ const kept=PREVIEW_CLASSES.find(c=>c.id===store.get(previewKey(),null)); if(kept) setPreview(kept); else syncPreviewPill(); }   // the view chosen last on this device
         const management=can("management.access"), laboratory=can("lab.access"), library=can("library.view"), practice=can("practice.use")||can("path.use")||can("games.use")||can("tutor.use");
         const straight=ok&&!management&&!laboratory;   // practice is the only way in: no start button, straight to the home
         const toVideo=ok&&practice&&fromReminder();   // from the reminder: no opening screen, a teacher's too
