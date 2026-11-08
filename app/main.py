@@ -70,6 +70,7 @@ from .tts import (BASELINE_VOICES, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
                     DEFAULT_MODEL as DEFAULT_TUTOR_MODEL, TutorUnavailable, load_tutor, tutor_client)
 from .verb_game import VerbExerciseGenerator
+from .camel_race import race_items as camel_race_items, speech_of as camel_race_speech
 from .grok_mcp import build as build_grok_mcp, oauth_urls
 from .mcp_diagnostics import McpPathNormalizer
 from . import library as video_library
@@ -3106,6 +3107,39 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         """The playback voice saying the verb's "הוא" past and future together, when the game moves to a verb."""
         try:
             ar, ipa = app.state.verb_game.falling_speech(verb_lessons(user), verb, drafts=bool(user and user["teacher"]))
+        except LookupError as e:
+            raise HTTPException(404, str(e))
+        if app.state.tts is None:
+            raise HTTPException(503, "tts not configured")
+        try:
+            data, used = app.state.tts.wav(tts_arabic(ar, ipa), RAEF_VOICE_ID)
+        except TTSUnavailable as e:
+            raise HTTPException(503, str(e))
+        return Response(data, media_type="audio/wav", headers={
+            "Cache-Control": "private, no-store", "X-TTS-Provider": "sawtakarabi.ai",
+            "X-TTS-Voice-Id": urllib.parse.quote(used), "X-TTS-Voice-Name": urllib.parse.quote(voice_name(used))})
+
+    camel_deps = [Depends(require("games.use")), Depends(require("games.camel"))]
+
+    @app.get("/api/camel-race", dependencies=camel_deps)
+    def camel_race(upto: str = "", user: dict | None = Depends(signed_in)):
+        """מרוץ גמלים: the lessons this account has reached, and the words and verbs up to `upto` (one of them)."""
+        reached = set(verb_lessons(user))
+        lessons = [{"id": l["id"], "name": l["name"]} for l in LESSONS if not l.get("soon") and l["id"] in reached]
+        try:
+            if upto and upto not in reached:
+                raise LookupError("lesson not reached")
+            items = camel_race_items(upto) if upto else []
+        except LookupError as e:
+            raise HTTPException(404, str(e))
+        return {"lessons": lessons, "items": items}
+
+    @app.get("/api/camel-race/tts/{item_id}", dependencies=camel_deps)
+    def camel_race_tts(item_id: str):
+        """The playback voice saying one word (or a verb's "הוא" past and future) of the race."""
+        # any item id is a word or verb of the course; the page only asks for those of lessons the account reached
+        try:
+            ar, ipa = camel_race_speech(item_id)
         except LookupError as e:
             raise HTTPException(404, str(e))
         if app.state.tts is None:

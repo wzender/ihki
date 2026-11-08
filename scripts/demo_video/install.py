@@ -1,4 +1,5 @@
-"""Two short videos on installing the app on the phone: an iPhone (Safari) and an Android phone (Chrome).
+"""Short videos for the phone: installing the app on an iPhone (Safari) and on an Android phone (Chrome), and
+allowing the microphone on Android (--os mic: in a Chrome tab, and in the installed app).
 
     python scripts/demo_video/install.py --out-dir scripts/demo_video
 
@@ -65,7 +66,7 @@ async def main(a):
         await shoot(a.url, work / "app.png")
         frames = [float(x) for x in a.frames.split(",")] if a.frames else None
         for os_ in a.os.split(","):
-            out = Path(a.out_dir) / f"ihki-install-{'iphone' if os_ == 'ios' else 'android'}.mp4"
+            out = Path(a.out_dir) / {"ios": "ihki-install-iphone.mp4", "android": "ihki-install-android.mp4", "mic": "ihki-mic-android.mp4"}[os_]
             await render(os_, work, out, frames)
             print(out)
     finally:

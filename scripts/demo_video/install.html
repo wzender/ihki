@@ -145,12 +145,43 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
 #logo{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:90px;opacity:0}
 #logo svg{width:920px;height:auto}
 #logo .cta{font:400 60px/1 "Secular One","Assistant",sans-serif;color:#fff;background:var(--navy);padding:28px 64px;border-radius:999px}
+/* the microphone video (?os=mic): Chrome's site sheet, a long-press menu, and the system settings */
+body.mic #siteic{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:#fff;margin-left:-8px;opacity:1!important;font-size:14px}
+body.mic #mine .new{display:none}
+#toast{position:absolute;left:28px;right:28px;bottom:70px;background:#323232;color:#fff;border-radius:14px;padding:16px 20px;text-align:center;font:600 17px/1.3 "Assistant",sans-serif;direction:rtl;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+#sheet{position:absolute;left:0;right:0;bottom:0;height:300px;background:#fff;border-radius:28px 28px 0 0;padding:16px 22px;direction:rtl;font-family:Roboto,"Assistant",sans-serif}
+#sheet .grab{width:36px;height:4px;border-radius:2px;background:#cac4d0;margin:0 auto 14px}
+#sheet .hd{display:flex;gap:14px;align-items:center;padding:6px 0 16px;border-bottom:1px solid #eee}
+#sheet .hd b{display:block;font:600 18px/1.2 Roboto,sans-serif;direction:ltr;text-align:right} #sheet .hd small{display:block;font:400 14px/1.3 "Assistant",sans-serif;color:#188038;margin-top:3px}
+#sheet .mrow{height:96px;display:flex;align-items:center;gap:16px}
+#sheet .ico,.set .ico{width:40px;height:40px;border-radius:50%;background:#E3E8FF;display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}
+#sheet .mrow small{display:block;font:600 14px/1.3 "Assistant",sans-serif;margin-top:3px;color:#B3261E}
+#mtog{width:52px;height:32px;border-radius:16px;background:#79747E;position:relative;flex:none;margin-inline-start:auto}
+#mtog i{position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+#hmenu{left:34px;top:362px;width:250px;border-radius:20px}
+#hmenu .row{justify-content:flex-start;gap:16px;border:0;height:54px} #hmenu .row span:last-child{opacity:1;font-size:16px;direction:rtl}
+#hmenu .row span:first-child{width:24px;text-align:center;opacity:.7;font-size:19px}
+.set{background:#F3F4F9;direction:rtl;font-family:"Assistant",Roboto,sans-serif;color:#1b1b1f}
+.set .top{position:absolute;left:0;right:0;top:40px;height:58px;display:flex;align-items:center;gap:20px;padding:0 22px;font:600 22px/1 "Assistant",sans-serif}
+.set .top span{font-size:26px;font-weight:400}
+.set .card{position:absolute;left:14px;right:14px;background:#fff;border-radius:24px;overflow:hidden}
+.set .ln{height:70px;display:flex;align-items:center;gap:16px;padding:0 20px;font:500 17px/1.2 "Assistant",sans-serif}
+.set .ln small{display:block;font:400 13.5px/1.3 "Assistant",sans-serif;color:#5f6368;margin-top:3px}
+.set .ln+.ln{border-top:1px solid #f0f0f4}
+.set .who2{position:absolute;left:0;right:0;top:112px;display:flex;flex-direction:column;align-items:center;gap:10px;font:600 22px/1 "Assistant",sans-serif}
+.set .sec{position:absolute;right:34px;top:120px;font:600 14px/1 "Assistant",sans-serif;color:#0B57D0}
+.set .big{position:absolute;left:0;right:0;top:130px;text-align:center;font-size:56px;line-height:1}
+.set .sub{position:absolute;left:30px;right:30px;top:214px;text-align:center;font:400 15px/1.4 "Assistant",sans-serif;color:#5f6368}
+.set .rad{height:66px;display:flex;align-items:center;gap:18px;padding:0 20px;font:500 16px/1.2 "Assistant",sans-serif}
+.set .rad+.rad{border-top:1px solid #f0f0f4}
+.set .circle{width:22px;height:22px;border:2px solid #444;border-radius:50%;position:relative;flex:none}
+.set .circle i{position:absolute;inset:3px;border-radius:50%;background:#0B57D0}
 </style>
 </head>
 <body>
 <div id="bg"></div>
 <div id="open"><div id="openSvg"></div></div>
-<div id="announce"><div class="new" id="annOs"></div><h1 id="annH"></h1><p>מתקינים פעם אחת,<br>ונכנסים בלחיצה מהמסך הראשי</p></div>
+<div id="announce"><div class="new" id="annOs"></div><h1 id="annH"></h1><p id="annP"></p></div>
 <div id="band"></div>
 <div id="caps"></div>
 
@@ -204,7 +235,7 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
   <div class="L" id="browser"><div class="page"></div>
     <div id="cbar">
       <div class="dots">⋮</div><div class="tabs">1</div>
-      <div class="url"><span style="opacity:.6">🔒</span> wzender-ihki.hf.space</div>
+      <div class="url"><span id="siteic" style="opacity:.6">🔒</span> wzender-ihki.hf.space</div>
       <div class="home">⌂</div>
     </div>
   </div>
@@ -231,10 +262,50 @@ body{font-family:"Assistant",system-ui,sans-serif;color:var(--navy)}
   <div class="L" id="app"><div class="page"></div></div>
 </template>
 
+<template id="t-mic">
+  <div class="L" id="toastL"><div id="toast">🚫 אין גישה למיקרופון</div></div>
+  <div class="L" id="siteL"><div class="scrim"></div><div id="sheet">
+    <div class="grab"></div>
+    <div class="hd"><span style="font-size:26px">🔒</span><div><b>wzender-ihki.hf.space</b><small>החיבור מאובטח</small></div></div>
+    <div class="mrow"><div class="ico">🎤</div><div><span style="font:600 19px/1.2 'Assistant',sans-serif">מיקרופון</span><small id="msub">חסום</small></div><div id="mtog"><i></i></div></div>
+  </div></div>
+  <div class="L" id="homeMenu"><div class="menu" id="hmenu">
+    <div class="row"><span>ⓘ</span><span>מידע על האפליקציה</span></div>
+    <div class="row"><span>🗑</span><span>הסרת ההתקנה</span></div>
+  </div></div>
+  <div class="L set" id="infoL">
+    <div class="top"><span>→</span><b>מידע על האפליקציה</b></div>
+    <div class="who2"><div class="appicon" style="width:68px;height:68px;border-radius:50%;background-image:url(icon-maskable.png);background-size:100%"></div>אהלא וסהלא</div>
+    <div class="card" style="top:236px"><div class="ln" style="justify-content:space-around;color:#0B57D0;font-weight:600"><span>פתיחה</span><span>הסרה</span><span>עצירה בכוח</span></div></div>
+    <div class="card" style="top:330px">
+      <div class="ln"><div class="ico">🔔</div><div>התראות<small>מופעלות</small></div></div>
+      <div class="ln" id="rowPerm"><div class="ico">🛡</div><div>הרשאות<small>לא הוענקו הרשאות</small></div></div>
+      <div class="ln"><div class="ico">💾</div><div>אחסון ומטמון<small>12 MB בשימוש</small></div></div>
+      <div class="ln"><div class="ico">📶</div><div>נתונים סלולריים ו־Wi‑Fi</div></div>
+    </div>
+  </div>
+  <div class="L set" id="permsL">
+    <div class="top"><span>→</span><b>הרשאות האפליקציה</b></div>
+    <div class="sec">לא מורשה</div>
+    <div class="card" style="top:150px"><div class="ln" id="rowMic"><div class="ico">🎤</div><div>מיקרופון</div></div></div>
+  </div>
+  <div class="L set" id="micL">
+    <div class="top"><span>→</span><b>מיקרופון</b></div>
+    <div class="big">🎤</div>
+    <div class="sub">הגישה למיקרופון באפליקציה „אהלא וסהלא”</div>
+    <div class="card" style="top:290px">
+      <div class="rad" id="opt1"><div class="circle" id="c1"><i id="rd1" style="opacity:0"></i></div>לאפשר רק בזמן השימוש באפליקציה</div>
+      <div class="rad"><div class="circle"></div>לשאול בכל פעם</div>
+      <div class="rad"><div class="circle" id="c3" style="border-color:#0B57D0"><i id="rd3"></i></div>לא לאפשר</div>
+    </div>
+  </div>
+</template>
+
 <script>
 const $=id=>document.getElementById(id);
-const OS=new URLSearchParams(location.search).get("os")==="android"?"android":"ios";
-document.body.classList.add(OS);
+const VID=new URLSearchParams(location.search).get("os");   // ios | android | mic (the microphone permission, on Android)
+const OS=VID==="android"||VID==="mic"?"android":"ios";
+document.body.classList.add(OS); if(VID==="mic") document.body.classList.add("mic");
 const ease=x=>x<0?0:x>1?1:x*x*(3-2*x);
 const lerp=(a,b,x)=>a+(b-a)*x;
 const win=(t,a,b,fade=.35)=>Math.min(a<=0?1:ease((t-a)/fade),ease((b-t)/fade));
@@ -270,7 +341,27 @@ const CONF={
   cam:[[5.0,"url",1.45],[6.8,null],[7.0,"dots",1.35],[7.7,null],[9.0,"inst",1.3],[10.5,null],[11.8,"instgo",1.4],[13.1,null],[15.2,"mine",1.4],[16.7,null]],
   tip:`<h2>💡 Chrome הציע בעצמו?</h2><p>אם מופיע למטה כפתור <b>התקנה</b>,<br>אפשר פשוט ללחוץ עליו.<br>ואם בתפריט אין התקנה, בוחרים<br><b>הוספה למסך הבית</b></p>`,
   homeAt:13.2, mineAt:13.9, openAt:16.95, tipAt:[17.8,23.6], end:23.8 },
-}[OS];
+ mic:{ os:"Android · Microphone", title:"מאשרים<br>את המיקרופון", sub:"עוצרים לרגע,<br>ובחצי דקה הכול מוכן לדבר",
+  caps:[
+   ["c1",3.6,6.4,`<h1>מופיע <em>„אין גישה למיקרופון”</em>?</h1><p>מאשרים אותו בחצי דקה</p>`],
+   ["c2",6.4,8.9,`<div class="en" style="direction:rtl">כשהאפליקציה נפתחת ב־Chrome</div><h1><span class="nb">1</span>לוחצים על הסמל <em>ליד הכתובת</em></h1>`],
+   ["c3",8.9,12.3,`<h1><span class="nb">2</span>מפעילים את <em>המיקרופון</em></h1><p>המתג נהיה כחול</p>`],
+   ["c4",12.3,15.0,`<h1><span class="nb">3</span><em>סוגרים</em> את האפליקציה<br>ופותחים שוב</h1><p>עכשיו אפשר לדבר 🎤</p>`],
+   ["c5",15.0,19.4,`<div class="en" style="direction:rtl">כשהתקנתם את האפליקציה במסך הבית</div><h1><span class="nb">1</span><em>לחיצה ארוכה</em> על האייקון<br>ואז „מידע על האפליקציה”</h1>`],
+   ["c6",19.4,21.6,`<h1><span class="nb">2</span>בוחרים <em>הרשאות</em></h1>`],
+   ["c7",21.6,23.6,`<h1><span class="nb">3</span>לוחצים על <em>מיקרופון</em></h1>`],
+   ["c8",23.6,27.4,`<h1><span class="nb">4</span>בוחרים <em>לאפשר</em></h1><p>לאפשר רק בזמן השימוש באפליקציה</p>`]],
+  states:[[0,["browser"]],[4.0,["browser","toastL"]],[6.4,["browser"]],[8.25,["browser","siteL"]],[12.3,["browser"]],
+          [15.0,["browser","home"]],[15.5,["home"]],[17.1,["home","homeMenu"]],[19.1,["home","homeMenu","infoL"]],[19.6,["infoL"]],
+          [21.15,["infoL","permsL"]],[21.65,["permsL"]],[23.35,["permsL","micL"]],[23.85,["micL"]]],
+  taps:[[6.9,8.1,"site"],[9.6,10.9,"mtog"],[15.8,17.0,"mine"],[17.9,19.0,"minfo"],[19.9,21.0,"perm"],[22.1,23.2,"mic"],[24.1,25.3,"opt"]],
+  sel:{site:"#siteic",mtog:"#mtog",mine:"#mine i",minfo:"#hmenu .row",perm:"#rowPerm",mic:"#rowMic",opt:"#opt1"},
+  cam:[[6.8,"site",1.6],[8.3,null],[9.6,"mtog",1.15,400],[12.0,null],[15.8,"mine",1.35],[17.1,"minfo",1.25],[19.1,null],
+       [19.9,"perm",1.3],[21.1,null],[22.1,"mic",1.3],[23.3,null],[24.0,"opt",1.3],[26.0,null]],
+  toggleAt:10.95, radioAt:25.35, mineAt:-10,
+  tip:`<h2>🎤 עדיין לא עובד?</h2><p>בודקים שהמיקרופון מאופשר גם<br>ל־<b>Chrome</b> עצמו:<br><b>הגדרות ← אפליקציות ← Chrome</b><br>ואז הרשאות ← מיקרופון</p>`,
+  homeAt:15.0, openAt:99, tipAt:[27.5,32.0], end:32.3 },
+}[VID==="mic"?"mic":OS];
 const C=CONF;
 
 // the home screen's apps: generic, drawn in the logo's colors (RTL: the first is top right)
@@ -282,7 +373,7 @@ const DOCK=[["📞","#34C759"],["💬","#34C759"],["🧭","#1E8CF0"],["✉︎","
 
 function build(){
   $("ui").innerHTML=`<div class="status"><span>9:41</span><span class="ic"><span class="sig"><i style="height:4px"></i><i style="height:7px"></i><i style="height:10px"></i><i style="height:12px"></i></span><span>5G</span><span class="bat"></span></span></div>`+
-    $("t-"+OS).innerHTML+$("t-home").innerHTML+`<div id="ring"></div><div id="tap"></div>`;
+    $("t-"+OS).innerHTML+$("t-home").innerHTML+(VID==="mic"?$("t-mic").innerHTML:"")+`<div id="ring"></div><div id="tap"></div>`;
   const home=$("home");
   APPS.forEach(([g,c,n],i)=>{ const a=document.createElement("div"); a.className="app"; a.style.left=COLX[i%4]-40+"px"; a.style.top=ROWY[Math.floor(i/4)]+"px";
     a.innerHTML=`<i style="background:${c}">${g}</i>${n}`; home.append(a); });
@@ -294,7 +385,7 @@ function build(){
     a.innerHTML=`<i style="background:#fff">${g}</i>`; home.append(a); });
   // the status bar's color: dark on the browser, light on the wallpaper (set in seek)
   for(const [id,a,b,html] of C.caps){ const d=document.createElement("div"); d.className="cap"; d.id=id; d.innerHTML=html; $("caps").append(d); }
-  $("tip").innerHTML=C.tip; $("annOs").textContent=C.os; $("annH").innerHTML=C.title;
+  $("tip").innerHTML=C.tip; $("annOs").textContent=C.os; $("annP").innerHTML=C.sub||"מתקינים פעם אחת,<br>ונכנסים בלחיצה מהמסך הראשי"; $("annH").innerHTML=C.title;
   for(let i=1;i<=16;i++){ const s=document.createElement("div"); s.className="slab";
     s.style.transform=`translateZ(${-i}px)`; s.style.background=i<3||i>14?"#9AA0A8":"#3A3C44"; $("slabs").append(s); }
   for(const [top,h,side] of [[300,110,"left"],[460,170,"left"],[380,200,"right"]]){
@@ -322,8 +413,8 @@ async function setup(){
   const rest={tx:0,ty:0,k:1,rx:4,ry:-14,rz:0}, away={tx:0,ty:1500,k:.9,rx:20,ry:-30,rz:-6};
   const calm={tx:0,ty:0,k:1,rx:3,ry:-6,rz:0};
   KEYS=[[0,away],[OPEN_END-.4,away],[OPEN_END+.6,rest],[4.6,calm]];
-  for(const [t,box,k] of C.cam){
-    if(box){ const b=C.boxes[box]; KEYS.push([t,focus(b[0]+b[2]/2,b[1]+b[3]/2,k)]); }
+  for(const [t,box,k,fx] of C.cam){
+    if(box){ const b=C.boxes[box]; KEYS.push([t,focus(b[0]+b[2]/2,b[1]+b[3]/2,k,fx)]); }
     else KEYS.push([t,calm]); }
   KEYS.push([C.tipAt[0]-.2,calm],[C.tipAt[0]+.5,{tx:0,ty:420,k:.78,rx:8,ry:-16,rz:0}],[C.tipAt[1]-.3,{tx:0,ty:430,k:.78,rx:8,ry:-10,rz:0}],[C.tipAt[1]+.5,away]);
   KEYS.sort((a,b)=>a[0]-b[0]);
@@ -344,7 +435,7 @@ function presence(id,t){
     if(t>=a-0.001&&t<b+.3) v=Math.max(v,x); }
   return v;
 }
-const SLIDE={shareL:"up",addL:"up",menu:"pop",dlgL:"pop",home:"fade",app:"open",browser:"fade"};
+const SLIDE={shareL:"up",addL:"up",menu:"pop",dlgL:"pop",home:"fade",app:"open",browser:"fade",toastL:"fade",siteL:"up",homeMenu:"pop",infoL:"fade",permsL:"fade",micL:"fade"};
 
 async function seek(t){
   const p=stateAt(t);
@@ -353,7 +444,7 @@ async function seek(t){
   $("shadow").style.opacity=Math.max(0,1-Math.max(0,p.ty)/600);
   $("gloss").style.backgroundPosition=`${p.ry*4}px 0`;
   // the screen's layers
-  for(const id of ["browser","menu","shareL","addL","dlgL","home","app"]){ const el=$(id); if(!el) continue;
+  for(const id of ["browser","menu","shareL","addL","dlgL","home","app","toastL","siteL","homeMenu","infoL","permsL","micL"]){ const el=$(id); if(!el) continue;
     const v=presence(id,t), kind=SLIDE[id]; el.style.visibility=v>0?"visible":"hidden";
     if(kind==="up"){ el.style.opacity=1; el.querySelector(".scrim").style.opacity=v; el.lastElementChild.style.transform=`translateY(${(1-v)*560}px)`; }
     else if(kind==="pop"){ el.style.opacity=v; const c=el.querySelector(".menu,#dlg"); c.style.transformOrigin=id==="menu"?(OS==="ios"?"0% 100%":"0% 0%"):"50% 50%"; c.style.transform=`scale(${lerp(.85,1,v)})`; }
@@ -363,6 +454,12 @@ async function seek(t){
   // the status bar: light over the wallpaper
   const onHome=presence("home",t)*(1-presence("app",t));
   document.querySelector(".status").style.color=onHome>.5?"#fff":"#111";
+  // the microphone video: the switch turns on, the radio moves
+  if(C.toggleAt!=null){ const x=ease((t-C.toggleAt)/.25), tg=$("mtog");
+    tg.style.background=x>.5?"#0B57D0":"#79747E"; tg.firstElementChild.style.transform=`translateX(${x*20}px)`;
+    $("msub").textContent=x>.5?"מותר":"חסום"; $("msub").style.color=x>.5?"#188038":"#B3261E"; }
+  if(C.radioAt!=null){ const x=ease((t-C.radioAt)/.25);
+    $("rd1").style.opacity=x; $("rd3").style.opacity=1-x; $("c1").style.borderColor=x>.5?"#0B57D0":"#444"; $("c3").style.borderColor=x>.5?"#444":"#0B57D0"; }
   // our icon arrives on the home screen
   const mi=pop((t-C.mineAt)/.6); $("mine").style.transform=`scale(${mi})`; $("mine").style.opacity=Math.min(1,mi*2);
   $("mine").querySelector(".new").style.opacity=ease((t-C.mineAt-.5)/.3);

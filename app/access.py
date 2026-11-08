@@ -50,7 +50,7 @@ OVERRIDE_FEATURES = {"practice": ("practice.use", "exercises.use"), "games": ("g
                      "tutor": ("tutor.use",), "path": ("path.use",),
                      "games.verb": ("games.verb",), "games.eitan": ("games.eitan",),
                      "games.falling": ("games.falling",), "games.bubble": ("games.bubble",),
-                     "path.all_lessons": ("exercises.use_all",),
+                     "games.camel": ("games.camel",), "path.all_lessons": ("exercises.use_all",),
                      "library.all_sections": ()}   # every library section, instead of the classes' own
 
 
@@ -64,6 +64,7 @@ FEATURES: dict[str, tuple[str, dict[str, bool], tuple[str, ...]]] = {
     "games.eitan": ("בונים פועל עם איתן", _ALL, ("games.eitan",)),
     "games.falling": ("אותיות נופלות", _ALL, ("games.falling",)),
     "games.bubble": ("פועל זמני", _ALL, ("games.bubble",)),
+    "games.camel": ("מרוץ גמלים", _ALL, ("games.camel",)),
     "practice": ("תרגול", _ALL, ("practice.use", "exercises.use")),
     "path": ("מסלול", _ALL, ("path.use",)),
     "path.all_lessons": ("כל השיעורים (לא רק של הכיתות)", {"admin": True, "student": False},
@@ -73,7 +74,7 @@ FEATURES: dict[str, tuple[str, dict[str, bool], tuple[str, ...]]] = {
 }
 # a per-account exception (clean_overrides) of the same thing as a tier's feature
 OVERRIDE_OF_FEATURE = {"games.yalla_nedaber": "tutor", "games.all": "games", "practice": "practice", "path": "path",
-                       **{k: k for k in ("games.verb", "games.eitan", "games.falling", "games.bubble",
+                       **{k: k for k in ("games.verb", "games.eitan", "games.falling", "games.bubble", "games.camel",
                                          "path.all_lessons", "library.all_sections")}}
 CREATE_FEATURE_ACCESS = (
     "create table public.feature_access (tier text not null check (tier in ('admin','teacher','student')), "
@@ -300,7 +301,7 @@ def what_opens(a: SupabaseAuth, users: list[dict], rows: list[dict], levels_of, 
         has = lambda p: "*" in perms or p in perms
         flags = {"practice": "practice.use", "games": "games.use", "tutor": "tutor.use", "path": "path.use",
                  "games.verb": "games.verb", "games.eitan": "games.eitan", "games.falling": "games.falling",
-                 "games.bubble": "games.bubble", "path.all_lessons": "exercises.use_all",
+                 "games.bubble": "games.bubble", "games.camel": "games.camel", "path.all_lessons": "exercises.use_all",
                  "management": "management.access", "lab": "lab.access"}
         if me.get("denied"):
             out[user["id"]] = {"levels": [], "library": [], "denied": True, "overrides": me.get("overrides") or {},

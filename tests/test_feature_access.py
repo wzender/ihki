@@ -53,7 +53,7 @@ def test_without_switches_each_tier_has_its_defaults(monkeypatch):
         admin = perms(auth, "teacher-1", "teacher@example.com")
         trainer = perms(auth, "trainer-1", "trainer@example.com")
         student = perms(auth, "student-1", "student@example.com")
-        games = {"games.use", "games.verb", "games.eitan", "games.falling", "games.bubble"}
+        games = {"games.use", "games.verb", "games.eitan", "games.falling", "games.bubble", "games.camel"}
         assert games | {"practice.use", "path.use", "tutor.use", "exercises.use_all", "management.access"} <= admin
         assert trainer == student   # a guide is a student
         assert games | {"practice.use", "path.use"} <= student
@@ -187,7 +187,7 @@ def test_descriptions_do_not_claim_a_tiers_features():
     for name in ("list_user_access", "prepare_user_access_change"):
         assert "list_feature_access" in tools[name] and "games but יאללה נדבר" not in tools[name]
     assert set(FEATURES) == {"games.yalla_nedaber", "games.all", "games.verb", "games.eitan", "games.falling",
-                             "games.bubble", "practice", "path", "path.all_lessons", "library.all_sections"}
+                             "games.bubble", "games.camel", "practice", "path", "path.all_lessons", "library.all_sections"}
 
 
 def test_the_permission_screen_switches_a_group_and_one_account(monkeypatch):

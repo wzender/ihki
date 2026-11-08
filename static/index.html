@@ -234,6 +234,40 @@ body[data-view=verbs] #vids{max-width:none;gap:6px;margin-top:0}
 /* יאללה נדבר: the tutor chat, laid out like WhatsApp: the tutor's messages at the right, the student's (green) at the left */
 :root{--tc-wall:#EFE7DD; --tc-in:#FFFFFF; --tc-out:#D9FDD3; --tc-head:#36501D; --tc-fix:#FFF6D6}
 @media (prefers-color-scheme: dark){:root{--tc-wall:#0B141A; --tc-in:#202C33; --tc-out:#005C4B; --tc-head:#202C33; --tc-fix:#3A2F17}}
+
+/* מרוץ גמלים: the teacher's projector game */
+body.camel-race{overflow:hidden}
+.cr{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;background:#FFF4DD;color:#3B2A14;font-family:var(--f-body)}
+.cr-head{display:flex;align-items:center;gap:14px;padding:10px 20px;background:#3B2A14;color:#fff}
+.cr-head h2{margin:0;flex:1;font:700 clamp(20px,3vw,30px)/1.2 var(--f-display)}
+.cr-head button,.cr button.cr-btn{font:700 clamp(15px,2vw,20px)/1 var(--f-body);padding:10px 18px;border-radius:12px;border:2px solid #3B2A14;background:#fff;color:#3B2A14;cursor:pointer}
+.cr-head button{border-color:rgb(255 255 255/.5);background:transparent;color:#fff}
+.cr button.cr-main{background:#3B2A14;color:#fff}
+.cr-setup{margin:auto;display:flex;flex-direction:column;gap:18px;width:min(92vw,520px);font-size:20px}
+.cr-setup label{display:flex;flex-direction:column;gap:6px;font-weight:700}
+.cr-setup select{font:inherit;padding:10px;border-radius:10px;border:2px solid #E9C47E;background:#fff}
+.cr-setup .cr-hint{font-size:16px;color:#7a6440}
+.cr-pick{display:flex;gap:10px}.cr-pick button{flex:1;font:700 22px/1 var(--f-body);padding:12px;border-radius:12px;border:2px solid #E9C47E;background:#fff;cursor:pointer}
+.cr-pick button.on{background:#3B2A14;color:#fff;border-color:#3B2A14}
+.cr-track{margin:14px 20px 0;padding:10px 16px;border-radius:18px;background:#F3D9A4;border:3px solid #E9C47E;position:relative}
+.cr-lane{display:flex;align-items:center;gap:10px;height:clamp(46px,8vh,68px);border-bottom:2px dashed #E9C47E}.cr-lane:last-child{border-bottom:0}
+.cr-lane.turn{background:rgb(255 255 255/.45);border-radius:10px}
+.cr-name{width:clamp(90px,14vw,160px);font-weight:800;font-size:clamp(16px,2.2vw,24px);flex:none}
+.cr-run{position:relative;flex:1;height:100%;margin-inline-end:26px}
+.cr-camel{position:absolute;top:50%;transform:translateY(-50%);font-size:clamp(34px,6vh,54px);transition:inset-inline-start .7s ease;line-height:1}
+.cr-flag{position:absolute;inset-inline-end:0;top:6px;bottom:6px;width:10px;border-radius:3px;background:repeating-linear-gradient(0deg,#000 0 8px,#fff 8px 16px)}
+.cr-score{width:44px;text-align:center;font:800 clamp(20px,3vw,30px)/1 var(--f-body);flex:none}
+.cr-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(260px,36%) 1fr;gap:20px;padding:16px 20px 20px}
+.cr-word{background:#fff;border:3px solid #E9C47E;border-radius:18px;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}
+.cr-turn{font:800 clamp(18px,2.4vw,26px)/1.2 var(--f-body);color:#fff;padding:6px 18px;border-radius:12px}
+.cr-ar{font:700 clamp(44px,8vw,96px)/1.3 var(--f-tr)}.cr-tr{font-size:clamp(20px,3vw,32px);min-height:1.3em}
+.cr-opts{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:16px}
+.cr-opt{font:700 clamp(22px,3.6vw,42px)/1.2 var(--f-body);border-radius:18px;border:3px solid #E9C47E;background:#fff;color:#3B2A14;cursor:pointer;padding:10px}
+.cr-opt.right{background:#E1F0E4;border-color:#2F7A4A}.cr-opt.wrong{background:#F6E3E3;border-color:#A3303F}
+.cr-opt:disabled{cursor:default}
+.cr-foot{display:flex;gap:12px;justify-content:center;padding:0 20px 14px}
+.cr-win{margin:auto;text-align:center;display:flex;flex-direction:column;gap:18px;align-items:center}.cr-win b{font:800 clamp(34px,7vw,80px)/1.1 var(--f-display)}
+@media (max-width:800px){.cr-body{grid-template-columns:1fr}}
 body.tutor-chat{overflow:hidden}
 .tc{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;background:var(--tc-wall);color:var(--ink)}
 .tc-head{display:flex;align-items:center;gap:10px;padding:max(8px,env(safe-area-inset-top)) 12px 8px;background:var(--tc-head);color:#fff}
@@ -2893,6 +2927,11 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
       falling.append(mark("","🔤","i"),mark("","אותיות נופלות","b"),mark("","בחרו גוף וראו את אית״ן — ואת ב׳ בהווה — נופלות למקום","small"));
       falling.onclick=openFallingLetters; box.append(falling);
     }
+    if(can("games.use")&&can("games.camel")){   // מרוץ גמלים: meant for the projector, in teams, answering aloud
+      const camel=mark("now","","button");
+      camel.append(mark("","🐪","i"),mark("","מרוץ גמלים","b"),mark("","משחק קבוצות: שומעים מילה ומקדמים את הגמל","small"));
+      camel.onclick=openCamelRace; box.append(camel);
+    }
     const memo=mark("now","","button"), upto=vtLessonNow();   // the memory game, on the verb table's lesson
     memo.classList.add("game-tile");
     memo.append(mark("","📿","i"),mark("","הפועל זכרון","b"),gameMeta(!gameBest.memory,3),mark("",`הפכו חרוזים ומצאו זוגות של פעלים · עד ${(ALL_LESSONS.find(l=>l.id===upto)||{}).name||""}`,"small"));
@@ -3335,6 +3374,121 @@ function tcListen(){   // a tap starts listening; the recognition ends by itself
   };
   try{ r.start(); }catch{ tc.rec=null; tcNote("זיהוי הדיבור לא זמין כרגע. אפשר להקליד.","bad"); tc.type.hidden=false; return; }
   tc.mic.classList.add("live"); tc.live.textContent="מקשיב… דברו בערבית"; tc.live.hidden=false;
+}
+/* ---- מרוץ גמלים: the teacher picks the last lesson, the teams answer aloud, the teacher taps what they said ---- */
+let cr=null;
+const CR_TEAMS=[["ורד","#E0527A"],["זית","#4B6A2C"],["שמש","#B8790D"],["תכלת","#2F6FA3"]];
+function openCamelRace(){
+  closeCamelRace();
+  const root=mark("cr","","section"); root.setAttribute("role","dialog"); root.setAttribute("aria-label","מרוץ גמלים");
+  root.innerHTML='<div class="cr-head"><h2>🐪 מרוץ גמלים</h2><button type="button" class="cr-close">יציאה</button></div><div class="cr-main"></div>';
+  document.body.append(root); document.body.classList.add("camel-race");
+  cr={root,main:root.querySelector(".cr-main"),items:[],teams:2,steps:10,audio:null,lesson:store.get("ihki.crLesson","")};
+  root.querySelector(".cr-close").onclick=closeCamelRace;
+  cr.onkey=e=>{ if(e.key==="Escape") closeCamelRace(); }; addEventListener("keydown",cr.onkey);
+  crSetup();
+}
+function closeCamelRace(){
+  if(!cr) return;
+  removeEventListener("keydown",cr.onkey); if(cr.audio) cr.audio.pause();
+  cr.root.remove(); document.body.classList.remove("camel-race"); cr=null;
+}
+async function crSetup(){
+  const box=cr.main; box.className="cr-main cr-setup"; box.replaceChildren(mark("","טוענים…","p"));
+  const res=await api("/api/camel-race").catch(()=>null);
+  if(!cr) return;
+  if(!res||!res.ok){ box.replaceChildren(mark("","לא הצלחנו לפתוח את המשחק. אפשר לנסות שוב.","p")); return; }
+  const lessons=(await res.json()).lessons;
+  const lab=mark("","עד איזה שיעור המילים (כולל פעלים)?","label"), sel=document.createElement("select");
+  for(const l of lessons){ const o=document.createElement("option"); o.value=l.id; o.textContent=l.name; sel.append(o); }
+  sel.value=lessons.some(l=>l.id===cr.lesson)?cr.lesson:lessons[0]?.id||""; lab.append(sel);
+  const picker=(title,values,get,set,text)=>{
+    const l=mark("",title,"label"), row=mark("cr-pick","","div");
+    const draw=()=>row.replaceChildren(...values.map(v=>{ const b=mark(get()===v?"on":"",text(v),"button"); b.type="button"; b.onclick=()=>{set(v);draw()}; return b; }));
+    draw(); l.append(row); return l;
+  };
+  const hint=mark("cr-hint","","p"), go=mark("cr-btn cr-main","יוצאים לדרך","button"); go.type="button";
+  go.onclick=async()=>{
+    go.disabled=true; hint.textContent="טוענים את המילים…"; cr.lesson=sel.value; store.set("ihki.crLesson",cr.lesson);
+    const r=await api("/api/camel-race?upto="+encodeURIComponent(cr.lesson)).catch(()=>null);
+    if(!cr) return;
+    if(!r||!r.ok){ hint.textContent="לא הצלחנו לטעון. אפשר לנסות שוב."; go.disabled=false; return; }
+    cr.items=(await r.json()).items;
+    if(cr.items.length<4){ hint.textContent="בשיעורים האלה יש פחות מ־4 מילים. בחרו שיעור מאוחר יותר."; go.disabled=false; return; }
+    crStart();
+  };
+  box.replaceChildren(lab,picker("כמה קבוצות?",[2,3,4],()=>cr.teams,v=>cr.teams=v,v=>v),
+    picker("כמה צעדים עד לקו הסיום?",[6,10,15],()=>cr.steps,v=>cr.steps=v,v=>v),go,hint);
+}
+function crShuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+function crStart(){
+  cr.team=CR_TEAMS.slice(0,cr.teams).map(([name,color])=>({name:"קבוצת "+name,color,pos:0}));
+  cr.turn=0; cr.deck=[]; cr.main.className="cr-main"; cr.main.style.cssText="flex:1;min-height:0;display:flex;flex-direction:column";
+  const track=mark("cr-track","","section"); track.append(mark("cr-flag","","i"));
+  cr.lanes=cr.team.map(t=>{
+    const lane=mark("cr-lane","","div"), run=mark("cr-run","","div"), camel=mark("cr-camel","🐪","i"), score=mark("cr-score","0","b");
+    camel.style.insetInlineStart="0%"; run.append(camel);
+    const name=mark("cr-name",t.name,"b"); name.style.color=t.color; score.style.color=t.color;
+    lane.append(name,run,score); track.append(lane); return {lane,camel,score};
+  });
+  const body=mark("cr-body","","div"), foot=mark("cr-foot","","div");
+  cr.main.replaceChildren(track,body,foot); cr.body=body; cr.foot=foot;
+  crAsk();
+}
+function crNext(){   // a shuffled deck, so a word comes back only after every other has been asked
+  if(!cr.deck.length) cr.deck=crShuffle([...cr.items]);
+  return cr.deck.pop();
+}
+function crAsk(){
+  const item=crNext(), team=cr.team[cr.turn];
+  const same=cr.items.filter(i=>i.id!==item.id&&i.kind===item.kind&&i.he!==item.he), other=cr.items.filter(i=>i.id!==item.id&&i.he!==item.he);
+  const wrong=[]; for(const i of crShuffle([...same,...crShuffle([...other])])){ if(wrong.length<3&&!wrong.some(w=>w.he===i.he)) wrong.push(i); }
+  const options=crShuffle([item,...wrong]);
+  const left=mark("cr-word","","div"), turn=mark("cr-turn",`התור של ${team.name}`,"div");
+  turn.style.background=team.color;
+  const ar=mark("cr-ar",item.tr,"div");   // the students read transliteration only, never Arabic script
+  const play=mark("cr-btn cr-main","🔊 שמעו שוב","button"); play.type="button";
+  const tr=mark("cr-tr","","div"), say=()=>crSay(item.id);
+  play.onclick=say; left.append(turn,ar,tr,play);
+  const opts=mark("cr-opts","","div");
+  for(const o of options){
+    const b=mark("cr-opt",o.he,"button"); b.type="button";
+    b.onclick=()=>crAnswer(item,o,b,opts,tr);
+    opts.append(b);
+  }
+  cr.body.replaceChildren(left,opts); cr.foot.replaceChildren(); cr.locked=false;
+  say();
+}
+async function crSay(id){
+  if(cr.audio) cr.audio.pause();
+  try{
+    const res=await api("/api/camel-race/tts/"+encodeURIComponent(id));
+    if(!res.ok||!cr) return;
+    const url=URL.createObjectURL(await res.blob()), a=new Audio(url); cr.audio=a; a.onended=()=>URL.revokeObjectURL(url); await a.play();
+  }catch{}   // no voice: the Arabic is on the screen, and the teacher can read it
+}
+function crAnswer(item,chosen,button,opts,tr){
+  if(cr.locked) return; cr.locked=true;
+  const ok=chosen.id===item.id, t=cr.team[cr.turn];
+  for(const b of opts.children){ b.disabled=true; if(b.textContent===item.he) b.classList.add("right"); }
+  if(!ok) button.classList.add("wrong");
+  if(ok){
+    t.pos++; const lane=cr.lanes[cr.turn];
+    lane.camel.style.insetInlineStart=`calc(${Math.min(t.pos/cr.steps,1)*100}% - ${Math.min(t.pos/cr.steps,1)*1.2}em)`;
+    lane.score.textContent=t.pos;
+  }
+  const next=mark("cr-btn cr-main",ok&&t.pos>=cr.steps?"לתוצאות":"הבא","button"); next.type="button";
+  next.onclick=()=>{
+    if(ok&&t.pos>=cr.steps) return crWin(t);
+    cr.turn=(cr.turn+1)%cr.team.length; cr.lanes.forEach((l,i)=>l.lane.classList.toggle("turn",i===cr.turn)); crAsk();
+  };
+  cr.foot.replaceChildren(next); next.focus();
+}
+function crWin(team){
+  if(cr.audio) cr.audio.pause();
+  const box=mark("cr-win","","div"), title=mark("",`🏆 ${team.name} ניצחה!`,"b"), again=mark("cr-btn cr-main","משחק חדש","button");
+  title.style.color=team.color; again.type="button"; again.onclick=crSetup;
+  box.append(title,again); cr.main.style.cssText=""; cr.main.replaceChildren(box);
 }
 function openMemoryGame(){
   const upto=vtLessonNow(); if(!upto) return;
@@ -6247,7 +6401,7 @@ function sectionPicker(tree,chosen,label,onChange){
 /* What the permission editor shows of each account (GET /api/access/users "opens", see access.what_opens): a column
    for each, in this order. "\n" breaks a heading. */
 const ACCESS_COLS=[["level:1","שלב א"],["level:2","שלב ב"],["path.all_lessons","כל\nהשיעורים"],["path","מסלול"],["practice","תרגול"],
-  ["games","משחקים"],["games.verb","פועל\nיוצא"],["games.eitan","בונים פועל\nעם איתן"],["games.falling","אותיות\nנופלות"],["games.bubble","פועל\nזמני"],["tutor","יאללה\nנדבר"],
+  ["games","משחקים"],["games.verb","פועל\nיוצא"],["games.eitan","בונים פועל\nעם איתן"],["games.falling","אותיות\nנופלות"],["games.bubble","פועל\nזמני"],["games.camel","מרוץ\nגמלים"],["tutor","יאללה\nנדבר"],
   ["lib:d1","ספרייה\nשלב א"],["lib:d2","ספרייה\nשלב ב"],["lib:guides","ספרייה\nמנחים ומתרגלים"],["library.all_sections","כל\nהספרייה"],["management","ניהול"],["lab","מעבדה"]];
 const ACCESS_OWN=new Set(ACCESS_COLS.map(([k])=>k).filter(k=>k!=="management"&&k!=="lab"));   // what one account may be given or denied on its own (not ניהול, not the lab)
 function accessOpens(o,key){
