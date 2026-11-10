@@ -213,7 +213,7 @@ document.querySelector("#vids .focus-path").click();
 await sleep(100);
 out.pathView=view();
 out.rewardOnPath=getComputedStyle(document.getElementById("rewardShelf")).display!=="none";
-out.pathShortcuts=[...document.querySelectorAll("#today button:not(.path-stats):not(#vidsBtn):not(.ps-tools button)")].map(b=>b.textContent.trim());
+out.pathShortcuts=[...document.querySelectorAll("#today button:not(.path-stats):not(#vidsBtn):not(#libBtn):not(#dailyBtn):not(.ps-tools button)")].map(b=>b.textContent.trim());
 const stats=document.querySelector("#today .path-stats"), todayBox=document.getElementById("today");
 out.stats=stats&&{shown:stats.offsetParent!==null,sticky:getComputedStyle(todayBox).position,
   parts:[...stats.children].map(c=>c.className.split(" ")[0]),note:stats.querySelector(".ps-note").textContent,
@@ -639,7 +639,7 @@ def test_todays_video_waits_on_the_videos_button_not_the_home(site):
     assert "הסרטון של היום" not in r["first"] and len(r["first"]) <= 3
     assert "מגישים מחר" in r["homework"]
     assert r["btnShown"] and r["btnNew"] and not r["navLibrary"]   # in the top row, marked; no longer a tab
-    assert r["view"] == "library" and r["headings"][:2] == ["סרטונים", "הסרטון של היום"]
+    assert r["view"] == "daily" and r["headings"] == ["סרטון יומי"]   # the digital library has a button of its own
     assert r["btnNewAfter"] is False and r["first"] == r["afterWatching"]
 
 
@@ -770,8 +770,8 @@ def test_the_content_tab_is_split_into_the_library_sections(site):
     r = site("boss@x.com", CONTENT_SECTIONS)
     assert r["top"] == ["1. מערכת דיגיטלית", "2. בוגרים מספרים", "3. טיולים בכפר", "4. פרקי אבות עם אמיר",
                         "5. חַאחַ׳אם עידן", "6. מנחים ומתרגלים"]
-    assert r["sub"] == ["שלב א", "שלב ב", "שלב ג", "שלב ד", "נִתמרַן"]   # the page draws the shadda itself, outside the text
-    assert r["stageOneCards"] == ["סרטונים במדור", "סרטונים יומיים"]   # its shelf, then the level's own content
+    assert r["sub"] == ["שלב א", "שלב ב", "שלב ג", "שלב ד", "נִתמרַּן"]   # the page draws the shadda itself, outside the text
+    assert r["stageOneCards"] == ["מערכת דיגיטלית · שלב א", "סרטונים יומיים"]   # its shelf, then the level's own content
 
 
 ACCESS_TIERS = """
@@ -868,3 +868,131 @@ def test_notifications_left_in_the_tray_are_shown_in_the_app_and_cleared(site):
     assert r["afterTap"] == {"open": False, "view": "daily"}
     assert r["one"] == {"title": "🔥 רצף של 4 ימים", "text": "עוד לא תרגלתם היום.", "go": "לתרגול", "list": False}
     assert r["emptyStaysClosed"] is True
+
+
+LIBRARY_VIEW = """
+await sleep(1500);
+const btn=document.getElementById("libBtn");
+out.shown=!btn.hidden; btn.click(); await sleep(300);
+out.view=view();
+out.headings=[...document.querySelectorAll("#vids h2,#vids h3")].map(h=>h.textContent);
+out.first=document.querySelector("#vids .back").nextElementSibling.tagName;
+out.videos=[...document.querySelectorAll("#vids button bdi")].map(b=>b.textContent);
+"""
+
+
+def test_the_library_button_shows_the_levels_lessons_under_their_own_names(site, monkeypatch):
+    from app import library
+    monkeypatch.setattr(library, "BASE_ROWS", [*library.SEED_ROWS, *library.LESSON_ROWS])
+    site.auth.level_videos = lambda table, fresh=False: [] if table != "library" else [
+        {"id": 1, "level": "d1", "title": "הכנה לקורס", "url": "https://vimeo.com/76979871"},
+        {"id": 2, "level": "lesson-2", "title": "של שיעור 2", "url": "https://vimeo.com/76979872"}]
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", LIBRARY_VIEW)
+    assert r["shown"] and r["view"] == "library"
+    assert r["headings"] == [f"שיעור {n}" for n in range(1, 11)]   # no "ספרייה דיגיטלית", no "מערכת דיגיטלית · שלב א"
+    assert r["first"] == "BUTTON" and r["videos"] == ["הכנה לקורס", "של שיעור 2"]   # the level's own videos first, bare
+
+
+VIDEOS_VIEW = """
+await sleep(1500);
+const vids=document.getElementById("vidsBtn"), lib=document.getElementById("libBtn");
+out.shown=!vids.hidden&&!lib.hidden; vids.click(); await sleep(300);
+out.view=view();
+out.headings=[...document.querySelectorAll("#vids h2,#vids h3")].map(h=>h.textContent);
+out.videos=[...document.querySelectorAll("#vids button bdi")].map(b=>b.textContent);
+lib.click(); await sleep(300);
+out.libHeadings=[...document.querySelectorAll("#vids h2,#vids h3")].map(h=>h.textContent);
+out.libVideos=[...document.querySelectorAll("#vids button bdi")].map(b=>b.textContent);
+"""
+
+
+def test_the_videos_button_shows_the_folders_outside_the_digital_library(site):
+    site.auth.layout[0] = dict(site.auth.layout[0], library_sections=["d1", "village", "avot"])
+    site.auth.level_videos = lambda table, fresh=False: [] if table != "library" else [
+        {"id": 1, "level": "d1", "title": "הכנה לקורס", "url": "https://vimeo.com/76979871"},
+        {"id": 2, "level": "village", "title": "טיול בכפר", "url": "https://vimeo.com/76979872"}]
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", VIDEOS_VIEW)
+    assert r["shown"] and r["view"] == "daily"
+    assert r["headings"] == ["סרטונים", "טיולים בכפר", "פרקי אבות עם אמיר"] and r["videos"] == ["טיול בכפר"]
+    assert r["libHeadings"] == ["שלב א"] and r["libVideos"] == ["הכנה לקורס"]   # מערכת דיגיטלית alone, under its own button
+
+
+DAILY_BTN = """
+await sleep(1500);
+document.querySelector("#vids .focus-path").click(); await sleep(200);
+const b=document.getElementById("dailyBtn");
+out.shown=!b.hidden&&getComputedStyle(b).display!=="none"; out.text=b.textContent.trim(); out.isNew=b.classList.contains("new");
+out.inTools=b.parentElement.className; out.title=b.title;
+out.lib=document.getElementById("libBtn").textContent.trim();
+const tools=document.querySelector("#today .ps-tools").getBoundingClientRect(), fb=document.getElementById("feedbackBtn").getBoundingClientRect();
+out.fits=fb.left>=tools.left-1&&fb.right<=tools.right+1; out.w=[innerWidth,tools.width,fb.left-tools.left];
+"""
+
+
+def test_the_daily_video_button_is_in_the_progress_bar_even_without_a_video(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", DAILY_BTN)
+    assert r["shown"] and r["inTools"] == "ps-tools" and "סרטון יומי" in r["text"] and not r["isNew"]
+    assert r["title"] == "עוד אין סרטונים יומיים" and r["lib"] == "ספריה" and r["fits"]
+
+
+def test_the_daily_video_button_calls_for_todays_video(site):
+    from datetime import date
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    site.auth.layout[0] = dict(site.auth.layout[0], dailies=[{"video": 1, "date": date.today().isoformat()}])
+    site.auth.daily_rows = [{"id": 1, "level": "1", "title": "ברוכים הבאים", "url": "https://vimeo.com/76979871"}]
+    r = site("dana@x.com", DAILY_BTN)
+    assert r["shown"] and r["isNew"] and r["title"] == "ברוכים הבאים" and r["fits"]
+
+
+PUSH_CARD = """
+await until(()=>document.querySelector("#vids .focus-push"),5000);
+const card=document.querySelector("#vids .focus-push");
+out.title=card.querySelector("strong").textContent; out.detail=card.querySelector(".focus-detail").textContent;
+out.beforeRefer=card.nextElementSibling.className.split(" ")[0];
+out.reported=Object.keys(JSON.parse(localStorage.getItem("ihki.pushSeen")||"{}"));
+out.noOverflow=document.documentElement.scrollWidth<=innerWidth;
+let asked=0; window.pushOn=async()=>{ asked++; return {}; };   // the browser's own question, answered yes
+card.click(); await sleep(300);
+out.asked=asked; out.after=card.querySelector("strong").textContent;
+window.pushState=async()=>({key:"k",hour:8,sub:{}});            // the device is subscribed now
+showView(""); showView("home"); await sleep(400);
+out.gone=!document.querySelector("#vids .focus-push");
+"""
+
+
+def test_the_home_keeps_a_reminder_card_until_the_device_turns_it_on(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", PUSH_CARD)
+    assert "סרטון היומי" in r["title"] and "8:00" in r["detail"] and r["beforeRefer"] == "focus-refer"
+    assert r["reported"] == ["shown:home"] and r["noOverflow"]
+    assert r["asked"] == 1 and "פעילה" in r["after"] and r["gone"]
+
+
+VIDEO_PROMPT = """
+await sleep(1500);
+document.getElementById("dailyBtn").click();                    // today's video
+await until(()=>open("videoDlg"));
+out.during=open("pushDlg");
+document.getElementById("videoDlg").close();
+await until(()=>open("pushDlg"),5000);
+out.title=document.getElementById("pushTitle").textContent;
+document.getElementById("pushNo").click();
+out.closed=!open("pushDlg");
+out.asked=[localStorage.getItem("ihki.pushAskedVideo")!==null,localStorage.getItem("ihki.pushAsked")];
+document.getElementById("dailyBtn").click(); await until(()=>open("videoDlg"));
+document.getElementById("videoDlg").close(); await sleep(2500);
+out.again=open("pushDlg");                                       // put off: not on the next video
+"""
+
+
+def test_closing_a_daily_video_offers_tomorrows_by_notification(site):
+    from datetime import date
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    site.auth.layout[0] = dict(site.auth.layout[0], dailies=[{"video": 1, "date": date.today().isoformat()}])
+    site.auth.daily_rows = [{"id": 1, "level": "1", "title": "ברוכים הבאים", "url": "https://vimeo.com/76979871"}]
+    r = site("dana@x.com", VIDEO_PROMPT)
+    assert r["during"] is False and "הסרטון של מחר" in r["title"]
+    assert r["closed"] and r["asked"] == [True, None] and r["again"] is False

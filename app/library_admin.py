@@ -261,8 +261,7 @@ def apply(auth, plan: dict, by: str) -> dict[str, Any]:
             library.move(auth, plan["video_id"], plan["section"], last=True)
             return {"video_id": plan["video_id"], "title": plan["title"], "section": plan["section"],
                     "section_name": library.label(plan["section"]), "position": plan["position_in_destination"]}
-        if not auth.library_sections(True):
-            auth.seed_library_sections(library.SEED_ROWS)   # the built-in sections become rows before one is changed
+        library.materialize(auth)   # the built-in sections (and a section for each lesson) become rows before one is changed
         if op == "rename_library_section":
             auth.update_library_section(sid, {"name": plan["new_name"]})
         elif op == "move_library_section":

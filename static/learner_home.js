@@ -98,7 +98,10 @@ function renderHome(box,o,focus){
   }
   const more=el("div","focus-more"), path=el("button","focus-path","צפייה במסלול המלא");
   path.type="button"; path.onclick=o.onPath;
-  more.append(path); page.append(more);
+  const help=el("a","focus-help"); help.href="/static/guide.html"; help.title="איך מתרגלים: מדריך קצר";
+  help.append(el("b","","?")," עזרה"); help.firstChild.setAttribute("aria-hidden","true");
+  if(o.onHelp) help.onclick=o.onHelp;
+  more.append(path,help); page.append(more);
   box.append(page);
   if(focus) title.focus({preventScroll:true});
   return page;

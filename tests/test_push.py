@@ -377,3 +377,52 @@ def test_app_reads_streaks_counts_opens_and_shows_a_sample(monkeypatch, tmp_path
         assert sent and sent[-1]["tag"] == "streak"
     assert [e for e in auth.events if e[0].startswith("push")] == [
         ("push", "תזכורת רצף", {"kind": "streak", "sent": 4}), ("push_open", "push-streak", {"kind": "streak"})]
+
+
+def test_funnel_counts_people_once_a_step_and_only_those_asked_for():
+    steps, places = ("shown", "accepted", "declined"), ("video", "home")
+    event = lambda who, step, where: {"actor_email": who, "details": {"step": step, "where": where}}
+    rows = [event("A@b.c", "shown", "home"), event("a@b.c", "shown", "home"), event("a@b.c", "shown", "video"),
+            event("a@b.c", "accepted", "video"), event("z@b.c", "declined", "home"), event("", "shown", "home"),
+            event("a@b.c", "other", "home"), event("a@b.c", "shown", "nowhere"), {"actor_email": "a@b.c"}]
+    f = pushes.funnel(rows, None, steps, places)
+    assert f["steps"] == {"shown": 1, "accepted": 1, "declined": 1}
+    assert f["places"] == {"video": {"shown": 1, "accepted": 1, "declined": 0},
+                           "home": {"shown": 1, "accepted": 0, "declined": 1}}
+    assert pushes.funnel(rows, {"z@b.c"}, steps, places)["steps"] == {"shown": 0, "accepted": 0, "declined": 1}
+
+
+class FunnelAuth(StreakAppAuth):
+    def log_event(self, kind, user, label="", details=None):
+        self.events.append((kind, label, details, (user or {}).get("email", "")))
+
+    def events_since(self, kind, since, limit=5000):
+        self.since = since
+        return [{"actor_email": who, "details": details} for k, _, details, who in self.events if k == kind]
+
+
+def test_the_offer_reports_its_steps_and_the_admin_reads_the_funnel(monkeypatch, tmp_path):
+    from fastapi.testclient import TestClient
+    from test_scoring import emissions, scorer_for
+    from app.main import create_app
+    from app.tts import SawtakTTS
+    from app.tutor import Tutor
+
+    async def no_loop(*a, **k):
+        return None
+    monkeypatch.setenv("VAPID_PRIVATE_KEY", pushes.new_private_key())
+    for name in ("loop", "status_loop", "streak_loop"):
+        monkeypatch.setattr(pushes, name, no_loop)
+    auth = FunnelAuth()
+    teacher, student = {"Authorization": "Bearer teacher"}, {"Authorization": "Bearer student"}
+    with TestClient(create_app(scorer_for(emissions(["ħ"])), SawtakTTS("k", cache_dir=tmp_path), auth=auth,
+                               tutor=Tutor(object()))) as c:
+        for step, where in (("shown", "video"), ("shown", "video"), ("accepted", "video"), ("shown", "home")):
+            assert c.post("/api/push/prompt", headers=student, json={"step": step, "where": where}).json() == {"ok": True}
+        assert c.post("/api/push/prompt", headers=student, json={"step": "shown", "where": "x"}).status_code == 400
+        assert c.post("/api/push/prompt", headers=student, json={"step": "x", "where": "home"}).status_code == 400
+        assert c.get("/api/push/funnel", headers=student).status_code == 403
+        f = c.get("/api/push/funnel?days=7", headers=teacher).json()
+        assert f["days"] == 7 and f["steps"]["shown"] == 1 and f["steps"]["accepted"] == 1 and f["steps"]["declined"] == 0
+        assert f["places"]["video"]["accepted"] == 1 and f["places"]["home"] == dict.fromkeys(f["steps"], 0) | {"shown": 1}
+    assert [e[:3] for e in auth.events][0] == ("push_prompt", "shown", {"step": "shown", "where": "video"})

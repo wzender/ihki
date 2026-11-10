@@ -274,6 +274,22 @@ async def loop(push: Push, today_of: Callable[[str, bool], list[dict]], now: Cal
         await asyncio.sleep(CHECK_EVERY)
 
 
+def funnel(rows: list[dict], people: set[str] | None, steps: tuple[str, ...], places: tuple[str, ...]) -> dict:
+    """The offer to turn the reminders on, counted in people: `rows` are its events ({"actor_email", "details": {"step",
+    "where"}}), `people` the emails to count (None: everyone). A person is counted once in a step, and once in a step
+    of a place, however many times the offer came up."""
+    by_step = {s: set() for s in steps}
+    by_place = {w: {s: set() for s in steps} for w in places}
+    for row in rows:
+        details, who = row.get("details") or {}, str(row.get("actor_email") or "").lower()
+        step, where = details.get("step"), details.get("where")
+        if not who or step not in by_step or where not in by_place or (people is not None and who not in people):
+            continue
+        by_step[step].add(who); by_place[where][step].add(who)
+    return {"steps": {s: len(v) for s, v in by_step.items()},
+            "places": {w: {s: len(v) for s, v in d.items()} for w, d in by_place.items()}}
+
+
 def feedback_message(row: dict, labels: dict[str, str]) -> dict:
     """The developers' notification for one feedback note (see feedback.py): its kind and rating in the title, then who
     sent it, from which screen, and the first words. Each has its own tag, so one does not replace another."""

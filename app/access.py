@@ -5,6 +5,7 @@ import os
 
 from .auth import AuthUnavailable, SupabaseAuth
 from . import library
+from .phrases import LESSONS
 from .library import ENTITLEMENT_PREFIX, LEGACY_SECTION, SECTION_ENTITLEMENTS, SEED_HOLDERS, visible_sections
 
 
@@ -12,6 +13,7 @@ ROLES = frozenset({"student", "teacher", "flagger", "admin", "developer"})
 DEFAULT_ROLES = ("student", "flagger")
 # "library" is the permission from before the library had sections: it opens what the library held then, שלב א.
 # A section's permission is "lib:<section id>" (library.SECTIONS); a section's covers its sub-sections.
+_LESSON_LEVEL = {lesson["id"]: lesson["level"] for lesson in LESSONS}
 ENTITLEMENTS = frozenset({"practice", "games", "tutor", "path", "library", *SECTION_ENTITLEMENTS})
 DEFAULT_ENTITLEMENTS = frozenset({"practice", "games", "path", "library"})
 LEGACY_LIBRARY = {"library": ENTITLEMENT_PREFIX + LEGACY_SECTION}
@@ -152,9 +154,30 @@ def tier_of(roles) -> str:
 
 def class_sections(c: dict) -> list[str]:
     """The library sections a class opens to its students (ids from library.SECTIONS; a section covers its own).
-    A class saved before classes had sections opens what the library held then, שלב א."""
+    A class saved before classes had sections opens the sections of the levels it studies (what the library held then,
+    שלב א, for a class whose lessons name no level)."""
     chosen = c.get("library_sections")
-    return [LEGACY_SECTION] if chosen is None else [s for s in chosen if isinstance(s, str)]
+    if chosen is None:   # the section of each level the class studies, where there is one; else שלב א
+        mine = {_LESSON_LEVEL[l] for l in c.get("lessons") or [] if l in _LESSON_LEVEL}
+        own = [node["id"] for node in library.tree().walk() if node["level"] in mine]
+        return own or [LEGACY_SECTION]
+    return [s for s in chosen if isinstance(s, str)]
+
+
+def class_library(c: dict) -> list[str]:
+    """The sections that hold videos which a class opens to its students: those it chose, except that the sections of
+    the lessons (שלב א ‣ שיעור 1, שלב ב ‣ שיעור 10…) follow what the class studies. A class that opens any level's section
+    sees the lessons' sections of the levels its own lessons belong to, and no other level's. A class whose lessons
+    name no level keeps what it chose."""
+    seen = set(visible_sections({ENTITLEMENT_PREFIX + s for s in class_sections(c)}, False))
+    by_level = library.lesson_sections()
+    levels = {_LESSON_LEVEL[l] for l in c.get("lessons") or [] if l in _LESSON_LEVEL}
+    tree = library.tree()
+    opened = any(seen & set(tree.covered(node["id"])) for node in tree.walk() if node["level"])
+    if levels and opened:
+        for level, ids in by_level.items():
+            seen = seen | ids if level in levels else seen - ids
+    return [leaf for leaf in library.holders() if leaf in seen]
 
 
 def permissions_for(roles, sections: list[str], features: dict[str, dict] | None = None) -> set[str]:
@@ -226,8 +249,8 @@ def resolve_user_access(a: SupabaseAuth, user: dict, *, token: str = "",
     if everything:
         sections = visible_sections(set(), True)
     elif classes:
-        chosen = {ENTITLEMENT_PREFIX + s for c in mine for s in class_sections(c)}
-        sections = visible_sections(chosen, False)
+        seen = {leaf for c in mine for leaf in class_library(c)}
+        sections = [leaf for leaf in library.holders() if leaf in seen]
     else:   # no classes at all (an open deployment): what the library held before it had sections
         sections = [s for s in [LEGACY_SECTION] if s in library.holders()]
     for key, given in overrides.items():   # the account's own exceptions to the library sections

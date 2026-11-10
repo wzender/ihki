@@ -6,6 +6,7 @@ import secrets
 from typing import Callable
 
 from .auth import AuthUnavailable, ClassConflict, SupabaseAuth
+from .phrases import LESSONS, LEVELS
 
 
 MAX_TITLE = 80
@@ -50,6 +51,25 @@ def _seed_rows(nodes: list[dict] = SEED_SECTIONS, parent: str | None = None) -> 
 
 
 SEED_ROWS = _seed_rows()
+
+
+def _lesson_rows() -> list[dict]:
+    """A sub-section for each lesson of each level of the course, under the level's own section (שלב א ‣ שיעור 1, שלב ב ‣
+    שיעור 10…), in the lesson's order. They are built from the course itself and always part of the tree, like the seed,
+    but they are not in SEED_ROWS: they have no permission of their own. Whoever opens a level (a class of שלב א, an
+    account with its permission) sees all of its lessons' sections, and so a student sees the lessons of their level."""
+    parents = {level["id"]: "d" + level["id"] for level in LEVELS}
+    rows = []
+    for at, lesson in enumerate(LESSONS):
+        parent = parents.get(lesson["level"])
+        if parent:
+            rows.append({"id": "lesson-" + lesson["id"].replace(".", "-"), "parent_id": parent, "name": lesson["name"],
+                         "ord": at, "level": "", "holds_videos": False})
+    return rows
+
+
+LESSON_ROWS = _lesson_rows()
+BASE_ROWS = [*SEED_ROWS, *LESSON_ROWS]   # the tree before the table adds to it
 # Permissions ("lib:<id>") and a class's sections exist only for the seeded sections: the permissions table's check
 # constraint lists them (see main.ENTITLEMENTS_SQL). A sub-section added later has none of its own: whoever has its
 # parent has it.
@@ -164,7 +184,7 @@ class Tree:
         return [leaf for leaf in self.holders() if leaf in mine]
 
 
-_tree = Tree(SEED_ROWS)
+_tree = Tree(BASE_ROWS)
 
 
 def tree() -> Tree:
@@ -174,7 +194,7 @@ def tree() -> Tree:
 def reset() -> None:
     """Back to the seed (what a deployment without the table has)."""
     global _tree
-    _tree = Tree(SEED_ROWS)
+    _tree = Tree(BASE_ROWS)
 
 
 def leaf_sections() -> list[str]:
@@ -313,8 +333,39 @@ def refresh(auth, *, fresh: bool = False, strict: bool = False) -> None:
     if not stored:
         reset()
         return
+    _tree = Tree([*stored, *_missing(stored)])   # a seeded id is never missing
+
+
+def _missing(stored: list[dict]) -> list[dict]:
+    """The built-in rows the table lacks. A lesson's section is left out where a manager already made a sub-section of
+    that name under the same level (their "שיעור 1" is the lesson's section; a second one would stand beside it)."""
     known = {row["id"] for row in stored}
-    _tree = Tree([*stored, *(row for row in SEED_ROWS if row["id"] not in known)])   # a seeded id is never missing
+    names = {(row.get("parent_id") or "", _plain(row["name"])) for row in stored if not row.get("deleted")}
+    lessons = {row["id"] for row in LESSON_ROWS}
+    return [row for row in BASE_ROWS if row["id"] not in known
+            and not (row["id"] in lessons and (row["parent_id"], _plain(row["name"])) in names)]
+
+
+def lesson_sections() -> dict[str, set[str]]:
+    """The lessons' sections that are in the tree, by the level of the course: each lesson's own, or the sub-section a
+    manager named after it under the same level."""
+    out: dict[str, set[str]] = {}
+    for row in LESSON_ROWS:
+        parent = _tree.nodes.get(row["parent_id"])
+        if parent is None:
+            continue
+        ids = [row["id"]] if row["id"] in _tree.nodes else [
+            kid for kid in parent["children"] if _plain(_tree.nodes[kid]["name"]) == _plain(row["name"])]
+        out.setdefault(parent["level"], set()).update(ids)
+    return out
+
+
+def materialize(auth) -> None:
+    """Writes the built-in sections the table lacks (the seeded ones, and a section for each lesson) as rows, so a manager
+    can rename, move or delete them like any other; ids already there, a deleted one too, are kept as they are."""
+    missing = _missing(auth.library_sections(True) or [])
+    if missing:
+        auth.seed_library_sections(missing)
 
 
 def normalize_section_name(value: object) -> str:
@@ -366,8 +417,7 @@ def create_section(auth, plan: dict, by: str) -> dict:
         raise changed
     parent = _tree.nodes[plan["parent"]]
     try:
-        if not auth.library_sections(True):
-            auth.seed_library_sections(SEED_ROWS)
+        materialize(auth)
         auth.add_library_section({"id": plan["new_id"], "parent_id": plan["parent"], "name": plan["name"],
                                   "ord": len(parent["children"]),   # after its siblings (their ord runs 0, 1, …)
                                   "level": "", "holds_videos": False, "created_by": by})

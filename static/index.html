@@ -120,7 +120,17 @@ body:not(.home) .help,body.manage .help,body:not(.home) .guidetip,body.manage .g
 #today .ps-note.urgent{color:var(--orange)}
 /* the videos button, under "x/5 היום" in the bar's bottom-left corner, on the line of the note, with its label */
 #today .ps-vids.new{border-color:var(--amber);background:var(--amber-bg);color:var(--amber)}
-#today .ps-vids span{display:inline}
+#today .ps-vids span,#today .ps-lib span{display:inline}
+/* the daily video's button, first in the bar's row of tools: filled, with a light that sweeps over it, and a pulse while today's video waits */
+#today .ps-tools #dailyBtn{position:relative;overflow:hidden;border:0;background:linear-gradient(135deg,var(--orange),var(--amber));color:#fff;box-shadow:0 2px 0 color-mix(in srgb,var(--orange) 55%,#000)}
+#today .ps-tools #dailyBtn::before{content:"";position:absolute;inset-block:0;inset-inline-start:-60%;width:45%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.65),transparent);transform:skewX(-20deg);animation:daily-shine 2.8s ease-in-out infinite}
+#today .ps-tools #dailyBtn.new{animation:daily-pulse 1.5s ease-in-out infinite}
+#today .ps-tools #dailyBtn:active{transform:translateY(1px)}
+@keyframes daily-shine{0%,55%{inset-inline-start:-60%}100%{inset-inline-start:130%}}
+@keyframes daily-pulse{0%,100%{transform:scale(1);box-shadow:0 2px 0 color-mix(in srgb,var(--orange) 55%,#000),0 0 0 0 color-mix(in srgb,var(--orange) 60%,transparent)}50%{transform:scale(1.06);box-shadow:0 2px 0 color-mix(in srgb,var(--orange) 55%,#000),0 0 0 7px transparent}}
+@media (prefers-reduced-motion:reduce){#today .ps-tools #dailyBtn::before,#today .ps-tools #dailyBtn.new{animation:none}}
+html[data-subject="math"] #dailyBtn{display:none!important}
+@media (max-width:420px){#today .ps-tools{gap:6px}#today .ps-tools :is(button,a){padding:0 9px}#today .ps-tools .vidbtn svg{display:none}}
 /* videos, help and feedback: one row inside the bar's frame, under the note (the bar is a button, so they are laid over it, not in it) */
 #today.stats{position:sticky}#today.stats .path-stats{padding-bottom:50px}
 #today .ps-tools{position:absolute;inset-inline:14px;bottom:14px;z-index:1;display:flex;gap:8px;align-items:center}
@@ -454,11 +464,15 @@ body.memory-game{overflow:hidden}
 #vids .cw-bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--olive),var(--ok));background:linear-gradient(to left,var(--orange) var(--mine,0%),var(--olive) 0)}   /* the student's own part, in their colour, at the start */
 #vids .cw-note{color:var(--muted);font:600 13px/1.3 var(--f-body)}
 #vids .focus-more{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+#vids .focus .focus-help{display:flex;justify-content:center;align-items:center;gap:6px;min-height:48px;color:var(--olive);font:700 15px/1.2 var(--f-body);text-decoration:none}
 #vids .focus .focus-path{display:flex;justify-content:center;min-height:48px;color:var(--olive)}
 /* refer a friend on the home: a card in the campaign's orange; until it is first opened, the nav tab's "🎁 הטבה" mark */
 #vids .focus .focus-refer{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:64px;padding:12px 16px;border:2px solid var(--orange);border-radius:14px;background:color-mix(in srgb,var(--orange) 8%,var(--surface));color:var(--ink);text-align:start}
 #vids .focus .focus-refer strong{color:var(--orange);font:700 17px/1.3 var(--f-body)}
 #vids .focus .focus-refer .focus-detail{color:var(--muted);font:600 14px/1.35 var(--f-body)}
+#vids .focus .focus-push{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:64px;padding:12px 16px;border:2px solid var(--olive);border-radius:14px;background:var(--olive-soft);color:var(--ink);text-align:start}
+#vids .focus .focus-push strong{color:var(--olive);font:700 17px/1.3 var(--f-body)}
+#vids .focus .focus-push .focus-detail{color:var(--muted);font:600 14px/1.35 var(--f-body)}
 #vids .focus .focus-refer.promo{animation:refer-pulse 1.8s ease-in-out infinite}
 #vids .focus .focus-refer.promo::after{content:"🎁 הטבה";position:absolute;top:-11px;inset-inline-end:12px;padding:2px 8px;border-radius:999px;background:var(--orange);color:#fff;font:700 12px/1.35 var(--f-body);box-shadow:0 2px 5px rgba(0,0,0,.2)}
 @media (prefers-reduced-motion:reduce){#vids .focus .focus-refer.promo{animation:none}}
@@ -1734,7 +1748,7 @@ html[data-subject="math"] #tagline{color:#F4F2EC}
 .install-actions .primary{background:var(--olive);color:var(--on-olive)}
 /* The math class (/math) opens on its own logo, on black (the logo's ink is light for it), with the buttons in its blue. */
 html[data-subject="math"] #logo-splash{background:#000}
-html[data-subject="math"] #vidsBtn{display:none!important}   /* the digital library is Arabic videos */
+html[data-subject="math"] #vidsBtn,html[data-subject="math"] #libBtn{display:none!important}   /* the digital library is Arabic videos */
 html[data-subject="math"] :is(#startBtn,#loginBtn,#roles button){background:#2F5597}
 html[data-subject="math"] #roles :is(#manageBtn,#labBtn){background:#000;color:#7FA6F0;box-shadow:inset 0 0 0 2px #7FA6F0}
 html[data-subject="math"] #mailForm span{color:#9EA7A0}
@@ -1851,7 +1865,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
 
   <!-- the path's progress bar (drawToday). The videos button stays in it across redraws, outside the bar's own button
        (a button cannot hold a button), in its bottom-left corner -->
-  <div id="today" hidden><div class="ps-tools"><button class="vidbtn ps-vids" id="vidsBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>סרטונים</span></button><a class="help pill" id="helpLink" href="/static/guide.html" title="איך מתרגלים: מדריך קצר"><b aria-hidden="true">?</b> עזרה</a><button class="help pill" id="feedbackBtn" type="button" title="משוב: ספרו לנו מה עובד ומה לא" hidden><span aria-hidden="true">💬</span> משוב</button></div></div>
+  <div id="today" hidden><div class="ps-tools"><button id="dailyBtn" type="button" hidden><span aria-hidden="true">▶&#xFE0E;</span> סרטון יומי</button><button class="vidbtn ps-vids" id="vidsBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>סרטונים</span></button><button class="vidbtn ps-lib" id="libBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v15H5.5A1.5 1.5 0 0 0 4 20.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v15h5.5a1.5 1.5 0 0 1 1.5 1.5z"/></svg><span>ספריה</span></button><button class="help pill" id="feedbackBtn" type="button" title="משוב: ספרו לנו מה עובד ומה לא" hidden><span aria-hidden="true">💬</span> משוב</button></div></div>
   <button class="reward-shelf" id="rewardShelf" type="button" hidden>
     <span class="streak-ring" id="rewardStreak">🔥 0</span>
     <span class="reward-copy"><b>הערבית שכבר שלכם</b><small id="rewardCopy">עוד לא נאספו משפטים</small><span class="reward-string" id="rewardString" aria-hidden="true" hidden></span></span>
@@ -2180,7 +2194,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
   <div class="dlg-head"><h2 id="notifyTitle">שליחת התראה<small>מגיעה לטלפון או למחשב של מי שהפעיל תזכורות</small></h2><button class="btn" id="notifyClose">סגירה</button></div>
   <form id="notifyForm" class="notify-form">
     <label>למי<select id="notifyTo"></select></label>
-    <div class="notify-who"><b id="notifyWhoTitle">מי הפעיל התראות</b><ul class="notify-people" id="notifyPeople"></ul></div>
+    <div class="notify-who"><b id="notifyWhoTitle">מי הפעיל התראות</b><ul class="notify-people" id="notifyPeople"></ul><p class="notify-note" id="notifyFunnel"></p></div>
     <div class="notify-kind" role="radiogroup" aria-label="סוג ההתראה"><label><input type="radio" name="notifyKind" value="" checked>הודעה</label><label><input type="radio" name="notifyKind" value="video">סרטון</label></div>
     <label id="notifyVideoRow" hidden>הסרטון<select id="notifyVideo"></select><small>לחיצה על ההתראה פותחת את האפליקציה על הסרטון הזה. תלמיד שהסרטון לא פתוח לו (מדור שלא סומן לכיתה, או סרטון יומי בלי תאריך) מגיע למסך הסרטונים.</small></label>
     <label>כותרת<input id="notifyHead" maxlength="60" required placeholder="למשל: אין שיעור מחר"></label>
@@ -2371,7 +2385,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
     <h3>הוספת סרטון</h3>
     <ol><li>בראש הפאנל בוחרים בחלק <b>תוכן</b>.</li>
       <li>פותחים את המדור (ובמערכת דיגיטלית, גם את תת-המדור, למשל <b>שלב א</b>).</li>
-      <li>בכרטיס <b>סרטונים במדור</b> לוחצים על <b>+ הוספת סרטון למדור</b>.</li>
+      <li>בכרטיס של המדור לוחצים על <b>+ הוספת סרטון למדור</b>.</li>
       <li>ממלאים <b>שם הסרטון</b> (עד 80 תווים) ו<b>קישור ל-Vimeo או ל-YouTube</b>.</li>
       <li>לוחצים <b>הוספה</b>.</li></ol>
     <p>הסרטון מופיע ברשימה של הכרטיס. כפתור <b>צפייה</b> שלידו מאפשר לבדוק שהוא נפתח כמו שצריך. כדי להוסיף סרטונים נוספים חוזרים על שלבים 3 עד 5; סרטון חדש נוסף בסוף הרשימה.</p>
@@ -2391,7 +2405,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
       <li><b>תלמיד לא רואה סרטון חדש:</b> בודקים שיש לו הרשאה למדור, ושירענן את הדף; הרשימה מתעדכנת אצל התלמידים תוך כדקה.</li>
       <li><b>הודעה שטבלת ההרשאות צריכה שדרוג (בשמירת הרשאה למדור):</b> מריצים פעם אחת ב-SQL Editor של Supabase את הפקודה שמופיעה בהודעה.</li></ul>
     <h3>מחיקה</h3>
-    <p>ב<b>תוכן</b>, בכרטיס <b>סרטונים במדור</b>, לוחצים <b>מחיקה</b> ליד הסרטון ומאשרים. הסרטון נעלם לכל התלמידים. את הקישור אי אפשר לערוך: כדי לשנות אותו, מוחקים ומוסיפים מחדש.</p>
+    <p>ב<b>תוכן</b>, בכרטיס של המדור, לוחצים <b>מחיקה</b> ליד הסרטון ומאשרים. הסרטון נעלם לכל התלמידים. את הקישור אי אפשר לערוך: כדי לשנות אותו, מוחקים ומוסיפים מחדש.</p>
   </article>
   <article data-guide="homework" data-title="איך מגדירים שיעורי בית" hidden>
     <p>שיעורי בית הם נושא מתוך אחד השיעורים של הכיתה. אפשר להגדיר כמה מטלות במקביל, ולכל אחת לקבוע תאריך הגשה משלה.</p>
@@ -2590,11 +2604,37 @@ function endDaily(){   // past the session's last sentence: back to the path, an
 const dailyVideos=()=>{ const d=today(), seen=new Set(); return (FREE?TEACHER_DAILIES:(MY_CLASS?[MY_CLASS]:MY_CLASSES).flatMap(k=>k.dailies||[])).filter(v=>v.date<=d&&!seen.has(v.id)&&seen.add(v.id)).sort((a,b)=>b.date.localeCompare(a.date)); };
 const libVideos=()=>LIBRARY;
 let LIB_OK=false;   // the account may open the digital library (library.view)
+/* The library is shown in two places: מערכת דיגיטלית (the levels and their lessons) under the digital library button, and
+   the other folders (בוגרים מספרים, טיולים בכפר…) under the videos button. */
+const LIB_DIGITAL="digital";
+const libDigitalIds=()=>new Set(libLeaves(LIB_SECTIONS.filter(n=>n.id===LIB_DIGITAL)).map(x=>x.id));
+const libOther=()=>{ const d=libDigitalIds(), mine=new Set(LIB_VISIBLE); return libLeaves().filter(x=>!d.has(x.id)&&mine.has(x.id)); };   // the folders outside מערכת דיגיטלית that the user may watch
+const libDigital=()=>{ const d=libDigitalIds(), mine=new Set(LIB_VISIBLE); return libLeaves().filter(x=>d.has(x.id)&&mine.has(x.id)); };
+/* Draws the folders of one of the two: each section the user may watch under its own name alone (שיעור 1, שיעור 2…), an
+   empty one too; the videos of a section that has sub-sections (a level's own) come without a heading. Returns how many were drawn. */
+function libFolders(box,row,digital){
+  const vids=libVideos(), d=libDigitalIds(), leaves=libLeaves().filter(x=>d.has(x.id)===digital), known=new Set(libLeaves().map(x=>x.id)), mine=new Set(LIB_VISIBLE);
+  let shown=0;
+  for(const leaf of leaves){
+    const here=vids.filter(v=>v.section===leaf.id); if(!here.length&&(leaf.parent||!mine.has(leaf.id))) continue;
+    shown++;
+    if(!leaf.parent) box.append(mark("",leaf.name,"h3"));
+    if(here.length) for(const v of here) row(v,libWatched,"ihki.libWatched",""); else box.append(mark("","עוד אין סרטונים.","p"));
+  }
+  const rest=digital?vids.filter(v=>!known.has(v.section)):[]; for(const v of rest) row(v,libWatched,"ihki.libWatched","");
+  return shown+rest.length;
+}
 function syncVidsBtn(){   // the videos button in the path's progress bar: shown when there is something to open, marked while today's video waits
   const b=$("vidsBtn"), d=today(), mine=dailyVideos(), fresh=mine.filter(v=>v.date===d&&!dailyWatched[v.id]).length;
-  b.hidden=!LIB_OK&&!mine.length; b.classList.toggle("new",fresh>0);
+  b.hidden=!mine.length&&!LIB_OK; b.classList.toggle("new",fresh>0);   // there for whoever has a library, an empty one too
   b.setAttribute("aria-label",fresh?(fresh===1?"סרטונים: סרטון חדש להיום":`סרטונים: ${fresh} סרטונים חדשים להיום`):"סרטונים");
-  if(document.body.dataset.view==="library") b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
+  const daily=$("dailyBtn"), todays=mine.filter(v=>v.date===d), next=todays.find(v=>!dailyWatched[v.id])||todays[0];   // the daily video's button: today's video (the one not watched yet first), else the daily videos' screen; there also when the class has none
+  daily.hidden=false; daily.classList.toggle("new",fresh>0);
+  daily.title=next?next.title:mine.length?"להיום אין סרטון חדש":"עוד אין סרטונים יומיים";
+  daily.setAttribute("aria-label","סרטון יומי: "+daily.title);
+  daily.onclick=()=>{ if(next){ dailyWatched[next.id]=1; store.set("ihki.dailyWatched",dailyWatched); pushAfterVideo=true; playVideo(next,true); syncVidsBtn(); } else showView("daily"); };
+  const lib=$("libBtn"); lib.hidden=!LIB_OK||!(libDigital().length||libVideos().some(v=>libDigitalIds().has(v.section)));
+  for(const [btn,v] of [[b,"daily"],[lib,"library"]]) if(document.body.dataset.view===v) btn.setAttribute("aria-current","page"); else btn.removeAttribute("aria-current");
 }
 /* The focused home (static/learner_home.js; openspec/changes/add-focused-learner-home). A signed-in student of an Arabic
    class (of one level or several; a class's own teacher, a guide, is its student too) tells, once for each class, which
@@ -2695,9 +2735,9 @@ function drawHome(box){
   drawRewardShelf();
   const lv=l&&(MY_CLASS.levels||[]).length>1&&ALL_LEVELS.find(v=>v.id===l.level);   // a class of several levels: "שיעור 10" is in two of them
   const page=LH.renderHome(box,{className:MY_CLASS.name,lessonName:l?(lv?`${lv.name} · ${l.name}`:l.name):currentLesson(),done,actions:homeActions(),
-    onChange:()=>askLesson(false),onPath:openFullPath,onRefer:openRefer,referNew:!store.get(referSeenKey,false)},FOCUS_HEADING);
+    onChange:()=>askLesson(false),onPath:openFullPath,onRefer:openRefer,onHelp:guideSeen,referNew:!store.get(referSeenKey,false)},FOCUS_HEADING);
   FOCUS_HEADING=false;
-  drawClassWeek(page);
+  drawClassWeek(page); drawPushCard(page);
 }
 /* The class's week on the home: what its students said together against a shared goal, and the student's own part.
    Totals only (GET /api/class/week): nobody else's numbers, no ranking. Read again at most every CLASS_WEEK_MS. */
@@ -2763,6 +2803,48 @@ async function pushOff(sub){
   await api("/api/push/unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:sub.endpoint})}).catch(()=>{});
   await sub.unsubscribe().catch(()=>{});
 }
+/* The offer to turn the reminder on reports its steps (POST /api/push/prompt), so the admin's dialog can say where the
+   students who do not turn it on drop out. `where`: "win" (after a good moment), "video" (after a daily video), "home"
+   (the home's card), "videos" (the videos screen's button). */
+function pushLog(step,where){
+  if(!AUTH_URL) return;
+  api("/api/push/prompt",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({step,where})}).catch(()=>{});
+}
+function pushSeen(step,where){   // a step that every visit would repeat: reported once a day from this device
+  const seen=store.get("ihki.pushSeen",{}), k=step+":"+where, d=new Date().toISOString().slice(0,10);
+  if(seen[k]===d) return;
+  store.set("ihki.pushSeen",{...seen,[k]:d}); pushLog(step,where);
+}
+async function pushAsk(key,where){   // pushOn from a tap, its outcome reported; the subscription, or null
+  try{ const sub=await pushOn(key); pushLog(sub?"accepted":"denied",where); return sub; }
+  catch(e){ pushLog("failed",where); throw e; }
+}
+/* The home's reminder card: there on every visit until this device turns the morning reminder on (an iPhone's browser
+   gets the steps to add the app to the home screen in its place). A browser that refused the notifications gets none. */
+async function drawPushCard(page){
+  if(!AUTH_URL) return;
+  const ios=!PUSH_CAN&&PUSH_IOS&&!PUSH_STANDALONE; if(!PUSH_CAN&&!ios) return;
+  const st=ios?null:await pushState();
+  if(!page.isConnected) return;
+  if(!ios){ if(!st.key||st.sub) return; if(Notification.permission==="denied") return pushSeen("blocked","home"); }
+  const card=mark("focus-push","",ios?"div":"button"), title=mark("","🔔 קבלו את הסרטון היומי ישר לטלפון","strong"), detail=mark("focus-detail","");
+  detail.textContent=ios?"באייפון: לחצו על שיתוף ⬆️ ← „הוספה למסך הבית”, ופתחו את האפליקציה משם.":`התראה בכל בוקר שיש סרטון חדש, בשעה ${st.hour}:00 · לחצו להפעלה`;
+  card.append(title,detail); page.insertBefore(card,page.querySelector(".focus-refer,.focus-more"));
+  pushSeen(ios?"ios":"shown","home");
+  if(ios) return;
+  card.type="button";
+  card.onclick=async()=>{
+    card.disabled=true;
+    try{
+      if(await pushAsk(st.key,"home")){
+        store.set("ihki.pushAsked","never"); title.textContent="🔔 התזכורת פעילה ✓"; detail.textContent="נתראה בבוקר של הסרטון הבא.";
+        setTimeout(()=>card.remove(),4000); return;
+      }
+      detail.textContent=Notification.permission==="denied"?"ההתראות חסומות בדפדפן. אפשר לאשר אותן בהגדרות האתר.":"ההתראות לא אושרו. לחצו שוב כדי להפעיל.";
+    }catch(e){ detail.textContent="לא הצלחנו להפעיל את התזכורת. נסו שוב מאוחר יותר."; }
+    card.disabled=false;
+  };
+}
 function pushRow(){
   const row=mark("push-row",""), btn=mark("","","button"), note=mark("","","small"); row.append(btn,note);
   const set=(text,on,why="")=>{ btn.textContent=text; btn.classList.toggle("on",!!on); note.textContent=why; };
@@ -2783,11 +2865,22 @@ function pushRow(){
   pushState().then(st=>{ ({key,hour,sub,streakHour}=st); draw(); });
   btn.onclick=async()=>{
     btn.disabled=true;
-    try{ if(sub){ await pushOff(sub); sub=null; store.set("ihki.pushOff",true); } else sub=await pushOn(key); draw(); }
+    try{ if(sub){ await pushOff(sub); sub=null; store.set("ihki.pushOff",true); pushLog("off","videos"); } else sub=await pushAsk(key,"videos"); draw(); }
     catch(e){ draw(); note.textContent="לא הצלחנו להפעיל את התזכורת. נסו שוב מאוחר יותר."; }
     finally{ btn.disabled=false; }
   };
   return row;
+}
+/* Under the admin's list of who turned the notifications on: how the offer to turn them on did (GET /api/push/funnel),
+   in people, so it is seen whether they never met it, put it off, or could not (a blocked browser, an iPhone's browser). */
+async function drawPushFunnel(){
+  const line=$("notifyFunnel"); line.textContent="";
+  try{
+    const res=await api("/api/push/funnel"), d=await res.json().catch(()=>({})); if(!res.ok||!d.steps) return;
+    const s=d.steps, p=d.places||{}, on=w=>(p[w]||{}).accepted||0;
+    if(!Object.values(s).some(Boolean)){ line.textContent=`ההצעה להפעיל התראות: עוד אין נתונים (נאספים מהיום).`; return; }
+    line.textContent=`ההצעה להפעיל התראות, ${d.days} הימים האחרונים (אנשים): ראו ${s.shown} · הפעילו ${s.accepted} (אחרי סרטון ${on("video")}, כרטיס בדף הבית ${on("home")}, אחרי הצלחה ${on("win")}, מסך הסרטונים ${on("videos")}) · „לא עכשיו” ${s.declined} · לא אישרו בדפדפן ${s.denied} · חסומות ${s.blocked} · אייפון בלי התקנה ${s.ios} · ביטלו ${s.off}`;
+  }catch(e){}
 }
 /* An admin's notification, to everyone they manage or to one class (POST /api/push/broadcast). The counts are of the
    devices that turned the reminders on. */
@@ -2848,6 +2941,7 @@ async function openNotify(classes){
     const res=await api("/api/push/audience"), d=await res.json().catch(()=>({}));
     if(!res.ok) throw new Error(d.detail||res.status);
     counts={...d,people:d.people||[],old:!d.people}; draw(); note.textContent=counts.old?"רשימת המפעילים לא זמינה בשרת הזה (צריך לעדכן אותו).":""; send.disabled=false;
+    drawPushFunnel();
   }catch(e){ note.textContent="לא ניתן לשלוח כרגע: "+e.message; counts.people=[]; drawPeople(); }
   $("notifyClose").onclick=()=>dlg.close();
   $("notifyForm").onsubmit=async ev=>{
@@ -2865,41 +2959,47 @@ async function openNotify(classes){
     finally{ send.disabled=false; }
   };
 }
-/* After a good moment (a finished topic or lesson, the first gold, the day's goal), back on the home: a prompt to turn the
-   reminder on. "Not now" asks again after PUSH_AGAIN days; it waits for any dialog already open to close, and stays
-   quiet on a visit that asked for the class's lesson. */
-const PUSH_AGAIN=7;
-function askPushSoon(){
+/* A prompt to turn the reminder on, at the two moments it is most welcome: back on the home after a good moment (a
+   finished topic or lesson, the first gold, the day's goal: "win"), and on closing a daily video ("video": tomorrow's
+   can come by itself). "Not now" asks again after PUSH_AGAIN days, each moment by its own count; it waits for any dialog
+   already open to close, and after a win stays quiet on a visit that asked for the class's lesson. */
+const PUSH_AGAIN=7, PUSH_ASKED={win:"ihki.pushAsked",video:"ihki.pushAskedVideo"};
+const PUSH_TITLE={win:"כל הכבוד! רוצים תזכורת כל בוקר?",video:"רוצים לקבל את הסרטון של מחר ישר לטלפון?"};
+let pushAfterVideo=false;   // the video playing is a daily one: its closing is the moment to offer the reminder
+function askPushSoon(where="win"){
   if(!AUTH_URL) return;
   setTimeout(function again(){
     const open=document.querySelector("dialog[open]");
-    if(open) open.addEventListener("close",()=>setTimeout(again,500),{once:true}); else askPush();
+    if(open) open.addEventListener("close",()=>setTimeout(again,500),{once:true}); else askPush(where);
   },900);
 }
-async function askPush(){
-  if(LESSON_ASKED) return;   // this visit asked for the class's lesson: the reminder waits for the next one
-  const last=store.get("ihki.pushAsked",""), dlg=$("pushDlg"), yes=$("pushYes"), no=$("pushNo"), text=$("pushText");
-  if(last&&(last==="never"||(Date.now()-new Date(last))/864e5<PUSH_AGAIN)) return;
-  const later=()=>{ store.set("ihki.pushAsked",new Date().toISOString().slice(0,10)); dlg.close(); };
+async function askPush(where="win"){
+  if(where==="win"&&LESSON_ASKED) return;   // this visit asked for the class's lesson: the reminder waits for the next one
+  const last=store.get(PUSH_ASKED[where],""), dlg=$("pushDlg"), yes=$("pushYes"), no=$("pushNo"), text=$("pushText");
+  if(store.get(PUSH_ASKED.win,"")==="never"||(last&&(Date.now()-new Date(last))/864e5<PUSH_AGAIN)) return;   // "never": this device turned it on once
+  let offered=false;   // the reminder itself was offered (not an iPhone's steps): closing it is a "not now"
+  const later=()=>{ if(offered) pushLog("declined",where); store.set(PUSH_ASKED[where],new Date().toISOString().slice(0,10)); dlg.close(); };
   no.onclick=later; dlg.oncancel=later;
+  $("pushTitle").textContent=PUSH_TITLE[where];
   if(!PUSH_CAN){   // an iPhone's browser: only the app on the home screen gets them
     if(!PUSH_IOS||PUSH_STANDALONE) return;
     text.innerHTML="באייפון ההתראות מגיעות רק מהאפליקציה שעל מסך הבית:<br>לחצו על <b>שיתוף</b> ⬆️ ← <b>„הוספה למסך הבית”</b>, ופתחו את האפליקציה משם.";
-    yes.hidden=true; no.textContent="הבנתי"; dlg.showModal(); return;
+    yes.hidden=true; no.textContent="הבנתי"; dlg.showModal(); pushSeen("ios",where); return;
   }
   const st=await pushState();
+  if(st.key&&!st.sub&&Notification.permission==="denied") pushSeen("blocked",where);
   if(!st.key||st.sub||Notification.permission!=="default"||document.querySelector("dialog[open]")) return;
   text.textContent=`בכל בוקר שיש סרטון יומי חדש, נשלח לכם התראה בשעה ${st.hour}:00, גם כשהאפליקציה סגורה.`;
-  yes.hidden=false; no.textContent="לא עכשיו";
+  yes.hidden=false; no.textContent="לא עכשיו"; offered=true;
   yes.onclick=async()=>{
     yes.disabled=true;
     try{
-      const sub=await pushOn(st.key);
-      store.set("ihki.pushAsked",sub?"never":new Date().toISOString().slice(0,10)); dlg.close();
+      const sub=await pushAsk(st.key,where);
+      store.set(sub?PUSH_ASKED.win:PUSH_ASKED[where],sub?"never":new Date().toISOString().slice(0,10)); dlg.close();
     }catch(e){ text.textContent="לא הצלחנו להפעיל את התזכורת. אפשר לנסות שוב ממסך „סרטונים”."; yes.hidden=true; no.textContent="סגירה"; }
     finally{ yes.disabled=false; }
   };
-  dlg.showModal(); yes.focus();
+  dlg.showModal(); yes.focus(); pushSeen("shown",where);
 }
 const VERB_GAME_VISIBLE=true;    // "פועל יוצא" is published in the games tab.
 const EITAN_GAME_VISIBLE=true;   // "בונים פועל עם איתן" is published in the games tab.
@@ -2922,7 +3022,7 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     const b=mark(now?"now":"","","button"), t=document.createElement("bdi"); t.textContent=v.title;
     b.append(mark("","▶\uFE0E","i"),t); if(seen[v.id]) b.append(mark("seen","✓ צפיתם","small")); if(when) b.append(mark("when",when,"small"));
     if(now) b.append(mark("watch","▶\uFE0E צפייה בסרטון","span"));
-    b.onclick=()=>{ seen[v.id]=1; store.set(key,seen); playVideo(v,true); };   // the box closing draws this again
+    b.onclick=()=>{ seen[v.id]=1; store.set(key,seen); pushAfterVideo=seen===dailyWatched; playVideo(v,true); };   // the box closing draws this again
     box.append(b);
   };
   if(view==="home"){
@@ -2974,11 +3074,17 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
   }else if(view==="daily"){
     const mine=dailyVideos(), now=mine.filter(v=>v.date===d), was=mine.filter(v=>v.date<d), back=mark("back","","button");
     back.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> '+(homeClass()?"חזרה לדף הבית":"חזרה למסלול"); back.onclick=backHome;
-    box.append(back,mark("","סרטון יומי","h2"),pushRow());
-    if(now.length) for(const v of now) row(v,dailyWatched,"ihki.dailyWatched","הסרטון של היום",true);
-    else box.append(mark("",was.length?"להיום אין סרטון חדש. אפשר לחזור לסרטונים הקודמים.":"עוד אין סרטונים יומיים. כשנקבע לסרטון תאריך (בעריכת הכיתה), הוא מופיע כאן מאותו יום.","p"));
-    if(was.length) box.append(mark("","הסרטונים הקודמים","h3"));
-    for(const v of was) row(v,dailyWatched,"ihki.dailyWatched",dayWord(v.date));
+    // the videos button: the daily videos, then the library's folders outside מערכת דיגיטלית (that one has its own button)
+    const others=LIB_OK&&libOther().length>0;
+    box.append(back,mark("",others?"סרטונים":"סרטון יומי","h2"));
+    if(mine.length||!others){
+      box.append(pushRow());
+      if(now.length) for(const v of now) row(v,dailyWatched,"ihki.dailyWatched","הסרטון של היום",true);
+      else box.append(mark("",was.length?"להיום אין סרטון חדש. אפשר לחזור לסרטונים הקודמים.":LIB_OK&&!FREE?"עוד אין סרטונים.":"עוד אין סרטונים יומיים. כשנקבע לסרטון תאריך (בעריכת הכיתה), הוא מופיע כאן מאותו יום.","p"));
+      if(was.length) box.append(mark("","הסרטונים הקודמים","h3"));
+      for(const v of was) row(v,dailyWatched,"ihki.dailyWatched",dayWord(v.date));
+    }
+    if(others) libFolders(box,row,false);
   }else if(view==="refer"){
     const page=mark("refer","","section");
     page.innerHTML=`
@@ -3023,25 +3129,12 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
       }catch{ button.textContent="לא הצלחנו להעתיק"; }
       setTimeout(()=>button.textContent="העתקת ההודעה",2200);
     };
-  }else{   // the videos button: today's video, the earlier daily ones, then the digital library
-    const mine=dailyVideos(), now=mine.filter(v=>v.date===d), was=mine.filter(v=>v.date<d), back=mark("back","","button");
+  }else{   // the digital library button: the sections the user may watch (the daily videos are the videos button's)
+    const back=mark("back","","button");
     back.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> '+(focusOn()?"חזרה לדף הבית":"חזרה למסלול"); back.onclick=backHome;
-    box.append(back,mark("","סרטונים","h2"));
-    if(mine.length){
-      box.append(pushRow());
-      if(now.length){ box.append(mark("","הסרטון של היום","h3")); for(const v of now) row(v,dailyWatched,"ihki.dailyWatched","הסרטון של היום",true); }
-      if(was.length){ box.append(mark("","סרטונים יומיים קודמים","h3")); for(const v of was) row(v,dailyWatched,"ihki.dailyWatched",dayWord(v.date)); }
-    }
-    if(LIB_OK){   // the library, a heading for each section the user may watch that has videos (the server sends only those)
-      const vids=libVideos(), leaves=libLeaves(), known=new Set(leaves.map(x=>x.id));
-      if(!vids.length) box.append(mark("",mine.length?"עוד אין סרטונים בספריה.":"עוד אין סרטונים.","p"));
-      for(const leaf of leaves){
-        const here=vids.filter(v=>v.section===leaf.id); if(!here.length) continue;
-        box.append(mark("",leaf.label,"h3")); for(const v of here) row(v,libWatched,"ihki.libWatched","");
-      }
-      const rest=vids.filter(v=>!known.has(v.section)); if(rest.length){ box.append(mark("","ספריה דיגיטלית","h3")); for(const v of rest) row(v,libWatched,"ihki.libWatched",""); }
-    }
-    if(!mine.length&&!LIB_OK) box.append(mark("","עוד אין סרטונים.","p"));
+    box.append(back);
+    if(LIB_OK&&!libFolders(box,row,true)) box.append(mark("","עוד אין סרטונים בספריה.","p"));
+    if(!LIB_OK) box.append(mark("","עוד אין סרטונים.","p"));
   }
 }
 /* The verb table. Its verbs are the "פועל זמני" game's: every verb once, in the lesson that first teaches it, with its
@@ -3748,7 +3841,8 @@ async function liveRecord(){
 }
 const referTab=$("nav").querySelector('[data-view="refer"]'), referSeenKey="ihki.referSeen.2027";
 if(!store.get(referSeenKey,false)) referTab.classList.add("promo");
-$("vidsBtn").onclick=()=>showView("library");
+$("vidsBtn").onclick=()=>showView("daily");
+$("libBtn").onclick=()=>showView("library");
 function openRefer(){ store.set(referSeenKey,true); referTab.classList.remove("promo"); showView("refer"); }
 for(const b of $("nav").children) b.onclick=()=>{
   if(b===referTab) return openRefer();
@@ -3955,10 +4049,11 @@ let drawnW=0, nowWatch=null;
 /* A lesson's videos (the teacher adds them in the panel's content part) stand on the path among its topics, where the
    teacher put them. A video opens in a box over the page; the ones already opened are marked, on this device only. */
 let LIBRARY=[], libWatched=store.get("ihki.libWatched",{});   // the video library, in sections: {id, section, title, embed} (with url, for a teacher); {library video id: 1}
+let LIB_VISIBLE=[];   // the ids of the sections this user may watch
 let LIB_SECTIONS=[];   // the library's sections (app/library.py SECTIONS): [{id, name, children?}], in their order
 const libLeaves=(nodes=LIB_SECTIONS,path=[])=>nodes.flatMap(n=>{   // the sections a video can stand in: those without sub-sections, and a parent that kept its own videos (holds_videos)
   const here=[...path,n.name], own=n.holds_videos!==undefined?n.holds_videos:!n.children;
-  return [...(own?[{id:n.id,name:n.name,label:here.join(" · ")}]:[]),...(n.children?libLeaves(n.children,here):[])];
+  return [...(own?[{id:n.id,name:n.name,label:here.join(" · "),parent:!!(n.children&&n.children.length)}]:[]),...(n.children?libLeaves(n.children,here):[])];
 });
 let DAILIES=[], dailyWatched=store.get("ihki.dailyWatched",{});   // the library, for a teacher: {id, level, title, url, embed}; {daily video id: the day it was opened on}
 let VIDEOS=[], watched=store.get("ihki.watched",{});   // {id, lesson, title, url, embed, pos, ord} of the student's lessons; {video id: 1}
@@ -3976,7 +4071,7 @@ async function loadContent(){   // the videos, and the texts: their topics and l
     await ready;
     const [v,t,d,b]=await Promise.all([api("/api/videos"),api("/api/texts"),FREE?api("/api/dailies"):null,api("/api/library")]);
     if(v.ok) VIDEOS=(await v.json()).videos||[];
-    if(b.ok){ const lib=await b.json(); LIBRARY=lib.library||[]; LIB_SECTIONS=lib.sections||[]; }
+    if(b.ok){ const lib=await b.json(); LIBRARY=lib.library||[]; LIB_SECTIONS=lib.sections||[]; LIB_VISIBLE=lib.visible||[]; }
     if(d&&d.ok) DAILIES=(await d.json()).dailies||[];
     if(t.ok){
       const d=await t.json(), old=new Set(ALL_CATS.filter(c=>c.text).map(c=>c.id));
@@ -3997,7 +4092,8 @@ $("videoClose").onclick=()=>$("videoDlg").close();
 $("videoFull").hidden=!document.fullscreenEnabled;
 $("videoFull").onclick=()=>{ const f=$("videoBox").querySelector("iframe"); f?.requestFullscreen?.().then(()=>screen.orientation?.lock?.("landscape").catch(()=>{})).catch(()=>{}); };
 $("videoDlg").addEventListener("close",()=>{   // without its frame the video stops playing
-  $("videoBox").replaceChildren(); if(home&&!document.body.classList.contains("manage")) drawPath(true); });
+  $("videoBox").replaceChildren(); if(home&&!document.body.classList.contains("manage")) drawPath(true);
+  if(pushAfterVideo){ pushAfterVideo=false; askPushSoon("video"); } });
 /* A topic the student writes in (its category has `write`: the task, and how many sentences): the workbook's homework.
    It opens in a box over the page, a line for each sentence, and is done once every line has something in it. What is
    written is kept on the device and, for a signed-in student, sent to the server as they write, so it follows them to
@@ -5770,7 +5866,7 @@ const ttsUrls={};   // phrase id -> {url} of Raef's server-generated answer
 // the guide's line for a new student: until it is opened or closed once
 const guideSeen=()=>{ store.set("ihki.guideSeen",true); $("guideTip").hidden=true; };
 $("guideTip").hidden=store.get("ihki.guideSeen",false);
-$("guideTip").querySelector("a").onclick=guideSeen; $("guideTipClose").onclick=guideSeen; $("helpLink").onclick=guideSeen;
+$("guideTip").querySelector("a").onclick=guideSeen; $("guideTipClose").onclick=guideSeen;
 $("readHe").checked=store.get("ihki.readHe",false);
 $("readHe").onchange=()=>{
   store.set("ihki.readHe",$("readHe").checked);
@@ -7596,18 +7692,19 @@ function drawContent(){
   };
   // the library's sections, in order: מערכת דיגיטלית holds the course's levels (each with its lessons and daily videos,
   // and the videos of its own shelf), and the other sections hold only their videos. A video stands in one leaf section.
-  const shelf=(into,leaf)=>vcard(into,leaf.id,"library",LIBRARY,"סרטונים במדור","סרטון למדור",`${leaf.label} · נפתח לתלמידים שקיבלו הרשאה למדור`,
-    `הסרטון נוסף למדור ${leaf.label}. תלמידים שקיבלו הרשאה למדור רואים אותו בכפתור „סרטונים” שבראש המסך.`,"","למשל: שיר לסיום");
+  const shelf=(into,leaf)=>vcard(into,leaf.id,"library",LIBRARY,leaf.label,"סרטון למדור","נפתח לתלמידים שקיבלו הרשאה למדור",
+    `הסרטון נוסף למדור ${leaf.label}. תלמידים שקיבלו הרשאה למדור רואים אותו בכפתור „ספריה” שבראש המסך.`,"","למשל: שיר לסיום");
   const count=ids=>{ const n=LIBRARY.filter(v=>ids.includes(v.section)).length; return n?`${n} סרטונים`:"עוד אין סרטונים"; };
   const levels=byLevel(ALL_LESSONS), leaves=libLeaves();
-  const fill=(node,sec)=>{   // a section's own shelf (if videos stand in it), its course level, then its sub-sections, to any depth
+  const fill=(node,sec)=>{   // a section's own shelf (if videos stand in it), its sub-sections, to any depth, then its course level (long: the library's folders stand above it)
     const leaf=leaves.find(x=>x.id===node.id); if(leaf) shelf(sec,leaf);
-    const g=node.level&&levels.find(g=>g.level.id===node.level); if(g) drawLevel(sec,g);
+    const g=node.level&&levels.find(g=>g.level.id===node.level);
     for(const child of node.children||[]){
       const kid=levels.find(g=>g.level.id===child.level);
       const sub=fold("lib-"+child.id,child.name,[kid&&`${lessonsWord(kid.lessons)} · ${kid.lessons.filter(l=>!l.soon).length} מוכנים`,count(libLeaves([child]).map(x=>x.id))].filter(Boolean).join(" · "),sec);
       sub.classList.add("csub"); fill(child,sub);
     }
+    if(g) drawLevel(sec,g);
   };
   LIB_SECTIONS.forEach((top,k)=>{
     const mineLeaves=libLeaves([top]).map(x=>x.id);
@@ -9697,12 +9794,13 @@ async function openNotified(search){   // what a notification asks for: an admin
   if(q.get("from")==="push-msg"){ showNotices([{title:q.get("title")||"הודעה",body:q.get("body")||"",url:"/"+search}]); return; }
   const ref=q.get("video");
   if(!ref){ showView("daily"); window.scrollTo(0,0); return; }
-  showView("library"); window.scrollTo(0,0);   // the videos screen, under the video (and where a video the student may not open leaves them)
+  const daily=ref.startsWith("daily-");
+  showView(daily?"daily":"library"); window.scrollTo(0,0);   // the videos screen, under the video (and where a video the student may not open leaves them)
   await contentReady.catch(()=>{});
-  const [kind,id]=ref.split("-"), daily=kind==="daily", list=daily?[...dailyVideos(),...DAILIES]:LIBRARY;
+  const [kind,id]=ref.split("-"), list=daily?[...dailyVideos(),...DAILIES]:LIBRARY;
   const v=list.find(x=>String(x.id)===id&&x.embed); if(!v) return;
   const seen=daily?dailyWatched:libWatched; seen[v.id]=1; store.set(daily?"ihki.dailyWatched":"ihki.libWatched",seen);
-  playVideo(v,true); showView("library");   // drawn again, with the video marked
+  playVideo(v,true); showView(daily?"daily":"library");   // drawn again, with the video marked
 }
 function enter(){
   const splash=$("logo-splash");

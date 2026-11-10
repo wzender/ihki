@@ -10,3 +10,18 @@ for key in ("BETTER_STACK_SOURCE_TOKEN", "BETTER_STACK_INGESTING_HOST", "BETTER_
 # would otherwise call Sawtak and write to TTS_BUCKET with the developer's .env
 for key in ("SAWTAK_API_KEY", "TTS_BUCKET", "AUDIO_BUCKET"):
     os.environ[key] = ""
+
+
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _library_without_lesson_sections(monkeypatch):
+    """The library tests are about how sections work, on the seeded ones: a section for each lesson (library.LESSON_ROWS)
+    is left out here, and test_library_lessons.py turns it on."""
+    from app import library
+    monkeypatch.setattr(library, "BASE_ROWS", library.SEED_ROWS)
+    library.reset()
+    yield
+    monkeypatch.undo()
+    library.reset()

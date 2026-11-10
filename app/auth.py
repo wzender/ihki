@@ -1601,12 +1601,24 @@ class SupabaseAuth:
     def recent_events(self, limit: int = 60) -> list[dict] | None:
         """Newest audit events, or None when the optional table has not been installed yet."""
         query = urllib.parse.urlencode({"select": "kind,actor_email,label,details,created_at",
+                                        "kind": "neq.push_prompt",   # the reminder offer's steps: many, and counted apart
                                         "order": "created_at.desc", "limit": max(1, min(limit, 200))})
         try:
             return self._admin(f"/rest/v1/system_events?{query}") or []
         except AuthUnavailable as e:
             if "answered 404" in str(e):
                 return None
+            raise
+
+    def events_since(self, kind: str, since: str, limit: int = 5000) -> list[dict]:
+        """The events of one kind from `since` (an ISO time) on, newest first; none when the table is not installed."""
+        query = urllib.parse.urlencode({"select": "actor_email,details,created_at", "kind": f"eq.{kind}",
+                                        "created_at": f"gte.{since}", "order": "created_at.desc", "limit": limit})
+        try:
+            return self._admin(f"/rest/v1/system_events?{query}") or []
+        except AuthUnavailable as e:
+            if "answered 404" in str(e):
+                return []
             raise
 
     def record_operational_error(self, category: str, component: str, outcome: str) -> bool:

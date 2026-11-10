@@ -133,6 +133,12 @@ def subject_code(label: object) -> str:
 MODEL_ID = os.environ.get("MODEL_ID", "facebook/wav2vec2-xlsr-53-espeak-cv-ft")
 ENV_MODEL_ID = MODEL_ID  # the one the server starts with; the panel's "מודלים" tab can switch until a restart
 PUSH_OPEN_KINDS = {"push-streak", "push-msg"}   # the notifications whose opens the page reports (POST /api/push/opened)
+# The offer to turn the reminders on, as the page reports it (POST /api/push/prompt): what happened, and where.
+# shown: the offer came up; ios: an iPhone's browser got the "add to the home screen" steps instead; accepted: the device
+# subscribed; declined: "not now"; denied: the browser's own question was refused or closed; blocked: the browser had
+# refused before, so nothing could be asked; failed: subscribing broke; off: the reminder was turned off.
+PUSH_PROMPT_STEPS = ("shown", "ios", "accepted", "declined", "denied", "blocked", "failed", "off")
+PUSH_PROMPT_PLACES = ("win", "video", "home", "videos")   # after a good moment, after a daily video, the home's card, the videos' button
 LOCAL_TZ = ZoneInfo("Asia/Jerusalem")  # a day of practice is the students' calendar day
 WARM_WORKERS = 3  # Sawtak requests the cache-warm sweep runs at once (tts.MAX_CONCURRENT and its pace apply)
 MAX_UPLOAD = 2_000_000  # bytes; 15 s of opus is ~100 KB
@@ -2713,6 +2719,32 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if app.state.auth:
             app.state.auth.log_event("push_open", user, kind, {"kind": kind.removeprefix("push-")})
         return {"ok": True}
+
+    @app.post("/api/push/prompt")
+    def push_prompt(body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        """A step of the offer to turn the reminders on ({"step": "shown", "where": "video"}): kept as a system event,
+        so GET /api/push/funnel can say where the students who do not turn them on drop out."""
+        step, where = str(body.get("step") or ""), str(body.get("where") or "")
+        if step not in PUSH_PROMPT_STEPS or where not in PUSH_PROMPT_PLACES:
+            raise HTTPException(400, "unknown step")
+        if app.state.auth:
+            app.state.auth.log_event("push_prompt", user, step, {"step": step, "where": where})
+        return {"ok": True}
+
+    @app.get("/api/push/funnel")
+    def push_funnel(days: int = Query(30, ge=1, le=90), a: SupabaseAuth = Depends(admin_only),
+                    actor: dict | None = Depends(signed_in)):
+        """The offer's funnel over the last `days`, in people (each counted once a step): {"days", "steps": {step: n},
+        "places": {where: {step: n}}}. An admin who is not a developer sees the people of their classes only."""
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+        try:
+            rows = a.events_since("push_prompt", since)
+            developer = not actor or "developer" in actor.get("roles", ()) or not hasattr(a, "access_for")
+            mine = None if developer else {e.lower() for c in managed_classes(a, actor)
+                                           for e in [*c["emails"], *(c.get("teachers") or [])]}
+        except AuthUnavailable as e:
+            raise HTTPException(503, str(e))
+        return {"days": days, **pushes.funnel(rows, mine, PUSH_PROMPT_STEPS, PUSH_PROMPT_PLACES)}
 
     @app.post("/api/push/status")
     def push_status_now(_a: SupabaseAuth = Depends(require("*")), user: dict | None = Depends(signed_in)):
