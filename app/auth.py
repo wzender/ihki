@@ -767,10 +767,6 @@ class SupabaseAuth:
         finally:
             self._library_sections = None
 
-    def set_library_section_holds(self, section_id: str, holds: bool) -> None:
-        """Marks a section that is split into sub-sections as still holding videos of its own."""
-        self.update_library_section(section_id, {"holds_videos": bool(holds)})
-
     def add_level_video(self, table: str, level: str, title: str, url: str) -> None:
         assert table in ("dailies", "library")
         self._admin(f"/rest/v1/{table}", "POST", {"level": level, "title": title, "url": url})

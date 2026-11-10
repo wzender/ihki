@@ -229,12 +229,12 @@ def test_a_video_needs_a_section_and_the_answer_names_the_choices():
     sections = call(server, "list_library_sections")
     assert [s["name"] for s in sections["sections"]] == [
         "מערכת דיגיטלית", "בוגרים מספרים", "טיולים בכפר", "פרקי אבות עם אמיר", "חַאחַ׳אם עידן", "מנחים ומתרגלים"]
-    assert [c["name"] for c in sections["sections"][0]["children"]] == ["שלב א", "שלב ב", "שלב ג", "שלב ד", "נִתמרַّן"]
+    assert [c["name"] for c in sections["sections"][0]["children"]] == ["שלב א", "שלב ב", "שלב ג", "שלב ד", "נִתמרַּן"]
     missing = call(server, "prepare_library_video", {"title": "x", "url": "https://youtu.be/dQw4w9WgXcQ"})
     assert missing["ok"] is False and "לאיזה מדור" in missing["error"] and "טיולים בכפר" in missing["error"]
     parent = call(server, "prepare_library_video", {"title": "x", "url": "https://youtu.be/dQw4w9WgXcQ",
                                                     "section": "מערכת דיגיטלית"})
-    assert parent["ok"] is False and "שלב ב" in parent["error"]
+    assert parent["ok"] and parent["section"] == "digital"   # any section takes videos, also one with sub-sections
     sub = call(server, "prepare_library_video", {"title": "x", "url": "https://youtu.be/dQw4w9WgXcQ", "section": "נתמרן"})
     assert sub["ok"] and sub["section"] == "nitmaran"
 

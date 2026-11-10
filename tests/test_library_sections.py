@@ -35,14 +35,14 @@ class SectionAuth(LibraryAuth):
 
 
 def test_a_section_covers_its_sub_sections_and_students_see_their_classes_sections():
-    assert library.visible_sections({"lib:digital"}, False) == ["d1", "d2", "d3", "d4", "nitmaran"]
+    assert library.visible_sections({"lib:digital"}, False) == ["digital", "d1", "d2", "d3", "d4", "nitmaran"]
     assert library.visible_sections({"lib:d2", "lib:avot"}, False) == ["d2", "avot"]
     assert library.visible_sections(set(), True) == library.LEAVES
     assert normalize_entitlements(["library", "games", "lib:nope"]) == {"lib:d1", "games"}
     student = {"id": "student-1", "email": "student@example.com"}
     seen = resolve_user_access(SectionAuth(["village"]), student)
     assert seen["library_sections"] == ["village"] and "library.view" in seen["permissions"]
-    assert resolve_user_access(SectionAuth(["digital"]), student)["library_sections"] == ["d1", "d2", "d3", "d4", "nitmaran"]
+    assert resolve_user_access(SectionAuth(["digital"]), student)["library_sections"] == ["digital", "d1", "d2", "d3", "d4", "nitmaran"]
     old = resolve_user_access(SectionAuth(None), student)   # a class from before the sections: what the library was
     assert old["library_sections"] == ["d1"]
     none = resolve_user_access(SectionAuth([]), student)
@@ -85,7 +85,7 @@ def test_students_get_only_their_sections_and_teachers_file_order_and_move(monke
         out["add_by_name"] = (await client.post("/api/library", headers=TEACHER, json={
             "section": "טיולים בכפר", "title": "כפר 2", "url": "https://youtu.be/ccccccccccc"})).status_code
         out["bad"] = (await client.post("/api/library", headers=TEACHER, json={
-            "section": "מערכת דיגיטלית", "title": "x", "url": "https://youtu.be/ddddddddddd"})).status_code
+            "section": "אין כזה", "title": "x", "url": "https://youtu.be/ddddddddddd"})).status_code
         out["order"] = (await client.put("/api/library/order", headers=TEACHER, json={"section": "village", "order": [3, 2]})).status_code
         out["order_stale"] = (await client.put("/api/library/order", headers=TEACHER, json={"section": "village", "order": [3]})).status_code
         out["student"] = (await client.get("/api/library", headers=STUDENT)).json()

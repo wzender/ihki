@@ -119,7 +119,7 @@ def test_renaming_a_section_keeps_its_id_and_the_access_that_points_at_it(world)
         "מערכת דיגיטלית · מבוא לערבית"] * 2
     # a class that opened שלב א still does, and so does the account with its own exception
     assert seen_by(auth, ["d1"]) == ["d1"]
-    assert seen_by(auth, ["digital"])[0] == "d1"
+    assert seen_by(auth, ["digital"])[:2] == ["digital", "d1"]
     # the old name no longer finds it; the new one, and the id, do
     assert call(server, "prepare_library_video", {"title": "x", "url": NEW, "section": "שלב א"})["ok"] is False
     assert call(server, "prepare_library_video", {"title": "x", "url": NEW, "section": "מבוא לערבית"})["section"] == "d1"
@@ -167,9 +167,8 @@ def test_moving_a_sub_section_takes_its_videos_and_changes_who_sees_them(world):
     assert by_name["כיתת שלב א"]["loses"] == ["מערכת דיגיטלית · שלב א · חזרה"] and by_name["כיתת שלב א"]["students"] == 3
     assert by_name["כיתת שלב ב"]["gains"] == ["מערכת דיגיטלית · שלב ב · חזרה"]
     assert "כיתת המערכת" not in by_name   # it had digital, which covers both places
-    assert any("שלב ב" in e for e in shown["effects_on_parents"])   # d2 was empty: it becomes a container
     assert published["section"] == sub
-    assert paths(server)[sub] == "מערכת דיגיטלית · שלב ב · חזרה" and "d2" not in paths(server)
+    assert paths(server)[sub] == "מערכת דיגיטלית · שלב ב · חזרה"
     assert {v["id"]: v["section"] for v in call(server, "list_library_videos")["videos"]}[5] == sub   # the video went along
     assert sub in seen_by(auth, ["d2"]) and sub not in seen_by(auth, ["d1"])
     assert seen_by(auth, ["d1"]) == ["d1"]   # the old videos stay in d1, visible
@@ -190,9 +189,9 @@ def test_a_section_with_its_own_permission_keeps_it_when_moved(world):
 def test_moving_under_a_section_that_holds_videos_keeps_them_there(world):
     auth, server = world
     prepared, _ = edit(server, "library_section_move", {"section": "nitmaran", "new_parent": "d1"})
-    assert any("2 סרטונים" in e and "נשארים" in e for e in prepared["preview"]["effects_on_parents"])
+    assert prepared["preview"]["videos_staying_in_new_parent"] == 2
     targets = {t["id"]: t for t in call(server, "list_library_sections")["upload_targets"]}
-    assert targets["d1"]["has_sub_sections"] and targets["nitmaran"]["name"] == "מערכת דיגיטלית · שלב א · נִתמרַّן"
+    assert targets["d1"]["has_sub_sections"] and targets["nitmaran"]["name"] == "מערכת דיגיטלית · שלב א · נִתמרַּן"
     assert [v["section"] for v in call(server, "list_library_videos")["videos"]][:2] == ["d1", "d1"]
     assert "nitmaran" in seen_by(auth, ["d1"])
 
@@ -217,14 +216,13 @@ def test_a_move_that_would_break_the_rules_is_refused(world):
     assert ask("אין כזה", "village")["ok"] is False
 
 
-def test_moving_the_last_sub_section_out_makes_the_old_parent_take_videos_again(world):
+def test_moving_the_last_sub_section_out_leaves_both_parents_taking_videos(world):
     auth, server = world
     sub = add_sub(server, "d2", "יחיד")
-    assert "d2" not in paths(server)
     prepared, _ = edit(server, "library_section_move", {"section": sub, "new_parent": "village"})
-    assert any("יהפוך למדור שאפשר להעלות" in e for e in prepared["preview"]["effects_on_parents"])
+    assert prepared["preview"]["videos_staying_in_new_parent"] == 2   # village's own videos stay in village
     assert "d2" in paths(server) and paths(server)[sub] == "טיולים בכפר · יחיד"
-    assert next(r for r in auth.table if r["id"] == "village")["holds_videos"] is True   # village kept its two videos
+    assert [v["section"] for v in call(server, "list_library_videos")["videos"]][2:] == ["village", "village"]
 
 
 # ---- delete a section --------------------------------------------------------------------------------------------
@@ -265,13 +263,11 @@ def test_a_section_with_videos_or_sub_sections_is_not_deleted(world):
     assert all(not r.get("deleted") for r in auth.table)
 
 
-def test_deleting_the_only_sub_section_makes_the_parent_take_videos_again(world):
+def test_deleting_the_only_sub_section_frees_its_name(world):
     auth, server = world
     sub = add_sub(server, "d3", "זמני")
-    assert "d3" not in paths(server)
     prepared, _ = edit(server, "library_section_delete", {"section": sub})
     assert prepared["preview"]["removed_from_class_assignments"] == []
-    assert any("יהפוך למדור שאפשר להעלות" in e for e in prepared["preview"]["effects_on_parent"])
     assert "d3" in paths(server) and sub not in paths(server)
     again = add_sub(server, "d3", "זמני")   # the name is free again
     assert again != sub
@@ -313,13 +309,13 @@ def test_a_video_move_is_refused_for_a_bad_video_or_destination(world):
     _, server = world
     ask = lambda video, section: call(server, "prepare_library_video_move", {"video_id": video, "section": section})
     assert "כבר במדור" in ask(3, "village")["error"]
-    assert "מחולק לתתי-מדורים" in ask(3, "מערכת דיגיטלית")["error"]          # not an upload target
+    assert ask(3, "מערכת דיגיטלית")["ok"]                                       # a section with sub-sections takes videos too
     assert ask(99, "village")["ok"] is False
     assert ask(0, "village")["ok"] is False
     assert ask(3, "אין כזה")["ok"] is False
     assert ask(3, "")["ok"] is False
-    edit(server, "library_section_move", {"section": "nitmaran", "new_parent": "d3"})   # d3 is empty: it is a container now
-    assert ask(3, "d3")["ok"] is False
+    edit(server, "library_section_move", {"section": "nitmaran", "new_parent": "d3"})
+    assert ask(3, "d3")["ok"]
 
 
 # ---- approvals and permission ------------------------------------------------------------------------------------

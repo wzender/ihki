@@ -632,7 +632,7 @@ The sections (מערכת דיגיטלית · שלב א … מנחים ומתרג
 create table public.library_sections (id text primary key, parent_id text references public.library_sections(id), name text not null check (length(btrim(name)) > 0), ord integer not null default 0, level text not null default '', holds_videos boolean not null default false, created_by text, created_at timestamptz not null default now());
 create unique index library_sections_sibling_name on public.library_sections (coalesce(parent_id, ''), lower(btrim(name)));
 alter table public.library_sections enable row level security;
-insert into public.library_sections (id, parent_id, name, ord, level) values ('digital', null, 'מערכת דיגיטלית', 0, ''), ('d1', 'digital', 'שלב א', 0, '1'), ('d2', 'digital', 'שלב ב', 1, '2'), ('d3', 'digital', 'שלב ג', 2, '3'), ('d4', 'digital', 'שלב ד', 3, '4'), ('nitmaran', 'digital', 'נִתמרַّן', 4, ''), ('graduates', null, 'בוגרים מספרים', 1, ''), ('village', null, 'טיולים בכפר', 2, ''), ('avot', null, 'פרקי אבות עם אמיר', 3, ''), ('hacham', null, 'חַאחַ׳אם עידן', 4, ''), ('guides', null, 'מנחים ומתרגלים', 5, '');
+insert into public.library_sections (id, parent_id, name, ord, level) values ('digital', null, 'מערכת דיגיטלית', 0, ''), ('d1', 'digital', 'שלב א', 0, '1'), ('d2', 'digital', 'שלב ב', 1, '2'), ('d3', 'digital', 'שלב ג', 2, '3'), ('d4', 'digital', 'שלב ד', 3, '4'), ('nitmaran', 'digital', 'נִתמרַּן', 4, ''), ('graduates', null, 'בוגרים מספרים', 1, ''), ('village', null, 'טיולים בכפר', 2, ''), ('avot', null, 'פרקי אבות עם אמיר', 3, ''), ('hacham', null, 'חַאחַ׳אם עידן', 4, ''), ('guides', null, 'מנחים ומתרגלים', 5, '');
 notify pgrst, 'reload schema';
 ```
 
@@ -645,7 +645,7 @@ create unique index library_sections_sibling_name on public.library_sections (co
 notify pgrst, 'reload schema';
 ```
 
-A video stands in the section named in the `level` column of `library`. A section that is split into sub-sections and had videos keeps them (`holds_videos`), and stays a place to upload to. A class, tier or account that has a section also has all its sub-sections; permissions are never set per sub-section, because the `valid_entitlements` constraint lists only the seeded sections.
+A video stands in the section named in the `level` column of `library`. A video can stand in any section, also one that has sub-sections (the `holds_videos` column is no longer used). A class, tier or account that has a section also has all its sub-sections; permissions are never set per sub-section, because the `valid_entitlements` constraint lists only the seeded sections.
 
 For the video to play inside the page, its Vimeo privacy setting has to allow embedding (on this site's domain, or anywhere); a YouTube video has to allow embedding too (it does unless its owner turned that off), and plays from `youtube-nocookie.com`.
 

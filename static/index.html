@@ -1268,6 +1268,25 @@ body.manage #manage{width:100%;max-width:none}
 .crow>small{justify-self:end}
 .crow .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .crow .acts .move{padding-inline:10px}
+.crow{grid-template-columns:2em minmax(0,1fr) auto}
+.crow .two b{font-size:16px;line-height:1.35}
+.crow .two small[dir=ltr]{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}
+.crow .acts{flex-wrap:nowrap;align-items:center;gap:4px;padding:3px;border-radius:12px;background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.btn.ico{display:inline-grid;place-items:center;width:34px;height:34px;padding:0;border:0;border-radius:9px;background:transparent;font-size:16px;line-height:1;list-style:none}
+.btn.ico::-webkit-details-marker{display:none}
+.btn.ico:hover:not(:disabled){background:color-mix(in srgb,var(--ink) 10%,transparent)}
+.btn.ico.play{color:var(--olive)}
+.btn.ico:disabled{opacity:.3;cursor:default}
+.more{position:relative}
+.more>summary{cursor:pointer}
+.more[open]>summary{background:color-mix(in srgb,var(--ink) 12%,transparent)}
+.more .pop{position:absolute;inset-inline-end:0;top:calc(100% + 6px);z-index:20;display:flex;flex-direction:column;gap:2px;min-width:190px;padding:6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.more .menuitem,.more .menulab{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border:0;border-radius:8px;text-align:start;font:600 15px var(--f-body);background:transparent;color:var(--ink)}
+.more .menuitem:hover{background:color-mix(in srgb,var(--ink) 8%,transparent)}
+.more .menuitem.danger{color:var(--sumac)}
+.more .menulab{flex-direction:column;align-items:stretch;gap:4px;font-size:13px;color:var(--muted)}
+.more .menulab select{width:100%;font-size:15px;border:1px solid var(--line)}
+@media(max-width:520px){.crow{grid-template-columns:1.6em minmax(0,1fr)}.crow .acts{grid-column:1/-1;justify-self:end}}
 .vadd>summary{list-style:none;width:fit-content;cursor:pointer}
 .vadd>summary::-webkit-details-marker{display:none}
 .vadd[open]>summary{margin-bottom:10px}
@@ -2345,7 +2364,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
       <li><b>מחיקת הסרטון:</b> ב<b>תוכן</b>, בכרטיס <b>סרטונים יומיים</b>, לוחצים <b>מחיקה</b> ליד הסרטון. גם כיתות שכבר קבעו לו תאריך יפסיקו לראות אותו.</li></ul>
   </article>
   <article data-guide="library" data-title="איך מוסיפים סרטונים למדורי הספריה" hidden>
-    <p>הספריה הדיגיטלית מחולקת למדורים: <b>מערכת דיגיטלית</b> (ובה שלב א, שלב ב, שלב ג, שלב ד ו-נִתמרַّן), <b>בוגרים מספרים</b>, <b>טיולים בכפר</b>, <b>פרקי אבות עם אמיר</b>, <b>חַאחַ׳אם עידן</b> ו<b>מנחים ומתרגלים</b>. כל סרטון שייך למדור אחד, ותלמיד רואה רק את המדורים שקיבל אליהם הרשאה. בשונה מסרטון יומי, לא קובעים לו תאריך ולא משייכים אותו לכיתה.</p>
+    <p>הספריה הדיגיטלית מחולקת למדורים: <b>מערכת דיגיטלית</b> (ובה שלב א, שלב ב, שלב ג, שלב ד ו-נִתמרַּן), <b>בוגרים מספרים</b>, <b>טיולים בכפר</b>, <b>פרקי אבות עם אמיר</b>, <b>חַאחַ׳אם עידן</b> ו<b>מנחים ומתרגלים</b>. כל סרטון שייך למדור אחד, ותלמיד רואה רק את המדורים שקיבל אליהם הרשאה. בשונה מסרטון יומי, לא קובעים לו תאריך ולא משייכים אותו לכיתה.</p>
     <h3>לפני שמתחילים</h3>
     <ul><li>נכנסים עם חשבון של מורה ולוחצים על <b>ניהול</b> במסך הפתיחה.</li>
       <li>מכינים קישור לסרטון ב-Vimeo או ב-YouTube. ב-Vimeo מעתיקים את הקישור מכפתור השיתוף (למשל <code>https://vimeo.com/1233611297/d46ac373c8</code>); החלק שאחרי המספר הוא מה שפותח סרטון לא רשום, אז לא למחוק אותו.</li></ul>
@@ -7534,25 +7553,33 @@ function drawContent(){
   const field=(label,name,attrs,tag="input")=>{ const lab=mark("",label,"label"), inp=Object.assign(document.createElement(tag),{name,required:true,autocomplete:"off",...attrs}); lab.append(inp); return lab; };
   // the videos that stand outside the path, a card each: the library, which is one for every level and so comes first, and
   // under each level its daily videos, which a class gives their days. `level` is the level's id; none for the library
+  const ibtn=(icon,label,cls="")=>{ const b=mark("btn ico "+cls,icon,"button"); b.type="button"; b.title=label; b.setAttribute("aria-label",label); return b; };
+  const more=(label,...items)=>{   // the rarer actions of a row, folded under one "more" button
+    const d=document.createElement("details"), sm=mark("btn ico","⋯","summary"), pop=mark("pop","");
+    d.className="more"; sm.title=label; sm.setAttribute("aria-label",label); pop.append(...items); d.append(sm,pop);
+    d.addEventListener("toggle",()=>{ if(d.open) for(const o of box.querySelectorAll("details.more[open]")) if(o!==d) o.open=false; });
+    return d;
+  };
   const vcard=(into,level,table,all,what,one,none,hint,gone,sample)=>{
     const mine=all.filter(v=>(table==="library"?v.section:v.level)===level), card=mark("card",""), top=mark("chead",""), name=mark("",what,"h2"), list=mark("clist","","ol"), adds=mark("cadds","");
     name.append(mark("",`${mine.length?mine.length+" סרטונים":"עוד אין סרטונים"} · ${none}`,"small")); top.append(name);
     for(const v of mine){
       const row=mark("crow added","","li"), text=mark("two",""), title=mark("","","b"), t=document.createElement("bdi"), link=document.createElement("small"), acts=mark("acts","");
-      const see=mark("btn","צפייה","button"), del=mark("btn danger","מחיקה","button");
+      const see=ibtn("▶︎","צפייה בסרטון","play"), del=mark("btn menuitem danger","🗑 מחיקה","button");
       t.textContent=v.title; title.append(t); link.dir="ltr"; link.textContent=v.url.replace("https://",""); text.append(title,link);
       see.onclick=()=>playVideo(v,true); del.onclick=()=>deleteItem(table,v.id,`את הסרטון ${v.title}`,gone);
+      del.type="button"; del.setAttribute("aria-label",`מחיקה, ${v.title}`);
       if(table==="library"){   // the library's videos stand in the teacher's order, and take another name
-        const at=mine.indexOf(v), up=mark("btn move","↑","button"), down=mark("btn move","↓","button"), name=mark("btn","שינוי שם","button");
-        row.dataset.id="library"+v.id; up.title="הזזה למעלה: מוקדם יותר בספריה"; down.title="הזזה למטה: מאוחר יותר בספריה";
+        const at=mine.indexOf(v), up=ibtn("↑","הזזה למעלה: מוקדם יותר בספריה","move"), down=ibtn("↓","הזזה למטה: מאוחר יותר בספריה","move"), name=mark("btn menuitem","✎ שינוי שם","button");
+        row.dataset.id="library"+v.id; name.type="button";
         up.setAttribute("aria-label",`${up.title}, ${v.title}`); down.setAttribute("aria-label",`${down.title}, ${v.title}`);
         up.disabled=!at; down.disabled=at===mine.length-1;
         up.onclick=()=>moveShelf(mine,at,-1,list,level); down.onclick=()=>moveShelf(mine,at,1,list,level); name.onclick=()=>renameShelf(v);
-        const where=document.createElement("select"); where.className="btn"; where.title="העברה למדור אחר"; where.setAttribute("aria-label",`העברה למדור אחר, ${v.title}`);
+        const where=document.createElement("select"), wl=mark("menulab","העברה למדור:","label"); where.className="btn"; where.title="העברה למדור אחר"; where.setAttribute("aria-label",`העברה למדור אחר, ${v.title}`);
         for(const leaf of libLeaves()) where.add(new Option(leaf.label,leaf.id,false,leaf.id===v.section));
-        where.onchange=()=>shelfTo(v,where.value);
-        acts.append(up,down,see,name,where,del);
-      }else acts.append(see,del);
+        where.onchange=()=>shelfTo(v,where.value); wl.append(where);
+        acts.append(see,up,down,more(`עוד פעולות, ${v.title}`,name,wl,del));
+      }else acts.append(see,more(`עוד פעולות, ${v.title}`,del));
       row.append(mark("","▶︎","i"),text,acts); list.append(row);
     }
     adder(adds,`+ הוספת ${one}`,[field("שם הסרטון","title",{maxLength:80,placeholder:sample}),
@@ -7605,7 +7632,7 @@ function drawContent(){
           row.append(mark("",c.story?"💬":c.write?"✎\uFE0E":c.learn?"📖":c.match?"🧩":n,"i"),mark("",c.name,"b"),mark("",c.write?`כתיבה · ${c.write.lines} משפטים`:c.learn?`מילים חדשות · ${PHRASES.filter(p=>p.cat===c.id).length} מילים`:c.match?`משחק · התאמת זוגות על המילים החדשות`:`${c.story?c.voices?"שיחה":"סיפור":"תרגול"} · ${lines} ${c.unit==="מילה"?"מילים":c.unit==="פועל"?"פעלים":"משפטים"}`,"small")); list.append(row); return;
         }
         const it=v||c, row=mark("crow added","","li"), text=mark("two",""), title=mark("","","b"), t=document.createElement("bdi"), acts=mark("acts","");
-        const up=mark("btn move","↑","button"), down=mark("btn move","↓","button"), see=mark("btn",v?"צפייה":"תרגול","button"), del=mark("btn danger","מחיקה","button");
+        const up=ibtn("↑","הזזה למעלה: מוקדם יותר בשיעור","move"), down=ibtn("↓","הזזה למטה: מאוחר יותר בשיעור","move"), see=ibtn(v?"▶︎":"🎤",v?"צפייה בסרטון":"תרגול","play"), del=mark("btn menuitem danger","🗑 מחיקה","button"); del.type="button";
         row.dataset.id=(v?"video":"text")+(v?v.id:c.text); t.textContent=v?v.title:c.name; title.append(t); text.append(title);
         if(v){ const link=document.createElement("small"); link.dir="ltr"; link.textContent=v.url.replace("https://",""); text.append(link); }
         else{
@@ -7615,13 +7642,12 @@ function drawContent(){
             w.textContent=c.guessed.slice(0,8).join(" · ")+(c.guessed.length>8?" …":""); g.append(w); text.append(g);
           }
         }
-        up.title="הזזה למעלה: מוקדם יותר בשיעור"; down.title="הזזה למטה: מאוחר יותר בשיעור";
         up.setAttribute("aria-label",`${up.title}, ${t.textContent}`); down.setAttribute("aria-label",`${down.title}, ${t.textContent}`);
         up.disabled=!at; down.disabled=at===items.length-1;
         up.onclick=()=>moveItem(l,items,at,-1,list); down.onclick=()=>moveItem(l,items,at,1,list);
         see.onclick=v?()=>playVideo(v,true):()=>{ $("mPractice").click(); pickCat(c.id); };   // a text is tried as its students get it
         del.onclick=()=>deleteItem(v?"videos":"texts",v?v.id:c.text,v?`את הסרטון ${v.title}`:`את הטקסט ${c.name}`,v?"":" ההקלטות של התלמידים בו נשמרות, אבל לא ייספרו עוד.");
-        acts.append(up,down,see,del); row.append(mark("",v?"▶︎":"💬","i"),text,acts); list.append(row);
+        acts.append(see,up,down,more(`עוד פעולות, ${t.textContent}`,del)); row.append(mark("",v?"▶︎":"💬","i"),text,acts); list.append(row);
       });
       const adds=mark("cadds","");
       const pick=(label,name,options)=>{ const lab=field(label,name,{},"select"); for(const [value,text] of options) lab.lastChild.add(new Option(text,value)); return lab; };

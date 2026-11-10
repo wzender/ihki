@@ -63,16 +63,6 @@ def _name_taken(tree: Tree, parent: str, name: str, *, besides: str = "") -> boo
     return any(library._plain(tree.nodes[s]["name"]) == wanted for s in _siblings(tree, parent) if s != besides)
 
 
-def _parent_effect(tree: Tree, videos: list[dict], parent: str) -> dict[str, Any]:
-    """What a first sub-section does to a parent that has none: it keeps its videos (and stays a place to upload to), or,
-    with none, becomes a container."""
-    node = tree.nodes[parent]
-    first = not node["children"]
-    held = sum(1 for v in videos if node["holds"] and tree.section_of(v) == parent)
-    return {"keeps": bool(first and held) or bool(node["own"]), "container": bool(first and not held and not node["own"]),
-            "held": held, "first": first}
-
-
 def _tiers(auth) -> list[str]:
     """The tiers that see every section whatever a class opens (the feature library.all_sections): a change here does
     not touch them."""
@@ -117,8 +107,7 @@ def _access(auth, before: Tree, after: Tree, classes: list[dict], watch: list[st
 def _fingerprint(tree: Tree, videos: list[dict], sections: list[str], video_sections: list[str]) -> dict[str, Any]:
     """What a plan looked at: these sections' rows (name, parent, sub-sections, whether they hold videos) and the videos
     that stand in `video_sections`."""
-    rows = [(i, tree.nodes[i]["name"], tree.nodes[i]["parent"], tuple(tree.nodes[i]["children"]), tree.nodes[i]["holds"],
-             tree.nodes[i]["own"]) if i in tree.nodes else (i, None) for i in dict.fromkeys(sections)]
+    rows = [(i, tree.nodes[i]["name"], tree.nodes[i]["parent"], tuple(tree.nodes[i]["children"]), tree.nodes[i]["holds"]) if i in tree.nodes else (i, None) for i in dict.fromkeys(sections)]
     held = sorted((v["id"], tree.section_of(v), v.get("title"), v.get("url")) for v in videos
                   if tree.section_of(v) in set(video_sections))
     return {"sections": rows, "videos": held}
@@ -178,24 +167,14 @@ def plan_move_section(auth, section: object, new_parent: object) -> dict:
     if _name_taken(tree, pid, node["name"]):
         raise LibraryError(f"כבר יש מדור בשם {node['name']} תחת {tree.label(pid) if pid else 'הרמה העליונה'}")
     changes: dict[str, dict] = {sid: {"parent_id": pid or None, "ord": len(_siblings(tree, pid))}}
+    videos_in_parent = sum(1 for v in videos if pid and tree.section_of(v) == pid)
     extra: dict[str, Any] = {"id": sid, "id_unchanged": True, "new_parent": pid or None,
                              "new_parent_name": tree.label(pid) if pid else "הרמה העליונה",
                              "old_parent": node["parent"] or None,
                              "old_parent_name": tree.label(node["parent"]) if node["parent"] else "הרמה העליונה",
-                             "new_level": depth, "carries_videos_and_sub_sections": True}
-    effects = []
-    if pid:
-        effect = _parent_effect(tree, videos, pid)
-        extra["keep_parent_flag"] = effect["keeps"] and not tree.nodes[pid]["own"]
-        if effect["keeps"] and effect["first"]:
-            effects.append(f"ב{tree.label(pid)} יש {effect['held']} סרטונים והם נשארים בו; הוא נשאר מדור שאפשר להעלות אליו")
-            changes[pid] = {"holds_videos": True}
-        elif effect["container"]:
-            effects.append(f"{tree.label(pid)} ריק מסרטונים, ולכן יהפוך למדור-אב: סרטונים יועלו רק לתתי-המדורים שלו")
+                             "new_level": depth, "carries_videos_and_sub_sections": True,
+                             "videos_staying_in_new_parent": videos_in_parent}
     old = node["parent"]
-    if old and len(tree.nodes[old]["children"]) == 1 and not tree.nodes[old]["holds"]:
-        effects.append(f"{tree.label(old)} יישאר בלי תתי-מדורים ויהפוך למדור שאפשר להעלות אליו סרטונים")
-    extra["effects_on_parents"] = effects
     after = _edit(tree, changes)
     watch = [x for x in (old, *_around(tree, pid)) if x]
     return _finish(auth, "move_library_section", tree, after, videos, classes, sid,
@@ -220,13 +199,9 @@ def plan_delete(auth, section: object) -> dict:
     assigned = [{"id": c.get("id"), "name": c.get("name"), "students": len(c.get("emails") or [])}
                 for c in classes if sid in (c.get("library_sections") or [])]
     parent = node["parent"]
-    effects = []
-    if parent and len(tree.nodes[parent]["children"]) == 1 and not tree.nodes[parent]["holds"]:
-        effects.append(f"{tree.label(parent)} יישאר בלי תתי-מדורים ויהפוך למדור שאפשר להעלות אליו סרטונים")
     plan = _finish(auth, "delete_library_section", tree, after, videos, classes, sid, {"section": sid},
                    _around(tree, parent),
                    {"id": sid, "id_is_retired": True, "removed_from_class_assignments": assigned,
-                    "effects_on_parent": effects,
                     "removed_from_feature_access": "אין: הגדרות הגישה לפי שכבה אינן לפי מדור (רק library.all_sections, לכל המדורים)"})
     plan["state"]["assigned"] = assigned
     return plan
@@ -291,8 +266,6 @@ def apply(auth, plan: dict, by: str) -> dict[str, Any]:
         if op == "rename_library_section":
             auth.update_library_section(sid, {"name": plan["new_name"]})
         elif op == "move_library_section":
-            if plan.get("new_parent") and plan.get("keep_parent_flag"):
-                auth.set_library_section_holds(plan["new_parent"], True)   # its videos stay in it, and it stays a target
             auth.update_library_section(sid, {"parent_id": plan["new_parent"],
                                               "ord": len(_siblings(library.tree(), plan["new_parent"] or ""))})
         else:

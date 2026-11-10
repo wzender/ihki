@@ -12,7 +12,7 @@ MAX_TITLE = 80
 log = logging.getLogger("ihki.library")
 
 # The library's sections, in the order the teacher and the students see them. A section either holds videos itself or
-# is split into sub-sections that do (מערכת דיגיטלית: one per level of the course, and נִתמרַّן). A video stands in one
+# is split into sub-sections that do (מערכת דיגיטלית: one per level of the course, and נִתמרַּן). A video stands in one
 # section that can hold videos, kept in the `level` column of the `library` table; a video saved before there were
 # sections has an empty `level` and stands in שלב א. A permission names a section or a sub-section: a section covers all
 # of its own.
@@ -26,7 +26,7 @@ SEED_SECTIONS: list[dict] = [
         {"id": "d2", "name": "שלב ב", "level": "2"},
         {"id": "d3", "name": "שלב ג", "level": "3"},
         {"id": "d4", "name": "שלב ד", "level": "4"},
-        {"id": "nitmaran", "name": "נִתמרַّן"},
+        {"id": "nitmaran", "name": "נִתמרַּן"},
     ]},
     {"id": "graduates", "name": "בוגרים מספרים"},
     {"id": "village", "name": "טיולים בכפר"},
@@ -116,7 +116,7 @@ class Tree:
             for kid in kids:
                 grow(kid, row["id"], depth + 1)
             self.nodes[row["id"]]["children"] = [k["id"] for k in kids if k["id"] in self.nodes]
-            self.nodes[row["id"]]["holds"] = not self.nodes[row["id"]]["children"] or self.nodes[row["id"]]["own"]
+            self.nodes[row["id"]]["holds"] = True   # a video can stand in any section, whether or not it has sub-sections
 
         for row in by_parent.get("", []):
             grow(row, "", 1)
@@ -175,6 +175,11 @@ def reset() -> None:
     """Back to the seed (what a deployment without the table has)."""
     global _tree
     _tree = Tree(SEED_ROWS)
+
+
+def leaf_sections() -> list[str]:
+    """The sections without sub-sections."""
+    return [i for i in _tree.holders() if not _tree.nodes[i]["children"]]
 
 
 def holders() -> list[str]:
@@ -243,15 +248,12 @@ def resolve_node(value: object) -> str:
 
 
 def resolve_section(value: object) -> str:
-    """A section a video can stand in from its id or its name (with or without its parent's name); a LibraryError naming
-    the choices when it is missing, unknown, or a section that is split into sub-sections."""
+    """A section a video can stand in (any) from its id or its name (with or without its parent's name); a LibraryError
+    naming the choices when it is missing or unknown."""
     text = " ".join(str(value or "").split())
     if not text:
         raise LibraryError("לאיזה מדור להעלות? " + choices())
     node_id = resolve_node(text)
-    if not _tree.nodes[node_id]["holds"]:
-        raise LibraryError(f"המדור {_tree.nodes[node_id]['name']} מחולק לתתי-מדורים. בחרו אחד: "
-                           + ", ".join(label(c) for c in covered(node_id)))
     return node_id
 
 
@@ -270,7 +272,7 @@ def choices() -> str:
 
 
 def upload_targets() -> list[dict]:
-    """Where a video can go: {id, name (the full path), has_sub_sections (a parent that kept its own videos)}."""
+    """Where a video can go, every section: {id, name (the full path), has_sub_sections}."""
     return [{"id": i, "name": label(i), **({"has_sub_sections": True} if _tree.nodes[i]["children"] else {})}
             for i in holders()]
 
@@ -343,12 +345,10 @@ def plan_section(parent: object, name: object, videos: list[dict]) -> dict:
     if wanted in _tree.nodes:
         raise LibraryError("השם הזה זהה למזהה של מדור קיים. בחרו שם אחר")
     held = sum(1 for video in videos if node["holds"] and section_of(video) == parent_id)
-    first = not node["children"]
     return {"operation": "create_library_section", "parent": parent_id, "parent_label": label(parent_id),
             "name": clean, "new_id": new_section_id(), "new_label": label(parent_id) + " · " + clean,
             "level": node["depth"] + 1, "siblings": list(node["children"]),
-            "existing_videos": held, "parent_keeps_videos": bool(first and held) or bool(node["own"]),
-            "parent_becomes_container": bool(first and not held and not node["own"])}
+            "existing_videos": held}
 
 
 def create_section(auth, plan: dict, by: str) -> dict:
@@ -362,15 +362,12 @@ def create_section(auth, plan: dict, by: str) -> dict:
     if plan["parent"] not in _tree.nodes:
         raise changed
     fresh_plan = plan_section(plan["parent"], plan["name"], rows(auth, fresh=True))   # also the name and depth rules
-    if fresh_plan["siblings"] != plan["siblings"] or fresh_plan["parent_keeps_videos"] != plan["parent_keeps_videos"] \
-            or fresh_plan["parent_becomes_container"] != plan["parent_becomes_container"]:
+    if fresh_plan["siblings"] != plan["siblings"]:
         raise changed
     parent = _tree.nodes[plan["parent"]]
     try:
         if not auth.library_sections(True):
             auth.seed_library_sections(SEED_ROWS)
-        if plan["parent_keeps_videos"] and not parent["own"]:   # the videos stay in the parent, which stays a target
-            auth.set_library_section_holds(plan["parent"], True)
         auth.add_library_section({"id": plan["new_id"], "parent_id": plan["parent"], "name": plan["name"],
                                   "ord": len(parent["children"]),   # after its siblings (their ord runs 0, 1, …)
                                   "level": "", "holds_videos": False, "created_by": by})

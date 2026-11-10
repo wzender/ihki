@@ -316,7 +316,7 @@ def what_opens(a: SupabaseAuth, users: list[dict], rows: list[dict], levels_of, 
         levels = (levels | {lv for lv, given in level_over.items() if given}) - {lv for lv, given in level_over.items() if not given}
         out[user["id"]] = {"levels": [lv for lv in all_levels if lv in levels], "library": me.get("library_sections") or [],
                            "overrides": me.get("overrides") or {},
-                           "library.all_sections": set(library.holders()) <= set(me.get("library_sections") or []),
+                           "library.all_sections": set(library.leaf_sections()) <= set(me.get("library_sections") or []),
                            **{k: has(p) for k, p in flags.items()}}
     return out
 

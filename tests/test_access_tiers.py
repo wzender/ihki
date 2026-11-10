@@ -138,7 +138,7 @@ def test_a_class_dialog_saves_its_library_sections(monkeypatch):
     assert auth.class_rows[0]["library_sections"] == ["digital", "avot"]
     assert out["panel"]["classes"][0]["library_sections"] == ["digital", "avot"]
     assert out["panel"]["library_tree"][0]["id"] == "digital"
-    assert out["library"]["visible"] == ["d1", "d2", "d3", "d4", "nitmaran", "avot"]
+    assert out["library"]["visible"] == ["digital", "d1", "d2", "d3", "d4", "nitmaran", "avot"]
 
 
 MCP_MANAGER = {"id": "teacher-1", "email": "teacher@example.com", "roles": ["admin", "teacher", "flagger"],

@@ -426,8 +426,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
 
     @tool(description=("List the digital library's sections as a tree (sections, sub-sections, up to three levels) and "
                        "upload_targets: the sections a video can be added to, each with its full path name. That is "
-                       "every section without sub-sections, and a parent that kept its own videos when it was split "
-                       "(marked has_sub_sections). A section may be given by its id (permanent) or its Hebrew name (which a "
+                       "every section, also one that has sub-sections (marked has_sub_sections). A section may be given by its id (permanent) or its Hebrew name (which a "
                        "manager can change). Each section has its depth (1 to 3). "
                        "This list is the only authority on the current sections: do not rely on earlier answers."),
           structured_output=True)
@@ -567,9 +566,8 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
         library.audit(auth(), "prepare_library_section", plan["new_label"], "prepared")
-        effect = ("הסרטונים שכבר במדור נשארים בו, והוא נשאר מדור שאפשר להעלות אליו" if plan["parent_keeps_videos"] else
-                  "במדור אין סרטונים, ולכן הוא יהפוך למדור-אב: סרטונים יועלו רק לתתי-המדורים שלו"
-                  if plan["parent_becomes_container"] else "")
+        effect = (f"{plan['existing_videos']} הסרטונים שכבר במדור נשארים בו, והוא ממשיך לקבל סרטונים"
+                  if plan["existing_videos"] else "המדור ממשיך לקבל סרטונים גם עם תת-מדור")
         return {"ok": True, "approval_id": approval_id, "published": False, "expires_in_seconds": APPROVAL_TTL,
                 "preview": {"parent": plan["parent"], "parent_name": plan["parent_label"], "name": plan["name"],
                             "new_id": plan["new_id"], "full_name": plan["new_label"], "level": plan["level"],

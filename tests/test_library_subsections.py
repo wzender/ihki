@@ -89,7 +89,7 @@ def test_a_sub_section_under_d1_is_listed_and_takes_videos_while_the_old_ones_st
     assert [c["id"] for c in digital["children"]] == ["d1", "d2", "d3", "d4", "nitmaran"]   # existing ids, same order
     targets = {t["id"]: t for t in listed["upload_targets"]}
     assert targets[new_id]["name"] == "מערכת דיגיטלית · שלב א · חזרה לפני מבחן"
-    assert targets["d1"]["has_sub_sections"] and "digital" not in targets   # d1 kept its videos; digital never held any
+    assert targets["d1"]["has_sub_sections"] and targets["digital"]["has_sub_sections"]   # any section takes videos
     assert "d2" in targets and "has_sub_sections" not in targets["d2"]
 
     # a video goes into the new sub-section, by id or by name
@@ -104,8 +104,7 @@ def test_a_sub_section_under_d1_is_listed_and_takes_videos_while_the_old_ones_st
     assert videos == {1: "d1", 2: "d1", 3: new_id, 4: new_id}
     again = call(server, "prepare_library_video", {"title": "עוד", "url": "https://youtu.be/eeeeeeeeeee", "section": "d1"})
     assert again["ok"] and again["section"] == "d1"
-    assert next(r for r in auth.table if r["id"] == "d1")["holds_videos"] is True
-    assert {"seed", "holds", "add"} <= set(auth.writes)   # an empty table is seeded first, with the ids unchanged
+    assert {"seed", "add"} <= set(auth.writes) and "holds" not in auth.writes   # an empty table is seeded first, with the ids unchanged
     assert {r["id"] for r in auth.table if r["id"] in library.SEED_IDS} == library.SEED_IDS
 
 
@@ -115,7 +114,7 @@ def test_classes_with_the_parent_see_the_sub_section_and_the_old_videos():
     _, published = make_section(server, "d1", "חזרה")
     new_id = published["section"]
     student = {"id": "student-1", "email": "student@example.com"}
-    for sections, sees in ((["d1"], ["d1", new_id]), (["digital"], ["d1", new_id, "d2", "d3", "d4", "nitmaran"]),
+    for sections, sees in ((["d1"], ["d1", new_id]), (["digital"], ["digital", "d1", new_id, "d2", "d3", "d4", "nitmaran"]),
                            (["d2"], ["d2"]), ([], [])):
         auth.class_rows = [{"id": 1, "name": "א", "emails": ["student@example.com"], "nicknames": {}, "lessons": ["1"],
                             "homeworks": [], "dailies": [], "subject": "", "teachers": [], "library_sections": sections}]
@@ -142,16 +141,18 @@ def test_access_is_not_set_per_sub_section():
     assert teacher_operations._normalized_row(base | {"library_sections": ["d1"]})["library_sections"] == ["d1"]
 
 
-def test_an_empty_section_that_is_split_stops_taking_videos_itself():
+def test_a_section_with_sub_sections_still_takes_videos_empty_or_not():
     auth = Auth()
     server, _ = connector(auth, actor=MANAGER)
     prepared, _ = make_section(server, "d2", "מבוא")
-    assert prepared["preview"]["videos_in_parent"] == 0 and "מדור-אב" in prepared["preview"]["effect_on_parent"]
+    assert prepared["preview"]["videos_in_parent"] == 0 and "ממשיך לקבל סרטונים" in prepared["preview"]["effect_on_parent"]
     ids = [t["id"] for t in call(server, "list_library_sections")["upload_targets"]]
-    assert "d2" not in ids and prepared["preview"]["new_id"] in ids
-    refused = call(server, "prepare_library_video", {"title": "x", "url": NEW, "section": "d2"})
-    assert refused["ok"] is False and "מחולק לתתי-מדורים" in refused["error"] and "מבוא" in refused["error"]
-    assert "holds" not in auth.writes
+    assert "d2" in ids and prepared["preview"]["new_id"] in ids   # the split section stays a target, empty or not
+    video = call(server, "prepare_library_video", {"title": "x", "url": NEW, "section": "d2"})
+    assert video["ok"] and video["section"] == "d2"
+    assert call(server, "publish_library_video", {"approval_id": video["approval_id"]})["ok"]
+    assert auth.library_videos[-1]["level"] == "d2"
+    assert all(w != "holds" for w in auth.writes)
 
 
 def test_names_empty_duplicates_and_depth_are_refused():
@@ -222,12 +223,10 @@ def test_a_publish_is_refused_when_the_parent_changed_since_it_was_prepared():
     assert refused["ok"] is False and "השתנו" in refused["error"]
     assert [r["name"] for r in auth.table if r["parent_id"] == "d1"] == ["שני"]
 
-    # an empty section that got a video while the approval waited is no longer the one that was shown
+    # a video added to the parent meanwhile does not matter: the parent takes videos either way
     empty = call(server, "prepare_library_section", {"parent": "d3", "name": "בדיקה"})
-    assert empty["preview"]["videos_in_parent"] == 0
     auth.library_videos.append({"id": 9, "level": "d3", "title": "הגיע", "url": NEW})
-    assert call(server, "publish_library_section", {"approval_id": empty["approval_id"]})["ok"] is False
-    assert not any(r["parent_id"] == "d3" for r in auth.table)
+    assert call(server, "publish_library_section", {"approval_id": empty["approval_id"]})["ok"]
 
     # the same name taken by a concurrent writer is refused by the table itself
     racing = call(server, "prepare_library_section", {"parent": "d4", "name": "מרוץ"})
@@ -254,8 +253,8 @@ def test_without_the_table_the_seed_stands_and_a_section_cannot_be_added():
     server, _ = connector(auth, actor=MANAGER)
     listed = call(server, "list_library_sections")
     assert [s["id"] for s in listed["sections"]] == ["digital", "graduates", "village", "avot", "hacham", "guides"]
-    assert [t["id"] for t in listed["upload_targets"]] == ["d1", "d2", "d3", "d4", "nitmaran", "graduates", "village",
-                                                          "avot", "hacham", "guides"]
+    assert [t["id"] for t in listed["upload_targets"]] == ["digital", "d1", "d2", "d3", "d4", "nitmaran", "graduates",
+                                                          "village", "avot", "hacham", "guides"]
     no = call(server, "prepare_library_section", {"parent": "d1", "name": "x"})
     assert no["ok"] is False and "library_sections" in no["error"] and "create table" in no["error"]
     assert library.CREATE_LIBRARY_SECTIONS.count("('") == len(library.SEED_ROWS)
