@@ -3937,7 +3937,10 @@ let drawnW=0, nowWatch=null;
    teacher put them. A video opens in a box over the page; the ones already opened are marked, on this device only. */
 let LIBRARY=[], libWatched=store.get("ihki.libWatched",{});   // the video library, in sections: {id, section, title, embed} (with url, for a teacher); {library video id: 1}
 let LIB_SECTIONS=[];   // the library's sections (app/library.py SECTIONS): [{id, name, children?}], in their order
-const libLeaves=(nodes=LIB_SECTIONS,path=[])=>nodes.flatMap(n=>n.children?libLeaves(n.children,[...path,n.name]):[{id:n.id,name:n.name,label:[...path,n.name].join(" · ")}]);
+const libLeaves=(nodes=LIB_SECTIONS,path=[])=>nodes.flatMap(n=>{   // the sections a video can stand in: those without sub-sections, and a parent that kept its own videos (holds_videos)
+  const here=[...path,n.name], own=n.holds_videos!==undefined?n.holds_videos:!n.children;
+  return [...(own?[{id:n.id,name:n.name,label:here.join(" · ")}]:[]),...(n.children?libLeaves(n.children,here):[])];
+});
 let DAILIES=[], dailyWatched=store.get("ihki.dailyWatched",{});   // the library, for a teacher: {id, level, title, url, embed}; {daily video id: the day it was opened on}
 let VIDEOS=[], watched=store.get("ihki.watched",{});   // {id, lesson, title, url, embed, pos, ord} of the student's lessons; {video id: 1}
 /* A lesson's topics in the path's order: the course's own, {c, n} with the topic's number, and among them what the teacher
@@ -7570,16 +7573,19 @@ function drawContent(){
     `הסרטון נוסף למדור ${leaf.label}. תלמידים שקיבלו הרשאה למדור רואים אותו בכפתור „סרטונים” שבראש המסך.`,"","למשל: שיר לסיום");
   const count=ids=>{ const n=LIBRARY.filter(v=>ids.includes(v.section)).length; return n?`${n} סרטונים`:"עוד אין סרטונים"; };
   const levels=byLevel(ALL_LESSONS), leaves=libLeaves();
+  const fill=(node,sec)=>{   // a section's own shelf (if videos stand in it), its course level, then its sub-sections, to any depth
+    const leaf=leaves.find(x=>x.id===node.id); if(leaf) shelf(sec,leaf);
+    const g=node.level&&levels.find(g=>g.level.id===node.level); if(g) drawLevel(sec,g);
+    for(const child of node.children||[]){
+      const kid=levels.find(g=>g.level.id===child.level);
+      const sub=fold("lib-"+child.id,child.name,[kid&&`${lessonsWord(kid.lessons)} · ${kid.lessons.filter(l=>!l.soon).length} מוכנים`,count(libLeaves([child]).map(x=>x.id))].filter(Boolean).join(" · "),sec);
+      sub.classList.add("csub"); fill(child,sub);
+    }
+  };
   LIB_SECTIONS.forEach((top,k)=>{
     const mineLeaves=libLeaves([top]).map(x=>x.id);
     const sec=fold("lib-"+top.id,`${k+1}. ${top.name}`,top.children?`${top.children.length} תתי-מדורים · ${count(mineLeaves)}`:count(mineLeaves));
-    if(!top.children){ shelf(sec,leaves.find(x=>x.id===top.id)); return; }
-    for(const child of top.children){
-      const g=levels.find(g=>g.level.id===child.level), leaf=leaves.find(x=>x.id===child.id);
-      const sub=fold("lib-"+child.id,child.name,[g&&`${lessonsWord(g.lessons)} · ${g.lessons.filter(l=>!l.soon).length} מוכנים`,count([child.id])].filter(Boolean).join(" · "),sec);
-      sub.classList.add("csub"); shelf(sub,leaf);
-      if(g) drawLevel(sub,g);
-    }
+    fill(top,sec);
   });
   function drawLevel(sec,g){
     vcard(sec,g.level.id,"dailies",DAILIES,"סרטונים יומיים","סרטון יומי","את התאריך של כל סרטון קובעים בעריכת הכיתה","הסרטון נוסף לסרטונים היומיים של הרמה. כדי שתלמידים יראו אותו, קובעים לו תאריך בעריכת הכיתה: מאותו יום הוא מופיע להם בכפתור „סרטונים” שבראש המסך."," גם הכיתות שקבעו לו תאריך לא יראו אותו עוד.","למשל: יום 1 · ברכות");
