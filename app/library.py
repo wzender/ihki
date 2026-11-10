@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from typing import Callable
 
-from .auth import AuthUnavailable, SupabaseAuth
+from .auth import AuthUnavailable, ClassConflict, SupabaseAuth
 
 
 MAX_TITLE = 80
@@ -12,9 +13,14 @@ log = logging.getLogger("ihki.library")
 
 # The library's sections, in the order the teacher and the students see them. A section either holds videos itself or
 # is split into sub-sections that do (מערכת דיגיטלית: one per level of the course, and נִתמרַّן). A video stands in one
-# leaf section, kept in the `level` column of the `library` table; a video saved before there were sections has an
-# empty `level` and stands in שלב א. A permission names a section or a sub-section: a section covers all of its own.
-SECTIONS: list[dict] = [
+# section that can hold videos, kept in the `level` column of the `library` table; a video saved before there were
+# sections has an empty `level` and stands in שלב א. A permission names a section or a sub-section: a section covers all
+# of its own.
+#
+# This nested list is only the SEED. The sections live in the `library_sections` table (CREATE_LIBRARY_SECTIONS), which
+# a manager extends with sub-sections (prepare_library_section / publish_library_section); `refresh` reads it into the
+# tree every function below answers from. Until that table exists the seed is the whole tree, so nothing changes.
+SEED_SECTIONS: list[dict] = [
     {"id": "digital", "name": "מערכת דיגיטלית", "children": [
         {"id": "d1", "name": "שלב א", "level": "1"},
         {"id": "d2", "name": "שלב ב", "level": "2"},
@@ -30,68 +36,186 @@ SECTIONS: list[dict] = [
 ]
 LEGACY_SECTION = "d1"   # where a video from before the sections stands
 ENTITLEMENT_PREFIX = "lib:"
+MAX_DEPTH = 3           # digital library → section → sub-section → sub-sub-section: a section counts as one level
+MAX_SECTION_NAME = 60
 
 
-def _walk(nodes: list[dict], parent: dict | None = None):
-    for node in nodes:
-        yield node, parent
-        yield from _walk(node.get("children") or [], node)
+def _seed_rows(nodes: list[dict] = SEED_SECTIONS, parent: str | None = None) -> list[dict]:
+    rows = []
+    for at, node in enumerate(nodes):
+        rows.append({"id": node["id"], "parent_id": parent, "name": node["name"], "ord": at,
+                     "level": node.get("level") or "", "holds_videos": False})
+        rows += _seed_rows(node.get("children") or [], node["id"])
+    return rows
 
 
-NODES = {node["id"]: node for node, _ in _walk(SECTIONS)}
-PARENT = {node["id"]: parent["id"] for node, parent in _walk(SECTIONS) if parent}
-LEAVES = [node["id"] for node, _ in _walk(SECTIONS) if not node.get("children")]
-SECTION_ENTITLEMENTS = [ENTITLEMENT_PREFIX + node_id for node_id in NODES]
+SEED_ROWS = _seed_rows()
+# Permissions ("lib:<id>") and a class's sections exist only for the seeded sections: the permissions table's check
+# constraint lists them (see main.ENTITLEMENTS_SQL). A sub-section added later has none of its own: whoever has its
+# parent has it.
+SEED_IDS = frozenset(row["id"] for row in SEED_ROWS)
+SECTION_ENTITLEMENTS = [ENTITLEMENT_PREFIX + row["id"] for row in SEED_ROWS]
+# the sections whose own permission an account's exception may name (see access.clean_overrides): what could hold
+# videos when there were no sub-sections
+SEED_HOLDERS = frozenset(row["id"] for row in SEED_ROWS
+                         if not any(other["parent_id"] == row["id"] for other in SEED_ROWS))
+
+CREATE_LIBRARY_SECTIONS = (
+    "create table public.library_sections (id text primary key, "
+    "parent_id text references public.library_sections(id), name text not null check (length(btrim(name)) > 0), "
+    "ord integer not null default 0, level text not null default '', holds_videos boolean not null default false, "
+    "created_by text, created_at timestamptz not null default now()); "
+    "create unique index library_sections_sibling_name on public.library_sections "
+    "(coalesce(parent_id, ''), lower(btrim(name))); "
+    "alter table public.library_sections enable row level security; "
+    "insert into public.library_sections (id, parent_id, name, ord, level) values "
+    + ", ".join("('{id}', {parent}, '{name}', {ord}, '{level}')".format(
+        id=r["id"], parent=f"'{r['parent_id']}'" if r["parent_id"] else "null",
+        name=r["name"].replace("'", "''"), ord=r["ord"], level=r["level"]) for r in SEED_ROWS)
+    + "; notify pgrst, 'reload schema';")
 
 
-def leaves_of(node_id: str) -> list[str]:
-    """The leaf sections a section or sub-section covers."""
-    node = NODES.get(node_id)
+class LibraryError(ValueError):
+    """A safe, user-facing library operation error."""
+
+
+class LibraryUnavailable(LibraryError):
+    """The optional persistent content store cannot be used."""
+
+
+class Tree:
+    """The sections as rows give them: `nodes` (id → {id, name, parent, children, level, holds}), `roots`, in order.
+    `holds` is true where a video can stand: a section without sub-sections, or a parent that kept its own videos."""
+
+    def __init__(self, rows: list[dict]):
+        by_parent: dict[str, list[dict]] = {}
+        for row in rows:
+            by_parent.setdefault(row.get("parent_id") or "", []).append(row)
+        for siblings in by_parent.values():
+            siblings.sort(key=lambda r: (r.get("ord") or 0, r["id"]))
+        self.nodes: dict[str, dict] = {}
+        self.roots: list[str] = []
+
+        def grow(row: dict, parent: str, depth: int) -> None:
+            if row["id"] in self.nodes or depth > MAX_DEPTH:   # a loop or a row deeper than allowed is not shown
+                return
+            kids = by_parent.get(row["id"], [])
+            self.nodes[row["id"]] = {"id": row["id"], "name": row["name"], "parent": parent, "depth": depth,
+                                     "level": row.get("level") or "", "children": [], "own": bool(row.get("holds_videos"))}
+            for kid in kids:
+                grow(kid, row["id"], depth + 1)
+            self.nodes[row["id"]]["children"] = [k["id"] for k in kids if k["id"] in self.nodes]
+            self.nodes[row["id"]]["holds"] = not self.nodes[row["id"]]["children"] or self.nodes[row["id"]]["own"]
+
+        for row in by_parent.get("", []):
+            grow(row, "", 1)
+            if row["id"] in self.nodes:
+                self.roots.append(row["id"])
+
+    def walk(self, ids: list[str] | None = None):
+        for node_id in self.roots if ids is None else ids:
+            yield self.nodes[node_id]
+            yield from self.walk(self.nodes[node_id]["children"])
+
+
+_tree = Tree(SEED_ROWS)
+
+
+def tree() -> Tree:
+    return _tree
+
+
+def reset() -> None:
+    """Back to the seed (what a deployment without the table has)."""
+    global _tree
+    _tree = Tree(SEED_ROWS)
+
+
+def holders() -> list[str]:
+    """The sections a video can stand in, in order: those without sub-sections, and parents that kept their videos."""
+    return [node["id"] for node in _tree.walk() if node["holds"]]
+
+
+def __getattr__(name: str):   # the old names, for code that has not moved to the functions
+    if name == "LEAVES":
+        return holders()
+    if name == "NODES":
+        return _tree.nodes
+    raise AttributeError(name)
+
+
+def has_node(node_id: str) -> bool:
+    return node_id in _tree.nodes
+
+
+def depth(node_id: str) -> int:
+    return _tree.nodes[node_id]["depth"]
+
+
+def covered(node_id: str) -> list[str]:
+    """The sections that can hold videos which a permission on `node_id` covers: it (if it holds videos) and all below."""
+    node = _tree.nodes.get(node_id)
     if node is None:
         return []
-    if not node.get("children"):
-        return [node_id]
-    return [leaf for child in node["children"] for leaf in leaves_of(child["id"])]
+    return [n["id"] for n in [node, *_tree.walk(node["children"])] if n["holds"]]
+
+
+leaves_of = covered   # the old name
 
 
 def label(section_id: str) -> str:
     """A section's full name: "מערכת דיגיטלית · שלב א"."""
     names, at = [], section_id
     while at:
-        names.insert(0, NODES[at]["name"])
-        at = PARENT.get(at, "")
+        names.insert(0, _tree.nodes[at]["name"])
+        at = _tree.nodes[at]["parent"]
     return " · ".join(names)
 
 
 def section_of(video: dict) -> str:
     level = str(video.get("level") or "")
-    return level if level in NODES and not NODES[level].get("children") else LEGACY_SECTION
+    node = _tree.nodes.get(level)
+    return level if node and node["holds"] else LEGACY_SECTION
 
 
-def resolve_section(value: object) -> str:
-    """A leaf section from its id or its name (with or without its parent's name); a LibraryError naming the choices
-    when it is missing, unknown, or a section that is split into sub-sections."""
-    text = " ".join(str(value or "").split())
-    if not text:
-        raise LibraryError("לאיזה מדור להעלות? " + choices())
+def _find(text: str) -> list[str]:
+    """The sections a typed id or name means: by id, else by full name, else by its name or the end of its path ("שלב ב /
+    חזרה"), which two sub-sections of different sections can share."""
     wanted = _plain(text)
-    for node_id, node in NODES.items():
-        if wanted in (node_id, _plain(node["name"]), _plain(label(node_id))):
-            if node.get("children"):
-                raise LibraryError(f"המדור {node['name']} מחולק לתתי-מדורים. בחרו אחד: "
-                                   + ", ".join(NODES[c]["name"] for c in leaves_of(node_id)))
-            return node_id
-    raise LibraryError(f"אין מדור בשם {text}. " + choices())
+    if not wanted:
+        return []
+    ends = lambda i: (" " + _plain(label(i))).endswith(" " + wanted)   # the name, or its last words of the path
+    for same in (lambda i, n: wanted == i, lambda i, n: wanted == _plain(label(i)), lambda i, n: ends(i)):
+        found = [i for i, n in _tree.nodes.items() if same(i, n)]
+        if found:
+            return found
+    return []
 
 
 def resolve_node(value: object) -> str:
-    """Any section or sub-section from its id or its name (a section covers its sub-sections): what a class opens."""
+    """Any section or sub-section from its id or its name (a section covers its sub-sections): what a class opens, or
+    where a sub-section is added."""
     text = " ".join(str(value or "").split())
-    wanted = _plain(text)
-    for node_id, node in NODES.items():
-        if text and wanted in (node_id, _plain(node["name"]), _plain(label(node_id))):
-            return node_id
-    raise LibraryError(f"אין מדור בשם {text}. " + choices())
+    found = _find(text)
+    if len(found) > 1:
+        raise LibraryError(f"השם {text} מופיע ביותר ממדור אחד: " + ", ".join(f"{label(i)} ({i})" for i in found)
+                           + ". ציינו את המזהה או את השם המלא.")
+    if not found:
+        raise LibraryError(f"אין מדור בשם {text}. " + choices())
+    return found[0]
+
+
+def resolve_section(value: object) -> str:
+    """A section a video can stand in from its id or its name (with or without its parent's name); a LibraryError naming
+    the choices when it is missing, unknown, or a section that is split into sub-sections."""
+    text = " ".join(str(value or "").split())
+    if not text:
+        raise LibraryError("לאיזה מדור להעלות? " + choices())
+    node_id = resolve_node(text)
+    if not _tree.nodes[node_id]["holds"]:
+        raise LibraryError(f"המדור {_tree.nodes[node_id]['name']} מחולק לתתי-מדורים. בחרו אחד: "
+                           + ", ".join(label(c) for c in covered(node_id)))
+    return node_id
 
 
 def _plain(text: str) -> str:
@@ -105,33 +229,127 @@ def _plain(text: str) -> str:
 
 
 def choices() -> str:
-    return "המדורים: " + ", ".join(label(leaf) for leaf in LEAVES)
+    return "המדורים: " + ", ".join(label(leaf) for leaf in holders())
+
+
+def upload_targets() -> list[dict]:
+    """Where a video can go: {id, name (the full path), has_sub_sections (a parent that kept its own videos)}."""
+    return [{"id": i, "name": label(i), **({"has_sub_sections": True} if _tree.nodes[i]["children"] else {})}
+            for i in holders()]
 
 
 def public_sections() -> list[dict]:
-    """The section tree for a page or an MCP client: id, name, and the leaf ids each covers."""
+    """The section tree for a page or an MCP client: id, name, whether videos stand in it (`holds_videos`), and its
+    sub-sections."""
     def one(node: dict) -> dict:
-        out = {"id": node["id"], "name": node["name"], **({"level": node["level"]} if node.get("level") else {})}
-        if node.get("children"):
-            out["children"] = [one(child) for child in node["children"]]
+        out = {"id": node["id"], "name": node["name"], "holds_videos": node["holds"],
+               **({"level": node["level"]} if node["level"] else {})}
+        if node["children"]:
+            out["children"] = [one(_tree.nodes[child]) for child in node["children"]]
         return out
-    return [one(node) for node in SECTIONS]
+    return [one(_tree.nodes[root]) for root in _tree.roots]
 
 
 def visible_sections(entitlements: set[str] | frozenset[str], everything: bool) -> list[str]:
-    """The leaf sections a user may watch: every one for a teacher, else those their permissions name."""
+    """The sections a user may watch: every one for a teacher, else those their permissions name or sit under."""
     if everything:
-        return list(LEAVES)
-    mine = {leaf for e in entitlements if e.startswith(ENTITLEMENT_PREFIX) for leaf in leaves_of(e[len(ENTITLEMENT_PREFIX):])}
-    return [leaf for leaf in LEAVES if leaf in mine]
+        return holders()
+    mine = {leaf for e in entitlements if e.startswith(ENTITLEMENT_PREFIX) for leaf in covered(e[len(ENTITLEMENT_PREFIX):])}
+    return [leaf for leaf in holders() if leaf in mine]
 
 
-class LibraryError(ValueError):
-    """A safe, user-facing library operation error."""
+def refresh(auth, *, fresh: bool = False, strict: bool = False) -> None:
+    """Reads the sections from the `library_sections` table into the tree. Without the table (or a store that has
+    none) the tree is the seed. When the store cannot be reached the tree stays as it was; `strict` raises instead, for
+    an operation that must not act on a guess (a sub-section's videos would otherwise be taken for שלב א's)."""
+    global _tree
+    getter = getattr(auth, "library_sections", None)
+    if getter is None:
+        reset()
+        return
+    try:
+        stored = getter(fresh)
+    except AuthUnavailable as exc:
+        if strict:
+            raise LibraryUnavailable(f"מדורי הספרייה אינם זמינים: {exc}") from exc
+        log.warning("library sections not read: %s", exc)
+        return
+    if not stored:
+        reset()
+        return
+    known = {row["id"] for row in stored}
+    _tree = Tree([*stored, *(row for row in SEED_ROWS if row["id"] not in known)])   # a seeded id is never missing
 
 
-class LibraryUnavailable(LibraryError):
-    """The optional persistent content store cannot be used."""
+def normalize_section_name(value: object) -> str:
+    name = " ".join(str(value or "").split())
+    if not name or len(name) > MAX_SECTION_NAME:
+        raise LibraryError(f"למדור צריך שם (עד {MAX_SECTION_NAME} תווים)")
+    if any(sep in name for sep in "·/>|"):
+        raise LibraryError("בשם המדור אי אפשר להשתמש בתווים · / > |")
+    return name
+
+
+def new_section_id() -> str:
+    return "s" + secrets.token_hex(5)
+
+
+def plan_section(parent: object, name: object, videos: list[dict]) -> dict:
+    """What adding a sub-section would do, or a LibraryError: the parent (an id or a name), the new Hebrew name.
+    `videos` are the library's rows now, to say what happens to the ones the parent holds."""
+    parent_id = resolve_node(parent)
+    clean = normalize_section_name(name)
+    node = _tree.nodes[parent_id]
+    if node["depth"] >= MAX_DEPTH:
+        raise LibraryError(f"אי אפשר להוסיף תת-מדור תחת {label(parent_id)}: המדורים מגיעים לעד {MAX_DEPTH} רמות")
+    wanted = _plain(clean)
+    for sibling in node["children"]:
+        if _plain(_tree.nodes[sibling]["name"]) == wanted:
+            raise LibraryError(f"כבר יש תת-מדור בשם {clean} תחת {label(parent_id)}")
+    if wanted in _tree.nodes:
+        raise LibraryError("השם הזה זהה למזהה של מדור קיים. בחרו שם אחר")
+    held = sum(1 for video in videos if node["holds"] and section_of(video) == parent_id)
+    first = not node["children"]
+    return {"operation": "create_library_section", "parent": parent_id, "parent_label": label(parent_id),
+            "name": clean, "new_id": new_section_id(), "new_label": label(parent_id) + " · " + clean,
+            "level": node["depth"] + 1, "siblings": list(node["children"]),
+            "existing_videos": held, "parent_keeps_videos": bool(first and held) or bool(node["own"]),
+            "parent_becomes_container": bool(first and not held)}
+
+
+def create_section(auth, plan: dict, by: str) -> dict:
+    """Adds the sub-section a plan describes, if the sections and the parent's videos are still as the plan saw them."""
+    if auth is None or not hasattr(auth, "add_library_section"):
+        raise LibraryUnavailable("הוספת תתי-מדורים אינה זמינה: " + _missing_table())
+    refresh(auth, fresh=True, strict=True)
+    if auth.library_sections(True) is None:
+        raise LibraryUnavailable(_missing_table())
+    changed = LibraryError("המדורים או הסרטונים שלהם השתנו מאז ההכנה. הכינו את התת-מדור מחדש.")
+    if plan["parent"] not in _tree.nodes:
+        raise changed
+    fresh_plan = plan_section(plan["parent"], plan["name"], rows(auth, fresh=True))   # also the name and depth rules
+    if fresh_plan["siblings"] != plan["siblings"] or fresh_plan["parent_keeps_videos"] != plan["parent_keeps_videos"] \
+            or fresh_plan["parent_becomes_container"] != plan["parent_becomes_container"]:
+        raise changed
+    parent = _tree.nodes[plan["parent"]]
+    try:
+        if not auth.library_sections(True):
+            auth.seed_library_sections(SEED_ROWS)
+        if plan["parent_keeps_videos"] and not parent["own"]:   # the videos stay in the parent, which stays a target
+            auth.set_library_section_holds(plan["parent"], True)
+        auth.add_library_section({"id": plan["new_id"], "parent_id": plan["parent"], "name": plan["name"],
+                                  "ord": len(parent["children"]),   # after its siblings (their ord runs 0, 1, …)
+                                  "level": "", "holds_videos": False, "created_by": by})
+    except ClassConflict as exc:
+        raise LibraryError(f"כבר יש תת-מדור בשם {plan['name']} תחת {plan['parent_label']}") from exc
+    except AuthUnavailable as exc:
+        raise LibraryUnavailable(f"לא ניתן להוסיף את התת-מדור: {exc}") from exc
+    refresh(auth, fresh=True, strict=True)
+    return {"section": plan["new_id"], "section_name": label(plan["new_id"])}
+
+
+def _missing_table() -> str:
+    return ("טבלת library_sections לא קיימת. הריצו ב-SQL Editor של Supabase: " + CREATE_LIBRARY_SECTIONS)
 
 
 def normalize_title(value: object) -> str:
@@ -151,6 +369,7 @@ def normalize_url(value: object, parse: Callable[[str], str | None]) -> str:
 def rows(auth: SupabaseAuth | None, *, fresh: bool = False) -> list[dict]:
     if auth is None:
         raise LibraryUnavailable("ספריית הסרטונים אינה זמינה: Supabase אינו מוגדר")
+    refresh(auth, fresh=fresh, strict=True)   # which section a video stands in depends on the sections
     try:
         return auth.level_videos("library", fresh=fresh)
     except AuthUnavailable as exc:
@@ -165,7 +384,9 @@ def ensure_unique(auth: SupabaseAuth | None, url: str, *, fresh: bool = True) ->
 
 def add(auth: SupabaseAuth | None, title: str, url: str, *, section: str = LEGACY_SECTION,
         reject_duplicate: bool = True) -> None:
-    if section not in LEAVES:
+    if auth is not None:
+        refresh(auth, fresh=True, strict=True)   # a section may have been split since the page was drawn
+    if section not in holders():
         raise LibraryError("לאיזה מדור להעלות? " + choices())
     if reject_duplicate:
         ensure_unique(auth, url, fresh=True)
@@ -190,7 +411,9 @@ def rename(auth: SupabaseAuth | None, video_id: int, title: str) -> None:
 
 def move(auth: SupabaseAuth | None, video_id: int, section: str) -> None:
     """Moves a library video to another leaf section, keeping its title and link."""
-    if section not in LEAVES:
+    if auth is not None:
+        refresh(auth, fresh=True, strict=True)
+    if section not in holders():
         raise LibraryError("לאיזה מדור להעביר? " + choices())
     if not isinstance(video_id, int) or isinstance(video_id, bool) or video_id <= 0:
         raise LibraryError("מזהה הסרטון אינו תקין")

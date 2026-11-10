@@ -158,13 +158,13 @@ CREATE_LEARNER_CLASS_STATE = (
 
 # Application-owned data. Supabase's auth users and managed schemas are deliberately not copied.
 BACKUP_TABLES = (
-    "dailies", "library", "videos", "texts", "classes", "writings", "tutors", "flags",
+    "dailies", "library", "library_sections", "videos", "texts", "classes", "writings", "tutors", "flags",
     "lab_samples", "calibrations", "scoring_rules", "user_access", "access_audit", "app_secrets",
     "system_events", "tutor_chats", "model_settings",
 )
 BACKUP_NATURAL_KEYS = {"writings": "user_id,topic", "tutors": "email", "scoring_rules": "id",
                        "user_access": "user_id", "app_secrets": "name", "tutor_chats": "id",
-                       "model_settings": "model"}
+                       "model_settings": "model", "library_sections": "id"}
 
 
 def _missing_tutor_chats(e: Exception) -> str:
@@ -255,6 +255,7 @@ class SupabaseAuth:
         self._access: dict[str, tuple[float, dict | None]] = {}
         self._features: tuple[float, list[dict] | None] | None = None   # the tiers' feature switches, briefly kept
         self._level_videos: dict[str, tuple[float, list[dict]]] = {}   # by table: the daily videos, the library
+        self._library_sections: tuple[float, list[dict] | None] | None = None   # the library's sections, briefly kept
         self._users: tuple[float, list[dict]] | None = None
         self._users_fetch = threading.Lock()   # one request reads the account list; the others wait and reuse it
         self._lock = threading.Lock()
@@ -718,6 +719,51 @@ class SupabaseAuth:
         with self._lock:
             self._level_videos[table] = (now + CLASSES_TTL, rows)
         return rows
+
+    def library_sections(self, fresh: bool = False) -> list[dict] | None:
+        """The digital library's sections ([{"id", "parent_id", "name", "ord", "level", "holds_videos"}]), or None until
+        the library_sections table is created (the seed in app/library.py then stands). Kept for CLASSES_TTL, and dropped
+        at once by every write here."""
+        now = time.monotonic()
+        with self._lock:
+            hit = self._library_sections
+        if not fresh and hit and hit[0] > now:
+            return hit[1]
+        if not self.secret:
+            return None
+        try:
+            value = self._admin("/rest/v1/library_sections?select=*&order=ord.asc") or []
+        except AuthUnavailable as e:
+            if "answered 404" not in str(e):
+                raise
+            value = None
+        with self._lock:
+            self._library_sections = (now + CLASSES_TTL, value)
+        return value
+
+    def seed_library_sections(self, rows: list[dict]) -> None:
+        """Writes the built-in sections the table lacks (ids already there are kept as they are)."""
+        try:
+            self._admin("/rest/v1/library_sections?on_conflict=id", "POST",
+                        [{k: r[k] for k in ("id", "parent_id", "name", "ord", "level")} for r in rows],
+                        prefer="resolution=ignore-duplicates,return=minimal")
+        finally:
+            self._library_sections = None
+
+    def add_library_section(self, row: dict) -> None:
+        """One new sub-section; ClassConflict when its id or its name among its siblings is taken."""
+        try:
+            self._admin("/rest/v1/library_sections", "POST", row, prefer="return=minimal")
+        finally:
+            self._library_sections = None
+
+    def set_library_section_holds(self, section_id: str, holds: bool) -> None:
+        """Marks a section that is split into sub-sections as still holding videos of its own."""
+        try:
+            self._admin("/rest/v1/library_sections?" + urllib.parse.urlencode({"id": "eq." + section_id}), "PATCH",
+                        {"holds_videos": bool(holds)}, prefer="return=minimal")
+        finally:
+            self._library_sections = None
 
     def add_level_video(self, table: str, level: str, title: str, url: str) -> None:
         assert table in ("dailies", "library")

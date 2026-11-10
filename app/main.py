@@ -2352,8 +2352,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 raise HTTPException(400, "מורה של הכיתה צריך להיות אחד מהתלמידים הרשומים בה")
         sections = body.get("library_sections")   # without it, the class keeps the library sections it has
         if sections is not None:
-            if not isinstance(sections, list) or not all(isinstance(x, str) and x in video_library.NODES for x in sections):
-                raise HTTPException(400, "מדור לא מוכר בספרייה הדיגיטלית. רעננו ונסו שוב")
+            if not isinstance(sections, list) or not all(isinstance(x, str) and x in video_library.SEED_IDS for x in sections):
+                # a sub-section added later has no permission of its own: its parent's covers it
+                raise HTTPException(400, "מדור לא מוכר בספרייה הדיגיטלית, או תת-מדור שנפתח עם המדור שלו. רעננו ונסו שוב")
             sections = list(dict.fromkeys(sections))
         meetings = body.get("meetings")   # [{"day": 0 (Sunday) to 6, "time": "HH:MM"}]; without it they stay as they are
         if meetings is not None:
@@ -2814,6 +2815,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         """The video library, which stands outside the path and is split into sections (library.SECTIONS): of the
         sections the user may watch, id, section, title, url (for a teacher only) and embed (its player) of each video,
         in the teacher's order (see `order_library`); and the section tree, with the leaf sections the user sees."""
+        video_library.refresh(app.state.auth)
         sections = video_library.public_sections()
         if not user:
             return {"library": [], "sections": sections, "visible": []}
@@ -2910,12 +2912,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not isinstance(order, list) or not all(isinstance(i, int) and not isinstance(i, bool) for i in order):
             raise HTTPException(400, "the order is a list of video ids")
         try:
-            ids = {v["id"] for v in a.level_videos("library", fresh=True)
+            ids = {v["id"] for v in video_library.rows(a, fresh=True)
                    if section is None or video_library.section_of(v) == section}
             if len(set(order)) != len(order) or set(order) != ids:   # added or deleted meanwhile, in another tab
                 raise HTTPException(409, "הספריה השתנתה. רעננו ונסו שוב")
             a.order_level_videos("library", order)
-        except AuthUnavailable as e:
+        except (AuthUnavailable, video_library.LibraryUnavailable) as e:
             raise HTTPException(503, level_store_error("library", e))
         return {"ok": True}
 

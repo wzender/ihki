@@ -248,9 +248,11 @@ class SupabaseTokenVerifier:
                            subject=str(user["id"]), claims={"iss": issuer, "ihki_actor": actor})
 
 
-# The library's upload sections by name, for the instructions and the tool descriptions: a request such as
-# "add a video to בוגרים מספרים" names a section, and its words are not to be read as a topic ("graduates", "numbers").
-LIBRARY_SECTION_NAMES = "; ".join(f"{library.label(leaf)} ({leaf})" for leaf in library.LEAVES)
+# The library's sections are not listed here: a manager can add sub-sections, so the list is list_library_sections'.
+# A request such as "add a video to בוגרים מספרים" names a section, and its words are not to be read as a topic.
+SECTION_RULE = ("When a request names a section (for example \"add a video to בוגרים מספרים\" or \"to שלב א\"), "
+                "it means a digital-library video in that section: use prepare_library_video, not a daily video, "
+                "and do not read the section's name as a topic.")
 
 
 def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimiter | None = None,
@@ -278,10 +280,9 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                       "publish_feature_access_change; what a tier has is always what list_feature_access says. "
                       "Digital-library videos go into one section (list_library_sections): when the teacher does not "
                       "name the section, ask which one before preparing; for a list, use prepare_library_videos. "
-                      f"The library's sections are: {LIBRARY_SECTION_NAMES}. When a request names one of them (for "
-                      "example \"add a video to בוגרים מספרים\"), it means a digital-library video in that section: "
-                      "use prepare_library_video, not a daily video, and do not read the section's name as a topic. "
-                      + version_line),
+                      "The sections and their ids are whatever list_library_sections returns now (its upload_targets "
+                      "are where a video can go); a manager adds a sub-section under any section, to three levels, "
+                      "with prepare_library_section and publish_library_section. " + SECTION_RULE + " " + version_line),
         token_verifier=SupabaseTokenVerifier(app),
         auth=AuthSettings(issuer_url=AnyHttpUrl(issuer_url), resource_server_url=AnyHttpUrl(resource_url),
                           validate_token_resource=False, required_scopes=[]),
@@ -414,13 +415,22 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
 
-    @tool(description=("List the digital library's sections and sub-sections. A video is uploaded to one leaf "
-                       "section (a section without sub-sections); a section name may be given in Hebrew. "
-                       f"The sections: {LIBRARY_SECTION_NAMES}."),
+    def sections_now(fresh: bool = True) -> None:
+        """Reads the sections before an answer depends on them (a sub-section may have been added by another manager)."""
+        library.refresh(auth(), fresh=fresh, strict=True)
+
+    @tool(description=("List the digital library's sections as a tree (sections, sub-sections, up to three levels) and "
+                       "upload_targets: the sections a video can be added to, each with its full path name. That is "
+                       "every section without sub-sections, and a parent that kept its own videos when it was split "
+                       "(marked has_sub_sections). A section may be given by its id or its Hebrew name. "
+                       "This list is the only authority on the current sections: do not rely on earlier answers."),
           structured_output=True)
     async def list_library_sections() -> dict[str, Any]:
-        return {"ok": True, "sections": library.public_sections(),
-                "upload_targets": [{"id": leaf, "name": library.label(leaf)} for leaf in library.LEAVES]}
+        try:
+            await _bounded_read(sections_now)
+        except library.LibraryError as exc:
+            return {"ok": False, "error": str(exc), "sections": [], "upload_targets": []}
+        return {"ok": True, "sections": library.public_sections(), "upload_targets": library.upload_targets()}
 
     @tool(description=("List the digital-library videos in their current order, each with its section. "
                        "Returns no learner data."), structured_output=True)
@@ -440,6 +450,8 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             return {"ok": False, "error": str(exc), "videos": []}
 
     def prepare_one(title: str, url: str, section: str) -> dict[str, Any]:
+        sections_now()
+        section = library.resolve_section(section)
         clean_title = library.normalize_title(title)
         clean_url = library.normalize_url(url, app.state.video_link)
         library.ensure_unique(auth(), clean_url, fresh=True)
@@ -459,10 +471,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
     @tool(description=("Validate a YouTube or Vimeo video for one library section and create a ten-minute approval. "
                        "This does not publish it. `section` is required: if the teacher did not name one, ask which "
                        "section (see list_library_sections) before calling. Use this when a teacher asks to add a "
-                       f"video to a section by its name; the sections: {LIBRARY_SECTION_NAMES}."), structured_output=True)
+                       "video to a section by its name; the sections are those of list_library_sections."), structured_output=True)
     async def prepare_library_video(title: str, url: str, section: str = "") -> dict[str, Any]:
         def prepare() -> dict[str, Any]:
-            return prepare_one(title, url, library.resolve_section(section))
+            return prepare_one(title, url, section)
         return result("prepare_library_video", prepare)
 
     @tool(description=("Validate a list of YouTube or Vimeo videos for one library section and create a ten-minute "
@@ -471,6 +483,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
           structured_output=True)
     async def prepare_library_videos(videos: list[dict[str, str]], section: str = "") -> dict[str, Any]:
         def prepare() -> dict[str, Any]:
+            sections_now()
             target = library.resolve_section(section)
             if not videos:
                 raise library.LibraryError("אין סרטונים ברשימה")
@@ -509,6 +522,81 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                     refused.append({"approval_id": approval_id, "error": str(exc)})
             return {"published": published, "refused": refused}
         return result("publish_library_videos", publish)
+
+    def library_manager() -> tuple[dict[str, Any] | None, str]:
+        """Whoever may add library videos on the page (management.access) may add sub-sections."""
+        current = actor()
+        if current is None or auth() is None:
+            return None, "אין הרשאת ניהול"
+        if not has_permission(current, "management.access"):
+            return None, "רק מנהלים יכולים להוסיף תתי-מדורים לספרייה"
+        return current, ""
+
+    @tool(description=("Prepare adding a sub-section under a library section (any section, to three levels, for "
+                       "example under שלב א). `parent` is the section's id or Hebrew name from list_library_sections; "
+                       "`name` is the new sub-section's Hebrew name (not empty, not the name of a sibling). Shows the "
+                       "exact result - the new id, its full path, and what happens to videos the parent already holds - "
+                       "and returns a ten-minute approval bound to this manager. This does not change data. Publish "
+                       "with publish_library_section only after the manager explicitly confirms."),
+          structured_output=True)
+    async def prepare_library_section(parent: str, name: str) -> dict[str, Any]:
+        current, error = library_manager()
+        if current is None:
+            return {"ok": False, "error": error}
+        if not limiter.allow():
+            library.audit(auth(), "prepare_library_section", "prepare_library_section", "refused", reason="rate_limit")
+            note_audit_refusal("refused", "rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        try:
+            def plan() -> dict[str, Any]:
+                sections_now()
+                if not hasattr(auth(), "add_library_section") or auth().library_sections(True) is None:
+                    raise library.LibraryUnavailable(library._missing_table())
+                return library.plan_section(parent, name, library.rows(auth(), fresh=True))
+            plan = await _bounded_read(plan)
+            approval_id, _ = class_approvals.prepare(str(current["id"]), plan)
+        except library.LibraryError as exc:
+            library.audit(auth(), "prepare_library_section", "prepare_library_section", "refused", reason=type(exc).__name__)
+            diagnostics.note_refusal(exc)
+            return {"ok": False, "error": str(exc)}
+        library.audit(auth(), "prepare_library_section", plan["new_label"], "prepared")
+        effect = ("הסרטונים שכבר במדור נשארים בו, והוא נשאר מדור שאפשר להעלות אליו" if plan["parent_keeps_videos"] else
+                  "במדור אין סרטונים, ולכן הוא יהפוך למדור-אב: סרטונים יועלו רק לתתי-המדורים שלו"
+                  if plan["parent_becomes_container"] else "")
+        return {"ok": True, "approval_id": approval_id, "published": False, "expires_in_seconds": APPROVAL_TTL,
+                "preview": {"parent": plan["parent"], "parent_name": plan["parent_label"], "name": plan["name"],
+                            "new_id": plan["new_id"], "full_name": plan["new_label"], "level": plan["level"],
+                            "existing_sub_sections": plan["siblings"], "videos_in_parent": plan["existing_videos"],
+                            "effect_on_parent": effect,
+                            "access": "כיתות ושכבות שיש להן גישה למדור-האב מקבלות גישה גם לתת-המדור"}}
+
+    @tool(description=("Publish a prepared sub-section after the manager explicitly confirms the shown parent, name "
+                       "and full path. Single-use, bound to the manager who prepared it, expires after ten minutes, "
+                       "and refused when the parent's sub-sections or videos changed since it was prepared."),
+          structured_output=True)
+    async def publish_library_section(approval_id: str) -> dict[str, Any]:
+        current, error = library_manager()
+        if current is None:
+            return {"ok": False, "error": error}
+        if not limiter.allow():
+            library.audit(auth(), "publish_library_section", "publish_library_section", "refused", reason="rate_limit")
+            note_audit_refusal("refused", "rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        item = class_approvals.consume(approval_id, str(current["id"]))
+        if item is None or item.plan.get("operation") != "create_library_section":
+            library.audit(auth(), "publish_library_section", "publish_library_section", "refused", reason="invalid_approval")
+            note_audit_refusal("refused", "invalid_approval")
+            return {"ok": False, "error": "האישור אינו תקף, פג תוקף, שייך למשתמש אחר או כבר נוצל."}
+        plan = item.plan
+        try:
+            created = library.create_section(auth(), plan, str(current.get("email") or current["id"]))
+        except library.LibraryError as exc:
+            library.audit(auth(), "publish_library_section", plan["new_label"], "refused", reason=type(exc).__name__)
+            diagnostics.note_refusal(exc)
+            return {"ok": False, "error": str(exc)}
+        library.audit(auth(), "publish_library_section", plan["new_label"], "success", section=plan["new_id"])
+        return {"ok": True, "published": True, **created, "parent": plan["parent"], "name": plan["name"],
+                "videos_in_parent": plan["existing_videos"]}
 
     @tool(description="Rename an existing digital-library video without changing its URL or position.",
                  structured_output=True)

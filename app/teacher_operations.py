@@ -163,10 +163,15 @@ def _normalized_row(row: dict[str, Any]) -> dict[str, Any]:
     if sections is not None:
         if not isinstance(sections, list) or not all(isinstance(item, str) for item in sections):
             raise TeacherOperationError("מדורי הספרייה אינם תקינים", code="library_sections_invalid")
-        unknown = [item for item in sections if item not in library.NODES]
+        unknown = [item for item in sections if not library.has_node(item)]
         if unknown:
             raise TeacherOperationError("אין בספרייה מדור כזה. " + library.choices(), code="library_section_unknown",
                                         detail=f"unknown={','.join(unknown)[:200]}")
+        added = [item for item in sections if item not in library.SEED_IDS]
+        if added:   # a sub-section has no permission of its own: whoever opens its parent opens it
+            raise TeacherOperationError("תת-מדור שנוסף לספרייה נפתח עם המדור שהוא נמצא בו. בחרו את המדור הראשי: "
+                                        + ", ".join(library.label(library.tree().nodes[item]["parent"]) for item in added),
+                                        code="library_section_inherited", detail=f"sub_sections={','.join(added)[:200]}")
         result["library_sections"] = list(dict.fromkeys(sections))
     result.update(emails=sorted(emails), nicknames=nicknames, teachers=teachers, lessons=lessons,
                   homeworks=normalized_homeworks, dailies=normalized_dailies,
@@ -198,7 +203,7 @@ def _public_class(row: dict[str, Any]) -> dict[str, Any]:
             "homeworks": deepcopy(row.get("homeworks") or []), "scheduled_daily_videos": deepcopy(row.get("dailies") or []),
             "meetings": deepcopy(row.get("meetings") or []), "meetings_text": meetings_text(row.get("meetings")),
             "library_sections": class_sections(row),
-            "library_sections_names": [library.label(item) for item in class_sections(row) if item in library.NODES]}
+            "library_sections_names": [library.label(item) for item in class_sections(row) if library.has_node(item)]}
 
 
 def workspace(auth: SupabaseAuth, actor: dict[str, Any]) -> dict[str, Any]:

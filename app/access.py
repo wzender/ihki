@@ -4,7 +4,8 @@ from __future__ import annotations
 import os
 
 from .auth import AuthUnavailable, SupabaseAuth
-from .library import ENTITLEMENT_PREFIX, LEAVES, LEGACY_SECTION, SECTION_ENTITLEMENTS, visible_sections
+from . import library
+from .library import ENTITLEMENT_PREFIX, LEGACY_SECTION, SECTION_ENTITLEMENTS, SEED_HOLDERS, visible_sections
 
 
 ROLES = frozenset({"student", "teacher", "flagger", "admin", "developer"})
@@ -137,7 +138,7 @@ def clean_overrides(value) -> dict[str, bool]:
     for key, given in value.items():
         if not isinstance(key, str) or not isinstance(given, bool):
             continue
-        if key in OVERRIDE_FEATURES or (key.startswith("lib:") and key[4:] in LEAVES) or \
+        if key in OVERRIDE_FEATURES or (key.startswith("lib:") and key[4:] in SEED_HOLDERS) or \
                 (key.startswith("level:") and 0 < len(key) - 6 <= 8 and key[6:].isalnum()):
             out[key] = given
     return out
@@ -190,6 +191,7 @@ def resolve_user_access(a: SupabaseAuth, user: dict, *, token: str = "",
                         fresh_permissions: bool = False) -> dict:
     """The application identity of an already-identified Supabase user ({"id", "email"})."""
     email = str(user.get("email") or "").strip().lower()
+    library.refresh(a, fresh=fresh_permissions)   # the sections a class or an account opens include the sub-sections added since
     classes = a.classes()
     teaches = [c for c in classes if email in (c.get("teachers") or [])]
     # a class's own teacher (a guide) studies in it as its students do: the same lessons, library and home
@@ -230,8 +232,9 @@ def resolve_user_access(a: SupabaseAuth, user: dict, *, token: str = "",
         sections = [LEGACY_SECTION]
     for key, given in overrides.items():   # the account's own exceptions to the library sections
         if key.startswith("lib:"):
-            sections = [leaf for leaf in LEAVES if (leaf in sections or (given and leaf == key[4:]))
-                        and not (not given and leaf == key[4:])]
+            named = set(library.covered(key[4:]))   # a section's own, and its sub-sections' (they have no exception of their own)
+            sections = [leaf for leaf in library.holders() if (leaf in sections or (given and leaf in named))
+                        and not (not given and leaf in named)]
     permissions = permissions_for(roles, sections, features)
     for key, given in overrides.items():   # and to the features
         for permission in OVERRIDE_FEATURES.get(key, ()):
@@ -313,7 +316,7 @@ def what_opens(a: SupabaseAuth, users: list[dict], rows: list[dict], levels_of, 
         levels = (levels | {lv for lv, given in level_over.items() if given}) - {lv for lv, given in level_over.items() if not given}
         out[user["id"]] = {"levels": [lv for lv in all_levels if lv in levels], "library": me.get("library_sections") or [],
                            "overrides": me.get("overrides") or {},
-                           "library.all_sections": set(LEAVES) <= set(me.get("library_sections") or []),
+                           "library.all_sections": set(library.holders()) <= set(me.get("library_sections") or []),
                            **{k: has(p) for k, p in flags.items()}}
     return out
 

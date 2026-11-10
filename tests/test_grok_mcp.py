@@ -136,7 +136,8 @@ def test_narrow_tools_are_discoverable():
     tools = asyncio.run(server.list_tools())
     assert [tool.name for tool in tools] == [
         "list_library_sections", "list_library_videos", "prepare_library_video", "prepare_library_videos",
-        "publish_library_video", "publish_library_videos", "rename_library_video",
+        "publish_library_video", "publish_library_videos", "prepare_library_section", "publish_library_section",
+            "rename_library_video",
         "list_classes", "list_class_content_collections", "get_class_content_access",
         "prepare_class_change", "publish_class_change",
         "list_feature_access", "prepare_feature_access_change", "publish_feature_access_change",
@@ -813,7 +814,8 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
     assert initialized.json()["result"]["serverInfo"]["name"] == "ihki-digital-library"
     assert [tool["name"] for tool in discovered.json()["result"]["tools"]] == [
         "list_library_sections", "list_library_videos", "prepare_library_video", "prepare_library_videos",
-        "publish_library_video", "publish_library_videos", "rename_library_video",
+        "publish_library_video", "publish_library_videos", "prepare_library_section", "publish_library_section",
+        "rename_library_video",
         "list_classes", "list_class_content_collections", "get_class_content_access",
         "prepare_class_change", "publish_class_change",
         "list_feature_access", "prepare_feature_access_change", "publish_feature_access_change",
