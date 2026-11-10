@@ -64,15 +64,23 @@ CREATE_LIBRARY_SECTIONS = (
     "create table public.library_sections (id text primary key, "
     "parent_id text references public.library_sections(id), name text not null check (length(btrim(name)) > 0), "
     "ord integer not null default 0, level text not null default '', holds_videos boolean not null default false, "
+    "deleted boolean not null default false, "
     "created_by text, created_at timestamptz not null default now()); "
     "create unique index library_sections_sibling_name on public.library_sections "
-    "(coalesce(parent_id, ''), lower(btrim(name))); "
+    "(coalesce(parent_id, ''), lower(btrim(name))) where not deleted; "
     "alter table public.library_sections enable row level security; "
     "insert into public.library_sections (id, parent_id, name, ord, level) values "
     + ", ".join("('{id}', {parent}, '{name}', {ord}, '{level}')".format(
         id=r["id"], parent=f"'{r['parent_id']}'" if r["parent_id"] else "null",
         name=r["name"].replace("'", "''"), ord=r["ord"], level=r["level"]) for r in SEED_ROWS)
     + "; notify pgrst, 'reload schema';")
+
+# for a table made before sections could be deleted (a deleted section's row stays, so its id is never reused)
+MIGRATE_LIBRARY_SECTIONS = (
+    "alter table public.library_sections add column if not exists deleted boolean not null default false; "
+    "drop index if exists public.library_sections_sibling_name; "
+    "create unique index library_sections_sibling_name on public.library_sections "
+    "(coalesce(parent_id, ''), lower(btrim(name))) where not deleted; notify pgrst, 'reload schema';")
 
 
 class LibraryError(ValueError):
@@ -88,8 +96,11 @@ class Tree:
     `holds` is true where a video can stand: a section without sub-sections, or a parent that kept its own videos."""
 
     def __init__(self, rows: list[dict]):
+        self.rows = [dict(row) for row in rows]   # every stored row, a deleted one too (its id stays taken)
         by_parent: dict[str, list[dict]] = {}
-        for row in rows:
+        for row in self.rows:
+            if row.get("deleted"):
+                continue
             by_parent.setdefault(row.get("parent_id") or "", []).append(row)
         for siblings in by_parent.values():
             siblings.sort(key=lambda r: (r.get("ord") or 0, r["id"]))
@@ -117,6 +128,41 @@ class Tree:
             yield self.nodes[node_id]
             yield from self.walk(self.nodes[node_id]["children"])
 
+    def holders(self) -> list[str]:
+        return [node["id"] for node in self.walk() if node["holds"]]
+
+    def subtree(self, node_id: str) -> list[str]:
+        """The section and every section below it."""
+        node = self.nodes.get(node_id)
+        return [] if node is None else [n["id"] for n in [node, *self.walk(node["children"])]]
+
+    def covered(self, node_id: str) -> list[str]:
+        return [i for i in self.subtree(node_id) if self.nodes[i]["holds"]]
+
+    def height(self, node_id: str) -> int:
+        """How many levels the section and what is below it take: 1 for a section without sub-sections."""
+        return 1 + max((self.height(c) for c in self.nodes[node_id]["children"]), default=0)
+
+    def label(self, section_id: str) -> str:
+        names, at = [], section_id
+        while at:
+            names.insert(0, self.nodes[at]["name"])
+            at = self.nodes[at]["parent"]
+        return " · ".join(names)
+
+    def section_of(self, video: dict) -> str:
+        level = str(video.get("level") or "")
+        node = self.nodes.get(level)
+        if node and node["holds"]:
+            return level
+        legacy = self.nodes.get(LEGACY_SECTION)
+        return LEGACY_SECTION if legacy and legacy["holds"] else (self.holders() or [LEGACY_SECTION])[0]
+
+    def visible(self, entitlements) -> list[str]:
+        """The sections that can hold videos which the permissions ("lib:<id>") cover."""
+        mine = {leaf for e in entitlements if e.startswith(ENTITLEMENT_PREFIX) for leaf in self.covered(e[len(ENTITLEMENT_PREFIX):])}
+        return [leaf for leaf in self.holders() if leaf in mine]
+
 
 _tree = Tree(SEED_ROWS)
 
@@ -133,7 +179,7 @@ def reset() -> None:
 
 def holders() -> list[str]:
     """The sections a video can stand in, in order: those without sub-sections, and parents that kept their videos."""
-    return [node["id"] for node in _tree.walk() if node["holds"]]
+    return _tree.holders()
 
 
 def __getattr__(name: str):   # the old names, for code that has not moved to the functions
@@ -154,10 +200,7 @@ def depth(node_id: str) -> int:
 
 def covered(node_id: str) -> list[str]:
     """The sections that can hold videos which a permission on `node_id` covers: it (if it holds videos) and all below."""
-    node = _tree.nodes.get(node_id)
-    if node is None:
-        return []
-    return [n["id"] for n in [node, *_tree.walk(node["children"])] if n["holds"]]
+    return _tree.covered(node_id)
 
 
 leaves_of = covered   # the old name
@@ -165,17 +208,11 @@ leaves_of = covered   # the old name
 
 def label(section_id: str) -> str:
     """A section's full name: "מערכת דיגיטלית · שלב א"."""
-    names, at = [], section_id
-    while at:
-        names.insert(0, _tree.nodes[at]["name"])
-        at = _tree.nodes[at]["parent"]
-    return " · ".join(names)
+    return _tree.label(section_id)
 
 
 def section_of(video: dict) -> str:
-    level = str(video.get("level") or "")
-    node = _tree.nodes.get(level)
-    return level if node and node["holds"] else LEGACY_SECTION
+    return _tree.section_of(video)
 
 
 def _find(text: str) -> list[str]:
@@ -242,7 +279,7 @@ def public_sections() -> list[dict]:
     """The section tree for a page or an MCP client: id, name, whether videos stand in it (`holds_videos`), and its
     sub-sections."""
     def one(node: dict) -> dict:
-        out = {"id": node["id"], "name": node["name"], "holds_videos": node["holds"],
+        out = {"id": node["id"], "name": node["name"], "depth": node["depth"], "holds_videos": node["holds"],
                **({"level": node["level"]} if node["level"] else {})}
         if node["children"]:
             out["children"] = [one(_tree.nodes[child]) for child in node["children"]]
@@ -252,10 +289,7 @@ def public_sections() -> list[dict]:
 
 def visible_sections(entitlements: set[str] | frozenset[str], everything: bool) -> list[str]:
     """The sections a user may watch: every one for a teacher, else those their permissions name or sit under."""
-    if everything:
-        return holders()
-    mine = {leaf for e in entitlements if e.startswith(ENTITLEMENT_PREFIX) for leaf in covered(e[len(ENTITLEMENT_PREFIX):])}
-    return [leaf for leaf in holders() if leaf in mine]
+    return holders() if everything else _tree.visible(entitlements)
 
 
 def refresh(auth, *, fresh: bool = False, strict: bool = False) -> None:
@@ -314,7 +348,7 @@ def plan_section(parent: object, name: object, videos: list[dict]) -> dict:
             "name": clean, "new_id": new_section_id(), "new_label": label(parent_id) + " · " + clean,
             "level": node["depth"] + 1, "siblings": list(node["children"]),
             "existing_videos": held, "parent_keeps_videos": bool(first and held) or bool(node["own"]),
-            "parent_becomes_container": bool(first and not held)}
+            "parent_becomes_container": bool(first and not held and not node["own"])}
 
 
 def create_section(auth, plan: dict, by: str) -> dict:
@@ -409,8 +443,9 @@ def rename(auth: SupabaseAuth | None, video_id: int, title: str) -> None:
         raise LibraryUnavailable(f"לא ניתן לשנות את שם הסרטון: {exc}") from exc
 
 
-def move(auth: SupabaseAuth | None, video_id: int, section: str) -> None:
-    """Moves a library video to another leaf section, keeping its title and link."""
+def move(auth: SupabaseAuth | None, video_id: int, section: str, *, last: bool = False) -> None:
+    """Moves a library video to another section that holds videos, keeping its title and link; `last` puts it after
+    the destination's other videos (otherwise it keeps the place its `ord` gives it)."""
     if auth is not None:
         refresh(auth, fresh=True, strict=True)
     if section not in holders():
@@ -423,6 +458,9 @@ def move(auth: SupabaseAuth | None, video_id: int, section: str) -> None:
     try:
         assert auth is not None
         auth.update_level_video("library", video_id, level=section, title=video["title"], url=video["url"])
+        if last and hasattr(auth, "order_level_videos"):
+            there = [v["id"] for v in rows(auth, fresh=True) if section_of(v) == section and v["id"] != video_id]
+            auth.order_level_videos("library", [*there, video_id])
     except AuthUnavailable as exc:
         raise LibraryUnavailable(f"לא ניתן להעביר את הסרטון: {exc}") from exc
 

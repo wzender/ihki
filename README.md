@@ -636,6 +636,15 @@ insert into public.library_sections (id, parent_id, name, ord, level) values ('d
 notify pgrst, 'reload schema';
 ```
 
+Sections can be edited afterwards through MCP prepare/publish pairs (`prepare_library_section_rename`, `_move`, `_delete`, `prepare_library_video_move`). Ids never change; a deleted section's row stays (`deleted`) so its id is never reused. A table made before deletion existed needs this once:
+
+```sql
+alter table public.library_sections add column if not exists deleted boolean not null default false; 
+drop index if exists public.library_sections_sibling_name; 
+create unique index library_sections_sibling_name on public.library_sections (coalesce(parent_id, ''), lower(btrim(name))) where not deleted; 
+notify pgrst, 'reload schema';
+```
+
 A video stands in the section named in the `level` column of `library`. A section that is split into sub-sections and had videos keeps them (`holds_videos`), and stays a place to upload to. A class, tier or account that has a section also has all its sub-sections; permissions are never set per sub-section, because the `valid_entitlements` constraint lists only the seeded sections.
 
 For the video to play inside the page, its Vimeo privacy setting has to allow embedding (on this site's domain, or anywhere); a YouTube video has to allow embedding too (it does unless its owner turned that off), and plays from `youtube-nocookie.com`.

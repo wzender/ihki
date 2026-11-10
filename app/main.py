@@ -2352,7 +2352,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 raise HTTPException(400, "מורה של הכיתה צריך להיות אחד מהתלמידים הרשומים בה")
         sections = body.get("library_sections")   # without it, the class keeps the library sections it has
         if sections is not None:
-            if not isinstance(sections, list) or not all(isinstance(x, str) and x in video_library.SEED_IDS for x in sections):
+            if not isinstance(sections, list) or not all(isinstance(x, str) and x in video_library.SEED_IDS and video_library.has_node(x) for x in sections):
                 # a sub-section added later has no permission of its own: its parent's covers it
                 raise HTTPException(400, "מדור לא מוכר בספרייה הדיגיטלית, או תת-מדור שנפתח עם המדור שלו. רעננו ונסו שוב")
             sections = list(dict.fromkeys(sections))

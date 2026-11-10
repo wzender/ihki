@@ -229,7 +229,7 @@ def resolve_user_access(a: SupabaseAuth, user: dict, *, token: str = "",
         chosen = {ENTITLEMENT_PREFIX + s for c in mine for s in class_sections(c)}
         sections = visible_sections(chosen, False)
     else:   # no classes at all (an open deployment): what the library held before it had sections
-        sections = [LEGACY_SECTION]
+        sections = [s for s in [LEGACY_SECTION] if s in library.holders()]
     for key, given in overrides.items():   # the account's own exceptions to the library sections
         if key.startswith("lib:"):
             named = set(library.covered(key[4:]))   # a section's own, and its sub-sections' (they have no exception of their own)

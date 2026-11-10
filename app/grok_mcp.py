@@ -20,6 +20,7 @@ from mcp.server.mcpserver import MCPServer
 from pydantic import AnyHttpUrl
 
 from . import library
+from . import library_admin
 from . import class_management
 from . import monitoring
 from . import teacher_operations
@@ -281,8 +282,12 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                       "Digital-library videos go into one section (list_library_sections): when the teacher does not "
                       "name the section, ask which one before preparing; for a list, use prepare_library_videos. "
                       "The sections and their ids are whatever list_library_sections returns now (its upload_targets "
-                      "are where a video can go); a manager adds a sub-section under any section, to three levels, "
-                      "with prepare_library_section and publish_library_section. " + SECTION_RULE + " " + version_line),
+                      "are where a video can go) and it changes: a manager adds a sub-section with prepare_library_section / "
+                      "publish_library_section, renames one with prepare_library_section_rename, moves one (with its "
+                      "videos and sub-sections) with prepare_library_section_move, deletes an empty one with "
+                      "prepare_library_section_delete, and moves a video to another section with "
+                      "prepare_library_video_move (each has a publish_ twin; sections are at most three levels). "
+                      "A section's id never changes, so refer to sections by id and re-read the list after a change. " + SECTION_RULE + " " + version_line),
         token_verifier=SupabaseTokenVerifier(app),
         auth=AuthSettings(issuer_url=AnyHttpUrl(issuer_url), resource_server_url=AnyHttpUrl(resource_url),
                           validate_token_resource=False, required_scopes=[]),
@@ -422,7 +427,8 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
     @tool(description=("List the digital library's sections as a tree (sections, sub-sections, up to three levels) and "
                        "upload_targets: the sections a video can be added to, each with its full path name. That is "
                        "every section without sub-sections, and a parent that kept its own videos when it was split "
-                       "(marked has_sub_sections). A section may be given by its id or its Hebrew name. "
+                       "(marked has_sub_sections). A section may be given by its id (permanent) or its Hebrew name (which a "
+                       "manager can change). Each section has its depth (1 to 3). "
                        "This list is the only authority on the current sections: do not rely on earlier answers."),
           structured_output=True)
     async def list_library_sections() -> dict[str, Any]:
@@ -430,7 +436,8 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             await _bounded_read(sections_now)
         except library.LibraryError as exc:
             return {"ok": False, "error": str(exc), "sections": [], "upload_targets": []}
-        return {"ok": True, "sections": library.public_sections(), "upload_targets": library.upload_targets()}
+        return {"ok": True, "max_depth": library.MAX_DEPTH, "sections": library.public_sections(),
+                "upload_targets": library.upload_targets()}
 
     @tool(description=("List the digital-library videos in their current order, each with its section. "
                        "Returns no learner data."), structured_output=True)
@@ -597,6 +604,107 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         library.audit(auth(), "publish_library_section", plan["new_label"], "success", section=plan["new_id"])
         return {"ok": True, "published": True, **created, "parent": plan["parent"], "name": plan["name"],
                 "videos_in_parent": plan["existing_videos"]}
+
+    async def edit_prepare(action: str, make: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+        """Prepare one library edit (library_admin): validate, change nothing, return the exact preview and an approval."""
+        current, error = library_manager()
+        if current is None:
+            return {"ok": False, "error": error}
+        if not limiter.allow():
+            library.audit(auth(), action, action, "refused", reason="rate_limit")
+            note_audit_refusal("refused", "rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        try:
+            plan = await _bounded_read(make)
+            approval_id, _ = class_approvals.prepare(str(current["id"]), plan)
+        except library.LibraryError as exc:
+            library.audit(auth(), action, action, "refused", reason=type(exc).__name__)
+            diagnostics.note_refusal(exc)
+            return {"ok": False, "error": str(exc)}
+        library.audit(auth(), action, str(plan.get("after") or plan.get("before")), "prepared")
+        return {"ok": True, "approval_id": approval_id, "published": False, "expires_in_seconds": APPROVAL_TTL,
+                "preview": library_admin.public(plan)}
+
+    async def edit_publish(action: str, operation: str, approval_id: str) -> dict[str, Any]:
+        current, error = library_manager()
+        if current is None:
+            return {"ok": False, "error": error}
+        if not limiter.allow():
+            library.audit(auth(), action, action, "refused", reason="rate_limit")
+            note_audit_refusal("refused", "rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        item = class_approvals.consume(approval_id, str(current["id"]))
+        if item is None or item.plan.get("operation") != operation:
+            library.audit(auth(), action, action, "refused", reason="invalid_approval")
+            note_audit_refusal("refused", "invalid_approval")
+            return {"ok": False, "error": "האישור אינו תקף, פג תוקף, שייך למשתמש אחר או כבר נוצל."}
+        plan = item.plan
+        try:
+            done = library_admin.apply(auth(), plan, str(current.get("email") or current["id"]))
+        except library.LibraryError as exc:
+            library.audit(auth(), action, str(plan.get("after") or plan.get("before")), "refused", reason=type(exc).__name__)
+            diagnostics.note_refusal(exc)
+            return {"ok": False, "error": str(exc)}
+        library.audit(auth(), action, str(plan.get("after") or plan.get("before")), "success",
+                      section=plan.get("section"))
+        return {"ok": True, "published": True, **done}
+
+    PUBLISH = ("Single-use, bound to the manager who prepared it, expires after ten minutes, and refused when the "
+               "sections, videos or class access it looked at changed since it was prepared.")
+
+    @tool(description=("Prepare renaming a library section or sub-section (any, the original ones too). `section` is its "
+                       "id or Hebrew name from list_library_sections; `name` is the new Hebrew name (not empty, not a "
+                       "sibling's). The id never changes, so class access stays. Shows the full path before and after, "
+                       "the videos and sub-sections under it, and the classes affected (none lose access by a rename). "
+                       "Returns a ten-minute approval; this does not change data."), structured_output=True)
+    async def prepare_library_section_rename(section: str, name: str) -> dict[str, Any]:
+        return await edit_prepare("prepare_library_section_rename", lambda: library_admin.plan_rename(auth(), section, name))
+
+    @tool(description="Publish a prepared section rename after the manager explicitly confirms the shown paths. " + PUBLISH,
+          structured_output=True)
+    async def publish_library_section_rename(approval_id: str) -> dict[str, Any]:
+        return await edit_publish("publish_library_section_rename", "rename_library_section", approval_id)
+
+    @tool(description=("Prepare moving a library section, with its videos and sub-sections, under another parent. "
+                       "`section` and `new_parent` are ids or Hebrew names from list_library_sections; an empty "
+                       "`new_parent` moves it to the top level. Refused if it would make more than three levels, put a "
+                       "section inside itself or its own sub-sections, or repeat a name among the new siblings. The id "
+                       "never changes. Access follows the new place: the section keeps its own permission (if it has "
+                       "one) and gains or loses those of the parents it moves under or away from; the preview names each "
+                       "class that gains or loses sections. Returns a ten-minute approval; this does not change data."),
+          structured_output=True)
+    async def prepare_library_section_move(section: str, new_parent: str = "") -> dict[str, Any]:
+        return await edit_prepare("prepare_library_section_move",
+                                  lambda: library_admin.plan_move_section(auth(), section, new_parent))
+
+    @tool(description="Publish a prepared section move after the manager explicitly confirms the shown paths and "
+                      "access changes. " + PUBLISH, structured_output=True)
+    async def publish_library_section_move(approval_id: str) -> dict[str, Any]:
+        return await edit_publish("publish_library_section_move", "move_library_section", approval_id)
+
+    @tool(description=("Prepare deleting a library section. Only an empty one: with videos or sub-sections it is refused "
+                       "and says what it still holds; videos are never deleted. The preview lists the class assignments "
+                       "that will be removed. The id is retired, never reused. Returns a ten-minute approval; this does "
+                       "not change data."), structured_output=True)
+    async def prepare_library_section_delete(section: str) -> dict[str, Any]:
+        return await edit_prepare("prepare_library_section_delete", lambda: library_admin.plan_delete(auth(), section))
+
+    @tool(description="Publish a prepared section deletion after the manager explicitly confirms the shown section and "
+                      "the class assignments removed with it. " + PUBLISH, structured_output=True)
+    async def publish_library_section_delete(approval_id: str) -> dict[str, Any]:
+        return await edit_publish("publish_library_section_delete", "delete_library_section", approval_id)
+
+    @tool(description=("Prepare moving one library video to another section: `video_id` from list_library_videos, "
+                       "`section` an upload target from list_library_sections. It keeps its title and URL and goes last "
+                       "in the destination. Shows the path before and after and the classes that gain or lose it. "
+                       "Returns a ten-minute approval; this does not change data."), structured_output=True)
+    async def prepare_library_video_move(video_id: int, section: str) -> dict[str, Any]:
+        return await edit_prepare("prepare_library_video_move", lambda: library_admin.plan_move_video(auth(), video_id, section))
+
+    @tool(description="Publish a prepared video move after the manager explicitly confirms the shown video and "
+                      "destination. " + PUBLISH, structured_output=True)
+    async def publish_library_video_move(approval_id: str) -> dict[str, Any]:
+        return await edit_publish("publish_library_video_move", "move_library_video", approval_id)
 
     @tool(description="Rename an existing digital-library video without changing its URL or position.",
                  structured_output=True)

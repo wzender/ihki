@@ -757,13 +757,19 @@ class SupabaseAuth:
         finally:
             self._library_sections = None
 
-    def set_library_section_holds(self, section_id: str, holds: bool) -> None:
-        """Marks a section that is split into sub-sections as still holding videos of its own."""
+    def update_library_section(self, section_id: str, fields: dict) -> None:
+        """Changes a section's row: name, parent_id, ord, holds_videos or deleted (its id never changes). A name taken
+        among the new siblings raises ClassConflict."""
         try:
-            self._admin("/rest/v1/library_sections?" + urllib.parse.urlencode({"id": "eq." + section_id}), "PATCH",
-                        {"holds_videos": bool(holds)}, prefer="return=minimal")
+            if not self._admin("/rest/v1/library_sections?" + urllib.parse.urlencode({"id": "eq." + section_id}), "PATCH",
+                               fields, prefer="return=representation"):
+                raise KeyError(section_id)
         finally:
             self._library_sections = None
+
+    def set_library_section_holds(self, section_id: str, holds: bool) -> None:
+        """Marks a section that is split into sub-sections as still holding videos of its own."""
+        self.update_library_section(section_id, {"holds_videos": bool(holds)})
 
     def add_level_video(self, table: str, level: str, title: str, url: str) -> None:
         assert table in ("dailies", "library")
