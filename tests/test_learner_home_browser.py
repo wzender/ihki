@@ -915,7 +915,7 @@ def test_the_videos_button_shows_the_folders_outside_the_digital_library(site):
     site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
     r = site("dana@x.com", VIDEOS_VIEW)
     assert r["shown"] and r["view"] == "daily"
-    assert r["headings"] == ["סרטונים", "טיולים בכפר", "פרקי אבות עם אמיר"] and r["videos"] == ["טיול בכפר"]
+    assert r["headings"] == ["העשרה", "טיולים בכפר", "פרקי אבות עם אמיר"] and r["videos"] == ["טיול בכפר"]
     assert r["libHeadings"] == ["שלב א"] and r["libVideos"] == ["הכנה לקורס"]   # מערכת דיגיטלית alone, under its own button
 
 
@@ -935,7 +935,7 @@ def test_the_daily_video_button_is_in_the_progress_bar_even_without_a_video(site
     site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
     r = site("dana@x.com", DAILY_BTN)
     assert r["shown"] and r["inTools"] == "ps-tools" and "סרטון יומי" in r["text"] and not r["isNew"]
-    assert r["title"] == "עוד אין סרטונים יומיים" and r["lib"] == "ספריה" and r["fits"]
+    assert r["title"] == "עוד אין סרטונים יומיים" and r["lib"] == "מערכת דיגיטלית" and r["fits"]
 
 
 def test_the_daily_video_button_calls_for_todays_video(site):

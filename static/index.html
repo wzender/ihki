@@ -130,12 +130,23 @@ body:not(.home) .help,body.manage .help,body:not(.home) .guidetip,body.manage .g
 @keyframes daily-pulse{0%,100%{transform:scale(1);box-shadow:0 2px 0 color-mix(in srgb,var(--orange) 55%,#000),0 0 0 0 color-mix(in srgb,var(--orange) 60%,transparent)}50%{transform:scale(1.06);box-shadow:0 2px 0 color-mix(in srgb,var(--orange) 55%,#000),0 0 0 7px transparent}}
 @media (prefers-reduced-motion:reduce){#today .ps-tools #dailyBtn::before,#today .ps-tools #dailyBtn.new{animation:none}}
 html[data-subject="math"] #dailyBtn{display:none!important}
-@media (max-width:420px){#today .ps-tools{gap:6px}#today .ps-tools :is(button,a){padding:0 9px}#today .ps-tools .vidbtn svg{display:none}}
-/* videos, help and feedback: one row inside the bar's frame, under the note (the bar is a button, so they are laid over it, not in it) */
-#today.stats{position:sticky}#today.stats .path-stats{padding-bottom:50px}
-#today .ps-tools{position:absolute;inset-inline:14px;bottom:14px;z-index:1;display:flex;gap:8px;align-items:center}
+/* the daily video, the digital library and enrichment: one row inside the bar's frame, under the note (the bar is a button, so
+   they are laid over it, not in it). The library is the row's main button: in the middle, filled and larger than the two beside it */
+#today.stats{position:sticky}#today.stats .path-stats{padding-bottom:58px}
+#today .ps-tools{position:absolute;inset-inline:14px;bottom:14px;z-index:1;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:center}
 #today .ps-tools :is(button,a){position:static;flex-direction:row;display:flex;align-items:center;gap:5px;height:30px;padding:0 11px;border-radius:999px;font:700 13px/1 var(--f-body);white-space:nowrap;margin:0;width:auto}
 #today .ps-tools button[hidden]{display:none}
+#today .ps-tools #dailyBtn{grid-area:1/1;justify-self:start}
+#today .ps-tools .ps-vids{grid-area:1/3;justify-self:end}
+#today .ps-tools .ps-lib{grid-area:1/2;justify-self:center;height:38px;padding:0 16px;gap:6px;border:0;background:var(--olive);color:#fff;font-size:15.5px;box-shadow:0 3px 0 var(--olive-deep)}
+#today .ps-tools .ps-lib:hover,#today .ps-tools .ps-lib[aria-current=page]{background:var(--olive-deep)}
+#today .ps-tools .ps-lib:active{transform:translateY(2px);box-shadow:0 1px 0 var(--olive-deep)}
+#today .ps-tools .ps-lib svg{width:18px;height:18px}
+/* feedback sits a row up, at the end of the note's line; the note keeps clear of it */
+#today .ps-tools #feedbackBtn{position:absolute;inset-inline-end:0;bottom:calc(100% + 7px);height:24px;padding:0 9px;font-size:12px}
+#today:has(#feedbackBtn:not([hidden])) .ps-note{padding-inline-end:74px}
+@media (max-width:420px){#today .ps-tools{grid-template-columns:auto minmax(0,1fr) auto;gap:6px}#today .ps-tools :is(button,a){padding:0 9px}#today .ps-tools .ps-lib{padding:0 12px;font-size:15px}#today .ps-tools .vidbtn svg{display:none}}
+@media (max-width:340px){#today .ps-tools :is(button,a){padding:0 7px}#today .ps-tools .ps-lib{padding:0 9px;font-size:14px}}
 #today .bump{animation:ps-bump .6s ease-out}
 @keyframes ps-bump{40%{transform:scale(1.35)}}
 @media (prefers-reduced-motion:reduce){#today .bump{animation:none}}
@@ -1865,7 +1876,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
 
   <!-- the path's progress bar (drawToday). The videos button stays in it across redraws, outside the bar's own button
        (a button cannot hold a button), in its bottom-left corner -->
-  <div id="today" hidden><div class="ps-tools"><button id="dailyBtn" type="button" hidden><span aria-hidden="true">▶&#xFE0E;</span> סרטון יומי</button><button class="vidbtn ps-vids" id="vidsBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>סרטונים</span></button><button class="vidbtn ps-lib" id="libBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v15H5.5A1.5 1.5 0 0 0 4 20.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v15h5.5a1.5 1.5 0 0 1 1.5 1.5z"/></svg><span>ספריה</span></button><button class="help pill" id="feedbackBtn" type="button" title="משוב: ספרו לנו מה עובד ומה לא" hidden><span aria-hidden="true">💬</span> משוב</button></div></div>
+  <div id="today" hidden><div class="ps-tools"><button id="dailyBtn" type="button" hidden><span aria-hidden="true">▶&#xFE0E;</span> סרטון יומי</button><button class="vidbtn ps-lib" id="libBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v15H5.5A1.5 1.5 0 0 0 4 20.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v15h5.5a1.5 1.5 0 0 1 1.5 1.5z"/></svg><span>מערכת דיגיטלית</span></button><button class="vidbtn ps-vids" id="vidsBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>העשרה</span></button><button class="help pill" id="feedbackBtn" type="button" title="משוב: ספרו לנו מה עובד ומה לא" hidden><span aria-hidden="true">💬</span> משוב</button></div></div>
   <button class="reward-shelf" id="rewardShelf" type="button" hidden>
     <span class="streak-ring" id="rewardStreak">🔥 0</span>
     <span class="reward-copy"><b>הערבית שכבר שלכם</b><small id="rewardCopy">עוד לא נאספו משפטים</small><span class="reward-string" id="rewardString" aria-hidden="true" hidden></span></span>
@@ -2366,7 +2377,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
       <li>לוחצים <b>שמירה</b>.</li></ol>
     <p>חוזרים על השלב הזה לכל כיתה שצריכה לראות את הסרטון; כל כיתה יכולה לקבל תאריך אחר.</p>
     <h3>מה התלמידים רואים</h3>
-    <ul><li>מהתאריך שנקבע, הסרטון מופיע בכפתור <b>סרטונים</b> שבראש המסך. הכפתור מודגש בנקודה כתומה עד שהתלמיד פותח את הסרטון.</li>
+    <ul><li>מהתאריך שנקבע, הסרטון מופיע בכפתור <b>העשרה</b> שבראש המסך. הכפתור מודגש בנקודה כתומה עד שהתלמיד פותח את הסרטון.</li>
       <li>ביום שאין בו סרטון חדש, הכפתור פותח את רשימת הסרטונים הקודמים, כך שאפשר להשלים יום שהוחמץ.</li>
       <li>סרטון שהתאריך שלו עוד לא הגיע לא מוצג.</li></ul>
     <h3>אם משהו לא עובד</h3>
@@ -2394,7 +2405,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
       <li><b>שינוי סדר:</b> בחיצים <b>↑</b> ו-<b>↓</b> שבשורה של הסרטון מזיזים אותו מקום אחד למעלה או למטה בתוך המדור. התלמידים רואים את הסרטונים באותו סדר.</li>
       <li><b>העברה למדור אחר:</b> בוחרים את המדור החדש ברשימה שבשורה של הסרטון.</li></ul>
     <h3>מה התלמידים רואים</h3>
-    <ul><li>התלמידים מגיעים לסרטונים דרך הכפתור <b>סרטונים</b> שבראש המסך, ליד שם הכיתה.</li>
+    <ul><li>התלמידים מגיעים לסרטונים דרך הכפתורים <b>מערכת דיגיטלית</b> ו<b>העשרה</b> שבראש המסלול: מדורי המערכת הדיגיטלית בראשון, ושאר המדורים בשני.</li>
       <li>כל תלמיד רואה את המדורים שקיבל אליהם הרשאה, כל מדור תחת כותרת משלו. את ההרשאות נותנים ב<b>הרשאות</b>, בעמודה <b>סרטונים</b>: הרשאה למדור כוללת את כל תתי-המדורים שלו. מורים ומנהלים רואים את כל המדורים.</li>
       <li>הרשאת „ספרייה דיגיטלית” הישנה היא עכשיו הרשאה ל<b>שלב א</b>, שם נמצאים הסרטונים שהיו בספריה לפני החלוקה.</li>
       <li>סרטון בספריה אינו תרגול, ולכן הוא לא נספר בהתקדמות או בציונים.</li></ul>
@@ -2627,7 +2638,7 @@ function libFolders(box,row,digital){
 function syncVidsBtn(){   // the videos button in the path's progress bar: shown when there is something to open, marked while today's video waits
   const b=$("vidsBtn"), d=today(), mine=dailyVideos(), fresh=mine.filter(v=>v.date===d&&!dailyWatched[v.id]).length;
   b.hidden=!mine.length&&!LIB_OK; b.classList.toggle("new",fresh>0);   // there for whoever has a library, an empty one too
-  b.setAttribute("aria-label",fresh?(fresh===1?"סרטונים: סרטון חדש להיום":`סרטונים: ${fresh} סרטונים חדשים להיום`):"סרטונים");
+  b.setAttribute("aria-label",fresh?(fresh===1?"העשרה: סרטון חדש להיום":`העשרה: ${fresh} סרטונים חדשים להיום`):"העשרה");
   const daily=$("dailyBtn"), todays=mine.filter(v=>v.date===d), next=todays.find(v=>!dailyWatched[v.id])||todays[0];   // the daily video's button: today's video (the one not watched yet first), else the daily videos' screen; there also when the class has none
   daily.hidden=false; daily.classList.toggle("new",fresh>0);
   daily.title=next?next.title:mine.length?"להיום אין סרטון חדש":"עוד אין סרטונים יומיים";
@@ -3076,7 +3087,7 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     back.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> '+(homeClass()?"חזרה לדף הבית":"חזרה למסלול"); back.onclick=backHome;
     // the videos button: the daily videos, then the library's folders outside מערכת דיגיטלית (that one has its own button)
     const others=LIB_OK&&libOther().length>0;
-    box.append(back,mark("",others?"סרטונים":"סרטון יומי","h2"));
+    box.append(back,mark("",others?"העשרה":"סרטון יומי","h2"));
     if(mine.length||!others){
       box.append(pushRow());
       if(now.length) for(const v of now) row(v,dailyWatched,"ihki.dailyWatched","הסרטון של היום",true);
@@ -7693,7 +7704,7 @@ function drawContent(){
   // the library's sections, in order: מערכת דיגיטלית holds the course's levels (each with its lessons and daily videos,
   // and the videos of its own shelf), and the other sections hold only their videos. A video stands in one leaf section.
   const shelf=(into,leaf)=>vcard(into,leaf.id,"library",LIBRARY,leaf.label,"סרטון למדור","נפתח לתלמידים שקיבלו הרשאה למדור",
-    `הסרטון נוסף למדור ${leaf.label}. תלמידים שקיבלו הרשאה למדור רואים אותו בכפתור „ספריה” שבראש המסך.`,"","למשל: שיר לסיום");
+    `הסרטון נוסף למדור ${leaf.label}. תלמידים שקיבלו הרשאה למדור רואים אותו בכפתורים „מערכת דיגיטלית” ו„העשרה” שבראש המסלול.`,"","למשל: שיר לסיום");
   const count=ids=>{ const n=LIBRARY.filter(v=>ids.includes(v.section)).length; return n?`${n} סרטונים`:"עוד אין סרטונים"; };
   const levels=byLevel(ALL_LESSONS), leaves=libLeaves();
   const fill=(node,sec)=>{   // a section's own shelf (if videos stand in it), its sub-sections, to any depth, then its course level (long: the library's folders stand above it)
