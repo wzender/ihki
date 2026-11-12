@@ -211,3 +211,24 @@ def test_a_texts_table_without_the_video_column_names_the_migration():
         lines=[["שלום", "מַרְחַבַּא"]], voices=[], pos=1, ord=2)
     ops.apply_content(store, ADMIN, plain)   # a plain text still goes in
     assert store.text_rows[-1]["title"] == "בלי"
+
+
+def test_a_transcript_takes_the_start_of_every_line():
+    store = Store()
+    make = lambda lines, url="https://vimeo.com/1": ops.prepare_content(store, ADMIN, "create_lesson_text", title="היכרות",
+        lesson="1", url=url, lines=lines, voices=[], pos=1, ord=2)
+    plan = make([["שלום!", "מַרְחַבַּא!", "0:00.1"], ["מה שלומך?", "כִּיף חַאלַכּ?", 9.4], ["שלום!", "מַרְחַבַּא!", "1:02.5"]])
+    assert plan["item"]["lines"] == [["שלום!", "מַרְחַבַּא!", 0.1], ["מה שלומך?", "כִּיף חַאלַכּ?", 9.4], ["שלום!", "מַרְחַבַּא!", 62.5]]
+    assert plan["preview"]["target"]["timed_lines"] is True and plan["preview"]["target"]["line_count"] == 3
+    ops.apply_content(store, ADMIN, plan)
+    assert store.text_rows[-1]["lines"][2] == ["שלום!", "מַרְחַבַּא!", 62.5]
+    assert [p.get("at") for p in ops.text_phrases("t", store.text_rows[-1]["lines"])[0]] == [0.1, 9.4, 62.5]
+    for lines in ([["שלום!", "מַרְחַבַּא!", 5], ["שלום!", "מַרְחַבַּא!", 2]],          # going back
+                  [["שלום!", "מַרְחַבַּא!", 5], ["שלום!", "מַרְחַבַּא!"]],             # a line without its time
+                  [["שלום!", "מַרְחַבַּא!", "soon"]], [["שלום!", "מַרְחַבַּא!", -1]], [["שלום!", "מַרְחַבַּא!", True]]):
+        with pytest.raises(ops.TeacherOperationError) as refused:
+            make(lines)
+        assert refused.value.code == "text_line_times_invalid"
+    with pytest.raises(ops.TeacherOperationError) as refused:
+        make([["שלום!", "מַרְחַבַּא!", 1]], url="")
+    assert refused.value.code == "text_line_times_without_video"

@@ -1705,6 +1705,89 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise feedback_error(e)
         return {"ok": True}
 
+    def feedback_thread(a, feedback_id: int) -> tuple[dict, list[dict]]:
+        """A note and its conversation so far, for one more message; 404 without the note, 503 without the column."""
+        try:
+            row = a.feedback_row(feedback_id)
+        except AuthUnavailable as e:
+            raise feedback_error(e)
+        if not row:
+            raise HTTPException(404, "המשוב לא נמצא")
+        if "replies" not in row:
+            raise HTTPException(503, f"לטבלה feedback חסרה עמודת השיחה. הריצו ב-SQL Editor: {feedback_notes.MIGRATE_FEEDBACK}")
+        said = feedback_notes.replies_of(row)
+        if len(said) >= feedback_notes.MAX_REPLIES:
+            raise HTTPException(400, "השיחה הזאת ארוכה מדי. פתחו משוב חדש.")
+        return row, said
+
+    def notify_reply(email: str, text: str) -> None:
+        """A push to the user whose note the team answered; never raises."""
+        push = app.state.push
+        if not (push and push.on):
+            return
+        try:
+            push.notify({email}, {"title": "💬 קיבלתם תשובה למשוב ששלחתם", "body": text[:pushes.MAX_BODY], "url": "/",
+                                  "tag": f"feedback-reply-{datetime.now().timestamp():.3f}"})
+        except Exception as e:
+            log.warning("feedback reply push failed: %s", type(e).__name__)
+
+    @app.post("/api/feedback/{feedback_id}/reply")
+    def reply_feedback(feedback_id: int, background: BackgroundTasks, body: dict = Body(...),
+                       a: SupabaseAuth = Depends(teacher_only), user: dict | None = Depends(signed_in)):
+        """The team's answer to a note ({"text"}): kept in its conversation, shown on the user's home, and pushed to
+        their devices. A new note becomes a read one."""
+        try:
+            said = feedback_notes.reply(body, "team", user["email"])
+        except feedback_notes.FeedbackError as e:
+            raise HTTPException(400, str(e))
+        row, before = feedback_thread(a, feedback_id)
+        values = {"replies": before + [said]}
+        if row.get("status") == "new":
+            values.update(status="read", handled_by=user["email"].lower(), handled_at=said["at"])
+        try:
+            a.review_feedback(feedback_id, values)
+        except AuthUnavailable as e:
+            raise feedback_error(e)
+        if row.get("email"):
+            background.add_task(notify_reply, row["email"], said["text"])
+        return {"ok": True, "replies": values["replies"], "status": values.get("status", row.get("status"))}
+
+    @app.get("/api/feedback/mine")
+    def my_feedback(user: dict | None = Depends(signed_in)):
+        """The signed-in user's notes that the team answered, each with its conversation, for their home."""
+        if not user or not app.state.auth:
+            return {"threads": []}
+        try:
+            return {"threads": feedback_notes.threads(app.state.auth.my_feedback(user["email"]))}
+        except AuthUnavailable as e:
+            log.warning("feedback threads not read: %s", e)
+            return {"threads": []}
+
+    @app.post("/api/feedback/{feedback_id}/answer")
+    def answer_feedback(feedback_id: int, background: BackgroundTasks, body: dict = Body(...),
+                        user: dict | None = Depends(signed_in)):
+        """The user's answer in the conversation of their own note ({"text"}); the note is new again for the team."""
+        if not user or not app.state.auth:
+            raise HTTPException(503, "המשוב נשמר רק למשתמשים מחוברים")
+        try:
+            said = feedback_notes.reply(body, "user", user["email"])
+        except feedback_notes.FeedbackError as e:
+            raise HTTPException(400, str(e))
+        row, before = feedback_thread(app.state.auth, feedback_id)
+        if (row.get("email") or "").lower() != user["email"].lower():
+            raise HTTPException(404, "המשוב לא נמצא")
+        if not feedback_limit.allow(str(user["id"])):
+            raise HTTPException(429, "שלחתם הרבה הודעות בשעה האחרונה. נסו שוב מאוחר יותר.")
+        try:
+            app.state.auth.review_feedback(feedback_id, {"replies": before + [said], "status": "new",
+                                                         "handled_by": None, "handled_at": None})
+        except AuthUnavailable as e:
+            raise feedback_error(e)
+        background.add_task(notify_developers, {"kind": row.get("kind"), "rating": None, "email": user["email"].lower(),
+                                                "screen": "תשובה בשיחה", "message": said["text"]})
+        return {"ok": True, "thread": feedback_notes.threads([{**row, "replies": before + [said]}])[0]
+                if any(r.get("from") == "team" for r in before) else None}
+
     @app.get("/api/flags/{flag_id}/audio")
     def flag_audio(flag_id: int, a: SupabaseAuth = Depends(teacher_only)):
         """Streams a private flagged recording to a teacher without exposing the storage bucket or secret key."""
@@ -2554,7 +2637,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         given for (see `videos`). "categories": a topic per text, laid out as a story: id ("t<n>"), name, lesson, story,
         text (the text's own id), voices (a dialogue's two, by name), video (the player of the video the text is the
         transcript of, when it has one), and pos and ord as a video has them; a teacher
-        also gets "guessed", the words that were read by rule. "phrases": the lines, in each text's order."""
+        also gets "guessed", the words that were read by rule. "phrases": the lines, in each text's order; `at` is the
+        second of the video a line starts at, when the transcript has times."""
         if not user:
             return {"categories": [], "phrases": []}
         mine = user["classes"]
@@ -2565,7 +2649,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                                 **({"video": video_embed(r["video"])} if r.get("video") else {}),
                                 **({"guessed": built(r)[1]} if user["teacher"] else {})} for r in rows],
                 "phrases": [{"id": i, "cat": p["cat"], "he": p["he"], "tr": p["tr"], "ar": p["variants"][0][0],
-                             "ar_pointed": point_arabic(*p["variants"][0]), "seq": p["seq"]}
+                             "ar_pointed": point_arabic(*p["variants"][0]), "seq": p["seq"],
+                             **({"at": p["at"]} if "at" in p else {})}
                             for i, p in text_bank(rows).items()]}
 
     def text_store_error(e: AuthUnavailable) -> str:

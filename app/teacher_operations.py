@@ -381,6 +381,34 @@ def apply_class(auth: SupabaseAuth, actor: dict[str, Any], plan: dict[str, Any])
 MIGRATE_TEXT_VIDEO = "alter table public.texts add column if not exists video text; notify pgrst, 'reload schema';"
 
 
+def _line_start(value: Any) -> float | None:
+    """The second a transcript's line starts at: a number of seconds, or "m:ss.d" as it is written ("0:07.5")."""
+    if isinstance(value, bool): return None
+    if isinstance(value, (int, float)): seconds = float(value)
+    else:
+        parts = str(value).strip().split(":")
+        try: seconds = sum(float(part) * 60 ** k for k, part in enumerate(reversed(parts))) if 1 <= len(parts) <= 3 else -1
+        except ValueError: return None
+    return round(seconds, 2) if 0 <= seconds < 6 * 3600 else None
+
+
+def _text_lines(lines: Any) -> list[list[Any]]:
+    """A text's lines as they are kept: [Hebrew, transliteration] each, or with the line's start in its video third
+    ([Hebrew, transliteration, seconds]) on every line, the starts never going back."""
+    bad = TeacherOperationError("שורות הטקסט אינן תקינות או אינן תואמות", code="text_lines_invalid")
+    if not isinstance(lines, list) or not lines or len(lines) > 200: raise bad
+    out: list[list[Any]] = []
+    for line in lines:
+        if not isinstance(line, list) or len(line) not in (2, 3) or not all(isinstance(v, str) and v.strip() for v in line[:2]):
+            raise bad
+        out.append([line[0].strip(), line[1].strip(), *([_line_start(line[2])] if len(line) == 3 else [])])
+    timed = [line[2] for line in out if len(line) == 3]
+    if timed and (len(timed) != len(out) or None in timed or any(b < a for a, b in zip(timed, timed[1:]))):
+        raise TeacherOperationError("זמני השורות אינם תקינים: צריך זמן התחלה לכל שורה (שניות, או דקות:שניות), בסדר עולה",
+                                    code="text_line_times_invalid")
+    return out
+
+
 def _content_rows(auth: SupabaseAuth, kind: str) -> list[dict[str, Any]]:
     try:
         if kind == "daily_video": return list(auth.level_videos("dailies", fresh=True))
@@ -427,12 +455,9 @@ def prepare_content(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *
         else: item.update(lesson=lesson or item.get("lesson") or "", pos=int(pos), ord=int(ord))
     elif kind == "lesson_text" and not operation.startswith("delete_"):
         clean_title = library.normalize_title(title or (current or {}).get("title"))
-        clean_lines = deepcopy(lines if lines is not None else (current or {}).get("lines") or [])
-        if not clean_lines or len(clean_lines) > 200 or not all(isinstance(pair, list) and len(pair) == 2 and
-                all(isinstance(value, str) and value.strip() for value in pair) for pair in clean_lines):
-            raise TeacherOperationError("שורות הטקסט אינן תקינות או אינן תואמות", code="text_lines_invalid")
+        clean_lines = _text_lines(deepcopy(lines if lines is not None else (current or {}).get("lines") or []))
         item = {**(current or {}), "title": clean_title, "lesson": lesson or (current or {}).get("lesson") or "",
-                "lines": [[value.strip() for value in pair] for pair in clean_lines],
+                "lines": clean_lines,
                 "voices": list(voices if voices is not None else (current or {}).get("voices") or []),
                 "pos": int(pos), "ord": int(ord)}
         if url:   # the video the text is the transcript of; without one, an updated text keeps the one it has
@@ -440,7 +465,10 @@ def prepare_content(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *
                 item["video"] = normalize_url(url) if normalize_url else str(url)
             except library.LibraryError as exc:
                 raise TeacherOperationError(str(exc), code="video_url_invalid") from exc
+        if len(item["lines"][0]) == 3 and not item.get("video"):
+            raise TeacherOperationError("זמני שורות ניתנים רק לטקסט שיש לו סרטון", code="text_line_times_without_video")
         item["rule_read_words"] = text_phrases("", item["lines"])[1]
+        item["line_count"], item["timed_lines"] = len(item["lines"]), len(item["lines"][0]) == 3
     else: item = current
     if operation == "reorder_lesson_content":
         allowed = {("videos" if "url" in row else "texts", int(row["id"])) for row in rows}
@@ -463,7 +491,7 @@ def prepare_content(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *
             raise TeacherOperationError("מיקום התוכן בשיעור אינו תקין", code="lesson_position_invalid")
     destructive = operation.startswith("delete_")
     preview = {"destructive": destructive, "operation": operation, "target": {key: item.get(key) for key in
-               ("id", "title", "lesson", "level", "pos", "ord", "video", "rule_read_words") if item and key in item and
+               ("id", "title", "lesson", "level", "pos", "ord", "video", "line_count", "timed_lines", "rule_read_words") if item and key in item and
                (key != "video" or item[key])}}
     if destructive: preview.update(effect="shared_content_removed", accounts_deleted=False, learning_history_deleted=False)
     return {"operation": operation, "kind": kind, "item_id": item_id, "state": state, "item": item,

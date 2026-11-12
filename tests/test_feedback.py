@@ -32,12 +32,20 @@ class FakeAuth:
     def add_feedback(self, row):
         if self.fail:
             raise AuthUnavailable(self.fail)
-        self.rows.append({**row, "id": len(self.rows) + 1, "status": "new"})
+        self.rows.append({**row, "id": len(self.rows) + 1, "status": "new", "replies": []})
 
     def list_feedback(self, status=None, limit=200):
         if self.fail:
             raise AuthUnavailable(self.fail)
         return [r for r in self.rows if not status or r["status"] == status]
+
+    def feedback_row(self, feedback_id):
+        if self.fail:
+            raise AuthUnavailable(self.fail)
+        return next((dict(r) for r in self.rows if r["id"] == feedback_id), None)
+
+    def my_feedback(self, email, limit=100):
+        return [dict(r) for r in self.rows if r["email"] == email.lower()]
 
     def review_feedback(self, feedback_id, values):
         for r in self.rows:
@@ -143,3 +151,44 @@ def test_no_push_when_there_are_no_developers_or_push_is_off(client):
     client.app.state.push.on = False
     client.post("/api/feedback", json={"kind": "idea", "message": "y"}, headers=H("s"))
     assert client.app.state.push.sent == []
+
+
+def test_a_teacher_answers_a_note_and_the_user_sees_the_conversation(client):
+    client.app.state.push = FakePush()
+    client.post("/api/feedback", json={"kind": "idea", "message": "אפשר מצב לילה?"}, headers=H("s"))
+    assert client.get("/api/feedback/mine", headers=H("s")).json() == {"threads": []}   # nothing to show before an answer
+    assert client.post("/api/feedback/1/reply", json={"text": "x"}, headers=H("s")).status_code == 403
+    assert client.post("/api/feedback/1/reply", json={"text": "  "}, headers=H("t")).status_code == 400
+    assert client.post("/api/feedback/9/reply", json={"text": "x"}, headers=H("t")).status_code == 404
+    r = client.post("/api/feedback/1/reply", json={"text": "רעיון טוב,  נבדוק"}, headers=H("t"))
+    assert r.status_code == 200 and r.json()["status"] == "read"
+    row = client.app.state.auth.rows[0]
+    assert row["status"] == "read" and row["handled_by"] == "t@b.c"
+    assert [(m["from"], m["by"], m["text"]) for m in row["replies"]] == [("team", "t@b.c", "רעיון טוב, נבדוק")]
+    emails, message = client.app.state.push.sent[-1]   # the user's devices are told
+    assert emails == {"s@b.c"} and "תשובה" in message["title"] and message["body"] == "רעיון טוב, נבדוק"
+    thread = client.get("/api/feedback/mine", headers=H("s")).json()["threads"][0]
+    assert thread["message"] == "אפשר מצב לילה?" and thread["replies"][0]["text"] == "רעיון טוב, נבדוק"
+    assert "by" not in thread["replies"][0]   # the user is not shown who in the team wrote
+    assert client.get("/api/feedback/mine", headers=H("t")).json() == {"threads": []}   # another account's home: not theirs
+
+
+def test_the_user_answers_back_and_the_note_is_new_again(client):
+    client.post("/api/feedback", json={"kind": "problem", "message": "לא עובד"}, headers=H("s"))
+    client.post("/api/feedback/1/reply", json={"text": "באיזה מסך?"}, headers=H("t"))
+    assert client.post("/api/feedback/1/answer", json={"text": "x"}, headers=H("t")).status_code == 404   # not their note
+    assert client.post("/api/feedback/1/answer", json={"text": ""}, headers=H("s")).status_code == 400
+    r = client.post("/api/feedback/1/answer", json={"text": "במסלול"}, headers=H("s"))
+    assert r.status_code == 200 and [m["from"] for m in r.json()["thread"]["replies"]] == ["team", "user"]
+    row = client.app.state.auth.rows[0]
+    assert row["status"] == "new" and row["handled_by"] is None and row["replies"][1]["by"] == "s@b.c"
+    listed = client.get("/api/feedback?status=new", headers=H("t")).json()["feedback"]
+    assert [m["text"] for m in listed[0]["replies"]] == ["באיזה מסך?", "במסלול"]
+
+
+def test_a_table_without_the_conversation_column_gives_the_migration(client):
+    client.post("/api/feedback", json={"kind": "idea", "message": "x"}, headers=H("s"))
+    del client.app.state.auth.rows[0]["replies"]   # a table made before the conversations
+    r = client.post("/api/feedback/1/reply", json={"text": "תודה"}, headers=H("t"))
+    assert r.status_code == 503 and feedback.MIGRATE_FEEDBACK in r.json()["detail"]
+    assert client.get("/api/feedback/mine", headers=H("s")).json() == {"threads": []}

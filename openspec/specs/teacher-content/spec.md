@@ -31,6 +31,11 @@ Authorized staff SHALL be able to add a story or dialogue from paired Hebrew and
 - **THEN** the text is stored with the normalized link and the learner's story card offers to watch the video
 - **AND** a link that is neither Vimeo nor YouTube is rejected before anything is stored
 
+#### Scenario: Transcript lines carry start times
+- **WHEN** every line of a text with a video has a start time, in seconds or as minutes:seconds, never going back
+- **THEN** the times are stored with the lines and the learner sees the line being said written over the video
+- **AND** times on only some lines, times that go back, or times on a text without a video are rejected
+
 ### Requirement: Ordered lesson content
 Authorized staff SHALL be able to place and reorder videos and teacher-authored texts among a lesson's built-in topics.
 

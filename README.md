@@ -948,7 +948,7 @@ create table public.texts (
 alter table public.texts enable row level security;
 ```
 
-A text can be the transcript of a video: the MCP's `create_lesson_text` takes `url` (a Vimeo or YouTube link) beside `lines`, and the text's card then has "צפייה בסרטון" above its lines (`GET /api/texts` gives the topic `video`, the player's address). A table made before texts had videos needs the column once; until then plain texts are still added, and one with a video is refused with this statement:
+A text can be the transcript of a video: the MCP's `create_lesson_text` takes `url` (a Vimeo or YouTube link) beside `lines`, and the text's card then has "צפייה בסרטון" above its lines (`GET /api/texts` gives the topic `video`, the player's address). A transcript can carry subtitles' times: a third value on every line, the second it starts at in the video (`["שלום", "מַרְחַבַּא", 0.1]`, kept inside `lines`; the MCP also takes `"0:00.1"`). The line being said is then written over the video, in Hebrew letters and beneath in Hebrew; "כתוביות" in the video's box switches between both, the transliteration alone, and none. The page reads the player's clock from the messages YouTube's and Vimeo's frames send. A table made before texts had videos needs the column once; until then plain texts are still added, and one with a video is refused with this statement:
 
 ```sql
 alter table public.texts add column if not exists video text; notify pgrst, 'reload schema';

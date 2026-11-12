@@ -513,11 +513,24 @@ body.memory-game{overflow:hidden}
 #vids .cw-note{color:var(--muted);font:600 13px/1.3 var(--f-body)}
 #vids .focus-more{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
 #vids .focus .focus-help{display:flex;justify-content:center;align-items:center;gap:6px;min-height:48px;color:var(--olive);font:700 15px/1.2 var(--f-body);text-decoration:none}
-#vids .focus .focus-path{display:flex;justify-content:center;min-height:48px;color:var(--olive)}
+#vids .focus :is(.focus-path,.focus-set){display:flex;justify-content:center;min-height:48px;color:var(--olive)}
 /* refer a friend on the home: a card in the campaign's orange; until it is first opened, the nav tab's "🎁 הטבה" mark */
 #vids .focus .focus-refer{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:64px;padding:12px 16px;border:2px solid var(--orange);border-radius:14px;background:color-mix(in srgb,var(--orange) 8%,var(--surface));color:var(--ink);text-align:start}
 #vids .focus .focus-refer strong{color:var(--orange);font:700 17px/1.3 var(--f-body)}
 #vids .focus .focus-refer .focus-detail{color:var(--muted);font:600 14px/1.35 var(--f-body)}
+/* a feedback note's conversation: the team's messages at the start of the line, the user's own at its end.
+   In the teachers' inbox under the note, and on the user's home as a card (drawFeedbackTalks) */
+.fb-thread{display:flex;flex-direction:column;gap:6px;width:100%}
+.fb-say{max-width:88%;margin:0;padding:7px 11px;border-radius:12px;font:500 14.5px/1.4 var(--f-body);white-space:pre-wrap;overflow-wrap:anywhere;text-align:start}
+.fb-say small{display:block;font:600 11.5px/1.3 var(--f-body);color:var(--muted)}
+.fb-say.team{align-self:flex-start;background:var(--olive-soft)}.fb-say.user{align-self:flex-end;background:var(--surface);border:1px solid var(--line)}
+.fb-reply{display:flex;gap:8px;align-items:flex-end;width:100%}.fb-reply textarea{flex:1;min-width:0;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:7px 9px;background:var(--surface);color:var(--ink);resize:vertical}
+.fb-reply-note{margin:0;font-size:13px;color:var(--muted)}.fb-reply-note:empty{display:none}.fb-reply-note.bad{color:var(--sumac)}
+#vids .focus .focus-talk{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:8px;width:100%;padding:12px 16px;border:2px solid var(--olive);border-radius:14px;background:var(--olive-soft);color:var(--ink);text-align:start}
+#vids .focus .focus-talk strong{color:var(--olive);font:700 17px/1.3 var(--f-body);padding-inline-end:34px}
+#vids .focus .focus-talk .fb-mine{margin:0;color:var(--muted);font:600 13.5px/1.35 var(--f-body);overflow-wrap:anywhere}
+#vids .focus .focus-talk .fb-say.team{background:var(--surface)}
+#vids .focus .focus-talk .talk-close{position:absolute;top:8px;inset-inline-end:8px;width:30px;height:30px;border:0;border-radius:50%;background:none;color:var(--muted);font-size:16px;cursor:pointer}
 #vids .focus .focus-push{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:64px;padding:12px 16px;border:2px solid var(--olive);border-radius:14px;background:var(--olive-soft);color:var(--ink);text-align:start}
 #vids .focus .focus-push strong{color:var(--olive);font:700 17px/1.3 var(--f-body)}
 #vids .focus .focus-push .focus-detail{color:var(--muted);font:600 14px/1.35 var(--f-body)}
@@ -1358,6 +1371,14 @@ body.manage #manage{width:100%;max-width:none}
 #videoDlg #videoFull{margin-inline-start:auto}
 #videoDlg #videoFull+#videoClose{margin-inline-start:0}
 #videoBox iframe{display:block;width:100%;aspect-ratio:16/9;border:0;border-radius:10px;background:#000}
+/* a transcript with times: the line being said is written over its video, above the player's own bar */
+#videoBox{position:relative}
+#videoSubs{position:absolute;inset-inline:0;bottom:16%;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0 10px;pointer-events:none;text-align:center}
+#videoSubs span{max-width:100%;border-radius:6px;padding:2px 10px;background:rgba(0,0,0,.74);color:#fff;font:600 clamp(17px,3.4vw,26px)/1.5 var(--f-body)}
+#videoSubs .he{font-weight:400;font-size:clamp(14px,2.6vw,19px)}
+#videoSubs span:empty{display:none}
+#videoBox:fullscreen{background:#000}#videoBox:fullscreen iframe{height:100%;aspect-ratio:auto;border-radius:0}
+#videoDlg #videoSubsBtn{margin-inline-start:auto}#videoDlg #videoSubsBtn:not([hidden])+#videoFull{margin-inline-start:0}
 /* where the browser gives a frame no full screen (an iPhone): the box over the whole page, the video filling it */
 #videoDlg.full[open]{display:flex;flex-direction:column;inset:0;width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;border:0;border-radius:0;padding:8px 8px max(8px,env(safe-area-inset-bottom))}
 #videoDlg.full .dlg-head{position:static;margin:0 0 6px;padding:0}
@@ -1947,7 +1968,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
     <button class="btn" id="hearBtn" title="השמעת כל השיחה בערבית, מההתחלה ועד הסוף. לחיצה נוספת משהה וממשיכה" hidden><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg> השמעת השיחה</button>
     <label class="arbox" id="arOnlyBox" title="בזמן השמעת השיחה מוצגים המשפטים בערבית בלבד, בלי העברית" hidden><input type="checkbox" id="arOnly">ערבית בלבד</label>
     <button class="btn" id="quizBtn" title="בוחן: אומרים את כל השיחה ברצף, משפט אחרי משפט. ליד כל משפט מופיע הציון שלו, ובסוף הציון הכולל והטעויות העיקריות" hidden>בוחן</button>
-    <button class="btn" id="setBtn" title="הגדרות השמעה" aria-label="הגדרות השמעה"><svg class="ic" aria-hidden="true"><use href="#i-set"/></svg></button>
+    <button class="btn" id="setBtn" title="הגדרות אישיות" aria-label="הגדרות אישיות"><svg class="ic" aria-hidden="true"><use href="#i-set"/></svg></button>
   </div>
   <div id="envWarn" class="warn" hidden></div>
 
@@ -2181,7 +2202,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
   </form>
 </dialog>
 <dialog id="videoDlg" aria-labelledby="videoTitle">
-  <div class="dlg-head"><h2 id="videoTitle"></h2><button class="btn" id="videoFull">⛶ מסך מלא</button><button class="btn" id="videoClose">סגירה</button></div>
+  <div class="dlg-head"><h2 id="videoTitle"></h2><button class="btn" id="videoSubsBtn" type="button" title="מה נכתב על הסרטון: תעתיק ותרגום, תעתיק בלבד, או כלום" hidden></button><button class="btn" id="videoFull">⛶ מסך מלא</button><button class="btn" id="videoClose">סגירה</button></div>
   <div id="videoBox"></div>
 </dialog>
 <dialog id="writeDlg" aria-labelledby="writeTitle">
@@ -2351,10 +2372,11 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
   <div class="row"><button class="btn primary" id="bubbleGuideGo">יאללה, מתחילים</button></div>
 </dialog>
 <dialog id="setDlg" aria-labelledby="setTitle">
-  <div class="dlg-head"><h2 id="setTitle">הגדרות השמעה</h2><button class="btn" id="setClose">סגירה</button></div>
+  <div class="dlg-head"><h2 id="setTitle">הגדרות אישיות</h2><button class="btn" id="setClose">סגירה</button></div>
   <div class="voicebox">
     <label>מהירות<select id="speed"><option value="0.8">x0.8</option><option value="1">x1</option><option value="1.5">x1.5</option></select></label>
     <label>הקראת המשפט בעברית<input type="checkbox" id="readHe"></label>
+    <label>מעבר אוטומטי למשפט הבא<input type="checkbox" id="autoNextOn"></label>
   </div>
   <a class="sethelp" href="/static/guide.html#settings">מה עושה כל הגדרה?</a>
 </dialog>
@@ -2825,9 +2847,9 @@ function drawHome(box){
   drawRewardShelf();
   const lv=l&&(MY_CLASS.levels||[]).length>1&&ALL_LEVELS.find(v=>v.id===l.level);   // a class of several levels: "שיעור 10" is in two of them
   const page=LH.renderHome(box,{className:MY_CLASS.name,lessonName:l?(lv?`${lv.name} · ${l.name}`:l.name):currentLesson(),done,actions:homeActions(),
-    onChange:()=>askLesson(false),onPath:openFullPath,onRefer:openRefer,onHelp:guideSeen,referNew:!store.get(referSeenKey,false)},FOCUS_HEADING);
+    onChange:()=>askLesson(false),onPath:openFullPath,onSettings:()=>$("setDlg").showModal(),onRefer:openRefer,onHelp:guideSeen,referNew:!store.get(referSeenKey,false)},FOCUS_HEADING);
   FOCUS_HEADING=false;
-  drawClassWeek(page); drawPushCard(page);
+  drawClassWeek(page); drawFeedbackTalks(page); drawPushCard(page);
 }
 /* The class's week on the home: what its students said together against a shared goal, and the student's own part.
    Totals only (GET /api/class/week): nobody else's numbers, no ranking. Read again at most every CLASS_WEEK_MS. */
@@ -4254,14 +4276,50 @@ async function loadContent(){   // the videos, and the texts: their topics and l
     if(PHRASES.length&&home&&!document.body.classList.contains("manage")) drawPath(true);
   }catch{}
 }
+/* A video whose transcript has times (`subs`: [{at, tr, he}], by `at`): the line being said is written over it, in
+   Hebrew letters and beneath in Hebrew. The player is another site's frame, so its clock is asked for in messages:
+   YouTube's answers a "listening" call about four times a second, Vimeo's sends "timeupdate" once it is asked to.
+   Between two answers the clock runs on by the page's own. The button chooses what is written; it is remembered. */
+const SUBS_MODES=["תעתיק ותרגום","תעתיק","בלי כתוביות"];
+let subsOff=null;
+function videoSubs(f,subs){
+  const box=document.createElement("div"), tr=document.createElement("span"), he=document.createElement("span"), btn=$("videoSubsBtn");
+  box.id="videoSubs"; box.dir="rtl"; he.className="he"; box.append(tr,he);
+  let mode=+store.get("ihki.subs",0)||0, t=0, got=0, playing=false, shown=null;
+  const say=m=>{ try{ f.contentWindow.postMessage(JSON.stringify(m),"*"); }catch{} };
+  const hello=()=>say({event:"listening",id:1,channel:"widget"}), calling=setInterval(hello,500);
+  const draw=()=>{
+    const now=t+(playing?Math.min(.4,(performance.now()-got)/1000):0);
+    let line=undefined; for(const s of subs){ if(s.at>now+.05) break; line=s; }
+    if(line!==shown){ shown=line; tr.textContent=he.textContent=""; if(line&&mode<2){ setTr(tr,line.tr); if(!mode) he.textContent=line.he; } }
+  };
+  const label=()=>{ btn.textContent="כתוביות: "+SUBS_MODES[mode]; shown=null; draw(); };
+  const hear=e=>{
+    if(e.source!==f.contentWindow) return;
+    let d=e.data; try{ if(typeof d==="string") d=JSON.parse(d); }catch{ return; }
+    if(!d||typeof d!=="object") return;
+    const clock=s=>{ if(typeof s==="number"){ t=s; got=performance.now(); } };
+    if(d.event==="ready") for(const value of ["timeupdate","play","pause","seeked"]) say({method:"addEventListener",value});   // Vimeo
+    else if(d.event==="timeupdate"||d.event==="seeked") clock(d.data&&d.data.seconds);
+    else if(d.event==="play"||d.event==="pause") playing=d.event==="play";
+    else if(d.info){ clearInterval(calling); clock(d.info.currentTime); if(d.info.playerState!=null) playing=d.info.playerState===1; }   // YouTube
+    draw();
+  };
+  btn.hidden=false; btn.onclick=()=>{ mode=(mode+1)%SUBS_MODES.length; store.set("ihki.subs",mode); label(); }; label();
+  f.addEventListener("load",hello); addEventListener("message",hear); const ticking=setInterval(draw,100);   // not by animation frames: a page in the background has none
+  subsOff=()=>{ clearInterval(calling); clearInterval(ticking); removeEventListener("message",hear); btn.hidden=true; subsOff=null; };
+  return box;
+}
 function playVideo(v,preview){   // preview: the teacher looks at it from the panel, which marks nothing
-  const f=document.createElement("iframe");
-  f.src=v.embed; f.title=v.title; f.allow="autoplay; fullscreen; picture-in-picture"; f.allowFullscreen=true; f.referrerPolicy="strict-origin-when-cross-origin";   // YouTube's player asks who embeds it
-  $("videoTitle").textContent=v.title; $("videoBox").replaceChildren(f); $("videoDlg").showModal();
+  const f=document.createElement("iframe"), subs=v.subs&&v.subs.length?v.subs:null;
+  if(subsOff) subsOff();
+  // with subtitles YouTube's player is told to answer the page, and gives up its own full screen, which would leave them behind
+  f.src=v.embed+(subs&&/youtube/.test(v.embed)?"&enablejsapi=1&fs=0":""); f.title=v.title; f.allow="autoplay; fullscreen; picture-in-picture"; f.allowFullscreen=true; f.referrerPolicy="strict-origin-when-cross-origin";   // YouTube's player asks who embeds it
+  $("videoTitle").textContent=v.title; $("videoBox").replaceChildren(f,...(subs?[videoSubs(f,subs)]:[])); $("videoDlg").showModal();
   if(!preview){ watched[v.id]=1; store.set("ihki.watched",watched); }
 }
-$("storyVideo").onclick=()=>{ const c=CATS.find(c=>c.id===cat); if(c&&c.video) playVideo({embed:c.video,title:c.name},true); };   // marks nothing: the topic's progress is its lines'
-$("videoClose").onclick=()=>{ videoWide(false); $("videoDlg").close(); };
+$("storyVideo").onclick=()=>{ const c=CATS.find(c=>c.id===cat); if(c&&c.video) playVideo({embed:c.video,title:c.name,subs:PHRASES.filter(p=>p.cat===c.id&&p.at!=null).sort((a,b)=>a.at-b.at)},true); };   // marks nothing: the topic's progress is its lines'
+$("videoClose").onclick=()=>{ videoWide(false); if(subsOff) subsOff(); $("videoBox").replaceChildren(); $("videoDlg").close(); };   // the frame goes now, not only on the box's "close": the video stops at once
 // the whole screen for the video. An iPhone cannot do it for a frame (only the player's own button, inside it): there the
 // box itself grows over the whole page, and the same button brings it back
 $("videoFull").hidden=false;
@@ -4269,11 +4327,12 @@ const videoWide=on=>{ $("videoDlg").classList.toggle("full",on); $("videoFull").
 $("videoFull").onclick=()=>{
   const f=$("videoBox").querySelector("iframe"); if(!f) return;
   if($("videoDlg").classList.contains("full")) return videoWide(false);
-  if(document.fullscreenEnabled&&f.requestFullscreen) f.requestFullscreen().then(()=>screen.orientation?.lock?.("landscape").catch(()=>{})).catch(()=>videoWide(true));
+  const whole=$("videoSubs")?$("videoBox"):f;   // with subtitles the box goes full screen, and they with it
+  if(document.fullscreenEnabled&&whole.requestFullscreen) whole.requestFullscreen().then(()=>screen.orientation?.lock?.("landscape").catch(()=>{})).catch(()=>videoWide(true));
   else videoWide(true);
 };
 $("videoDlg").addEventListener("close",()=>{   // without its frame the video stops playing
-  videoWide(false);
+  videoWide(false); if(subsOff) subsOff();
   $("videoBox").replaceChildren(); if(home&&!document.body.classList.contains("manage")) drawPath(true);
   if(pushAfterVideo){ pushAfterVideo=false; askPushSoon("video"); } });
 /* A topic the student writes in (its category has `write`: the task, and how many sentences): the workbook's homework.
@@ -4991,7 +5050,8 @@ for(const ev of ["pointerdown","keydown"]) addEventListener(ev,()=>{
 },true);
 // A grade at AUTO_NEXT.minimum or above moves on by itself after the grade has been seen for a moment; lower grades
 // stay on the card until the student presses "next", so there is time to inspect the pronunciation feedback.
-// The seconds left are counted down on the "next sentence" button.
+// The seconds left are counted down on the "next sentence" button. A student who unticks "מעבר אוטומטי למשפט הבא" in
+// the settings (kept on the device) stays on every card until they press "next".
 const AUTO_NEXT={minimum:75, seconds:3};
 let autoNext=null;
 function cancelAutoNext(){ clearInterval(autoNext); autoNext=null; $("nextLeft").textContent=""; }
@@ -5726,8 +5786,8 @@ function render(r){
   if(story&&!(!r.unrelated&&s>STORY.pass)) storyRetry();
   if(bubbleCat()){ bubbleOutcome(r); return; }
   if(!driving&&!r.unrelated&&s>=AUTO_NEXT.minimum){   // driving mode moves on by itself, in its own loop
-    $("status").textContent=`ציון ${s} ✓ עוברים למשפט הבא`;
-    startAutoNext();
+    if($("autoNextOn").checked){ $("status").textContent=`ציון ${s} ✓ עוברים למשפט הבא`; startAutoNext(); }
+    else $("status").textContent=`ציון ${s} ✓ לחצו „הבא” כדי להמשיך`;
   }
 }
 
@@ -5792,8 +5852,10 @@ const finishRec=out=>{ const f=recDone; recDone=null; if(f) f(out); };
    Energy based: the level must rise clearly above the room noise measured in the first frames. */
 // noSpeech: how long to wait for the first word. A recording that started by itself (noSpeechAuto) waits longer:
 // the student first reads the new sentence. The server scores MAX_SECONDS at most (scorer.py).
-const VAD={frame:50, startFrames:3, endSilence:1000, noSpeech:12000, noSpeechAuto:20000, maxSpeech:10000, minLevel:.012, ratio:3};
-function startVad(stream, onEnd, noSpeech){
+// endSilence: the quiet that ends the recording. A sentence translated from Hebrew to Arabic (endSilenceTranslate) gets
+// more: the student stops between the words to recall the next one, and that is not the end of the answer.
+const VAD={frame:50, startFrames:3, endSilence:1000, endSilenceTranslate:2500, noSpeech:12000, noSpeechAuto:20000, maxSpeech:10000, minLevel:.012, ratio:3};
+function startVad(stream, onEnd, noSpeech, endSilence=VAD.endSilence){
   const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null;   // no Web Audio: manual stop only
   const ctx=new AC(), an=ctx.createAnalyser(); an.fftSize=1024;
   ctx.createMediaStreamSource(stream).connect(an);
@@ -5807,7 +5869,7 @@ function startVad(stream, onEnd, noSpeech){
     const isSpeech=level>Math.max(VAD.minLevel,(noise||0)*VAD.ratio);
     if(isSpeech){ quiet=0; if(++loud>=VAD.startFrames) spoke=true; }
     else{ loud=0; if(spoke) quiet+=VAD.frame; }
-    if(spoke && quiet>=VAD.endSilence) onEnd(true);
+    if(spoke && quiet>=endSilence) onEnd(true);
     else if(!spoke && t>=noSpeech) onEnd(false);   // long enough to think of the answer
   },VAD.frame);
   return {stop(){ clearInterval(timer); ctx.close().catch(()=>{}); }};
@@ -5826,7 +5888,7 @@ async function startRec(auto){   // auto: started by the page for the sentence o
   if(rec&&rec.state==="recording"){ rec.stop(); return; }
   if(starting) return;
   starting=true;
-  const id=cur.id;
+  const id=cur.id, translating=silentFits(cur);   // Hebrew on the card, the answer in Arabic: pauses to think are part of it
   let stream;
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
   catch{ starting=false; $("status").textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."; finishRec({kind:"nomic"}); return; }
@@ -5843,7 +5905,7 @@ async function startRec(auto){   // auto: started by the page for the sentence o
     mic.classList.add("live"); $("result").hidden=true;
     const noSpeech=auto?VAD.noSpeechAuto:VAD.noSpeech;
     stopTimer=setTimeout(()=>rec.state==="recording"&&rec.stop(),noSpeech+VAD.maxSpeech);
-    vad=startVad(stream, spoke=>{ heardSpeech=spoke; if(rec.state==="recording") rec.stop(); }, noSpeech);
+    vad=startVad(stream, spoke=>{ heardSpeech=spoke; if(rec.state==="recording") rec.stop(); }, noSpeech, translating?VAD.endSilenceTranslate:VAD.endSilence);
     $("status").textContent=vad?"מקליט… דברו, ההקלטה תיעצר לבד (או לחצו לסיום)":"מקליט… לחצו שוב לסיום";
   };
   rec.onstop=async()=>{
@@ -6055,6 +6117,8 @@ $("readHe").onchange=()=>{
   store.set("ihki.readHe",$("readHe").checked);
   if(!(rec&&rec.state==="recording")) promptRead=readPrompt();
 };
+$("autoNextOn").checked=store.get("ihki.autoNext",true);
+$("autoNextOn").onchange=()=>{ store.set("ihki.autoNext",$("autoNextOn").checked); if(!$("autoNextOn").checked) cancelAutoNext(); };
 // Speed of the Arabic answer. The provider has no speed setting: the browser plays the same audio slower or faster, at the same pitch.
 $("speed").value=String(store.get("ihki.speed",1)); if(!$("speed").value) $("speed").value="1";
 $("speed").onchange=()=>store.set("ihki.speed",+$("speed").value);
@@ -6899,6 +6963,7 @@ function drawFeedbackInbox(box){
     head.append(mark("flag-kind",FEEDBACK_KINDS[r.kind]||r.kind),mark("",r.rating?"★".repeat(r.rating):""),mark("",r.email),mark("",[r.screen,r.item].filter(Boolean).join(" · ")),mark("",new Date(r.created_at).toLocaleString("he-IL")));
     item.append(head);
     if(r.message) item.append(mark("fb-msg",r.message,"p"));
+    if((r.replies||[]).length) item.append(feedbackThread(r.replies,m=>m.from==="team"?m.by||"הצוות":r.email));
     const actions=mark("fb-actions","");
     for(const [status,label] of [["read","נקרא"],["done","טופל"],["new","החזרה לחדש"]]){
       if(r.status===status) continue;
@@ -6906,9 +6971,74 @@ function drawFeedbackInbox(box){
       b.onclick=async()=>{ b.disabled=true; const res=await api(`/api/feedback/${r.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})}); if(res.ok){ r.status=status; drawFlags(); } else b.disabled=false; };
       actions.append(b);
     }
-    item.append(actions); card.append(item);
+    item.append(actions);
+    // the answer: kept in the note's conversation, shown on the user's home and pushed to their devices
+    const form=mark("fb-reply","","form"), text=document.createElement("textarea"), send=mark("btn primary","שליחת תגובה","button"), note=mark("fb-reply-note","","p");
+    text.rows=1; text.maxLength=1000; text.placeholder=(r.replies||[]).length?"עוד תגובה…":"תגובה למשתמש…"; text.setAttribute("aria-label","תגובה ל-"+r.email);
+    text.value=feedbackDrafts[r.id]||""; text.oninput=()=>{ feedbackDrafts[r.id]=text.value; };
+    form.append(text,send);
+    form.onsubmit=async e=>{
+      e.preventDefault(); if(!text.value.trim()) return text.focus();
+      send.disabled=true; note.className="fb-reply-note"; note.textContent="";
+      try{
+        const res=await api(`/api/feedback/${r.id}/reply`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:text.value})}), data=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(data.detail||res.status);
+        r.replies=data.replies; r.status=data.status||r.status; delete feedbackDrafts[r.id]; drawFlags();
+      }catch(err){ note.className="fb-reply-note bad"; note.textContent="התגובה לא נשלחה: "+err.message; send.disabled=false; }
+    };
+    item.append(form,note); card.append(item);
   }
+  if(rows.length) card.append(mark("meta","תגובה מופיעה במסך הבית של המשתמש ונשלחת אליו כהתראה. תשובה שלו מחזירה את המשוב ל„חדש”.","p"));
   box.append(card);
+}
+const feedbackDrafts={};   // an answer being written survives the inbox's redraws
+function feedbackThread(replies,who){   // a conversation's messages; `who(message)` names its sender
+  const box=mark("fb-thread","","div");
+  for(const m of replies){
+    const say=mark("fb-say "+(m.from==="team"?"team":"user"),"","p"), when=m.at?new Date(m.at).toLocaleString("he-IL",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+    say.append(mark("",[who(m),when].filter(Boolean).join(" · "),"small"),m.text); box.append(say);
+  }
+  return box;
+}
+/* The user's home: each of their notes that the team answered, as a card with the conversation and a box to answer in.
+   ✕ puts a card away on this device until the team writes again. */
+let myTalks=null, myTalksAt=0;
+const talkDrafts={};   // an answer being written survives the home's redraws
+async function drawFeedbackTalks(page){
+  if(!AUTH_URL) return;
+  if(!myTalks||Date.now()-myTalksAt>60000){
+    try{ const res=await api("/api/feedback/mine"); myTalks=res.ok?(await res.json()).threads||[]:[]; }catch(e){ myTalks=[]; }
+    myTalksAt=Date.now();
+  }
+  if(!page.isConnected) return;
+  page.querySelectorAll(".focus-talk").forEach(c=>c.remove());
+  const away=store.get("ihki.fbAway",{}), fromTeam=t=>t.replies.filter(m=>m.from==="team").length;
+  for(const t of myTalks){
+    if((away[t.id]||0)>=fromTeam(t)) continue;
+    const card=mark("focus-talk","","div"), close=mark("talk-close","✕","button");
+    close.type="button"; close.title="סגירה"; close.setAttribute("aria-label","סגירת השיחה");
+    close.onclick=()=>{ store.set("ihki.fbAway",{...store.get("ihki.fbAway",{}),[t.id]:fromTeam(t)}); card.remove(); };
+    card.append(mark("","💬 קיבלתם תשובה למשוב ששלחתם","strong"),close);
+    if(t.message) card.append(mark("fb-mine","כתבתם: "+t.message,"p"));
+    card.append(feedbackThread(t.replies,m=>m.from==="team"?"הצוות":"אתם"));
+    const form=mark("fb-reply","","form"), text=document.createElement("textarea"), send=mark("btn primary","שליחה","button"), note=mark("fb-reply-note","","p");
+    text.rows=1; text.maxLength=1000; text.placeholder="רוצים לענות?"; text.setAttribute("aria-label","תשובה לצוות");
+    text.value=talkDrafts[t.id]||""; text.oninput=()=>{ talkDrafts[t.id]=text.value; };   // the home is drawn again while they write
+    form.append(text,send);
+    form.onsubmit=async e=>{
+      e.preventDefault(); if(!text.value.trim()) return text.focus();
+      send.disabled=true; note.className="fb-reply-note"; note.textContent="";
+      try{
+        const res=await api(`/api/feedback/${t.id}/answer`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:text.value})}), data=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(data.detail||res.status);
+        if(data.thread) t.replies=data.thread.replies;
+        delete talkDrafts[t.id];
+        drawFeedbackTalks(document.querySelector("#vids .focus")||page);   // the home on screen now: it may have been drawn again while this was sent
+      }catch(err){ note.className="fb-reply-note bad"; note.textContent="התשובה לא נשלחה: "+err.message; send.disabled=false; }
+    };
+    card.append(form,note);
+    page.insertBefore(card,page.querySelector(".focus-push,.focus-refer,.focus-more"));
+  }
 }
 function selectManageMode(){
   $("mModes").hidden=false;

@@ -177,14 +177,16 @@ def read_line(tr: str) -> tuple[list[tuple[str, str, list[str]]], list[str]]:
 
 
 def text_phrases(cat: str, lines: list[list[str]]) -> tuple[list[dict], list[str]]:
-    """A text's lines ([Hebrew, transliteration] each) as phrases in the format of phrases.py, in the text's order,
-    and its words that were read by rule. `key` is what a recording of the line is kept under: the Hebrew, numbered
+    """A text's lines ([Hebrew, transliteration] each, and third the second of its video the line starts at, when
+    the text is a video's transcript with times) as phrases in the format of phrases.py, in the text's order (`at`:
+    that second), and its words that were read by rule. `key` is what a recording of the line is kept under: the Hebrew, numbered
     from its second appearance in the text ("כן (2)"), so that two lines with the same Hebrew stay apart."""
     out, guessed, seen = [], [], {}
-    for seq, (he, tr) in enumerate(lines, 1):
+    for seq, line in enumerate(lines, 1):
+        he, tr = line[:2]
         words, new = read_line(tr)
         guessed += [w for w in new if w not in guessed]
         seen[he] = seen.get(he, 0) + 1
         out.append(dict(cat=cat, he=he, tr=tr, variants=_variants(words), seq=seq,
-                        key=he if seen[he] == 1 else f"{he} ({seen[he]})"))
+                        key=he if seen[he] == 1 else f"{he} ({seen[he]})", **({"at": line[2]} if len(line) > 2 else {})))
     return out, guessed

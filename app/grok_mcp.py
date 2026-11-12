@@ -1007,8 +1007,11 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                               "the Arabic as said, in pointed Hebrew letters as the course writes it] pair per "
                               "spoken sentence, in the order they are said, word for word, e.g. "
                               "[[\"שלום\", \"מַרְחַבַּא\"], [\"מה שלומך?\", \"כִּיף חַאלַכּ?\"]] "
-                              "(no Arabic script, no timestamps, no speaker names inside a line; at most 200 "
-                              "lines). voices: [] for a story or a scene of any speakers; for a dialogue of two "
+                              "(no Arabic script, no speaker names inside a line; at most 200 lines). With "
+                              "subtitles' times, every line gets a third value, the moment it starts in the "
+                              "video, measured from the finished video: seconds (7.5) or \"m:ss.d\" "
+                              "(\"0:07.5\"), e.g. [\"שלום\", \"מַרְחַבַּא\", \"0:00.1\"]; all lines or "
+                              "none, never going back, and only with a url. voices: [] for a story or a scene of any speakers; for a dialogue of two "
                               "who alternate strictly, two names from list_teacher_options' voices (the odd "
                               "lines' speaker, then the even lines'). The preview's rule_read_words are the words "
                               "the course's dictionary lacks: show them to the teacher. On update_lesson_text a "
@@ -1028,7 +1031,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         content_ids: list[str] | None = None, homeworks: list[dict[str, Any]] | None = None,
         dailies: list[dict[str, Any]] | None = None, email: str = "", nickname: str = "",
         item_id: int | None = None, title: str = "", url: str = "", level: str = "", lesson: str = "",
-        lines: list[list[str]] | None = None, voices: list[str] | None = None, pos: int = 0, ord: int = 0,
+        lines: list[list[Any]] | None = None, voices: list[str] | None = None, pos: int = 0, ord: int = 0,
         ordered_items: list[dict[str, Any]] | None = None, library_sections: list[str] | None = None,
         meetings: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:

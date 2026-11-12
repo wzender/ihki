@@ -1,14 +1,21 @@
 """Feedback from the app's users: a short note (a problem, an idea, a score that seems wrong, or praise) and an optional
-1-5 rating, kept in the Supabase table `feedback` with where in the app it was sent from. Text only: no recordings."""
+1-5 rating, kept in the Supabase table `feedback` with where in the app it was sent from. Text only: no recordings.
+
+A note can grow into a conversation: the team answers it from the teachers' panel and the user answers back from their
+home. The messages after the note itself are kept on its row, in `replies`: [{"from": "team" | "user", "by", "text", "at"}]."""
 from __future__ import annotations
 
 import time
 from collections import defaultdict, deque
+from datetime import datetime, timezone
 
 KINDS = frozenset({"problem", "idea", "score", "praise"})
 STATUSES = frozenset({"new", "read", "done"})
 MAX_MESSAGE = 1000
 MAX_CONTEXT = 120
+MAX_REPLY = 1000
+MAX_REPLIES = 40    # a conversation's messages: past this it belongs in a class, not in a note
+MY_THREADS = 5      # how many conversations a user's home shows
 PER_HOUR = 10   # a user's notes in an hour: enough for a real session, not for a script
 
 CREATE_FEEDBACK = ("create table public.feedback (id bigint generated always as identity primary key, "
@@ -17,9 +24,15 @@ CREATE_FEEDBACK = ("create table public.feedback (id bigint generated always as 
                    "rating smallint check (rating between 1 and 5), message text not null default '', "
                    "screen text not null default '', item text not null default '', version text not null default '', "
                    "status text not null default 'new' check (status in ('new','read','done')), "
-                   "handled_by text, handled_at timestamptz, created_at timestamptz not null default now()); "
+                   "handled_by text, handled_at timestamptz, created_at timestamptz not null default now(), "
+                   "replies jsonb not null default '[]'::jsonb); "
                    "create index feedback_status_created_idx on public.feedback (status, created_at desc); "
                    "alter table public.feedback enable row level security; notify pgrst, 'reload schema';")
+
+
+# a table made before the conversations: the column they are kept in
+MIGRATE_FEEDBACK = ("alter table public.feedback add column if not exists replies jsonb not null default '[]'::jsonb; "
+                    "notify pgrst, 'reload schema';")
 
 
 class FeedbackError(ValueError):
@@ -64,3 +77,33 @@ class RateLimit:
             return False
         seen.append(now)
         return True
+
+
+def reply(body: object, sender: str, email: str, now: datetime | None = None) -> dict:
+    """One message of a note's conversation from a request body ({"text"}), or FeedbackError. `sender`: "team" or "user"."""
+    text = body.get("text") if isinstance(body, dict) else None
+    text = "\n".join(" ".join(line.split()) for line in str(text or "").strip().splitlines())
+    if not text:
+        raise FeedbackError("כתבו כמה מילים")
+    if len(text) > MAX_REPLY:
+        raise FeedbackError(f"עד {MAX_REPLY} תווים")
+    return {"from": sender, "by": email.lower(), "text": text, "at": (now or datetime.now(timezone.utc)).isoformat()}
+
+
+def replies_of(row: dict) -> list[dict]:
+    return [r for r in row.get("replies") or [] if isinstance(r, dict) and r.get("text")]
+
+
+def threads(rows: list[dict], limit: int = MY_THREADS) -> list[dict]:
+    """A user's notes that the team answered, as their home shows them: the latest message first, without the names
+    of who answered."""
+    found = []
+    for row in rows:
+        said = replies_of(row)
+        if not any(r.get("from") == "team" for r in said):
+            continue
+        found.append({"id": row["id"], "kind": row.get("kind"), "message": row.get("message") or "",
+                      "created_at": row.get("created_at"),
+                      "replies": [{"from": r.get("from"), "text": r["text"], "at": r.get("at")} for r in said]})
+    found.sort(key=lambda t: t["replies"][-1].get("at") or "", reverse=True)
+    return found[:limit]

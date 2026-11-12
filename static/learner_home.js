@@ -68,8 +68,8 @@ function el(tag,cls,text){
 }
 
 /* The home. `o`: {className, lessonName, actions: [{kind, title, detail, go, state, run}], done: the current lesson is
-   finished, onChange, onPath, onRefer (none: no refer card), referNew: the refer card is marked as new}. Its heading
-   takes the focus when `focus` is set. */
+   finished, onChange, onPath, onSettings (none: no settings button), onRefer (none: no refer card), referNew: the refer
+   card is marked as new}. Its heading takes the focus when `focus` is set. */
 function renderHome(box,o,focus){
   const page=el("section","focus"), head=el("header"), where=el("p","focus-where"), title=el("h2","","מה עושים עכשיו?");
   page.setAttribute("aria-labelledby","focusTitle"); title.id="focusTitle"; title.tabIndex=-1;
@@ -101,7 +101,11 @@ function renderHome(box,o,focus){
   const help=el("a","focus-help"); help.href="/static/guide.html"; help.title="איך מתרגלים: מדריך קצר";
   help.append(el("b","","?")," עזרה"); help.firstChild.setAttribute("aria-hidden","true");
   if(o.onHelp) help.onclick=o.onHelp;
-  more.append(path,help); page.append(more);
+  more.append(path);
+  if(o.onSettings){   // the personal settings (speed, the Hebrew reading, moving on by itself), which the practice screen also opens
+    const set=el("button","focus-set","⚙ הגדרות אישיות"); set.type="button"; set.onclick=o.onSettings; more.append(set);
+  }
+  more.append(help); page.append(more);
   box.append(page);
   if(focus) title.focus({preventScroll:true});
   return page;

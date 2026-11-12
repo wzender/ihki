@@ -687,7 +687,7 @@ class SupabaseAuth:
 
     def update_text(self, id: int, row: dict) -> None:
         """Replace the editable fields of one teacher-authored text."""
-        body = {key: row[key] for key in ("lesson", "title", "voices", "lines", "pos", "ord", "video") if key in row}
+        body = {key: row[key] for key in ("lesson", "title", "voices", "lines", "pos", "ord", "video") if key in row}   # nothing else of a plan's item
         if not self._admin(f"/rest/v1/texts?id=eq.{int(id)}", "PATCH", body):
             raise KeyError(id)
         self._texts = None
@@ -1060,8 +1060,18 @@ class SupabaseAuth:
             query["status"] = f"eq.{status}"
         return self._admin(f"/rest/v1/feedback?{urllib.parse.urlencode(query)}") or []
 
+    def feedback_row(self, feedback_id: int) -> dict | None:
+        """One feedback note, or None."""
+        rows = self._admin(f"/rest/v1/feedback?select=*&id=eq.{int(feedback_id)}") or []
+        return rows[0] if rows else None
+
+    def my_feedback(self, email: str, limit: int = 100) -> list[dict]:
+        """One account's feedback notes, newest first."""
+        query = {"select": "*", "email": f"eq.{email.lower()}", "order": "created_at.desc", "limit": int(limit)}
+        return self._admin(f"/rest/v1/feedback?{urllib.parse.urlencode(query)}") or []
+
     def review_feedback(self, feedback_id: int, values: dict) -> None:
-        """Marks a note read or done, and by whom."""
+        """Marks a note read or done, and by whom; or keeps its conversation (`replies`)."""
         self._admin(f"/rest/v1/feedback?id=eq.{int(feedback_id)}", "PATCH", values, prefer="return=minimal")
 
     def scoped_flags(self, emails: set[str], since: datetime, until: datetime,

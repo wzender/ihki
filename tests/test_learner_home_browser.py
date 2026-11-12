@@ -38,6 +38,21 @@ class PageAuth(AppAuth):
     def attempts(self, token):
         return []
 
+    # the table `feedback`, in memory (self.notes): the notes and their conversations
+    def list_feedback(self, status=None, limit=200):
+        return [dict(r) for r in getattr(self, "notes", []) if not status or r["status"] == status]
+
+    def my_feedback(self, email, limit=100):
+        return [dict(r) for r in getattr(self, "notes", []) if r["email"] == email.lower()]
+
+    def feedback_row(self, feedback_id):
+        return next((dict(r) for r in getattr(self, "notes", []) if r["id"] == feedback_id), None)
+
+    def review_feedback(self, feedback_id, values):
+        for r in getattr(self, "notes", []):
+            if r["id"] == feedback_id:
+                r.update(values)
+
     def writings(self, token):
         return {}
 
@@ -1069,6 +1084,55 @@ def test_the_paths_bell_opens_the_notifications_alone(site):
     assert r["title"] == "התראות מהאפליקציה" and r["fbHidden"] and r["yes"]
 
 
+TALK = """
+await until(()=>document.querySelector("#vids .focus-talk"),6000);
+const card=document.querySelector("#vids .focus-talk"), says=()=>[...document.querySelectorAll("#vids .focus-talk .fb-say")].map(p=>[p.classList.contains("team")?"team":"user",p.firstChild.textContent.split(" · ")[0],p.lastChild.textContent]);
+out.view=view(); out.title=card.querySelector("strong").textContent; out.mine=card.querySelector(".fb-mine").textContent; out.says=says();
+out.wide=card.getBoundingClientRect().right<=innerWidth&&document.documentElement.scrollWidth<=innerWidth;
+card.querySelector("textarea").value="במסלול, בטלפון"; card.querySelector("form").requestSubmit();
+await until(()=>says().length===2,5000); out.after=says();
+document.querySelector("#vids .focus-talk .talk-close").click(); out.closed=!document.querySelector("#vids .focus-talk"); out.away=localStorage.getItem("ihki.fbAway");
+"""
+
+INBOX = """
+await sleep(800); showManage(); await sleep(300);
+document.querySelector('#mModes [data-mode="flags"]').click();
+await until(()=>document.querySelector(".fb-inbox .fb-item"),6000);
+const item=()=>document.querySelector(".fb-inbox .fb-item");
+out.before=item().querySelectorAll(".fb-say").length; out.place=item().querySelector("textarea").placeholder;
+item().querySelector("textarea").value="תודה! באיזה מסך זה קרה?"; item().querySelector("form").requestSubmit();
+await until(()=>item().querySelector(".fb-say"),5000);
+const say=item().querySelector(".fb-say"); out.say=[say.className,say.firstChild.textContent.split(" · ")[0],say.lastChild.textContent];
+out.buttons=[...item().querySelectorAll(".fb-actions button")].map(b=>b.textContent); out.empty=item().querySelector("textarea").value;
+"""
+
+
+def note(**more):
+    return dict({"id": 1, "email": "dana@x.com", "kind": "problem", "rating": None, "message": "הכפתור לא עובד", "screen": "path",
+                 "item": "", "status": "new", "created_at": "2026-11-10T08:00:00+00:00", "replies": []}, **more)
+
+
+def test_the_teams_answer_is_a_conversation_on_the_learners_home(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    site.auth.notes = [note(replies=[{"from": "team", "by": "boss@x.com", "text": "באיזה מסך?", "at": "2026-11-11T09:00:00+00:00"}]),
+                       note(id=2, message="בלי תשובה")]
+    r = site("dana@x.com", TALK)
+    assert r["view"] == "home" and "תשובה" in r["title"] and r["mine"] == "כתבתם: הכפתור לא עובד" and r["wide"]
+    assert r["says"] == [["team", "הצוות", "באיזה מסך?"]]   # the answered note alone, and not who in the team wrote
+    assert r["after"] == [["team", "הצוות", "באיזה מסך?"], ["user", "אתם", "במסלול, בטלפון"]]
+    kept = site.auth.notes[0]
+    assert kept["status"] == "new" and kept["replies"][1]["by"] == "dana@x.com"
+    assert r["closed"] and r["away"] == '{"1":1}'
+
+
+def test_a_teacher_answers_a_note_from_the_inbox(site):
+    site.auth.notes = [note()]
+    r = site("boss@x.com", INBOX)
+    assert r["before"] == 0 and r["place"] == "תגובה למשתמש…"
+    assert r["say"] == ["fb-say team", "boss@x.com", "תודה! באיזה מסך זה קרה?"] and r["empty"] == ""
+    assert site.auth.notes[0]["status"] == "read" and "נקרא" not in r["buttons"]
+
+
 def test_the_daily_video_button_is_in_the_progress_bar_even_without_a_video(site):
     site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
     r = site("dana@x.com", DAILY_BTN)
@@ -1184,3 +1248,53 @@ def test_where_a_frame_has_no_full_screen_the_videos_box_fills_the_page(site):
     r = site("dana@x.com", WIDE_VIDEO)
     assert r["button"] and r["wide"] == r["page"] and r["tall"] > r["small"] * 2 and r["label"] == "הקטנה"
     assert r["back"] == r["small"] and r["cleared"]
+
+
+# a player that answers the page as YouTube's does: its clock when it is called, and again after each seek
+SUBTITLES = """
+await sleep(1500);
+const player="data:text/html,"+encodeURIComponent(`<script>addEventListener("message",e=>{ const d=JSON.parse(e.data), say=t=>parent.postMessage(JSON.stringify({event:"infoDelivery",info:{currentTime:t,playerState:2}}),"*"); if(d.event==="listening") say(0); if(d.func==="seekTo") say(d.args[0]); })<\\/script>`);
+playVideo({title:"סרטון",embed:player,subs:[{at:1,tr:"מַרְחַבַּא!",he:"שלום!"},{at:5,tr:"כִּיף חַאלַכּ?",he:"מה שלומך?"}]},true);
+await sleep(800);
+const frame=document.querySelector("#videoBox iframe"), btn=document.getElementById("videoSubsBtn");
+const written=()=>[...document.querySelectorAll("#videoSubs>span")].map(s=>s.textContent);
+const seek=async t=>{ frame.contentWindow.postMessage(JSON.stringify({event:"command",func:"seekTo",args:[t]}),"*"); await sleep(300); return written(); };
+out.before=await seek(0.2); out.first=await seek(1.5); out.second=await seek(7); out.back=await seek(2);
+out.over=(()=>{ const s=document.getElementById("videoSubs").getBoundingClientRect(), f=frame.getBoundingClientRect(); return s.top>f.top&&s.bottom<f.bottom; })();
+out.button=!btn.hidden&&btn.textContent;
+btn.click(); await sleep(200); out.trOnly=written(); out.label2=btn.textContent;
+btn.click(); await sleep(200); out.none=written();
+out.kept=localStorage.getItem("ihki.subs");
+btn.click(); await sleep(200); out.again=written();
+document.getElementById("videoClose").click(); await sleep(200);
+out.gone=!document.getElementById("videoSubs")&&btn.hidden;
+playVideo({title:"סרטון",embed:"about:blank"},true); await sleep(200);
+out.plain=!document.getElementById("videoSubs")&&btn.hidden;
+"""
+
+
+def test_a_transcript_with_times_is_written_over_its_video(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", SUBTITLES)
+    assert r["before"] == ["", ""] and r["first"] == ["מַרְחַבַּא!", "שלום!"] and r["second"] == ["כִּיף חַאלַכּ?", "מה שלומך?"]
+    assert r["back"] == r["first"] and r["over"]
+    assert r["button"] == "כתוביות: תעתיק ותרגום" and r["trOnly"] == ["מַרְחַבַּא!", ""] and r["label2"] == "כתוביות: תעתיק"
+    assert r["none"] == ["", ""] and r["kept"] == "2" and r["again"] == r["first"]
+    assert r["gone"] and r["plain"]
+
+
+SETTINGS = """
+await until(()=>document.querySelector("#vids .focus-set"),6000);
+const set=document.querySelector("#vids .focus-set"), box=document.getElementById("autoNextOn");
+out.view=view(); out.label=set.textContent; out.order=[...document.querySelector("#vids .focus-more").children].map(c=>c.className);
+set.click(); out.open=document.getElementById("setDlg").open; out.title=document.getElementById("setTitle").textContent;
+out.on=box.checked; box.click(); out.kept=localStorage.getItem("ihki.autoNext");
+"""
+
+
+def test_the_personal_settings_open_from_the_home(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", SETTINGS)
+    assert r["view"] == "home" and r["label"] == "⚙ הגדרות אישיות" and r["order"] == ["focus-path", "focus-set", "focus-help"]
+    assert r["open"] and r["title"] == "הגדרות אישיות"
+    assert r["on"] and r["kept"] == "false"   # moving on by itself is on until the student unticks it
