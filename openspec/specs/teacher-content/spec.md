@@ -26,6 +26,11 @@ Authorized staff SHALL be able to add a story or dialogue from paired Hebrew and
 - **THEN** the text is created
 - **AND** the response identifies the rule-read word for teacher review
 
+#### Scenario: Text is the transcript of a video
+- **WHEN** authorized staff create a text through the MCP with a Vimeo or YouTube link beside its lines
+- **THEN** the text is stored with the normalized link and the learner's story card offers to watch the video
+- **AND** a link that is neither Vimeo nor YouTube is rejected before anything is stored
+
 ### Requirement: Ordered lesson content
 Authorized staff SHALL be able to place and reorder videos and teacher-authored texts among a lesson's built-in topics.
 

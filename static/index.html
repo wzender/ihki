@@ -1329,6 +1329,11 @@ body.manage #manage{width:100%;max-width:none}
 #videoDlg #videoFull{margin-inline-start:auto}
 #videoDlg #videoFull+#videoClose{margin-inline-start:0}
 #videoBox iframe{display:block;width:100%;aspect-ratio:16/9;border:0;border-radius:10px;background:#000}
+/* where the browser gives a frame no full screen (an iPhone): the box over the whole page, the video filling it */
+#videoDlg.full[open]{display:flex;flex-direction:column;inset:0;width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;border:0;border-radius:0;padding:8px 8px max(8px,env(safe-area-inset-bottom))}
+#videoDlg.full .dlg-head{position:static;margin:0 0 6px;padding:0}
+#videoDlg.full #videoBox{flex:1;min-height:0}
+#videoDlg.full #videoBox iframe{height:100%;aspect-ratio:auto;border-radius:0}
 #writeTask{white-space:pre-line;margin:0 0 12px}
 #writeLines{margin:0;padding-inline-start:1.5em;display:grid;gap:8px}
 #writeLines input{width:100%;box-sizing:border-box;font:500 17px/1.5 var(--f-body);padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
@@ -1478,6 +1483,7 @@ body.driving .mic{width:84px;height:84px}
 .voicebox label:last-child{border-bottom:0}
 .voicebox input,.donebox input{width:20px;height:20px;accent-color:var(--olive)}
 #setDlg,#driveDlg,#storyDriveDlg{width:min(92vw,380px)}
+#storyVideo{align-self:flex-start}body.driving #storyVideo{display:none}
 #storyDriveDlg .lacts .btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}#storyDriveDlg .lacts small{display:block;color:inherit;font-size:12px;font-weight:500;opacity:.78}
 .dlg-text{margin:4px 0 14px;font-size:16px}
 .voicebox select{font:600 14px var(--f-body);padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
@@ -1928,6 +1934,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
     <div class="meta"><span id="counter"></span></div>
     <div class="progress" id="progress" hidden><i id="progressBar"></i></div>
     <div class="donehint" id="doneHint" hidden></div>
+    <button class="btn" id="storyVideo" type="button" title="הסרטון שהטקסט הזה הוא התמליל שלו" hidden><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg> צפייה בסרטון</button>
     <div class="story" id="story" hidden></div>
     <h1 class="prompt" id="prompt">טוען…</h1>
     <p class="task" id="task">איך אומרים את זה בערבית מדוברת?</p>
@@ -2144,7 +2151,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
   </form>
 </dialog>
 <dialog id="videoDlg" aria-labelledby="videoTitle">
-  <div class="dlg-head"><h2 id="videoTitle"></h2><button class="btn" id="videoFull" hidden>⛶ מסך מלא</button><button class="btn" id="videoClose">סגירה</button></div>
+  <div class="dlg-head"><h2 id="videoTitle"></h2><button class="btn" id="videoFull">⛶ מסך מלא</button><button class="btn" id="videoClose">סגירה</button></div>
   <div id="videoBox"></div>
 </dialog>
 <dialog id="writeDlg" aria-labelledby="writeTitle">
@@ -4119,11 +4126,20 @@ function playVideo(v,preview){   // preview: the teacher looks at it from the pa
   $("videoTitle").textContent=v.title; $("videoBox").replaceChildren(f); $("videoDlg").showModal();
   if(!preview){ watched[v.id]=1; store.set("ihki.watched",watched); }
 }
-$("videoClose").onclick=()=>$("videoDlg").close();
-// the whole screen for the video. An iPhone cannot do it for a frame (only the player's own button, inside it), so there it stays hidden
-$("videoFull").hidden=!document.fullscreenEnabled;
-$("videoFull").onclick=()=>{ const f=$("videoBox").querySelector("iframe"); f?.requestFullscreen?.().then(()=>screen.orientation?.lock?.("landscape").catch(()=>{})).catch(()=>{}); };
+$("storyVideo").onclick=()=>{ const c=CATS.find(c=>c.id===cat); if(c&&c.video) playVideo({embed:c.video,title:c.name},true); };   // marks nothing: the topic's progress is its lines'
+$("videoClose").onclick=()=>{ videoWide(false); $("videoDlg").close(); };
+// the whole screen for the video. An iPhone cannot do it for a frame (only the player's own button, inside it): there the
+// box itself grows over the whole page, and the same button brings it back
+$("videoFull").hidden=false;
+const videoWide=on=>{ $("videoDlg").classList.toggle("full",on); $("videoFull").textContent=on?"הקטנה":"⛶ מסך מלא"; };
+$("videoFull").onclick=()=>{
+  const f=$("videoBox").querySelector("iframe"); if(!f) return;
+  if($("videoDlg").classList.contains("full")) return videoWide(false);
+  if(document.fullscreenEnabled&&f.requestFullscreen) f.requestFullscreen().then(()=>screen.orientation?.lock?.("landscape").catch(()=>{})).catch(()=>videoWide(true));
+  else videoWide(true);
+};
 $("videoDlg").addEventListener("close",()=>{   // without its frame the video stops playing
+  videoWide(false);
   $("videoBox").replaceChildren(); if(home&&!document.body.classList.contains("manage")) drawPath(true);
   if(pushAfterVideo){ pushAfterVideo=false; askPushSoon("video"); } });
 /* A topic the student writes in (its category has `write`: the task, and how many sentences): the workbook's homework.
@@ -5024,6 +5040,7 @@ function show(p,wait){   // wait: do not record until the microphone button is p
   if(storyFor!==cur.id){ storyFor=cur.id; storyTries=0; }
   const story=isStory()&&topic.includes(cur.id);
   $("card").classList.toggle("storymode",story); $("story").hidden=!story; $("listBtn").hidden=story; $("hearBtn").hidden=$("arOnlyBox").hidden=$("quizBtn").hidden=!story;   // a story is its own list of sentences, and can be heard whole or said whole, as a quiz
+  $("storyVideo").hidden=!(story&&(CATS.find(c=>c.id===cat)||{}).video);   // a text that is a video's transcript: the video is watched from its card
   lastPhone=null; $("phoneBtn").hidden=!FREE||story; $("phoneBtn").disabled=true;
   if(story) drawStory(); else seatMic();
   promptRead=readPrompt();

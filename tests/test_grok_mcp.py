@@ -464,9 +464,9 @@ def test_full_teacher_subject_content_tools_and_options_end_to_end():
             return list(self.library_rows) if table == "library" else [dict(row) for row in self.daily_rows]
         def videos(self, fresh=False): return [dict(row) for row in self.lesson_videos]
         def texts(self, fresh=False): return [dict(row) for row in self.text_rows]
-        def add_text(self, lesson, title, voices, lines, pos, ord):
+        def add_text(self, lesson, title, voices, lines, pos, ord, **more):
             self.text_rows.append({"id": 2, "lesson": lesson, "title": title, "voices": voices,
-                                   "lines": lines, "pos": pos, "ord": ord})
+                                   "lines": lines, "pos": pos, "ord": ord, **more})
         def delete_text(self, item_id): self.text_rows[:] = [row for row in self.text_rows if row["id"] != item_id]
         def add_video(self, lesson, title, url, pos, ord):
             self.lesson_videos.append({"id": 3, "lesson": lesson, "title": title, "url": url,
@@ -487,7 +487,16 @@ def test_full_teacher_subject_content_tools_and_options_end_to_end():
         "lesson": "1", "title": "שיחה", "lines": [["שלום", "מַרְחַבַּא"]], "voices": [], "pos": 1})
     assert prepared["ok"] and auth.text_rows == []
     assert call(server, "publish_teacher_change", {"approval_id": prepared["approval_id"]})["ok"]
-    assert auth.text_rows[0]["title"] == "שיחה"
+    assert auth.text_rows[0]["title"] == "שיחה" and "video" not in auth.text_rows[0]
+    # a video and its transcript are one text
+    scene = call(server, "prepare_teacher_change", {"operation": "create_lesson_text", "lesson": "1", "title": "בשוק",
+        "url": "https://youtu.be/abcdefghijk", "lines": [["שלום", "מַרְחַבַּא"], ["מה שלומך?", "כִּיף חַאלַכּ?"]], "pos": 1})
+    assert scene["ok"] and scene["preview"]["target"]["video"] == "https://www.youtube.com/watch?v=abcdefghijk"
+    assert call(server, "publish_teacher_change", {"approval_id": scene["approval_id"]})["ok"]
+    assert auth.text_rows[1]["video"] == "https://www.youtube.com/watch?v=abcdefghijk"
+    assert call(server, "list_teacher_options")["lesson_texts"][1]["video"] == auth.text_rows[1]["video"]
+    assert call(server, "prepare_teacher_change", {"operation": "create_lesson_text", "lesson": "1", "title": "רע",
+        "url": "https://example.com/x.mp4", "lines": [["שלום", "מַרְחַבַּא"]], "pos": 1})["ok"] is False
     teacher = {"id": "teacher-1", "email": "teacher@example.com", "roles": ["teacher"],
                "subject": "", "permissions": []}
     auth.class_rows = [{"id": 1, "name": "א", "subject": "ערבית", "emails": ["teacher@example.com"],

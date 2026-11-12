@@ -191,7 +191,7 @@ MAX_LINES, MAX_LINE = 200, 300
 # Historical dialogues retain their speaker names even though every line is now played by Raef.
 VOICE_NAMES = ["אמיר", "ראאף", "חנאן"]
 CREATE_TEXTS = ("create table public.texts (id bigint generated always as identity primary key, lesson text not null, "
-                "title text not null, voices text[] not null default '{}', lines jsonb not null, pos int, "
+                "title text not null, voices text[] not null default '{}', lines jsonb not null, video text, pos int, "
                 "ord int not null default 0, created_at timestamptz not null default now()); "
                 "alter table public.texts enable row level security;")
 _BUILT: dict[tuple[int, int], tuple[list[dict], list[str]]] = {}
@@ -2550,7 +2550,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def texts(user: dict | None = Depends(signed_in)):
         """The teacher's texts as the page takes topics and phrases (see `/api/phrases`), for the lessons a video is
         given for (see `videos`). "categories": a topic per text, laid out as a story: id ("t<n>"), name, lesson, story,
-        text (the text's own id), voices (a dialogue's two, by name), and pos and ord as a video has them; a teacher
+        text (the text's own id), voices (a dialogue's two, by name), video (the player of the video the text is the
+        transcript of, when it has one), and pos and ord as a video has them; a teacher
         also gets "guessed", the words that were read by rule. "phrases": the lines, in each text's order."""
         if not user:
             return {"categories": [], "phrases": []}
@@ -2559,6 +2560,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         rows = [r for l in lessons for r in placed(text_rows(), l)]
         return {"categories": [{"id": f"t{r['id']}", "name": r["title"], "lesson": r["lesson"], "story": True, "text": r["id"],
                                 **({"voices": r["voices"]} if r["voices"] else {}), "pos": r["pos"], "ord": r["ord"],
+                                **({"video": video_embed(r["video"])} if r.get("video") else {}),
                                 **({"guessed": built(r)[1]} if user["teacher"] else {})} for r in rows],
                 "phrases": [{"id": i, "cat": p["cat"], "he": p["he"], "tr": p["tr"], "ar": p["variants"][0][0],
                              "ar_pointed": point_arabic(*p["variants"][0]), "seq": p["seq"]}

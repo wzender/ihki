@@ -1001,7 +1001,18 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                               "a section covers its sub-sections; [] shows none) and replace the class's whole list. "
                               "set_class_schedule (and create_class/update_class) take meetings: the class's weekly "
                               "meetings, [{\"day\": \"רביעי\", \"time\": \"20:30\"}] (day: a Hebrew or English day "
-                              "name, or 0=Sunday..6=Saturday); they replace the whole list, [] means no fixed meeting."),
+                              "name, or 0=Sunday..6=Saturday); they replace the whole list, [] means no fixed meeting. "
+                              "A video with its transcript is one create_lesson_text: lesson, title, url (the "
+                              "video's Vimeo or YouTube link) and lines, the transcript: one [Hebrew translation, "
+                              "the Arabic as said, in pointed Hebrew letters as the course writes it] pair per "
+                              "spoken sentence, in the order they are said, word for word, e.g. "
+                              "[[\"שלום\", \"מַרְחַבַּא\"], [\"מה שלומך?\", \"כִּיף חַאלַכּ?\"]] "
+                              "(no Arabic script, no timestamps, no speaker names inside a line; at most 200 "
+                              "lines). voices: [] for a story or a scene of any speakers; for a dialogue of two "
+                              "who alternate strictly, two names from list_teacher_options' voices (the odd "
+                              "lines' speaker, then the even lines'). The preview's rule_read_words are the words "
+                              "the course's dictionary lacks: show them to the teacher. On update_lesson_text a "
+                              "url replaces the text's video; without one it keeps the video it has."),
                  structured_output=True)
     async def prepare_teacher_change(
         operation: Literal[

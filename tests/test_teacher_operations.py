@@ -48,7 +48,7 @@ class Store:
     def add_video(self, lesson, title, url, pos, ord): self.video_rows.append({"id": 11, "lesson": lesson, "title": title, "url": url, "pos": pos, "ord": ord})
     def update_video(self, item_id, row): next(item for item in self.video_rows if item["id"] == item_id).update(row)
     def delete_video(self, item_id): self.video_rows[:] = [row for row in self.video_rows if row["id"] != item_id]
-    def add_text(self, lesson, title, voices, lines, pos, ord): self.text_rows.append({"id": 12, "lesson": lesson, "title": title, "voices": voices, "lines": lines, "pos": pos, "ord": ord})
+    def add_text(self, lesson, title, voices, lines, pos, ord, **more): self.text_rows.append({"id": 12, "lesson": lesson, "title": title, "voices": voices, "lines": lines, "pos": pos, "ord": ord, **more})
     def update_text(self, item_id, row): next(item for item in self.text_rows if item["id"] == item_id).update(row)
     def delete_text(self, item_id): self.text_rows[:] = [row for row in self.text_rows if row["id"] != item_id]
     def place(self, places):
@@ -172,3 +172,42 @@ def test_all_subject_content_variants_prepare_and_apply():
         plan = ops.prepare_content(store, ADMIN, operation, item_id=item_id)
         assert plan["preview"]["accounts_deleted"] is False and plan["preview"]["learning_history_deleted"] is False
         ops.apply_content(store, ADMIN, plan)
+
+
+def test_a_text_takes_the_video_it_is_the_transcript_of():
+    store = Store()
+    link = lambda url: "https://www.youtube.com/watch?v=abcdefghijk" if "youtu" in url else ops.library.normalize_url(url, lambda _: None)
+    plain = ops.prepare_content(store, ADMIN, "create_lesson_text", title="בלי", lesson="1",
+        lines=[["שלום", "מַרְחַבַּא"]], voices=[], pos=1, ord=2, normalize_url=link)
+    assert "video" not in plain["item"] and "video" not in plain["preview"]["target"]
+    create = ops.prepare_content(store, ADMIN, "create_lesson_text", title="בשוק", lesson="1", url="https://youtu.be/abcdefghijk",
+        lines=[["שלום", "מַרְחַבַּא"], ["מה שלומך?", "כִּיף חַאלַכּ?"]], voices=[], pos=1, ord=2, normalize_url=link)
+    assert create["preview"]["target"]["video"] == "https://www.youtube.com/watch?v=abcdefghijk"
+    ops.apply_content(store, ADMIN, create)
+    added = store.text_rows[-1]
+    assert added["video"] == "https://www.youtube.com/watch?v=abcdefghijk" and len(added["lines"]) == 2
+    assert next(row for row in ops.public_content(store, ADMIN)["lesson_texts"] if row["id"] == added["id"])["video"] == added["video"]
+    # an update without a link keeps the video; one with a link replaces it
+    keep = ops.prepare_content(store, ADMIN, "update_lesson_text", item_id=added["id"], title="בשוק 2", normalize_url=link)
+    assert keep["item"]["video"] == added["video"]
+    with pytest.raises(ops.TeacherOperationError) as refused:
+        ops.prepare_content(store, ADMIN, "create_lesson_text", title="רע", lesson="1", url="https://example.com/x.mp4",
+            lines=[["שלום", "מַרְחַבַּא"]], voices=[], pos=1, ord=2, normalize_url=link)
+    assert refused.value.code == "video_url_invalid"
+
+
+def test_a_texts_table_without_the_video_column_names_the_migration():
+    class Old(Store):
+        def add_text(self, *args, **more):
+            if more: raise ops.AuthUnavailable("Supabase answered 400: PGRST204 Could not find the 'video' column of 'texts'")
+            super().add_text(*args)
+    store = Old()
+    plan = ops.prepare_content(store, ADMIN, "create_lesson_text", title="בשוק", lesson="1", url="https://vimeo.com/1",
+        lines=[["שלום", "מַרְחַבַּא"]], voices=[], pos=1, ord=2)
+    with pytest.raises(ops.TeacherOperationError) as refused:
+        ops.apply_content(store, ADMIN, plan)
+    assert ops.MIGRATE_TEXT_VIDEO in str(refused.value)
+    plain = ops.prepare_content(store, ADMIN, "create_lesson_text", title="בלי", lesson="1",
+        lines=[["שלום", "מַרְחַבַּא"]], voices=[], pos=1, ord=2)
+    ops.apply_content(store, ADMIN, plain)   # a plain text still goes in
+    assert store.text_rows[-1]["title"] == "בלי"

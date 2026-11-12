@@ -654,8 +654,9 @@ class SupabaseAuth:
 
     def texts(self, fresh: bool = False) -> list[dict]:
         """Every text the teacher added: id, lesson (a lesson id), title, voices (a dialogue's two voices by name,
-        the odd lines' and the even lines'; empty for a story), lines ([Hebrew, Arabic in Hebrew letters] each), and
-        pos and ord as a video has them (see `videos`).
+        the odd lines' and the even lines'; empty for a story), lines ([Hebrew, Arabic in Hebrew letters] each), video
+        (the link of the video it is the transcript of, when it has one), and pos and ord as a video has them (see
+        `videos`).
         Kept for CLASSES_TTL, as each score asks. Without the secret key, or before the table is created, there are none."""
         now = time.monotonic()
         with self._lock:
@@ -676,14 +677,17 @@ class SupabaseAuth:
             self._texts = (now + CLASSES_TTL, rows)
         return rows
 
-    def add_text(self, lesson: str, title: str, voices: list[str], lines: list[list[str]], pos: int, ord: int) -> None:
+    def add_text(self, lesson: str, title: str, voices: list[str], lines: list[list[str]], pos: int, ord: int,
+                 video: str = "") -> None:
+        """`video`: the link of the video the text is the transcript of. It is sent only when there is one, so a
+        table made before texts had videos still takes a plain text."""
         self._admin("/rest/v1/texts", "POST", {"lesson": lesson, "title": title, "voices": voices, "lines": lines,
-                                               "pos": pos, "ord": ord})
+                                               "pos": pos, "ord": ord, **({"video": video} if video else {})})
         self._texts = None
 
     def update_text(self, id: int, row: dict) -> None:
         """Replace the editable fields of one teacher-authored text."""
-        body = {key: row[key] for key in ("lesson", "title", "voices", "lines", "pos", "ord") if key in row}
+        body = {key: row[key] for key in ("lesson", "title", "voices", "lines", "pos", "ord", "video") if key in row}
         if not self._admin(f"/rest/v1/texts?id=eq.{int(id)}", "PATCH", body):
             raise KeyError(id)
         self._texts = None

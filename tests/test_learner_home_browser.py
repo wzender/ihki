@@ -1024,3 +1024,25 @@ def test_a_student_of_the_second_level_opens_on_it_and_the_first_waits_behind_a_
     assert r["button"] == "שלב א" and r["closed"]
     assert r["before"] == ["של שלב ב"] and r["headings"] == [f"שיעור {n}" for n in range(10, 19)]   # straight into שלב ב
     assert r["after"] == ["של שלב א", "של שלב ב"] and r["kept"]
+
+
+WIDE_VIDEO = """
+await sleep(1500);
+Object.defineProperty(document,"fullscreenEnabled",{get:()=>false});   // as on an iPhone: no full screen for a frame
+playVideo({id:1,title:"סרטון",embed:"about:blank"},true); await sleep(200);
+const dlg=document.getElementById("videoDlg"), btn=document.getElementById("videoFull"), frame=()=>dlg.querySelector("iframe").getBoundingClientRect();
+out.button=!btn.hidden&&btn.checkVisibility(); out.small=frame().height;
+btn.click(); await sleep(200);
+out.wide=[Math.round(dlg.getBoundingClientRect().width),Math.round(dlg.getBoundingClientRect().height)]; out.page=[innerWidth,innerHeight];
+out.tall=frame().height; out.label=btn.textContent;
+btn.click(); await sleep(200); out.back=frame().height;
+btn.click(); await sleep(200); document.getElementById("videoClose").click(); await sleep(200);
+out.cleared=!dlg.open&&!dlg.classList.contains("full");
+"""
+
+
+def test_where_a_frame_has_no_full_screen_the_videos_box_fills_the_page(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", WIDE_VIDEO)
+    assert r["button"] and r["wide"] == r["page"] and r["tall"] > r["small"] * 2 and r["label"] == "הקטנה"
+    assert r["back"] == r["small"] and r["cleared"]

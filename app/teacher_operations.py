@@ -377,6 +377,10 @@ def apply_class(auth: SupabaseAuth, actor: dict[str, Any], plan: dict[str, Any])
             "class_name": after["name"], "result": _public_class(after)}
 
 
+# a text's video (the text is its transcript): the column a table made before it lacks
+MIGRATE_TEXT_VIDEO = "alter table public.texts add column if not exists video text; notify pgrst, 'reload schema';"
+
+
 def _content_rows(auth: SupabaseAuth, kind: str) -> list[dict[str, Any]]:
     try:
         if kind == "daily_video": return list(auth.level_videos("dailies", fresh=True))
@@ -394,7 +398,7 @@ def public_content(auth: SupabaseAuth, actor: dict[str, Any]) -> dict[str, Any]:
         return {field: deepcopy(row.get(field)) for field in fields if field in row}
     return {"daily_videos": [clean(row, ("id", "level", "title", "url")) for row in _content_rows(auth, "daily_video")],
             "lesson_videos": [clean(row, ("id", "lesson", "title", "url", "pos", "ord")) for row in _content_rows(auth, "lesson_video")],
-            "lesson_texts": [clean(row, ("id", "lesson", "title", "voices", "pos", "ord")) for row in _content_rows(auth, "lesson_text")]}
+            "lesson_texts": [clean(row, ("id", "lesson", "title", "voices", "video", "pos", "ord")) for row in _content_rows(auth, "lesson_text")]}
 
 
 def prepare_content(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *, item_id: int | None = None,
@@ -431,6 +435,11 @@ def prepare_content(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *
                 "lines": [[value.strip() for value in pair] for pair in clean_lines],
                 "voices": list(voices if voices is not None else (current or {}).get("voices") or []),
                 "pos": int(pos), "ord": int(ord)}
+        if url:   # the video the text is the transcript of; without one, an updated text keeps the one it has
+            try:
+                item["video"] = normalize_url(url) if normalize_url else str(url)
+            except library.LibraryError as exc:
+                raise TeacherOperationError(str(exc), code="video_url_invalid") from exc
         item["rule_read_words"] = text_phrases("", item["lines"])[1]
     else: item = current
     if operation == "reorder_lesson_content":
@@ -454,7 +463,8 @@ def prepare_content(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *
             raise TeacherOperationError("מיקום התוכן בשיעור אינו תקין", code="lesson_position_invalid")
     destructive = operation.startswith("delete_")
     preview = {"destructive": destructive, "operation": operation, "target": {key: item.get(key) for key in
-               ("id", "title", "lesson", "level", "pos", "ord", "rule_read_words") if item and key in item}}
+               ("id", "title", "lesson", "level", "pos", "ord", "video", "rule_read_words") if item and key in item and
+               (key != "video" or item[key])}}
     if destructive: preview.update(effect="shared_content_removed", accounts_deleted=False, learning_history_deleted=False)
     return {"operation": operation, "kind": kind, "item_id": item_id, "state": state, "item": item,
             "ordered_items": deepcopy(ordered_items or []), "preview": preview}
@@ -485,7 +495,9 @@ def apply_content(auth: SupabaseAuth, actor: dict[str, Any], plan: dict[str, Any
                 if not hasattr(auth, "update_video"): raise TeacherOperationError("עדכון סרטון קיים אינו נתמך באחסון", code="video_update_unsupported", category="upstream")
                 auth.update_video(plan["item_id"], item)
         elif kind == "lesson_text":
-            if operation == "create_lesson_text": auth.add_text(item["lesson"], item["title"], item["voices"], item["lines"], item["pos"], item["ord"])
+            if operation == "create_lesson_text":
+                auth.add_text(item["lesson"], item["title"], item["voices"], item["lines"], item["pos"], item["ord"],
+                              **({"video": item["video"]} if item.get("video") else {}))
             elif operation == "delete_lesson_text": auth.delete_text(plan["item_id"])
             elif operation == "update_lesson_text":
                 if not hasattr(auth, "update_text"): raise TeacherOperationError("עדכון טקסט קיים אינו נתמך באחסון", code="text_update_unsupported", category="upstream")
@@ -494,5 +506,8 @@ def apply_content(auth: SupabaseAuth, actor: dict[str, Any], plan: dict[str, Any
             auth.place([(str(row["kind"]), int(row["id"]), int(row["pos"]), int(row["ord"]))
                         for row in plan.get("ordered_items") or []])
     except (AuthUnavailable, KeyError, AttributeError) as exc:
-        raise TeacherOperationError(f"שמירת התוכן נכשלה: {exc}", code="content_save_failed", category="upstream") from exc
+        hint = (" לטבלה texts חסרה העמודה video, ורק מפתח/ת יכול להוסיף אותה. יש להריץ ב-SQL Editor של Supabase: " + MIGRATE_TEXT_VIDEO
+                if kind == "lesson_text" and item.get("video") and "PGRST204" in str(exc) else "")   # a table made before texts had videos
+        raise TeacherOperationError(f"שמירת התוכן נכשלה: {exc}.{hint}" if hint else f"שמירת התוכן נכשלה: {exc}",
+                                    code="content_save_failed", category="upstream") from exc
     return {"operation": operation, "item_id": plan.get("item_id"), "title": item.get("title"), "published": True}

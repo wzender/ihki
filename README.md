@@ -940,11 +940,18 @@ create table public.texts (
   title      text not null,                        -- the topic's name on the path
   voices     text[] not null default '{}',         -- a dialogue's two voices by name (odd lines, even lines); empty = a story
   lines      jsonb not null,                       -- [[Hebrew, Arabic in Hebrew letters], ...]
+  video      text,                                 -- the link of the video the text is the transcript of, if any
   pos        int,                                  -- as in videos
   ord        int  not null default 0,
   created_at timestamptz not null default now()
 );
 alter table public.texts enable row level security;
+```
+
+A text can be the transcript of a video: the MCP's `create_lesson_text` takes `url` (a Vimeo or YouTube link) beside `lines`, and the text's card then has "צפייה בסרטון" above its lines (`GET /api/texts` gives the topic `video`, the player's address). A table made before texts had videos needs the column once; until then plain texts are still added, and one with a video is refused with this statement:
+
+```sql
+alter table public.texts add column if not exists video text; notify pgrst, 'reload schema';
 ```
 
 ### Homework
