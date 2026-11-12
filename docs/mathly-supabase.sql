@@ -97,7 +97,7 @@ grant execute on function public.activity_summary_scoped(uuid[], timestamptz) to
 -- no browser role gets direct table access.
 create table public.system_events (
   id          bigint generated always as identity primary key,
-  kind        text not null check (kind in ('exercise','game','permission','content')),
+  kind        text not null check (kind in ('exercise','game','permission','content','integration','push','push_open','push_prompt')),
   actor_id    uuid references auth.users(id) on delete set null,
   actor_email text not null default '',
   label       text not null default '',

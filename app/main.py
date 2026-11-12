@@ -281,7 +281,7 @@ CREATE_USER_ACCESS = ("create table public.user_access (user_id uuid primary key
                       "new_access jsonb not null, created_at timestamptz not null default now()); "
                       "alter table public.access_audit enable row level security;")
 CREATE_SYSTEM_EVENTS = ("create table public.system_events (id bigint generated always as identity primary key, "
-                        "kind text not null check (kind in ('exercise','game','permission','content')), "
+                        "kind text not null check (kind in ('exercise','game','permission','content','integration','push','push_open','push_prompt')), "
                         "actor_id uuid references auth.users(id) on delete set null, actor_email text not null default '', "
                         "label text not null default '', details jsonb not null default '{}'::jsonb, "
                         "created_at timestamptz not null default now()); "
