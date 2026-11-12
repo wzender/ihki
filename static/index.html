@@ -181,6 +181,14 @@ body:not(.home):not(.manage) #logoutBtn{display:none}   /* in an exercise the on
 #vids button small{font:600 13px/1.2 var(--f-body);color:var(--muted)}
 #vids button .when{grid-column:2}
 #vids button .seen{grid-row:1;grid-column:3}
+/* a level the student does not study (שלב א, for a student of שלב ב): closed behind a button of its name */
+#vids .liblevel>*+*{margin-top:6px}#vids .liblevel>button{width:100%}
+#vids .liblevel[open]{padding-bottom:10px;border-bottom:1px dashed var(--line);margin-bottom:4px}
+#vids .liblevel>summary{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;border:1px solid var(--olive);background:var(--olive-soft);color:var(--ink);font:700 16px/1.3 var(--f-body);cursor:pointer;list-style:none}
+#vids .liblevel>summary::-webkit-details-marker{display:none}
+#vids .liblevel>summary::before{content:"◂";font-size:13px}
+#vids .liblevel[open]>summary::before{content:"▾"}
+#vids .liblevel>summary:focus-visible{outline:2px solid var(--olive);outline-offset:2px}
 #vids .push-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 6px}
 #vids .push-row button{display:inline-flex;padding:7px 12px;border-radius:999px;font-size:14px}
 #vids .push-row button.on{border-color:var(--olive);color:var(--olive)}
@@ -2623,14 +2631,27 @@ const libOther=()=>{ const d=libDigitalIds(), mine=new Set(LIB_VISIBLE); return 
 const libDigital=()=>{ const d=libDigitalIds(), mine=new Set(LIB_VISIBLE); return libLeaves().filter(x=>d.has(x.id)&&mine.has(x.id)); };
 /* Draws the folders of one of the two: each section the user may watch under its own name alone (שיעור 1, שיעור 2…), an
    empty one too; the videos of a section that has sub-sections (a level's own) come without a heading. Returns how many were drawn. */
+const libOpen=new Set();   // the levels the student opened in the digital library (until the page is loaded again)
 function libFolders(box,row,digital){
   const vids=libVideos(), d=libDigitalIds(), leaves=libLeaves().filter(x=>d.has(x.id)===digital), known=new Set(libLeaves().map(x=>x.id)), mine=new Set(LIB_VISIBLE);
+  // a level the student's classes do not study (שלב א, for a student of שלב ב) stays closed behind a button of its name
+  const study=new Set(FREE?[]:(MY_CLASS?[MY_CLASS]:MY_CLASSES).flatMap(k=>k.levels||[])), other=new Map(), closed=new Map();
+  if(digital&&study.size) for(const top of LIB_SECTIONS.filter(n=>n.id===LIB_DIGITAL)) for(const n of top.children||[]) if(n.level&&!study.has(n.level)) for(const x of libLeaves([n])) other.set(x.id,n);
   let shown=0;
   for(const leaf of leaves){
     const here=vids.filter(v=>v.section===leaf.id); if(!here.length&&(leaf.parent||!mine.has(leaf.id))) continue;
     shown++;
-    if(!leaf.parent) box.append(mark("",leaf.name,"h3"));
-    if(here.length) for(const v of here) row(v,libWatched,"ihki.libWatched",""); else box.append(mark("","עוד אין סרטונים.","p"));
+    const level=other.get(leaf.id); let into=box;
+    if(level){
+      if(!closed.has(level.id)){
+        const fold=mark("liblevel","","details"), name=mark("",level.name,"summary");
+        fold.open=libOpen.has(level.id); fold.ontoggle=()=>fold.open?libOpen.add(level.id):libOpen.delete(level.id);
+        fold.append(name); box.append(fold); closed.set(level.id,fold);
+      }
+      into=closed.get(level.id);
+    }
+    if(!leaf.parent) into.append(mark("",leaf.name,"h3"));
+    if(here.length) for(const v of here) row(v,libWatched,"ihki.libWatched","",false,into); else into.append(mark("","עוד אין סרטונים.","p"));
   }
   const rest=digital?vids.filter(v=>!known.has(v.section)):[]; for(const v of rest) row(v,libWatched,"ihki.libWatched","");
   return shown+rest.length;
@@ -3029,12 +3050,12 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
   $("nav").querySelector('[data-view="home"]').hidden=!focusOn(); syncHomeLabels();
   $("nav").querySelector('[data-view="refer"]').hidden=focusOn()||(TEACHER_ACCOUNT&&!PREVIEW); syncVidsBtn();   // the home has its own card; a teacher has no use for it, except as a student sees it
   box.replaceChildren(); if(!view) return;
-  const row=(v,seen,key,when,now)=>{   // a video: its name, its day, and whether it was opened (on this device)
+  const row=(v,seen,key,when,now,into=box)=>{   // a video: its name, its day, and whether it was opened (on this device)
     const b=mark(now?"now":"","","button"), t=document.createElement("bdi"); t.textContent=v.title;
     b.append(mark("","▶\uFE0E","i"),t); if(seen[v.id]) b.append(mark("seen","✓ צפיתם","small")); if(when) b.append(mark("when",when,"small"));
     if(now) b.append(mark("watch","▶\uFE0E צפייה בסרטון","span"));
     b.onclick=()=>{ seen[v.id]=1; store.set(key,seen); pushAfterVideo=seen===dailyWatched; playVideo(v,true); };   // the box closing draws this again
-    box.append(b);
+    into.append(b);
   };
   if(view==="home"){
     drawHome(box);
@@ -6268,7 +6289,7 @@ function drawBuild(info,model){
 /* The three tiers of "משתמשים והרשאות" (app/access.py TIERS): each opens a fixed set; a student's path and library
    sections come from their classes. The lab is a developer's, given only by a developer. */
 const TIER_INFO={
-  admin:{name:"מנהלים",what:"הכול חוץ מהמעבדה: תרגול, כל המשחקים כולל יאללה נדבר, כל המסלול וכל מדורי הספרייה, דיווחי תקלות, ניהול, וחיבור ה־MCP."},
+  admin:{name:"מנהלים",what:"הכול חוץ מהמעבדה: תרגול, כל המשחקים כולל יאללה נדבר, כל המסלול וכל מדורי המערכת הדיגיטלית, דיווחי תקלות, ניהול, וחיבור ה־MCP."},
   student:{name:"תלמידים",what:"תרגול, משחקים (בלי יאללה נדבר) ודיווחי תקלות; המסלול ומדורי הספרייה הדיגיטלית לפי הכיתה. בלי MCP. מתרגלים הם תלמידים של הכיתות שלהם."},
 };
 /* The "מודלים" tab: the phoneme models this server can score with (app/models.py), what each was measured to do

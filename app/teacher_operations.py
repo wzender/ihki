@@ -343,6 +343,10 @@ def prepare_class(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *, 
             "result": _public_class(after)}}
 
 
+MIGRATE_SECTIONS = ("alter table public.classes add column if not exists library_sections text[], "
+                    "add column if not exists meetings jsonb not null default '[]'; notify pgrst, 'reload schema';")
+
+
 def apply_class(auth: SupabaseAuth, actor: dict[str, Any], plan: dict[str, Any]) -> dict[str, Any]:
     operation = plan["operation"]
     if operation in ADMIN_ONLY_CLASS_OPERATIONS: _ensure_admin(actor)
@@ -366,7 +370,9 @@ def apply_class(auth: SupabaseAuth, actor: dict[str, Any], plan: dict[str, Any])
                         **({"meetings": after["meetings"]}   # a class that never had meetings: a table made before them takes it
                            if after.get("meetings") or (before or {}).get("meetings") else {}))
     except (AuthUnavailable, ClassConflict, KeyError) as exc:
-        raise TeacherOperationError(f"שמירת הכיתה נכשלה: {exc}", code="class_save_failed", category="upstream") from exc
+        hint = (" לטבלה classes חסרה עמודה, ורק מפתח/ת יכול להוסיף אותה. יש להריץ ב-SQL Editor של Supabase: " + MIGRATE_SECTIONS
+                if "PGRST204" in str(exc) else "")   # a table made before the column: no retry will help
+        raise TeacherOperationError(f"שמירת הכיתה נכשלה: {exc}.{hint}", code="class_save_failed", category="upstream") from exc
     return {"operation": operation, "class_id": before.get("id") if before else None,
             "class_name": after["name"], "result": _public_class(after)}
 

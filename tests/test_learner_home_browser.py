@@ -996,3 +996,31 @@ def test_closing_a_daily_video_offers_tomorrows_by_notification(site):
     r = site("dana@x.com", VIDEO_PROMPT)
     assert r["during"] is False and "הסרטון של מחר" in r["title"]
     assert r["closed"] and r["asked"] == [True, None] and r["again"] is False
+
+
+EARLIER_LEVEL = """
+await sleep(1500);
+document.getElementById("libBtn").click(); await sleep(300);
+const fold=()=>document.querySelector("#vids details.liblevel"), seen=()=>[...document.querySelectorAll("#vids button bdi")].filter(b=>b.checkVisibility()).map(b=>b.textContent);
+out.button=fold()&&fold().querySelector("summary").textContent; out.closed=!fold().open;
+out.before=seen();
+out.headings=[...document.querySelectorAll("#vids h3")].filter(h=>h.checkVisibility()).map(h=>h.textContent);
+fold().querySelector("summary").click(); await sleep(300);
+out.after=seen();
+drawNav(); await sleep(100);   // drawn again (as when a video's box closes): it stays open
+out.kept=fold().open;
+"""
+
+
+def test_a_student_of_the_second_level_opens_on_it_and_the_first_waits_behind_a_button(site, monkeypatch):
+    from app import library
+    monkeypatch.setattr(library, "BASE_ROWS", [*library.SEED_ROWS, *library.LESSON_ROWS])
+    site.auth.layout = [dict(CLASSES[4], library_sections=["d2", "d1"])]
+    site.auth.level_videos = lambda table, fresh=False: [] if table != "library" else [
+        {"id": 1, "level": "lesson-2", "title": "של שלב א", "url": "https://vimeo.com/76979871"},
+        {"id": 2, "level": "lesson-2-1", "title": "של שלב ב", "url": "https://vimeo.com/76979872"}]
+    site.auth.rows[("gil@x.com", 11)] = {"current_lesson": "2.1"}
+    r = site("gil@x.com", EARLIER_LEVEL)
+    assert r["button"] == "שלב א" and r["closed"]
+    assert r["before"] == ["של שלב ב"] and r["headings"] == [f"שיעור {n}" for n in range(10, 19)]   # straight into שלב ב
+    assert r["after"] == ["של שלב א", "של שלב ב"] and r["kept"]

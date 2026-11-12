@@ -93,6 +93,8 @@ def test_a_class_sees_the_lesson_sections_of_the_level_it_studies_whatever_it_ch
     assert see(None, ["2.1", "2.2"]) == ["d2", *two]   # a class of שלב ב from before classes had sections: not שלב א
     assert see(["d1"], ["2.1"]) == ["d1", *two]        # it chose שלב א's section: that one's own videos, and its own lessons
     assert see(["digital"], ["2.1"]) == ["digital", "d1", "d2", *two, "d3", "d4", "nitmaran"]
+    back = see(["d1", "d2"], ["2.1"])   # שלב א given beside its own level's section: all of שלב א, to go back to
+    assert back == ["d1", *[f"lesson-{n}" for n in range(1, 11)], "d2", *two]
     both = see(["d1"], ["10", "2.1"])   # a class of two levels: both
     assert "lesson-1" in both and "lesson-2-1" in both
     assert see([], ["2.1"]) == [] and see(["village"], ["2.1"]) == ["village"]   # no level section opened: none added

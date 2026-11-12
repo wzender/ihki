@@ -72,7 +72,7 @@ FEATURES: dict[str, tuple[str, dict[str, bool], tuple[str, ...]]] = {
     "path": ("מסלול", _ALL, ("path.use",)),
     "path.all_lessons": ("כל השיעורים (לא רק של הכיתות)", {"admin": True, "student": False},
                          ("exercises.use_all",)),
-    "library.all_sections": ("כל מדורי הספרייה (לא רק של הכיתות)",
+    "library.all_sections": ("כל מדורי המערכת הדיגיטלית (לא רק של הכיתות)",
                              {"admin": True, "student": False}, ()),
 }
 # a per-account exception (clean_overrides) of the same thing as a tier's feature
@@ -167,12 +167,16 @@ def class_sections(c: dict) -> list[str]:
 def class_library(c: dict) -> list[str]:
     """The sections that hold videos which a class opens to its students: those it chose, except that the sections of
     the lessons (שלב א ‣ שיעור 1, שלב ב ‣ שיעור 10…) follow what the class studies. A class that opens any level's section
-    sees the lessons' sections of the levels its own lessons belong to, and no other level's. A class whose lessons
-    name no level keeps what it chose."""
+    sees the lessons' sections of the levels its own lessons belong to, and of a level whose section it was given by
+    name beside its own (שלב א, for a class of שלב ב to go back to), and no other level's. A class whose lessons name no
+    level keeps what it chose."""
     seen = set(visible_sections({ENTITLEMENT_PREFIX + s for s in class_sections(c)}, False))
     by_level = library.lesson_sections()
     levels = {_LESSON_LEVEL[l] for l in c.get("lessons") or [] if l in _LESSON_LEVEL}
     tree = library.tree()
+    named = {tree.nodes[s]["level"] for s in c.get("library_sections") or [] if isinstance(s, str) and s in tree.nodes}
+    if levels & named:   # its own level's section is among those it was given: the other levels named there are meant
+        levels = levels | (named - {""})
     opened = any(seen & set(tree.covered(node["id"])) for node in tree.walk() if node["level"])
     if levels and opened:
         for level, ids in by_level.items():
