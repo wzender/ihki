@@ -1346,3 +1346,35 @@ def test_a_word_of_the_subtitles_opens_its_card_is_saved_and_leads_to_its_lesson
     assert r["saved"] == ["נשמר במילון שלי ✓", ["פַתַח"], 1] and r["farGo"]
     assert r["list"] == ["פַתַח", "מִין"] and r["listOpen"] and r["afterRemove"] == ["פַתַח"]
     assert r["went"] == [True, False, ""]
+
+
+# a word of a practised sentence's answer that is said in a video: pressing it plays the video from that sentence
+ANSWER_WORD = """
+await sleep(1500);
+for(const c of CATS.filter(c=>!c.story&&!c.learn&&!c.match&&!c.write&&!c.text)){ pickCat(c.id); await sleep(400); if(cur&&!cur.read&&document.getElementById("wordReveals").firstElementChild) break; }
+out.sentence=!!cur&&!cur.read;
+const asked=[]; addEventListener("message",e=>{ try{ const d=JSON.parse(e.data); if(d.event==="echo") asked.push([d.func,d.args]); }catch{} });
+const player="data:text/html,"+encodeURIComponent(`<script>addEventListener("message",e=>{ const d=JSON.parse(e.data), say=m=>parent.postMessage(JSON.stringify(m),"*"); if(d.event==="listening") say({event:"infoDelivery",info:{currentTime:0,playerState:1}}); if(d.func) say({event:"echo",func:d.func,args:d.args}); })<\\/script>`);
+const first=cur.tr.trim().split(/\\s+/)[0];
+LIB_TEXTS=[{id:"t1",title:"סרטון",tall:true,embed:player,subs:[{at:0,tr:"סַמִיר",he:"סמיר"},{at:12.4,tr:first.replace(/[?!.,]/g,""),he:"מילה"}]}]; VIDEO_WORDS=null;
+drawWordReveals();
+const card=document.getElementById("wordReveals").firstElementChild, word=card.querySelector(".vword");
+out.marked=!!word&&word.textContent===first; out.answer=card.firstElementChild.textContent===cur.tr.trim();
+const was=view(); word.click(); await sleep(300);
+out.firstPress=[card.classList.contains("revealed"),open("videoDlg")];   // the first press only shows the answer
+word.click(); await sleep(1200);
+const frame=document.querySelector("#videoBox iframe");
+out.plays=[open("videoDlg"),/autoplay=1&start=12$/.test(frame.src),document.getElementById("videoDlg").classList.contains("tall")];
+out.asked=asked.map(([f,a])=>[f,a.map(x=>typeof x==="number"?Math.round(x*10)/10:x)]); out.line=document.querySelector("#videoSubs>span").textContent;
+document.getElementById("videoClose").click(); await sleep(200);
+out.back=[open("videoDlg"),view()===was,card.isConnected];   // back on the same card
+"""
+
+
+def test_a_word_of_the_answer_plays_its_sentence_in_the_video(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", ANSWER_WORD)
+    assert r["sentence"] and r["marked"] and r["answer"]
+    assert r["firstPress"] == [True, False] and r["plays"] == [True, True, True]
+    assert r["asked"] == [["seekTo", [12.2, True]], ["playVideo", []]] and r["line"]
+    assert r["back"] == [False, True, True]

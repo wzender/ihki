@@ -1404,6 +1404,10 @@ body.manage #manage{width:100%;max-width:none}
 #wordsList strong{font:600 19px/1.4 var(--f-body)}#wordsList small{grid-column:1;color:var(--muted)}
 #wordsList .acts{grid-column:2;grid-row:1/span 3;display:flex;flex-direction:column;gap:6px}
 .wordsbtn{align-self:flex-start}
+/* a word of the answer that is said in one of the videos: pressing it plays the video from that sentence */
+.vword{cursor:pointer;text-decoration:underline dotted;text-decoration-thickness:2px;text-underline-offset:5px;text-decoration-color:var(--olive);-webkit-tap-highlight-color:transparent}
+.vword::after{content:"▶";display:inline-block;margin-inline-start:2px;font:400 .42em/1 var(--f-body);vertical-align:super;color:var(--olive);letter-spacing:0}
+.word-reveal:not(.revealed) .vword::after{content:none}
 /* where the browser gives a frame no full screen (an iPhone): the box over the whole page, the video filling it */
 #videoDlg.full[open]{display:flex;flex-direction:column;inset:0;width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;border:0;border-radius:0;padding:8px 8px max(8px,env(safe-area-inset-bottom))}
 #videoDlg.full .dlg-head{position:static;margin:0 0 6px;padding:0}
@@ -4301,7 +4305,7 @@ async function loadContent(){   // the videos, and the texts: their topics and l
     const [v,t,d,b]=await Promise.all([api("/api/videos"),api("/api/texts"),FREE?api("/api/dailies"):null,api("/api/library")]);
     loadWords();   // the student's dictionary, beside the videos it is filled from
     if(v.ok) VIDEOS=(await v.json()).videos||[];
-    if(b.ok){ const lib=await b.json(); LIBRARY=lib.library||[]; LIB_TEXTS=(lib.transcripts||[]).map(v=>({...v,tall:true})); LIB_SECTIONS=lib.sections||[]; LIB_VISIBLE=lib.visible||[]; }
+    if(b.ok){ const lib=await b.json(); LIBRARY=lib.library||[]; LIB_TEXTS=(lib.transcripts||[]).map(v=>({...v,tall:true})); VIDEO_WORDS=null; LIB_SECTIONS=lib.sections||[]; LIB_VISIBLE=lib.visible||[]; }
     if(d&&d.ok) DAILIES=(await d.json()).dailies||[];
     if(t.ok){
       const d=await t.json(), old=new Set(ALL_CATS.filter(c=>c.text).map(c=>c.id));
@@ -4361,9 +4365,47 @@ function openWords(){
   if(!$("wordsDlg").open) $("wordsDlg").showModal();
 }
 $("wordsClose").onclick=()=>$("wordsDlg").close();
+/* The words said in the videos that have subtitles with times: what a word is found by (its letters, each with its
+   vowels and shadda; no shva, no dagesh, final letters as the others) → where it is first said: the video, and the
+   second its sentence starts at. A word of a practised sentence's answer that is among them is pressed (`vword`), and
+   the video plays from that sentence. */
+const FINAL_LETTERS={"ך":"כ","ם":"מ","ן":"נ","ף":"פ","ץ":"צ"};
+function wordKey(token){
+  const out=[]; let marks=[];
+  const shut=()=>{ if(out.length) out[out.length-1]+=marks.sort().join(""); marks=[]; };
+  for(const ch of token){
+    if(ch>="א"&&ch<="ת"){ shut(); out.push(FINAL_LETTERS[ch]||ch); }
+    else if(!out.length) continue;
+    else if(ch==="\u05b8") marks.push("\u05b7");                       // qamats is said as patah
+    else if(/[\u05b1-\u05bb\u05c1\u05c2\u05c7\u0651]/.test(ch)) marks.push(ch);
+    else if("'\u05f3\u2019\u2018".includes(ch)) marks.push("'");
+  }
+  shut(); return out.join("");
+}
+let VIDEO_WORDS=null;
+function videoWords(){
+  if(VIDEO_WORDS) return VIDEO_WORDS;
+  VIDEO_WORDS=new Map();
+  for(const v of LIB_TEXTS) for(const line of v.subs||[]) for(const token of line.tr.split(/\s+/)){
+    const key=wordKey(token); if(key&&!VIDEO_WORDS.has(key)) VIDEO_WORDS.set(key,{v,at:line.at});
+  }
+  return VIDEO_WORDS;
+}
+function videoOfWord(token){   // where the word is said; one with "and" written on it is also looked for without it
+  const words=videoWords(), key=wordKey(token); if(!key) return null;
+  return words.get(key)||(key.length>2&&key[0]==="ו"&&key[1]>="א"&&key[1]<="ת"&&words.get(key.slice(1)))||null;
+}
+function videoWord(el,token,ready=()=>true){   // makes `el` (the word as it is written on the card) open its video
+  const hit=videoOfWord(token); if(!hit) return;
+  el.classList.add("vword"); el.title=`נאמרת בסרטון „${hit.v.title}”: לחיצה מנגנת את המשפט`;
+  el.addEventListener("click",e=>{
+    if(!ready()||e.target.closest(".why")) return;   // a letter's own explanation keeps its press
+    e.stopPropagation(); playVideo({...hit.v,start:hit.at},true);
+  });
+}
 const SUBS_MODES=["תעתיק ותרגום","תעתיק בלבד","בלי כתוביות"];   // the button goes round them backwards: none, the transliteration, both
 let subsOff=null;
-function videoSubs(f,subs){
+function videoSubs(f,subs,start){
   const box=document.createElement("div"), tr=document.createElement("span"), he=document.createElement("span"), btn=$("videoSubsBtn");
   box.id="videoSubs"; box.dir="rtl"; he.className="he"; box.append(tr,he);
   let mode=+store.get("ihki.subs",0)||0, t=0, got=0, playing=false, shown=null;
@@ -4399,6 +4441,11 @@ function videoSubs(f,subs){
     else if(d.event==="timeupdate"||d.event==="seeked") clock(d.data&&d.data.seconds);
     else if(d.event==="play"||d.event==="pause") playing=d.event==="play";
     else if(d.info){ clearInterval(calling); clock(d.info.currentTime); if(d.info.playerState!=null) playing=d.info.playerState===1; }   // YouTube
+    if(start!=null&&(d.info||d.event==="ready")){   // opened at a sentence: the player's own start is a whole second, this is the moment itself
+      const at=Math.max(0,start-.2); start=null; t=at; got=performance.now();
+      if(vimeo){ say({method:"setCurrentTime",value:at}); say({method:"play"}); }
+      else{ say({event:"command",func:"seekTo",args:[at,true]}); say({event:"command",func:"playVideo",args:[]}); }
+    }
     draw();
   };
   btn.hidden=false; btn.onclick=()=>{ mode=(mode+2)%SUBS_MODES.length; store.set("ihki.subs",mode); label(); }; label();
@@ -4411,8 +4458,10 @@ function playVideo(v,preview){   // preview: the teacher looks at it from the pa
   if(subsOff) subsOff();
   videoWide(false); $("videoDlg").classList.toggle("tall",tall); $("videoClose").textContent=tall?"✕":"סגירה"; $("videoClose").ariaLabel="סגירה";
   // with subtitles YouTube's player is told to answer the page, and gives up its own full screen, which would leave them behind
-  f.src=v.embed+(subs&&/youtube/.test(v.embed)?"&enablejsapi=1&fs=0":""); f.title=v.title; f.allow="autoplay; fullscreen; picture-in-picture"; f.allowFullscreen=true; f.referrerPolicy="strict-origin-when-cross-origin";   // YouTube's player asks who embeds it
-  $("videoTitle").textContent=v.title; $("videoBox").replaceChildren(f,...(subs?[videoSubs(f,subs)]:[])); $("videoDlg").showModal();
+  const from=v.start!=null?Math.floor(v.start):null;   // a video opened at one of its sentences plays at once, from there
+  f.src=v.embed+(subs&&/youtube/.test(v.embed)?"&enablejsapi=1&fs=0":"")
+    +(from==null?"":/vimeo/.test(v.embed)?`&autoplay=1#t=${from}s`:`&autoplay=1&start=${from}`); f.title=v.title; f.allow="autoplay; fullscreen; picture-in-picture"; f.allowFullscreen=true; f.referrerPolicy="strict-origin-when-cross-origin";   // YouTube's player asks who embeds it
+  $("videoTitle").textContent=v.title; $("videoBox").replaceChildren(f,...(subs?[videoSubs(f,subs,v.start)]:[])); $("videoDlg").showModal();
   if(!preview){ watched[v.id]=1; store.set("ihki.watched",watched); }
 }
 $("storyVideo").onclick=()=>{ const c=CATS.find(c=>c.id===cat); if(c&&c.video) playVideo({embed:c.video,title:c.name,subs:PHRASES.filter(p=>p.cat===c.id&&p.at!=null).sort((a,b)=>a.at-b.at)},true); };   // marks nothing: the topic's progress is its lines'
@@ -6082,6 +6131,7 @@ function drawAnalyzedAnswer(r){
     const pair=mark("analysis-word","","span"), expected=mark("expected","","span");
     if(word.letters&&word.letters.length) litWord(expected,word);
     else{ expected.classList.add(band(word.score)); setTr(expected,word.tr); }
+    if(!cur.read) videoWord(expected,word.tr);
     pair.append(expected);
     if(showHeard&&(!word.heard_tr||(word.score??0)<EXCELLENT)){ const heard=mark(`heard-word${word.heard_tr?"":" empty"}`,"","span"); setTr(heard,word.heard_tr||"לא זוהה"); pair.append(heard); }   // only under a word that was off
     main.append(pair);
@@ -6097,7 +6147,12 @@ function drawWordReveals(){
   box.replaceChildren();
   const button=mark("word-reveal","","div"); button.setAttribute("role","button"); button.tabIndex=0;
   button.setAttribute("aria-label",cur.read?"גלו את התרגום לעברית":"גלו את התרגום לערבית");
-  const main=mark("",answer); setTr(main,answer); main.setAttribute("aria-hidden","true"); button.append(main);
+  const main=mark("",""); main.setAttribute("aria-hidden","true"); button.append(main);
+  if(cur.read) setTr(main,answer);
+  else answer.split(/\s+/).forEach((token,k)=>{   // word by word: one that is said in a video opens it, once the answer is shown
+    const word=mark("",""); setTr(word,token); videoWord(word,token,()=>button.classList.contains("revealed"));
+    if(k) main.append(" "); main.append(word);
+  });
   if(!cur.read){ const ar=mark("ar",cur.ar_pointed||cur.ar,"small"); ar.setAttribute("aria-hidden","true"); button.append(ar); }
   button.onclick=()=>revealWord(button); box.append(button);
   button.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); revealWord(button); } };
