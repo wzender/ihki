@@ -73,6 +73,7 @@ from .verb_game import VerbExerciseGenerator
 from .camel_race import race_items as camel_race_items, speech_of as camel_race_speech
 from .grok_mcp import build as build_grok_mcp, oauth_urls
 from .mcp_diagnostics import McpPathNormalizer
+from . import glossary
 from . import library as video_library
 from . import teacher_operations
 from .access import (CREATE_FEATURE_ACCESS, ENTITLEMENTS, FEATURES, TIER_NAMES, effective_features, feature_table, TIERS, AccessChangeError, account_rows, change_tier, clean_overrides, what_opens,
@@ -212,6 +213,9 @@ def text_bank(rows: list[dict]) -> dict[int, dict]:
 # The topics the student writes in (see workbook.py): how many sentences each asks for. What is written is kept in
 # the Supabase table `writings`, a row per student and topic.
 WRITE_TOPICS = {c["id"]: c["write"]["lines"] for c in CATEGORIES if "write" in c}
+# A student's own dictionary (the words saved from the videos' subtitles, see glossary.py) is kept in the same table,
+# in a row whose topic no lesson has: its lines are the ids of the glossary's entries.
+WORDS_TOPIC, MAX_MY_WORDS = "~words", 1000
 CREATE_WRITINGS = ("create table public.writings (user_id uuid not null default auth.uid() references auth.users (id) on delete cascade, "
                    "topic text not null, lines jsonb not null, updated_at timestamptz not null default now(), primary key (user_id, topic)); "
                    "alter table public.writings enable row level security; grant select, insert, update on public.writings to authenticated; "
@@ -1156,6 +1160,36 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 log.warning("the table `writings` is missing. Run in the Supabase SQL editor: %s", CREATE_WRITINGS)
             raise HTTPException(503, f"written homework not kept: {e}")
         return {"ok": True}
+
+    @app.get("/api/words", dependencies=[Depends(require("library.view"))])
+    def my_words(user: dict | None = Depends(signed_in)):
+        """The student's own dictionary: the words they saved from the videos' subtitles, as the glossary has them
+        (id, tr, he, lesson, lesson_name, topic, topic_name), in the order they were saved. They are kept with the
+        written homework (the table `writings`), in a row of their own. 503 when it cannot be read (or without
+        sign-in): the page then shows the copy it keeps on the device."""
+        if not user:
+            raise HTTPException(503, "no sign-in: the saved words stay on the device")
+        try:
+            mine = app.state.auth.writings(user["token"])
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"saved words not available: {e}")
+        return {"words": glossary.saved(mine.get(WORDS_TOPIC, []))}
+
+    @app.put("/api/words", dependencies=[Depends(require("library.view"))])
+    def save_my_words(body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        """Keeps the student's dictionary: {"words": the ids of the glossary's entries, in the order they were
+        saved}, in place of what was kept before. An id the glossary does not have is dropped."""
+        ids = body.get("words")
+        if not isinstance(ids, list) or len(ids) > MAX_MY_WORDS or not all(isinstance(x, str) for x in ids):
+            raise HTTPException(400, f"up to {MAX_MY_WORDS} words")
+        if not user:
+            raise HTTPException(503, "no sign-in: the saved words stay on the device")
+        kept = [e["id"] for e in glossary.saved(ids)]
+        try:
+            app.state.auth.save_writing(user["token"], user["id"], WORDS_TOPIC, kept)
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"saved words not kept: {e}")
+        return {"ok": True, "words": glossary.saved(kept)}
 
     @app.get("/api/class")
     def class_progress(a: SupabaseAuth = Depends(teacher_only), actor: dict | None = Depends(signed_in)):
@@ -2938,7 +2972,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         """The video library, which stands outside the path and is split into sections (library.SECTIONS): of the
         sections the user may watch, id, section, title, url (for a teacher only) and embed (its player) of each video,
         in the teacher's order (see `order_library`); "transcripts", the texts that are a video's transcript, as
-        videos of their lesson's section (id "t<text id>", and `subs`: at, tr, he of each line, when it has times);
+        videos of their lesson's section (id "t<text id>", and `subs`: at, tr, he of each line, when it has times, and
+        `words`, the line's words the course teaches on their own: see `glossary.annotate`);
         and the section tree, with the leaf sections the user sees."""
         video_library.refresh(app.state.auth)
         sections = video_library.public_sections()
@@ -2964,7 +2999,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             lines = built(r)[0]
             transcripts.append({"id": f"t{r['id']}", "section": section, "title": r["title"],
                                 **({"url": r["video"]} if user["teacher"] else {}), "embed": video_embed(r["video"]),
-                                **({"subs": [{"at": p["at"], "tr": p["tr"], "he": p["he"]} for p in lines]}
+                                **({"subs": [{"at": p["at"], "tr": p["tr"], "he": p["he"],
+                                              **({"words": w} if (w := glossary.annotate(p["tr"])) else {})} for p in lines]}
                                    if lines and all("at" in p for p in lines) else {})})
         return {"library": [{"id": v["id"], "section": video_library.section_of(v), "title": v["title"],
                              **({"url": v["url"]} if user["teacher"] else {}), "embed": video_embed(v["url"])}

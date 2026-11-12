@@ -1304,3 +1304,45 @@ def test_the_personal_settings_open_from_the_home(site):
     assert r["view"] == "home" and r["label"] == "⚙ הגדרות אישיות" and r["order"] == ["focus-path", "focus-set", "focus-help"]
     assert r["open"] and r["title"] == "הגדרות אישיות"
     assert r["on"] and r["kept"] == "false"   # moving on by itself is on until the student unticks it
+
+
+# a word of the subtitles that the course teaches: its card, the student's dictionary, and the way to its topic
+SUBTITLE_WORDS = """
+await sleep(1500);
+const topic=CATS[0], word={i:1,n:1,id:"פַתַח",tr:"פַתַח",he:"פתח",lesson:topic.lesson,lesson_name:"שיעור",topic:topic.id,topic_name:topic.name};
+const far={i:0,n:1,id:"מִין",tr:"מִין",he:"מי",lesson:"99",lesson_name:"שיעור רחוק",topic:"l99-new",topic_name:"מילים"};
+const asked=[]; addEventListener("message",e=>{ try{ const d=JSON.parse(e.data); if(d.event==="echo") asked.push(d.func); }catch{} });
+const player="data:text/html,"+encodeURIComponent(`<script>addEventListener("message",e=>{ const d=JSON.parse(e.data), say=m=>parent.postMessage(JSON.stringify(m),"*"); if(d.event==="listening") say({event:"infoDelivery",info:{currentTime:1,playerState:2}}); if(d.func) say({event:"echo",func:d.func}); })<\\/script>`);
+playVideo({title:"סרטון",embed:player,subs:[{at:0,tr:"מִין פַתַח אֵלְבַּאבּ?",he:"מי פתח את הדלת?",words:[far,word]}]},true);
+await sleep(900);
+const line=document.querySelector("#videoSubs>span"), words=[...line.querySelectorAll(".w")];
+out.line=line.textContent; out.words=words.map(b=>b.textContent);
+words[1].click(); await sleep(300);
+const card=()=>document.getElementById("wordCard"), buttons=()=>[...card().querySelectorAll("button")];
+out.card=[card().querySelector("strong").textContent,card().querySelector(".he").textContent,card().querySelector("small").textContent];
+out.waits=asked.slice(); out.go=!buttons()[1].hidden;
+buttons()[0].click(); await sleep(200);
+out.saved=[buttons()[0].textContent,MY_WORDS.map(w=>w.id),JSON.parse(localStorage.getItem("ihki.words")).length];
+buttons()[2].click(); await sleep(300); out.closed=!card(); out.goesOn=asked.slice(-1)[0];
+words[0].click(); await sleep(300); out.farGo=buttons()[1].hidden;   // a lesson the student's path does not have
+buttons()[0].click(); await sleep(100); buttons()[2].click(); await sleep(100);
+document.getElementById("videoClose").click(); await sleep(200);
+openWords(); await sleep(200);
+const rows=()=>[...document.querySelectorAll("#wordsList li")];
+out.list=rows().map(li=>li.querySelector("strong").textContent); out.listOpen=open("wordsDlg");
+rows()[1].querySelectorAll("button")[1].click(); await sleep(200);   // the far word is taken out
+out.afterRemove=rows().map(li=>li.querySelector("strong").textContent);
+rows()[0].querySelectorAll("button")[0].click(); await sleep(600);   // to the lesson
+out.went=[cat===topic.id,open("wordsDlg"),view()];
+"""
+
+
+def test_a_word_of_the_subtitles_opens_its_card_is_saved_and_leads_to_its_lesson(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", SUBTITLE_WORDS)
+    assert r["line"] == "מִין פַתַח אֵלְבַּאבּ?" and r["words"] == ["מִין", "פַתַח"]
+    assert r["card"][:2] == ["פַתַח", "פתח"] and r["card"][2].startswith("נלמדת ב: שיעור") and r["go"]
+    assert r["waits"] == ["pauseVideo"] and r["closed"] and r["goesOn"] == "playVideo"
+    assert r["saved"] == ["נשמר במילון שלי ✓", ["פַתַח"], 1] and r["farGo"]
+    assert r["list"] == ["פַתַח", "מִין"] and r["listOpen"] and r["afterRemove"] == ["פַתַח"]
+    assert r["went"] == [True, False, ""]

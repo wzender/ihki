@@ -1391,6 +1391,19 @@ body.manage #manage{width:100%;max-width:none}
 #videoDlg.tall #videoBox{flex:1;min-height:0;align-self:center;width:min(100%,calc((100dvh - 56px)*9/16))}
 #videoDlg.tall #videoBox iframe{height:100%;aspect-ratio:auto;border-radius:0}
 #videoDlg.tall #videoSubs{bottom:20%}
+/* a word of the subtitles that the course teaches on its own is pressed: its card comes up over the video (its meaning,
+   where it is taught, saving it to the student's own dictionary), and the video waits */
+#videoSubs .w{pointer-events:auto;font:inherit;color:inherit;background:none;border:0;border-bottom:2px dotted rgba(255,255,255,.75);border-radius:0;padding:0;margin:0;cursor:pointer}
+#videoSubs .w:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#wordCard{position:absolute;inset-inline:0;top:50%;transform:translateY(-50%);margin:0 auto;width:min(88%,340px);display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 8px 30px rgba(0,0,0,.5);text-align:center}
+#wordCard strong{font:600 26px/1.4 var(--f-body)}#wordCard .he{font-size:19px}#wordCard small{color:var(--muted);font-size:14px}
+#wordCard .acts{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:4px}
+#wordsDlg{width:min(94vw,520px)}
+#wordsList{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+#wordsList li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px}
+#wordsList strong{font:600 19px/1.4 var(--f-body)}#wordsList small{grid-column:1;color:var(--muted)}
+#wordsList .acts{grid-column:2;grid-row:1/span 3;display:flex;flex-direction:column;gap:6px}
+.wordsbtn{align-self:flex-start}
 /* where the browser gives a frame no full screen (an iPhone): the box over the whole page, the video filling it */
 #videoDlg.full[open]{display:flex;flex-direction:column;inset:0;width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;border:0;border-radius:0;padding:8px 8px max(8px,env(safe-area-inset-bottom))}
 #videoDlg.full .dlg-head{position:static;margin:0 0 6px;padding:0}
@@ -2216,6 +2229,11 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
 <dialog id="videoDlg" aria-labelledby="videoTitle">
   <div class="dlg-head"><h2 id="videoTitle"></h2><button class="btn" id="videoSubsBtn" type="button" title="מה נכתב על הסרטון: תעתיק ותרגום, תעתיק בלבד, או כלום" hidden></button><button class="btn" id="videoFull">⛶ מסך מלא</button><button class="btn" id="videoClose">סגירה</button></div>
   <div id="videoBox"></div>
+</dialog>
+<dialog id="wordsDlg" aria-labelledby="wordsTitle">
+  <div class="dlg-head"><h2 id="wordsTitle">המילון שלי</h2><button class="btn" id="wordsClose">סגירה</button></div>
+  <p class="dlg-text" id="wordsNone" hidden>עוד לא שמרתם מילים. בסרטון עם כתוביות לוחצים על מילה מסומנת בקו, ואז על „שמירה למילון שלי”.</p>
+  <ul id="wordsList"></ul>
 </dialog>
 <dialog id="writeDlg" aria-labelledby="writeTitle">
   <div class="dlg-head"><h2 id="writeTitle"></h2><button class="btn" id="writeClose">סגירה</button></div>
@@ -3308,6 +3326,9 @@ function drawNav(){   // the tabs, and the screen of videos when one is on show
     const back=mark("back","","button");
     back.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-back"/></svg> '+(focusOn()?"חזרה לדף הבית":"חזרה למסלול"); back.onclick=backHome;
     box.append(back);
+    if(LIB_OK&&(LIB_TEXTS.some(v=>v.subs)||MY_WORDS.length)){   // the student's dictionary, where there are subtitles to fill it from
+      const mine=mark("btn wordsbtn",`📖 המילון שלי${MY_WORDS.length?` (${MY_WORDS.length})`:""}`,"button"); mine.type="button"; mine.onclick=openWords; box.append(mine);
+    }
     if(LIB_OK&&!libFolders(box,row,true)) box.append(mark("","עוד אין סרטונים בספריה.","p"));
     if(!LIB_OK) box.append(mark("","עוד אין סרטונים.","p"));
   }
@@ -4278,6 +4299,7 @@ async function loadContent(){   // the videos, and the texts: their topics and l
   try{
     await ready;
     const [v,t,d,b]=await Promise.all([api("/api/videos"),api("/api/texts"),FREE?api("/api/dailies"):null,api("/api/library")]);
+    loadWords();   // the student's dictionary, beside the videos it is filled from
     if(v.ok) VIDEOS=(await v.json()).videos||[];
     if(b.ok){ const lib=await b.json(); LIBRARY=lib.library||[]; LIB_TEXTS=(lib.transcripts||[]).map(v=>({...v,tall:true})); LIB_SECTIONS=lib.sections||[]; LIB_VISIBLE=lib.visible||[]; }
     if(d&&d.ok) DAILIES=(await d.json()).dailies||[];
@@ -4293,6 +4315,52 @@ async function loadContent(){   // the videos, and the texts: their topics and l
    Hebrew letters and beneath in Hebrew. The player is another site's frame, so its clock is asked for in messages:
    YouTube's answers a "listening" call about four times a second, Vimeo's sends "timeupdate" once it is asked to.
    Between two answers the clock runs on by the page's own. The CC button chooses what is written; it is remembered. */
+/* The student's own dictionary: the glossary's entries ({id, tr, he, lesson, lesson_name, topic, topic_name}) they saved
+   from the subtitles, in the order they were saved. The server keeps it (/api/words); the device keeps a copy, which is
+   what is shown until the server answers, and what is sent to it when it had less. */
+let MY_WORDS=store.get("ihki.words",[]);
+const wordSaved=id=>MY_WORDS.some(w=>w.id===id);
+async function keepWords(){
+  store.set("ihki.words",MY_WORDS);
+  try{ await api("/api/words",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({words:MY_WORDS.map(w=>w.id)})}); }catch{}
+}
+async function loadWords(){
+  try{
+    const r=await api("/api/words"); if(!r.ok) return;
+    const theirs=(await r.json()).words||[], extra=MY_WORDS.filter(w=>!theirs.some(t=>t.id===w.id));
+    MY_WORDS=[...theirs,...extra]; store.set("ihki.words",MY_WORDS); if(extra.length) keepWords();
+  }catch{}
+}
+const plainWord=w=>({id:w.id,tr:w.tr,he:w.he,lesson:w.lesson,lesson_name:w.lesson_name,topic:w.topic,topic_name:w.topic_name});
+function toggleWord(w){ MY_WORDS=wordSaved(w.id)?MY_WORDS.filter(x=>x.id!==w.id):[...MY_WORDS,plainWord(w)]; keepWords(); }
+const wordWhere=w=>[w.lesson_name,w.topic_name].filter(Boolean).join(" · ");
+function goWordTopic(w){   // to the topic the word is taught in, when the student's path has it
+  if(!CATS.some(c=>c.id===w.topic)) return false;
+  if($("videoDlg").open) $("videoClose").click();
+  if($("wordsDlg").open) $("wordsDlg").close();
+  showView(""); pickCat(w.topic); return true;
+}
+function wordCard(w,done){
+  const box=document.createElement("div"), tr=document.createElement("strong"), acts=mark("acts"), keep=mark("btn primary","","button"), go=mark("btn","","button"), shut=mark("btn","המשך","button");
+  box.id="wordCard"; box.dir="rtl"; setTr(tr,w.tr); for(const b of [keep,go,shut]) b.type="button";
+  const label=()=>{ keep.textContent=wordSaved(w.id)?"נשמר במילון שלי ✓":"שמירה למילון שלי"; keep.setAttribute("aria-pressed",wordSaved(w.id)); };
+  keep.onclick=()=>{ toggleWord(w); label(); }; label();
+  go.textContent="לשיעור"; go.hidden=!CATS.some(c=>c.id===w.topic); go.onclick=()=>goWordTopic(w);
+  shut.onclick=()=>{ box.remove(); done&&done(); };
+  acts.append(keep,go,shut); box.append(tr,mark("he",w.he),mark("","נלמדת ב: "+wordWhere(w),"small"),acts);
+  return box;
+}
+function openWords(){
+  const list=$("wordsList"); list.replaceChildren(); $("wordsNone").hidden=!!MY_WORDS.length;
+  for(const w of MY_WORDS){
+    const li=document.createElement("li"), tr=document.createElement("strong"), acts=mark("acts"), go=mark("btn","לשיעור","button"), del=mark("btn","הסרה","button");
+    setTr(tr,w.tr); go.type=del.type="button"; go.hidden=!CATS.some(c=>c.id===w.topic); go.onclick=()=>goWordTopic(w);
+    del.setAttribute("aria-label",`הסרה מהמילון, ${w.tr}`); del.onclick=()=>{ toggleWord(w); openWords(); };
+    acts.append(go,del); li.append(tr,acts,mark("",w.he),mark("",wordWhere(w),"small")); list.append(li);
+  }
+  if(!$("wordsDlg").open) $("wordsDlg").showModal();
+}
+$("wordsClose").onclick=()=>$("wordsDlg").close();
 const SUBS_MODES=["תעתיק ותרגום","תעתיק בלבד","בלי כתוביות"];   // the button goes round them backwards: none, the transliteration, both
 let subsOff=null;
 function videoSubs(f,subs){
@@ -4304,7 +4372,22 @@ function videoSubs(f,subs){
   const draw=()=>{
     const now=t+(playing?Math.min(.4,(performance.now()-got)/1000):0);
     let line=undefined; for(const s of subs){ if(s.at>now+.05) break; line=s; }
-    if(line!==shown){ shown=line; tr.textContent=he.textContent=""; if(line&&mode<2){ setTr(tr,line.tr); if(!mode) he.textContent=line.he; } }
+    if(line!==shown){ shown=line; tr.textContent=he.textContent=""; if(line&&mode<2){ write(line); if(!mode) he.textContent=line.he; } }
+  };
+  // the line's words, those of the glossary (`words`: i, n and the entry) as buttons
+  const write=line=>{
+    const toks=line.tr.split(/\s+/).filter(Boolean), words=line.words||[];
+    for(let i=0;i<toks.length;){
+      const w=words.find(w=>w.i===i), n=w?w.n:1, part=document.createElement(w?"button":"span");
+      setTr(part,toks.slice(i,i+n).join(" "));
+      if(w){ part.type="button"; part.className="w"; part.title=w.he; part.onclick=()=>card(w); }
+      if(i) tr.append(" "); tr.append(part); i+=n;
+    }
+  };
+  const vimeo=/vimeo/.test(f.src), hold=on=>say(vimeo?{method:on?"pause":"play"}:{event:"command",func:on?"pauseVideo":"playVideo",args:[]});
+  const card=w=>{   // the video waits while a word's card is up, and goes on when it is closed
+    hold(true); box.parentNode.querySelector("#wordCard")?.remove();
+    box.parentNode.append(wordCard(w,()=>hold(false)));
   };
   const label=()=>{ btn.textContent="CC"; btn.dataset.mode=mode; btn.title=btn.ariaLabel="כתוביות: "+SUBS_MODES[mode]; shown=null; draw(); };
   const hear=e=>{
@@ -4320,7 +4403,7 @@ function videoSubs(f,subs){
   };
   btn.hidden=false; btn.onclick=()=>{ mode=(mode+2)%SUBS_MODES.length; store.set("ihki.subs",mode); label(); }; label();
   f.addEventListener("load",hello); addEventListener("message",hear); const ticking=setInterval(draw,100);   // not by animation frames: a page in the background has none
-  subsOff=()=>{ clearInterval(calling); clearInterval(ticking); removeEventListener("message",hear); btn.hidden=true; subsOff=null; };
+  subsOff=()=>{ clearInterval(calling); clearInterval(ticking); removeEventListener("message",hear); btn.hidden=true; subsOff=null; $("wordCard")?.remove(); };
   return box;
 }
 function playVideo(v,preview){   // preview: the teacher looks at it from the panel, which marks nothing
