@@ -2701,7 +2701,7 @@ function endDaily(){   // past the session's last sentence: back to the path, an
    Today's stands at the top. A teacher, who is in no class, sees every class's.
    The library: videos that are not on the path, the same ones for every level and class. */
 const dailyVideos=()=>{ const d=today(), seen=new Set(); return (FREE?TEACHER_DAILIES:(MY_CLASS?[MY_CLASS]:MY_CLASSES).flatMap(k=>k.dailies||[])).filter(v=>v.date<=d&&!seen.has(v.id)&&seen.add(v.id)).sort((a,b)=>b.date.localeCompare(a.date)); };
-const libVideos=()=>LIBRARY;
+const libVideos=()=>[...LIBRARY,...LIB_TEXTS];   // a section's own videos, then the videos that came with a transcript
 let LIB_OK=false;   // the account may open the digital library (library.view)
 /* The library is shown in two places: מערכת דיגיטלית (the levels and their lessons) under the digital library button, and
    the other folders (בוגרים מספרים, טיולים בכפר…) under the videos button. */
@@ -4243,6 +4243,7 @@ const STEP=108, SWAY=[0,.7,1,.7,0,-.7,-1,-.7];   // the road: the way down from 
 let drawnW=0, nowWatch=null;
 /* A lesson's videos (the teacher adds them in the panel's content part) stand on the path among its topics, where the
    teacher put them. A video opens in a box over the page; the ones already opened are marked, on this device only. */
+let LIB_TEXTS=[];   // the texts that are a video's transcript, as videos of their lesson's section: {id: "t<n>", section, title, embed, subs?}
 let LIBRARY=[], libWatched=store.get("ihki.libWatched",{});   // the video library, in sections: {id, section, title, embed} (with url, for a teacher); {library video id: 1}
 let LIB_VISIBLE=[];   // the ids of the sections this user may watch
 let LIB_SECTIONS=[];   // the library's sections (app/library.py SECTIONS): [{id, name, children?}], in their order
@@ -4266,7 +4267,7 @@ async function loadContent(){   // the videos, and the texts: their topics and l
     await ready;
     const [v,t,d,b]=await Promise.all([api("/api/videos"),api("/api/texts"),FREE?api("/api/dailies"):null,api("/api/library")]);
     if(v.ok) VIDEOS=(await v.json()).videos||[];
-    if(b.ok){ const lib=await b.json(); LIBRARY=lib.library||[]; LIB_SECTIONS=lib.sections||[]; LIB_VISIBLE=lib.visible||[]; }
+    if(b.ok){ const lib=await b.json(); LIBRARY=lib.library||[]; LIB_TEXTS=lib.transcripts||[]; LIB_SECTIONS=lib.sections||[]; LIB_VISIBLE=lib.visible||[]; }
     if(d&&d.ok) DAILIES=(await d.json()).dailies||[];
     if(t.ok){
       const d=await t.json(), old=new Set(ALL_CATS.filter(c=>c.text).map(c=>c.id));

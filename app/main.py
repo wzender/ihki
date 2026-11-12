@@ -756,12 +756,14 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return visible_classes(a, actor, fresh=fresh)
 
     def text_rows() -> list[dict]:
-        """The teacher's texts in the lessons the path shows. None without sign-in, or when they cannot be read."""
+        """The teacher's texts in the lessons the path shows. None without sign-in, or when they cannot be read.
+        A text that is a video's transcript is not among them: it stands in the library, in its lesson's section
+        (see `library`), and is watched there, not practised on the path."""
         a: SupabaseAuth | None = app.state.auth
         if a is None:
             return []
         try:
-            return [r for r in a.texts() if r["lesson"] in READY_LESSONS]
+            return [r for r in a.texts() if r["lesson"] in READY_LESSONS and not r.get("video")]
         except AuthUnavailable as e:
             log.warning("texts not read: %s", e)
             return []
@@ -2935,7 +2937,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def library(user: dict | None = Depends(signed_in)):
         """The video library, which stands outside the path and is split into sections (library.SECTIONS): of the
         sections the user may watch, id, section, title, url (for a teacher only) and embed (its player) of each video,
-        in the teacher's order (see `order_library`); and the section tree, with the leaf sections the user sees."""
+        in the teacher's order (see `order_library`); "transcripts", the texts that are a video's transcript, as
+        videos of their lesson's section (id "t<text id>", and `subs`: at, tr, he of each line, when it has times);
+        and the section tree, with the leaf sections the user sees."""
         video_library.refresh(app.state.auth)
         sections = video_library.public_sections()
         if not user:
@@ -2945,10 +2949,27 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             rows = app.state.auth.level_videos("library")
         except AuthUnavailable as e:
             raise HTTPException(503, f"library not available: {e}")
+        # a text that is a video's transcript stands in its lesson's section (שלב א ‣ שיעור 2), after the section's own
+        # videos: `subs` are its lines with the second each starts at, written over the video as it plays
+        transcripts = []
+        try:
+            texts = [r for r in app.state.auth.texts() if r.get("video")]
+        except AuthUnavailable as e:
+            log.warning("texts not read: %s", e)
+            texts = []
+        for r in texts:
+            section = "lesson-" + str(r["lesson"]).replace(".", "-")
+            if section not in visible:
+                continue
+            lines = built(r)[0]
+            transcripts.append({"id": f"t{r['id']}", "section": section, "title": r["title"],
+                                **({"url": r["video"]} if user["teacher"] else {}), "embed": video_embed(r["video"]),
+                                **({"subs": [{"at": p["at"], "tr": p["tr"], "he": p["he"]} for p in lines]}
+                                   if lines and all("at" in p for p in lines) else {})})
         return {"library": [{"id": v["id"], "section": video_library.section_of(v), "title": v["title"],
                              **({"url": v["url"]} if user["teacher"] else {}), "embed": video_embed(v["url"])}
                             for v in rows if video_library.section_of(v) in visible],
-                "sections": sections, "visible": visible}
+                "transcripts": transcripts, "sections": sections, "visible": visible}
 
     def add_level_video(table: str, body: dict, a: SupabaseAuth, user: dict | None) -> dict:
         # a daily video is a level's; the library is one for every level (its `level` is empty)

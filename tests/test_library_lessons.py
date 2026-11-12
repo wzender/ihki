@@ -99,3 +99,32 @@ def test_a_class_sees_the_lesson_sections_of_the_level_it_studies_whatever_it_ch
     assert "lesson-1" in both and "lesson-2-1" in both
     assert see([], ["2.1"]) == [] and see(["village"], ["2.1"]) == ["village"]   # no level section opened: none added
     assert "lesson-1" in see(["d1"], []) and "lesson-2-1" not in see(["d1"], [])   # no lessons named: what it chose
+
+
+def test_a_video_with_its_transcript_stands_in_its_lessons_section_and_not_on_the_path(monkeypatch):
+    from tests.test_library_sections import STUDENT, TEACHER, SectionAuth, run
+
+    class TextAuth(SectionAuth):
+        def texts(self, fresh=False):
+            return [{"id": 2, "lesson": "2", "title": "היכרות", "voices": [], "pos": 11, "ord": 0,
+                     "video": "https://www.youtube.com/watch?v=abcdefghijk",
+                     "lines": [["שלום!", "מַרְחַבַּא!", 0.1], ["מה שלומך?", "כִּיף חַאלַכּ?", 3.1]]},
+                    {"id": 3, "lesson": "2", "title": "בלי זמנים", "voices": [], "pos": 11, "ord": 1,
+                     "video": "https://vimeo.com/123", "lines": [["שלום!", "מַרְחַבַּא!"]]},
+                    {"id": 4, "lesson": "2", "title": "סיפור", "voices": [], "pos": 11, "ord": 2,
+                     "lines": [["שלום!", "מַרְחַבַּא!"]]}]
+
+    async def steps(client):
+        return {"student": (await client.get("/api/library", headers=STUDENT)).json(),
+                "teacher": (await client.get("/api/library", headers=TEACHER)).json(),
+                "path": (await client.get("/api/texts", headers=TEACHER)).json()}
+
+    out = run(TextAuth(["d1"]), steps, monkeypatch)
+    first, second = out["student"]["transcripts"]
+    assert first == {"id": "t2", "section": "lesson-2", "title": "היכרות",
+                     "embed": "https://www.youtube-nocookie.com/embed/abcdefghijk?rel=0",
+                     "subs": [{"at": 0.1, "tr": "מַרְחַבַּא!", "he": "שלום!"}, {"at": 3.1, "tr": "כִּיף חַאלַכּ?", "he": "מה שלומך?"}]}
+    assert second["id"] == "t3" and "subs" not in second and "url" not in second
+    assert out["teacher"]["transcripts"][0]["url"] == "https://www.youtube.com/watch?v=abcdefghijk"
+    assert [c["id"] for c in out["path"]["categories"]] == ["t4"]   # only the text without a video is practised on the path
+    assert run(TextAuth(["village"]), steps, monkeypatch)["student"]["transcripts"] == []   # a class without the level
