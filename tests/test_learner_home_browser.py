@@ -1261,15 +1261,19 @@ const written=()=>[...document.querySelectorAll("#videoSubs>span")].map(s=>s.tex
 const seek=async t=>{ frame.contentWindow.postMessage(JSON.stringify({event:"command",func:"seekTo",args:[t]}),"*"); await sleep(300); return written(); };
 out.before=await seek(0.2); out.first=await seek(1.5); out.second=await seek(7); out.back=await seek(2);
 out.over=(()=>{ const s=document.getElementById("videoSubs").getBoundingClientRect(), f=frame.getBoundingClientRect(); return s.top>f.top&&s.bottom<f.bottom; })();
-out.button=!btn.hidden&&btn.textContent;
-btn.click(); await sleep(200); out.trOnly=written(); out.label2=btn.textContent;
-btn.click(); await sleep(200); out.none=written();
+out.button=!btn.hidden&&btn.textContent; out.state=btn.ariaLabel;
+const dlg=document.getElementById("videoDlg"), shownIn=id=>document.getElementById(id).checkVisibility();
+out.whole=[Math.round(dlg.getBoundingClientRect().width),Math.round(dlg.getBoundingClientRect().height)]; out.page=[innerWidth,innerHeight];
+out.bar=[shownIn("videoTitle"),shownIn("videoFull"),shownIn("videoClose"),document.getElementById("videoClose").textContent];
+out.upright=frame.getBoundingClientRect().height>frame.getBoundingClientRect().width*1.5;
+btn.click(); await sleep(200); out.none=written(); out.state2=btn.ariaLabel;
 out.kept=localStorage.getItem("ihki.subs");
+btn.click(); await sleep(200); out.trOnly=written();
 btn.click(); await sleep(200); out.again=written();
 document.getElementById("videoClose").click(); await sleep(200);
 out.gone=!document.getElementById("videoSubs")&&btn.hidden;
 playVideo({title:"סרטון",embed:"about:blank"},true); await sleep(200);
-out.plain=!document.getElementById("videoSubs")&&btn.hidden;
+out.plain=!document.getElementById("videoSubs")&&btn.hidden&&!dlg.classList.contains("tall")&&document.getElementById("videoClose").textContent==="סגירה";
 """
 
 
@@ -1278,8 +1282,10 @@ def test_a_transcript_with_times_is_written_over_its_video(site):
     r = site("dana@x.com", SUBTITLES)
     assert r["before"] == ["", ""] and r["first"] == ["מַרְחַבַּא!", "שלום!"] and r["second"] == ["כִּיף חַאלַכּ?", "מה שלומך?"]
     assert r["back"] == r["first"] and r["over"]
-    assert r["button"] == "כתוביות: תעתיק ותרגום" and r["trOnly"] == ["מַרְחַבַּא!", ""] and r["label2"] == "כתוביות: תעתיק"
-    assert r["none"] == ["", ""] and r["kept"] == "2" and r["again"] == r["first"]
+    assert r["button"] == "CC" and r["state"] == "כתוביות: תעתיק ותרגום" and r["state2"] == "כתוביות: בלי כתוביות"
+    assert r["none"] == ["", ""] and r["kept"] == "2" and r["trOnly"] == ["מַרְחַבַּא!", ""] and r["again"] == r["first"]
+    # upright, over the whole page, under a bar of the two buttons alone
+    assert r["whole"] == r["page"] and r["upright"] and r["bar"] == [False, False, True, "✕"]
     assert r["gone"] and r["plain"]
 
 

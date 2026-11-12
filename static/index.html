@@ -1379,6 +1379,18 @@ body.manage #manage{width:100%;max-width:none}
 #videoSubs span:empty{display:none}
 #videoBox:fullscreen{background:#000}#videoBox:fullscreen iframe{height:100%;aspect-ratio:auto;border-radius:0}
 #videoDlg #videoSubsBtn{margin-inline-start:auto}#videoDlg #videoSubsBtn:not([hidden])+#videoFull{margin-inline-start:0}
+/* a video that came with a transcript is upright (a phone's): it takes the whole page, under a bar of two buttons, the
+   subtitles' (CC: both lines, the transliteration alone, none) and the closing ✕; no title */
+#videoDlg.tall[open]{display:flex;flex-direction:column;inset:0;width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;border:0;border-radius:0;padding:0;background:#000}
+#videoDlg.tall .dlg-head{position:static;margin:0;padding:max(6px,env(safe-area-inset-top)) 10px 6px;background:#000;border:0}
+#videoDlg.tall #videoTitle,#videoDlg.tall #videoFull{display:none}
+#videoDlg.tall #videoSubsBtn{margin-inline-start:0}#videoDlg.tall #videoClose{margin-inline-start:auto}
+#videoDlg.tall .dlg-head .btn{min-width:46px;min-height:38px;background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.35);color:#fff;font-weight:700}
+#videoDlg.tall #videoSubsBtn[data-mode="0"]{background:#fff;color:#000}
+#videoDlg.tall #videoSubsBtn[data-mode="2"]{opacity:.55;text-decoration:line-through}
+#videoDlg.tall #videoBox{flex:1;min-height:0;align-self:center;width:min(100%,calc((100dvh - 56px)*9/16))}
+#videoDlg.tall #videoBox iframe{height:100%;aspect-ratio:auto;border-radius:0}
+#videoDlg.tall #videoSubs{bottom:20%}
 /* where the browser gives a frame no full screen (an iPhone): the box over the whole page, the video filling it */
 #videoDlg.full[open]{display:flex;flex-direction:column;inset:0;width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;border:0;border-radius:0;padding:8px 8px max(8px,env(safe-area-inset-bottom))}
 #videoDlg.full .dlg-head{position:static;margin:0 0 6px;padding:0}
@@ -4267,7 +4279,7 @@ async function loadContent(){   // the videos, and the texts: their topics and l
     await ready;
     const [v,t,d,b]=await Promise.all([api("/api/videos"),api("/api/texts"),FREE?api("/api/dailies"):null,api("/api/library")]);
     if(v.ok) VIDEOS=(await v.json()).videos||[];
-    if(b.ok){ const lib=await b.json(); LIBRARY=lib.library||[]; LIB_TEXTS=lib.transcripts||[]; LIB_SECTIONS=lib.sections||[]; LIB_VISIBLE=lib.visible||[]; }
+    if(b.ok){ const lib=await b.json(); LIBRARY=lib.library||[]; LIB_TEXTS=(lib.transcripts||[]).map(v=>({...v,tall:true})); LIB_SECTIONS=lib.sections||[]; LIB_VISIBLE=lib.visible||[]; }
     if(d&&d.ok) DAILIES=(await d.json()).dailies||[];
     if(t.ok){
       const d=await t.json(), old=new Set(ALL_CATS.filter(c=>c.text).map(c=>c.id));
@@ -4280,8 +4292,8 @@ async function loadContent(){   // the videos, and the texts: their topics and l
 /* A video whose transcript has times (`subs`: [{at, tr, he}], by `at`): the line being said is written over it, in
    Hebrew letters and beneath in Hebrew. The player is another site's frame, so its clock is asked for in messages:
    YouTube's answers a "listening" call about four times a second, Vimeo's sends "timeupdate" once it is asked to.
-   Between two answers the clock runs on by the page's own. The button chooses what is written; it is remembered. */
-const SUBS_MODES=["תעתיק ותרגום","תעתיק","בלי כתוביות"];
+   Between two answers the clock runs on by the page's own. The CC button chooses what is written; it is remembered. */
+const SUBS_MODES=["תעתיק ותרגום","תעתיק בלבד","בלי כתוביות"];   // the button goes round them backwards: none, the transliteration, both
 let subsOff=null;
 function videoSubs(f,subs){
   const box=document.createElement("div"), tr=document.createElement("span"), he=document.createElement("span"), btn=$("videoSubsBtn");
@@ -4294,7 +4306,7 @@ function videoSubs(f,subs){
     let line=undefined; for(const s of subs){ if(s.at>now+.05) break; line=s; }
     if(line!==shown){ shown=line; tr.textContent=he.textContent=""; if(line&&mode<2){ setTr(tr,line.tr); if(!mode) he.textContent=line.he; } }
   };
-  const label=()=>{ btn.textContent="כתוביות: "+SUBS_MODES[mode]; shown=null; draw(); };
+  const label=()=>{ btn.textContent="CC"; btn.dataset.mode=mode; btn.title=btn.ariaLabel="כתוביות: "+SUBS_MODES[mode]; shown=null; draw(); };
   const hear=e=>{
     if(e.source!==f.contentWindow) return;
     let d=e.data; try{ if(typeof d==="string") d=JSON.parse(d); }catch{ return; }
@@ -4306,21 +4318,22 @@ function videoSubs(f,subs){
     else if(d.info){ clearInterval(calling); clock(d.info.currentTime); if(d.info.playerState!=null) playing=d.info.playerState===1; }   // YouTube
     draw();
   };
-  btn.hidden=false; btn.onclick=()=>{ mode=(mode+1)%SUBS_MODES.length; store.set("ihki.subs",mode); label(); }; label();
+  btn.hidden=false; btn.onclick=()=>{ mode=(mode+2)%SUBS_MODES.length; store.set("ihki.subs",mode); label(); }; label();
   f.addEventListener("load",hello); addEventListener("message",hear); const ticking=setInterval(draw,100);   // not by animation frames: a page in the background has none
   subsOff=()=>{ clearInterval(calling); clearInterval(ticking); removeEventListener("message",hear); btn.hidden=true; subsOff=null; };
   return box;
 }
 function playVideo(v,preview){   // preview: the teacher looks at it from the panel, which marks nothing
-  const f=document.createElement("iframe"), subs=v.subs&&v.subs.length?v.subs:null;
+  const f=document.createElement("iframe"), subs=v.subs&&v.subs.length?v.subs:null, tall=!!(subs||v.tall);
   if(subsOff) subsOff();
+  videoWide(false); $("videoDlg").classList.toggle("tall",tall); $("videoClose").textContent=tall?"✕":"סגירה"; $("videoClose").ariaLabel="סגירה";
   // with subtitles YouTube's player is told to answer the page, and gives up its own full screen, which would leave them behind
   f.src=v.embed+(subs&&/youtube/.test(v.embed)?"&enablejsapi=1&fs=0":""); f.title=v.title; f.allow="autoplay; fullscreen; picture-in-picture"; f.allowFullscreen=true; f.referrerPolicy="strict-origin-when-cross-origin";   // YouTube's player asks who embeds it
   $("videoTitle").textContent=v.title; $("videoBox").replaceChildren(f,...(subs?[videoSubs(f,subs)]:[])); $("videoDlg").showModal();
   if(!preview){ watched[v.id]=1; store.set("ihki.watched",watched); }
 }
 $("storyVideo").onclick=()=>{ const c=CATS.find(c=>c.id===cat); if(c&&c.video) playVideo({embed:c.video,title:c.name,subs:PHRASES.filter(p=>p.cat===c.id&&p.at!=null).sort((a,b)=>a.at-b.at)},true); };   // marks nothing: the topic's progress is its lines'
-$("videoClose").onclick=()=>{ videoWide(false); if(subsOff) subsOff(); $("videoBox").replaceChildren(); $("videoDlg").close(); };   // the frame goes now, not only on the box's "close": the video stops at once
+$("videoClose").onclick=()=>{ videoWide(false); $("videoDlg").classList.remove("tall"); if(subsOff) subsOff(); $("videoBox").replaceChildren(); $("videoDlg").close(); };   // the frame goes now, not only on the box's "close": the video stops at once
 // the whole screen for the video. An iPhone cannot do it for a frame (only the player's own button, inside it): there the
 // box itself grows over the whole page, and the same button brings it back
 $("videoFull").hidden=false;
@@ -4333,7 +4346,7 @@ $("videoFull").onclick=()=>{
   else videoWide(true);
 };
 $("videoDlg").addEventListener("close",()=>{   // without its frame the video stops playing
-  videoWide(false); if(subsOff) subsOff();
+  videoWide(false); $("videoDlg").classList.remove("tall"); if(subsOff) subsOff();
   $("videoBox").replaceChildren(); if(home&&!document.body.classList.contains("manage")) drawPath(true);
   if(pushAfterVideo){ pushAfterVideo=false; askPushSoon("video"); } });
 /* A topic the student writes in (its category has `write`: the task, and how many sentences): the workbook's homework.
