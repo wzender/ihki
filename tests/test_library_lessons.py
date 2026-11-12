@@ -128,3 +128,13 @@ def test_a_video_with_its_transcript_stands_in_its_lessons_section_and_not_on_th
     assert out["teacher"]["transcripts"][0]["url"] == "https://www.youtube.com/watch?v=abcdefghijk"
     assert [c["id"] for c in out["path"]["categories"]] == ["t4"]   # only the text without a video is practised on the path
     assert run(TextAuth(["village"]), steps, monkeypatch)["student"]["transcripts"] == []   # a class without the level
+
+
+def test_a_lessons_section_is_the_one_a_manager_named_after_it():
+    assert library.lesson_section("2") == "lesson-2" and library.lesson_section("2.1") == "lesson-2-1"
+    assert library.lesson_section("99") is None
+    rows = [r for r in library.BASE_ROWS if r["id"] != "lesson-2"]
+    library._tree = library.Tree([*rows, {"id": "s2b31618e42", "parent_id": "d1", "name": "שיעור 2", "ord": 1, "level": "", "holds_videos": True}])
+    assert library.lesson_section("2") == "s2b31618e42"   # the manager's own "שיעור 2" under שלב א
+    library._tree = library.Tree(rows)
+    assert library.lesson_section("2") == "d1"            # no section for the lesson: the level's

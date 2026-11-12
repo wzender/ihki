@@ -2958,7 +2958,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             log.warning("texts not read: %s", e)
             texts = []
         for r in texts:
-            section = "lesson-" + str(r["lesson"]).replace(".", "-")
+            section = video_library.lesson_section(r["lesson"])
             if section not in visible:
                 continue
             lines = built(r)[0]

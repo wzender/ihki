@@ -360,6 +360,19 @@ def lesson_sections() -> dict[str, set[str]]:
     return out
 
 
+def lesson_section(lesson: str) -> str | None:
+    """The section of one lesson of the course (its id, "2" or "2.1"): the lesson's own, or the sub-section a manager
+    named after it under the same level ("שיעור 2" of שלב א), or else the level's section. None for a lesson the
+    course does not have, or whose level has no section."""
+    row = next((r for r in LESSON_ROWS if r["id"] == "lesson-" + str(lesson).replace(".", "-")), None)
+    parent = _tree.nodes.get(row["parent_id"]) if row else None
+    if parent is None:
+        return None
+    if row["id"] in _tree.nodes:
+        return row["id"]
+    return next((kid for kid in parent["children"] if _plain(_tree.nodes[kid]["name"]) == _plain(row["name"])), parent["id"])
+
+
 def materialize(auth) -> None:
     """Writes the built-in sections the table lacks (the seeded ones, and a section for each lesson) as rows, so a manager
     can rename, move or delete them like any other; ids already there, a deleted one too, are kept as they are."""
