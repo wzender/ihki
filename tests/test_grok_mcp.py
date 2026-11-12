@@ -804,6 +804,8 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
     monkeypatch.setenv("SUPABASE_SECRET_KEY", "")
     monkeypatch.setenv("SAWTAK_API_KEY", "")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("GOOGLE_API_KEY", "")   # no key of either provider: the tutor is off
     app = create_app(scorer_for(emissions(["w"])), auth=LibraryAuth())
     initialize = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
         "protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}}}
@@ -857,6 +859,8 @@ def test_existing_library_api_is_compatible_and_mcp_token_has_no_api_authority(m
     monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
     monkeypatch.setenv("SAWTAK_API_KEY", "")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("GOOGLE_API_KEY", "")   # no key of either provider: the tutor is off
     auth = LibraryAuth()
     app = create_app(scorer_for(emissions(["w"])), auth=auth)
 
@@ -885,6 +889,8 @@ def test_streamable_http_manages_library_end_to_end_and_browser_still_opens(monk
     monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
     monkeypatch.setenv("SAWTAK_API_KEY", "")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("GOOGLE_API_KEY", "")   # no key of either provider: the tutor is off
     auth = LibraryAuth()
     app = create_app(scorer_for(emissions(["w"])), auth=auth)
 
@@ -927,6 +933,8 @@ def test_streamable_http_prepares_daily_video_without_publishing(monkeypatch):
     monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
     monkeypatch.setenv("SAWTAK_API_KEY", "")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("GOOGLE_API_KEY", "")   # no key of either provider: the tutor is off
     auth = LibraryAuth()
     app = create_app(scorer_for(emissions(["w"])), auth=auth)
 
@@ -951,6 +959,8 @@ def test_slow_teacher_options_does_not_block_concurrent_mcp_request(monkeypatch)
     monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
     monkeypatch.setenv("SAWTAK_API_KEY", "")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("GOOGLE_API_KEY", "")   # no key of either provider: the tutor is off
 
     class SlowCatalogAuth(LibraryAuth):
         def level_videos(self, table, fresh=False):
@@ -987,6 +997,8 @@ def test_teacher_options_upstream_timeout_returns_error_instead_of_hanging(monke
     monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
     monkeypatch.setenv("SAWTAK_API_KEY", "")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("GOOGLE_API_KEY", "")   # no key of either provider: the tutor is off
 
     class HungCatalogAuth(LibraryAuth):
         def level_videos(self, table, fresh=False):
@@ -1017,6 +1029,8 @@ def test_oauth_discovery_challenge_and_consent_routes(monkeypatch):
     monkeypatch.setenv("MCP_PUBLIC_URL", "https://ihki.example/mcp/")
     monkeypatch.setenv("SAWTAK_API_KEY", "")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("GOOGLE_API_KEY", "")   # no key of either provider: the tutor is off
     auth = LibraryAuth()
     app = create_app(scorer_for(emissions(["w"])), auth=auth)
     initialize = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
@@ -1078,6 +1092,8 @@ def test_monitoring_tools_answer_through_the_real_oauth_verifier(monkeypatch, to
     monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
     monkeypatch.setenv("SAWTAK_API_KEY", "")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("GOOGLE_API_KEY", "")   # no key of either provider: the tutor is off
     response = _mcp_post(create_app(scorer_for(emissions(["w"])), auth=LibraryAuth()), tool)
     assert response.status_code == 200, response.text
     result = response.json()["result"]
@@ -1091,6 +1107,8 @@ def test_dropped_supabase_connection_during_verification_is_not_an_http_500(monk
     monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
     monkeypatch.setenv("SAWTAK_API_KEY", "")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("GOOGLE_API_KEY", "")   # no key of either provider: the tutor is off
 
     class DroppingAuth(LibraryAuth):
         def access_for(self, user_id, fresh=False):

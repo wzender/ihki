@@ -87,6 +87,8 @@ def test_each_tier_opens_what_it_should():
 def run(auth, steps, monkeypatch):
     monkeypatch.setenv("SAWTAK_API_KEY", "")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("GOOGLE_API_KEY", "")   # no key of either provider: the tutor is off
     app = create_app(scorer_for(emissions(["w"])), auth=auth)
 
     async def go():

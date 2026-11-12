@@ -7,7 +7,7 @@ Env:  MODEL_ID  (default facebook/wav2vec2-xlsr-53-espeak-cv-ft, or a path to a 
       SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY  (Google sign-in, see app/auth.py)
       TEACHER_EMAILS, SUPABASE_SECRET_KEY  (the teacher's management panel, its classes and the lesson videos, see app/auth.py)
       TUTORS_EMAIL  (more accounts that, like the teachers, flag a recording scored wrong, see app/auth.py)
-      ANTHROPIC_API_KEY, TUTOR_MODEL  (the permission-controlled AI tutor game יאללה נדבר, see app/tutor.py)
+      ANTHROPIC_API_KEY, GEMINI_API_KEY, TUTOR_MODEL  (the permission-controlled AI tutor game יאללה נדבר, see app/tutor.py)
       SECRETS_MASTER_KEY  (lets a developer replace the two API keys from the panel, see app/keystore.py)
 A local .env file is loaded if present; real environment variables win over it.
 """
@@ -68,7 +68,7 @@ from .texts import read_line, text_phrases
 from .tts import (BASELINE_VOICES, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
                   playback_voices, voice_name)
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
-                    DEFAULT_MODEL as DEFAULT_TUTOR_MODEL, TutorUnavailable, load_tutor, tutor_client)
+                    TutorUnavailable, default_model as default_tutor_model, load_tutor)
 from .verb_game import VerbExerciseGenerator
 from .camel_race import race_items as camel_race_items, speech_of as camel_race_speech
 from .grok_mcp import build as build_grok_mcp, oauth_urls
@@ -138,7 +138,8 @@ PUSH_OPEN_KINDS = {"push-streak", "push-msg"}   # the notifications whose opens 
 # subscribed; declined: "not now"; denied: the browser's own question was refused or closed; blocked: the browser had
 # refused before, so nothing could be asked; failed: subscribing broke; off: the reminder was turned off.
 PUSH_PROMPT_STEPS = ("shown", "ios", "accepted", "declined", "denied", "blocked", "failed", "off")
-PUSH_PROMPT_PLACES = ("win", "video", "home", "videos")   # after a good moment, after a daily video, the home's card, the videos' button
+# after a good moment, after a daily video, the home's card, the videos' button, the path's bell, the "what is new" window
+PUSH_PROMPT_PLACES = ("win", "video", "home", "videos", "path", "news")
 LOCAL_TZ = ZoneInfo("Asia/Jerusalem")  # a day of practice is the students' calendar day
 WARM_WORKERS = 3  # Sawtak requests the cache-warm sweep runs at once (tts.MAX_CONCURRENT and its pace apply)
 MAX_UPLOAD = 2_000_000  # bytes; 15 s of opus is ~100 KB
@@ -583,7 +584,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                               "started_at": 0, "phase": "", "to_generate": 0}
         app.state.tts_warm_lock = threading.Lock()
         app.state.tts_warm_stop = threading.Event()  # set by POST /api/tts-cache/warm/stop
-        app.state.tutor = tutor or load_tutor(app.state.keys.get("ANTHROPIC_API_KEY"), app.state.keys.get("TUTOR_MODEL"))
+        app.state.tutor = tutor or load_tutor(app.state.keys.get("ANTHROPIC_API_KEY"), app.state.keys.get("TUTOR_MODEL"),
+                                                  app.state.keys.get("GEMINI_API_KEY"))
         # Baselines deliberately stay fixed; SAWTAK_VOICE_ID changes playback only (see tts.load_tts).
         app.state.refs = References(app.state.scorer, app.state.tts, list(BASELINE_VOICES.values())) if app.state.tts else None
         if app.state.auth and hasattr(app.state.auth, "calibrations"):
@@ -3080,10 +3082,15 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     reached_cache: dict[str, tuple[float, dict]] = {}
 
-    def verb_lessons(user: dict | None) -> list[str]:
+    def verb_lessons(user: dict | None, upto: object = None) -> list[str]:
         """Every lesson from the start of the course up to where this learner is: a stage ב student at lesson 2.5 knows
         all of stage א's verbs and 2.1-2.5's. Where a learner is, per class: the current lesson they chose, else the
-        class's last lesson; the furthest of their classes counts."""
+        class's last lesson; the furthest of their classes counts. `upto` is the learner's own choice in the game to
+        stop earlier (a stage ב student practising lessons 1-10 only); it never opens a lesson not reached."""
+        lessons = reached_lessons(user)
+        return lessons[:lessons.index(upto) + 1] if isinstance(upto, str) and upto in lessons else lessons
+
+    def reached_lessons(user: dict | None) -> list[str]:
         if not user or user["teacher"] or not user["classes"]:
             return READY_LESSONS
         email = user["email"].lower()
@@ -3106,10 +3113,24 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.get("/api/verb-game", dependencies=[Depends(require("games.use"))])
     def verb_game(user: dict | None = Depends(signed_in)):
         """Configuration for "פועל יוצא" and the complete paradigms currently unlocked."""
-        meta = app.state.verb_game.metadata(verb_lessons(user))
+        lessons = verb_lessons(user)
+        meta = app.state.verb_game.metadata(lessons)
+        meta["lessons"] = [{"id": l["id"], "name": l["name"], "level": l["level"]} for l in LESSONS if l["id"] in lessons]
         if not (user and user["teacher"]):   # draft verbs are teachers' only
             meta["eitan_verbs"] = [v for v in meta["eitan_verbs"] if not v["draft"]]
         return meta
+
+    @app.get("/api/verb-table/{phrase_id}")
+    def verb_table_card(phrase_id: int, user: dict | None = Depends(signed_in)):
+        """Every form of one of the verb table's verbs, past, present and future: what a click on the verb opens.
+        LEX's forms, and by rule (table_forms.py) those it lacks."""
+        from .conjugation import conjugation_table
+        phrase = PHRASES[phrase_id] if 0 <= phrase_id < len(PHRASES) else None
+        if not phrase or not phrase.get("binyan"):
+            raise HTTPException(404, "not a verb of the table")
+        he = phrase["variants"][0][0].replace(",", "،").split("،")[-1].strip()
+        base = tuple(x.strip() for x in phrase["tr"].split(","))
+        return conjugation_table(he, base if len(base) == 2 else None) or {"pronouns": [], "tenses": []}
 
     @app.post("/api/verb-game/question", dependencies=[Depends(require("games.use"))])
     def verb_question(body: dict = Body(...), user: dict | None = Depends(signed_in)):
@@ -3120,7 +3141,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             mastery = body.get("mastery") if isinstance(body.get("mastery"), dict) else {}
             recent = body.get("recent") if isinstance(body.get("recent"), list) else []
             tenses = body.get("tenses") if isinstance(body.get("tenses"), list) else None
-            return app.state.verb_game.question(level, verb_lessons(user), mastery, list(map(str, recent[-10:])),
+            return app.state.verb_game.question(level, verb_lessons(user, body.get("upto")), mastery, list(map(str, recent[-10:])),
                                                 drafts=bool(user and user["teacher"]),
                                                 tenses=[str(t) for t in tenses] if tenses is not None else None)
         except (TypeError, ValueError) as e:
@@ -3322,7 +3343,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def tutor_for(user: dict | None) -> Tutor:
         """The paid tutor game, after the tutor.use dependency authorized the account (or on an open service)."""
         if app.state.tutor is None:
-            raise HTTPException(503, "המורה לא מוגדר בשרת (חסר ANTHROPIC_API_KEY)")
+            raise HTTPException(503, "המורה לא מוגדר בשרת (חסר ANTHROPIC_API_KEY או GEMINI_API_KEY)")
         return app.state.tutor
 
     def tutor_day(user: dict | None) -> tuple[str, str, int | None, object]:
@@ -3792,17 +3813,22 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         value = app.state.keys.get(name)
         if name == "TUTOR_MODEL":   # open conversations go on with the new model from their next sentence
             if app.state.tutor is not None:
-                app.state.tutor.model = value or DEFAULT_TUTOR_MODEL
+                app.state.tutor.model = value or default_tutor_model(app.state.keys.get("ANTHROPIC_API_KEY"))
         elif name == "SAWTAK_API_KEY":
             if app.state.tts is not None and value:
                 app.state.tts.api_key = value
             else:
                 app.state.tts = load_tts(value)
                 app.state.refs = References(app.state.scorer, app.state.tts, list(BASELINE_VOICES.values())) if app.state.tts else None
-        elif app.state.tutor is not None and value:
-            app.state.tutor.client = tutor_client(value)
-        else:
-            app.state.tutor = load_tutor(value, app.state.keys.get("TUTOR_MODEL"))
+        else:   # one of the tutor's two keys (Anthropic's, Gemini's)
+            fresh = load_tutor(app.state.keys.get("ANTHROPIC_API_KEY"), app.state.keys.get("TUTOR_MODEL"),
+                               app.state.keys.get("GEMINI_API_KEY"))
+            if fresh is not None and app.state.tutor is not None:   # the open conversations stay
+                app.state.tutor.client, app.state.tutor.gemini_key = fresh.client, fresh.gemini_key
+                if not app.state.keys.get("TUTOR_MODEL"):   # the default follows the keys there are
+                    app.state.tutor.model = fresh.model
+            else:
+                app.state.tutor = fresh
 
     def key_name(name: str) -> str:
         if name not in KEY_NAMES:
@@ -3825,13 +3851,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, app.state.keys.why or f"the table app_secrets is missing; run: {CREATE_APP_SECRETS}")
         value = value.strip()
         try:
-            check_key(name, value, app.state.keys.get("ANTHROPIC_API_KEY"))
+            check_key(name, value, app.state.keys.get("ANTHROPIC_API_KEY"), app.state.keys.get("GEMINI_API_KEY"))
         except KeyRefused as e:
             raise HTTPException(400, str(e))
         try:
             app.state.keys.set(name, value, (user or {}).get("email", ""))
         except AuthUnavailable as e:
-            if any(mark in str(e).lower() for mark in ("check constraint", "23514")):   # a table made before TUTOR_MODEL
+            if any(mark in str(e).lower() for mark in ("check constraint", "23514")):   # a table made before TUTOR_MODEL or GEMINI_API_KEY
                 raise HTTPException(409, f"הטבלה app_secrets צריכה עדכון; הריצו ב-Supabase: {MIGRATE_APP_SECRETS}")
             raise HTTPException(503, f"Supabase לא זמין: {e}")
         use_key(name)

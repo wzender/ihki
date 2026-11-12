@@ -255,10 +255,50 @@ def test_verb_games_offer_every_verb_up_to_the_learners_lesson(client):
     meta = lambda who: client.get("/api/verb-game", headers=as_(who)).json()
     building = lambda who: {v["name"] for v in meta(who)["eitan_verbs"]}
     past = lambda who: {v["name"] for v in meta(who)["verbs"]}
-    assert building("other") == {"שאל", "ישב"}   # a class of lesson 1 only
+    assert building("other") == {"פתח", "אכל", "שאל", "ישב"}   # a class of lesson 1 only
     # a stage ב class knows all of stage א: lessons 1-10's verbs too, up to the class's last lesson (2.6)
     assert {"שאל", "ישב", "בא", "שיחק"} <= building("beth")
     assert {"אכל", "בא", "שיחק", "עזר"} <= past("beth") and "רץ" not in past("beth")   # רץ is 2.7's
     # with a current lesson chosen, up to it: 2.5 has הביא (2.5) but not עזר (2.6)
     client.fake.rows[("gil@x.com", 11)] = {"current_lesson": "2.5"}
     assert "הביא" in past("gil") and "עזר" not in past("gil") and "שיחק" in past("gil")
+
+
+def test_verb_game_can_be_capped_at_an_earlier_lesson(client):
+    """A stage ב learner may practise stage א's verbs only: `upto` narrows what is drawn, and never widens it."""
+    lessons = [l["id"] for l in client.get("/api/verb-game", headers=as_("beth")).json()["lessons"]]
+    assert lessons[0] == "1" and lessons[-1] == "2.6" and "10" in lessons
+    ask = lambda who, **extra: client.post("/api/verb-game/question", headers=as_(who),
+                                           json={"level": 1, "tenses": ["past"], **extra}).json()["verb"]["id"]
+    stage_a = {"akal", "qaad", "fatah", "saal", "tabakh", "aja", "raah", "faat", "fihem", "laeb"}
+    assert {ask("beth", upto="10") for _ in range(60)} <= stage_a
+    assert {ask("beth", upto="1") for _ in range(30)} <= {"akal", "qaad", "fatah", "saal"}
+    assert {ask("beth") for _ in range(200)} - stage_a                      # no cap: stage ב's verbs come too
+    assert {ask("other", upto="2.6") for _ in range(30)} <= {"akal", "qaad", "fatah", "saal"}   # lesson 1 class
+
+
+def test_a_verb_of_the_table_opens_all_its_forms(client):
+    """A click on a verb of the verb table: past, present and future for every pronoun, for every verb and learner.
+    LEX's forms as they are; the rest by rule from the verb's two "he" forms (approved in bulk, so not marked)."""
+    from app.phrases import GAMES, public_phrases
+    games = {g["id"] for g in GAMES}
+    verbs = [p for p in public_phrases() if p.get("binyan") and p["cat"] in games]
+    ids = {p["he"]: p["id"] for p in verbs}
+    forms = lambda he, who="beth": {t["id"]: [f["tr"] for f in t["forms"]] for t in
+                                    client.get(f"/api/verb-table/{ids[he]}", headers=as_(who)).json()["tenses"]}
+    for p in verbs:   # every verb: three tenses, eight pronouns, nothing empty
+        card = client.get(f"/api/verb-table/{p['id']}", headers=as_("beth")).json()
+        assert [t["id"] for t in card["tenses"]] == ["past", "present", "future"] and len(card["pronouns"]) == 8, p["he"]
+        assert all(f["tr"] for t in card["tenses"] for f in t["forms"]), p["he"]
+    went = forms("הלך")   # LEX's own
+    assert went["past"][0] == "רֻחֵת" and went["past"][3] == "רַאח" and went["future"][3] == "יִרוּח"
+    assert went["present"][0] == "בַּרוּח"
+    knew = forms("ידע, הכיר")   # no table in the workbook: by rule
+    assert knew["past"][:5] == ["עְרִפֵת", "עְרִפֵת", "עְרִפְתִי", "עִרֵף", "עִרְפַת"]
+    assert knew["future"][6] == "תִעְרַפוּ" and knew["present"][1] == "בְּתִעְרַף"
+    assert forms("מכר")["past"][0] == "בִּעֵת" and forms("אמר")["past"][0] == "קֻלֵת"
+    assert forms("הוריד")["past"][0] == "נַזַّלֵת" != forms("ירד")["past"][0]   # ينزّل is not ينزل
+    assert forms("הלך", "t") == went   # the same card for a teacher
+    not_a_verb = next(p["id"] for p in public_phrases() if not p.get("binyan"))
+    assert client.get(f"/api/verb-table/{not_a_verb}", headers=as_("beth")).status_code == 404
+    assert client.get("/api/verb-table/999999", headers=as_("beth")).status_code == 404

@@ -42,9 +42,11 @@ class PageAuth(AppAuth):
         return {}
 
 
-def fake_supabase(email):
+def fake_supabase(email, news=False):
     session = {"access_token": email.split("@")[0], "user": {"id": f"id-{email}", "email": email}}
+    seen = "" if news else """localStorage.setItem("ihki.news",'"feedback-push"');"""   # the one-time "what is new" window: only where a test asks for it
     return f"""<script>
+{seen}
 window.__testSession={json.dumps(session)};
 window.supabase={{createClient:()=>({{auth:{{
   getSession:async()=>({{data:{{session:{json.dumps(session)}}}}}),
@@ -105,14 +107,14 @@ def serve(auth, monkeypatch, tmp_path):
         return None
     monkeypatch.setattr(pushes, "loop", no_loop)   # no reminders are sent while the page is driven
     monkeypatch.setattr(pushes, "streak_loop", no_loop)
-    cases = {}
+    cases, news_cases = {}, set()
     app = create_app(scorer_for(emissions(["ħ"])), SawtakTTS("k", cache_dir=tmp_path), auth=auth)
 
     @app.get("/t/{email}/{case}")
     def harness(email: str, case: str, request: Request):
         page = index_html()   # the page as the app serves it
         page = re.sub(r'<script src="https://cdn\.jsdelivr\.net/npm/@supabase/supabase-js[^"]*"></script>',
-                      fake_supabase(email) if auth else "", page)
+                      fake_supabase(email, case in news_cases) if auth else "", page)
         return HTMLResponse(page.replace("</body>", DRIVER % cases[case] + "</body>"))
 
     def index_html():
@@ -126,8 +128,10 @@ def serve(auth, monkeypatch, tmp_path):
         time.sleep(0.05)
     profile = tmp_path / "chrome"
 
-    def run(email, script, query="", width=390, mobile=False):
+    def run(email, script, query="", width=390, mobile=False, news=False):
         case = f"c{len(cases)}"; cases[case] = script
+        if news:
+            news_cases.add(case)
         url = f"http://127.0.0.1:{port}/t/{email}/{case}{query}"
         args = [CHROME, "--headless=new", "--disable-gpu", "--no-sandbox", "--no-first-run",
                 f"--user-data-dir={profile}", f"--window-size={width},860", "--virtual-time-budget=20000"]
@@ -751,6 +755,54 @@ def test_falling_letters_search_filters_the_verbs(site):
     assert r["hidden"] and r["shown"] and r["stays"]   # hidden until clicked, then kept while the pronouns change
 
 
+VERB_UPTO = """
+await sleep(1200);
+openVerbGame();
+await until(()=>document.getElementById("verbUpto").options.length);
+const sel=document.getElementById("verbUpto");
+out.shown=!document.getElementById("verbUptoPick").hidden&&sel.offsetHeight>0;
+out.options=[...sel.options].map(o=>o.value); out.picked=sel.value; out.label=sel.options[0].textContent;
+const sent=[], real=window.fetch;
+window.fetch=(url,opts)=>{ if(String(url).includes("/api/verb-game/question")) sent.push(JSON.parse(opts.body).upto); return real(url,opts); };
+verbLevel=1; startVerbRound(); await until(()=>sent.length===1);
+showVerbHub(); sel.value="5"; sel.dispatchEvent(new Event("change"));
+startVerbRound(); await until(()=>sent.length===2);
+out.sent=sent.map(x=>x===undefined?null:x); out.kept=JSON.parse(localStorage.getItem("ihki.verbUpto")||"null");
+showVerbHub(); out.after=sel.value;
+"""
+
+
+def test_verb_game_lesson_picker_caps_the_round(site):
+    r = site("boss@x.com", VERB_UPTO)   # a teacher: every lesson is open
+    assert r["shown"] and r["options"][0] == "1" and "10" in r["options"] and r["picked"] == r["options"][-1]
+    assert "שלב א" in r["label"]   # both stages are offered, so each lesson names its stage
+    assert r["sent"] == [None, "5"] and r["after"] == "5"   # no cap by default; the choice is sent and kept
+
+
+VERB_CONJ = """
+await sleep(1200);
+document.querySelector('#nav [data-view="verbs"]').click();
+await until(()=>document.querySelector(".vt-row"));
+const row=[...document.querySelectorAll(".vt-row")].find(r=>r.querySelector(".vt-he span").textContent==="שאל");
+row.querySelector(".vt-he").click();
+await until(()=>document.querySelector("#vtConjDlg .vc-table"));
+out.open=open("vtConjDlg"); out.title=document.getElementById("vtConjTitle").textContent;
+out.heads=[...document.querySelectorAll(".vc-table thead th")].map(t=>t.textContent);
+out.rows=document.querySelectorAll(".vc-table tbody tr").length;
+out.cells=[...document.querySelectorAll(".vc-table tbody td")].filter(t=>t.textContent.trim()&&t.textContent!=="—").length;
+out.arabic=/[\u0600-\u06ff]/.test(document.getElementById("vtConjDlg").textContent.replace(/[\u0651]/g,""));
+out.wide=document.querySelector(".vc-table").scrollWidth>document.querySelector(".vc-wrap").clientWidth+1;
+document.getElementById("vtConjClose").click(); out.closed=!open("vtConjDlg");
+"""
+
+
+def test_a_click_on_a_verb_shows_all_its_forms(site):
+    r = site("boss@x.com", VERB_CONJ)
+    assert r["open"] and r["title"] == "שאל" and r["heads"] == ["", "עבר", "הווה", "עתיד"]
+    assert r["rows"] == 8 and r["cells"] == 24 and not r["arabic"]   # every pronoun, three tenses, no Arabic script
+    assert not r["wide"] and r["closed"]   # fits a phone's width
+
+
 CONTENT_SECTIONS = """
 await sleep(1200);
 document.getElementById("toManage").click();
@@ -926,9 +978,95 @@ const b=document.getElementById("dailyBtn");
 out.shown=!b.hidden&&getComputedStyle(b).display!=="none"; out.text=b.textContent.trim(); out.isNew=b.classList.contains("new");
 out.inTools=b.parentElement.className; out.title=b.title;
 out.lib=document.getElementById("libBtn").textContent.trim();
-const tools=document.querySelector("#today .ps-tools").getBoundingClientRect(), fb=document.getElementById("feedbackBtn").getBoundingClientRect();
-out.fits=fb.left>=tools.left-1&&fb.right<=tools.right+1; out.w=[innerWidth,tools.width,fb.left-tools.left];
+const tools=document.querySelector("#today .ps-tools").getBoundingClientRect();
+out.fits=[...document.querySelectorAll("#today .ps-tools button:not([hidden])")].every(x=>{ const r=x.getBoundingClientRect(); return r.left>=tools.left-1&&r.right<=tools.right+1; });
 """
+
+FEEDBACK_BTN = """
+await sleep(1500);
+const fb=document.getElementById("feedbackBtn"), head=document.querySelector("header");
+const seen=()=>{ const r=fb.getBoundingClientRect(), h=head.getBoundingClientRect(), dr=document.getElementById("driveBtn").getBoundingClientRect();
+  return {text:fb.textContent.replace(/\\s+/g," ").trim(), shown:r.width>0&&getComputedStyle(fb).visibility!=="hidden", inside:r.left>=h.left-1&&r.right<=h.right+1,
+    h:Math.round(r.height), font:parseFloat(getComputedStyle(fb).fontSize), headH:Math.round(h.height), w:Math.round(r.width), drive:[Math.round(dr.width),Math.round(dr.top-r.top)],
+    where:Math.round(document.querySelector(".where").getBoundingClientRect().width), over:document.documentElement.scrollWidth>innerWidth}; };
+out.view=view(); out.first=seen();
+document.querySelector("#vids .focus-path")?.click(); await sleep(200);
+await sleep(600);   // the path scrolls down to the learner's place: the header is gone, the progress bar stays
+const fb2=document.getElementById("feedbackBtn2"), r2=fb2.getBoundingClientRect(), bar=document.querySelector("#today .path-stats").getBoundingClientRect(), note=document.querySelector("#today .ps-note");
+const range=document.createRange(); range.selectNodeContents(note); const words=range.getBoundingClientRect(), day=document.querySelector("#today .ps-day").getBoundingClientRect();
+out.path={text:fb2.textContent.trim(), scrolled:scrollY, headerOne:fb.getBoundingClientRect().width, onScreen:r2.top>=0&&r2.bottom<=innerHeight&&r2.width>0,
+  inBar:r2.left>=bar.left&&r2.right<=bar.right&&r2.top>=bar.top&&r2.bottom<=bar.bottom, h:Math.round(r2.height),
+  clear:(words.left>=r2.right||words.right<=r2.left)&&r2.top>=day.bottom, top:document.elementFromPoint(r2.left+r2.width/2,r2.top+r2.height/2)?.closest("button")?.id};
+fb2.click(); out.pathOpens=open("feedbackDlg"); document.getElementById("feedbackClose").click();
+home=false; document.body.classList.remove("home"); await sleep(100);
+out.practice=seen();
+fb.click(); out.opens=open("feedbackDlg"); out.title=document.getElementById("feedbackTitle").firstChild.textContent;
+"""
+
+
+def test_feedback_has_a_clear_button_in_the_header_on_every_screen(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", FEEDBACK_BTN)
+    assert r["first"]["text"] == "💬משוב והצעות" and r["first"]["w"] > r["practice"]["w"]   # one word beside the lesson's name
+    assert r["view"] == "home"   # the focused home page the learner lands on
+    path = r["path"]   # on the path it is in the bar that stays on the screen, clear of the note and the day's count
+    assert path["text"] == "💬משוב והצעות" and path["scrolled"] > 0 and not path["headerOne"], path
+    assert path["onScreen"] and path["inBar"] and path["clear"] and path["h"] >= 28 and path["top"] == "feedbackBtn2", path
+    assert r["pathOpens"]
+    for where in ("first", "practice"):   # a real button, not a 12px label: seen, inside the header, nothing pushed off the screen
+        seen = r[where]
+        assert seen["shown"] and seen["inside"] and seen["h"] >= 34 and seen["font"] >= 15 and not seen["over"]
+    assert r["opens"] and r["title"] == "משוב והצעות"
+
+
+NEWS_ONCE = """
+const asked=[]; window.pushAsk=async(key,where)=>{ asked.push(where); return {}; };
+await until(()=>open("newsDlg"),6000);
+const txt=id=>document.getElementById(id).textContent.trim(), hid=id=>document.getElementById(id).hidden;
+out.title=txt("newsTitle"); out.items=[hid("newsPush"),hid("newsFb")]; out.push=txt("newsPushText"); out.why=!hid("newsPushWhy")&&txt("newsPushWhy");
+out.fb=document.querySelector("#newsFb p").textContent; out.yes=!hid("newsPushYes")&&txt("newsPushYes");
+out.fitsScreen=document.getElementById("newsDlg").getBoundingClientRect().bottom<=innerHeight;
+document.getElementById("newsPushYes").click(); await sleep(300);
+out.asked=asked; out.state=txt("newsPushState"); out.yesGone=hid("newsPushYes"); out.bellGone=hid("pushBarBtn");
+document.getElementById("newsClose").click(); out.closed=!open("newsDlg"); out.kept=localStorage.getItem("ihki.news");
+"""
+
+NEWS_AGAIN = """
+await sleep(6000);
+out.again=open("newsDlg"); out.kept=localStorage.getItem("ihki.news");
+"""
+
+BELL = """
+await sleep(1500);
+out.before=open("newsDlg");   // seen already on this device: nothing comes up by itself
+document.querySelector("#vids .focus-path").click(); await sleep(700);
+const bell=document.getElementById("pushBarBtn"), r=bell.getBoundingClientRect(), fb=document.getElementById("feedbackBtn2").getBoundingClientRect();
+const note=document.querySelector("#today .ps-note"), range=document.createRange(); range.selectNodeContents(note); const words=range.getBoundingClientRect();
+out.bell={text:bell.textContent.trim(), onScreen:r.width>0&&r.top>=0&&r.bottom<=innerHeight, beside:r.right<=fb.left||r.left>=fb.right,
+  clear:words.left>=Math.max(r.right,fb.right)||words.right<=Math.min(r.left,fb.left)};
+bell.click(); await until(()=>open("newsDlg"),3000);
+out.title=document.getElementById("newsTitle").textContent; out.fbHidden=document.getElementById("newsFb").hidden; out.yes=!document.getElementById("newsPushYes").hidden;
+"""
+
+
+def test_what_is_new_comes_up_once_and_turns_the_notifications_on(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", NEWS_ONCE, news=True)
+    assert r["title"] == "חדש באפליקציה ✨" and r["items"] == [False, False] and r["fitsScreen"]
+    assert "סרטון יומי" in r["push"] and "8:00" in r["push"] and "חשוב" in r["why"] and "משוב" not in r["push"]
+    assert "ראש המסך" in r["fb"] and r["yes"] == "🔔 הפעלת התראות"
+    assert r["asked"] == ["news"] and "פעילות" in r["state"] and r["yesGone"] and r["bellGone"]
+    assert r["closed"] and r["kept"] == '"feedback-push"'
+    again = site("dana@x.com", NEWS_AGAIN, news=True)   # the same device, the next visit
+    assert again["again"] is False and again["kept"] == '"feedback-push"'
+
+
+def test_the_paths_bell_opens_the_notifications_alone(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", BELL)
+    assert r["before"] is False
+    assert r["bell"] == {"text": "🔔התראות", "onScreen": True, "beside": True, "clear": True}
+    assert r["title"] == "התראות מהאפליקציה" and r["fbHidden"] and r["yes"]
 
 
 def test_the_daily_video_button_is_in_the_progress_bar_even_without_a_video(site):

@@ -218,11 +218,11 @@ create index system_events_created_at_idx on public.system_events (created_at de
 alter table public.system_events enable row level security;
 ```
 
-API keys a developer replaces from the panel (`SAWTAK_API_KEY`, `ANTHROPIC_API_KEY`, see `app/keystore.py`), and the tutor's model (`TUTOR_MODEL`, chosen from a list or typed), so changing one needs no access to the Space. Each value is stored encrypted with `SECRETS_MASTER_KEY`, a Space secret, and the page never gets a key back (the model, which is no secret, it shows). No browser role can read the table:
+API keys a developer replaces from the panel (`SAWTAK_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, see `app/keystore.py`), and the tutor's model (`TUTOR_MODEL`, chosen from a list or typed), so changing one needs no access to the Space. Each value is stored encrypted with `SECRETS_MASTER_KEY`, a Space secret, and the page never gets a key back (the model, which is no secret, it shows). No browser role can read the table:
 
 ```sql
 create table public.app_secrets (
-  name        text primary key check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','TUTOR_MODEL')),
+  name        text primary key check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL')),
   ciphertext  text not null,
   last4       text not null default '',
   updated_by  text not null default '',
@@ -232,12 +232,12 @@ alter table public.app_secrets enable row level security;
 revoke all on public.app_secrets from anon, authenticated;
 ```
 
-A table made before the panel could set `TUTOR_MODEL` needs its name check widened once (saving the model answers 409 with this SQL until then):
+A table made before the panel could set `TUTOR_MODEL` or `GEMINI_API_KEY` needs its name check widened once (saving one answers 409 with this SQL until then):
 
 ```sql
 alter table public.app_secrets drop constraint if exists app_secrets_name_check;
 alter table public.app_secrets add constraint app_secrets_name_check
-  check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','TUTOR_MODEL'));
+  check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL'));
 ```
 
 ### Hourly persisted-practice monitoring
@@ -1168,6 +1168,12 @@ Tokens per chat (mid-course): ~22K cache writes (1.25× the input price), ~189K 
 - These are upper bounds for the volume: every student uses all 5 chats, every day, all 10 turns. Real use is usually lower; `tutor_chats` records each chat's `input_tokens` and `output_tokens`, so the real bill can be checked against this table.
 - ¹ Opus 5.5 and Fable 5.1 cannot turn thinking off, so the tutor leaves it adaptive at `effort: "low"` (`thinking_for()` in `app/tutor.py`). The thinking tokens they spend are billed as output and are not in this table, so expect somewhat more for these two.
 - Set a monthly spending limit in the Console (Settings → Limits), so that a bug or unexpected use cannot cost more than planned.
+
+### Google Gemini (`GEMINI_API_KEY`) — the tutor game on a Gemini model
+
+The tutor runs on Gemini when `TUTOR_MODEL` begins with `gemini-` (for example `gemini-3.1-flash-lite`), with `GEMINI_API_KEY` (or `GOOGLE_API_KEY`); a `claude-` model runs with `ANTHROPIC_API_KEY`. Both keys can be set at once, and the model chooses the provider. With only the Gemini key and no `TUTOR_MODEL`, the model is `gemini-3.1-flash-lite`. The call is plain REST (`Tutor._ask_gemini` in `app/tutor.py`), so no package is needed.
+
+List prices per 1M tokens on 2026-11-12 (input / output, thinking included): `gemini-3.1-flash-lite` 0.25 / 1.50, `gemini-3.5-flash-lite` 0.30 / 2.50, `gemini-3.6-flash` and `gemini-3.8-flash` 0.75 / 3.75 (1.50 / 7.50 from 2027-01-01). One test chat mid-course on `gemini-3.1-flash-lite` used about 10.6K input tokens a call, so a chat is about 125K input and 9K output tokens: about $0.045, some 6× Haiku 5.5. The tutor does not use a prompt cache on Gemini. The dialect and the corrections on Gemini have not been reviewed.
 
 ### Sawtak Arabi (`SAWTAK_API_KEY`) — the model-answer voice
 

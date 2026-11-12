@@ -74,7 +74,30 @@ header .sub.maphint{flex:0 0 100%;color:var(--ink)}
 /* the student's guide (static/guide.html): a round "?" beside the class pill, and once, a line under the hint */
 .help{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;border:1px solid var(--olive);background:var(--surface);color:var(--olive);font:700 17px/1 var(--f-body);text-decoration:none;box-shadow:0 2px 0 var(--line)}
 .help:hover{background:var(--olive-soft)}
-#feedbackBtn{cursor:pointer}
+/* feedback and suggestions: in the header, so it is there on every screen. Beside the lesson's name it keeps to one word */
+#feedbackBtn{flex:none;display:flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--olive);background:var(--surface);color:var(--olive);font:700 15px/1 var(--f-body);white-space:nowrap;box-shadow:0 2px 0 var(--line);cursor:pointer}
+#feedbackBtn:hover{background:var(--olive-soft)}#feedbackBtn:active{transform:translateY(1px);box-shadow:0 1px 0 var(--line)}#feedbackBtn[hidden]{display:none}
+body:not(.home) #feedbackBtn{padding:0 11px}body:not(.home) #feedbackBtn .fb-more{display:none}
+/* the path scrolls its header away, so there the button rides in the sticky progress bar instead: a row above the bar's
+   buttons, at the end of the note's line, and the note keeps clear of it */
+body.home:not([data-view]) #feedbackBtn{display:none}
+#today .ps-tools .ps-extra{position:absolute;inset-inline-end:0;bottom:calc(100% + 6px);display:flex;gap:6px}
+#today .ps-tools .ps-extra button{height:28px;padding:0 11px}
+#today .ps-tools .fb-open{border-color:var(--olive);color:var(--olive)}
+#today .ps-tools .bell-open{border-color:var(--amber);background:var(--amber-bg);color:var(--amber)}   /* the notifications are still off on this device: the bell that turns them on */
+#today:has(.fb-open:not([hidden])) .ps-note{display:flex;align-items:center;min-height:28px;padding-inline-end:132px}
+#today:has(.bell-open:not([hidden])) .ps-note{padding-inline-end:232px}
+@media (max-width:420px){#today:has(.fb-open:not([hidden])) .ps-note{padding-inline-end:84px}#today:has(.bell-open:not([hidden])) .ps-note{padding-inline-end:122px}
+  #today .ps-tools .bell-open{width:30px;padding:0;justify-content:center}.bell-word{display:none}}
+/* what is new, shown once: the notifications and the feedback button, each an icon beside its few lines */
+#newsDlg{width:min(92vw,420px);max-height:calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow:auto;overscroll-behavior:contain}
+#newsDlg h2{font:400 24px/1.2 var(--f-display);margin:0 0 12px;text-align:center}
+.news-item{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--bg);margin-bottom:10px}.news-item[hidden]{display:none}
+.news-item>span{flex:none;font-size:30px;line-height:1}.news-item>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.news-item b{font:700 17px/1.25 var(--f-body)}.news-item p{margin:0;font-size:14.5px;line-height:1.45}.news-item p.why{font-weight:600;color:var(--olive)}
+.news-item .news-state{font-weight:700;color:var(--olive)}.news-item .news-state:empty{display:none}
+#newsDlg .row{justify-content:center}
+@media (max-width:420px){.fb-more{display:none}body:not(.home) #feedbackBtn{width:34px;padding:0;justify-content:center}body:not(.home) #feedbackBtn .fb-word{display:none}}   /* a phone: the lesson's name keeps its room */
 .helprow{display:flex;gap:8px;align-items:center}.help.pill{width:auto;height:34px;border-radius:999px;padding:0 14px;display:flex;gap:6px;font:700 15px/1 var(--f-body)}.help.pill b{font-size:16px}
 #feedbackDlg{width:min(92vw,460px);max-height:calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow:auto;overscroll-behavior:contain}#feedbackDlg .dlg-head h2 small{display:block;font:500 13px/1.35 var(--f-body);color:var(--muted);margin-top:4px}
 .feedback-form{display:flex;flex-direction:column;gap:12px}.feedback-form label{display:flex;flex-direction:column;gap:5px;font-weight:600}.feedback-form textarea{font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink);resize:vertical}
@@ -142,9 +165,6 @@ html[data-subject="math"] #dailyBtn{display:none!important}
 #today .ps-tools .ps-lib:hover,#today .ps-tools .ps-lib[aria-current=page]{background:var(--olive-deep)}
 #today .ps-tools .ps-lib:active{transform:translateY(2px);box-shadow:0 1px 0 var(--olive-deep)}
 #today .ps-tools .ps-lib svg{width:18px;height:18px}
-/* feedback sits a row up, at the end of the note's line; the note keeps clear of it */
-#today .ps-tools #feedbackBtn{position:absolute;inset-inline-end:0;bottom:calc(100% + 7px);height:24px;padding:0 9px;font-size:12px}
-#today:has(#feedbackBtn:not([hidden])) .ps-note{padding-inline-end:74px}
 @media (max-width:420px){#today .ps-tools{grid-template-columns:auto minmax(0,1fr) auto;gap:6px}#today .ps-tools :is(button,a){padding:0 9px}#today .ps-tools .ps-lib{padding:0 12px;font-size:15px}#today .ps-tools .vidbtn svg{display:none}}
 @media (max-width:340px){#today .ps-tools :is(button,a){padding:0 7px}#today .ps-tools .ps-lib{padding:0 9px;font-size:14px}}
 #today .bump{animation:ps-bump .6s ease-out}
@@ -255,6 +275,15 @@ body[data-view=verbs] #vids{max-width:none;gap:6px;margin-top:0}
 .vt-say .tr{flex:none;font:700 15.5px/1.35 var(--f-tr);letter-spacing:.025em;white-space:nowrap}
 .vt-say .tr i{font-style:normal;opacity:.5;margin-inline:3px}
 @media (max-width:600px){.vt-row{grid-template-columns:minmax(0,6.6em) minmax(0,1fr);min-height:30px}.vt-say .tr{font-size:18.5px;line-height:1.6;letter-spacing:.04em;-webkit-text-stroke:.02em currentColor}}
+#vids button.vt-he{padding:0;border:0;background:none;color:inherit;font-family:inherit;text-align:start;cursor:pointer}
+#vids button.vt-he span{text-decoration:underline dotted;text-underline-offset:3px;text-decoration-color:var(--muted)}
+#vids button.vt-he:hover span,#vids button.vt-he:focus-visible span{color:var(--c,var(--olive));text-decoration-style:solid}
+#vtConjDlg .vc-base{margin:0 0 10px;font:700 18px var(--f-tr)}
+.vc-wrap{overflow-x:auto}.vc-table{width:100%;border-collapse:collapse}
+.vc-table th,.vc-table td{padding:6px 8px;border-top:1px solid var(--line);text-align:start;white-space:nowrap}
+.vc-table thead th{border-top:0;color:var(--muted);font-size:13px}.vc-table tbody th{font-weight:700;font-size:14px}
+.vc-table td{font:700 17px/1.4 var(--f-tr);letter-spacing:.025em}.vc-table td.none{color:var(--muted);font-weight:400}
+.vc-note{margin:10px 0 0;color:var(--muted);font-size:12.5px}
 .vt-empty{display:none}.vt-none .vt-empty{display:block}
 #vids .vt-play-mg{white-space:nowrap;margin-inline-start:4px;padding:2px 9px;border:1px solid #b67d10;border-radius:999px;background:linear-gradient(180deg,#ffe27a,#d7a423);color:#3c2800;font:800 12px/1.4 var(--f-body);display:inline-block}
 /* "הפועל זכרון": the verbs of the verb table's lesson as a memory game on a misbaha that snakes over the whole screen.
@@ -666,7 +695,7 @@ body:not(.home) .reward-shelf,body.manage .reward-shelf,body:not([data-view=home
 .verb-head{display:flex;align-items:center;gap:10px}.verb-head h2{flex:1;margin:0;font:400 26px var(--f-display)}
 .verb-stats{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}
 .verb-track{height:7px;border-radius:8px;background:var(--line);overflow:hidden}.verb-track i{display:block;height:100%;width:0;background:var(--olive);transition:width .2s}
-.verb-menu{display:grid;gap:10px}.verb-path{padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);text-align:start;font:700 17px var(--f-body);cursor:pointer}.verb-path small{display:block;margin-top:4px;color:var(--muted);font-weight:600}
+.verb-menu{display:grid;gap:10px}.verb-upto{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 10px;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface);font-weight:800}.verb-upto select{min-height:40px;padding:4px 10px;border:2px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font:700 15px var(--f-body)}.verb-upto small{grid-column:1/-1;color:var(--muted);font-size:12px;font-weight:600}.verb-upto[hidden]{display:none}.verb-path{padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);text-align:start;font:700 17px var(--f-body);cursor:pointer}.verb-path small{display:block;margin-top:4px;color:var(--muted);font-weight:600}
 .verb-family-title{margin:6px 2px -2px;font:800 16px/1.3 var(--f-body)}.verb-family-title small{display:block;margin-top:2px;color:var(--muted);font-size:12px;font-weight:600}
 #eitanMenu{display:grid;gap:10px}#eitanMenu[hidden]{display:none}
 .verb-tense-pick{margin:0;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}.verb-tense-pick legend{padding:0 7px;font-weight:800}.verb-tense-pick>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.verb-tense-pick label{position:relative;cursor:pointer}.verb-tense-pick input{position:absolute;opacity:0;pointer-events:none}.verb-tense-pick span{display:flex;min-height:53px;flex-direction:column;align-items:center;justify-content:center;padding:5px;border:2px solid var(--line);border-radius:12px;background:var(--bg);font-weight:800}.verb-tense-pick span small{color:var(--muted);font-size:11px;font-weight:600}.verb-tense-pick input:checked+span{border-color:var(--olive);background:var(--olive);color:var(--on-olive)}.verb-tense-pick input:checked+span small{color:inherit}.verb-tense-pick input:focus-visible+span{outline:3px solid var(--amber);outline-offset:2px}.verb-tense-pick>p{margin:8px 2px 0;color:var(--muted);font-size:12px;text-align:center}
@@ -1883,6 +1912,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
     <div class="brand">אהלא וסהלא</div>
     <button id="myClass"></button>
     <div class="where"><small id="lessonName"></small><span id="catName"></span></div>
+    <button id="feedbackBtn" type="button" title="משוב והצעות: ספרו לנו מה עובד, מה לא ומה חסר" aria-label="משוב והצעות" hidden><span aria-hidden="true">💬</span><span class="fb-word">משוב<span class="fb-more"> והצעות</span></span></button>
     <div class="guidetip" id="guideTip" hidden><a href="/static/guide.html">חדשים כאן? מדריך של דקה ←</a><button type="button" id="guideTipClose" aria-label="סגירה" title="סגירה">✕</button></div>
     <button class="drive" id="toManage" hidden>ניהול</button>
     <button class="drive" id="driveBtn" title="מצב נסיעה: האפליקציה מקריאה, מקשיבה ואומרת את ההערכה בקול"><svg class="ic" aria-hidden="true"><use href="#i-car"/></svg> עברו למצב נסיעה</button>
@@ -1890,7 +1920,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
 
   <!-- the path's progress bar (drawToday). The videos button stays in it across redraws, outside the bar's own button
        (a button cannot hold a button), in its bottom-left corner -->
-  <div id="today" hidden><div class="ps-tools"><button id="dailyBtn" type="button" hidden><span aria-hidden="true">▶&#xFE0E;</span> סרטון יומי</button><button class="vidbtn ps-lib" id="libBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v15H5.5A1.5 1.5 0 0 0 4 20.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v15h5.5a1.5 1.5 0 0 1 1.5 1.5z"/></svg><span>מערכת דיגיטלית</span></button><button class="vidbtn ps-vids" id="vidsBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>העשרה</span></button><button class="help pill" id="feedbackBtn" type="button" title="משוב: ספרו לנו מה עובד ומה לא" hidden><span aria-hidden="true">💬</span> משוב</button></div></div>
+  <div id="today" hidden><div class="ps-tools"><button id="dailyBtn" type="button" hidden><span aria-hidden="true">▶&#xFE0E;</span> סרטון יומי</button><button class="vidbtn ps-lib" id="libBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v15H5.5A1.5 1.5 0 0 0 4 20.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v15h5.5a1.5 1.5 0 0 1 1.5 1.5z"/></svg><span>מערכת דיגיטלית</span></button><button class="vidbtn ps-vids" id="vidsBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>העשרה</span></button><span class="ps-extra"><button class="bell-open" id="pushBarBtn" type="button" title="הפעלת התראות: הסרטון היומי ישר לטלפון" aria-label="הפעלת התראות" hidden><span aria-hidden="true">🔔</span><span class="bell-word">התראות</span></button><button class="fb-open" id="feedbackBtn2" type="button" title="משוב והצעות: ספרו לנו מה עובד, מה לא ומה חסר" aria-label="משוב והצעות" hidden><span aria-hidden="true">💬</span>משוב<span class="fb-more"> והצעות</span></button></span></div></div>
   <button class="reward-shelf" id="rewardShelf" type="button" hidden>
     <span class="streak-ring" id="rewardStreak">🔥 0</span>
     <span class="reward-copy"><b>הערבית שכבר שלכם</b><small id="rewardCopy">עוד לא נאספו משפטים</small><span class="reward-string" id="rewardString" aria-hidden="true" hidden></span></span>
@@ -2235,8 +2265,23 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
   <p class="dlg-text" id="pushText"></p>
   <div class="row"><button class="btn primary" id="pushYes">כן, הזכירו לי</button><button class="btn" id="pushNo">לא עכשיו</button></div>
 </dialog>
+<dialog id="newsDlg" aria-labelledby="newsTitle">
+  <h2 id="newsTitle">חדש באפליקציה ✨</h2>
+  <div class="news-item" id="newsPush"><span aria-hidden="true">🔔</span><div>
+    <b>אל תפספסו את הסרטון היומי</b>
+    <p id="newsPushText"></p>
+    <p class="why" id="newsPushWhy">כמה דקות של ערבית כל יום הן מה שמקדם בשפה, ובלי תזכורת קל מאוד לשכוח יום. לכן חשוב לנו שתפעילו את ההתראות.</p>
+    <button class="btn primary" type="button" id="newsPushYes">🔔 הפעלת התראות</button>
+    <p class="news-state" id="newsPushState" aria-live="polite"></p>
+  </div></div>
+  <div class="news-item" id="newsFb"><span aria-hidden="true">💬</span><div>
+    <b>כפתור חדש: משוב והצעות</b>
+    <p>משהו לא עובד? ציון שנראה לא נכון? יש רעיון? כמה מילים מספיקות, וזה מגיע ישר למורים ולמפתחים. הכפתור נמצא בראש המסך, ובמסלול בסרגל ההתקדמות.</p>
+  </div></div>
+  <div class="row"><button class="btn" type="button" id="newsClose">הבנתי, תודה</button></div>
+</dialog>
 <dialog id="feedbackDlg" aria-labelledby="feedbackTitle">
-  <div class="dlg-head"><h2 id="feedbackTitle">משוב<small>ספרו לנו מה עובד ומה לא. זה מגיע ישר למורים ולמפתחים</small></h2><button class="btn" type="button" id="feedbackClose">סגירה</button></div>
+  <div class="dlg-head"><h2 id="feedbackTitle">משוב והצעות<small>ספרו לנו מה עובד ומה לא. זה מגיע ישר למורים ולמפתחים</small></h2><button class="btn" type="button" id="feedbackClose">סגירה</button></div>
   <form id="feedbackForm" class="feedback-form">
     <fieldset class="fb-kinds" role="radiogroup" aria-label="על מה המשוב"><legend>על מה המשוב?</legend>
       <label><input type="radio" name="fbKind" value="problem" checked>🐞 משהו לא עובד</label>
@@ -2313,6 +2358,11 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
   </div>
   <a class="sethelp" href="/static/guide.html#settings">מה עושה כל הגדרה?</a>
 </dialog>
+<dialog id="vtConjDlg" aria-labelledby="vtConjTitle">
+  <div class="dlg-head"><h2 id="vtConjTitle"></h2><button class="btn" id="vtConjClose">סגירה</button></div>
+  <p class="vc-base"><bdi class="tr" id="vtConjBase"></bdi></p>
+  <div id="vtConjBody"></div>
+</dialog>
 <dialog id="verbDlg" class="verb-dlg" aria-labelledby="verbTitle">
   <div class="verb-shell">
     <div class="verb-head"><h2 id="verbTitle">פועל יוצא</h2><button class="btn" id="verbHelp" title="הנחיות לתגובה בשיחה" aria-label="הנחיות לתגובה בשיחה" hidden>?</button><button class="btn" id="verbClose">סגירה</button></div>
@@ -2324,6 +2374,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
         <label><input type="checkbox" value="present"><span>הווה<small>מה אני עושה?</small></span></label>
         <label><input type="checkbox" value="future"><span>עתיד<small>מה אעשה?</small></span></label>
       </div><p>אפשר לבחור זמן אחד או לשלב כמה זמנים באותו סבב.</p></fieldset>
+      <label class="verb-upto" id="verbUptoPick" hidden>עד איזה שיעור לתרגל?<select id="verbUpto"></select><small>הפעלים יוגרלו מתחילת הקורס ועד השיעור שבחרתם.</small></label>
       <button class="verb-path" data-path="learn">ללמוד פעלים חדשים<small>זיהוי והתאמת גופים, בקצב נוח</small></button>
       <button class="verb-path" data-path="daily">אימון הפעלים היומי<small>שליפה מהירה וחזרה על מה שכבר נלמד</small></button>
       <div class="verb-levels" id="verbLevels"></div>
@@ -2918,7 +2969,7 @@ async function drawPushFunnel(){
     const res=await api("/api/push/funnel"), d=await res.json().catch(()=>({})); if(!res.ok||!d.steps) return;
     const s=d.steps, p=d.places||{}, on=w=>(p[w]||{}).accepted||0;
     if(!Object.values(s).some(Boolean)){ line.textContent=`ההצעה להפעיל התראות: עוד אין נתונים (נאספים מהיום).`; return; }
-    line.textContent=`ההצעה להפעיל התראות, ${d.days} הימים האחרונים (אנשים): ראו ${s.shown} · הפעילו ${s.accepted} (אחרי סרטון ${on("video")}, כרטיס בדף הבית ${on("home")}, אחרי הצלחה ${on("win")}, מסך הסרטונים ${on("videos")}) · „לא עכשיו” ${s.declined} · לא אישרו בדפדפן ${s.denied} · חסומות ${s.blocked} · אייפון בלי התקנה ${s.ios} · ביטלו ${s.off}`;
+    line.textContent=`ההצעה להפעיל התראות, ${d.days} הימים האחרונים (אנשים): ראו ${s.shown} · הפעילו ${s.accepted} (אחרי סרטון ${on("video")}, כרטיס בדף הבית ${on("home")}, אחרי הצלחה ${on("win")}, מסך הסרטונים ${on("videos")}, הפעמון במסלול ${on("path")}, חלון „חדש באפליקציה” ${on("news")}) · „לא עכשיו” ${s.declined} · לא אישרו בדפדפן ${s.denied} · חסומות ${s.blocked} · אייפון בלי התקנה ${s.ios} · ביטלו ${s.off}`;
   }catch(e){}
 }
 /* An admin's notification, to everyone they manage or to one class (POST /api/push/broadcast). The counts are of the
@@ -3002,6 +3053,57 @@ async function openNotify(classes){
    finished topic or lesson, the first gold, the day's goal: "win"), and on closing a daily video ("video": tomorrow's
    can come by itself). "Not now" asks again after PUSH_AGAIN days, each moment by its own count; it waits for any dialog
    already open to close, and after a win stays quiet on a visit that asked for the class's lesson. */
+/* What is new, once per device (NEWS names the edition: a new name shows the window again): the notifications and the
+   feedback button. The path's bell opens the same window with the notifications alone, for as long as this device has
+   not turned them on. `where` is the offer's place in the funnel: "news" (the window on entering) or "path" (the bell). */
+const NEWS="feedback-push";
+function pushBell(show){ $("pushBarBtn").hidden=!show; }
+async function initPushBell(){
+  if(!AUTH_URL) return;
+  $("pushBarBtn").onclick=()=>openNews("path");
+  if(!PUSH_CAN) return pushBell(PUSH_IOS&&!PUSH_STANDALONE);
+  const st=await pushState(); pushBell(!!st.key&&!st.sub);
+}
+async function openNews(where){
+  const dlg=$("newsDlg"), item=$("newsPush"), text=$("newsPushText"), why=$("newsPushWhy"), yes=$("newsPushYes"), state=$("newsPushState");
+  const ios=!PUSH_CAN&&PUSH_IOS&&!PUSH_STANDALONE, st=PUSH_CAN?await pushState():null;
+  if(document.querySelector("dialog[open]")) return false;
+  const can=ios||!!(st&&st.key);   // a browser without notifications, or a server that sends none: the feedback button alone
+  if(where==="path"&&!can) return false;
+  $("newsTitle").textContent=where==="path"?"התראות מהאפליקציה":"חדש באפליקציה ✨"; $("newsFb").hidden=where==="path";
+  item.hidden=!can; yes.hidden=true; yes.disabled=false; why.hidden=false; state.textContent="";
+  if(ios){ text.innerHTML="בכל בוקר שיש סרטון יומי חדש נשלחת התראה לטלפון. באייפון היא מגיעה רק מהאפליקציה שעל מסך הבית:<br>לחצו על <b>שיתוף</b> ⬆️ ← <b>„הוספה למסך הבית”</b>, ופתחו את האפליקציה משם."; pushSeen("ios",where); }
+  else if(can){
+    text.textContent=`בכל בוקר שיש סרטון יומי חדש תגיע התראה לטלפון בשעה ${st.hour}:00, גם כשהאפליקציה סגורה`+(st.streakHour==null?".":`, ובערב (${st.streakHour}:00) תזכורת אם הרצף עוד לא נשמר היום.`);
+    if(st.sub){ why.hidden=true; state.textContent="ההתראות כבר פעילות במכשיר הזה ✓"; }
+    else if(Notification.permission==="denied"){ state.textContent="ההתראות חסומות בדפדפן. כדי לקבל אותן, אשרו התראות לאתר הזה בהגדרות הדפדפן."; pushSeen("blocked",where); }
+    else{
+      yes.hidden=false; pushSeen("shown",where);
+      yes.onclick=async()=>{
+        yes.disabled=true;
+        try{
+          if(await pushAsk(st.key,where)){
+            store.set(PUSH_ASKED.win,"never"); yes.hidden=true; why.hidden=true; pushBell(false); document.querySelector(".focus-push")?.remove();
+            state.textContent="ההתראות פעילות ✓ שלחנו אחת עכשיו, לדוגמה.";
+          }else state.textContent=Notification.permission==="denied"?"ההתראות חסומות בדפדפן. אפשר לאשר אותן בהגדרות האתר.":"ההתראות לא אושרו. לחצו שוב כדי להפעיל.";
+        }catch(e){ state.textContent="לא הצלחנו להפעיל את ההתראות. נסו שוב מאוחר יותר."; }
+        yes.disabled=false;
+      };
+    }
+  }
+  $("newsClose").onclick=()=>dlg.close();
+  dlg.showModal(); $("newsClose").focus();
+  return true;
+}
+function newsSoon(){   // once, on entering, after whatever the entrance itself opens (the class, the lesson question, a message)
+  if(!AUTH_URL||store.get("ihki.news","")===NEWS) return;
+  setTimeout(async function again(){
+    const open=document.querySelector("dialog[open]");
+    if(open) return open.addEventListener("close",()=>setTimeout(again,600),{once:true});
+    if(document.body.classList.contains("manage")||document.body.classList.contains("lab")) return;   // a teacher at work: on the next visit
+    if(await openNews("news")) store.set("ihki.news",NEWS);
+  },2500);
+}
 const PUSH_AGAIN=7, PUSH_ASKED={win:"ihki.pushAsked",video:"ihki.pushAskedVideo"};
 const PUSH_TITLE={win:"כל הכבוד! רוצים תזכורת כל בוקר?",video:"רוצים לקבל את הסרטון של מחר ישר לטלפון?"};
 let pushAfterVideo=false;   // the video playing is a daily one: its closing is the moment to offer the reminder
@@ -3204,6 +3306,37 @@ function reachedRank(){   // the place, in every lesson, of the lesson the stude
   const ready=LESSONS.filter(l=>!l.soon), reached=FREE?ALL_LESSONS.filter(l=>!l.soon).at(-1):ready.find(l=>!tally(lessonList(l)).over)||ready.at(-1);
   return reached?ALL_LESSONS.findIndex(l=>l.id===reached.id):-1;
 }
+const vtConj=new Map();   // phrase id -> its forms, as the server gave them
+async function openVerbConj(p){   // a click on a verb of the table: all its forms, past, present and future
+  const body=$("vtConjBody"), [past,future]=p.tr.split(/,\s*/);
+  $("vtConjTitle").textContent=p.he; setTr($("vtConjBase"),[past,future].filter(Boolean).join(" · "));
+  body.replaceChildren(mark("vc-note","טוען…","p")); $("vtConjDlg").showModal();
+  if(!vtConj.has(p.id)){
+    const r=await api(`/api/verb-table/${p.id}`).catch(()=>null);
+    if(!r||!r.ok){ body.replaceChildren(mark("vc-note","לא הצלחנו לטעון את ההטיות. נסו שוב.","p")); return; }
+    vtConj.set(p.id,await r.json());
+  }
+  const data=vtConj.get(p.id);
+  if($("vtConjTitle").textContent!==p.he) return;   // another verb was opened meanwhile
+  if(!data.tenses.length){ body.replaceChildren(mark("vc-note","ההטיות המלאות של הפועל הזה עוד לא הוזנו. למעלה: הוא בעבר ובעתיד.","p")); return; }
+  const table=mark("vc-table","","table"), head=document.createElement("thead"), rows=document.createElement("tbody"), hr=document.createElement("tr");
+  let missing=false;
+  hr.append(mark("","","th"),...data.tenses.map(t=>mark("",t.name,"th"))); head.append(hr);
+  data.pronouns.forEach((who,i)=>{
+    const tr=document.createElement("tr"); tr.append(mark("",who,"th"));
+    for(const t of data.tenses){
+      const f=t.forms[i], td=document.createElement("td");
+      if(f.tr){ const b=document.createElement("bdi"); setTr(b,f.tr); td.append(b); }
+      else{ td.className="none"; td.textContent="—"; missing=true; }
+      tr.append(td);
+    }
+    rows.append(tr);
+  });
+  table.append(head,rows);
+  const wrap=mark("vc-wrap","","div"); wrap.append(table); body.replaceChildren(wrap);
+  if(missing) body.append(mark("vc-note","— צורה שעוד לא הוזנה.","p"));
+}
+$("vtConjClose").onclick=()=>$("vtConjDlg").close();
 function drawVerbTable(box){
   const lessons=LESSONS.filter(l=>!l.soon), place=id=>ALL_LESSONS.findIndex(l=>l.id===id);
   const all=PHRASES.filter(p=>p.binyan&&GAMES.some(g=>g.id===p.cat));
@@ -3263,7 +3396,8 @@ function drawVerbTable(box){
       card.append(h);
       if(VT_NOTES[key]){ const n=mark("vt-note","","p"); n.innerHTML=VT_NOTES[key]; n.querySelectorAll(".tr").forEach(e=>setTr(e,e.textContent)); h.title=n.textContent; card.append(n); }
       for(const p of list){
-        const row=mark(`vt-row${p.unlock===vtAt?" new":""}`,"","div"), he=mark("vt-he","","div"), [past,future]=p.tr.split(/,\s*/);
+        const row=mark(`vt-row${p.unlock===vtAt?" new":""}`,"","div"), he=mark("vt-he","","button"), [past,future]=p.tr.split(/,\s*/);
+        he.type="button"; he.title="כל ההטיות של הפועל"; he.setAttribute("aria-label",`כל ההטיות: ${p.he}`); he.onclick=()=>openVerbConj(p);
         const sub=mark("",short(p.unlock),"sub"); sub.title=(ALL_LESSONS.find(l=>l.id===p.unlock)||{}).name||"";
         he.append(sub,mark("",p.he,"span"));
         const say=mark("vt-say","","button"), tr=mark("tr","","bdi");
@@ -7486,10 +7620,18 @@ const KEY_GUIDES={
     ["העתיקו את המפתח מיד (הוא מתחיל ב־sk-ant-): הוא מוצג פעם אחת בלבד."],
     ["מומלץ: קבעו תקרת הוצאה חודשית ב־",["Limits","https://platform.claude.com/settings/limits"],", כדי שתקלה או שימוש חריג לא יעלו יותר ממה שתכננתם."],
     ["הדביקו את המפתח כאן ולחצו שמירה. אחרי שהוא עובד, מחקו את המפתח הישן ב־Console."]],
+  GEMINI_API_KEY:[
+    ["המפתח הזה נחוץ רק אם רוצים שהמורה ירוץ על מודל של Gemini במקום Claude."],
+    ["היכנסו ל־",["aistudio.google.com/apikey","https://aistudio.google.com/apikey"]," (Google AI Studio) והתחברו עם חשבון Google."],
+    ["לחצו Create API key, בחרו פרויקט (או צרו חדש) והעתיקו את המפתח."],
+    ["לשימוש של כיתה שלמה הפעילו חיוב (Billing) בפרויקט: במסלול החינמי יש מכסה קטנה של בקשות, והשיחות ייכשלו כשהיא נגמרת."],
+    ["הדביקו את המפתח כאן ולחצו שמירה."],
+    ["המפתח לבדו לא משנה את המורה: כדי לעבור ל־Gemini בחרו מודל gemini ב\"המודל של המורה\" למטה. כדי לחזור ל־Claude בחרו שם מודל claude."]],
   TUTOR_MODEL:[
-    ["בחרו מודל מהרשימה. Haiku 5.5 הוא ברירת המחדל והזול ביותר; השוואת העלויות נמצאת בהערכת העלות של מפתח Anthropic למעלה."],
-    ["למודל שלא ברשימה בחרו \"אחר\" והקלידו את המזהה שלו (למשל claude-sonnet-5-5). המזהים מופיעים ב־",["רשימת המודלים של Anthropic","https://platform.claude.com/docs/en/models/overview"],"."],
-    ["השמירה בודקת מול Anthropic שהמודל קיים ושהמפתח שבשימוש יכול להשתמש בו. היא לא עולה כסף."],
+    ["בחרו מודל מהרשימה. Haiku 5.5 הוא ברירת המחדל; השוואת העלויות נמצאת בהערכת העלות של מפתח Anthropic ושל מפתח Gemini למעלה."],
+    ["מודל claude רץ עם מפתח Anthropic, ומודל gemini עם מפתח Gemini. כך עוברים בין הספקים: שומרים את המפתח של הספק ובוחרים כאן מודל שלו."],
+    ["למודל שלא ברשימה בחרו \"אחר\" והקלידו את המזהה שלו (למשל claude-sonnet-5-5 או gemini-3.8-flash). המזהים מופיעים ב־",["רשימת המודלים של Anthropic","https://platform.claude.com/docs/en/models/overview"]," וב־",["רשימת המודלים של Gemini","https://ai.google.dev/gemini-api/docs/models"],"."],
+    ["השמירה בודקת מול הספק שהמודל קיים ושהמפתח שבשימוש מתקבל. היא לא עולה כסף."],
     ["המודל החדש נכנס לשימוש מיד, גם בשיחות פתוחות, מהמשפט הבא של התלמיד."],
     ["הבקשה מותאמת לכל אחד מהמודלים שברשימה. מודל אחר שתקלידו אולי לא יקבל אותה; אם השיחות נכשלות, חזרו לאחד מהרשימה."]]};
 // what each key costs, estimated 2026-10-18 for 100 students × 5 chats a day × 10 turns (the README has how it was worked out)
@@ -7508,7 +7650,13 @@ const KEY_COSTS={
     notes:["העמודות לשיחה וליום הן לאמצע הקורס. ההערכה היא תקרה: כל תלמיד מנצל את 5 השיחות, כל יום, את כל 10 התורות.",
            "המחירים כוללים את מטמון ההנחיות (prompt cache). בלעדיו הקלט היה עולה פי 3 עד 3.5.",
            "* ב־Opus 5.5 וב־Fable 5.1 אי אפשר לכבות את החשיבה, ולכן המורה משאיר אותה במאמץ נמוך. טוקני החשיבה מחויבים כפלט ולא נספרו בטבלה, כך שבפועל העלות שלהם קצת גבוהה יותר.",
-           "את המודל בוחרים ב־TUTOR_MODEL בסודות השרת."]}};
+           "את המודל בוחרים ב־TUTOR_MODEL בסודות השרת."]},
+  GEMINI_API_KEY:{intro:"מחירי המחירון של Google למיליון טוקנים, נכון ל־12.11.2026. לפי שיחת ניסיון אחת באמצע הקורס, שיחה ב־3.1 Flash-Lite עולה בערך $0.045 (כ־125 אלף טוקני קלט וכ־9 אלף פלט), כלומר בערך פי 6 מ־Haiku 5.5 ($0.0075).",
+    head:["מודל","קלט","פלט (כולל חשיבה)"],
+    rows:[["Gemini 3.1 Flash-Lite","$0.25","$1.50"],["Gemini 3.5 Flash-Lite","$0.30","$2.50"],["Gemini 3.6 Flash","$0.75","$3.75"],["Gemini 3.8 Flash","$0.75","$3.75"]],
+    notes:["המחיר של 3.6 Flash ושל 3.8 Flash הוא עד 31.12.2026; מ־1.1.2027 הוא $1.50 לקלט ו־$7.50 לפלט.",
+           "ב־Gemini המורה לא משתמש במטמון הנחיות, ולכן כל ההנחיות (כולל אוצר המילים) מחויבות כקלט בכל תור.",
+           "איכות הערבית הפלסטינית והתיקונים ב־Gemini לא נבדקה עדיין: כדאי לנסות כמה שיחות לפני שפותחים לתלמידים."]}};
 function keyCost(name){
   const c=KEY_COSTS[name]; if(!c) return null;
   const box=mark("key-cost",""); box.append(mark("","הערכת עלות","b"),mark("",c.intro,"p"));
@@ -7549,12 +7697,12 @@ function drawApiKeys(box){
     const sources={db:"נשמר בפאנל",env:"מוגדר בשרת",none:"לא מוגדר"};
     for(const k of data.keys||[]){
       const row=mark("key-row",""), info=document.createElement("div"), when=k.updated_at?new Date(k.updated_at).toLocaleDateString("he-IL",{timeZone:"Asia/Jerusalem"}):"";
-      const choice=!!k.choices, inUse=choice&&(k.value?`בשימוש: ${k.value}`:"ברירת המחדל של הקוד (claude-haiku-5-5)");
+      const choice=!!k.choices, inUse=choice&&(k.value?`בשימוש: ${k.value}`:"ברירת המחדל של הקוד (claude-haiku-5-5; עם מפתח Gemini בלבד: gemini-3.1-flash-lite)");
       info.append(mark("",k.label,"b"),mark("",[choice&&k.source==="none"?"":sources[k.source]||k.source,inUse,k.last4&&`מסתיים ב־${k.last4}`,k.updated_by&&`על ידי ${k.updated_by}`,when].filter(Boolean).join(" · "),"small"));
       row.append(info); const guide=keyGuide(k.name); if(guide) row.append(guide); list.append(row);
       if(!data.writable) continue;
       const form=document.createElement("form"), input=document.createElement("input"), save=mark("btn primary","שמירה","button"), msg=mark("msg","");
-      input.type=choice?"text":"password"; input.autocomplete="off"; input.spellcheck=false; input.dir="ltr"; input.maxLength=300; input.placeholder=choice?"claude-…":"מפתח חדש"; input.setAttribute("aria-label",choice?"מזהה מודל אחר":`מפתח חדש: ${k.label}`); save.type="submit";
+      input.type=choice?"text":"password"; input.autocomplete="off"; input.spellcheck=false; input.dir="ltr"; input.maxLength=300; input.placeholder=choice?"claude-… / gemini-…":"מפתח חדש"; input.setAttribute("aria-label",choice?"מזהה מודל אחר":`מפתח חדש: ${k.label}`); save.type="submit";
       let select=null;
       if(choice){   // the list, and "other" for an id typed in the field
         select=document.createElement("select"); select.setAttribute("aria-label",k.label);
@@ -7572,7 +7720,7 @@ function drawApiKeys(box){
           input.value=""; show(d);
         }catch(err){ msg.textContent="נכשל: "+err.message; for(const b of form.querySelectorAll("button")) b.disabled=false; }
       };
-      form.onsubmit=e=>{ e.preventDefault(); const value=select&&select.value?select.value:input.value.trim(); if(value) send("PUT",{value},choice?"בודק את המודל מול Anthropic…":"בודק את המפתח מול הספק…"); };
+      form.onsubmit=e=>{ e.preventDefault(); const value=select&&select.value?select.value:input.value.trim(); if(value) send("PUT",{value},choice?"בודק את המודל מול הספק…":"בודק את המפתח מול הספק…"); };
       if(select) form.append(select); form.append(input,save);
       if(k.source==="db"){ const back=mark("btn",choice?"חזרה לברירת המחדל של השרת":"חזרה למפתח השרת","button"); back.type="button"; back.onclick=()=>{ if(confirm(choice?"לחזור למודל שמוגדר בשרת (או לברירת המחדל)?":"למחוק את המפתח שנשמר בפאנל ולחזור למפתח שמוגדר בשרת (אם יש)?")) send("DELETE",null,"מוחק…"); }; form.append(back); }
       form.append(msg); row.append(form);
@@ -8339,6 +8487,15 @@ for(const input of $("verbTensePick").querySelectorAll("input")){
     verbTenses=picked;store.set("ihki.verbTenses",verbTenses);
   };
 }
+let verbUpto=store.get("ihki.verbUpto","");   // the learner's own cap: verbs up to this lesson only ("" = everything reached)
+function drawVerbUpto(){
+  const lessons=verbMeta?.lessons||[], sel=$("verbUpto"), stages=new Set(lessons.map(l=>l.level));
+  $("verbUptoPick").hidden=lessons.length<2; sel.replaceChildren();
+  if(!lessons.some(l=>l.id===verbUpto))verbUpto="";
+  for(const l of lessons){const o=mark("",(stages.size>1?`שלב ${l.level==="1"?"א׳":l.level==="2"?"ב׳":l.level} · `:"")+l.name,"option");o.value=l.id;sel.append(o)}
+  if(lessons.length)sel.value=verbUpto||lessons[lessons.length-1].id;
+}
+$("verbUpto").onchange=()=>{const lessons=verbMeta?.lessons||[], v=$("verbUpto").value;verbUpto=v===lessons[lessons.length-1]?.id?"":v;store.set("ihki.verbUpto",verbUpto)};
 const verbRatio=n=>{const s=verbSummary[n]||{}; return s.attempts?s.correct/s.attempts:0};
 // FREE is set only from /api/me's server-verified teacher flag. Teachers can inspect every level.
 const verbUnlocked=n=>VERB_ALL_LEVELS_OPEN||FREE||n===1
@@ -8347,6 +8504,7 @@ const verbUnlocked=n=>VERB_ALL_LEVELS_OPEN||FREE||n===1
   ||(n===4&&(verbSummary[3]?.attempts||0)>=10&&verbRatio(3)>=VERB_THRESH[4]&&(verbSummary[3]?.median_ms||Infinity)<=2000)
   ||(n===5&&(verbSummary[4]?.attempts||0)>=6&&verbRatio(4)>=VERB_THRESH[5]);
 function drawVerbLevels(){
+  drawVerbUpto();
   const box=$("verbLevels"); box.replaceChildren();
   const reason=n=>{
     const s=verbSummary[n-1]||{}, accuracy=Math.round(verbRatio(n-1)*100), attempts=s.attempts||0;
@@ -8423,7 +8581,7 @@ async function nextVerb(){
   }
   $("verbFeedback").className="verb-feedback"; $("verbFeedback").textContent=""; $("verbBoard").innerHTML="טוען…";
   const questionLevel=verbPath==="daily"?(verbDailyLevels[verbN]||1):verbLevel;
-  const payload={level:questionLevel,mastery:verbMastery,recent:verbRecent,tenses:verbTenses};
+  const payload={level:questionLevel,mastery:verbMastery,recent:verbRecent,tenses:verbTenses,...(verbUpto?{upto:verbUpto}:{})};
   const r=await api("/api/verb-game/question",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).catch(()=>null);
   if(!r||!r.ok){$("verbBoard").textContent="לא הצלחנו לטעון שאלה.";return}
   verbQuestion=await r.json(); verbStarted=performance.now(); verbPairs={}; verbPicked=null;
@@ -9835,6 +9993,21 @@ async function pendingNotices(){
   }catch(e){}
 }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&ENTERED) setTimeout(pendingNotices,400); });
+// The screen stays on for as long as the app is in front: recording sentences should not need a tap to keep it awake.
+// The browser drops the lock whenever the page is hidden, so it is asked for again on every return (and on a tap, where the first ask was refused).
+let appWakeLock=null;
+async function keepScreenOn(){
+  if(!("wakeLock" in navigator)||document.hidden||appWakeLock) return;
+  try{
+    const lock=await navigator.wakeLock.request("screen");
+    if(appWakeLock){ lock.release().catch(()=>{}); return; }   // two asks at once: one lock is enough
+    appWakeLock=lock;
+    lock.addEventListener("release",()=>{ if(appWakeLock===lock) appWakeLock=null; });
+  }catch(e){}
+}
+document.addEventListener("visibilitychange",keepScreenOn);
+document.addEventListener("pointerdown",keepScreenOn,{passive:true});
+keepScreenOn();
 function pushOpened(from){ api("/api/push/opened",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({from})}).catch(()=>{}); }   // the server counts the opens
 function reminderSearch(){ const q=new URLSearchParams(location.search); return q.has("video")?"?video="+encodeURIComponent(q.get("video")):q.get("view")==="daily"?"?view=daily":""; }
 let contentReady=Promise.resolve();   // the videos, once loadContent is under way: a notified video waits for them
@@ -9855,7 +10028,7 @@ function enter(){
   const splash=$("logo-splash");
   $("wrap").inert=false; splash.classList.add("done"); setTimeout(()=>splash.remove(),700);
   ENTERED=true;
-  if(AUTH_URL){ $("feedbackBtn").hidden=false; initFeedback(); }   // feedback is kept per signed-in user
+  if(AUTH_URL){ $("feedbackBtn").hidden=false; initFeedback(); $("feedbackBtn2").hidden=false; $("feedbackBtn2").onclick=()=>$("feedbackBtn").click(); initPushBell(); newsSoon(); }   // feedback is kept per signed-in user
   const choosing=MY_CLASSES.length>1&&!MY_CLASS;
   if(choosing) askClass();   // in several classes and none practised in before: which one? (its lesson question follows, from useClass)
   if(AUTH_URL&&!can("path.use")){ if(can("games.use")||can("tutor.use")) showView("games"); else if(can("library.view")) showView("library"); }

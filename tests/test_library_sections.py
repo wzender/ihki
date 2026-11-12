@@ -61,6 +61,8 @@ def test_a_section_covers_its_sub_sections_and_students_see_their_classes_sectio
 def run(auth, steps, monkeypatch):
     monkeypatch.setenv("SAWTAK_API_KEY", "")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("GOOGLE_API_KEY", "")   # no key of either provider: the tutor is off
     app = create_app(scorer_for(emissions(["w"])), auth=auth)
 
     async def go():

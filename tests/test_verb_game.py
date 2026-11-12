@@ -166,7 +166,7 @@ def test_conversation_accepts_a_typed_reply(game):
 
 # ---- "בונים עם איתן" (levels 6-8) ----
 from app.conjugation import (FUTURE_PREFIX, FUTURE_SUFFIX, PAST_SUFFIX, STAGE_A_VERBS, compose, plain)
-from app.future_draft import FUTURE_DRAFT
+from app.future_forms import FUTURE_FORMS
 from app.workbook import LEX
 
 STAGE_A = [str(n) for n in range(1, 11)]
@@ -181,19 +181,19 @@ def test_every_stage_a_form_is_built_by_its_own_tiles():
             assert future["he"]["pre"] == "אתתיתנתי"[p]
 
 
-def test_drafts_never_shadow_lex_and_only_teachers_get_draft_verbs(game):
-    assert not set(FUTURE_DRAFT) & {k.partition("#")[0] for k in LEX if not k.endswith("#imp")}   # an imperative is spelt as "I"
+def test_the_approved_future_forms_are_in_lex_and_every_stage_a_verb_reaches_students(game):
+    assert all(LEX[k] == v for k, v in FUTURE_FORMS.items())   # approved 2026-11-12: nothing LEX spells out shadows one
     students, teachers = game.eitan_available(STAGE_A), game.eitan_available(STAGE_A, drafts=True)
-    assert set(students) < set(teachers)
-    assert all(not STAGE_A_VERBS[v]["draft"] for v in students)
-    assert "يقعد" in students and "يفتح" not in students   # يفتح's future is mostly draft
-    assert game.eitan_available(["1"]) == ["يسأل", "يقعد"]
+    assert students == teachers and len(students) == len(STAGE_A_VERBS)
+    assert not any(verb["draft"] for verb in STAGE_A_VERBS.values())
+    assert "يقعد" in students and "يفتح" in students
+    assert game.eitan_available(["1"]) == ["يفتح", "ياكل", "يسأل", "يقعد"]
 
 
 def test_falling_letters_starts_with_he_past_and_adds_future_or_present_prefix(game):
     q = game.falling_letters(["1"])
     verb = STAGE_A_VERBS[q["verb"]["id"]]
-    assert {v["id"] for v in q["verbs"]} == {"يسأل", "يقعد"}
+    assert {v["id"] for v in q["verbs"]} == {"يفتح", "ياكل", "يسأل", "يقعد"}
     assert {v["gizra"] for v in q["verbs"]} == {"גזרת פַעַל"}   # each verb with its class, to group the list by
     assert q["base"]["label"] == "הוא · עבר"
     assert q["base"]["arabic"] == verb["past"][3]["ar"]

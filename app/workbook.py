@@ -25,6 +25,7 @@ from __future__ import annotations
 import itertools
 import re
 
+from .future_forms import FUTURE_FORMS
 from .grammar import MAX_VARIANTS, PRONOUNS, WORDS
 
 # כינויי הקניין (lesson 2), one row per owner in PRONOUNS order: Hebrew, Hebrew as read aloud where the
@@ -79,6 +80,7 @@ def _possessed(stem: str, tr_v: str, ipa_v: str, tr_c: str = "", ipa_c: str = ""
 
 # arabic[#tag] -> (workbook transliteration, IPA readings, main one first)
 LEX: dict[str, tuple[str, list[str]]] = {
+    **FUTURE_FORMS,   # approved rule-built future forms; anything spelt out below wins over them
     **WORDS,
     **{alts[0][0]: (tr, [ipa for _, ipa in alts]) for _, _, tr, alts in PRONOUNS},
     **{word: entry for row in POSSESSED for word, entry in _possessed(*row).items()},

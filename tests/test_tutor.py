@@ -217,3 +217,60 @@ def test_the_last_turn_note_fits_the_model():
     folded = last_turn("claude-haiku-4-5", history, "last")   # no system messages there: one user turn, two blocks
     assert len(folded) == 3 and folded[-1]["role"] == "user" and folded[-1]["content"][0]["text"] == "مرحبا"
     assert "last" in folded[-1]["content"][1]["text"]
+
+
+class GeminiHTTP:
+    """Stands in for urllib's urlopen: answers as Gemini's generateContent would, and keeps every request."""
+
+    def __init__(self, finish="STOP"):
+        self.requests, self.finish = [], finish
+
+    def __call__(self, req, timeout=None):
+        import io
+        self.requests.append((req.full_url, dict(req.header_items()), json.loads(req.data)))
+        body = {"candidates": [{"content": {"parts": [{"text": json.dumps(answer(summary="כל הכבוד"))}]}, "finishReason": self.finish}],
+                "usageMetadata": {"promptTokenCount": 100, "candidatesTokenCount": 20, "thoughtsTokenCount": 5}}
+        return io.BytesIO(json.dumps(body).encode())
+
+
+def test_a_gemini_model_runs_on_the_gemini_key(monkeypatch):
+    http = GeminiHTTP()
+    monkeypatch.setattr("app.tutor.urllib.request.urlopen", http)
+    claude = FakeClient()
+    tutor = Tutor(claude, "gemini-3.1-flash-lite", gemini_key="AIza-test")
+    chat, opening = tutor.start("l2", "m", None, "", "s", "d", None)
+    assert opening["tr"] and not claude.calls
+    chat.turns = MAX_TURNS - 1
+    out = tutor.turn(chat, "مرحبا")
+    url, headers, body = http.requests[-1]
+    assert url.endswith("/models/gemini-3.1-flash-lite:generateContent") and headers["X-goog-api-key"] == "AIza-test"
+    assert [c["role"] for c in body["contents"]] == ["user", "model", "user"]
+    assert [p["text"] for p in body["contents"][-1]["parts"]][0] == "مرحبا" and len(body["contents"][-1]["parts"]) == 2   # the last-turn note
+    assert body["systemInstruction"]["parts"][0]["text"] == chat.system and "responseJsonSchema" in body["generationConfig"]
+    assert out["done"] and out["summary"] == "כל הכבוד"
+    assert (chat.input_tokens, chat.output_tokens, chat.model) == (200, 50, "gemini-3.1-flash-lite")   # thoughts are output
+    tutor.model = DEFAULT_MODEL   # switched back in the panel: the next conversation is Claude's
+    tutor.start("l2", "m", None, "", "s", "d", None)
+    assert len(claude.calls) == 1
+
+
+def test_a_model_without_its_key_or_a_blocked_answer_fails_politely(monkeypatch):
+    from app.tutor import TutorUnavailable
+    with pytest.raises(TutorUnavailable):
+        Tutor(FakeClient(), "gemini-3.1-flash-lite").start("l2", "m", None, "", "s", "d", None)
+    with pytest.raises(TutorUnavailable):
+        Tutor(None, DEFAULT_MODEL, gemini_key="AIza-test").start("l2", "m", None, "", "s", "d", None)
+    monkeypatch.setattr("app.tutor.urllib.request.urlopen", GeminiHTTP(finish="SAFETY"))
+    with pytest.raises(TutorUnavailable):
+        Tutor(None, "gemini-3.1-flash-lite", gemini_key="AIza-test").start("l2", "m", None, "", "s", "d", None)
+
+
+def test_the_gemini_key_alone_turns_the_game_on(monkeypatch):
+    from app.tutor import GEMINI_DEFAULT_MODEL
+    for name in ("ANTHROPIC_API_KEY", "CLAUDE_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "TUTOR_MODEL"):
+        monkeypatch.delenv(name, raising=False)
+    assert load_tutor() is None
+    monkeypatch.setenv("GEMINI_API_KEY", "AIza-test")
+    tutor = load_tutor()
+    assert (tutor.client, tutor.gemini_key, tutor.model) == (None, "AIza-test", GEMINI_DEFAULT_MODEL)
+    assert load_tutor("sk-ant-x", "", "AIza-test").model == DEFAULT_MODEL   # with both keys, Claude stays the default

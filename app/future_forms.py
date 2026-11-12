@@ -1,12 +1,10 @@
-"""Draft future forms of stage A's verbs (שלב א'): those that LEX does not have yet.
-
-Made by rule from the forms LEX has (another prefix letter on a known form, or ـي / ـو added), so they are NOT checked.
-The verb game shows a verb whose future is not all in LEX to teachers only, marked טיוטה. Once a teacher has checked
-a form, move it into LEX (workbook.py) and delete it here: the verb then reaches students when all eight are in LEX.
-The review list is docs/future-forms-draft.md.
+"""Future forms of stage A's verbs (שלב א') that were built by rule from the forms LEX had (another prefix letter
+on a known form, or ـي / ـو added). The course's owner approved them all in bulk on 2026-11-12, so they are part of
+LEX (workbook.py merges them in) and reach students like any other form. An entry LEX itself spells out wins over
+the one here; to correct a form, fix it here or write it in LEX.
 """
 
-FUTURE_DRAFT: dict[str, tuple[str, list[str]]] = {
+FUTURE_FORMS: dict[str, tuple[str, list[str]]] = {
     # يفتح
     "تفتح": ("תִפְתַח", ["t i f t a ħ"]),
     "تفتحي": ("תִפְתַחִי", ["t i f t a ħ i"]),

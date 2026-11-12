@@ -1,4 +1,4 @@
-"""API keys a developer sets in the management panel (SAWTAK_API_KEY, ANTHROPIC_API_KEY), and the tutor's model
+"""API keys a developer sets in the management panel (SAWTAK_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY), and the tutor's model
 (TUTOR_MODEL), so changing one needs no access to the host (the Hugging Face Space).
 
 Each key is kept in the Supabase table `app_secrets`, encrypted with Fernet under SECRETS_MASTER_KEY, which lives only in
@@ -6,7 +6,8 @@ the host's environment: the table, a backup of it or a look at the Supabase dash
 row-level security on and no policy, so only the server's secret key reads it. A key never goes back to the page: the
 panel sees whether it is set, where from, and its last four characters. A new key is tried with its provider before it
 is kept, so a typo cannot switch the playback or the tutor off. TUTOR_MODEL is no secret: it is kept the same way, but
-the panel shows it, and a model is checked by asking Anthropic for it with the key in use.
+the panel shows it, and a model is checked by asking its provider (Anthropic, or Google for a gemini- model) for it
+with the key in use.
 
 A key kept in the table takes the place of the environment's; without one (or without the table, the secret key or the
 master key) the environment's is used, as before.
@@ -29,25 +30,30 @@ from .auth import AuthUnavailable
 log = logging.getLogger("ihki.keys")
 # the keys the panel may set, and how the panel names them; nothing else (the master key, the Supabase keys) is settable
 NAMES = {"SAWTAK_API_KEY": "Sawtak Arabi · השמעת התשובה", "ANTHROPIC_API_KEY": "Anthropic · המורה (יאללה נדבר)",
-         "TUTOR_MODEL": "המודל של המורה (TUTOR_MODEL)"}
+         "GEMINI_API_KEY": "Google Gemini · המורה (יאללה נדבר) במודל gemini", "TUTOR_MODEL": "המודל של המורה (TUTOR_MODEL)"}
 FALLBACK = {"ANTHROPIC_API_KEY": ("ANTHROPIC_API_KEY", "CLAUDE_API_KEY"), "SAWTAK_API_KEY": ("SAWTAK_API_KEY",),
+            "GEMINI_API_KEY": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
             "TUTOR_MODEL": ("TUTOR_MODEL",)}
 PUBLIC = frozenset({"TUTOR_MODEL"})   # settings the panel may show in full
 # the panel's list of tutor models (any other id can be typed); empty = the code's default (tutor.DEFAULT_MODEL)
 MODEL_CHOICES = [("claude-haiku-5-5", "Haiku 5.5 · ברירת המחדל, הזול ביותר"), ("claude-sonnet-5-5", "Sonnet 5.5"),
-                 ("claude-opus-5-5", "Opus 5.5"), ("claude-fable-5-1", "Fable 5.1 · היקר ביותר"), ("claude-haiku-4-5", "Haiku 4.5")]
-MODEL_ID = re.compile(r"^claude-[a-z0-9][a-z0-9.-]{2,60}$")
+                 ("claude-opus-5-5", "Opus 5.5"), ("claude-fable-5-1", "Fable 5.1 · היקר ביותר"), ("claude-haiku-4-5", "Haiku 4.5"),
+                 ("gemini-3.1-flash-lite", "Gemini 3.1 Flash-Lite · הזול ב-Gemini (מפתח Gemini)"),
+                 ("gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite (מפתח Gemini)"),
+                 ("gemini-3.6-flash", "Gemini 3.6 Flash (מפתח Gemini)"), ("gemini-3.8-flash", "Gemini 3.8 Flash (מפתח Gemini)")]
+MODEL_ID = re.compile(r"^(?:claude|gemini)-[a-z0-9][a-z0-9.-]{2,60}$")
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 MAX_LEN = 300
 TIMEOUT = 15
-CREATE_APP_SECRETS = ("create table public.app_secrets (name text primary key check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','TUTOR_MODEL')), "
+CREATE_APP_SECRETS = ("create table public.app_secrets (name text primary key check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL')), "
                       "ciphertext text not null, last4 text not null default '', updated_by text not null default '', "
                       "updated_at timestamptz not null default now()); "
                       "alter table public.app_secrets enable row level security; "
                       "revoke all on public.app_secrets from anon, authenticated;")
-# for a table made before TUTOR_MODEL could be kept in it
+# for a table made before TUTOR_MODEL or GEMINI_API_KEY could be kept in it
 MIGRATE_APP_SECRETS = ("alter table public.app_secrets drop constraint if exists app_secrets_name_check; "
                        "alter table public.app_secrets add constraint app_secrets_name_check "
-                       "check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','TUTOR_MODEL'));")
+                       "check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL'));")
 
 
 class KeyRefused(ValueError):
@@ -153,12 +159,35 @@ class KeyStore:
             self._rows.pop(name, None)
 
 
-def check(name: str, value: str, anthropic_key: str = "") -> None:
-    """Tries the key with its provider, with a call that costs nothing; a tutor model, by asking Anthropic for it with
-    `anthropic_key` (the key in use). Raises KeyRefused."""
+def _gemini(path: str, key: str, missing: str) -> None:
+    """Asks Google for the model list (or one model) with the key; a call that costs nothing. Raises KeyRefused."""
+    req = urllib.request.Request(f"{GEMINI_URL}{path}", headers={"x-goog-api-key": key, "User-Agent": "ihki/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT):
+            return
+    except urllib.error.HTTPError as e:
+        detail = e.read()[:2000].decode("utf-8", "replace")
+        if e.code in (401, 403) or "API_KEY_INVALID" in detail:   # a wrong key answers 400 API_KEY_INVALID
+            raise KeyRefused("Google דחה את מפתח Gemini.") from None
+        if e.code == 404:
+            raise KeyRefused(missing) from None
+        raise KeyRefused(f"לא ניתן לבדוק מול Google כרגע ({e.code}). נסו שוב.") from None
+    except OSError:
+        raise KeyRefused("אין חיבור ל-Google כרגע. נסו שוב.") from None
+
+
+def check(name: str, value: str, anthropic_key: str = "", gemini_key: str = "") -> None:
+    """Tries the key with its provider, with a call that costs nothing; a tutor model, by asking its provider for it
+    with the key in use (`anthropic_key`, or `gemini_key` for a gemini- model). Raises KeyRefused."""
+    if name == "GEMINI_API_KEY":
+        return _gemini("?pageSize=1", value, "Google לא מכיר את המפתח.")
     if name == "TUTOR_MODEL":
         if not MODEL_ID.match(value):
-            raise KeyRefused("מזהה מודל נראה כך: claude-haiku-5-5.")
+            raise KeyRefused("מזהה מודל נראה כך: claude-haiku-5-5 או gemini-3.1-flash-lite.")
+        if value.startswith("gemini-"):
+            if not gemini_key:
+                raise KeyRefused("אין מפתח Gemini, ולכן אי אפשר לבדוק את המודל. שמרו קודם מפתח.")
+            return _gemini(f"/{value}", gemini_key, f"Google לא מכיר את המודל {value}.")
         if not anthropic_key:
             raise KeyRefused("אין מפתח Anthropic, ולכן אי אפשר לבדוק את המודל. שמרו קודם מפתח.")
         import anthropic

@@ -4,12 +4,11 @@ The future's prefixes are the Hebrew ones, אותיות איתן: ا/א for "I",
 "they", ن/נ for "we"; "you" (f.) adds ـي/ـי and the plurals ـو/ـו, as in Hebrew. Each form is split into
 prefix, body and ending so the page can colour the parts, beside the Hebrew form split the same way.
 
-Arabic forms come from LEX, the app's source of truth. A future form that LEX lacks comes from future_draft.py and
-marks its verb a draft: only teachers see draft verbs.
+Arabic forms come from LEX, the app's source of truth (which includes future_forms.py's approved forms). The
+`draft` flags remain for a form that is some day added unchecked; today none is.
 """
 from __future__ import annotations
 
-from .future_draft import FUTURE_DRAFT
 from .grammar import PRONOUNS
 from .workbook import LEX, VERBS_1, VERBS_3, VERBS_4, VERBS_5, VERBS_6, VERBS_8, VERBS_9, VERBS_10, _plain
 
@@ -88,9 +87,6 @@ def _lookup(ar: str, pronoun: int) -> tuple[str, list[str], bool] | None:
     if keys:
         tr, ipas = LEX[keys[0]]
         return tr, list(ipas), False
-    if ar in FUTURE_DRAFT:
-        tr, ipas = FUTURE_DRAFT[ar]
-        return tr, list(ipas), True
     return None
 
 
@@ -213,3 +209,51 @@ def _stage_a() -> dict[str, dict]:
 
 STAGE_A_VERBS = _stage_a()
 assert all(len(v["past"]) == len(v["future"]) == len(PRONOUNS) for v in STAGE_A_VERBS.values())
+
+
+def _all_verbs() -> dict[str, tuple]:
+    """Every verb the workbook gives a whole past table for, both stages, by its "he" future form."""
+    from . import workbook
+    lists = [items for _, items in STAGE_A] + [getattr(workbook, n) for n in (
+        "VERBS_2_1", "VERBS_2_3", "VERBS_2_4", "VERBS_2_5", "VERBS_2_6", "VERBS_2_7", "VERBS_2_8")]
+    out: dict[str, tuple] = {}
+    for items in lists:
+        for item in items:
+            out.setdefault(item[2], item)
+    return out
+
+
+def conjugation_table(he: str, base: tuple[str, str] | None = None) -> dict | None:
+    """The verb table's card for one verb, named by its "he" future form (يفتح): past, present and future for every
+    pronoun, in transliteration. A form LEX has is given as it is; the others are built by table_forms.py's rules from
+    `base`, the verb's "he" past and future in transliteration (approved in bulk on 2026-11-12). A form neither gives
+    is "". None: nothing to show."""
+    from . import table_forms
+    from .workbook import _present_of
+    item = _TABLE_VERBS.get(he)   # by the exact form: ينزّل (הוריד) is not ينزل (ירד)
+    past, present, future = ([""] * len(PRONOUNS) for _ in range(3))
+    if item:
+        for p, key in enumerate(item[1].split()):
+            if key in LEX:
+                past[p] = LEX[key][0]
+        for p, ar in enumerate(_future_arabic(item[2])):
+            found = _lookup(ar, p)
+            if found:
+                future[p] = found[0]
+                now = _present_of(("ب" + ar[1:]) if p == 0 and ar[:1] in "اأإ" else ("با" + ar[1:]) if p == 0 and ar[:1] == "آ" else "ب" + ar)
+                present[p] = now[0] if now else ""
+    if base:
+        past[3], future[3] = past[3] or base[0], future[3] or base[1]   # the "he" forms are the table's own
+        for forms, built in ((past, table_forms.past(*base)), (future, table_forms.future(base[1]))):
+            for p, tr in enumerate(built or []):
+                forms[p] = forms[p] or tr
+    present = [now or (table_forms.present(f, p) if f else "") for p, (now, f) in enumerate(zip(present, future))]
+    tenses = [{"id": i, "name": n, "forms": [{"tr": tr} for tr in f]} for i, n, f in
+              (("past", "עבר", past), ("present", "הווה", present), ("future", "עתיד", future))]
+    tenses = [t for t in tenses if any(f["tr"] for f in t["forms"])]
+    if not tenses:
+        return None
+    return {"pronouns": [p[1] + (" / הן" if p[0] == "humme" else "") for p in PRONOUNS], "tenses": tenses}
+
+
+_TABLE_VERBS = _all_verbs()

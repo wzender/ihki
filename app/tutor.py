@@ -11,13 +11,16 @@ of the tutor's message with its Hebrew translation, and marks a word the student
 A sentence of the student's that is wrong in grammar or wording gets a correction, explained in Hebrew.
 A conversation lasts MAX_TURNS sentences of the student's and ends with a short summary in Hebrew.
 
-The model is Claude Haiku (DEFAULT_MODEL, or TUTOR_MODEL), called with the server's key; the browser never sees it. A conversation lives in
+The model is Claude Haiku (DEFAULT_MODEL, or TUTOR_MODEL), called with the server's key; the browser never sees it.
+A TUTOR_MODEL that begins with "gemini-" runs on Google's Gemini instead, with GEMINI_API_KEY. A conversation lives in
 this process's memory while it runs (a restart ends it) and is kept, turn by turn, in the Supabase table
 `tutor_chats` (CREATE_TUTOR_CHATS), so the teacher can read what was said and how the tutor answered.
 
-Env:  ANTHROPIC_API_KEY (or CLAUDE_API_KEY)  required; without it the game is not offered
+Env:  ANTHROPIC_API_KEY (or CLAUDE_API_KEY)  the key of the Claude models
+      GEMINI_API_KEY (or GOOGLE_API_KEY)  the key of the Gemini models; without either key the game is not offered
       Access is granted per account in the management panel; an open service remains open.
-      TUTOR_MODEL  optional: the Claude model the tutor runs on (default DEFAULT_MODEL), e.g. claude-sonnet-5-5
+      TUTOR_MODEL  optional: the model the tutor runs on, e.g. claude-sonnet-5-5 or gemini-3.1-flash-lite (default
+                   DEFAULT_MODEL, or GEMINI_DEFAULT_MODEL when only the Gemini key is set)
                    (request_options() fits the request to it: Haiku 5.5/4.5, Sonnet 5.5, Opus 5.5 and Fable 5.1 all run)
 """
 from __future__ import annotations
@@ -29,6 +32,8 @@ import os
 import re
 import threading
 import time
+import urllib.error
+import urllib.request
 import uuid
 from dataclasses import dataclass, field
 
@@ -37,6 +42,8 @@ from .workbook import LEX
 
 log = logging.getLogger("ihki.tutor")
 DEFAULT_MODEL = "claude-haiku-5-5"
+GEMINI_DEFAULT_MODEL = "gemini-3.1-flash-lite"   # the model when only the Gemini key is set
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 NO_FIX = re.compile(r"אין (?:כאן )?(?:צורך|תיקון|טעות)|(?:המשפט|הדוגמה|התשובה) (?:שלך |שלכם )?נכונ")   # a correction whose note says there is none
 MAX_TURNS = 10   # the student's sentences in one conversation
 DAILY_LIMIT = 5   # conversations per signed-in account per day; developers are exempt in main.py
@@ -361,9 +368,31 @@ def last_turn(model: str, messages: list[dict], note: str) -> list[dict]:
                                                   {"type": "text", "text": f"(Instruction: {note})"}]}]
 
 
+def is_gemini(model: str) -> bool:
+    return model.startswith("gemini-")
+
+
+def default_model(anthropic_key: str) -> str:
+    """The model when TUTOR_MODEL names none: Claude's when its key is set, else Gemini's."""
+    return DEFAULT_MODEL if anthropic_key else GEMINI_DEFAULT_MODEL
+
+
+def gemini_body(system: str, messages: list[dict]) -> dict:
+    """The conversation (kept as Anthropic reads it) as Gemini's generateContent reads it. Thinking is kept low: the
+    thought tokens are billed as output and come out of maxOutputTokens."""
+    contents = []
+    for m in messages:
+        parts = [{"text": m["content"]}] if isinstance(m["content"], str) else [{"text": b["text"]} for b in m["content"]]
+        contents.append({"role": "model" if m["role"] == "assistant" else "user", "parts": parts})
+    return {"systemInstruction": {"parts": [{"text": system}]}, "contents": contents,
+            "generationConfig": {"maxOutputTokens": 8000, "responseMimeType": "application/json",
+                                 "responseJsonSchema": REPLY_SCHEMA, "thinkingConfig": {"thinkingLevel": "low"}}}
+
+
 class Tutor:
-    def __init__(self, client, model: str = DEFAULT_MODEL):
-        self.client = client   # an anthropic.Anthropic
+    def __init__(self, client, model: str = DEFAULT_MODEL, gemini_key: str = ""):
+        self.client = client   # an anthropic.Anthropic, or None when only the Gemini key is set
+        self.gemini_key = gemini_key
         self.model = model
         self._chats: dict[str, Chat] = {}
         self._started: dict[tuple[str, str], int] = {}   # (student, day): conversations started
@@ -463,6 +492,11 @@ class Tutor:
         return data
 
     def _ask(self, system: str, messages: list[dict]) -> tuple[dict, tuple[int, int]]:
+        if is_gemini(self.model):
+            return self._ask_gemini(system, messages)
+        if self.client is None:
+            log.error("tutor: the model is %s and there is no Anthropic key", self.model)
+            raise TutorUnavailable("המורה לא זמין כרגע (חסר מפתח Anthropic למודל שנבחר).")
         import anthropic
         try:
             res = self.client.messages.create(
@@ -495,6 +529,48 @@ class Tutor:
         return data, (res.usage.input_tokens + (res.usage.cache_read_input_tokens or 0)
                       + (res.usage.cache_creation_input_tokens or 0), res.usage.output_tokens)
 
+    def _ask_gemini(self, system: str, messages: list[dict]) -> tuple[dict, tuple[int, int]]:
+        if not self.gemini_key:
+            log.error("tutor: the model is %s and there is no Gemini key", self.model)
+            raise TutorUnavailable("המורה לא זמין כרגע (חסר מפתח Gemini למודל שנבחר).")
+        req = urllib.request.Request(
+            f"{GEMINI_URL}/{self.model}:generateContent", data=json.dumps(gemini_body(system, messages)).encode(),
+            headers={"x-goog-api-key": self.gemini_key, "Content-Type": "application/json", "User-Agent": "ihki/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                res = json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            detail = e.read()[:300].decode("utf-8", "replace")
+            if e.code == 429:
+                log.warning("tutor: Gemini rate limited: %s", detail)
+                raise TutorUnavailable("המורה עמוס כרגע. נסו שוב בעוד דקה.") from e
+            if e.code in (401, 403) or "API_KEY_INVALID" in detail:
+                log.error("tutor: the Gemini key was refused: %s", detail)
+                raise TutorUnavailable("המורה לא זמין כרגע (מפתח ה-API לא תקין).") from e
+            log.warning("tutor: Gemini answered %s: %s", e.code, detail)
+            raise TutorUnavailable("המורה לא זמין כרגע. נסו שוב.") from e
+        except (OSError, ValueError) as e:   # no connection, a timeout, or an answer that is not JSON
+            log.warning("tutor: no answer from Gemini: %s", e)
+            raise TutorUnavailable("אין חיבור למורה כרגע. נסו שוב.") from e
+        candidate = (res.get("candidates") or [{}])[0]
+        reason = candidate.get("finishReason") or (res.get("promptFeedback") or {}).get("blockReason") or ""
+        if reason == "MAX_TOKENS":
+            raise TutorUnavailable("התשובה נקטעה. נסו שוב.")
+        if reason != "STOP":
+            log.warning("tutor: Gemini declined (%s)", reason)
+            raise TutorUnavailable("המורה לא יכול לענות על זה. נסו לומר משהו אחר.")
+        text = "".join(p.get("text", "") for p in (candidate.get("content") or {}).get("parts", []) if not p.get("thought"))
+        try:
+            data = json.loads(text)
+            if not isinstance(data, dict) or set(REPLY_SCHEMA["required"]) - set(data):
+                raise ValueError("fields missing")
+        except ValueError as e:
+            log.warning("tutor: a Gemini answer that is not the reply's JSON: %r", text[:300])
+            raise TutorUnavailable("המורה לא הצליח לענות. נסו שוב.") from e
+        usage = res.get("usageMetadata") or {}
+        return data, (usage.get("promptTokenCount", 0),
+                      usage.get("candidatesTokenCount", 0) + usage.get("thoughtsTokenCount", 0))
+
     def _sweep(self) -> None:
         """Drops conversations nobody continued for TTL, and the oldest past MAX_LIVE. Called with the lock held."""
         now = time.monotonic()
@@ -511,22 +587,29 @@ def tutor_client(key: str):
     return anthropic.Anthropic(api_key=key, timeout=30.0, max_retries=2)
 
 
-def load_tutor(key: str | None = None, model: str | None = None) -> Tutor | None:
-    """`key`, `model`: the ones the panel set (see keystore.py); None reads the environment's."""
+def load_tutor(key: str | None = None, model: str | None = None, gemini_key: str | None = None) -> Tutor | None:
+    """`key`, `model`, `gemini_key`: the ones the panel set (see keystore.py); None reads the environment's."""
     if key is None:
         key = os.environ.get("ANTHROPIC_API_KEY", "") or os.environ.get("CLAUDE_API_KEY", "")
-    key = key.strip()
-    if not key:
-        log.info("no ANTHROPIC_API_KEY: the tutor game (יאללה נדבר) is off")
+    if gemini_key is None:
+        gemini_key = os.environ.get("GEMINI_API_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
+    key, gemini_key = key.strip(), gemini_key.strip()
+    if not key and not gemini_key:
+        log.info("no ANTHROPIC_API_KEY and no GEMINI_API_KEY: the tutor game (יאללה נדבר) is off")
         return None
-    try:
-        import anthropic
-    except ImportError:
-        log.warning("ANTHROPIC_API_KEY is set but the anthropic package is not installed: the tutor game is off")
-        return None
-    model = (os.environ.get("TUTOR_MODEL", "") if model is None else model).strip() or DEFAULT_MODEL
+    client = None
+    if key:
+        try:
+            client = tutor_client(key)
+        except ImportError:
+            log.warning("ANTHROPIC_API_KEY is set but the anthropic package is not installed: the Claude models are off")
+            if not gemini_key:
+                return None
+    model = (os.environ.get("TUTOR_MODEL", "") if model is None else model).strip() or default_model(key if client else "")
+    if is_gemini(model) != bool(gemini_key) and (is_gemini(model) or client is None):
+        log.warning("the tutor's model is %s and its provider's key is not set: conversations will fail", model)
     log.info("the tutor game (יאללה נדבר) runs on %s", model)
-    return Tutor(tutor_client(key), model)
+    return Tutor(client, model, gemini_key)
 
 
 def tutor_open() -> bool:

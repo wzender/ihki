@@ -47,7 +47,7 @@ def bearer(token):
 def keys_env(monkeypatch):
     monkeypatch.setenv("SECRETS_MASTER_KEY", MASTER)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-from-the-environment-1111")
-    monkeypatch.setattr(app.main, "check_key", lambda name, value, anthropic_key="": None)
+    monkeypatch.setattr(app.main, "check_key", lambda name, value, anthropic_key="", gemini_key="": None)
 
 
 def client(auth, tmp_path, tutor=None):
@@ -116,7 +116,7 @@ def test_only_the_two_keys_are_settable(keys_env, tmp_path):
 def test_a_refused_key_is_not_kept(keys_env, tmp_path, monkeypatch):
     from app.keystore import KeyRefused
 
-    def refuse(name, value, anthropic_key=""):
+    def refuse(name, value, anthropic_key="", gemini_key=""):
         raise KeyRefused("Anthropic דחה את המפתח.")
     monkeypatch.setattr(app.main, "check_key", refuse)
     auth = KeyAuth()
@@ -151,7 +151,7 @@ def test_a_row_does_not_decrypt_under_another_name_or_master(tmp_path):
 
 def test_the_tutor_model_is_shown_and_switched_at_once(keys_env, tmp_path, monkeypatch):
     seen = []
-    monkeypatch.setattr(app.main, "check_key", lambda name, value, anthropic_key="": seen.append((name, anthropic_key)))
+    monkeypatch.setattr(app.main, "check_key", lambda name, value, anthropic_key="", gemini_key="": seen.append((name, anthropic_key)))
     monkeypatch.delenv("TUTOR_MODEL", raising=False)
     auth = KeyAuth()
     with client(auth, tmp_path, tutor=Tutor(object(), "claude-haiku-5-5")) as c:
@@ -183,3 +183,27 @@ def test_an_old_table_asks_for_its_migration(keys_env, tmp_path):
     with client(OldTable(), tmp_path) as c:
         res = c.put("/api/admin/keys/TUTOR_MODEL", json={"value": "claude-sonnet-5-5"}, headers=bearer("teacher"))
         assert res.status_code == 409 and "app_secrets_name_check" in res.json()["detail"]
+
+
+def test_the_gemini_key_and_a_gemini_model_are_set_from_the_panel(keys_env, tmp_path, monkeypatch):
+    seen = []
+    monkeypatch.setattr(app.main, "check_key", lambda name, value, anthropic_key="", gemini_key="": seen.append((name, gemini_key)))
+    for name in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "TUTOR_MODEL"):
+        monkeypatch.delenv(name, raising=False)
+    auth = KeyAuth()
+    with client(auth, tmp_path) as c:
+        res = c.put("/api/admin/keys/GEMINI_API_KEY", json={"value": "AIza-new-gemini-key-5678"}, headers=bearer("teacher"))
+        assert res.status_code == 200 and "AIza-new" not in res.text, res.text
+        assert next(k for k in res.json()["keys"] if k["name"] == "GEMINI_API_KEY")["last4"] == "5678"
+        assert c.app.state.tutor.gemini_key == "AIza-new-gemini-key-5678"   # in use without a restart
+        assert c.put("/api/admin/keys/TUTOR_MODEL", json={"value": "gemini-3.1-flash-lite"}, headers=bearer("teacher")).status_code == 200
+        assert c.app.state.tutor.model == "gemini-3.1-flash-lite"
+        assert seen[-1] == ("TUTOR_MODEL", "AIza-new-gemini-key-5678")   # the model is checked with the Gemini key
+        c.delete("/api/admin/keys/GEMINI_API_KEY", headers=bearer("teacher"))
+        assert c.app.state.tutor.gemini_key == ""
+
+
+def test_a_gemini_model_needs_the_gemini_key():
+    from app.keystore import KeyRefused, check
+    with pytest.raises(KeyRefused, match="Gemini"):
+        check("TUTOR_MODEL", "gemini-3.1-flash-lite", "sk-ant-x", "")
