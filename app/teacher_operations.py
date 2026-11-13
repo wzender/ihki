@@ -420,13 +420,33 @@ def _content_rows(auth: SupabaseAuth, kind: str) -> list[dict[str, Any]]:
         raise TeacherOperationError(f"התוכן אינו זמין: {exc}", code="content_unavailable", category="upstream") from exc
 
 
+def _library_place(row: dict[str, Any]) -> dict[str, Any]:
+    """Where students see a text that is a video's transcript: its lesson's section of the digital library."""
+    section = library.lesson_section(row.get("lesson") or "") if row.get("video") else None
+    return {"shown_in": "digital_library", "library_section": section, "library_section_name": library.label(section)} if section else {}
+
+
+def transcript_videos(auth: SupabaseAuth | None) -> list[dict[str, Any]]:
+    """The texts that are a video's transcript, as the library shows them: text_id, title, url, lesson, the section
+    they stand in, how many lines, and whether the lines have times (subtitles)."""
+    if auth is None: return []
+    try: library.refresh(auth)
+    except (AuthUnavailable, library.LibraryError): pass   # the built-in sections still answer
+    return [{"text_id": row["id"], "title": row.get("title"), "url": row["video"], "lesson": row.get("lesson"),
+             "section": place["library_section"], "section_name": place["library_section_name"],
+             "line_count": len(row.get("lines") or []),
+             "subtitles": bool(row.get("lines")) and all(len(line) == 3 for line in row["lines"])}
+            for row in _content_rows(auth, "lesson_text") if (place := _library_place(row))]
+
+
 def public_content(auth: SupabaseAuth, actor: dict[str, Any]) -> dict[str, Any]:
     if not is_subject_admin(actor): return {"daily_videos": [], "lesson_videos": [], "lesson_texts": []}
     def clean(row: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
         return {field: deepcopy(row.get(field)) for field in fields if field in row}
     return {"daily_videos": [clean(row, ("id", "level", "title", "url")) for row in _content_rows(auth, "daily_video")],
             "lesson_videos": [clean(row, ("id", "lesson", "title", "url", "pos", "ord")) for row in _content_rows(auth, "lesson_video")],
-            "lesson_texts": [clean(row, ("id", "lesson", "title", "voices", "video", "pos", "ord")) for row in _content_rows(auth, "lesson_text")]}
+            "lesson_texts": [{**clean(row, ("id", "lesson", "title", "voices", "video", "pos", "ord")), **_library_place(row)}
+                             for row in _content_rows(auth, "lesson_text")]}
 
 
 def prepare_content(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *, item_id: int | None = None,
@@ -494,6 +514,10 @@ def prepare_content(auth: SupabaseAuth, actor: dict[str, Any], operation: str, *
                ("id", "title", "lesson", "level", "pos", "ord", "video", "line_count", "timed_lines", "rule_read_words") if item and key in item and
                (key != "video" or item[key])}}
     if destructive: preview.update(effect="shared_content_removed", accounts_deleted=False, learning_history_deleted=False)
+    if kind == "lesson_text" and item and item.get("video"):   # a video's transcript: where it is seen, and what goes with it
+        preview["target"].update(_library_place(item))
+        if destructive: preview["removed_with_it"] = ["the video's entry in the digital library", "its subtitles",
+                                                      "the pressable words and sentence links read from its transcript"]
     return {"operation": operation, "kind": kind, "item_id": item_id, "state": state, "item": item,
             "ordered_items": deepcopy(ordered_items or []), "preview": preview}
 

@@ -439,7 +439,13 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                 "upload_targets": library.upload_targets()}
 
     @tool(description=("List the digital-library videos in their current order, each with its section. "
-                       "Returns no learner data."), structured_output=True)
+                       "transcript_videos are the videos that came with a transcript (a lesson text with a url): "
+                       "students see them in the library too, in their lesson's section after its own videos, with "
+                       "subtitles; they are not on the path. Such a video is changed or deleted as a text "
+                       "(prepare_teacher_change update_lesson_text / delete_lesson_text with its text_id), not with "
+                       "the library tools. The words a student can press in its subtitles, and the links from "
+                       "practised sentences to it, are read from its transcript: nothing else has to be deleted "
+                       "with it. Returns no learner data."), structured_output=True)
     async def list_library_videos() -> dict[str, Any]:
         try:
             videos = library.rows(auth(), fresh=True)
@@ -450,7 +456,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                 positions[section] = positions.get(section, 0) + 1
                 listed.append({"id": video["id"], "title": video["title"], "url": video["url"], "section": section,
                                "section_name": library.label(section), "position": positions[section]})
-            return {"ok": True, "videos": listed}
+            return {"ok": True, "videos": listed, "transcript_videos": teacher_operations.transcript_videos(auth())}
         except library.LibraryError as exc:
             diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc), "videos": []}
@@ -1002,7 +1008,9 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                               "set_class_schedule (and create_class/update_class) take meetings: the class's weekly "
                               "meetings, [{\"day\": \"רביעי\", \"time\": \"20:30\"}] (day: a Hebrew or English day "
                               "name, or 0=Sunday..6=Saturday); they replace the whole list, [] means no fixed meeting. "
-                              "A video with its transcript is one create_lesson_text: lesson, title, url (the "
+                              "A video with its transcript is one create_lesson_text (students then see it in the "
+                              "digital library, in that lesson's section, not on the path; list_library_videos "
+                              "lists it under transcript_videos): lesson, title, url (the "
                               "video's Vimeo or YouTube link) and lines, the transcript: one [Hebrew translation, "
                               "the Arabic as said, in pointed Hebrew letters as the course writes it] pair per "
                               "spoken sentence, in the order they are said, word for word, e.g. "

@@ -232,3 +232,20 @@ def test_a_transcript_takes_the_start_of_every_line():
     with pytest.raises(ops.TeacherOperationError) as refused:
         make([["שלום!", "מַרְחַבַּא!", 1]], url="")
     assert refused.value.code == "text_line_times_without_video"
+
+
+def test_a_transcript_video_is_listed_where_the_library_shows_it_and_its_deletion_says_what_goes():
+    store = Store()
+    store.text_rows.append({"id": 20, "lesson": "2", "title": "סמיר ונור", "voices": [], "pos": 11, "ord": 0,
+                            "video": "https://www.youtube.com/watch?v=abcdefghijk",
+                            "lines": [["שלום!", "מַרְחַבַּא!", 0.1]]})
+    listed = ops.transcript_videos(store)
+    assert listed == [{"text_id": 20, "title": "סמיר ונור", "url": "https://www.youtube.com/watch?v=abcdefghijk",
+                       "lesson": "2", "section": ops.library.lesson_section("2"),
+                       "section_name": ops.library.label(ops.library.lesson_section("2")), "line_count": 1, "subtitles": True}]
+    shown = next(row for row in ops.public_content(store, ADMIN)["lesson_texts"] if row["id"] == 20)
+    assert shown["shown_in"] == "digital_library" and shown["library_section_name"] == listed[0]["section_name"]
+    plain = next(row for row in ops.public_content(store, ADMIN)["lesson_texts"] if row["id"] != 20)
+    assert "shown_in" not in plain
+    gone = ops.prepare_content(store, ADMIN, "delete_lesson_text", item_id=20)["preview"]
+    assert gone["target"]["shown_in"] == "digital_library" and len(gone["removed_with_it"]) == 3
