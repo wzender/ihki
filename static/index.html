@@ -4317,7 +4317,7 @@ async function loadContent(){   // the videos, and the texts: their topics and l
 }
 /* A video whose transcript has times (`subs`: [{at, tr, he}], by `at`): the line being said is written over it, in
    Hebrew letters and beneath in Hebrew. The player is another site's frame, so its clock is asked for in messages:
-   YouTube's answers a "listening" call about four times a second, Vimeo's sends "timeupdate" once it is asked to.
+   YouTube's answers a "listening" call about four times a second, Vimeo's says its time each time it is asked.
    Between two answers the clock runs on by the page's own. The CC button chooses what is written; it is remembered. */
 /* The student's own dictionary: the glossary's entries ({id, tr, he, lesson, lesson_name, topic, topic_name}) they saved
    from the subtitles, in the order they were saved. The server keeps it (/api/words); the device keeps a copy, which is
@@ -4410,7 +4410,12 @@ function videoSubs(f,subs,start){
   box.id="videoSubs"; box.dir="rtl"; he.className="he"; box.append(tr,he);
   let mode=+store.get("ihki.subs",0)||0, t=0, got=0, playing=false, shown=null;
   const say=m=>{ try{ f.contentWindow.postMessage(JSON.stringify(m),"*"); }catch{} };
-  const hello=()=>say({event:"listening",id:1,channel:"widget"}), calling=setInterval(hello,500);
+  // YouTube's player sends its clock once it is called ("listening"), and the calling stops at its first answer; Vimeo's
+  // is asked for its clock again and again: the "timeupdate" it is also asked to send does not always come
+  const vimeo=/vimeo/.test(f.src);
+  const hello=()=>say(vimeo?{method:"getCurrentTime"}:{event:"listening",id:1,channel:"widget"}), calling=setInterval(hello,vimeo?250:500);
+  let asked=false;
+  const ask=()=>{ if(asked) return; asked=true; for(const value of ["timeupdate","playProgress","play","pause","seeked"]) say({method:"addEventListener",value}); };
   const draw=()=>{
     const now=t+(playing?Math.min(.4,(performance.now()-got)/1000):0);
     let line=undefined; for(const s of subs){ if(s.at>now+.05) break; line=s; }
@@ -4426,7 +4431,7 @@ function videoSubs(f,subs,start){
       if(i) tr.append(" "); tr.append(part); i+=n;
     }
   };
-  const vimeo=/vimeo/.test(f.src), hold=on=>say(vimeo?{method:on?"pause":"play"}:{event:"command",func:on?"pauseVideo":"playVideo",args:[]});
+  const hold=on=>say(vimeo?{method:on?"pause":"play"}:{event:"command",func:on?"pauseVideo":"playVideo",args:[]});
   const card=w=>{   // the video waits while a word's card is up, and goes on when it is closed
     hold(true); box.parentNode.querySelector("#wordCard")?.remove();
     box.parentNode.append(wordCard(w,()=>hold(false)));
@@ -4437,11 +4442,12 @@ function videoSubs(f,subs,start){
     let d=e.data; try{ if(typeof d==="string") d=JSON.parse(d); }catch{ return; }
     if(!d||typeof d!=="object") return;
     const clock=s=>{ if(typeof s==="number"){ t=s; got=performance.now(); } };
-    if(d.event==="ready") for(const value of ["timeupdate","play","pause","seeked"]) say({method:"addEventListener",value});   // Vimeo
-    else if(d.event==="timeupdate"||d.event==="seeked") clock(d.data&&d.data.seconds);
+    if(d.event==="ready") ask();   // Vimeo
+    else if(d.method==="getCurrentTime"){ ask(); clock(d.value); }
+    else if(d.event==="timeupdate"||d.event==="playProgress"||d.event==="seeked") clock(d.data&&d.data.seconds);
     else if(d.event==="play"||d.event==="pause") playing=d.event==="play";
     else if(d.info){ clearInterval(calling); clock(d.info.currentTime); if(d.info.playerState!=null) playing=d.info.playerState===1; }   // YouTube
-    if(start!=null&&(d.info||d.event==="ready")){   // opened at a sentence: the player's own start is a whole second, this is the moment itself
+    if(start!=null&&(d.info||d.event==="ready"||d.method==="getCurrentTime")){   // opened at a sentence: the player's own start is a whole second, this is the moment itself
       const at=Math.max(0,start-.2); start=null; t=at; got=performance.now();
       if(vimeo){ say({method:"setCurrentTime",value:at}); say({method:"play"}); }
       else{ say({event:"command",func:"seekTo",args:[at,true]}); say({event:"command",func:"playVideo",args:[]}); }

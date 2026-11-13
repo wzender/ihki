@@ -1378,3 +1378,27 @@ def test_a_word_of_the_answer_plays_its_sentence_in_the_video(site):
     assert r["firstPress"] == [True, False] and r["plays"] == [True, True, True]
     assert r["asked"] == [["seekTo", [12.2, True]], ["playVideo", []]] and r["line"]
     assert r["back"] == [False, True, True]
+
+
+# Vimeo's player says its time only when asked (its "timeupdate" does not always come): the subtitles follow the answers
+VIMEO_SUBTITLES = """
+await sleep(1500);
+const player="data:text/html,"+encodeURIComponent(`<!-- vimeo --><script>let at=0; const asked=[]; addEventListener("message",e=>{ const d=JSON.parse(e.data), say=m=>parent.postMessage(JSON.stringify(m),"*"); if(d.method==="getCurrentTime") say({method:"getCurrentTime",value:at}); else if(d.method==="setCurrentTime"){ at=d.value; say({method:"setCurrentTime",value:at}); } else if(d.method==="tell") say({event:"told",asked}); else asked.push(d.method||d.event); })<\\/script>`);
+playVideo({title:"סרטון",embed:player,subs:[{at:0.1,tr:"מַרְחַבַּא!",he:"שלום!"},{at:5,tr:"כִּיף חַאלַכּ?",he:"מה שלומך?"}]},true);
+const frame=document.querySelector("#videoBox iframe"), written=()=>[...document.querySelectorAll("#videoSubs>span")].map(s=>s.textContent);
+const tell=m=>frame.contentWindow.postMessage(JSON.stringify(m),"*");
+await sleep(1200); out.before=written();
+tell({method:"setCurrentTime",value:1}); await sleep(900); out.start=written();
+tell({method:"setCurrentTime",value:7}); await sleep(900); out.later=written();
+tell({method:"setCurrentTime",value:2}); await sleep(900); out.back=written();
+let told=null; addEventListener("message",e=>{ try{ const d=JSON.parse(e.data); if(d.event==="told") told=d.asked; }catch{} });
+tell({method:"tell"}); await until(()=>told);
+out.asked=[...new Set(told)].sort();
+"""
+
+
+def test_the_subtitles_follow_vimeos_clock_by_asking_for_it(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", VIMEO_SUBTITLES)
+    assert r["before"] == ["", ""] and r["start"] == ["מַרְחַבַּא!", "שלום!"] and r["later"] == ["כִּיף חַאלַכּ?", "מה שלומך?"] and r["back"] == r["start"]
+    assert r["asked"] == ["addEventListener"]   # never YouTube's "listening" call
