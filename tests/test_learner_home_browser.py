@@ -1309,7 +1309,7 @@ def test_the_personal_settings_open_from_the_home(site):
 # a word of the subtitles that the course teaches: its card, the student's dictionary, and the way to its topic
 SUBTITLE_WORDS = """
 await sleep(1500);
-const topic=CATS[0], word={i:1,n:1,id:"פַתַח",tr:"פַתַח",he:"פתח",lesson:topic.lesson,lesson_name:"שיעור",topic:topic.id,topic_name:topic.name};
+const topic=CATS.find(c=>!c.learn&&!c.match&&!c.write&&!c.story), word={i:1,n:1,id:"פַתַח",tr:"פַתַח",he:"פתח",lesson:topic.lesson,lesson_name:"שיעור",topic:topic.id,topic_name:topic.name};
 const far={i:0,n:1,id:"מִין",tr:"מִין",he:"מי",lesson:"99",lesson_name:"שיעור רחוק",topic:"l99-new",topic_name:"מילים"};
 const asked=[]; addEventListener("message",e=>{ try{ const d=JSON.parse(e.data); if(d.event==="echo") asked.push(d.func); }catch{} });
 const player="data:text/html,"+encodeURIComponent(`<script>addEventListener("message",e=>{ const d=JSON.parse(e.data), say=m=>parent.postMessage(JSON.stringify(m),"*"); if(d.event==="listening") say({event:"infoDelivery",info:{currentTime:1,playerState:2}}); if(d.func) say({event:"echo",func:d.func}); })<\\/script>`);
@@ -1334,6 +1334,8 @@ rows()[1].querySelectorAll("button")[1].click(); await sleep(200);   // the far 
 out.afterRemove=rows().map(li=>li.querySelector("strong").textContent);
 rows()[0].querySelectorAll("button")[0].click(); await sleep(600);   // to the lesson
 out.went=[cat===topic.id,open("wordsDlg"),view()];
+showPath(); await sleep(200); goWordTopic({topic:CATS.find(c=>c.learn).id}); await sleep(400);
+out.newWords=[open("learnDlg"),home];   // a topic of new words opens as on the path: in its own box
 """
 
 
@@ -1346,6 +1348,7 @@ def test_a_word_of_the_subtitles_opens_its_card_is_saved_and_leads_to_its_lesson
     assert r["saved"] == ["נשמר במילון שלי ✓", ["פַתַח"], 1] and r["farGo"]
     assert r["list"] == ["פַתַח", "מִין"] and r["listOpen"] and r["afterRemove"] == ["פַתַח"]
     assert r["went"] == [True, False, ""]
+    assert r["newWords"] == [True, True]
 
 
 # a word of a practised sentence's answer that is said in a video: pressing it plays the video from that sentence

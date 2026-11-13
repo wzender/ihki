@@ -4339,10 +4339,10 @@ const plainWord=w=>({id:w.id,tr:w.tr,he:w.he,lesson:w.lesson,lesson_name:w.lesso
 function toggleWord(w){ MY_WORDS=wordSaved(w.id)?MY_WORDS.filter(x=>x.id!==w.id):[...MY_WORDS,plainWord(w)]; keepWords(); }
 const wordWhere=w=>[w.lesson_name,w.topic_name].filter(Boolean).join(" · ");
 function goWordTopic(w){   // to the topic the word is taught in, when the student's path has it
-  if(!CATS.some(c=>c.id===w.topic)) return false;
+  const c=CATS.find(c=>c.id===w.topic); if(!c) return false;
   if($("videoDlg").open) $("videoClose").click();
   if($("wordsDlg").open) $("wordsDlg").close();
-  showView(""); pickCat(w.topic); return true;
+  showView(""); openCat(c); return true;   // as the path opens it: a topic of new words is its own box, not the card
 }
 function wordCard(w,done){
   const box=document.createElement("div"), tr=document.createElement("strong"), acts=mark("acts"), keep=mark("btn primary","","button"), go=mark("btn","","button"), shut=mark("btn","המשך","button");
