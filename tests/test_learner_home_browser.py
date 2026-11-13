@@ -1351,6 +1351,46 @@ def test_a_word_of_the_subtitles_opens_its_card_is_saved_and_leads_to_its_lesson
     assert r["newWords"] == [True, True]
 
 
+# from a word of a video to its lesson, and back to the video at the sentence it was left at
+VIDEO_AND_BACK = """
+await sleep(1500);
+const topic=CATS.find(c=>!c.learn&&!c.match&&!c.write&&!c.story), news=CATS.find(c=>c.learn);
+const word=t=>({i:0,n:1,id:"פַתַח",tr:"פַתַח",he:"פתח",lesson:t.lesson,lesson_name:"שיעור",topic:t.id,topic_name:t.name});
+const player="data:text/html,"+encodeURIComponent(`<script>addEventListener("message",e=>{ const d=JSON.parse(e.data), say=m=>parent.postMessage(JSON.stringify(m),"*"); if(d.event==="listening") say({event:"infoDelivery",info:{currentTime:8,playerState:1}}); })<\\/script>`);
+const video=t=>({id:"t1",title:"סרטון",tall:true,embed:player+"?x=1",subs:[{at:0,tr:"מַרְחַבַּא",he:"שלום"},{at:7.5,tr:"פַתַח אֵלְבַּאבּ",he:"פתח את הדלת",words:[word(t)]}]});
+const back=()=>document.getElementById("videoBack"), frame=()=>document.querySelector("#videoBox iframe");
+const toLesson=async()=>{ document.querySelector("#videoSubs .w").click(); await sleep(300); document.querySelectorAll("#wordCard button")[1].click(); await sleep(500); };
+showView("library"); await sleep(200);
+playVideo(video(topic)); await sleep(900);
+out.close=document.getElementById("videoClose").textContent;
+await toLesson();
+out.lesson=[cat===topic.id,home,open("videoDlg"),back()&&back().textContent];
+back().click(); await sleep(900);
+out.returned=[open("videoDlg"),view(),home,/start=7$/.test(frame().src),!back(),document.querySelector("#videoSubs>span").textContent];
+await toLesson(); document.getElementById("homeBtn").click(); await sleep(300);
+out.leftAlone=!back();   // the lesson was left by its own way out
+showView("library"); playVideo(video(news)); await sleep(900); await toLesson();
+out.newWords=[open("learnDlg"),document.getElementById("learnDlg").contains(back())];
+back().click(); await sleep(900);
+out.fromNewWords=[open("learnDlg"),open("videoDlg"),view()];
+document.getElementById("videoClose").click(); await sleep(200);
+pickCat(topic.id); await sleep(400); const was=cur.id;
+playVideo(video(news),true); await sleep(900);
+out.fromPractice=document.getElementById("videoClose").textContent;
+await toLesson(); back().click(); await sleep(900);
+out.backToPractice=[open("videoDlg"),home,cat===topic.id,cur.id===was];
+"""
+
+
+def test_a_lesson_opened_from_a_videos_word_leads_back_to_the_video(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", VIDEO_AND_BACK)
+    assert r["close"] == "✕" and r["lesson"] == [True, False, False, "▶ חזרה לסרטון"]
+    assert r["returned"] == [True, "library", True, True, True, "פַתַח אֵלְבַּאבּ"]
+    assert r["leftAlone"] and r["newWords"] == [True, True] and r["fromNewWords"] == [False, True, "library"]
+    assert r["fromPractice"] == "✕ חזרה לתרגול" and r["backToPractice"] == [True, False, True, True]
+
+
 # a word of a practised sentence's answer that is said in a video: pressing it plays the video from that sentence
 ANSWER_WORD = """
 await sleep(1500);

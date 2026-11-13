@@ -700,6 +700,7 @@ body:not(.home) .reward-shelf,body.manage .reward-shelf,body:not([data-view=home
 .masbaha-motif .inner{stroke-width:2.3}
 .cup.won{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--olive) 85%,transparent)) drop-shadow(0 2px 2px rgb(0 0 0/.45))}
 .cup.won .masbaha-finial{color:var(--olive-deep);border-color:var(--olive);box-shadow:inset -3px -4px 6px rgb(0 0 0/.3),inset 2px 2px 3px rgb(255 255 255/.7),0 4px 0 var(--olive-deep)}
+#videoBack{position:fixed;bottom:max(16px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:30;padding:11px 18px;border:0;border-radius:999px;background:var(--ink);color:var(--bg);box-shadow:0 6px 16px rgb(0 0 0/.3);font:700 15px/1 var(--f-body);cursor:pointer;white-space:nowrap}
 #toNow{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:8;padding:9px 16px;border:0;border-radius:999px;background:var(--olive);color:var(--on-olive);box-shadow:0 3px 0 var(--olive-deep),0 6px 16px rgb(0 0 0/.25);font:700 14px/1 var(--f-body);cursor:pointer}
 @media (prefers-reduced-motion:reduce){.dot,.chapter{transition:none}.tag,.road .live{animation:none}.sat.now .ring::after{animation:none;opacity:.6}}
 .verb-dlg{width:min(94vw,560px);max-height:92vh;padding:0;border:0;border-radius:20px;background:var(--bg);color:var(--ink);box-shadow:0 18px 70px rgb(0 0 0/.35)}
@@ -4340,10 +4341,29 @@ function toggleWord(w){ MY_WORDS=wordSaved(w.id)?MY_WORDS.filter(x=>x.id!==w.id)
 const wordWhere=w=>[w.lesson_name,w.topic_name].filter(Boolean).join(" · ");
 function goWordTopic(w){   // to the topic the word is taught in, when the student's path has it
   const c=CATS.find(c=>c.id===w.topic); if(!c) return false;
+  const from=$("videoDlg").open&&videoOn?{v:videoOn,at:subsAt?subsAt():0,was:videoFrom}:null;
+  videoBackOff();
   if($("videoDlg").open) $("videoClose").click();
   if($("wordsDlg").open) $("wordsDlg").close();
-  showView(""); openCat(c); return true;   // as the path opens it: a topic of new words is its own box, not the card
+  showView(""); openCat(c); if(from) videoBackOn(from); return true;   // as the path opens it: a topic of new words is its own box, not the card
 }
+/* A lesson that was opened from a word of a video keeps the way back: a button over it that plays the video again from
+   the sentence it was left at, in the place it was opened from (the library's screen, or the sentence being practised). */
+let videoOn=null, videoFrom=null, subsAt=null, videoBackTo=null;
+const placeNow=()=>({home,view:document.body.dataset.view||"",cat,cur:cur&&cur.id});
+function videoBackOff(){ videoBackTo=null; $("videoBack")?.remove(); }
+function videoBackOn(from){
+  const b=mark("","▶ חזרה לסרטון","button"); b.id="videoBack"; b.type="button"; videoBackTo=from;
+  ($("learnDlg").open?$("learnDlg"):document.body).append(b);   // a box over the page is the only place that can be pressed
+  b.onclick=()=>{
+    const {v,at,was}=videoBackTo; videoBackOff();
+    if($("learnDlg").open) $("learnDlg").close();
+    if(was.home){ if(!home) showPath(); showView(was.view); }
+    else{ pickCat(was.cat); if(was.cur) openSentence(was.cur,true); }
+    playVideo({...v,start:at},true);
+  };
+}
+$("learnDlg").addEventListener("close",videoBackOff);
 function wordCard(w,done){
   const box=document.createElement("div"), tr=document.createElement("strong"), acts=mark("acts"), keep=mark("btn primary","","button"), go=mark("btn","","button"), shut=mark("btn","המשך","button");
   box.id="wordCard"; box.dir="rtl"; setTr(tr,w.tr); for(const b of [keep,go,shut]) b.type="button";
@@ -4456,13 +4476,17 @@ function videoSubs(f,subs,start){
   };
   btn.hidden=false; btn.onclick=()=>{ mode=(mode+2)%SUBS_MODES.length; store.set("ihki.subs",mode); label(); }; label();
   f.addEventListener("load",hello); addEventListener("message",hear); const ticking=setInterval(draw,100);   // not by animation frames: a page in the background has none
-  subsOff=()=>{ clearInterval(calling); clearInterval(ticking); removeEventListener("message",hear); btn.hidden=true; subsOff=null; $("wordCard")?.remove(); };
+  subsAt=()=>shown?shown.at:Math.floor(t);
+  subsOff=()=>{ subsAt=null; clearInterval(calling); clearInterval(ticking); removeEventListener("message",hear); btn.hidden=true; subsOff=null; $("wordCard")?.remove(); };
   return box;
 }
 function playVideo(v,preview){   // preview: the teacher looks at it from the panel, which marks nothing
   const f=document.createElement("iframe"), subs=v.subs&&v.subs.length?v.subs:null, tall=!!(subs||v.tall);
   if(subsOff) subsOff();
-  videoWide(false); $("videoDlg").classList.toggle("tall",tall); $("videoClose").textContent=tall?"✕":"סגירה"; $("videoClose").ariaLabel="סגירה";
+  if(!$("videoDlg").open) videoFrom=placeNow();   // where it was opened from, and closes back to
+  const {start:_,...plain}=v; videoOn=plain;
+  const lesson=!videoFrom.home;   // opened from a sentence being practised: the way out says where it leads
+  videoWide(false); $("videoDlg").classList.toggle("tall",tall); $("videoClose").textContent=lesson?"✕ חזרה לתרגול":tall?"✕":"סגירה"; $("videoClose").ariaLabel=lesson?"חזרה לתרגול":"סגירה";
   // with subtitles YouTube's player is told to answer the page, and gives up its own full screen, which would leave them behind
   const from=v.start!=null?Math.floor(v.start):null;   // a video opened at one of its sentences plays at once, from there
   f.src=v.embed+(subs&&/youtube/.test(v.embed)?"&enablejsapi=1&fs=0":"")
@@ -4850,6 +4874,7 @@ function pickCat(id){
   else startCat();
 }
 function showPath(){   // back to the path: whatever the card was reading, playing or recording stops
+  if(videoBackTo&&$("videoBack")) videoBackOff();
   const backToGames=bubbleCat();
   stopBubble();
   if(driving) stopDrive();
