@@ -540,6 +540,16 @@ body.memory-game{overflow:hidden}
 @media (prefers-reduced-motion:reduce){#vids .focus .focus-refer.promo{animation:none}}
 #vids .focus button:focus-visible{outline:2px solid var(--olive);outline-offset:2px}
 #pushDlg,#msgDlg{width:min(92vw,380px);text-align:center}
+/* the microphone troubleshooting screen (Android): one step per fold, the one that fits the error opened */
+#micHelpDlg{width:min(94vw,440px)}
+#micHelpDlg h2{font:400 22px/1.2 var(--f-display);margin:0 0 4px}
+#micHelpDlg .dlg-text{margin:0 0 10px;color:var(--muted)}
+#micHelpDlg details{border:1px solid var(--line);border-radius:12px;margin:0 0 8px;background:var(--surface)}
+#micHelpDlg details.fit{border-color:var(--accent,currentColor)}
+#micHelpDlg summary{padding:10px 12px;font:700 15.5px/1.3 var(--f-body);cursor:pointer}
+#micHelpDlg ol,#micHelpDlg ul{margin:0;padding:0 30px 10px 12px;font:500 15px/1.45 var(--f-body)}
+#micHelpDlg li{margin:3px 0}
+#micHelpDlg .row{justify-content:center;margin-top:10px}
 #msgDlg .push-bell{font-size:44px;line-height:1;margin:4px 0 8px}#msgDlg h2{font:400 24px/1.2 var(--f-display);margin:0 0 6px}#msgDlg .dlg-text{white-space:pre-line}#msgDlg .row{justify-content:center}
 #msgDlg .msg-list{display:flex;flex-direction:column;gap:8px;margin:8px 0 12px;max-height:55vh;overflow:auto;text-align:start}
 #msgDlg .msg-item{display:flex;flex-direction:column;gap:3px;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:700 15px/1.3 var(--f-body);text-align:start;cursor:pointer}
@@ -2360,6 +2370,54 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
   <div class="msg-list" id="msgList" hidden></div>
   <div class="row"><button class="btn primary" id="msgGo" hidden></button><button class="btn" id="msgOk">הבנתי</button></div>
 </dialog>
+<dialog id="micHelpDlg" aria-labelledby="micHelpTitle">
+  <h2 id="micHelpTitle">🎤 המיקרופון לא נפתח</h2>
+  <p class="dlg-text" id="micHelpText">עברו על השלבים לפי הסדר. אחרי כל שלב לחצו "ניסיון חוזר".</p>
+  <details data-os="android" data-step="allow"><summary>1. האתר חסום ב-Chrome</summary><ol>
+    <li>לחצו על הסמל שמשמאל לכתובת בשורת הכתובת למעלה (מנעול, או שני פסים עם עיגולים).</li>
+    <li>לחצו על <b>הרשאות</b>.</li>
+    <li>הפעילו את <b>מיקרופון</b> (או בחרו <b>אפשר</b>).</li>
+    <li>אין שורת כתובת? ב-Chrome: ⋮ ← <b>הגדרות</b> ← <b>הגדרות אתר</b> ← <b>מיקרופון</b>, ומצאו את האתר שלנו ברשימת ה<b>חסומים</b> ← <b>אפשר</b>.</li>
+  </ol></details>
+  <details data-os="android" data-step="phone"><summary>2. הטלפון חוסם את Chrome</summary><ol>
+    <li><b>הגדרות</b> הטלפון ← <b>אפליקציות</b> ← <b>Chrome</b> ← <b>הרשאות</b> ← <b>מיקרופון</b> ← <b>לאפשר רק בזמן השימוש באפליקציה</b>.</li>
+    <li>גררו מלמעלה למטה פעמיים, ובדקו שהכפתור <b>גישה למיקרופון</b> פעיל.</li>
+  </ol></details>
+  <details data-os="android" data-step="busy"><summary>3. אפליקציה אחרת משתמשת במיקרופון</summary><ul>
+    <li>סיימו שיחת טלפון, וואטסאפ או זום.</li>
+    <li>סגרו הקלטה קולית או עוזר קולי (Google Assistant / Bixby).</li>
+    <li>נקודה ירוקה בפינה העליונה של המסך = מישהו מקליט עכשיו. גררו למטה כדי לראות מי.</li>
+  </ul></details>
+  <details data-os="android" data-step="more"><summary>4. עדיין לא עובד?</summary><ul>
+    <li>פתחתם את הקישור מתוך וואטסאפ? לחצו ⋮ ← <b>פתיחה ב-Chrome</b>.</li>
+    <li>סגרו את Chrome לגמרי ופתחו מחדש, או עדכנו אותו ב-Google Play.</li>
+    <li>הפעילו מחדש את הטלפון.</li>
+    <li>שלחו למורה צילום מסך של ההודעה ואת דגם הטלפון.</li>
+  </ul></details>
+  <details data-os="ios" data-step="allow"><summary>1. Safari חוסם את האתר</summary><ol>
+    <li>לחצו על <b>אא</b> (או על הסמל שליד הכתובת) בשורת הכתובת.</li>
+    <li>לחצו על <b>הגדרות אתר</b>.</li>
+    <li>ב<b>מיקרופון</b> בחרו <b>אפשר</b> (או <b>שאל</b>).</li>
+    <li>כשהאתר שואל שוב אם לאפשר גישה למיקרופון, לחצו <b>אפשר</b>.</li>
+  </ol></details>
+  <details data-os="ios" data-step="phone"><summary>2. הגדרות האייפון חוסמות</summary><ol>
+    <li><b>הגדרות</b> ← <b>Safari</b> (ב-iOS 18: <b>הגדרות</b> ← <b>אפליקציות</b> ← <b>Safari</b>) ← <b>מיקרופון</b> ← <b>אפשר</b> או <b>שאל</b>.</li>
+    <li>פותחים ב-Chrome? <b>הגדרות</b> ← <b>Chrome</b> ← הפעילו את <b>מיקרופון</b>.</li>
+    <li><b>הגדרות</b> ← <b>זמן מסך</b> ← <b>הגבלות תוכן ופרטיות</b> ← <b>מיקרופון</b>: ודאו שמסומן <b>אפשר שינויים</b>.</li>
+  </ol></details>
+  <details data-os="ios" data-step="busy"><summary>3. משהו אחר משתמש במיקרופון</summary><ul>
+    <li>סיימו שיחת טלפון, FaceTime, וואטסאפ או זום.</li>
+    <li>סגרו את Siri, תזכורות קוליות או הקלטה.</li>
+    <li>נקודה כתומה בפינה העליונה של המסך = מישהו מקליט עכשיו. גררו את מרכז הבקרה כדי לראות מי.</li>
+  </ul></details>
+  <details data-os="ios" data-step="more"><summary>4. עדיין לא עובד?</summary><ul>
+    <li>פתחתם את הקישור מתוך וואטסאפ או אינסטגרם? לחצו על סמל השיתוף ← <b>פתיחה ב-Safari</b>.</li>
+    <li>סגרו את Safari לגמרי (החלקה למעלה ממחליף האפליקציות) ופתחו מחדש.</li>
+    <li>עדכנו את ה-iOS: <b>הגדרות</b> ← <b>כללי</b> ← <b>עדכון תוכנה</b>.</li>
+    <li>שלחו למורה צילום מסך של ההודעה ואת דגם האייפון.</li>
+  </ul></details>
+  <div class="row"><button class="btn primary" id="micHelpRetry" autofocus>ניסיון חוזר</button><button class="btn" id="micHelpClose">סגירה</button></div>
+</dialog>
 <dialog id="dailyDlg" aria-labelledby="dailyTitle">
   <div class="dlg-head"><h2 id="dailyTitle"></h2></div>
   <p class="dlg-text" id="dailyText"></p>
@@ -4068,7 +4126,7 @@ function drawLiveStudent(s){
 async function liveRecord(){
   if(LIVE.rec&&LIVE.rec.state==="recording"){ LIVE.rec.stop(); return; }
   unlockPlayback();   // keep the recording cue available after awaiting microphone permission
-  let stream; try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }catch{ $("liveStatus").textContent="אין גישה למיקרופון"; return; }
+  let stream; try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }catch(e){ $("liveStatus").textContent=micFail(e); return; }
   const chunks=[], type=pickType(); LIVE.rec=new MediaRecorder(stream,type?{mimeType:type}:{}); LIVE.busy=true;
   LIVE.rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)}; LIVE.rec.onstart=()=>{ $("liveMic").classList.add("recording"); $("liveStatus").textContent="מקליט… לחצו לסיום"; };
   LIVE.rec.onstop=async()=>{ stream.getTracks().forEach(t=>t.stop()); const blob=new Blob(chunks,{type:LIVE.rec.mimeType||"audio/webm"}), fd=new FormData(); fd.append("audio",blob,"live"); $("liveStatus").textContent="בודקים…";
@@ -6058,6 +6116,31 @@ function startVad(stream, onEnd, noSpeech, endSilence=VAD.endSilence){
 }
 const mic=$("mic");
 function pickType(){ for(const t of ["audio/webm;codecs=opus","audio/ogg;codecs=opus","audio/mp4","audio/webm"]) if(window.MediaRecorder&&MediaRecorder.isTypeSupported(t)) return t; return ""; }
+/* On Android and on an iPhone/iPad a failed microphone opens a troubleshooting screen (micHelpDlg), with that system's steps: the step that fits the error is the one
+   opened. A recording the page started by itself opens it once per visit; a press on the microphone, every time.
+   Not in driving mode: there the failure is said aloud. "ניסיון חוזר" reloads, since a permission given in Chrome's
+   settings reaches an open page only after a reload. */
+let micHelpShown=false;
+function micHelp(e,auto){
+  const ua=navigator.userAgent, os=/Android/i.test(ua)?"android":/iPhone|iPad|iPod/.test(ua)||/Macintosh/.test(ua)&&navigator.maxTouchPoints>1?"ios":"";
+  if(!os||driving||(auto&&micHelpShown)) return;
+  const dlg=$("micHelpDlg"); if(!dlg||dlg.open) return;
+  const n=e&&e.name, fit=n==="NotReadableError"||n==="AbortError"||n==="TrackStartError"?"busy":n==="NotAllowedError"||n==="SecurityError"?"allow":"more";
+  for(const d of dlg.querySelectorAll("details")){ d.hidden=d.dataset.os!==os; d.open=!d.hidden&&d.dataset.step===fit; d.classList.toggle("fit",d.open); }
+  micHelpShown=true; dlg.showModal();
+}
+$("micHelpClose").onclick=()=>$("micHelpDlg").close();
+$("micHelpRetry").onclick=()=>location.reload();
+/* Why getUserMedia failed, in words the student can act on: a blocked permission, a microphone another app holds
+   (a call, WhatsApp, a voice recorder), or none at all are told apart instead of all reading as "no access". */
+function micFail(e,auto=false){
+  micHelp(e,auto);
+  const n=e&&e.name;
+  if(n==="NotAllowedError"||n==="SecurityError") return "אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן (סמל המנעול ליד הכתובת ← הרשאות ← מיקרופון), ונסו שוב.";
+  if(n==="NotReadableError"||n==="AbortError"||n==="TrackStartError") return "המיקרופון תפוס באפליקציה אחרת (שיחה, וואטסאפ, הקלטה). סגרו אותה ולחצו שוב על המיקרופון.";
+  if(n==="NotFoundError"||n==="DevicesNotFoundError"||n==="OverconstrainedError") return "לא נמצא מיקרופון במכשיר. חברו מיקרופון ונסו שוב.";
+  return `המיקרופון לא נפתח${n?` (${n})`:""}. לחצו שוב על המיקרופון.`;
+}
 
 if(!navigator.mediaDevices||!window.MediaRecorder){
   const w=$("envWarn"); w.textContent="הדפדפן הזה לא תומך בהקלטה. השתמשו ב־Chrome, Edge, Firefox או Safari עדכניים, בכתובת https."; w.hidden=false; mic.disabled=true;
@@ -6073,7 +6156,7 @@ async function startRec(auto){   // auto: started by the page for the sentence o
   const id=cur.id, translating=silentFits(cur);   // Hebrew on the card, the answer in Arabic: pauses to think are part of it
   let stream;
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
-  catch{ starting=false; $("status").textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."; finishRec({kind:"nomic"}); return; }
+  catch(e){ starting=false; $("status").textContent=micFail(e,auto); finishRec({kind:"nomic"}); return; }
   if(heRec||auto&&(home||mute()||driving||cur.id!==id)){   // the sentence changed while the microphone was opening, or its Hebrew is being heard
     stream.getTracks().forEach(t=>t.stop()); starting=false; recordWhenReady(); return;
   }
@@ -9001,7 +9084,7 @@ async function verbRecord(btn,status,actions,auto=false){
     let heardSpeech=true;
     rec.onstop=async()=>{clearTimeout(verbStopTimer);if(verbVad){verbVad.stop();verbVad=null}stream.getTracks().forEach(t=>t.stop());btn.classList.remove("live");if(verbRecordCancel){verbRecordCancel=false;return}if(!heardSpeech){status.textContent="לא נשמע דיבור. לחצו על המיקרופון ונסו שוב.";return}btn.disabled=true;status.textContent=verbQuestion?.conversation?"":"בודק…";const blob=new Blob(verbChunks,{type:rec.mimeType||"audio/webm"});verbRecordingUrl=URL.createObjectURL(blob);verbChatAudioUrls.push(verbRecordingUrl);await scoreVerbSpeech(blob,btn,status,actions)};
     await listenCue(); rec.start();btn.classList.add("live");const noSpeech=auto?VAD.noSpeechAuto:VAD.noSpeech;verbStopTimer=setTimeout(()=>rec.state==="recording"&&rec.stop(),noSpeech+VAD.maxSpeech);verbVad=startVad(stream,spoke=>{heardSpeech=spoke;if(rec.state==="recording")rec.stop()},noSpeech);status.textContent=verbVad?"מקליט… דברו, ההקלטה תיעצר לבד":"מקליט… לחצו לסיום";
-  }catch{status.textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."}
+  }catch(e){status.textContent=micFail(e,auto)}
 }
 function verbSpeechRequest(q,blob){   // the speech check, cut off after 15s; null when it failed or timed out
   const fd=new FormData(), controller=new AbortController();let timeout;
@@ -9435,7 +9518,7 @@ $("labMic").onclick=async()=>{
   if(!navigator.mediaDevices||!window.MediaRecorder){ $("labStatus").textContent="הדפדפן הזה אינו תומך בהקלטה."; return; }
   let stream;
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }   // as the practice records
-  catch{ $("labStatus").textContent="אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."; return; }
+  catch(e){ $("labStatus").textContent=micFail(e); return; }
   const type=pickType(), chunks=[], id=labAt, said=labMistake;
   const rec=labRec=new MediaRecorder(stream,type?{mimeType:type}:{});
   rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
@@ -9552,7 +9635,7 @@ async function wzRecord(id){
   if(wzAudio) wzAudio.pause();
   let stream;
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }   // as the practice records
-  catch{ wzStatus("אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן."); return; }
+  catch(e){ wzStatus(micFail(e)); return; }
   const type=pickType(), chunks=[]; let spoke=true, vad=null;
   const rec=wzRec=new MediaRecorder(stream,type?{mimeType:type}:{});
   wzAt=wzRecAt=id;
