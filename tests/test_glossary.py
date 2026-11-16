@@ -43,7 +43,7 @@ def test_a_student_keeps_their_own_dictionary_and_the_subtitles_mark_its_words(m
     auth = WordsAuth()
 
     async def steps(client):
-        out = {"library": (await client.get("/api/library", headers=STUDENT)).json(),
+        out = {"texts": (await client.get("/api/texts", headers=STUDENT)).json(),
                "empty": (await client.get("/api/words", headers=STUDENT)).json(),
                "put": (await client.put("/api/words", headers=STUDENT, json={"words": ["בַּאבּ", "אין כזה", "מִין"]})).json(),
                "bad": (await client.put("/api/words", headers=STUDENT, json={"words": "בַּאבּ"})).status_code,
@@ -52,7 +52,7 @@ def test_a_student_keeps_their_own_dictionary_and_the_subtitles_mark_its_words(m
         return out
 
     out = run(auth, steps, monkeypatch)
-    first, second = out["library"]["transcripts"][0]["subs"]
+    first, second = [p for p in out["texts"]["phrases"] if p["cat"] == "t2"]
     assert [(w["i"], w["tr"]) for w in first["words"]] == [(0, "מִין"), (1, "פַתַח"), (2, "בַּאבּ")] and "words" not in second
     assert out["empty"] == {"words": []} and out["bad"] == 400
     assert [w["id"] for w in out["put"]["words"]] == ["בַּאבּ", "מִין"] == [w["id"] for w in out["mine"]["words"]]

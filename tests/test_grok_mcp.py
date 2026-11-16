@@ -188,7 +188,7 @@ def test_list_and_rename_return_only_library_metadata():
     listed = call(server, "list_library_videos")
     assert listed == {"ok": True, "videos": [{"id": 7, "title": "ישן",
         "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "section": "d1",
-        "section_name": "מערכת דיגיטלית · שלב א", "position": 1}], "transcript_videos": []}
+        "section_name": "מערכת דיגיטלית · שלב א", "position": 1}]}
     assert call(server, "rename_library_video", {"video_id": 7, "title": "  שם   חדש "}) == {
         "ok": True, "video_id": 7, "title": "שם חדש"}
     assert auth.library_videos[0]["url"].endswith("dQw4w9WgXcQ")

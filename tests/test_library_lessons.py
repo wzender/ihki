@@ -101,7 +101,7 @@ def test_a_class_sees_the_lesson_sections_of_the_level_it_studies_whatever_it_ch
     assert "lesson-1" in see(["d1"], []) and "lesson-2-1" not in see(["d1"], [])   # no lessons named: what it chose
 
 
-def test_a_video_with_its_transcript_stands_in_its_lessons_section_and_not_on_the_path(monkeypatch):
+def test_a_video_with_its_transcript_stands_on_the_path_and_not_in_the_library(monkeypatch):
     from tests.test_library_sections import STUDENT, TEACHER, SectionAuth, run
 
     class TextAuth(SectionAuth):
@@ -109,32 +109,17 @@ def test_a_video_with_its_transcript_stands_in_its_lessons_section_and_not_on_th
             return [{"id": 2, "lesson": "2", "title": "היכרות", "voices": [], "pos": 11, "ord": 0,
                      "video": "https://www.youtube.com/watch?v=abcdefghijk",
                      "lines": [["שלום!", "מַרְחַבַּא!", 0.1], ["מה שלומך?", "כִּיף חַאלַכּ?", 3.1]]},
-                    {"id": 3, "lesson": "2", "title": "בלי זמנים", "voices": [], "pos": 11, "ord": 1,
-                     "video": "https://vimeo.com/123", "lines": [["שלום!", "מַרְחַבַּא!"]]},
-                    {"id": 4, "lesson": "2", "title": "סיפור", "voices": [], "pos": 11, "ord": 2,
+                    {"id": 4, "lesson": "2", "title": "סיפור", "voices": [], "pos": 11, "ord": 1,
                      "lines": [["שלום!", "מַרְחַבַּא!"]]}]
 
     async def steps(client):
         return {"student": (await client.get("/api/library", headers=STUDENT)).json(),
-                "teacher": (await client.get("/api/library", headers=TEACHER)).json(),
                 "path": (await client.get("/api/texts", headers=TEACHER)).json()}
 
     out = run(TextAuth(["d1"]), steps, monkeypatch)
-    first, second = out["student"]["transcripts"]
-    assert first == {"id": "t2", "section": "lesson-2", "title": "היכרות",
-                     "embed": "https://www.youtube-nocookie.com/embed/abcdefghijk?rel=0",
-                     "subs": [{"at": 0.1, "tr": "מַרְחַבַּא!", "he": "שלום!"}, {"at": 3.1, "tr": "כִּיף חַאלַכּ?", "he": "מה שלומך?"}]}
-    assert second["id"] == "t3" and "subs" not in second and "url" not in second
-    assert out["teacher"]["transcripts"][0]["url"] == "https://www.youtube.com/watch?v=abcdefghijk"
-    assert [c["id"] for c in out["path"]["categories"]] == ["t4"]   # only the text without a video is practised on the path
-    assert run(TextAuth(["village"]), steps, monkeypatch)["student"]["transcripts"] == []   # a class without the level
-
-
-def test_a_lessons_section_is_the_one_a_manager_named_after_it():
-    assert library.lesson_section("2") == "lesson-2" and library.lesson_section("2.1") == "lesson-2-1"
-    assert library.lesson_section("99") is None
-    rows = [r for r in library.BASE_ROWS if r["id"] != "lesson-2"]
-    library._tree = library.Tree([*rows, {"id": "s2b31618e42", "parent_id": "d1", "name": "שיעור 2", "ord": 1, "level": "", "holds_videos": True}])
-    assert library.lesson_section("2") == "s2b31618e42"   # the manager's own "שיעור 2" under שלב א
-    library._tree = library.Tree(rows)
-    assert library.lesson_section("2") == "d1"            # no section for the lesson: the level's
+    assert "transcripts" not in out["student"]
+    cats = out["path"]["categories"]
+    assert [c["id"] for c in cats] == ["t2", "t4"]   # the video's text first, at its place, then the plain text
+    assert cats[0]["video"] == "https://www.youtube-nocookie.com/embed/abcdefghijk?rel=0" and "video" not in cats[1]
+    timed = [p for p in out["path"]["phrases"] if p["cat"] == "t2"]
+    assert [p["at"] for p in timed] == [0.1, 3.1]
