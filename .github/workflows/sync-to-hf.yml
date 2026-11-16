@@ -1,0 +1,28 @@
+name: Sync to Hugging Face Space
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One sync at a time, in order.
+concurrency:
+  group: sync-to-hf
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: false
+      - name: Push to Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # The LFS image contents are not on GitHub; the Space already has them.
+          git config lfs.allowincompletepush true
+          # No --force: if the Space has commits that are not on GitHub, the push is refused
+          # instead of erasing them. Bring them into main first, then rerun this workflow.
+          git push https://wzender:$HF_TOKEN@huggingface.co/spaces/wzender/ihki HEAD:main
