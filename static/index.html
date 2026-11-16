@@ -206,6 +206,7 @@ body:not(.home):not(.manage) #logoutBtn{display:none}   /* in an exercise the on
 #vids .liblevel[open]{padding-bottom:10px;border-bottom:1px dashed var(--line);margin-bottom:4px}
 #vids .liblevel>summary{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;border:1px solid var(--olive);background:var(--olive-soft);color:var(--ink);font:700 16px/1.3 var(--f-body);cursor:pointer;list-style:none}
 #vids .liblevel>summary::-webkit-details-marker{display:none}
+#vids .liblevel>summary>h3{margin:0;font:inherit;color:inherit}
 #vids .liblevel>summary::before{content:"◂";font-size:13px}
 #vids .liblevel[open]>summary::before{content:"▾"}
 #vids .liblevel>summary:focus-visible{outline:2px solid var(--olive);outline-offset:2px}
@@ -2765,7 +2766,11 @@ function libFolders(box,row,digital){
       }
       into=closed.get(level.id);
     }
-    if(!leaf.parent) into.append(mark("",leaf.name,"h3"));
+    if(!leaf.parent&&!digital){   // the videos button's folders: each one a title, its videos open on a click
+      const fold=mark("liblevel","","details"), name=mark("","","summary");
+      name.append(mark("",leaf.name,"h3")); fold.open=libOpen.has(leaf.id); fold.ontoggle=()=>fold.open?libOpen.add(leaf.id):libOpen.delete(leaf.id);
+      fold.append(name); into.append(fold); into=fold;
+    }else if(!leaf.parent) into.append(mark("",leaf.name,"h3"));
     if(here.length) for(const v of here) row(v,libWatched,"ihki.libWatched","",false,into); else into.append(mark("","עוד אין סרטונים.","p"));
   }
   const rest=digital?vids.filter(v=>!known.has(v.section)):[]; for(const v of rest) row(v,libWatched,"ihki.libWatched","");

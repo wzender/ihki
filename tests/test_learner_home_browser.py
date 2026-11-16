@@ -968,6 +968,10 @@ out.shown=!vids.hidden&&!lib.hidden; vids.click(); await sleep(300);
 out.view=view();
 out.headings=[...document.querySelectorAll("#vids h2,#vids h3")].map(h=>h.textContent);
 out.videos=[...document.querySelectorAll("#vids button bdi")].map(b=>b.textContent);
+const shownVids=()=>[...document.querySelectorAll("#vids button bdi")].filter(b=>b.checkVisibility()).map(b=>b.textContent);
+out.before=shownVids(); out.folds=[...document.querySelectorAll("#vids details.liblevel summary")].map(s=>s.textContent);
+document.querySelector("#vids details.liblevel summary").click(); await sleep(300);
+out.after=shownVids();
 lib.click(); await sleep(300);
 out.libHeadings=[...document.querySelectorAll("#vids h2,#vids h3")].map(h=>h.textContent);
 out.libVideos=[...document.querySelectorAll("#vids button bdi")].map(b=>b.textContent);
@@ -983,6 +987,7 @@ def test_the_videos_button_shows_the_folders_outside_the_digital_library(site):
     r = site("dana@x.com", VIDEOS_VIEW)
     assert r["shown"] and r["view"] == "daily"
     assert r["headings"] == ["העשרה", "טיולים בכפר", "פרקי אבות עם אמיר"] and r["videos"] == ["טיול בכפר"]
+    assert r["folds"] == ["טיולים בכפר", "פרקי אבות עם אמיר"] and r["before"] == [] and r["after"] == ["טיול בכפר"]   # closed until its title is clicked
     assert r["libHeadings"] == ["שלב א"] and r["libVideos"] == ["הכנה לקורס"]   # מערכת דיגיטלית alone, under its own button
 
 
