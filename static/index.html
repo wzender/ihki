@@ -2916,7 +2916,7 @@ function openFullPath(){   // the whole path, at the current lesson's topic to d
   if(at) at.scrollIntoView({block:"center"});
 }
 function homeLesson(){   // the current lesson, its topics, and whether every one is finished
-  const l=LESSONS.find(x=>x.id===currentLesson()), cats=l?lessonItems(l.id).filter(it=>it.c).map(it=>it.c):[];
+  const l=LESSONS.find(x=>x.id===currentLesson()), cats=l?lessonItems(l.id,true).filter(it=>it.c).map(it=>it.c):[];
   return {l,cats,done:cats.length>0&&cats.every(c=>topicT(c).over)};
 }
 function homeActions(){   // in this order, the first three that can start: homework, the lesson, a short round (today's video is on the videos button)
@@ -4357,11 +4357,15 @@ let VIDEOS=[], watched=store.get("ihki.watched",{});   // {id, lesson, title, ur
 /* A lesson's topics in the path's order: the course's own, {c, n} with the topic's number, and among them what the teacher
    added, a video {v} or a text {c} (a topic like any other, laid out as a story: its category has `text`). Each of
    those has `pos` of the course's topics before it, and `ord` is its turn among the ones of the same place. */
-function lessonItems(id){
+// watch: as a student meets the lesson, where a text that is a video's transcript is that video, played at once with its
+// lines written over it, not a dialogue to practise; the teacher's panel (without it) lists and orders it as a text
+function lessonItems(id,watch){
   const course=ALL_CATS.filter(c=>c.lesson===id&&!c.text);
-  const added=[...VIDEOS.filter(v=>v.lesson===id).map(v=>({v,pos:v.pos,ord:v.ord})),...ALL_CATS.filter(c=>c.lesson===id&&c.text).map(c=>({c,pos:c.pos,ord:c.ord}))].sort((a,b)=>a.pos-b.pos||a.ord-b.ord);
+  const added=[...VIDEOS.filter(v=>v.lesson===id).map(v=>({v,pos:v.pos,ord:v.ord})),...ALL_CATS.filter(c=>c.lesson===id&&c.text).map(c=>watch&&c.video?{v:transcriptVideo(c),pos:c.pos,ord:c.ord}:{c,pos:c.pos,ord:c.ord})].sort((a,b)=>a.pos-b.pos||a.ord-b.ord);
   return [...course.flatMap((c,i)=>[...added.filter(e=>e.pos===i),{c,n:i+1}]),...added.filter(e=>e.pos>=course.length)];
 }
+const transcriptVideo=c=>({id:"t"+c.text,title:c.name,embed:c.video,tall:true,fill:true,
+  subs:PHRASES.filter(p=>p.cat===c.id&&p.at!=null).sort((a,b)=>a.at-b.at)});
 async function loadContent(){   // the videos, and the texts: their topics and lines join the course's
   if(!sb) return;
   try{
@@ -4555,6 +4559,7 @@ function playVideo(v,preview){   // preview: the teacher looks at it from the pa
   f.src=v.embed+(subs&&/youtube/.test(v.embed)?"&enablejsapi=1&fs=0":"")
     +(from==null?"":/vimeo/.test(v.embed)?`&autoplay=1#t=${from}s`:`&autoplay=1&start=${from}`); f.title=v.title; f.allow="autoplay; fullscreen; picture-in-picture"; f.allowFullscreen=true; f.referrerPolicy="strict-origin-when-cross-origin";   // YouTube's player asks who embeds it
   $("videoTitle").textContent=v.title; $("videoBox").replaceChildren(f,...(subs?[videoSubs(f,subs,v.start)]:[])); $("videoDlg").showModal();
+  if(v.fill&&document.fullscreenEnabled&&!document.fullscreenElement) $("videoDlg").requestFullscreen?.().catch(()=>{});   // a path's video: the whole screen, the browser's bars too where it can (not an iPhone)
   if(!preview){ watched[v.id]=1; store.set("ihki.watched",watched); }
 }
 $("storyVideo").onclick=()=>{ const c=CATS.find(c=>c.id===cat); if(c&&c.video) playVideo({embed:c.video,title:c.name,subs:PHRASES.filter(p=>p.cat===c.id&&p.at!=null).sort((a,b)=>a.at-b.at)},true); };   // marks nothing: the topic's progress is its lines'
@@ -4571,6 +4576,7 @@ $("videoFull").onclick=()=>{
   else videoWide(true);
 };
 $("videoDlg").addEventListener("close",()=>{   // without its frame the video stops playing
+  if(document.fullscreenElement===$("videoDlg")) document.exitFullscreen().catch(()=>{});
   videoWide(false); $("videoDlg").classList.remove("tall"); if(subsOff) subsOff();
   $("videoBox").replaceChildren(); if(home&&!document.body.classList.contains("manage")) drawPath(true);
   if(pushAfterVideo){ pushAfterVideo=false; askPushSoon("video"); } });
@@ -4630,7 +4636,7 @@ const lWords=c=>PHRASES.filter(p=>p.cat===c.id).sort((a,b)=>(a.seq??0)-(b.seq??0
 function lTally(c){ const ids=new Set(learned[c.id]||[]), list=lWords(c), done=list.filter(p=>ids.has(p.id)).length; return {done,n:list.length,over:list.length>0&&done>=list.length,gold:false}; }
 const topicT=c=>c.write?wTally(c):c.learn?lTally(c):c.match?mTally(c):tally(PHRASES.filter(p=>p.listed!==false&&p.cat===c.id));
 function nextUp(btn,c,dlg){   // the button that goes on to the lesson's next topic, when there is one
-  const its=lessonItems(c.lesson).filter(it=>it.c).map(it=>it.c), next=its[its.indexOf(c)+1];
+  const its=lessonItems(c.lesson,true).filter(it=>it.c).map(it=>it.c), next=its[its.indexOf(c)+1];
   btn.hidden=!next; if(!next) return;
   btn.textContent=next.learn||next.match||next.write?`המשך: ${next.name}`:`עכשיו לדבר: ${next.name}`;
   btn.onclick=()=>{ $(dlg).close(); openCat(next); };
@@ -4853,7 +4859,7 @@ function drawPath(stay){
       const b=mark("chapter soon",""); b.style.top=y+"px"; b.append(mark("",lessonsWord(run)),mark("","בקרוב","small")); box.append(b);
       y+=52+28; continue;
     }
-    const items=lessonItems(l.id), cats=items.filter(it=>it.c).map(it=>it.c), parts=cats.map(topicT);
+    const items=lessonItems(l.id,true), cats=items.filter(it=>it.c).map(it=>it.c), parts=cats.map(topicT);
     const whole=tally(listed.filter(p=>cats.some(c=>c.id===p.cat))), now=pin?l.id===pin&&!whole.over:!whole.over&&next;
     const todo=Math.max(0,parts.findIndex(t=>!t.over));   // the topic to do now, when this is the lesson to do now
     if(now) next=false;
@@ -6286,9 +6292,9 @@ const TD_FAIL=60;
 const tdSaid=id=>best[id]!=null||!!silent[id];
 const topicComplete=()=>!daily&&!bubbleCat()&&topic.length>0&&topic.every(tdSaid);
 function nextTopicAfter(c){   // the lesson's next topic, or the first one of the next lesson
-  const its=lessonItems(c.lesson).filter(it=>it.c).map(it=>it.c), i=its.indexOf(c);
+  const its=lessonItems(c.lesson,true).filter(it=>it.c).map(it=>it.c), i=its.indexOf(c);
   if(i>=0&&i+1<its.length) return its[i+1];
-  for(const l of LESSONS.slice(LESSONS.findIndex(l=>l.id===c.lesson)+1)){ const it=lessonItems(l.id).find(it=>it.c); if(it) return it.c; }
+  for(const l of LESSONS.slice(LESSONS.findIndex(l=>l.id===c.lesson)+1)){ const it=lessonItems(l.id,true).find(it=>it.c); if(it) return it.c; }
   return null;
 }
 function confetti(n,into=$("topicDoneDlg")){

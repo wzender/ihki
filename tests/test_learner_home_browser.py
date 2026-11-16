@@ -56,6 +56,9 @@ class PageAuth(AppAuth):
     def writings(self, token):
         return {}
 
+    def texts(self, fresh=False):   # the teachers' texts (self.text_rows), as the table gives them
+        return [dict(r) for r in getattr(self, "text_rows", [])]
+
 
 def fake_supabase(email, news=False):
     session = {"access_token": email.split("@")[0], "user": {"id": f"id-{email}", "email": email}}
@@ -1314,6 +1317,35 @@ def test_a_transcript_with_times_is_written_over_its_video(site):
     assert r["whole"] == r["page"] and r["upright"] and r["bar"] == [False, False, True, "✕"]
     assert r["gone"] and r["plain"]
 
+
+PATH_VIDEO = """
+await until(()=>[...document.querySelectorAll("#path .sat")].some(b=>b.textContent.includes("היכרות")),8000);
+const station=()=>[...document.querySelectorAll("#path .sat")].find(b=>b.textContent.includes("היכרות"));
+out.station=[station().classList.contains("video"),station().querySelector(".label").textContent];
+out.texts=[...document.querySelectorAll("#path .sat")].filter(b=>b.textContent.includes("בית הקפה")).length;
+const asked=[]; Element.prototype.requestFullscreen=function(){ asked.push(this.id); return Promise.resolve(); };   // a scripted click is not a person's: the browser would refuse
+station().click(); await sleep(400);
+const dlg=document.getElementById("videoDlg"), r=dlg.getBoundingClientRect();
+out.open=dlg.open; out.tall=dlg.classList.contains("tall"); out.whole=[Math.round(r.width),Math.round(r.height)]; out.page=[innerWidth,innerHeight];
+out.src=document.querySelector("#videoBox iframe").src; out.subs=!!document.getElementById("videoSubs");
+out.story=document.body.dataset.view||""; out.full=asked;
+document.getElementById("videoClose").click(); await sleep(400);
+out.closed=!dlg.open&&!document.fullscreenElement; out.seen=station().querySelector(".label").textContent;
+"""
+
+
+def test_a_paths_video_with_its_transcript_plays_at_once_over_the_whole_screen(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    site.auth.text_rows = [{"id": 2, "lesson": "5", "title": "היכרות", "voices": [], "pos": 99, "ord": 0,
+                            "video": "https://www.youtube.com/watch?v=abcdefghijk",
+                            "lines": [["שלום!", "מַרְחַבַּא!", 0.1], ["מה שלומך?", "כִּיף חַאלַכּ?", 3.1]]},
+                           {"id": 4, "lesson": "5", "title": "בית הקפה", "voices": [], "pos": 99, "ord": 1,
+                            "lines": [["שלום!", "מַרְחַבַּא!"]]}]
+    r = site("dana@x.com", PATH_VIDEO)
+    assert r["station"] == [True, "היכרותסרטון"] and r["texts"] == 1   # a video's station; a plain text is still a topic
+    assert r["open"] and r["tall"] and r["whole"] == r["page"] and r["subs"]   # the video, its lines over it, the whole page
+    assert "youtube-nocookie.com/embed/abcdefghijk" in r["src"] and r["story"] != "practice"   # not the dialogue to practise
+    assert r["full"] == ["videoDlg"] and r["closed"] and r["seen"] == "היכרות✓ נצפה"
 
 SETTINGS = """
 await until(()=>document.querySelector("#vids .focus-set"),6000);
