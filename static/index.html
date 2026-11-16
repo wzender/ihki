@@ -104,7 +104,7 @@ body.home:not([data-view]) #feedbackBtn{display:none}
 .fb-kinds{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}.fb-kinds legend{font-weight:700;margin-bottom:4px}.fb-kinds label{flex-direction:row;align-items:center;gap:8px;font-weight:500;padding:8px 10px;border:1px solid var(--line);border-radius:10px}
 .fb-rating{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.fb-rating span{flex-basis:100%;font-weight:600}.fb-rating button{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 16px var(--f-body);cursor:pointer}.fb-rating button[aria-pressed=true]{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
 .fb-note{margin:0;min-height:1.3em;color:var(--muted);font-size:14px}
-.fb-inbox .fb-item{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-bottom:1px solid var(--line)}.fb-inbox .fb-item.done{opacity:.55}.fb-inbox .fb-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--muted)}.fb-inbox .fb-msg{white-space:pre-wrap;overflow-wrap:anywhere}.fb-inbox .fb-actions{display:flex;gap:8px}
+.fb-inbox .fb-item{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-bottom:1px solid var(--line)}.fb-inbox .fb-item.done{opacity:.55}.fb-inbox .fb-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--muted)}.fb-inbox .fb-msg{white-space:pre-wrap;overflow-wrap:anywhere}.fb-inbox .fb-actions{display:flex;gap:8px}.fb-inbox .fb-group{border-top:1px solid var(--line);padding-top:6px;margin-top:6px}.fb-inbox .fb-group>summary{cursor:pointer;font-weight:700;padding:6px 0}
 #myClass:empty+.help{margin-inline-start:auto}
 /* the videos (daily and library) in the top row, beside the help: amber with a dot while today's video is unwatched */
 .vidbtn{position:relative;flex:none;display:flex;align-items:center;gap:6px;height:34px;padding-block:0;padding-inline:10px 12px;border-radius:999px;border:1px solid var(--olive);background:var(--surface);color:var(--olive);box-shadow:0 2px 0 var(--line);font:700 14px/1 var(--f-body);white-space:nowrap;cursor:pointer}
@@ -7229,38 +7229,47 @@ function drawFeedbackInbox(box){
   if(FEEDBACK.setup){ card.append(mark("meta","הטבלה feedback עדיין לא קיימת. הריצו ב-SQL Editor של Supabase:","p"),mark("meta",FEEDBACK.setup,"p")); box.append(card); return; }
   const rows=FEEDBACK.feedback||[], open=rows.filter(r=>r.status==="new").length;
   card.append(mark("meta",rows.length?`${open} חדשים מתוך ${rows.length}`:"עדיין לא התקבל משוב.","p"));
-  for(const r of rows.slice(0,50)){
-    const item=mark("fb-item"+(r.status==="done"?" done":""),""), head=mark("fb-head","");
-    head.append(mark("flag-kind",FEEDBACK_KINDS[r.kind]||r.kind),mark("",r.rating?"★".repeat(r.rating):""),mark("",r.email),mark("",[r.screen,r.item].filter(Boolean).join(" · ")),mark("",new Date(r.created_at).toLocaleString("he-IL")));
-    item.append(head);
-    if(r.message) item.append(mark("fb-msg",r.message,"p"));
-    if((r.replies||[]).length) item.append(feedbackThread(r.replies,m=>m.from==="team"?m.by||"הצוות":r.email));
-    const actions=mark("fb-actions","");
-    for(const [status,label] of [["read","נקרא"],["done","טופל"],["new","החזרה לחדש"]]){
-      if(r.status===status) continue;
-      const b=mark("btn",label,"button"); b.type="button";
-      b.onclick=async()=>{ b.disabled=true; const res=await api(`/api/feedback/${r.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})}); if(res.ok){ r.status=status; drawFlags(); } else b.disabled=false; };
-      actions.append(b);
-    }
-    item.append(actions);
-    // the answer: kept in the note's conversation, shown on the user's home and pushed to their devices
-    const form=mark("fb-reply","","form"), text=document.createElement("textarea"), send=mark("btn primary","שליחת תגובה","button"), note=mark("fb-reply-note","","p");
-    text.rows=1; text.maxLength=1000; text.placeholder=(r.replies||[]).length?"עוד תגובה…":"תגובה למשתמש…"; text.setAttribute("aria-label","תגובה ל-"+r.email);
-    text.value=feedbackDrafts[r.id]||""; text.oninput=()=>{ feedbackDrafts[r.id]=text.value; };
-    form.append(text,send);
-    form.onsubmit=async e=>{
-      e.preventDefault(); if(!text.value.trim()) return text.focus();
-      send.disabled=true; note.className="fb-reply-note"; note.textContent="";
-      try{
-        const res=await api(`/api/feedback/${r.id}/reply`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:text.value})}), data=await res.json().catch(()=>({}));
-        if(!res.ok) throw new Error(data.detail||res.status);
-        r.replies=data.replies; r.status=data.status||r.status; delete feedbackDrafts[r.id]; drawFlags();
-      }catch(err){ note.className="fb-reply-note bad"; note.textContent="התגובה לא נשלחה: "+err.message; send.disabled=false; }
-    };
-    item.append(form,note); card.append(item);
+  // grouped by status, each newest first; what is handled starts folded, and a group a teacher opened or closed stays so
+  for(const [status,label] of FEEDBACK_GROUPS){
+    const mine=rows.filter(r=>r.status===status); if(!mine.length) continue;
+    const group=mark("fb-group","","details"), sum=mark("",`${label} (${mine.length})`,"summary");
+    group.dataset.status=status; group.open=status in feedbackOpen?feedbackOpen[status]:status!=="done";
+    group.ontoggle=()=>{ feedbackOpen[status]=group.open; };
+    group.append(sum); for(const r of mine.slice(0,50)) group.append(feedbackItem(r)); card.append(group);
   }
   if(rows.length) card.append(mark("meta","תגובה מופיעה במסך הבית של המשתמש ונשלחת אליו כהתראה. תשובה שלו מחזירה את המשוב ל„חדש”.","p"));
   box.append(card);
+}
+const FEEDBACK_GROUPS=[["new","חדשים"],["read","נקראו"],["done","טופלו"]], feedbackOpen={};
+function feedbackItem(r){   // one note in the inbox: who and where, the message, the conversation, its status buttons and an answer box
+  const item=mark("fb-item"+(r.status==="done"?" done":""),""), head=mark("fb-head","");
+  head.append(mark("flag-kind",FEEDBACK_KINDS[r.kind]||r.kind),mark("",r.rating?"★".repeat(r.rating):""),mark("",r.email),mark("",[r.screen,r.item].filter(Boolean).join(" · ")),mark("",new Date(r.created_at).toLocaleString("he-IL")));
+  item.append(head);
+  if(r.message) item.append(mark("fb-msg",r.message,"p"));
+  if((r.replies||[]).length) item.append(feedbackThread(r.replies,m=>m.from==="team"?m.by||"הצוות":r.email));
+  const actions=mark("fb-actions","");
+  for(const [status,label] of [["read","נקרא"],["done","טופל"],["new","החזרה לחדש"]]){
+    if(r.status===status) continue;
+    const b=mark("btn",label,"button"); b.type="button";
+    b.onclick=async()=>{ b.disabled=true; const res=await api(`/api/feedback/${r.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})}); if(res.ok){ r.status=status; drawFlags(); } else b.disabled=false; };
+    actions.append(b);
+  }
+  item.append(actions);
+  // the answer: kept in the note's conversation, shown on the user's home and pushed to their devices
+  const form=mark("fb-reply","","form"), text=document.createElement("textarea"), send=mark("btn primary","שליחת תגובה","button"), note=mark("fb-reply-note","","p");
+  text.rows=1; text.maxLength=1000; text.placeholder=(r.replies||[]).length?"עוד תגובה…":"תגובה למשתמש…"; text.setAttribute("aria-label","תגובה ל-"+r.email);
+  text.value=feedbackDrafts[r.id]||""; text.oninput=()=>{ feedbackDrafts[r.id]=text.value; };
+  form.append(text,send);
+  form.onsubmit=async e=>{
+    e.preventDefault(); if(!text.value.trim()) return text.focus();
+    send.disabled=true; note.className="fb-reply-note"; note.textContent="";
+    try{
+      const res=await api(`/api/feedback/${r.id}/reply`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:text.value})}), data=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(data.detail||res.status);
+      r.replies=data.replies; r.status=data.status||r.status; delete feedbackDrafts[r.id]; drawFlags();
+    }catch(err){ note.className="fb-reply-note bad"; note.textContent="התגובה לא נשלחה: "+err.message; send.disabled=false; }
+  };
+  item.append(form,note); return item;
 }
 const feedbackDrafts={};   // an answer being written survives the inbox's redraws
 function feedbackThread(replies,who){   // a conversation's messages; `who(message)` names its sender

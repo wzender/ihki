@@ -1138,6 +1138,27 @@ def test_a_teacher_answers_a_note_from_the_inbox(site):
     assert site.auth.notes[0]["status"] == "read" and "נקרא" not in r["buttons"]
 
 
+GROUPS = """
+await sleep(800); showManage(); await sleep(300);
+document.querySelector('#mModes [data-mode="flags"]').click();
+await until(()=>document.querySelector(".fb-inbox .fb-group"),6000);
+const groups=()=>[...document.querySelectorAll(".fb-inbox .fb-group")].map(g=>[g.dataset.status,g.querySelector("summary").textContent,g.open,
+  [...g.querySelectorAll(".fb-msg")].map(m=>m.textContent)]);
+out.before=groups();
+document.querySelector('.fb-group[data-status="new"] .fb-actions button').click();   // "נקרא": the note moves to its group
+await until(()=>!document.querySelector('.fb-group[data-status="new"]'),5000); out.after=groups();
+"""
+
+
+def test_the_inbox_groups_notes_by_status(site):
+    site.auth.notes = [note(id=1, message="חדש"), note(id=2, message="נקרא", status="read"),
+                       note(id=3, message="טופל", status="done"), note(id=4, message="עוד נקרא", status="read")]
+    r = site("boss@x.com", GROUPS)
+    assert r["before"] == [["new", "חדשים (1)", True, ["חדש"]], ["read", "נקראו (2)", True, ["נקרא", "עוד נקרא"]],
+                           ["done", "טופלו (1)", False, ["טופל"]]]   # what is handled starts folded
+    assert r["after"] == [["read", "נקראו (3)", True, ["חדש", "נקרא", "עוד נקרא"]], ["done", "טופלו (1)", False, ["טופל"]]]
+    assert site.auth.notes[0]["status"] == "read"
+
 def test_the_daily_video_button_is_in_the_progress_bar_even_without_a_video(site):
     site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
     r = site("dana@x.com", DAILY_BTN)
