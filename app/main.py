@@ -762,7 +762,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def text_rows() -> list[dict]:
         """The teacher's texts in the lessons the path shows. None without sign-in, or when they cannot be read.
         A text that is a video's transcript is among them: it stands on the path, where the teacher placed it, and its
-        video is watched from its card, with the transcript's lines written over it."""
+        video is played at once from its station, over the whole screen, with the transcript's lines written over it."""
         a: SupabaseAuth | None = app.state.auth
         if a is None:
             return []
