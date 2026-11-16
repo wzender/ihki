@@ -2805,7 +2805,7 @@ const libOther=()=>{ const d=libDigitalIds(), mine=new Set(LIB_VISIBLE); return 
 const libDigital=()=>{ const d=libDigitalIds(), mine=new Set(LIB_VISIBLE); return libLeaves().filter(x=>d.has(x.id)&&mine.has(x.id)); };
 /* Draws the folders of one of the two: each section the user may watch under its own name alone (שיעור 1, שיעור 2…), an
    empty one too; the videos of a section that has sub-sections (a level's own) come without a heading. Returns how many were drawn. */
-const libOpen=new Set();   // the levels the student opened in the digital library (until the page is loaded again)
+const libOpen=new Set();   // the levels and folders the student opened in the library (until the page is loaded again)
 function libFolders(box,row,digital){
   const vids=libVideos(), d=libDigitalIds(), leaves=libLeaves().filter(x=>d.has(x.id)===digital), known=new Set(libLeaves().map(x=>x.id)), mine=new Set(LIB_VISIBLE);
   // a level the student's classes do not study (שלב א, for a student of שלב ב) stays closed behind a button of its name
@@ -2824,11 +2824,11 @@ function libFolders(box,row,digital){
       }
       into=closed.get(level.id);
     }
-    if(!leaf.parent&&!digital){   // the videos button's folders: each one a title, its videos open on a click
+    if(!leaf.parent){   // a folder (שיעור 1, טיולים בכפר…): its title alone, folded; its videos open on a click, and stay open until the page is loaded again
       const fold=mark("liblevel","","details"), name=mark("","","summary");
       name.append(mark("",leaf.name,"h3")); fold.open=libOpen.has(leaf.id); fold.ontoggle=()=>fold.open?libOpen.add(leaf.id):libOpen.delete(leaf.id);
       fold.append(name); into.append(fold); into=fold;
-    }else if(!leaf.parent) into.append(mark("",leaf.name,"h3"));
+    }
     if(here.length) for(const v of here) row(v,libWatched,"ihki.libWatched","",false,into); else into.append(mark("","עוד אין סרטונים.","p"));
   }
   const rest=digital?vids.filter(v=>!known.has(v.section)):[]; for(const v of rest) row(v,libWatched,"ihki.libWatched","");
