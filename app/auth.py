@@ -1253,15 +1253,27 @@ class SupabaseAuth:
             if not fresh and (hit := cached()) is not None:   # another request has just read it
                 return hit
             users: list[dict] = []
+            signins: dict[str, dict] = {}
             for page in range(1, 51):
                 batch = self._admin(f"/auth/v1/admin/users?page={page}&per_page={PAGE}").get("users", [])
                 users += [{"id": u["id"], "email": u.get("email") or "",
                            "name": (u.get("user_metadata") or {}).get("full_name") or ""} for u in batch]
+                signins.update({u["id"]: {"providers": list((u.get("app_metadata") or {}).get("providers") or []),
+                                          "last_sign_in": u.get("last_sign_in_at") or "",
+                                          "created": u.get("created_at") or ""} for u in batch})
                 if len(batch) < PAGE:
                     break
             with self._lock:
                 self._users = (time.monotonic() + USERS_TTL, users)
+                self._signins = signins
             return [dict(u) for u in users]
+
+    def signins(self, fresh: bool = False) -> dict[str, dict]:
+        """How each account signs in, by its id: providers ("google", "email"), last_sign_in and created (ISO times).
+        Read with `users`, and kept apart from it so the account lists do not carry it."""
+        self.users(fresh=fresh)
+        with self._lock:
+            return {k: dict(v) for k, v in (getattr(self, "_signins", None) or {}).items()}
 
     def ping(self, timeout: float = 8) -> dict:
         """How Supabase answers right now, for Monitoring: its sign-in service and its database, each timed in ms.

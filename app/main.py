@@ -74,6 +74,7 @@ from .camel_race import race_items as camel_race_items, speech_of as camel_race_
 from .grok_mcp import build as build_grok_mcp, oauth_urls
 from .mcp_diagnostics import McpPathNormalizer
 from . import glossary
+from . import user_lookup
 from . import library as video_library
 from . import teacher_operations
 from .access import (CREATE_FEATURE_ACCESS, ENTITLEMENTS, FEATURES, TIER_NAMES, effective_features, feature_table, TIERS, AccessChangeError, account_rows, change_tier, clean_overrides, what_opens,
@@ -1374,6 +1375,18 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 "tier_counts": {t: sum(u["tier"] == t for u in listed) for t in TIERS},
                 "setup": "", "migration": "", "levels": [{"id": v["id"], "name": v["name"]} for v in LEVELS],
                 "tiers": [{"id": t, "name": TIER_NAMES[t]} for t in TIERS], "me": actor["id"] if actor else ""}
+
+    @app.get("/api/access/lookup")
+    def access_lookup(q: str = Query("", max_length=120), a: SupabaseAuth = Depends(require("users.manage"))):
+        """One user, for a manager answering "it doesn't let me in": see user_lookup.lookup."""
+        try:
+            rows = a.access_rows() if hasattr(a, "access_rows") else None
+            accounts = account_rows(a, a.users(fresh=True), rows or [])
+            signins = a.signins() if hasattr(a, "signins") else {}
+            classes = a.classes()
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        return user_lookup.lookup(q, accounts, classes, signins)
 
     lesson_levels = {l["id"]: l.get("level") for l in LESSONS}
 

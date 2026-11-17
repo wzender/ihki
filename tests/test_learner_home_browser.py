@@ -895,6 +895,63 @@ def test_permissions_are_two_groups_and_a_class_picks_its_library_sections(site)
     assert r["sent"] == ["d2", "avot"]   # unticking the section frees its sub-sections; one picked alone
 
 
+LOOKUP = """
+await sleep(1200);
+document.getElementById("toManage").click(); await sleep(300);
+document.querySelector('#mModes [data-mode="access"]').click();
+await until(()=>document.querySelector("#mAccess .lookup"));
+const card=document.querySelector("#mAccess .lookup"); out.closed=!card.open; card.open=true;
+card.querySelector("input").value="Dana@x.com"; card.querySelector("form").requestSubmit();
+await until(()=>card.querySelector(".lookup-item"),5000);
+out.items=[...card.querySelectorAll(".lookup-item")].map(i=>[i.querySelector("b").textContent,!!i.querySelector(".access-badge"),
+  [...i.querySelectorAll("li")].map(l=>[l.textContent,l.className])]);
+document.querySelector('#mModes [data-mode="classes"]').click(); await sleep(200);
+document.querySelector('#mModes [data-mode="access"]').click(); await until(()=>document.querySelector("#mAccess .lookup .lookup-item"),5000);
+out.kept=document.querySelector("#mAccess .lookup").open&&document.querySelector("#mAccess .lookup input").value;
+"""
+
+
+def test_a_manager_looks_up_why_a_student_cannot_sign_in(site):
+    site.auth.users = lambda fresh=False: [{"id": f"id-{e}", "email": e, "name": n} for e, n in
+                                           (("boss@x.com", "Boss"), ("dana@x.com", "דנה"), ("dena@x.com", ""))]
+    site.auth.signins = lambda fresh=False: {"id-dana@x.com": {"providers": ["google"], "last_sign_in": "2026-11-16T08:00:00Z", "created": ""},
+                                             "id-dena@x.com": {"providers": ["email"], "last_sign_in": "", "created": ""}}
+    site.auth.access_rows = lambda: []
+    r = site("boss@x.com", LOOKUP)
+    assert r["closed"]
+    (dana, dena) = r["items"]
+    assert dana[0] == "dana@x.com" and not dana[1]
+    assert [t for t, _ in dana[2]][:3] == ["שם: דנה", "קבוצה: תלמידים", "נכנס/ת עם: גוגל"] and any(t.startswith("כיתות: ") for t, _ in dana[2])
+    assert dena[0] == "dena@x.com" and dena[1]   # a letter away: perhaps a typo
+    assert ["נכנס/ת עם: קישור במייל (אף פעם לא עם גוגל)", "warn"] in dena[2]
+    assert ["לא רשום/ה בשום כיתה: אחרי הכניסה יופיע שאין כיתה.", "warn"] in dena[2]
+    assert r["kept"] == "Dana@x.com"
+
+
+IN_APP = """
+await sleep(300);
+const ua={whatsapp:"Mozilla/5.0 (Linux; Android 13; SM-A536B) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0 Mobile Safari/537.36 WhatsApp/2.23",
+  webview:"Mozilla/5.0 (Linux; Android 13; Pixel 7; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0 Mobile Safari/537.36",
+  chrome:"Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36",
+  instagram:"Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 300.0",
+  gmailIos:"Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148",
+  safari:"Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+  chromeIos:"Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/120.0 Mobile/15E148 Safari/604.1"};
+out.is=Object.fromEntries(Object.entries(ua).map(([k,v])=>[k,inAppBrowser(v)]));
+out.before=document.getElementById("inApp").hidden;
+Object.defineProperty(navigator,"userAgent",{get:()=>ua.whatsapp}); inAppNotice();
+const box=document.getElementById("inApp"), open=document.getElementById("inAppOpen");
+out.shown=!box.hidden&&box.checkVisibility(); out.text=box.textContent; out.chrome=!open.hidden&&open.href;
+"""
+
+
+def test_a_page_opened_inside_another_app_says_to_open_it_in_the_browser(site):
+    r = site("dana@x.com", IN_APP)
+    assert r["is"] == {"whatsapp": True, "webview": True, "chrome": False, "instagram": True, "gmailIos": True,
+                       "safari": False, "chromeIos": False}
+    assert r["shown"] and "האתר נפתח בתוך אפליקציה" in r["text"] and "פתחו את האתר ב-Chrome" in r["text"]
+    assert r["chrome"].startswith("intent://") and "package=com.android.chrome" in r["chrome"]
+
 ADMIN_MESSAGE = """
 await until(()=>open("msgDlg"));
 out.title=document.getElementById("msgTitle").textContent; out.body=document.getElementById("msgText").textContent;
