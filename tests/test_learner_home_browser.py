@@ -84,9 +84,11 @@ try{ Object.defineProperty(Notification,"permission",{get:()=>"default"}); }catc
 addEventListener("load",async()=>{
   try{
     const entry=()=>["startBtn","practiceBtn"].map(id=>document.getElementById(id)).find(b=>!b.hidden&&b.offsetParent);
-    await until(()=>ENTERED||entry());   // "practice", for an account with more screens; a student goes straight in
-    out.pushCan=PUSH_CAN;
-    if(!ENTERED) entry().click();
+    if(!window.__stayOut){   // a case about an account that must not get in drives the opening screen itself
+      await until(()=>ENTERED||entry());   // "practice", for an account with more screens; a student goes straight in
+      out.pushCan=PUSH_CAN;
+      if(!ENTERED) entry().click();
+    }
     await (async()=>{ %s })();
   }catch(e){
     out.error=String(e&&e.stack||e);
@@ -125,7 +127,7 @@ def serve(auth, monkeypatch, tmp_path):
         return None
     monkeypatch.setattr(pushes, "loop", no_loop)   # no reminders are sent while the page is driven
     monkeypatch.setattr(pushes, "streak_loop", no_loop)
-    cases, news_cases = {}, set()
+    cases, news_cases, out_cases = {}, set(), set()
     app = create_app(scorer_for(emissions(["ħ"])), SawtakTTS("k", cache_dir=tmp_path), auth=auth)
 
     @app.get("/t/{email}/{case}")
@@ -133,7 +135,8 @@ def serve(auth, monkeypatch, tmp_path):
         page = index_html()   # the page as the app serves it
         page = re.sub(r'<script src="https://cdn\.jsdelivr\.net/npm/@supabase/supabase-js[^"]*"></script>',
                       fake_supabase(email, case in news_cases) if auth else "", page)
-        return HTMLResponse(page.replace("</body>", DRIVER % cases[case] + "</body>"))
+        stay = "<script>window.__stayOut=true</script>" if case in out_cases else ""
+        return HTMLResponse(page.replace("</body>", stay + DRIVER % cases[case] + "</body>"))
 
     def index_html():
         return next(r for r in app.routes if getattr(r, "path", "") == "/").endpoint().body.decode()
@@ -146,10 +149,12 @@ def serve(auth, monkeypatch, tmp_path):
         time.sleep(0.05)
     profile = tmp_path / "chrome"
 
-    def run(email, script, query="", width=390, mobile=False, news=False):
+    def run(email, script, query="", width=390, mobile=False, news=False, stay_out=False):
         case = f"c{len(cases)}"; cases[case] = script
         if news:
             news_cases.add(case)
+        if stay_out:
+            out_cases.add(case)
         url = f"http://127.0.0.1:{port}/t/{email}/{case}{query}"
         args = [CHROME, "--headless=new", "--disable-gpu", "--no-sandbox", "--no-first-run",
                 f"--user-data-dir={profile}", f"--window-size={width},860", "--virtual-time-budget=20000"]
@@ -1430,6 +1435,29 @@ def test_the_camel_races_team_and_step_counts_can_be_chosen(site):
     assert r["picked"] == ["4", "15"]   # it used to jump back to the first, 2 and 6
     assert r["again"] == ["3", "10"] and r["state"] == [3, 10] and r["pressed"] == ["false", "true", "false"]
     assert r["named"] == ["כמה קבוצות?", "כמה צעדים עד לקו הסיום?"]
+
+STAY_OUT = """
+await until(()=>!document.getElementById("denied").hidden||!document.getElementById("meFail").hidden,25000);
+const shown=id=>!document.getElementById(id).hidden;
+out.denied=shown("denied"); out.fail=shown("meFail"); out.text=document.getElementById(out.denied?"deniedText":"meFailText").textContent;
+out.entered=ENTERED; out.start=shown("startBtn"); out.view=document.body.dataset.view||"";
+"""
+
+
+def test_an_account_outside_every_class_is_told_its_address_and_does_not_get_in(site):
+    r = site("typo@x.com", STAY_OUT, stay_out=True)
+    assert r["denied"] and not r["fail"] and "typo@x.com" in r["text"] and "אינה באף כיתה" in r["text"]
+    assert not r["entered"] and not r["start"] and r["view"] == ""
+
+
+def test_a_server_that_cannot_say_who_the_account_is_lets_no_one_in(site, monkeypatch):
+    from app.auth import AuthUnavailable
+    def down(*a, **k):
+        raise AuthUnavailable("supabase is waking up")
+    monkeypatch.setattr(site.auth, "classes", down)   # every /api/me answers 503
+    r = site("dana@x.com", STAY_OUT, stay_out=True)
+    assert r["fail"] and not r["denied"] and "לא הצלחנו לבדוק את החשבון" in r["text"]
+    assert not r["entered"] and not r["start"] and r["view"] == ""   # it used to open with every lesson on the path
 
 SETTINGS = """
 await until(()=>document.querySelector("#vids .focus-set"),6000);
