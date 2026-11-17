@@ -306,6 +306,29 @@ def account_rows(a: SupabaseAuth, users: list[dict], rows: list[dict]) -> list[d
     return out
 
 
+def deletable_account(a: SupabaseAuth, actor: dict, accounts: list[dict], who: str) -> dict:
+    """The account (by email or id, from account_rows) that `actor` may delete, or AccessChangeError: only a student's
+    account that no class has (on its roster or as its teacher), such as one opened with a typo; never one's own,
+    a manager's, a developer's, or one the server's settings name. Checked again when the deletion is published."""
+    wanted = str(who or "").strip().lower()
+    target = next((u for u in accounts if wanted in (str(u["id"]).lower(), str(u["email"]).lower())), None)
+    if target is None:
+        raise AccessChangeError(404, "אין חשבון עם הכתובת הזו")
+    if not actor or target["id"] == actor.get("id"):
+        raise AccessChangeError(403, "אי אפשר למחוק את החשבון של עצמך")
+    if target["fixed"]:
+        raise AccessChangeError(403, "החשבון הזה מוגדר בהגדרות השרת ואי אפשר למחוק אותו")
+    if target["developer"] or target["tier"] != "student":
+        raise AccessChangeError(403, "אפשר למחוק רק חשבון של תלמיד. העבירו אותו קודם לתלמידים")
+    email = str(target["email"]).lower()
+    held = [c.get("name") or str(c.get("id")) for c in a.classes(fresh=True)
+            if email in {str(e).lower() for e in (c.get("emails") or [])}
+            or email in {str(e).lower() for e in (c.get("teachers") or [])}]
+    if held:
+        raise AccessChangeError(409, "החשבון רשום בכיתה (" + ", ".join(held) + "). הוציאו אותו קודם מהכיתה")
+    return target
+
+
 class _KnownAccess:
     """`a` with every access row already read, so that resolving each account in the list asks Supabase nothing more."""
 

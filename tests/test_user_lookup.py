@@ -71,3 +71,64 @@ def test_supabase_accounts_give_their_sign_in_ways_apart_from_the_account_list(m
     assert a.signins() == {"u1": {"providers": ["email", "google"], "last_sign_in": "2026-11-17T09:00:00Z",
                                   "created": "2026-10-01T08:00:00Z"},
                            "u2": {"providers": [], "last_sign_in": "", "created": ""}}
+
+
+class DeleteAuth(LookupAuth):
+    """student-1 is in class א; typo-1 (studnet@example.com) is in none."""
+    def __init__(self):
+        super().__init__({"dev-1": {"roles": ["developer", "student"], "entitlements": []}})
+        self.deleted = []
+
+    def users(self, fresh=False):
+        gone = {t["id"] for t in self.deleted}
+        return [u for u in super().users(fresh) + [{"id": "typo-1", "email": "studnet@example.com", "name": ""}]
+                if u["id"] not in gone]
+
+    def delete_user(self, target, actor):
+        self.deleted.append({"id": target["id"], "email": target["email"], "by": actor["id"]})
+
+
+def test_a_manager_deletes_a_typo_account_through_the_mcp_and_nothing_else():
+    from tests.test_access_tiers import MCP_MANAGER
+    from tests.test_grok_mcp import call, connector
+    auth = DeleteAuth()
+    server, _ = connector(auth, actor=MCP_MANAGER)
+    prepared = call(server, "prepare_user_delete", {"email": "Studnet@Example.com"})
+    assert prepared["ok"] and prepared["irreversible"] and prepared["account"]["email"] == "studnet@example.com"
+    assert prepared["account"]["classes"] == [] and "its practice attempts and writing" in prepared["deleted_with_it"]
+    assert auth.deleted == []   # preparing deletes nothing
+    done = call(server, "publish_user_delete", {"approval_id": prepared["approval_id"]})
+    assert done["ok"] and done["deleted"] and auth.deleted == [{"id": "typo-1", "email": "studnet@example.com", "by": "teacher-1"}]
+    assert not call(server, "publish_user_delete", {"approval_id": prepared["approval_id"]})["ok"]   # single use
+
+    refused = {who: call(server, "prepare_user_delete", {"email": who}) for who in
+               ("student@example.com", "teacher@example.com", "dev@example.com", "nobody@example.com")}
+    assert "הוציאו אותו קודם מהכיתה" in refused["student@example.com"]["error"]   # in class א
+    assert "של עצמך" in refused["teacher@example.com"]["error"]
+    assert not refused["dev@example.com"]["ok"] and not refused["nobody@example.com"]["ok"]
+
+    # added to a class between preparing and publishing: not deleted
+    auth.users = lambda fresh=False: TierAuth.users(auth) + [{"id": "late-1", "email": "late@example.com", "name": ""}]
+    late = call(server, "prepare_user_delete", {"email": "late@example.com"})
+    auth.class_rows[0]["emails"].append("late@example.com")
+    stale = call(server, "publish_user_delete", {"approval_id": late["approval_id"]})
+    assert not stale["ok"] and "כיתה" in stale["error"] and len(auth.deleted) == 1
+
+
+def test_only_managers_delete_accounts():
+    from tests.test_access_tiers import MCP_MANAGER
+    from tests.test_grok_mcp import call, connector
+    trainer = {**MCP_MANAGER, "roles": ["teacher"], "permissions": ["exercises.use_all"]}
+    server, _ = connector(DeleteAuth(), actor=trainer)
+    assert not call(server, "prepare_user_delete", {"email": "studnet@example.com"})["ok"]
+
+
+def test_supabase_deletes_the_login_account_and_forgets_it(monkeypatch):
+    from app.auth import SupabaseAuth
+    a = SupabaseAuth("https://p.supabase.co", "k", secret="s")
+    calls = []
+    monkeypatch.setattr(a, "_admin", lambda path, method="GET", *args, **kw: calls.append((method, path)) or {"users": []})
+    a.users(fresh=True); a._cache["tok"] = (1e18, {"id": "u1"})
+    a.delete_user({"id": "u1", "email": "x@y.com"}, {"id": "m1", "email": "m@y.com"})
+    assert ("DELETE", "/auth/v1/admin/users/u1") in calls and a._users is None and a._cache == {}
+    assert ("POST", "/rest/v1/system_events") in calls   # in the activity log

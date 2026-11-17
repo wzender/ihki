@@ -26,8 +26,8 @@ from . import monitoring
 from . import teacher_operations
 from . import mcp_diagnostics as diagnostics
 from .access import (CREATE_FEATURE_ACCESS, FEATURES, OVERRIDE_OF_FEATURE, TIER_NAMES, TIERS, AccessChangeError,
-                     account_rows, change_tier, clean_overrides, effective_features, feature_table, has_permission,
-                     resolve_access)
+                     account_rows, change_tier, clean_overrides, deletable_account, effective_features, feature_table,
+                     has_permission, resolve_access)
 from .auth import AuthUnavailable
 
 
@@ -274,7 +274,9 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                       "a mutation, show its exact effect, and publish only after explicit confirmation. Never offer "
                       "subject-assignment, lab (developer), OAuth, credential, or secret changes. A manager may move an "
                       "account between the two tiers (מנהלים, תלמידים) with list_user_access, "
-                      "prepare_user_access_change and publish_user_access_change; a class's digital-library sections "
+                      "prepare_user_access_change and publish_user_access_change, and delete a student's account that "
+                      "is in no class (one opened with a typo) with prepare_user_delete and publish_user_delete, only "
+                      "after the manager confirms the shown preview; a class's digital-library sections "
                       "are set with prepare_teacher_change operation set_class_library_sections. "
                       "A learner feature (each game, יאללה נדבר, practice, path, every lesson or library section) is "
                       "turned on or off for whole tiers with list_feature_access, prepare_feature_access_change and "
@@ -995,8 +997,8 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             return {"ok": False, "error": str(exc)}
 
     @tool(description=("Prepare exactly one allowlisted teacher operation and return its exact preview. "
-                              "This never changes data. Permission tiers use prepare_user_access_change; account, OAuth, subject-scope, "
-                              "credential, and secret administration are not supported. Each dailies item is "
+                              "This never changes data. Permission tiers use prepare_user_access_change, and deleting an account "
+                              "prepare_user_delete; OAuth, subject-scope, credential, and secret administration are not supported. Each dailies item is "
                               "{\"video\": <daily video id>, \"date\": \"YYYY-MM-DD\"}; schedule_daily_video "
                               "replaces the class's whole daily schedule, so include the items to keep. "
                               "set_class_library_sections (and update_class) take library_sections: the digital-"
@@ -1223,6 +1225,78 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         access_audit("publish_user_access_change", current, "success")
         return {"ok": True, "email": done["target"]["email"], "tier": done["after"],
                 "tier_name": TIER_NAMES[done["after"]], "published": True}
+
+    def sign_in_of(store, user_id: str) -> dict[str, Any]:
+        try:
+            seen = (store.signins() if hasattr(store, "signins") else {}).get(user_id) or {}
+        except AuthUnavailable:
+            seen = {}
+        return {"providers": list(seen.get("providers") or []), "last_sign_in": seen.get("last_sign_in") or "",
+                "created": seen.get("created") or ""}
+
+    @tool(description=("Prepare deleting one login account (by email) for good: only a student's account that is "
+                       "in no class, on its roster or as its teacher, such as a second account opened with a "
+                       "mistyped address; never the manager's own, a manager's, a developer's or one the server's "
+                       "settings name. The preview shows the account, how it signed in and what is deleted with it "
+                       "(its permission row, practice and writing; its feedback notes stay). This does not change "
+                       "data and returns a ten-minute approval. Show the preview, tell the manager it cannot be undone, "
+                       "and call publish_user_delete only after they explicitly confirm that exact email."),
+          structured_output=True)
+    async def prepare_user_delete(email: str) -> dict[str, Any]:
+        current, store, error = access_manager()
+        if current is None:
+            return {"ok": False, "error": error}
+        if not limiter.allow():
+            access_audit("prepare_user_delete", current, "refused", reason="rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        try:
+            target = await _bounded_read(lambda: deletable_account(store, current, accounts(store), email))
+            seen = await _bounded_read(lambda: sign_in_of(store, target["id"]))
+        except AccessChangeError as exc:
+            access_audit("prepare_user_delete", current, "refused", reason=f"http_{exc.status}")
+            diagnostics.note_refusal(exc)
+            return {"ok": False, "error": str(exc)}
+        plan = {"operation": "delete_user", "user_id": target["id"], "email": target["email"]}
+        approval_id, _ = class_approvals.prepare(str(current["id"]), plan)
+        access_audit("prepare_user_delete", current, "prepared")
+        return {"ok": True, "approval_id": approval_id, "destructive": True, "irreversible": True,
+                "account": {"email": target["email"], "name": target.get("name") or "",
+                            "tier": target["tier"], "tier_name": TIER_NAMES[target["tier"]], "classes": [], **seen},
+                "deleted_with_it": ["the login account", "its permission row", "its practice attempts and writing"],
+                "kept": ["its feedback notes, without the account", "every class and all other accounts"],
+                "signing_in_again": "the same address can sign in again later; that opens a new, empty account",
+                "expires_in_seconds": APPROVAL_TTL, "published": False}
+
+    @tool(description=("Delete the login account prepared by prepare_user_delete, after the manager explicitly "
+                       "confirmed its exact email. Single-use, bound to the manager who prepared it, and refused when "
+                       "the account was meanwhile added to a class or moved to another tier."), structured_output=True)
+    async def publish_user_delete(approval_id: str) -> dict[str, Any]:
+        current, store, error = access_manager()
+        if current is None:
+            return {"ok": False, "error": error}
+        if not limiter.allow():
+            access_audit("publish_user_delete", current, "refused", reason="rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        item = class_approvals.consume(approval_id, str(current["id"]))
+        if item is None or item.plan.get("operation") != "delete_user":
+            access_audit("publish_user_delete", current, "refused", reason="invalid_approval")
+            return {"ok": False, "error": "האישור אינו תקף, פג תוקף, שייך למשתמש אחר או כבר נוצל."}
+        plan = item.plan
+        try:
+            def publish() -> dict[str, Any]:
+                target = deletable_account(store, current, accounts(store), plan["user_id"])   # still in no class
+                store.delete_user(target, current)
+                return target
+            done = await _bounded_read(publish)
+        except AccessChangeError as exc:
+            access_audit("publish_user_delete", current, "refused", reason=f"http_{exc.status}")
+            diagnostics.note_refusal(exc)
+            return {"ok": False, "error": str(exc)}
+        except AuthUnavailable as exc:
+            access_audit("publish_user_delete", current, "failed", reason="supabase")
+            return {"ok": False, "error": f"Supabase לא מחק את החשבון: {diagnostics.redact(str(exc))[:200]}"}
+        access_audit("publish_user_delete", current, "success")
+        return {"ok": True, "email": done["email"], "deleted": True, "published": True}
 
     @tool(description=("Return a read-only daily or weekly aggregate activity series for one authorized class "
                               "or all classes in the current manager's scope. Returns no learner identities."),

@@ -1350,6 +1350,17 @@ class SupabaseAuth:
             log.warning("access changed but audit row was not stored: %s", e)
         self.log_event("permission", actor, target["email"], {"roles": roles, "entitlements": entitlements})
 
+    def delete_user(self, target: dict, actor: dict) -> None:
+        """Deletes a login account (Supabase Auth). Its permission row, practice and writing go with it (their tables
+        cascade); its feedback notes stay, without it. The account lists and identity caches are dropped at once."""
+        self._admin(f"/auth/v1/admin/users/{urllib.parse.quote(str(target['id']), safe='')}", "DELETE",
+                    prefer="return=minimal")
+        with self._lock:
+            self._users = None
+            self._access.pop(target["id"], None)
+            self._cache.clear()   # a session of the deleted account is not taken from the cache
+        self.log_event("permission", actor, target["email"], {"deleted_account": True})
+
     def feature_rows(self, fresh: bool = False) -> list[dict] | None:
         """The managers' feature switches per tier ([{"tier", "feature_key", "enabled"}]), or None until the
         feature_access table is created. Kept for CLASSES_TTL, and dropped at once by set_feature, so an open session

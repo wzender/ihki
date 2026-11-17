@@ -144,6 +144,7 @@ def test_narrow_tools_are_discoverable():
         "list_feature_access", "prepare_feature_access_change", "publish_feature_access_change",
         "get_server_version", "get_teacher_workspace", "list_teacher_options", "prepare_teacher_change", "publish_teacher_change",
         "list_user_access", "prepare_user_access_change", "publish_user_access_change",
+        "prepare_user_delete", "publish_user_delete",
         "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_error_summary", "get_notification_coverage",
         "get_exercise_difficulty",
         "get_system_error_reports",
@@ -172,8 +173,9 @@ def test_narrow_tools_are_discoverable():
         "review_status", "interval", "limit", "min_attempts"}
     coverage = next(tool for tool in tools if tool.name == "get_notification_coverage")
     assert set(coverage.input_schema["properties"]) == {"class_id"}
-    # the managers' permission tools move an account between the three tiers, and nothing else of an account
-    access = {"list_user_access", "prepare_user_access_change", "publish_user_access_change"}
+    # the managers' account tools move an account between the tiers, and delete a student's that is in no class
+    access = {"list_user_access", "prepare_user_access_change", "publish_user_access_change",
+              "prepare_user_delete", "publish_user_delete"}
     assert not any(word in tool.name for tool in tools if tool.name not in access
                    for word in ("user", "role", "permission", "entitlement", "oauth", "secret", "grade", "recording",
                                 "sql", "log", "environment", "timeline", "remediate", "restart", "shell",
@@ -834,6 +836,7 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
         "list_feature_access", "prepare_feature_access_change", "publish_feature_access_change",
         "get_server_version", "get_teacher_workspace", "list_teacher_options", "prepare_teacher_change", "publish_teacher_change",
         "list_user_access", "prepare_user_access_change", "publish_user_access_change",
+        "prepare_user_delete", "publish_user_delete",
         "get_activity_timeseries", "get_hourly_activity", "get_current_activity", "get_system_health", "get_error_summary", "get_notification_coverage",
         "get_exercise_difficulty",
         "get_system_error_reports",

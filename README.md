@@ -292,7 +292,9 @@ alone decides what it may open (`app/access.py`, `TIERS`):
 
 - **מנהלים** (`admin`): everything except the Lab — practice, every game including יאללה נדבר, the whole path and
   every library section, problem reporting, management, and the MCP connector. Managers can also move accounts
-  between tiers through the MCP (`list_user_access`, `prepare_user_access_change`, `publish_user_access_change`).
+  between tiers through the MCP (`list_user_access`, `prepare_user_access_change`, `publish_user_access_change`), and
+  delete a student's account that is in no class, such as one opened with a mistyped address (`prepare_user_delete`,
+  `publish_user_delete`).
 - **מתרגלים** (`teacher`): all the material — practice, every game including יאללה נדבר, the whole path and every
   library section, problem reporting — but no management and no MCP.
 - **תלמידים** (`student`): practice, the games except יאללה נדבר, problem reporting, and the path lessons and
@@ -732,7 +734,9 @@ Example prompts and matching tool arguments:
 {"name":"publish_teacher_change","arguments":{"approval_id":"<approval id returned by prepare>"}}
 ```
 
-The connector has a hard permission firewall: no tool or operation can create/delete login accounts, grant or revoke roles, permissions, entitlements, `management.access`, subject assignments, OAuth grants, credentials, or secrets. Those remain in the permission area of **ניהול**. Assigning a class teacher changes only that class's `teachers` list and does not make the person an administrator. Adding an email to a class does not create a Supabase user; that student still signs in normally.
+The connector has a hard permission firewall: no tool or operation can create login accounts, grant or revoke roles, permissions, entitlements, `management.access`, subject assignments, OAuth grants, credentials, or secrets. Those remain in the permission area of **ניהול**. Assigning a class teacher changes only that class's `teachers` list and does not make the person an administrator. Adding an email to a class does not create a Supabase user; that student still signs in normally.
+
+The one account a manager can delete through the connector is a student's that no class has, on its roster or as its teacher: typically a second account opened with a mistyped address. `prepare_user_delete` shows the account, how it signed in, and what goes with it (its `user_access` row, practice attempts and writing, which cascade; its feedback notes stay without it); `publish_user_delete` deletes it from Supabase Auth only after the manager confirms, with a single-use ten-minute approval bound to that manager. Publishing checks the rules again, so an account added to a class meanwhile is not deleted. One's own account, a manager's, a developer's and one named in the server's settings are always refused. Each deletion is written to `system_events`. The same address can sign in again later, which opens a new, empty account.
 
 The twelve monitoring and analytics tools are read-only and do not use the prepare/publish flow. `get_activity_timeseries` accepts `from_date` and `to_date` as `YYYY-MM-DD`, an `interval` of `day` or `week`, and an optional `class_id`. The inclusive range is limited to 90 non-future days. With a class id it returns only that authorized class; without one it combines only classes currently visible to the signed-in manager. The response contains aggregate attempts, the peak simultaneously active learners reported by the source buckets, and a range summary. It never contains student names, emails, ids, individual scores, answers, recordings, or exact login events.
 
