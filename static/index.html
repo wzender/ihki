@@ -303,7 +303,7 @@ body.camel-race{overflow:hidden}
 .cr-head button{border-color:rgb(255 255 255/.5);background:transparent;color:#fff}
 .cr button.cr-main{background:#3B2A14;color:#fff}
 .cr-setup{margin:auto;display:flex;flex-direction:column;gap:18px;width:min(92vw,520px);font-size:20px}
-.cr-setup label{display:flex;flex-direction:column;gap:6px;font-weight:700}
+.cr-setup label,.cr-setup .cr-field{display:flex;flex-direction:column;gap:6px;font-weight:700}
 .cr-setup select{font:inherit;padding:10px;border-radius:10px;border:2px solid #E9C47E;background:#fff}
 .cr-setup .cr-hint{font-size:16px;color:#7a6440}
 .cr-pick{display:flex;gap:10px}.cr-pick button{flex:1;font:700 22px/1 var(--f-body);padding:12px;border-radius:12px;border:2px solid #E9C47E;background:#fff;cursor:pointer}
@@ -3810,10 +3810,14 @@ async function crSetup(){
   const lab=mark("","עד איזה שיעור המילים (כולל פעלים)?","label"), sel=document.createElement("select");
   for(const l of lessons){ const o=document.createElement("option"); o.value=l.id; o.textContent=l.name; sel.append(o); }
   sel.value=lessons.some(l=>l.id===cr.lesson)?cr.lesson:lessons[0]?.id||""; lab.append(sel);
+  // a row of choices: a group, not a <label>, whose click on a button would be passed on to its first one; the buttons stay,
+  // and only which is chosen changes
   const picker=(title,values,get,set,text)=>{
-    const l=mark("",title,"label"), row=mark("cr-pick","","div");
-    const draw=()=>row.replaceChildren(...values.map(v=>{ const b=mark(get()===v?"on":"",text(v),"button"); b.type="button"; b.onclick=()=>{set(v);draw()}; return b; }));
-    draw(); l.append(row); return l;
+    const l=mark("cr-field","","div"), name=mark("",title,"span"), row=mark("cr-pick","","div");
+    l.setAttribute("role","group"); name.id="crf"+Math.random().toString(36).slice(2,8); l.setAttribute("aria-labelledby",name.id);
+    const buttons=values.map(v=>{ const b=mark("",text(v),"button"); b.type="button"; b.onclick=()=>{ set(v); draw(); }; return b; });
+    const draw=()=>buttons.forEach((b,i)=>{ const on=get()===values[i]; b.classList.toggle("on",on); b.setAttribute("aria-pressed",String(on)); });
+    draw(); row.append(...buttons); l.append(name,row); return l;
   };
   const hint=mark("cr-hint","","p"), go=mark("cr-btn cr-main","יוצאים לדרך","button"); go.type="button";
   go.onclick=async()=>{

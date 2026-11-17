@@ -1353,6 +1353,27 @@ def test_a_paths_video_with_its_transcript_plays_at_once_over_the_whole_screen(s
     assert "youtube-nocookie.com/embed/abcdefghijk" in r["src"] and r["story"] != "practice"   # not the dialogue to practise
     assert r["full"] == ["videoDlg"] and r["closed"] and r["seen"] == "היכרות✓ נצפה"
 
+CAMEL_PICKS = """
+await sleep(1000); openCamelRace();
+await until(()=>document.querySelectorAll(".cr-setup .cr-pick").length===2,6000);
+const rows=()=>[...document.querySelectorAll(".cr-setup .cr-pick")], chosen=()=>rows().map(r=>r.querySelector("button.on").textContent);
+const press=(row,text)=>[...rows()[row].querySelectorAll("button")].find(b=>b.textContent===text).click();
+out.start=chosen();
+press(0,"4"); press(1,"15"); await sleep(100); out.picked=chosen();
+press(1,"6"); press(1,"10"); press(0,"3"); await sleep(100); out.again=chosen();
+out.state=[cr.teams,cr.steps]; out.pressed=[...rows()[1].querySelectorAll("button")].map(b=>b.getAttribute("aria-pressed"));
+out.named=rows().map(r=>document.getElementById(r.parentElement.getAttribute("aria-labelledby")).textContent);
+"""
+
+
+def test_the_camel_races_team_and_step_counts_can_be_chosen(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", CAMEL_PICKS)
+    assert r["start"] == ["2", "10"]
+    assert r["picked"] == ["4", "15"]   # it used to jump back to the first, 2 and 6
+    assert r["again"] == ["3", "10"] and r["state"] == [3, 10] and r["pressed"] == ["false", "true", "false"]
+    assert r["named"] == ["כמה קבוצות?", "כמה צעדים עד לקו הסיום?"]
+
 SETTINGS = """
 await until(()=>document.querySelector("#vids .focus-set"),6000);
 const set=document.querySelector("#vids .focus-set"), box=document.getElementById("autoNextOn");
