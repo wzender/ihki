@@ -230,3 +230,120 @@ def test_the_permission_screen_switches_a_group_and_one_account(monkeypatch):
     assert verb["tiers"]["student"]["enabled"] is False and verb["tiers"]["admin"]["enabled"] is True
     assert out["back"]["after"] is True and auth.features == []
     assert out["student"] == 403 and out["bad"] == 400
+
+
+def give(server, email, key, enabled):
+    prepared = call(server, "prepare_user_feature_access_change",
+                    {"email": email, "feature_key": key, "enabled": enabled})
+    assert prepared["ok"], prepared
+    return prepared, call(server, "publish_user_feature_access_change", {"approval_id": prepared["approval_id"]})
+
+
+def feature_of(server, email, key):
+    shown = call(server, "get_user_feature_access", {"email": email})
+    assert shown["ok"], shown
+    return next(f for f in shown["features"] if f["key"] == key)
+
+
+def test_the_mcp_gives_yalla_nedaber_to_one_student_alone(monkeypatch):
+    monkeypatch.delenv("FEATURE_PINS", raising=False)
+    auth = FeatureAuth()
+    auth.access["student-1"] = {"roles": ["student", "flagger"], "entitlements": [], "overrides": {"level:2": True}}
+    server, _ = connector(auth, actor=MCP_MANAGER)
+    yalla = {"key": "games.yalla_nedaber", "name": "יאללה נדבר"}
+    prepared, published = give(server, " Student@Example.com", "games.yalla_nedaber", True)
+    assert {k: v for k, v in prepared.items() if k not in ("approval_id", "expires_in_seconds")} == {
+        "ok": True, "email": "student@example.com", "name": "Student", "tier": "student", "tier_name": "תלמידים",
+        "feature": yalla, "tier_value": False, "before": {"own_exception": None, "enabled": False},
+        "after": {"own_exception": True, "enabled": True}, "other_accounts_changed": 0, "published": False}
+    assert published == {"ok": True, "email": "student@example.com", "feature": yalla, "own_exception": True,
+                         "tier_value": False, "enabled": True, "published": True}
+    assert auth.access["student-1"]["overrides"] == {"level:2": True, "tutor": True}   # its other exceptions stay
+    assert "tutor.use" in perms(auth, "student-1", "student@example.com")
+    assert "tutor.use" not in perms(auth, "trainer-1", "trainer@example.com")   # the rest of the tier is as it was
+    assert auth.features == [] and auth.audit == []   # the tier's switch was not touched
+
+    assert feature_of(server, "student@example.com", "games.yalla_nedaber") == {
+        **yalla, "tier_value": False, "own_exception": True, "enabled": True}
+    assert feature_of(server, "trainer@example.com", "games.yalla_nedaber") == {
+        **yalla, "tier_value": False, "enabled": False}
+    listed = call(server, "list_user_access", {"tier": "student"})
+    assert {u["email"]: u.get("feature_exceptions") for u in listed["users"]} == {
+        "student@example.com": {"games.yalla_nedaber": True}, "dev@example.com": None, "trainer@example.com": None}
+
+    # the same exception again is refused; taken away, then removed: the account follows its tier again
+    again = call(server, "prepare_user_feature_access_change",
+                 {"email": "student@example.com", "feature_key": "games.yalla_nedaber", "enabled": True})
+    assert not again["ok"] and "כבר" in again["error"]
+    prepared, published = give(server, "student@example.com", "games.camel", False)
+    assert prepared["before"] == {"own_exception": None, "enabled": True}
+    assert prepared["after"] == {"own_exception": False, "enabled": False} and published["enabled"] is False
+    assert "games.camel" not in perms(auth, "student-1", "student@example.com")
+    assert "games.camel" in perms(auth, "trainer-1", "trainer@example.com")
+    prepared, published = give(server, "student@example.com", "games.camel", None)
+    assert prepared["after"] == {"own_exception": None, "enabled": True}
+    assert published["own_exception"] is None and published["enabled"] is True
+    assert auth.access["student-1"]["overrides"] == {"level:2": True, "tutor": True}
+    none = call(server, "prepare_user_feature_access_change",
+                {"email": "student@example.com", "feature_key": "games.camel", "enabled": None})
+    assert not none["ok"] and "אין חריגה" in none["error"]
+
+
+def test_an_accounts_exception_wins_over_a_pin_and_opens_the_app_to_an_account_in_no_class(monkeypatch):
+    monkeypatch.setenv("FEATURE_PINS", "games.yalla_nedaber:student=off")
+    auth = FeatureAuth()   # dev@example.com is in no class and is no developer here: the app is closed to it
+    server, _ = connector(auth, actor=MCP_MANAGER)
+    shown = call(server, "get_user_feature_access", {"email": "dev@example.com"})
+    assert shown["denied"] is True and "כיתה" in shown["note"] and not any(f["enabled"] for f in shown["features"])
+    prepared, published = give(server, "dev@example.com", "games.yalla_nedaber", True)
+    assert prepared["before"]["enabled"] is False and prepared["after"]["enabled"] is True
+    assert len(prepared["notes"]) == 1 and "להיכנס" in prepared["notes"][0]
+    assert published["enabled"] is True and "tutor.use" in perms(auth, "dev-1", "dev@example.com")
+    closing = call(server, "prepare_user_feature_access_change",
+                   {"email": "dev@example.com", "feature_key": "games.yalla_nedaber", "enabled": None})
+    assert closing["ok"] and "תיסגר" in closing["notes"][0] and closing["after"]["enabled"] is False
+    # an exception equal to what the tier gives changes nothing now, and says so
+    same = call(server, "prepare_user_feature_access_change",
+                {"email": "student@example.com", "feature_key": "practice", "enabled": True})
+    assert same["ok"] and same["before"]["enabled"] is same["after"]["enabled"] is True and "לא משתנה" in same["notes"][0]
+
+
+def test_an_accounts_exception_is_refused_where_it_should_be(monkeypatch):
+    monkeypatch.delenv("FEATURE_PINS", raising=False)
+    auth, clock = FeatureAuth(developers={"dev@example.com"}), Clock()
+    server, _ = connector(auth, clock=clock, actor=MCP_MANAGER)
+    args = {"email": "student@example.com", "feature_key": "games.yalla_nedaber", "enabled": True}
+    prepare = lambda **kw: call(server, "prepare_user_feature_access_change", {**args, **kw})
+    publish = lambda prepared, srv=server: call(srv, "publish_user_feature_access_change",
+                                                {"approval_id": prepared["approval_id"]})
+    assert "עצמך" in prepare(email="teacher@example.com")["error"]
+    assert "מפתח" in prepare(email="dev@example.com")["error"]
+    assert "אין חשבון" in prepare(email="nobody@example.com")["error"]
+    assert "אין תכונה" in prepare(feature_key="games.memory")["error"]
+    assert not call(server, "get_user_feature_access", {"email": "nobody@example.com"})["ok"]
+    # reused
+    prepared = prepare()
+    assert publish(prepared)["ok"] and not publish(prepared)["ok"]
+    auth.access.clear()
+    # expired
+    prepared = prepare()
+    clock.now += 11 * 60
+    assert not publish(prepared)["ok"]
+    # stale: the permission screen changed that exception meanwhile
+    prepared = prepare()
+    auth.access["student-1"] = {"roles": ["student", "flagger"], "entitlements": [], "overrides": {"tutor": False}}
+    stale = publish(prepared)
+    assert not stale["ok"] and "השתנתה" in stale["error"] and auth.access["student-1"]["overrides"] == {"tutor": False}
+    auth.access.clear()
+    # another manager, and a tier change's approval
+    prepared = prepare()
+    other, _ = connector(auth, clock=clock, actor={**MCP_MANAGER, "id": "other-manager"})
+    assert not publish(prepared, other)["ok"]
+    assert not call(server, "publish_user_access_change", {"approval_id": prepare()["approval_id"]})["ok"]
+    assert auth.access == {}
+    # not a manager
+    trainer = {**MCP_MANAGER, "id": "trainer-1", "roles": ["teacher"], "permissions": ["exercises.use_all"]}
+    guide, _ = connector(auth, actor=trainer)
+    assert not call(guide, "get_user_feature_access", {"email": "student@example.com"})["ok"]
+    assert not call(guide, "prepare_user_feature_access_change", args)["ok"]
+    assert not call(guide, "publish_user_feature_access_change", {"approval_id": "x"})["ok"]

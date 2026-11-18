@@ -25,9 +25,9 @@ from . import class_management
 from . import monitoring
 from . import teacher_operations
 from . import mcp_diagnostics as diagnostics
-from .access import (CREATE_FEATURE_ACCESS, FEATURES, OVERRIDE_OF_FEATURE, TIER_NAMES, TIERS, AccessChangeError,
-                     account_rows, change_tier, clean_overrides, deletable_account, effective_features, feature_table,
-                     has_permission, resolve_access)
+from .access import (CREATE_FEATURE_ACCESS, FEATURES, MIGRATE_ACCESS_OVERRIDES, OVERRIDE_OF_FEATURE, TIER_NAMES, TIERS,
+                     AccessChangeError, account_features, account_rows, change_tier, clean_overrides,
+                     deletable_account, effective_features, feature_table, has_permission, resolve_access)
 from .auth import AuthUnavailable
 
 
@@ -281,6 +281,10 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                       "A learner feature (each game, יאללה נדבר, practice, path, every lesson or library section) is "
                       "turned on or off for whole tiers with list_feature_access, prepare_feature_access_change and "
                       "publish_feature_access_change; what a tier has is always what list_feature_access says. "
+                      "One account's own exception to its tier (for example יאללה נדבר for one student only) is "
+                      "read with get_user_feature_access and given, taken away or removed with "
+                      "prepare_user_feature_access_change and publish_user_feature_access_change; it wins over the "
+                      "tier and leaves every other account as it was. "
                       "Digital-library videos go into one section (list_library_sections): when the teacher does not "
                       "name the section, ask which one before preparing; for a list, use prepare_library_videos. "
                       "The sections and their ids are whatever list_library_sections returns now (its upload_targets "
@@ -826,7 +830,8 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
     @tool(description=("List the learner features (games each by itself, יאללה נדבר, practice, path, every lesson, "
                        "every library section) with, for each tier, its default, its effective value, whether a "
                        "manager overrode it, and fixed_by_server when the server's settings pin it. One account's own "
-                       "exception (set in the permission screen) wins over its tier. Managers only."),
+                       "exception (get_user_feature_access, prepare_user_feature_access_change, or the permission "
+                       "screen) wins over its tier. Managers only."),
           structured_output=True)
     async def list_feature_access(tier: Literal["admin", "student"] | None = None) -> dict[str, Any]:
         current, store, error = access_manager()
@@ -1127,11 +1132,19 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             return None, None, "טבלת ההרשאות אינה מוגדרת"
         return current, store, ""
 
-    def accounts(store) -> list[dict[str, Any]]:
+    def accounts_and_rows(store) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         rows = store.access_rows()
         if rows is None:
             raise AccessChangeError(503, "טבלת ההרשאות user_access לא קיימת ב-Supabase")
-        return account_rows(store, store.users(fresh=True), rows)
+        return account_rows(store, store.users(fresh=True), rows), rows
+
+    def accounts(store) -> list[dict[str, Any]]:
+        return accounts_and_rows(store)[0]
+
+    def own_features(row: dict[str, Any] | None) -> dict[str, bool]:
+        """An account's own exceptions to the learner features, by feature key (from its access row)."""
+        own = clean_overrides((row or {}).get("overrides"))
+        return {key: own[name] for key, name in OVERRIDE_OF_FEATURE.items() if name in own}
 
     def find_account(store, who: str) -> dict[str, Any]:
         wanted = str(who or "").strip().lower()
@@ -1146,18 +1159,22 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
 
     @tool(description=("List every account with its permission tier (admin=מנהלים, "
                        "student=תלמידים), whether it has the lab (developer), and whether the server's settings fix "
-                       "it. Managers only. " + TIER_HELP), structured_output=True)
+                       "it, and feature_exceptions: the learner features it has an exception of its own to "
+                       "(true given, false taken away; see get_user_feature_access). Managers only. " + TIER_HELP),
+          structured_output=True)
     async def list_user_access(tier: Literal["admin", "student"] | None = None) -> dict[str, Any]:
         current, store, error = access_manager()
         if current is None:
             return {"ok": False, "error": error, "users": []}
         try:
-            rows = await _bounded_read(lambda: accounts(store))
+            rows, saved = await _bounded_read(lambda: accounts_and_rows(store))
         except AccessChangeError as exc:
             return {"ok": False, "error": str(exc), "users": []}
+        own = {r["user_id"]: own_features(r) for r in saved}
         users = [{"user_id": u["id"], "email": u["email"], **({"name": u["name"]} if u.get("name") else {}),
                   "tier": u["tier"], "tier_name": TIER_NAMES[u["tier"]], "developer": u["developer"],
-                  **({"fixed_by_server": u["fixed"]} if u["fixed"] else {})}
+                  **({"fixed_by_server": u["fixed"]} if u["fixed"] else {}),
+                  **({"feature_exceptions": own[u["id"]]} if own.get(u["id"]) else {})}
                  for u in rows if tier is None or u["tier"] == tier]
         return {"ok": True, "tiers": [{"id": t, "name": TIER_NAMES[t]} for t in TIERS], "users": users,
                 "counts": {t: sum(u["tier"] == t for u in rows) for t in TIERS}}
@@ -1225,6 +1242,165 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         access_audit("publish_user_access_change", current, "success")
         return {"ok": True, "email": done["target"]["email"], "tier": done["after"],
                 "tier_name": TIER_NAMES[done["after"]], "published": True}
+
+    NO_CLASS = "החשבון אינו רשום באף כיתה ואין לו חריגה משלו, ולכן האפליקציה סגורה בפניו"
+
+    def exception_target(store, current: dict[str, Any], who: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        """The account (by email or id) whose own exceptions `current` may change, and every access row."""
+        people, rows = accounts_and_rows(store)
+        wanted = str(who or "").strip().lower()
+        target = next((u for u in people if wanted in (str(u["id"]).lower(), u["email"].lower())), None)
+        if target is None:
+            raise AccessChangeError(404, "אין חשבון עם הכתובת הזו. החשבון נוצר בכניסה הראשונה של המשתמש/ת")
+        if target["id"] == current.get("id"):
+            raise AccessChangeError(403, "אי אפשר לשנות את ההרשאות של עצמך")
+        if target["developer"]:
+            raise AccessChangeError(403, "למפתח יש תמיד את כל התכונות, וחריגה לא תשנה לו דבר")
+        return target, rows
+
+    def saved_overrides(rows: list[dict[str, Any]], user_id: str) -> dict[str, bool]:
+        return clean_overrides((next((r for r in rows if r.get("user_id") == user_id), None) or {}).get("overrides"))
+
+    @tool(description=("Show what one account (by email) gets of each learner feature (a key from "
+                       "list_feature_access): tier_value is what its tier gives, own_exception is the account's own "
+                       "exception when it has one (true given, false taken away), and enabled is what the account "
+                       "gets now. An account in no class with nothing given of its own is closed out of the app "
+                       "(denied). Managers only; this never changes data."), structured_output=True)
+    async def get_user_feature_access(email: str) -> dict[str, Any]:
+        current, store, error = access_manager()
+        if current is None:
+            return {"ok": False, "error": error, "features": []}
+        try:
+            def read():
+                people, rows = accounts_and_rows(store)
+                target = next((u for u in people if str(email or "").strip().lower()
+                               in (str(u["id"]).lower(), u["email"].lower())), None)
+                if target is None:
+                    raise AccessChangeError(404, "אין חשבון עם הכתובת הזו. החשבון נוצר בכניסה הראשונה של המשתמש/ת")
+                return target, account_features(store, target, rows)
+            target, state = await _bounded_read(read)
+        except AccessChangeError as exc:
+            return {"ok": False, "error": str(exc), "features": []}
+        except AuthUnavailable as exc:
+            return {"ok": False, "error": f"Supabase לא זמין: {exc}", "features": []}
+        features = [{"key": key, "name": FEATURES[key][0], "tier_value": v["tier"],
+                     **({"own_exception": v["own"]} if v["own"] is not None else {}), "enabled": v["enabled"]}
+                    for key, v in state["features"].items()]
+        return {"ok": True, "email": target["email"], **({"name": target["name"]} if target.get("name") else {}),
+                "tier": target["tier"], "tier_name": TIER_NAMES[target["tier"]], "developer": target["developer"],
+                "denied": state["denied"], **({"note": NO_CLASS} if state["denied"] else {}), "features": features}
+
+    @tool(description=("Prepare one account's own exception to its tier for one learner feature (a key from "
+                       "list_feature_access, such as games.yalla_nedaber): enabled true gives the feature to this "
+                       "account alone, false takes it away from this account alone, and null removes the exception "
+                       "so the account follows its tier again. The exception wins over the tier's switch and over "
+                       "the server's pin, and no other account changes. Shows the account, the exception and what "
+                       "the account gets before and after, and returns a ten-minute approval; this does not change "
+                       "data. Not for one's own account or a developer's. Publish with "
+                       "publish_user_feature_access_change only after the manager explicitly confirms."),
+          structured_output=True)
+    async def prepare_user_feature_access_change(email: str, feature_key: str,
+                                                 enabled: bool | None) -> dict[str, Any]:
+        current, store, error = access_manager()
+        if current is None:
+            return {"ok": False, "error": error}
+        if not limiter.allow():
+            access_audit("prepare_user_feature_access_change", current, "refused", reason="rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        if feature_key not in FEATURES:
+            return {"ok": False, "error": "אין תכונה כזו. האפשרויות: " + ", ".join(FEATURES)}
+        if not hasattr(store, "set_overrides"):
+            return {"ok": False, "error": "חריגות לחשבון בודד אינן מוגדרות בשרת הזה"}
+        name, own_key = FEATURES[feature_key][0], OVERRIDE_OF_FEATURE[feature_key]
+        try:
+            def read():
+                target, rows = exception_target(store, current, email)
+                overrides = saved_overrides(rows, target["id"])
+                own = overrides.get(own_key)
+                if own == enabled:
+                    raise AccessChangeError(409, f"ל-{target['email']} אין חריגה ב{name}" if enabled is None else
+                                            f"ל-{target['email']} כבר יש חריגה כזו ב{name}")
+                if enabled is None:
+                    overrides.pop(own_key, None)
+                else:
+                    overrides[own_key] = enabled
+                return (target, own, account_features(store, target, rows),
+                        account_features(store, target, rows, overrides))
+            target, own, before, after = await _bounded_read(read)
+        except AccessChangeError as exc:
+            access_audit("prepare_user_feature_access_change", current, "refused", reason=f"http_{exc.status}")
+            diagnostics.note_refusal(exc)
+            return {"ok": False, "error": str(exc)}
+        except AuthUnavailable as exc:
+            return {"ok": False, "error": f"Supabase לא זמין: {exc}"}
+        was, will = before["features"][feature_key], after["features"][feature_key]
+        notes = []
+        if before["denied"] and not after["denied"]:
+            notes.append("החשבון אינו רשום באף כיתה: החריגה תאפשר לו להיכנס לאפליקציה")
+        elif after["denied"] and not before["denied"]:
+            notes.append("החשבון אינו רשום באף כיתה: בלי החריגה הזו האפליקציה תיסגר בפניו")
+        elif after["denied"]:
+            notes.append(NO_CLASS)
+        elif was["enabled"] == will["enabled"]:
+            notes.append("מה שהחשבון מקבל עכשיו לא משתנה" if enabled is None else
+                         "מה שהחשבון מקבל עכשיו לא משתנה; החריגה תישמר גם כשההגדרה של השכבה תשתנה")
+        plan = {"operation": "set_user_feature", "user_id": target["id"], "email": target["email"],
+                "feature": feature_key, "before_own": own, "enabled": enabled}
+        approval_id, _ = class_approvals.prepare(str(current["id"]), plan)
+        access_audit("prepare_user_feature_access_change", current, "prepared")
+        return {"ok": True, "approval_id": approval_id, "email": target["email"],
+                **({"name": target["name"]} if target.get("name") else {}),
+                "tier": target["tier"], "tier_name": TIER_NAMES[target["tier"]],
+                "feature": {"key": feature_key, "name": name}, "tier_value": was["tier"],
+                "before": {"own_exception": own, "enabled": was["enabled"]},
+                "after": {"own_exception": enabled, "enabled": will["enabled"]},
+                **({"notes": notes} if notes else {}), "other_accounts_changed": 0,
+                "expires_in_seconds": APPROVAL_TTL, "published": False}
+
+    @tool(description=("Publish a prepared exception of one account after the manager explicitly confirms the shown "
+                       "account, feature and value. Single-use, bound to the manager who prepared it, expires after "
+                       "ten minutes, and refused when the account's exception changed meanwhile. The account gets "
+                       "it on its next request."), structured_output=True)
+    async def publish_user_feature_access_change(approval_id: str) -> dict[str, Any]:
+        current, store, error = access_manager()
+        if current is None:
+            return {"ok": False, "error": error}
+        if not limiter.allow():
+            access_audit("publish_user_feature_access_change", current, "refused", reason="rate_limit")
+            return {"ok": False, "error": "בוצעו יותר מדי פעולות. נסו שוב בעוד דקה."}
+        item = class_approvals.consume(approval_id, str(current["id"]))
+        if item is None or item.plan.get("operation") != "set_user_feature":
+            access_audit("publish_user_feature_access_change", current, "refused", reason="invalid_approval")
+            return {"ok": False, "error": "האישור אינו תקף, פג תוקף, שייך למשתמש אחר או כבר נוצל."}
+        plan = item.plan
+        key, enabled = plan["feature"], plan["enabled"]
+        own_key = OVERRIDE_OF_FEATURE[key]
+        try:
+            def publish() -> tuple[dict[str, Any], dict[str, Any]]:
+                target, rows = exception_target(store, current, plan["user_id"])
+                overrides = saved_overrides(rows, target["id"])   # its other exceptions stay as they are
+                if overrides.get(own_key) != plan["before_own"]:
+                    raise AccessChangeError(409, "החריגה של החשבון השתנתה מאז ההכנה. הכינו את השינוי מחדש")
+                if enabled is None:
+                    overrides.pop(own_key, None)
+                else:
+                    overrides[own_key] = enabled
+                store.set_overrides(target, overrides, current)
+                return target, account_features(store, target, store.access_rows() or [])["features"][key]
+            target, now = await _bounded_read(publish)
+        except AccessChangeError as exc:
+            access_audit("publish_user_feature_access_change", current, "refused", reason=f"http_{exc.status}")
+            diagnostics.note_refusal(exc)
+            return {"ok": False, "error": str(exc)}
+        except AuthUnavailable as exc:
+            access_audit("publish_user_feature_access_change", current, "failed", reason="supabase")
+            if "overrides" in str(exc).lower():
+                return {"ok": False, "error": "חסרה עמודה בטבלת ההרשאות. הריצו ב-SQL Editor של Supabase: "
+                                              + MIGRATE_ACCESS_OVERRIDES}
+            return {"ok": False, "error": f"Supabase לא זמין: {exc}"}
+        access_audit("publish_user_feature_access_change", current, "success")
+        return {"ok": True, "email": target["email"], "feature": {"key": key, "name": FEATURES[key][0]},
+                "own_exception": enabled, "tier_value": now["tier"], "enabled": now["enabled"], "published": True}
 
     def sign_in_of(store, user_id: str) -> dict[str, Any]:
         try:
