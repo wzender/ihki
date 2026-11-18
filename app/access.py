@@ -42,6 +42,11 @@ _STUDENT = frozenset({"flags.create"})   # the learner features come from FEATUR
 _TEACHER = _STUDENT | {"students.view", "library.view"}
 _ADMIN = _TEACHER | {"management.access", "users.manage", "classes.manage", "content.manage", "flags.review",
                      "mcp.use"}
+# Writing the course's workbook (drafts, the dictionary) and publishing it: the Arabic course's managers' (a manager
+# whose subject is ערבית, or who has none) and developers'. A mathematics manager, a class's teacher and a learner do
+# not get them.
+COURSE_PERMISSIONS = frozenset({"course.edit", "course.publish"})
+COURSE_SUBJECTS = ("", "ערבית")
 ROLE_PERMISSIONS = {
     "student": _STUDENT,   # library.view is added when one of their classes opens a library section
     "teacher": _STUDENT,   # with "admin" a manager's; alone, the old מתרגלים tier: a student's
@@ -274,13 +279,16 @@ def resolve_user_access(a: SupabaseAuth, user: dict, *, token: str = "",
             sections = [leaf for leaf in library.holders() if (leaf in sections or (given and leaf in named))
                         and not (not given and leaf in named)]
     permissions = permissions_for(roles, sections, features)
+    subject = str((assigned or {}).get("subject") or "")
+    if "admin" in roles and subject in COURSE_SUBJECTS:
+        permissions |= COURSE_PERMISSIONS
     for key, given in overrides.items():   # and to the features
         for permission in OVERRIDE_FEATURES.get(key, ()):
             (permissions.add if given else permissions.discard)(permission)
     return {**user, "token": token, "overrides": overrides,
             "level_overrides": {k[6:]: v for k, v in overrides.items() if k.startswith("level:")}, "roles": sorted(roles), "entitlements": sorted(entitlements),
             "library_sections": sections, "tier": tier_of(roles),
-            "subject": str((assigned or {}).get("subject") or ""), "permissions": sorted(permissions),
+            "subject": subject, "permissions": sorted(permissions),
             "teacher": bool(roles & {"admin", "developer"}),   # a manager: every lesson, no class (a class's own teacher is its student)
             "tutor": "flags.create" in permissions or "*" in permissions, "classes": mine, "teaches": teaches}
 

@@ -7767,7 +7767,7 @@ function drawFlags(){
   drawStreakTeam(box);
   drawBackupControls(box);
   drawApiKeys(box);
-  drawCourseStatus(box);
+  if(can("course.edit")) drawCourseStatus(box);
   drawTutorUsage(box);
   drawSystemActivity(box);
   drawTtsCacheControls(box);

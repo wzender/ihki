@@ -150,7 +150,9 @@ def test_narrow_tools_are_discoverable():
         "get_exercise_difficulty",
         "get_system_error_reports",
         "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",
-        "get_learning_bottlenecks", "get_game_popularity"]
+        "get_learning_bottlenecks", "get_game_popularity",
+        "get_course_outline", "get_course_topic", "prepare_course_change", "publish_course_change",
+        "prepare_course_publish", "publish_course_version"]
     assert all(tool.output_schema for tool in tools)
     difficulty = next(tool for tool in tools if tool.name == "get_exercise_difficulty")
     assert set(difficulty.input_schema["properties"]) == {
@@ -845,7 +847,9 @@ def test_streamable_http_initializes_and_discovers_tools(monkeypatch):
         "get_exercise_difficulty",
         "get_system_error_reports",
         "get_pronunciation_difficulties", "get_learning_progress", "compare_class_difficulties",
-        "get_learning_bottlenecks", "get_game_popularity"]
+        "get_learning_bottlenecks", "get_game_popularity",
+        "get_course_outline", "get_course_topic", "prepare_course_change", "publish_course_change",
+        "prepare_course_publish", "publish_course_version"]
 
 
 def test_mcp_manual_console_is_a_dedicated_no_store_page(monkeypatch):

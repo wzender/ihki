@@ -717,6 +717,23 @@ Example MCP arguments for the requested two-stage class (illustrative ids shown;
 
 Every mutation goes through `prepare_teacher_change`. Grok must display the returned `preview` and wait for explicit confirmation before calling `publish_teacher_change`. Approvals are actor-bound, single-use, expire after ten minutes, and fail if the target or authorization scope changed. Destructive previews explicitly distinguish deletion of a class/content configuration from deletion of login accounts or learning history.
 
+#### Editing the course's workbook from Grok
+
+The Arabic course's managers (an admin whose subject is ערבית, or who has none) and developers hold `course.edit` and `course.publish`; a mathematics manager, a class's own teacher and a learner do not, and their calls are refused. The course is edited as a **draft**, which learners never see, and reaches them only when a version is **published**:
+
+- `get_course_outline` (levels → lessons → topics, with each topic's id such as `l1-say`) and `get_course_topic` (a topic's items with their ids, and the words it reads by rule) read the draft, or the published course while there is no draft; `of: "published"` reads what learners have now.
+- `prepare_course_change` takes an `operation` and its fields in `change`: `add_items`, `update_item`, `delete_items`, `move_item`, `replace_topic_items` (a whole topic from a revised workbook page: incoming items are matched to existing ones by their Hebrew and place, and keep their id and key, so their learners' progress), `set_generator` (a conjugation table's word list), `add_topic`, `update_topic`, `delete_topic`, `move_topic`, `add_lesson`, and `add_word` (a word for the course's dictionary, read by rule until a developer sets its pronunciations). The preview shows the topic's items after the change, what is added, changed, moved and deleted with how many learners practised each changed or deleted item, and the words read by rule. `publish_course_change` makes it, once the manager confirms; the first change makes the draft from the published course.
+- The manager checks the draft in the app ("תצוגה כתלמיד"), then `prepare_course_publish` (the draft, or an earlier version's `number` to roll back) shows what it changes against the course learners have and the classes it changes for (a lesson they study that it does not write, a homework topic it drops); `publish_course_version` publishes it to every learner within half a minute. The replaced version is kept.
+
+Each approval is single-use, bound to the manager who prepared it, good for ten minutes, and refused when the draft (or the published version) changed meanwhile.
+
+```text
+הצג את הנושאים של שיעור 3 בחוברת.
+בנושא l3-say תקן את המשפט "אני הולך הביתה" ל"אני הולך עכשיו הביתה". הכן ואל תבצע עדיין.
+זה העמוד המעודכן של הנושא l2-read מהחוברת: ... החלף את פריטי הנושא והראה לי מה נמחק.
+הכן פרסום של הטיוטה והראה אילו כיתות מושפעות.
+```
+
 Example prompts and matching tool arguments:
 
 ```text

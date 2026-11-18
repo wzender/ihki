@@ -128,8 +128,8 @@ refused while a published item uses it.
 
 New permissions `course.edit` and `course.publish` in `access.py`, given to the admin tier's role set for the Arabic
 subject and to developers. MCP tools: `get_course_outline`, `get_course_topic` (read), `prepare_course_change` with
-operations `add_items`, `update_item`, `delete_items`, `move_items`, `replace_topic_items` (matches incoming items to
-existing ones by Hebrew similarity and position, keeping keys), `add_topic`, `update_topic`, `delete_topic`,
+operations `add_items`, `update_item`, `delete_items`, `move_item`, `replace_topic_items` (matches incoming items to
+existing ones by Hebrew similarity and position, keeping keys), `set_generator`, `add_topic`, `update_topic`, `delete_topic`,
 `move_topic`, `add_lesson`, `add_word`; `publish_course_change` (into the draft); `prepare_course_publish` and
 `publish_course_version` (the version publish, with the diff and affected classes in its preview). The firewall stays:
 none of these touch accounts, roles or classes.

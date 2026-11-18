@@ -22,6 +22,7 @@ from pydantic import AnyHttpUrl
 from . import library
 from . import library_admin
 from . import class_management
+from . import course_mcp
 from . import monitoring
 from . import teacher_operations
 from . import mcp_diagnostics as diagnostics
@@ -256,6 +257,17 @@ SECTION_RULE = ("When a request names a section (for example \"add a video to ב
                 "and do not read the section's name as a topic.")
 
 
+COURSE_RULE = ("The course's workbook (its lessons, topics and sentences) is edited by Arabic-course managers and "
+               "developers as a draft that learners never see: read it with get_course_outline and get_course_topic, "
+               "change it with prepare_course_change and publish_course_change (refer to topics and items by the ids "
+               "these return; for a whole revised workbook page use operation replace_topic_items, which keeps the "
+               "learners' progress on every matched sentence), and tell the teacher to check the draft in the app with "
+               "'תצוגה כתלמיד'. Learners get it only when a version is published with prepare_course_publish and "
+               "publish_course_version, after the teacher confirms its effect and the affected classes; an earlier "
+               "version is published the same way to roll back. Show every preview's deletions and learner counts "
+               "before asking for confirmation.")
+
+
 def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimiter | None = None,
           class_approvals: ClassApprovalStore | None = None,
           actor_provider: Callable[[], dict[str, Any] | None] | None = None):
@@ -293,7 +305,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                       "videos and sub-sections) with prepare_library_section_move, deletes an empty one with "
                       "prepare_library_section_delete, and moves a video to another section with "
                       "prepare_library_video_move (each has a publish_ twin; sections are at most three levels). "
-                      "A section's id never changes, so refer to sections by id and re-read the list after a change. " + SECTION_RULE + " " + version_line),
+                      "A section's id never changes, so refer to sections by id and re-read the list after a change. " + COURSE_RULE + " " + SECTION_RULE + " " + version_line),
         token_verifier=SupabaseTokenVerifier(app),
         auth=AuthSettings(issuer_url=AnyHttpUrl(issuer_url), resource_server_url=AnyHttpUrl(resource_url),
                           validate_token_resource=False, required_scopes=[]),
@@ -1752,6 +1764,9 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                      current.get("id"), class_id, from_date, to_date, type(exc).__name__)
             diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
+
+    course_mcp.register(tool, app=app, actor=actor, limiter=limiter, approvals=class_approvals, read=_bounded_read,
+                        ttl=APPROVAL_TTL)
 
     raw = server.streamable_http_app(
         streamable_http_path="/",

@@ -265,3 +265,15 @@ def test_only_developers_set_pronunciations_through_the_api(ready):
     assert changed["guessed"] == [] and bad.status_code == 409 and "פעולה לא מוכרת" in bad.json()["detail"]
     assert draft["draft"]["number"] == 2 and draft["draft"]["outline"][0]["lessons"][0]["topics"][0]["id"].startswith("l1-")
     assert [i["he"] for i in diffed["items_added"]] == ["ג'ירפה"] and diffed["affected_classes"] == []
+
+
+def test_matching_a_revised_page_by_hebrew_alone_and_by_place():
+    existing = [{"id": 1, "key": "a", "he": "אני הולך לבית הספר", "ar": "x"},
+                {"id": 2, "key": "b", "he": "היא שותה קפה בבוקר", "ar": "y"},
+                {"id": 3, "key": "c", "he": "מה שלומך היום", "ar": "z"}]
+    incoming = [{"he": "מה שלומכם היום", "ar": "z2"}, {"he": "אני הולכת לבית הספר", "ar": "x2"},
+                {"he": "משהו אחר לגמרי", "ar": "w"}]
+    pairs = course_draft.match_items(existing, incoming)
+    assert {k: v["id"] for k, v in pairs.items()} == {0: 3, 1: 1}   # reworded, reordered; the third is new
+    twins = [{"id": 1, "key": "a", "he": "כן", "ar": "x"}, {"id": 2, "key": "b", "he": "כן", "ar": "y"}]
+    assert {k: v["id"] for k, v in course_draft.match_items(twins, [{"he": "כן", "ar": "q"}] * 2).items()} == {0: 1, 1: 2}

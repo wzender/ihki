@@ -707,7 +707,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(401, "sign in required")
         if user.get("denied"):
             raise HTTPException(403, "this account is not on the list")
-        if request.headers.get("x-course") == "draft" and user.get("teacher"):
+        if request.headers.get("x-course") == "draft" and has_permission(user, "course.edit"):
             user = {**user, "course_preview": True}   # this manager sees the course's draft (see `preview_of`)
         return user
 
@@ -763,6 +763,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     admin_only = require("management.access")
     lab_only = require("lab.access")
     teacher_only = admin_only  # compatibility name for the management endpoints below
+    course_editor = require("course.edit")       # the course's workbook: its drafts, dictionary and versions
+    course_publisher = require("course.publish")
 
     members = [Depends(signed_in)]
 
@@ -4136,7 +4138,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return store
 
     @app.get("/api/course/status")
-    def course_status(a: SupabaseAuth = Depends(teacher_only)):
+    def course_status(a: SupabaseAuth = Depends(course_editor)):
         """Where the course being served comes from (code, cache or Supabase), its version, the SQL to run while the
         tables do not exist, and the stored versions."""
         store = course_store_of()
@@ -4149,7 +4151,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {**store.status(), "versions": versions}
 
     @app.post("/api/course/publish")
-    def course_publish(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+    def course_publish(body: dict = Body(...), a: SupabaseAuth = Depends(course_publisher),
                        user: dict | None = Depends(signed_in)):
         """Publishes a stored version: {"number"} gives what it would change (the classes whose lessons or homework it
         does not have) and publishes nothing; {"number", "confirm": true} publishes it, for every learner within
@@ -4177,18 +4179,6 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, f"Supabase לא זמין: {e}")
         return {"number": number, "published": store.number == number, "affected_classes": affected, **store.status()}
 
-    def outline(doc: dict) -> list[dict]:
-        """The course's tree without its items: levels, their written lessons, each topic's id, name, kind and size."""
-        out = []
-        for level in doc["levels"]:
-            out.append({"level": level["level"], "name": level["name"], "count": level["count"], "lessons": [
-                {"id": course_versions.course.workbook.lesson_id(level["level"], lesson["n"]), "n": lesson["n"],
-                 "topics": [{"id": course_versions.course.cat_of(level["level"], lesson["n"], t["tid"]), "tid": t["tid"],
-                             "name": t["name"], "kind": t["kind"], "generated": "generator" in t,
-                             "size": len(t.get("items") or t.get("ids") or {})} for t in lesson["topics"]]}
-                for lesson in level.get("lessons") or []]})
-        return out
-
     def course_call(fn):
         """Runs a course store call; a refused change is a 409 with its Hebrew message."""
         try:
@@ -4201,17 +4191,17 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, f"Supabase לא זמין: {e}")
 
     @app.get("/api/course/draft")
-    def course_draft_view(a: SupabaseAuth = Depends(teacher_only)):
+    def course_draft_view(a: SupabaseAuth = Depends(course_editor)):
         """The draft ({number, updated_at, outline}), or {"draft": None} while there is none."""
         store = course_store_of()
         row = course_call(store.draft)
         if row is None:
             return {"draft": None}
         return {"draft": {"number": row["number"], "updated_at": row["updated_at"], "created_by": row.get("created_by"),
-                          "outline": outline(row["document"])}}
+                          "outline": course_versions.outline(row["document"])}}
 
     @app.get("/api/course/topic")
-    def course_topic(cat: str, of: str = "draft", a: SupabaseAuth = Depends(teacher_only)):
+    def course_topic(cat: str, of: str = "draft", a: SupabaseAuth = Depends(course_editor)):
         """One topic's items as stored and as they compile, in the draft (of=draft, the published course while there is
         no draft) or the published course (of=published)."""
         store = course_store_of()
@@ -4227,7 +4217,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return course_call(read)
 
     @app.post("/api/course/draft")
-    def course_draft_change(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+    def course_draft_change(body: dict = Body(...), a: SupabaseAuth = Depends(course_editor),
                             user: dict | None = Depends(signed_in)):
         """One change to the draft (see course_draft.apply), made from the published version when there is no draft:
         {"op", ..., "expected_updated_at"?}. Gives the draft's number and new updated_at, the changed topic's compiled
@@ -4237,7 +4227,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return course_call(lambda: store.change(op, (user or {}).get("email", ""), body.get("expected_updated_at")))
 
     @app.get("/api/course/diff")
-    def course_diff(a: SupabaseAuth = Depends(teacher_only)):
+    def course_diff(a: SupabaseAuth = Depends(course_editor)):
         """What the draft changes against the published version, with how many learners practised each item it changes
         or deletes, and the classes it would change for."""
         store = course_store_of()
@@ -4249,14 +4239,14 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return course_call(read)
 
     @app.get("/api/course/lexicon")
-    def course_lexicon(a: SupabaseAuth = Depends(teacher_only)):
+    def course_lexicon(a: SupabaseAuth = Depends(course_editor)):
         return {"words": course_call(store_lexicon)}
 
     def store_lexicon():
         return course_store_of().auth.course_lexicon()
 
     @app.post("/api/course/lexicon")
-    def course_add_word(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+    def course_add_word(body: dict = Body(...), a: SupabaseAuth = Depends(course_editor),
                         user: dict | None = Depends(signed_in)):
         """A word for the course's dictionary: {"word" (Arabic), "tr" (Hebrew letters, pointed), "meaning"}. Its
         pronunciations are read by rule until a developer sets them."""
@@ -4265,7 +4255,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                                                   str(body.get("meaning") or ""), (user or {}).get("email", "")))
 
     @app.put("/api/course/lexicon/{word}")
-    def course_word_ipa(word: str, body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+    def course_word_ipa(word: str, body: dict = Body(...), a: SupabaseAuth = Depends(course_editor),
                         user: dict | None = Depends(signed_in)):
         """A developer sets an added word's accepted pronunciations: {"ipa": ["z a r aː f a", ...]}."""
         if "*" not in set((user or {}).get("permissions", ())):
@@ -4275,7 +4265,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {"ok": True}
 
     @app.delete("/api/course/lexicon/{word}")
-    def course_remove_word(word: str, a: SupabaseAuth = Depends(teacher_only)):
+    def course_remove_word(word: str, a: SupabaseAuth = Depends(course_editor)):
         store = course_store_of()
         course_call(lambda: store.remove_word(word))
         return {"ok": True}

@@ -26,12 +26,12 @@
 
 ## 4. Permissions and the MCP
 
-- [ ] 4.1 Add `course.edit` and `course.publish` to `access.py`, given to Arabic-subject managers and developers, and move `/api/course/status` and `/api/course/publish` (which use the managers' `teacher_only` until then) onto them; verify tests that a class teacher, a learner and a mathematics manager are refused and nothing is stored
-- [ ] 4.2 MCP read tools `get_course_outline` and `get_course_topic`; verify their outputs in `tests/test_grok_mcp.py` and update the tool-list assertions
-- [ ] 4.3 `prepare_course_change` / `publish_course_change` with every draft operation and `add_word`, using the existing single-use, manager-bound, ten-minute approvals; verify prepare changes nothing and publish applies exactly the previewed change
-- [ ] 4.4 `replace_topic_items` for a whole topic from a revised workbook page: match incoming items to existing ones (Hebrew similarity and position), keep matched keys, list deletions with learner counts; verify with a test that a reworded and reordered topic keeps every matched item's key
-- [ ] 4.5 `prepare_course_publish` / `publish_course_version` with the diff summary and affected classes in the preview; verify a test that publishing happens only through the approval
-- [ ] 4.6 Update the MCP server instructions, the tools' descriptions and README's MCP section so Grok explains drafts, preview and publishing to the teacher; verify the description test and a README read-through
+- [x] 4.1 Add `course.edit` and `course.publish` to `access.py`, given to Arabic-subject managers and developers, and move `/api/course/status` and `/api/course/publish` (which use the managers' `teacher_only` until then) onto them; verify tests that a class teacher, a learner and a mathematics manager are refused and nothing is stored
+- [x] 4.2 MCP read tools `get_course_outline` and `get_course_topic`; verify their outputs in `tests/test_grok_mcp.py` and update the tool-list assertions
+- [x] 4.3 `prepare_course_change` / `publish_course_change` with every draft operation and `add_word`, using the existing single-use, manager-bound, ten-minute approvals; verify prepare changes nothing and publish applies exactly the previewed change
+- [x] 4.4 `replace_topic_items` for a whole topic from a revised workbook page: match incoming items to existing ones (Hebrew similarity and position), keep matched keys, list deletions with learner counts; verify with a test that a reworded and reordered topic keeps every matched item's key
+- [x] 4.5 `prepare_course_publish` / `publish_course_version` with the diff summary and affected classes in the preview; verify a test that publishing happens only through the approval
+- [x] 4.6 Update the MCP server instructions, the tools' descriptions and README's MCP section so Grok explains drafts, preview and publishing to the teacher; verify the description test and a README read-through
 
 ## 5. The panel: חוברת tab
 

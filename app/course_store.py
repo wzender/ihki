@@ -211,12 +211,21 @@ class CourseStore:
         row = self.auth.course_draft()
         if row is None:
             raise course.CourseError("אין טיוטה")
-        out = course_draft.diff(self._published_doc(), row["document"])
+        out = self.with_learners(course_draft.diff(self._published_doc(), row["document"]))
+        return {"number": row["number"], "updated_at": row["updated_at"], **out}
+
+    def with_learners(self, out: dict) -> dict:
+        """A diff with, on each item it changes or deletes, how many learners practised it (one grouped count)."""
         pairs = [(i["cat"], i["key"]) for i in out["items_changed"] + out["items_deleted"]]
         counts = self.auth.learners_per_item(pairs) if pairs and hasattr(self.auth, "learners_per_item") else {}
         for i in out["items_changed"] + out["items_deleted"]:
             i["learners"] = counts.get((i["cat"], i["key"]), 0)
-        return {"number": row["number"], "updated_at": row["updated_at"], **out}
+        return out
+
+    def working(self) -> tuple[dict, dict | None]:
+        """(the document a change is made to: the draft's, else the published one; the draft's row or None)."""
+        row = self.auth.course_draft()
+        return (row["document"], row) if row else (self._published_doc(), None)
 
     # ---- the course dictionary ----
 
@@ -268,6 +277,21 @@ class CourseStore:
     def status(self) -> dict:
         return {"source": self.source, "number": self.number, "setup": self.setup, "error": self.error,
                 "poll_seconds": POLL_SECONDS}
+
+
+def outline(doc: dict, level: int | None = None) -> list[dict]:
+    """The course's tree without its items: levels, their written lessons, each topic's id, name, kind and size."""
+    out = []
+    for lv in doc["levels"]:
+        if level is not None and lv["level"] != level:
+            continue
+        out.append({"level": lv["level"], "name": lv["name"], "count": lv["count"], "lessons": [
+            {"id": course.workbook.lesson_id(lv["level"], lesson["n"]), "n": lesson["n"],
+             "topics": [{"id": course.cat_of(lv["level"], lesson["n"], t["tid"]), "tid": t["tid"],
+                         "name": t["name"], "kind": t["kind"], "generated": "generator" in t,
+                         "size": len(t.get("items") or t.get("ids") or {})} for t in lesson["topics"]]}
+            for lesson in lv.get("lessons") or []]})
+    return out
 
 
 def affected_classes(target: dict, classes: list[dict]) -> list[dict]:

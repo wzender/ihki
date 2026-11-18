@@ -8,6 +8,9 @@ is not touched. Operations (`op["op"]`), each naming the topic by its id (`cat`,
   update_item {cat, id, he?, ar?, tr?, he_say?}            the item's text; its id and key stay, and so its progress
   delete_items {cat, ids}                                   the items; their progress no longer counts
   move_item {cat, id, to}                                   within its topic, to place `to` (from 0)
+  replace_items {cat, items: [{he, ar | tr, he_say?}]}      the whole topic from a revised page: each incoming item
+                                                           matched to an existing one (`match_items`) keeps its id and
+                                                           key, the rest are new, the unmatched existing ones go
   set_generator {cat, args}                                 a conjugation table's word list; forms that stay keep ids
   add_topic {level, n, tid, name, kind, ordered?, at?, write?, unit?, task?, story?}
   update_topic {cat, name?, ordered?, unit?, task?, write?}
@@ -19,6 +22,7 @@ is not touched. Operations (`op["op"]`), each naming the topic by its id (`cat`,
 from __future__ import annotations
 
 import copy
+import difflib
 
 from . import course, workbook
 from .course import CourseError
@@ -128,6 +132,24 @@ def apply(doc: dict, op: dict) -> tuple[dict, dict]:
             raise CourseError(f"{cat}: אין פריט {op.get('id')}")
         item = items.pop(at)
         items.insert(max(0, min(int(op.get("to", 0)), len(items))), item)
+    elif kind == "replace_items":
+        _, topic = _find_topic(new, cat)
+        items = _items_of(topic, cat)
+        incoming = [_item_fields(raw) for raw in op.get("items") or []]
+        if not incoming:
+            raise CourseError(f"{cat}: אין פריטים. כדי לרוקן נושא מוחקים את פריטיו")
+        pairs = match_items(items, incoming)
+        replaced = []
+        for k, item in enumerate(incoming):
+            old = pairs.get(k)
+            replaced.append({"id": old["id"], "key": old["key"], **item} if old else None)
+        kept = [r for r in replaced if r]
+        topic["items"] = kept   # the keys new items must not repeat: the kept ones
+        for k, item in enumerate(incoming):
+            if replaced[k] is None:
+                replaced[k] = {"id": _take_id(new), "key": _new_key(topic, item["he"]), **item}
+                topic["items"].append(replaced[k])
+        topic["items"] = replaced
     elif kind == "set_generator":
         _, topic = _find_topic(new, cat)
         if "generator" not in topic:
@@ -180,6 +202,38 @@ def apply(doc: dict, op: dict) -> tuple[dict, dict]:
     report = {"cat": cat, "items": [p for p in compiled.phrases if p["cat"] == cat],
               "guessed": compiled.guessed.get(cat, [])} if cat else {"cat": None, "items": [], "guessed": []}
     return new, report
+
+
+MATCH_AT = 0.55   # how alike two sentences' Hebrew must be to be the same item reworded
+
+
+def _similar(a: str, b: str) -> float:
+    return difflib.SequenceMatcher(None, " ".join(a.split()), " ".join(b.split())).ratio()
+
+
+def match_items(existing: list[dict], incoming: list[dict]) -> dict[int, dict]:
+    """{index of an incoming item: the existing item it is} for a topic rewritten from a revised workbook page. Pairs
+    are taken best first: the same Hebrew, or the same Arabic, is a match; otherwise Hebrew alike by at least MATCH_AT,
+    a little more when at about the same place in the topic. Each existing item is matched at most once."""
+    if not existing or not incoming:
+        return {}
+    scored = []
+    for k, new in enumerate(incoming):
+        for j, old in enumerate(existing):
+            same = (new["he"] == old.get("he") or (new.get("ar") and new.get("ar") == old.get("ar"))
+                    or (new.get("tr") and new.get("tr") == old.get("tr")))
+            alike = 1.0 if same else _similar(new["he"], old.get("he", ""))
+            if alike < MATCH_AT:
+                continue
+            place = 1 - abs(k / max(len(incoming) - 1, 1) - j / max(len(existing) - 1, 1))
+            scored.append((alike + 0.1 * place + (0.5 if same else 0), k, j))
+    pairs, used_new, used_old = {}, set(), set()
+    for _, k, j in sorted(scored, reverse=True):
+        if k not in used_new and j not in used_old:
+            pairs[k] = existing[j]
+            used_new.add(k)
+            used_old.add(j)
+    return pairs
 
 
 def _expand(topic: dict, cat: str):
