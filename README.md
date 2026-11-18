@@ -1089,6 +1089,31 @@ from public.attempts a join auth.users u on u.id = a.user_id
 group by u.email, a.cat order by u.email, a.cat;
 ```
 
+## Feedback and its screenshots
+
+Any signed-in user sends a note from the feedback button (`POST /api/feedback`), with an optional screenshot. The page
+shrinks the picture to a JPEG of at most 1600 pixels a side and sends it with the note; the server accepts only a JPEG,
+PNG or WebP of at most 2 MB, keeps the file, and puts its name in the row's `image` column. The panel's **משוב** tab
+lists the notes, with a thumbnail of each screenshot (`GET /api/feedback/{id}/image`, managers only).
+
+Where the screenshots are kept:
+
+- **S3** (recommended), when `FEEDBACK_S3_BUCKET` is set: objects are written private under `FEEDBACK_S3_PREFIX`
+  (default `feedback/`). Credentials are boto3's usual `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (Space
+  secrets), the region `AWS_REGION`. For a service other than AWS, set `S3_ENDPOINT_URL`: Cloudflare R2
+  (`https://<account>.r2.cloudflarestorage.com`, region `auto`) or Supabase Storage's S3 endpoint
+  (`https://<project>.supabase.co/storage/v1/s3`, with its S3 access keys). The key needs `s3:PutObject` and
+  `s3:GetObject` on the bucket alone; the bucket stays private.
+- Otherwise, where the recordings are: the Hugging Face bucket (`AUDIO_BUCKET`, else `TTS_BUCKET`) below
+  `AUDIO_BUCKET_PREFIX/feedback`, or Supabase Storage's `feedback` bucket.
+
+A screenshot kept before `FEEDBACK_S3_BUCKET` was set is still read from its old place. A table made before screenshots
+needs the column once (the tab shows this SQL):
+
+```sql
+alter table public.feedback add column if not exists image text not null default ''; notify pgrst, 'reload schema';
+```
+
 ## Fine-tuning
 
 The base model was not trained on Palestinian Arabic, and it has heard few Hebrew-accented pharyngeals. Expect the zero-shot scores to be noisy until it is fine-tuned on matched data.

@@ -237,16 +237,45 @@ class HFAudioStore:
         batch_bucket_files(self.bucket_id, delete=[self.path(bucket, name) for name in names], token=self.token)
 
 
+class S3ImageStore:
+    """Private image storage in an S3-compatible bucket (AWS S3, Cloudflare R2, Supabase Storage's S3 endpoint...).
+    The keys are boto3's usual ones (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, or the instance's role); `endpoint` is
+    set for a service other than AWS. Objects are written private, under `prefix`."""
+
+    def __init__(self, bucket: str, prefix: str = "feedback", endpoint: str | None = None, region: str | None = None,
+                 client=None):
+        self.bucket, self.prefix, self.endpoint, self.region = bucket, prefix.strip("/"), endpoint or None, region or None
+        self._client = client
+
+    def key(self, name: str) -> str:
+        return f"{self.prefix}/{name.lstrip('/')}" if self.prefix else name.lstrip("/")
+
+    def client(self):
+        if self._client is None:
+            import boto3
+            self._client = boto3.client("s3", endpoint_url=self.endpoint, region_name=self.region)
+        return self._client
+
+    def put(self, name: str, data: bytes, mime: str) -> None:
+        self.client().put_object(Bucket=self.bucket, Key=self.key(name), Body=data, ContentType=mime,
+                                 CacheControl="private, max-age=3600")
+
+    def get(self, name: str) -> tuple[bytes, str]:
+        got = self.client().get_object(Bucket=self.bucket, Key=self.key(name))
+        return got["Body"].read(), got.get("ContentType") or mimetypes.guess_type(name)[0] or "application/octet-stream"
+
+
 class SupabaseAuth:
     def __init__(self, url: str, key: str, teachers: frozenset[str] = frozenset(), secret: str = "",
                  tutors: frozenset[str] = frozenset(), developers: frozenset[str] = frozenset(),
-                 audio_store: HFAudioStore | None = None):
+                 audio_store: HFAudioStore | None = None, image_store: S3ImageStore | None = None):
         self.url, self.key = url.rstrip("/"), key
         self.teachers = teachers  # lower-case emails of the accounts with the management panel
         self.tutors = tutors  # lower-case emails of the accounts that flag a wrong score, besides the teachers
         self.developers = developers  # bootstrap accounts; only developers may use the lab
         self.secret = secret  # reads every student's rows and the classes; empty = the panel has no data
         self.audio_store = audio_store
+        self.image_store = image_store   # feedback screenshots in S3; without it they are kept as the recordings are
         self._cache: dict[str, tuple[float, dict]] = {}
         self._classes: tuple[float, list[dict]] | None = None
         self._videos: tuple[float, list[dict]] | None = None
@@ -1054,11 +1083,23 @@ class SupabaseAuth:
         self._admin("/rest/v1/feedback", "POST", row, prefer="return=minimal")
 
     def put_feedback_image(self, name: str, data: bytes, mime: str) -> bool:
-        """Keeps a note's screenshot where the recordings are (the Hugging Face bucket, else Supabase Storage)."""
+        """Keeps a note's screenshot in the S3 bucket (FEEDBACK_S3_BUCKET), else where the recordings are."""
+        if self.image_store:
+            try:
+                self.image_store.put(name, data, mime)
+                return True
+            except Exception as e:
+                log.warning("feedback screenshot not stored in S3: %s", type(e).__name__)
+                return False
         return self._put_audio("feedback", name, data, mime)
 
     def feedback_image(self, name: str) -> tuple[bytes, str]:
-        """A note's screenshot and its media type."""
+        """A note's screenshot and its media type: from S3, else (one kept before S3 was set) where the recordings are."""
+        if self.image_store:
+            try:
+                return self.image_store.get(name)
+            except Exception as e:
+                log.info("feedback screenshot %s not in S3 (%s): trying the recordings' store", name, type(e).__name__)
         return self._get_audio("feedback", name)
 
     def list_feedback(self, status: str | None = None, limit: int = 200) -> list[dict]:
@@ -1763,4 +1804,11 @@ def load_auth() -> SupabaseAuth | None:
         log.info("voice reports use Hugging Face bucket %s", bucket)
     else:
         log.warning("recordings are kept in Supabase Storage: set AUDIO_BUCKET (or TTS_BUCKET) to a Hugging Face bucket")
-    return SupabaseAuth(url, key, teachers, secret, tutors, developers, audio_store)
+    image_store = None
+    image_bucket = os.environ.get("FEEDBACK_S3_BUCKET", "").strip()
+    if image_bucket:
+        image_store = S3ImageStore(image_bucket, os.environ.get("FEEDBACK_S3_PREFIX", "feedback"),
+                                   os.environ.get("S3_ENDPOINT_URL", "").strip() or None,
+                                   os.environ.get("AWS_REGION", "").strip() or os.environ.get("AWS_DEFAULT_REGION", "").strip() or None)
+        log.info("feedback screenshots use S3 bucket %s", image_bucket)
+    return SupabaseAuth(url, key, teachers, secret, tutors, developers, audio_store, image_store)

@@ -7,6 +7,7 @@ numpy>=1.26
 pyyaml>=6.0  # the scorer reads its rules from the yaml blocks of static/assets/pronunciation-rules.md
 transformers>=4.41
 huggingface_hub>=1.16  # Storage Bucket API (batch_bucket_files, list_bucket_tree) for the TTS cache
+boto3>=1.34  # feedback screenshots in an S3-compatible bucket (FEEDBACK_S3_BUCKET); optional at run time
 # torch: CPU build installed separately in the Dockerfile (see README for local installs)
 python-dotenv>=1.0
 logtail-python>=0.4.1  # optionally forwards Python logs to Better Stack

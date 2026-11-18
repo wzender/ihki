@@ -259,3 +259,46 @@ def test_before_the_image_column_exists_the_note_is_kept_without_it_and_the_pane
         assert auth.rows[0]["message"] == "נתקע" and "image" not in auth.rows[0]
         listed = c.get("/api/feedback", headers=H("t")).json()
         assert listed["image_setup"] == feedback.MIGRATE_FEEDBACK_IMAGE
+
+
+# --- screenshots in S3 ------------------------------------------------------------------------------------------------
+
+class FakeS3:
+    def __init__(self):
+        self.objects, self.fail = {}, False
+
+    def put_object(self, Bucket, Key, Body, ContentType, CacheControl):
+        if self.fail:
+            raise RuntimeError("s3 down")
+        self.objects[(Bucket, Key)] = (Body, ContentType)
+
+    def get_object(self, Bucket, Key):
+        import io
+        body, mime = self.objects[(Bucket, Key)]   # a missing key raises, as S3's NoSuchKey does
+        return {"Body": io.BytesIO(body), "ContentType": mime}
+
+
+def test_with_an_s3_bucket_screenshots_go_there_and_older_ones_are_still_read(monkeypatch):
+    from app.auth import S3ImageStore, SupabaseAuth
+    s3 = FakeS3()
+    a = SupabaseAuth("https://p.supabase.co", "k", secret="s", image_store=S3ImageStore("shots", "feedback", client=s3))
+    monkeypatch.setattr(a, "_get_audio", lambda bucket, name, created_at="": (b"old", "image/png"))
+    assert a.put_feedback_image("a" * 32 + ".jpg", JPEG, "image/jpeg") is True
+    assert s3.objects == {("shots", "feedback/" + "a" * 32 + ".jpg"): (JPEG, "image/jpeg")}
+    assert a.feedback_image("a" * 32 + ".jpg") == (JPEG, "image/jpeg")
+    assert a.feedback_image("b" * 32 + ".png") == (b"old", "image/png")   # kept before S3: from the recordings' store
+    s3.fail = True
+    assert a.put_feedback_image("c" * 32 + ".jpg", JPEG, "image/jpeg") is False   # the note is kept without it
+
+
+def test_the_s3_bucket_is_set_by_the_environment(monkeypatch):
+    from app import auth as auth_module
+    for name, value in {"SUPABASE_URL": "https://p.supabase.co", "SUPABASE_PUBLISHABLE_KEY": "k",
+                        "FEEDBACK_S3_BUCKET": "shots", "S3_ENDPOINT_URL": "https://acc.r2.cloudflarestorage.com",
+                        "AWS_REGION": "auto"}.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.delenv("FEEDBACK_S3_PREFIX", raising=False)
+    store = auth_module.load_auth().image_store
+    assert (store.bucket, store.prefix, store.endpoint, store.region) == ("shots", "feedback", "https://acc.r2.cloudflarestorage.com", "auto")
+    monkeypatch.delenv("FEEDBACK_S3_BUCKET")
+    assert auth_module.load_auth().image_store is None
