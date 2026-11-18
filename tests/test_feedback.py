@@ -192,3 +192,70 @@ def test_a_table_without_the_conversation_column_gives_the_migration(client):
     r = client.post("/api/feedback/1/reply", json={"text": "תודה"}, headers=H("t"))
     assert r.status_code == 503 and feedback.MIGRATE_FEEDBACK in r.json()["detail"]
     assert client.get("/api/feedback/mine", headers=H("s")).json() == {"threads": []}
+
+
+# --- a screenshot with the note ---------------------------------------------------------------------------------------
+
+import base64
+
+JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+
+
+def data_url(data, mime="image/jpeg"):
+    return f"data:{mime};base64,{base64.b64encode(data).decode()}"
+
+
+def test_a_screenshot_must_be_an_image_of_a_known_kind_and_size():
+    assert feedback.screenshot(None) is None and feedback.screenshot("") is None
+    data, name, mime = feedback.screenshot(data_url(JPEG))
+    assert data == JPEG and mime == "image/jpeg" and feedback.IMAGE_NAME.fullmatch(name) and name.endswith(".jpg")
+    assert feedback.screenshot(data_url(PNG, "image/png"))[1].endswith(".png")
+    for bad in (data_url(PNG), data_url(JPEG, "image/gif"), "data:image/jpeg;base64,!!!", "https://x/y.jpg", 7,
+                data_url(b"<svg/>", "image/svg+xml"), data_url(JPEG + b"\x00" * feedback.MAX_IMAGE)):
+        with pytest.raises(feedback.FeedbackError):
+            feedback.screenshot(bad)   # a PNG called a JPEG, another kind, broken, a link, too large
+
+
+class ShotAuth(FakeAuth):
+    def __init__(self, column=True):
+        super().__init__()
+        self.images, self.column = {}, column
+
+    def put_feedback_image(self, name, data, mime):
+        self.images[name] = (data, mime)
+        return True
+
+    def feedback_image(self, name):
+        return self.images[name]
+
+    def add_feedback(self, row):
+        if "image" in row and not self.column:
+            raise AuthUnavailable("supabase answered 400: Could not find the 'image' column of 'feedback'")
+        super().add_feedback(row)
+
+
+def test_a_note_keeps_its_screenshot_and_only_the_panel_reads_it():
+    auth = ShotAuth()
+    with TestClient(create_app(scorer_for(emissions(["w"])), auth=auth)) as c:
+        r = c.post("/api/feedback", json={"kind": "problem", "message": "נתקע", "image": data_url(JPEG)}, headers=H("s"))
+        assert r.status_code == 200 and r.json() == {"ok": True, "image": True}
+        row = auth.rows[0]
+        assert auth.images[row["image"]] == (JPEG, "image/jpeg")
+        seen = c.get(f"/api/feedback/{row['id']}/image", headers=H("t"))
+        assert seen.status_code == 200 and seen.content == JPEG and seen.headers["content-type"] == "image/jpeg"
+        assert c.get(f"/api/feedback/{row['id']}/image", headers=H("s")).status_code == 403   # not the sender's to fetch
+        bad = c.post("/api/feedback", json={"kind": "problem", "message": "x", "image": data_url(PNG)}, headers=H("s"))
+        assert bad.status_code == 400 and len(auth.rows) == 1
+        c.post("/api/feedback", json={"kind": "idea", "message": "בלי תמונה"}, headers=H("s"))
+        assert c.get(f"/api/feedback/{auth.rows[1]['id']}/image", headers=H("t")).status_code == 404
+
+
+def test_before_the_image_column_exists_the_note_is_kept_without_it_and_the_panel_shows_the_sql():
+    auth = ShotAuth(column=False)
+    with TestClient(create_app(scorer_for(emissions(["w"])), auth=auth)) as c:
+        r = c.post("/api/feedback", json={"kind": "problem", "message": "נתקע", "image": data_url(JPEG)}, headers=H("s"))
+        assert r.status_code == 200 and r.json() == {"ok": True, "image": False}
+        assert auth.rows[0]["message"] == "נתקע" and "image" not in auth.rows[0]
+        listed = c.get("/api/feedback", headers=H("t")).json()
+        assert listed["image_setup"] == feedback.MIGRATE_FEEDBACK_IMAGE

@@ -1,11 +1,16 @@
 """Feedback from the app's users: a short note (a problem, an idea, a score that seems wrong, or praise) and an optional
-1-5 rating, kept in the Supabase table `feedback` with where in the app it was sent from. Text only: no recordings.
+1-5 rating, kept in the Supabase table `feedback` with where in the app it was sent from. No recordings; a note may carry
+one screenshot (see `screenshot`), kept beside the recordings (the Hugging Face bucket) under the name in its `image`.
 
 A note can grow into a conversation: the team answers it from the teachers' panel and the user answers back from their
 home. The messages after the note itself are kept on its row, in `replies`: [{"from": "team" | "user", "by", "text", "at"}]."""
 from __future__ import annotations
 
+import base64
+import binascii
+import re
 import time
+import uuid
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 
@@ -25,7 +30,7 @@ CREATE_FEEDBACK = ("create table public.feedback (id bigint generated always as 
                    "screen text not null default '', item text not null default '', version text not null default '', "
                    "status text not null default 'new' check (status in ('new','read','done')), "
                    "handled_by text, handled_at timestamptz, created_at timestamptz not null default now(), "
-                   "replies jsonb not null default '[]'::jsonb); "
+                   "replies jsonb not null default '[]'::jsonb, image text not null default ''); "
                    "create index feedback_status_created_idx on public.feedback (status, created_at desc); "
                    "alter table public.feedback enable row level security; notify pgrst, 'reload schema';")
 
@@ -33,6 +38,14 @@ CREATE_FEEDBACK = ("create table public.feedback (id bigint generated always as 
 # a table made before the conversations: the column they are kept in
 MIGRATE_FEEDBACK = ("alter table public.feedback add column if not exists replies jsonb not null default '[]'::jsonb; "
                     "notify pgrst, 'reload schema';")
+# a table made before screenshots: the name of a note's image
+MIGRATE_FEEDBACK_IMAGE = ("alter table public.feedback add column if not exists image text not null default ''; "
+                          "notify pgrst, 'reload schema';")
+
+MAX_IMAGE = 2 * 1024 * 1024   # the page shrinks a screenshot to a JPEG of a few hundred KB; this is the ceiling
+IMAGE_TYPES = {"image/jpeg": ("jpg", (b"\xff\xd8\xff",)), "image/png": ("png", (b"\x89PNG\r\n\x1a\n",)),
+               "image/webp": ("webp", (b"RIFF",))}
+IMAGE_NAME = re.compile(r"[0-9a-f]{32}\.(jpg|png|webp)")
 
 
 class FeedbackError(ValueError):
@@ -60,6 +73,27 @@ def clean(body: object) -> dict:
         raise FeedbackError("כתבו כמה מילים או בחרו דירוג")
     return {"kind": kind, "rating": rating, "message": message, "screen": _text(body.get("screen"), 40),
             "item": _text(body.get("item"), MAX_CONTEXT), "version": _text(body.get("version"), 20)}
+
+
+def screenshot(value: object) -> tuple[bytes, str, str] | None:
+    """A note's screenshot from its data URL ("data:image/jpeg;base64,..."): (bytes, a new file name, media type), or
+    None when there is none. FeedbackError for anything that is not a JPEG, PNG or WebP image of at most MAX_IMAGE:
+    its first bytes must say what it is, whatever the URL claims."""
+    if value in (None, ""):
+        return None
+    m = re.fullmatch(r"data:(image/[a-z]+);base64,([A-Za-z0-9+/=\s]+)", str(value)) if isinstance(value, str) else None
+    if not m or m.group(1) not in IMAGE_TYPES:
+        raise FeedbackError("אפשר לצרף תמונה מסוג JPEG,‏ PNG או WebP")
+    if len(m.group(2)) > MAX_IMAGE * 4 // 3 + 8:
+        raise FeedbackError("התמונה גדולה מדי")
+    try:
+        data = base64.b64decode(m.group(2), validate=False)
+    except (binascii.Error, ValueError):
+        raise FeedbackError("התמונה אינה תקינה") from None
+    ext, magic = IMAGE_TYPES[m.group(1)]
+    if not data or len(data) > MAX_IMAGE or not data.startswith(magic) or (ext == "webp" and data[8:12] != b"WEBP"):
+        raise FeedbackError("התמונה אינה תקינה" if data and len(data) <= MAX_IMAGE else "התמונה גדולה מדי")
+    return data, f"{uuid.uuid4().hex}.{ext}", m.group(1)
 
 
 class RateLimit:

@@ -1053,6 +1053,14 @@ class SupabaseAuth:
         """Keeps one user's feedback note (see feedback.py)."""
         self._admin("/rest/v1/feedback", "POST", row, prefer="return=minimal")
 
+    def put_feedback_image(self, name: str, data: bytes, mime: str) -> bool:
+        """Keeps a note's screenshot where the recordings are (the Hugging Face bucket, else Supabase Storage)."""
+        return self._put_audio("feedback", name, data, mime)
+
+    def feedback_image(self, name: str) -> tuple[bytes, str]:
+        """A note's screenshot and its media type."""
+        return self._get_audio("feedback", name)
+
     def list_feedback(self, status: str | None = None, limit: int = 200) -> list[dict]:
         """The feedback notes, newest first; one status, or all of them."""
         query = {"select": "*", "order": "created_at.desc", "limit": int(limit)}

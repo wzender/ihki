@@ -53,6 +53,17 @@ class PageAuth(AppAuth):
             if r["id"] == feedback_id:
                 r.update(values)
 
+    def add_feedback(self, row):
+        notes = self.__dict__.setdefault("notes", [])
+        notes.append({**row, "id": len(notes) + 1, "status": "new", "replies": [], "created_at": "2026-11-18T08:00:00+00:00"})
+
+    def put_feedback_image(self, name, data, mime):
+        self.__dict__.setdefault("images", {})[name] = (data, mime)
+        return True
+
+    def feedback_image(self, name):
+        return self.images[name]
+
     def writings(self, token):
         return {}
 
@@ -1166,7 +1177,7 @@ document.querySelector("#vids .focus-talk .talk-close").click(); out.closed=!doc
 
 INBOX = """
 await sleep(800); showManage(); await sleep(300);
-document.querySelector('#mModes [data-mode="flags"]').click();
+document.querySelector('#mModes [data-mode="feedback"]').click();
 await until(()=>document.querySelector(".fb-inbox .fb-item"),6000);
 const item=()=>document.querySelector(".fb-inbox .fb-item");
 out.before=item().querySelectorAll(".fb-say").length; out.place=item().querySelector("textarea").placeholder;
@@ -1205,7 +1216,7 @@ def test_a_teacher_answers_a_note_from_the_inbox(site):
 
 GROUPS = """
 await sleep(800); showManage(); await sleep(300);
-document.querySelector('#mModes [data-mode="flags"]').click();
+document.querySelector('#mModes [data-mode="feedback"]').click();
 await until(()=>document.querySelector(".fb-inbox .fb-group"),6000);
 const groups=()=>[...document.querySelectorAll(".fb-inbox .fb-group")].map(g=>[g.dataset.status,g.querySelector("summary").textContent,g.open,
   [...g.querySelectorAll(".fb-msg")].map(m=>m.textContent)]);
@@ -1473,6 +1484,44 @@ def test_a_finished_memory_board_is_told_to_the_server(site):
     site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
     r = site("dana@x.com", MEMORY_DONE)
     assert r["before"] == 0 and r["sent"] == [["/api/games/verb-memory/finished", "POST"]]
+
+SEND_SHOT = """
+await sleep(800);
+document.getElementById("feedbackBtn2")?.click(); if(!open("feedbackDlg")) document.getElementById("feedbackBtn").click();
+await until(()=>open("feedbackDlg"));
+const c=document.createElement("canvas"); c.width=3000; c.height=1500; const g=c.getContext("2d"); g.fillStyle="#c33"; g.fillRect(0,0,3000,1500);
+const blob=await new Promise(r=>c.toBlob(r,"image/png")), dt=new DataTransfer(); dt.items.add(new File([blob],"shot.png",{type:"image/png"}));
+const input=document.getElementById("feedbackShot"); input.files=dt.files; input.dispatchEvent(new Event("change"));
+await until(()=>!document.getElementById("feedbackShotView").hidden,5000);
+const img=document.getElementById("feedbackShotImg"); out.small=img.src.startsWith("data:image/jpeg;base64,");
+await until(()=>img.naturalWidth>0); out.size=[img.naturalWidth,img.naturalHeight];
+document.getElementById("feedbackText").value="המסך נתקע"; document.getElementById("feedbackForm").requestSubmit();
+await until(()=>document.getElementById("feedbackNote").textContent.includes("נשלח"),5000);
+out.note=document.getElementById("feedbackNote").textContent; out.cleared=document.getElementById("feedbackShotView").hidden;
+"""
+
+SEE_SHOT = """
+await sleep(1200);
+document.getElementById("toManage").click(); await sleep(300);
+await until(()=>document.getElementById("mFeedbackCount").textContent!=="הודעות מהמשתמשים",5000); out.count=document.getElementById("mFeedbackCount").textContent;
+document.querySelector('#mModes [data-mode="feedback"]').click();
+await until(()=>document.querySelector("#mFeedback .fb-image img"),6000);
+const img=document.querySelector("#mFeedback .fb-image img"); await until(()=>img.naturalWidth>0);
+out.shot=[img.naturalWidth,img.naturalHeight,img.closest("a").href.startsWith("blob:")];
+out.inFlags=!!document.querySelector("#mFlags .fb-inbox");
+"""
+
+
+def test_a_student_attaches_a_screenshot_and_the_feedback_tab_shows_it(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    sent = site("dana@x.com", SEND_SHOT)
+    assert sent["small"] and sent["size"] == [1600, 800]   # shrunk on the device, as a JPEG
+    assert sent["note"] == "תודה! המשוב נשלח 🙏" and sent["cleared"]
+    (note,) = site.auth.notes
+    data, mime = site.auth.images[note["image"]]
+    assert note["message"] == "המסך נתקע" and mime == "image/jpeg" and data[:3] == b"\xff\xd8\xff"
+    seen = site("boss@x.com", SEE_SHOT)
+    assert seen["count"] == "חדש אחד" and seen["shot"] == [1600, 800, True] and not seen["inFlags"]
 
 SETTINGS = """
 await until(()=>document.querySelector("#vids .focus-set"),6000);

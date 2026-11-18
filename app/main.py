@@ -1709,22 +1709,54 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.post("/api/feedback")
     def send_feedback(background: BackgroundTasks, body: dict = Body(...), user: dict | None = Depends(signed_in)):
-        """Keeps a note from any signed-in user: {kind, rating?, message?, screen?, item?, version?}. Text only."""
+        """Keeps a note from any signed-in user: {kind, rating?, message?, screen?, item?, version?, image?}; image is
+        one screenshot as a data URL (see feedback.screenshot). "image": whether it was kept with the note."""
         if not user or not app.state.auth:
             raise HTTPException(503, "המשוב נשמר רק למשתמשים מחוברים")
         try:
             row = feedback_notes.clean(body)
+            shot = feedback_notes.screenshot(body.get("image")) if isinstance(body, dict) else None
         except feedback_notes.FeedbackError as e:
             raise HTTPException(400, str(e))
         if not feedback_limit.allow(str(user["id"])):
             raise HTTPException(429, "שלחתם הרבה הודעות בשעה האחרונה. נסו שוב מאוחר יותר.")
+        a, kept = app.state.auth, False
+        if shot:
+            data, name, mime = shot
+            try:
+                kept = bool(a.put_feedback_image(name, data, mime))
+            except Exception as e:   # the note matters more than its picture
+                log.warning("feedback screenshot not stored: %s", type(e).__name__)
+            if kept:
+                row["image"] = name
         try:
-            app.state.auth.add_feedback({**row, "user_id": user["id"], "email": user["email"].lower()})
+            try:
+                a.add_feedback({**row, "user_id": user["id"], "email": user["email"].lower()})
+            except AuthUnavailable as e:
+                if not (kept and "image" in str(e)):
+                    raise
+                log.warning("feedback has no image column yet: %s", feedback_notes.MIGRATE_FEEDBACK_IMAGE)
+                row.pop("image", None); kept = False
+                a.add_feedback({**row, "user_id": user["id"], "email": user["email"].lower()})
         except AuthUnavailable as e:
             log.warning("feedback not kept: %s", e)
             raise feedback_error(e)
         background.add_task(notify_developers, {**row, "email": user["email"].lower()})
-        return {"ok": True}
+        return {"ok": True, "image": kept}
+
+    @app.get("/api/feedback/{feedback_id}/image")
+    def feedback_image(feedback_id: int, a: SupabaseAuth = Depends(teacher_only)):
+        """The screenshot a note came with, for the panel's managers only."""
+        try:
+            row = a.feedback_row(feedback_id)
+            name = str((row or {}).get("image") or "")
+            if not feedback_notes.IMAGE_NAME.fullmatch(name):
+                raise HTTPException(404, "למשוב הזה אין צילום מסך")
+            data, mime = a.feedback_image(name)
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"צילום המסך אינו זמין: {e}")
+        return Response(data, media_type=mime if mime.startswith("image/") else "application/octet-stream",
+                        headers={"Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff"})
 
     @app.get("/api/feedback")
     def list_feedback(status: str = Query(""), a: SupabaseAuth = Depends(teacher_only)):
@@ -1732,7 +1764,10 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if status and status not in feedback_notes.STATUSES:
             raise HTTPException(400, "invalid feedback status")
         try:
-            return {"feedback": a.list_feedback(status or None)}
+            rows = a.list_feedback(status or None)
+            # a table made before screenshots has no `image` column: its rows say so, and the panel shows the SQL
+            return {"feedback": rows, **({"image_setup": feedback_notes.MIGRATE_FEEDBACK_IMAGE}
+                                         if rows and not any("image" in r for r in rows) else {})}
         except AuthUnavailable as e:
             if "answered 404" in str(e):
                 return {"feedback": [], "setup": feedback_notes.CREATE_FEEDBACK}

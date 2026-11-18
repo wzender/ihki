@@ -103,6 +103,9 @@ body.home:not([data-view]) #feedbackBtn{display:none}
 .feedback-form{display:flex;flex-direction:column;gap:12px}.feedback-form label{display:flex;flex-direction:column;gap:5px;font-weight:600}.feedback-form textarea{font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink);resize:vertical}
 .fb-kinds{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}.fb-kinds legend{font-weight:700;margin-bottom:4px}.fb-kinds label{flex-direction:row;align-items:center;gap:8px;font-weight:500;padding:8px 10px;border:1px solid var(--line);border-radius:10px}
 .fb-rating{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.fb-rating span{flex-basis:100%;font-weight:600}.fb-rating button{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 16px var(--f-body);cursor:pointer}.fb-rating button[aria-pressed=true]{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
+.fb-shot{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.fb-shot>span{display:flex;gap:8px;align-items:center}.fb-shot>span[hidden]{display:none}
+.fb-shot img{max-height:72px;max-width:120px;border-radius:8px;border:1px solid var(--line);object-fit:cover}
+.fb-inbox .fb-image{display:inline-block;margin:4px 0}.fb-inbox .fb-image img{max-height:160px;max-width:min(100%,260px);border-radius:8px;border:1px solid var(--line);display:block}
 .fb-note{margin:0;min-height:1.3em;color:var(--muted);font-size:14px}
 .fb-inbox .fb-item{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-bottom:1px solid var(--line)}.fb-inbox .fb-item.done{opacity:.55}.fb-inbox .fb-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--muted)}.fb-inbox .fb-msg{white-space:pre-wrap;overflow-wrap:anywhere}.fb-inbox .fb-actions{display:flex;gap:8px}.fb-inbox .fb-group{border-top:1px solid var(--line);padding-top:6px;margin-top:6px}.fb-inbox .fb-group>summary{cursor:pointer;font-weight:700;padding:6px 0}
 #myClass:empty+.help{margin-inline-start:auto}
@@ -1149,6 +1152,7 @@ body.manage #manage{width:100%;max-width:none}
 #manage.classes :is(#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.classes) #mClasses{display:none}
 #manage.content :is(#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.content) #mContent{display:none}
 #manage.flags :is(#mClasses,#mContent,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.flags) #mFlags{display:none}
+#manage.feedback :is(#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.feedback) #mFeedback{display:none}
 #manage.access :is(#mClasses,#mContent,#mFlags,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.access) #mAccess{display:none}
 #manage.models :is(#mClasses,#mContent,#mFlags,#mAccess,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.models) #mModels{display:none}
 .lib-pick{list-style:none;margin:6px 0 0;padding:0;text-align:start}.lib-pick ul{list-style:none;margin:2px 0 4px;padding-inline-start:20px}.lib-pick label{display:flex;gap:6px;align-items:center;padding:2px 0;font-size:14px}
@@ -2093,10 +2097,11 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
   <section class="wrap" id="manage" aria-labelledby="mTitle">
     <div class="roundbar"><h1 class="mtitle" id="mTitle">ניהול</h1><span class="sep"></span><button class="btn" id="mRefresh">רענון</button><button class="btn" id="mLab">מעבדה</button><button class="btn primary" id="mPractice">לתרגול</button></div>
     <div class="sub" id="mState" aria-live="polite"></div>
-    <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>רשימה ומסנן כיתות</small></button><button role="tab" data-mode="content">תוכן<small>נושאים, סרטונים וטקסטים</small></button><button role="tab" data-mode="flags">ניטור<small>פעילות ודיווחי ציונים</small></button><button role="tab" data-mode="access">הרשאות<small>תפקידים וגישה</small></button><button role="tab" data-mode="models">מודלים<small>בחירה והשוואה</small></button></div>
+    <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>רשימה ומסנן כיתות</small></button><button role="tab" data-mode="content">תוכן<small>נושאים, סרטונים וטקסטים</small></button><button role="tab" data-mode="flags">ניטור<small>פעילות ודיווחי ציונים</small></button><button role="tab" data-mode="feedback">משוב<small id="mFeedbackCount">הודעות מהמשתמשים</small></button><button role="tab" data-mode="access">הרשאות<small>תפקידים וגישה</small></button><button role="tab" data-mode="models">מודלים<small>בחירה והשוואה</small></button></div>
     <div id="mClasses"></div>
     <div id="mContent"></div>
     <div id="mFlags"></div>
+    <div id="mFeedback"></div>
     <div class="card" id="mAccess"></div>
     <div id="mModels"></div>
     <div class="tabs" id="mTabs" role="tablist" aria-label="סינון תלמידים לפי כיתה" hidden></div>
@@ -2366,6 +2371,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
     <div class="fb-rating" role="radiogroup" aria-label="דירוג כללי"><span>איך החוויה באפליקציה?</span>
       <button type="button" data-r="1" aria-label="1 מתוך 5">1</button><button type="button" data-r="2" aria-label="2 מתוך 5">2</button><button type="button" data-r="3" aria-label="3 מתוך 5">3</button><button type="button" data-r="4" aria-label="4 מתוך 5">4</button><button type="button" data-r="5" aria-label="5 מתוך 5">5</button></div>
     <label>מה תרצו לספר?<textarea id="feedbackText" maxlength="1000" rows="4" placeholder="כמה מילים מספיקות. לא נשמרות הקלטות."></textarea></label>
+    <div class="fb-shot"><input type="file" id="feedbackShot" accept="image/*" hidden><button type="button" class="btn" id="feedbackShotBtn">📷 צירוף צילום מסך</button><span id="feedbackShotView" hidden><img id="feedbackShotImg" alt="צילום המסך שיצורף"><button type="button" class="btn" id="feedbackShotDrop" aria-label="הסרת צילום המסך">✕ הסרה</button></span></div>
     <p class="fb-note" id="feedbackNote" aria-live="polite"></p>
     <div class="row"><button class="btn primary" id="feedbackSend">שליחה</button></div>
   </form>
@@ -6754,11 +6760,13 @@ async function loadManage(){
   const load=++manageLoad;
   const state=$("mState");
   state.textContent="טוען את נתוני התלמידים…"; state.classList.remove("setup");
-  if(!["classes","students","content","flags","access","models"].includes(mMode)) mMode="classes";
+  if(!["classes","students","content","flags","feedback","access","models"].includes(mMode)) mMode="classes";
   drawManageShell();
   const health=fetch("/api/health").then(async res=>{ if(res.ok){ const data=await res.json(); if(load===manageLoad) drawBuild(data.build,data.model); } }).catch(()=>{});
   const content=Promise.all([loadContent(),loadMathUnits()]).then(()=>{ if(load===manageLoad&&mMode==="content") drawContent(); });
+  if(mMode!=="feedback") loadFeedback().then(()=>{ if(load===manageLoad) syncFeedbackCount(); });   // the tab's button counts the new notes
   const panel=mMode==="flags"?loadFlags().then(()=>{ if(load===manageLoad&&mMode==="flags") drawFlags(); }):
+    mMode==="feedback"?loadFeedback().then(()=>{ if(load===manageLoad&&mMode==="feedback") drawFeedbackTab(); }):
     mMode==="access"?loadAccess().then(()=>{ if(load===manageLoad&&mMode==="access") drawAccess(); }):
     mMode==="models"?loadModels().then(async()=>{ if(MODELS) await loadModelSettings(MS_MODEL||MODELS.active); if(load===manageLoad&&mMode==="models") drawModels(); }):Promise.resolve();
   try{
@@ -7274,31 +7282,62 @@ function initFeedback(){
   rates.forEach(b=>b.onclick=()=>{ rating=rating===+b.dataset.r?null:+b.dataset.r; paint(); });
   btn.onclick=()=>{ note.textContent=""; send.disabled=false; dlg.showModal(); $("feedbackClose").focus(); };   // not the text box: on an iPhone its keyboard would push the first lines out of view
   $("feedbackClose").onclick=()=>dlg.close();
+  // a screenshot: picked from the device (a phone's screenshots are in its gallery), shrunk here to a JPEG of at most
+  // 1600 pixels a side, so even a large one is a few hundred KB; the server checks it again
+  let shot=null;
+  const showShot=url=>{ shot=url; $("feedbackShotView").hidden=!url; $("feedbackShotBtn").hidden=!!url; $("feedbackShotImg").src=url||""; if(!url) $("feedbackShot").value=""; };
+  $("feedbackShotBtn").onclick=()=>$("feedbackShot").click();
+  $("feedbackShotDrop").onclick=()=>showShot(null);
+  $("feedbackShot").onchange=async()=>{
+    const file=$("feedbackShot").files[0]; if(!file) return;
+    if(!file.type.startsWith("image/")){ note.textContent="אפשר לצרף רק תמונה."; return; }
+    note.textContent="מכינים את התמונה…";
+    try{ showShot(await shrinkImage(file,1600,.82)); note.textContent=""; }
+    catch{ showShot(null); note.textContent="לא הצלחנו לקרוא את התמונה. נסו תמונה אחרת."; }
+  };
   form.onsubmit=async e=>{
     e.preventDefault(); send.disabled=true; note.textContent="שולח…";
-    const body={kind:form.elements.fbKind.value,rating,message:$("feedbackText").value,...feedbackContext()};
+    const body={kind:form.elements.fbKind.value,rating,message:$("feedbackText").value,...feedbackContext(),...(shot?{image:shot}:{})};
     try{
       const res=await api("/api/feedback",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
       const data=await res.json().catch(()=>({}));
       if(!res.ok){ note.textContent=data.detail||"השליחה נכשלה. נסו שוב."; send.disabled=false; return; }
-      note.textContent="תודה! המשוב נשלח 🙏"; $("feedbackText").value=""; rating=null; paint();
+      note.textContent=shot&&!data.image?"המשוב נשלח, אבל צילום המסך לא נשמר 🙏":"תודה! המשוב נשלח 🙏";
+      $("feedbackText").value=""; rating=null; paint(); showShot(null);
       setTimeout(()=>{ if(dlg.open) dlg.close(); },1200);
     }catch(err){ note.textContent="אין חיבור. נסו שוב."; send.disabled=false; }
   };
 }
+// an image file as a JPEG data URL, at most `side` pixels on its longer side (transparent parts on white)
+function shrinkImage(file,side,quality){
+  return new Promise((done,fail)=>{
+    const url=URL.createObjectURL(file), img=new Image();
+    img.onload=()=>{
+      const k=Math.min(1,side/Math.max(img.naturalWidth,img.naturalHeight)), c=document.createElement("canvas");
+      c.width=Math.max(1,Math.round(img.naturalWidth*k)); c.height=Math.max(1,Math.round(img.naturalHeight*k));
+      const g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,c.width,c.height); g.drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(url); done(c.toDataURL("image/jpeg",quality));
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); fail(new Error("image")); };
+    img.src=url;
+  });
+}
 let FEEDBACK=null, feedbackError="";
+let feedbackLoad=0;   // a read that started before a note was changed here is stale: its answer is dropped
 async function loadFeedback(){
+  const n=++feedbackLoad;
   try{
     const res=await api("/api/feedback"), data=await res.json().catch(()=>({}));
     if(!res.ok) throw new Error(data.detail||res.status);
-    FEEDBACK=data; feedbackError="";
-  }catch(err){ FEEDBACK=null; feedbackError=err.message; }
+    if(n===feedbackLoad){ FEEDBACK=data; feedbackError=""; }
+  }catch(err){ if(n===feedbackLoad){ FEEDBACK=null; feedbackError=err.message; } }
 }
 function drawFeedbackInbox(box){
   const card=mark("card fb-inbox",""); card.append(mark("","משוב ממשתמשים","h2"));
   if(feedbackError){ card.append(mark("meta","לא ניתן לטעון: "+feedbackError,"p")); box.append(card); return; }
-  if(!FEEDBACK){ card.append(mark("meta","טוען…","p")); box.append(card); loadFeedback().then(()=>{ if(mMode==="flags"&&document.body.classList.contains("manage")) drawFlags(); }); return; }
+  if(!FEEDBACK){ card.append(mark("meta","טוען…","p")); box.append(card); loadFeedback().then(()=>{ if(mMode==="feedback"&&document.body.classList.contains("manage")) drawFeedbackTab(); }); return; }
   if(FEEDBACK.setup){ card.append(mark("meta","הטבלה feedback עדיין לא קיימת. הריצו ב-SQL Editor של Supabase:","p"),mark("meta",FEEDBACK.setup,"p")); box.append(card); return; }
+  if(FEEDBACK.image_setup) card.append(mark("meta","כדי לשמור צילומי מסך עם המשוב, הריצו פעם אחת ב-SQL Editor של Supabase:","p"),mark("meta",FEEDBACK.image_setup,"p"));
   const rows=FEEDBACK.feedback||[], open=rows.filter(r=>r.status==="new").length;
   card.append(mark("meta",rows.length?`${open} חדשים מתוך ${rows.length}`:"עדיין לא התקבל משוב.","p"));
   // grouped by status, each newest first; what is handled starts folded, and a group a teacher opened or closed stays so
@@ -7318,12 +7357,13 @@ function feedbackItem(r){   // one note in the inbox: who and where, the message
   head.append(mark("flag-kind",FEEDBACK_KINDS[r.kind]||r.kind),mark("",r.rating?"★".repeat(r.rating):""),mark("",r.email),mark("",[r.screen,r.item].filter(Boolean).join(" · ")),mark("",new Date(r.created_at).toLocaleString("he-IL")));
   item.append(head);
   if(r.message) item.append(mark("fb-msg",r.message,"p"));
+  if(r.image) item.append(feedbackImage(r));
   if((r.replies||[]).length) item.append(feedbackThread(r.replies,m=>m.from==="team"?m.by||"הצוות":r.email));
   const actions=mark("fb-actions","");
   for(const [status,label] of [["read","נקרא"],["done","טופל"],["new","החזרה לחדש"]]){
     if(r.status===status) continue;
     const b=mark("btn",label,"button"); b.type="button";
-    b.onclick=async()=>{ b.disabled=true; const res=await api(`/api/feedback/${r.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})}); if(res.ok){ r.status=status; drawFlags(); } else b.disabled=false; };
+    b.onclick=async()=>{ b.disabled=true; const res=await api(`/api/feedback/${r.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})}); if(res.ok){ feedbackLoad++; r.status=status; drawFeedbackTab(); } else b.disabled=false; };
     actions.append(b);
   }
   item.append(actions);
@@ -7338,12 +7378,33 @@ function feedbackItem(r){   // one note in the inbox: who and where, the message
     try{
       const res=await api(`/api/feedback/${r.id}/reply`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:text.value})}), data=await res.json().catch(()=>({}));
       if(!res.ok) throw new Error(data.detail||res.status);
-      r.replies=data.replies; r.status=data.status||r.status; delete feedbackDrafts[r.id]; drawFlags();
+      feedbackLoad++; r.replies=data.replies; r.status=data.status||r.status; delete feedbackDrafts[r.id]; drawFeedbackTab();
     }catch(err){ note.className="fb-reply-note bad"; note.textContent="התגובה לא נשלחה: "+err.message; send.disabled=false; }
   };
   item.append(form,note); return item;
 }
 const feedbackDrafts={};   // an answer being written survives the inbox's redraws
+// a note's screenshot: read once with the manager's session (it is not public), then kept for the inbox's redraws;
+// pressing it opens it whole in a new tab
+const feedbackImages={};
+function feedbackImage(r){
+  const link=mark("fb-image","","a"), img=document.createElement("img"); img.alt="צילום המסך שצורף למשוב"; link.target="_blank"; link.rel="noopener";
+  link.append(mark("meta","טוען את צילום המסך…","small"));
+  const show=url=>{ img.src=link.href=url; link.replaceChildren(img); };
+  if(feedbackImages[r.id]) show(feedbackImages[r.id]);
+  else api(`/api/feedback/${r.id}/image`).then(async res=>{ if(!res.ok) throw 0; feedbackImages[r.id]=URL.createObjectURL(await res.blob()); show(feedbackImages[r.id]); })
+    .catch(()=>link.replaceChildren(mark("meta","צילום המסך אינו זמין","small")));
+  return link;
+}
+// the users' notes have a tab of their own in ניהול; its button counts the new ones
+function drawFeedbackTab(){
+  const box=$("mFeedback"); if(!box) return;
+  box.replaceChildren(); drawFeedbackInbox(box); syncFeedbackCount();
+}
+function syncFeedbackCount(){
+  const rows=FEEDBACK&&FEEDBACK.feedback||[], n=rows.filter(r=>r.status==="new").length;
+  $("mFeedbackCount").textContent=FEEDBACK?(n>1?`${n} חדשים`:n?"חדש אחד":"אין חדשים"):"הודעות מהמשתמשים";
+}
 function feedbackThread(replies,who){   // a conversation's messages; `who(message)` names its sender
   const box=mark("fb-thread","","div");
   for(const m of replies){
@@ -7394,15 +7455,16 @@ async function drawFeedbackTalks(page){
 }
 function selectManageMode(){
   $("mModes").hidden=false;
-  for(const mode of ["classes","content","flags","access","models"]) $("manage").classList.toggle(mode,mMode===mode);
+  for(const mode of ["classes","content","flags","feedback","access","models"]) $("manage").classList.toggle(mode,mMode===mode);
   for(const b of $("mModes").children) b.setAttribute("aria-selected",b.dataset.mode===mMode);
 }
 function drawManageShell(){
   selectManageMode();
   $("manage").classList.remove("student");
-  const id={classes:"mClasses",students:"mRoster",content:"mContent",flags:"mFlags",access:"mAccess",models:"mModels"}[mMode];
-  const what={classes:"הכיתות",students:"נתוני התלמידים",content:"התוכן",flags:"הניטור",access:"ההרשאות",models:"המודלים"}[mMode];
+  const id={classes:"mClasses",students:"mRoster",content:"mContent",flags:"mFlags",feedback:"mFeedback",access:"mAccess",models:"mModels"}[mMode];
+  const what={classes:"הכיתות",students:"נתוני התלמידים",content:"התוכן",flags:"הניטור",feedback:"המשוב",access:"ההרשאות",models:"המודלים"}[mMode];
   if(mMode==="flags"){ drawFlags(); return; }   // each section shows its own "loading" until its data arrives
+  if(mMode==="feedback"){ drawFeedbackTab(); return; }
   if(id) $(id).replaceChildren(mark("card",`טוען את ${what}…`));
 }
 function drawManage(){
@@ -7412,6 +7474,7 @@ function drawManage(){
   if(mMode==="classes"){ drawClasses(classes); return; }
   if(mMode==="content"){ drawContent(); return; }
   if(mMode==="flags"){ drawFlags(); return; }
+  if(mMode==="feedback"){ drawFeedbackTab(); return; }
   if(mMode==="access"){ drawAccess(); return; }
   if(mMode==="models"){ drawModels(); return; }
   if(shownClass!=="*"&&!classes.some(c=>c.name===shownClass)) shownClass="*";
@@ -7432,7 +7495,9 @@ function drawManage(){
   if(one) drawStudent(klass,one,listed);
 }
 async function showMode(mode){
-  mMode=mode; store.set("ihki.mmode",mode); drawManage();
+  mMode=mode; store.set("ihki.mmode",mode);
+  if(mode==="feedback"){ FEEDBACK=null; feedbackError=""; feedbackLoad++; }   // read again each time the tab opens: drawn once, when it is in
+  drawManage();
   if(mode==="content"){ await Promise.all([loadContent(),loadMathUnits()]); if(mMode===mode) CLASS?drawManage():drawContent(); }
   if(mode==="flags"&&!flagsLoaded){ await loadFlags(); if(mMode===mode) CLASS?drawManage():drawFlags(); }
   if(mode==="access"){ await loadAccess(); if(mMode===mode) CLASS?drawManage():drawAccess(); }
@@ -7577,7 +7642,6 @@ function drawFlags(){
   drawBackupControls(box);
   drawApiKeys(box);
   drawSystemActivity(box);
-  drawFeedbackInbox(box);
   drawTtsCacheControls(box);
   if(!flagsLoaded){ box.append(mark("card","טוען את הדיווחים…")); return; }
   drawScoringRules(box);
