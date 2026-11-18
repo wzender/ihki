@@ -54,7 +54,8 @@ from .math_photo import (DAILY_PHOTOS, MAX_PHOTO, MEDIA_TYPES as PHOTO_TYPES, Ph
 from .math_skills import algebra9
 from . import backups as daily_backups
 from . import push as pushes
-from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, phrase_by_id, public_phrases
+from .phrases import CATEGORIES, COURSE_FIRST_ID, GAMES, LESSONS, LEVELS, PHRASES, on_serve, phrase_by_id, public_phrases
+from . import course_store as course_versions
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .model_settings import CREATE_MODEL_SETTINGS, build as build_model_config, clean as clean_model_settings, describe as describe_model_settings
 from .models import (POWSM_ONNX_REPO, availability as model_availability, catalog as model_catalog,
@@ -314,6 +315,21 @@ MAX_SPEAKER = 254   # an email address, the longest a speaker is
 LAB_TTS_VOICES = {**{name.translate({c: None for c in range(0x591, 0x5c8)}): v for name, v in VOICES.items()}, **LINE_VOICES}
 AUDIO_EXT = {"webm": "webm", "ogg": "ogg", "mp4": "m4a", "mpeg": "mp3", "wav": "wav", "x-wav": "wav"}   # by the upload's type
 TOPIC_LESSON = {c["id"]: c["lesson"] for c in CATEGORIES}   # a topic's lesson: homework is a topic of the class's lessons
+
+
+def _rebuild_course_tables() -> None:
+    """The tables above that come from the course, rebuilt in place when another version of it is served."""
+    ALL_LESSONS[:] = [l["id"] for l in LESSONS]
+    READY_LESSONS[:] = [l["id"] for l in LESSONS if not l.get("soon")]
+    for table, rows in ((LESSON_LEVEL, {l["id"]: l["level"] for l in LESSONS}),
+                        (LESSON_TOPICS, {l: sum(c["lesson"] == l for c in CATEGORIES) for l in READY_LESSONS}),
+                        (WRITE_TOPICS, {c["id"]: c["write"]["lines"] for c in CATEGORIES if "write" in c}),
+                        (TOPIC_LESSON, {c["id"]: c["lesson"] for c in CATEGORIES})):
+        table.clear()
+        table.update(rows)
+
+
+on_serve(_rebuild_course_tables)
 MIGRATE_CLASSES = ("alter table public.classes add column if not exists nicknames jsonb not null default '{}', "
                    "add column if not exists lessons text[] not null default '{}', "
                    "add column if not exists homework text not null default '', add column if not exists due date, "
@@ -573,7 +589,7 @@ def practice_streak(rows: list[dict]) -> dict:
 
 
 def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
-               auth: SupabaseAuth | None = None, tutor: Tutor | None = None) -> FastAPI:
+               auth: SupabaseAuth | None = None, tutor: Tutor | None = None, course_store=None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.scorer = scorer or load_scorer(MODEL_ID)
@@ -603,6 +619,16 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 reload_scoring_rules(app.state.auth)
             except AuthUnavailable as e:   # no table yet: every rule stays on
                 log.warning("scoring rule switches not loaded: %s", e)
+        # the course: its published version from Supabase (course_store.py), loaded after start so that start is not
+        # held up; until it is in, the code workbook is served, which version 1 is
+        app.state.course = course_store or (course_versions.CourseStore(app.state.auth, COURSE_FIRST_ID)
+                                            if type(app.state.auth) is SupabaseAuth and app.state.auth.secret else None)
+        course_stop = threading.Event()
+        if app.state.course is not None:
+            def course_loop():
+                app.state.course.load()
+                app.state.course.poll_forever(course_stop)
+            threading.Thread(target=course_loop, name="course-versions", daemon=True).start()
         app.state.push = pushes.load_push(app.state.auth)
         reminders = (asyncio.create_task(pushes.loop(app.state.push, daily_today, lambda: datetime.now(LOCAL_TZ)))
                      if app.state.push and app.state.push.on else None)
@@ -624,6 +650,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                   else None)
         async with app.state.mcp_server.session_manager.run():
             yield
+        course_stop.set()
         for task in (reminders, status, streaks, backup):
             if task:
                 task.cancel()
@@ -4068,6 +4095,56 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if name not in KEY_NAMES:
             raise HTTPException(404, "unknown key")
         return name
+
+    # ---- the course's versions (course_store.py; the editor comes with add-teacher-course-authoring's group 5) ----
+
+    def course_store_of() -> "course_versions.CourseStore":
+        store = getattr(app.state, "course", None)
+        if store is None:
+            raise HTTPException(503, "גרסאות החוברת זמינות רק עם Supabase")
+        return store
+
+    @app.get("/api/course/status")
+    def course_status(a: SupabaseAuth = Depends(teacher_only)):
+        """Where the course being served comes from (code, cache or Supabase), its version, the SQL to run while the
+        tables do not exist, and the stored versions."""
+        store = course_store_of()
+        versions = []
+        if not store.setup:
+            try:
+                versions = store.auth.course_versions()
+            except AuthUnavailable as e:
+                log.warning("course versions not listed: %s", e)
+        return {**store.status(), "versions": versions}
+
+    @app.post("/api/course/publish")
+    def course_publish(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+                       user: dict | None = Depends(signed_in)):
+        """Publishes a stored version: {"number"} gives what it would change (the classes whose lessons or homework it
+        does not have) and publishes nothing; {"number", "confirm": true} publishes it, for every learner within
+        course_store.POLL_SECONDS. Logged with who published."""
+        store = course_store_of()
+        try:
+            number = int(body.get("number"))
+        except (TypeError, ValueError):
+            raise HTTPException(400, "מספר גרסה לא תקין")
+        try:
+            row = store.auth.course_version(number)
+            if row is None:
+                raise HTTPException(404, "אין גרסה כזו")
+            try:
+                affected = course_versions.affected_classes(row["document"], store.auth.classes(fresh=True))
+            except course_versions.course.CourseError as e:
+                raise HTTPException(409, f"הגרסה לא נבנית ואי אפשר לפרסם אותה: {e}")
+            if not body.get("confirm"):
+                return {"number": number, "status": row["status"], "affected_classes": affected, "published": False}
+            by = (user or {}).get("email", "")
+            store.publish(number, by)
+            store.auth.log_event("content", user, f"פרסום גרסה {number} של החוברת",
+                                 {"course_version": number, "affected_classes": [c["id"] for c in affected]})
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        return {"number": number, "published": store.number == number, "affected_classes": affected, **store.status()}
 
     @app.get("/api/admin/tutor-usage")
     def tutor_usage(days: int = Query(30, ge=1, le=90), a: SupabaseAuth = Depends(teacher_only)):

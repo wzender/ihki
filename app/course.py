@@ -283,6 +283,12 @@ def start(first_id: int) -> Compiled:
     return _current
 
 
+def use(doc: dict, compiled: Compiled) -> None:
+    """Makes a compiled document the course being served (course_store.py; phrases.serve swaps it into the app)."""
+    global _current, _document
+    _document, _current = doc, compiled
+
+
 def current() -> Compiled:
     """The course being served."""
     if _current is None:

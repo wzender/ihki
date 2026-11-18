@@ -160,11 +160,12 @@ CREATE_LEARNER_CLASS_STATE = (
 BACKUP_TABLES = (
     "dailies", "library", "library_sections", "videos", "texts", "classes", "writings", "tutors", "flags",
     "lab_samples", "calibrations", "scoring_rules", "user_access", "access_audit", "app_secrets",
-    "system_events", "tutor_chats", "model_settings",
+    "system_events", "tutor_chats", "model_settings", "course_versions", "course_lexicon",
 )
 BACKUP_NATURAL_KEYS = {"writings": "user_id,topic", "tutors": "email", "scoring_rules": "id",
                        "user_access": "user_id", "app_secrets": "name", "tutor_chats": "id",
-                       "model_settings": "model", "library_sections": "id"}
+                       "model_settings": "model", "library_sections": "id",
+                       "course_versions": "number", "course_lexicon": "word"}
 
 
 def _missing_tutor_chats(e: Exception) -> str:
@@ -501,11 +502,18 @@ class SupabaseAuth:
                     value = row.get(field, "")
                     if isinstance(value, str) and value.startswith("t") and value[1:].isdigit():
                         row[field] = "t" + str(text_ids.get(int(value[1:]), int(value[1:])))
+            published = None
+            if table == "course_versions":
+                published = next((r["number"] for r in rows if r.get("status") == "published"), None)
+                for row in rows:
+                    row["status"] = "history"   # one published version at a time: it is published again below
             if table in BACKUP_NATURAL_KEYS:
                 key = BACKUP_NATURAL_KEYS[table]
                 for start in range(0, len(rows), 200):
                     self._admin(f"/rest/v1/{table}?on_conflict={key}", "POST", rows[start:start + 200],
                                 prefer="resolution=merge-duplicates,return=minimal")
+                if published is not None:
+                    self.publish_course_version(published, "restore")
                 restored[table] = len(rows)
                 continue
             for original in rows:
@@ -1702,6 +1710,37 @@ class SupabaseAuth:
                         prefer="resolution=merge-duplicates,return=minimal")
         except AuthUnavailable as e:
             log.warning("a tutor conversation not kept: %s%s", e, _missing_tutor_chats(e))
+
+    # ---- the course's versions (course_store.py) ----
+
+    def course_published(self) -> dict | None:
+        """The published course version's number and when it was published, or None while there is none.
+        AuthUnavailable ("answered 404") before the table exists."""
+        rows = self._admin("/rest/v1/course_versions?select=number,published_at&status=eq.published") or []
+        return rows[0] if rows else None
+
+    def course_version(self, number: int) -> dict | None:
+        """One version, with its document."""
+        rows = self._admin(f"/rest/v1/course_versions?select=*&number=eq.{int(number)}") or []
+        return rows[0] if rows else None
+
+    def course_versions(self) -> list[dict]:
+        """Every version without its document, the newest first."""
+        return self._admin("/rest/v1/course_versions?select=number,status,note,created_by,created_at,updated_at,"
+                           "published_by,published_at&order=number.desc") or []
+
+    def add_course_version(self, number: int, status: str, document: dict, by: str, note: str = "") -> None:
+        """Stores a new version; ClassConflict (409) when its number, or a second published or draft one, exists."""
+        self._admin("/rest/v1/course_versions", "POST", {"number": int(number), "status": status, "document": document,
+                                                         "created_by": by, "note": note,
+                                                         **({"published_by": by, "published_at": datetime.now(timezone.utc).isoformat()}
+                                                            if status == "published" else {})},
+                    prefer="return=minimal")
+
+    def publish_course_version(self, number: int, by: str) -> None:
+        """Publishes a stored version, making the one published until now history, in one transaction."""
+        self._admin("/rest/v1/rpc/publish_course_version", "POST", {"p_number": int(number), "p_by": by},
+                    prefer="return=minimal")
 
     def tutor_usage_rows(self, since: datetime, limit: int = 20_000) -> list[dict]:
         """The tokens of every יאללה נדבר conversation begun since `since`: model, input_tokens, output_tokens, turns,

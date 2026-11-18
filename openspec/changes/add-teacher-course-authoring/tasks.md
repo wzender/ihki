@@ -10,11 +10,11 @@
 
 ## 2. Stored versions, publishing and the degraded paths
 
-- [ ] 2.1 Add the SQL for `course_versions` (one published row) and `course_lexicon`, shown in the panel until run, and `SupabaseAuth` methods to read, create, update and publish versions; verify with tests against a fake that only one version is ever published
-- [ ] 2.2 Import on first use: with the tables present and empty, store and publish the exported version 1; verify a test where the import leaves learner progress, class lessons and homework unchanged
-- [ ] 2.3 Load the published version on startup and every 30 s, compile it, swap it in with `phrases.serve` (which already replaces `PHRASES`, `PHRASE_BY_ID`, `LESSONS`, `LEVELS`, `CATEGORIES` in place) and rebuild what other modules compute from them at import (`main.WRITE_TOPICS`, the glossary, the tutor's vocabulary and lines, the camel race's pool, the scorer's and the lab's phrase tables), and write `data/course-cache.json`; serve the cache when Supabase is down and the code workbook when there is no cache; keep the last good version when a stored one fails to compile; verify each case with a test
-- [ ] 2.4 Publish and roll back (`/api/course/publish`), logging publisher and time to `system_events`, with affected classes computed before confirming and removed lessons/homework dropped from what classes show; verify tests for publish, re-publish of history, and a class whose homework topic was removed
-- [ ] 2.5 Add `course_versions` and `course_lexicon` to the daily backup (`BACKUP_TABLES`, with `BACKUP_NATURAL_KEYS` `id` and `word`), and make a restore keep exactly one published version; verify with a backup-and-restore test that brings back every version and the published one, and that a backup made before the tables existed still restores
+- [x] 2.1 Add the SQL for `course_versions` (one published row) and `course_lexicon`, shown in the panel until run, and `SupabaseAuth` methods to read, create, update and publish versions; verify with tests against a fake that only one version is ever published
+- [x] 2.2 Import on first use: with the tables present and empty, store and publish the exported version 1; verify a test where the import leaves learner progress, class lessons and homework unchanged
+- [x] 2.3 Load the published version on startup and every 30 s, compile it, swap it in with `phrases.serve` (which already replaces `PHRASES`, `PHRASE_BY_ID`, `LESSONS`, `LEVELS`, `CATEGORIES` in place) and rebuild what other modules compute from them at import (`main.WRITE_TOPICS`, the glossary, the tutor's vocabulary and lines, the camel race's pool, the scorer's and the lab's phrase tables), and write `data/course-cache.json`; serve the cache when Supabase is down and the code workbook when there is no cache; keep the last good version when a stored one fails to compile; verify each case with a test
+- [x] 2.4 Publish and roll back (`/api/course/publish`), logging publisher and time to `system_events`, with affected classes computed before confirming and removed lessons/homework dropped from what classes show; verify tests for publish, re-publish of history, and a class whose homework topic was removed
+- [x] 2.5 Add `course_versions` and `course_lexicon` to the daily backup (`BACKUP_TABLES`, with `BACKUP_NATURAL_KEYS` `id` and `word`), and make a restore keep exactly one published version; verify with a backup-and-restore test that brings back every version and the published one, and that a backup made before the tables existed still restores
 
 ## 3. Drafting, compiling on save, diff and preview
 
@@ -26,7 +26,7 @@
 
 ## 4. Permissions and the MCP
 
-- [ ] 4.1 Add `course.edit` and `course.publish` to `access.py`, given to Arabic-subject managers and developers; verify tests that a class teacher, a learner and a mathematics manager are refused and nothing is stored
+- [ ] 4.1 Add `course.edit` and `course.publish` to `access.py`, given to Arabic-subject managers and developers, and move `/api/course/status` and `/api/course/publish` (which use the managers' `teacher_only` until then) onto them; verify tests that a class teacher, a learner and a mathematics manager are refused and nothing is stored
 - [ ] 4.2 MCP read tools `get_course_outline` and `get_course_topic`; verify their outputs in `tests/test_grok_mcp.py` and update the tool-list assertions
 - [ ] 4.3 `prepare_course_change` / `publish_course_change` with every draft operation and `add_word`, using the existing single-use, manager-bound, ten-minute approvals; verify prepare changes nothing and publish applies exactly the previewed change
 - [ ] 4.4 `replace_topic_items` for a whole topic from a revised workbook page: match incoming items to existing ones (Hebrew similarity and position), keep matched keys, list deletions with learner counts; verify with a test that a reworded and reordered topic keeps every matched item's key

@@ -1656,6 +1656,35 @@ def test_a_score_stays_on_its_sentence_when_one_is_inserted_before_it(site):
     assert r["he"] == second["he"] and r["best"] == 91
     assert r["newSeq"] == 1 and r["oldSeq"] == 3
 
+COURSE_CARD = """
+await sleep(1200);
+document.getElementById("toManage").click(); await sleep(300);
+document.querySelector('#mModes [data-mode="flags"]').click();
+await until(()=>document.querySelector("#mFlags .course-status .meta, #mFlags .course-status code"),8000);
+await until(()=>!document.querySelector("#mFlags .course-status").textContent.includes("טוען"),8000);
+const card=document.querySelector("#mFlags .course-status");
+out.text=card.textContent; out.sql=card.querySelector("code")?.textContent||"";
+"""
+
+
+def test_monitoring_offers_the_sql_for_the_course_versions_until_it_is_run(monkeypatch, tmp_path):
+    """Without the course tables the card says the code workbook is served and gives the SQL."""
+    from app import course_store
+    from tests.test_course_store import VersionsAuth
+    store = course_store.CourseStore(VersionsAuth(missing=True), 441, cache=tmp_path / "c.json")
+    store.load()
+    import tests.test_learner_home_browser as me
+    gen = me.serve(me.PageAuth(), monkeypatch, tmp_path)
+    import app.main as main
+    real = main.create_app
+    monkeypatch.setattr(main, "create_app", lambda *a, **k: real(*a, **{**k, "course_store": store}))
+    run = next(gen)
+    try:
+        r = run("boss@x.com", COURSE_CARD)
+    finally:
+        next(gen, None)
+    assert "מקור: החוברת שבקוד" in r["text"] and "create table public.course_versions" in r["sql"]
+
 SETTINGS = """
 await until(()=>document.querySelector("#vids .focus-set"),6000);
 const set=document.querySelector("#vids .focus-set"), box=document.getElementById("autoNextOn");

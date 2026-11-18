@@ -5,7 +5,7 @@ import os
 
 from .auth import AuthUnavailable, SupabaseAuth
 from . import library
-from .phrases import LESSONS
+from .phrases import LESSONS, on_serve
 from .library import ENTITLEMENT_PREFIX, LEGACY_SECTION, SECTION_ENTITLEMENTS, SEED_HOLDERS, visible_sections
 
 
@@ -14,6 +14,14 @@ DEFAULT_ROLES = ("student", "flagger")
 # "library" is the permission from before the library had sections: it opens what the library held then, שלב א.
 # A section's permission is "lib:<section id>" (library.SECTIONS); a section's covers its sub-sections.
 _LESSON_LEVEL = {lesson["id"]: lesson["level"] for lesson in LESSONS}
+
+
+def _rebuild_lesson_levels() -> None:   # another version of the course is served (phrases.serve)
+    _LESSON_LEVEL.clear()
+    _LESSON_LEVEL.update({lesson["id"]: lesson["level"] for lesson in LESSONS})
+
+
+on_serve(_rebuild_lesson_levels)
 ENTITLEMENTS = frozenset({"practice", "games", "tutor", "path", "library", *SECTION_ENTITLEMENTS})
 DEFAULT_ENTITLEMENTS = frozenset({"practice", "games", "path", "library"})
 LEGACY_LIBRARY = {"library": ENTITLEMENT_PREFIX + LEGACY_SECTION}

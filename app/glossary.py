@@ -7,7 +7,7 @@ taught in. A word the course has only inside sentences has no entry yet, and is 
 """
 from __future__ import annotations
 
-from .phrases import CATEGORIES, LESSONS, PHRASES
+from .phrases import CATEGORIES, LESSONS, PHRASES, on_serve
 from .texts import VOWEL_OF, _clusters, _key
 
 MAX_WORDS = 3
@@ -69,6 +69,16 @@ def _entries() -> dict[str, dict]:
 
 ENTRIES = _entries()
 BY_ID = {e["id"]: e for e in ENTRIES.values()}
+
+
+def _rebuild() -> None:   # another version of the course is served (phrases.serve)
+    ENTRIES.clear()
+    ENTRIES.update(_entries())
+    BY_ID.clear()
+    BY_ID.update({e["id"]: e for e in ENTRIES.values()})
+
+
+on_serve(_rebuild)
 
 
 def annotate(tr: str) -> list[dict]:

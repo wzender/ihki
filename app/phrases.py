@@ -133,7 +133,8 @@ for _id, _p in enumerate(PHRASES):   # these phrases' ids are their places, as t
 # stored, the code workbook's, see workbook.py). Each phrase carries its own id and key, fixed when its item was made.
 # ---- משחקים ---- the games' phrases stay in code, in the range the course document reserves for them.
 _FIXED = list(PHRASES)   # the phrases outside the course, ids 0 to len - 1
-_COURSE_START = course.start(first_id=len(_FIXED))
+COURSE_FIRST_ID = len(_FIXED)   # the code workbook's first phrase id: version 1 is exported from here (course_store.py)
+_COURSE_START = course.start(first_id=COURSE_FIRST_ID)
 _GAMES = game_phrases()
 _game_ids = range(*course.document()["reserved"][0])
 assert len(_GAMES) == len(_game_ids), "the games' phrases no longer fit the range the course reserves for them"
@@ -150,6 +151,15 @@ CATEGORIES: list[dict] = []
 GAMES = [*WORKBOOK_GAMES]
 
 
+_SERVED: list = []   # what other modules compute from the course at import: rebuilt each time a course is served
+
+
+def on_serve(rebuild) -> None:
+    """Runs `rebuild()` each time a course is served from now on (a module that keeps tables built from the lessons
+    or the phrases registers here, and rebuilds them in place)."""
+    _SERVED.append(rebuild)
+
+
 def serve(compiled: "course.Compiled") -> None:
     """Serves a compiled course: its lessons, topics and phrases, with the phrases outside it and the games' (whose
     ids its document reserves). The page asks for a lesson first, then one of its categories. The phrases that
@@ -159,6 +169,8 @@ def serve(compiled: "course.Compiled") -> None:
     PHRASE_BY_ID.clear()
     PHRASE_BY_ID.update((p["id"], p) for p in PHRASES)
     LEVELS[:], LESSONS[:], CATEGORIES[:] = compiled.levels, compiled.lessons, compiled.categories
+    for rebuild in _SERVED:
+        rebuild()
 
 
 def phrase_by_id(phrase_id: int) -> dict | None:

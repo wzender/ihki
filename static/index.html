@@ -106,6 +106,8 @@ body.home:not([data-view]) #feedbackBtn{display:none}
 .fb-shot{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.fb-shot>span{display:flex;gap:8px;align-items:center}.fb-shot>span[hidden]{display:none}
 .fb-shot img{max-height:72px;max-width:120px;border-radius:8px;border:1px solid var(--line);object-fit:cover}
 .fb-inbox .fb-image{display:inline-block;margin:4px 0}.fb-inbox .fb-image img{max-height:160px;max-width:min(100%,260px);border-radius:8px;border:1px solid var(--line);display:block}
+.course-status code{display:block;white-space:pre-wrap;word-break:break-all;font-size:12px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px;max-height:220px;overflow:auto}
+.course-versions{margin:4px 0;padding-inline-start:20px;font-size:14px}
 .tutor-usage select{margin:0 0 8px}.usage-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:6px 0}
 .usage-tile{border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--surface);display:flex;flex-direction:column;gap:2px}.usage-tile b{font-size:20px}.usage-tile small{color:var(--muted)}
 .usage-models{margin:6px 0;padding-inline-start:20px;font-size:14px}.usage-days{border-collapse:collapse;font-size:14px;margin:6px 0}.usage-days :is(td,th){padding:3px 8px;border-bottom:1px solid var(--line);text-align:start}
@@ -7761,6 +7763,7 @@ function drawFlags(){
   drawStreakTeam(box);
   drawBackupControls(box);
   drawApiKeys(box);
+  drawCourseStatus(box);
   drawTutorUsage(box);
   drawSystemActivity(box);
   drawTtsCacheControls(box);
@@ -8061,6 +8064,37 @@ function drawStreakTeam(box){
   const list=mark("streak-list","");
   students.forEach((student,index)=>{ const nick=Object.values(student.classes||{}).find(Boolean), name=student.name||nick||student.email, row=mark("streak-player",""); row.append(mark("streak-rank",index+1),mark("",name,"b"),mark("",`🔥 ${student.streak.current} ימים · שיא אישי ${student.streak.best}`,"small")); row.title=student.email; list.append(row); });
   card.append(list); box.append(card);
+}
+
+/* The course being served (GET /api/course/status): from Supabase's published version, its copy on the server, or the
+   code workbook; the SQL to run while the course tables do not exist; the stored versions. Editing comes later. */
+let COURSE_STATUS=null, courseStatusLoading=false, courseStatusError="";
+function drawCourseStatus(box){
+  const card=mark("card course-status",""); card.append(mark("","📚 חוברת הקורס","h2")); box.append(card);
+  const body=mark("",""); card.append(body);
+  const from={supabase:"Supabase",cache:"עותק שמור בשרת (Supabase לא זמין)",code:"החוברת שבקוד"};
+  function draw(){
+    body.replaceChildren();
+    if(courseStatusError){ body.append(mark("meta",courseStatusError,"p")); return; }
+    if(!COURSE_STATUS){
+      body.append(mark("meta","טוען…","p"));
+      if(!courseStatusLoading){ courseStatusLoading=true;
+        api("/api/course/status").then(async res=>{ const d=await res.json().catch(()=>({})); if(!res.ok) throw new Error(d.detail||res.status); COURSE_STATUS=d; })
+          .catch(e=>{ courseStatusError=e.message; }).finally(()=>{ courseStatusLoading=false; if(card.isConnected) draw(); }); }
+      return;
+    }
+    const st=COURSE_STATUS;
+    body.append(mark("meta",`מקור: ${from[st.source]||st.source}`+(st.number?` · גרסה ${st.number}`:""),"p"));
+    if(st.error) body.append(mark("note",st.error,"p"));
+    if(st.setup){ body.append(mark("meta","כדי שהחוברת תישמר בגרסאות, הריצו פעם אחת ב-SQL Editor של Supabase. החוברת שבקוד תישמר אוטומטית כגרסה 1, והתלמידים לא יראו שינוי:","p"));
+      const code=mark("",st.setup,"code"); code.dir="ltr"; body.append(code); return; }
+    if((st.versions||[]).length){
+      const list=mark("course-versions","","ul");
+      for(const v of st.versions) list.append(mark("",`גרסה ${v.number} · ${{published:"מפורסמת",draft:"טיוטה",history:"היסטוריה"}[v.status]||v.status}${v.note?` · ${v.note}`:""}`,"li"));
+      body.append(list);
+    }
+  }
+  draw();
 }
 
 /* יאללה נדבר: what its conversations cost (GET /api/admin/tutor-usage): the period's conversations, sentences, tokens

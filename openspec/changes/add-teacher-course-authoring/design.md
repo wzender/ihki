@@ -40,8 +40,12 @@ See proposal.md for why. What the design has to work around today:
 
 ### 1. One JSON document per version, not normalized tables
 
-`course_versions(id, number, status, document jsonb, compiled_hash, created_by, created_at, published_by, published_at,
-note)`, with `status` one of `draft`, `published`, `history`, and a partial unique index allowing one `published` row.
+`course_versions(number primary key, status, document jsonb, note, created_by, created_at, updated_at, published_by,
+published_at)`, with `status` one of `draft`, `published`, `history`, and partial unique indexes allowing one `published`
+and one `draft` row. The version's number is its key (no generated id), so the daily backup restores it by number.
+Publishing goes through a SQL function, `publish_course_version(number, by)`, which makes the published row history and
+publishes the new one in one transaction; a restore puts every version back as history and publishes the backup's
+published one through the same function.
 The document holds levels → lessons → topics → items, plus `next_item_id`.
 
 *Why:* a course version is read whole, compiled whole, diffed whole and published atomically. Rolling back is
@@ -80,7 +84,11 @@ The games' phrases stay in code, between the lessons' and the "learn" cards' ids
 The published compiled course replaces the module-level `CATEGORIES`/`PHRASES` the app reads: `phrases.serve`
 changes those lists' contents in place, so every module that imported them sees the new course without a change to how
 it imports (`course.current()` gives the compiled course itself). It is refreshed when `course_versions` changes (checked every 30 s, and at once after a publish on this
-process). The compiled result is written to `data/course-cache.json` for the degraded case.
+process). The published document is written to a cache file for the degraded case: `COURSE_CACHE`, else the Space's persistent
+storage (`/data`) when it is mounted, else `~/.cache/ihki/` (which lasts only as long as the container).
+The store (`app/course_store.py`) loads in a background thread after the app starts, so start is not held up; until it
+is in, the code workbook is served, which version 1 is. It runs only with a real Supabase connection with the secret
+key, or with a store passed to `create_app` (tests).
 
 *Why:* the rest of the app keeps its data shapes; only where they come from changes. Compiling on save gives the
 editor immediate feedback; compiling on load is a second safety net.

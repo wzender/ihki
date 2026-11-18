@@ -37,7 +37,7 @@ import urllib.request
 import uuid
 from dataclasses import dataclass, field
 
-from .phrases import CATEGORIES, LESSONS, PHRASES
+from .phrases import CATEGORIES, LESSONS, PHRASES, on_serve
 from .workbook import LEX
 
 log = logging.getLogger("ihki.tutor")
@@ -163,6 +163,15 @@ BY_ID = {s["id"]: s for s in SCENARIOS}
 READY = [l["id"] for l in LESSONS if not l.get("soon")]
 LESSON_OF = {c["id"]: c["lesson"] for c in CATEGORIES}
 LEARN = {c["id"] for c in CATEGORIES if c.get("learn")}
+
+
+def _rebuild_course_tables() -> None:   # another version of the course is served (phrases.serve)
+    READY[:] = [l["id"] for l in LESSONS if not l.get("soon")]
+    LESSON_OF.clear()
+    LESSON_OF.update({c["id"]: c["lesson"] for c in CATEGORIES})
+    LEARN.clear()
+    LEARN.update(c["id"] for c in CATEGORIES if c.get("learn"))
+    vocabulary.cache_clear()
 TASHKEEL = re.compile(r"[ً-ْٰـ]")
 PUNCT = "،؟!.,:;\"'()«»…-"
 ARABIC = re.compile(r"[ء-ي]")
@@ -615,3 +624,6 @@ def load_tutor(key: str | None = None, model: str | None = None, gemini_key: str
 def tutor_open() -> bool:
     """Whether every student gets the game, and not only the teachers."""
     return os.environ.get("TUTOR_OPEN", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+on_serve(_rebuild_course_tables)   # after `vocabulary`, whose cache it clears
