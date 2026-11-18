@@ -119,7 +119,11 @@ def tutor_note(body: object, scenario: str, model: str) -> dict:
     message = " ".join(str(body.get("message") or "").split())
     if len(message) > MAX_MESSAGE:
         raise FeedbackError(f"עד {MAX_MESSAGE} תווים")
-    item = _text(f"{scenario} · ערבית מדוברת {spoken}/5 · {model}", MAX_CONTEXT)
+    # the model is the note's point (which one the conversation ran on): it is kept whole, and the scenario is what is
+    # shortened when the line is long
+    model = _text(model, 60) or "unknown"
+    tail = f" · ערבית מדוברת {spoken}/5 · {model}"
+    item = _text(scenario, MAX_CONTEXT - len(tail)) + tail
     return {"kind": TUTOR_KIND, "rating": quality, "message": message, "screen": "tutor", "item": item,
             "version": _text(body.get("version"), 20)}
 

@@ -115,6 +115,7 @@ body.home:not([data-view]) #feedbackBtn{display:none}
 .tc-fb-scale button[aria-pressed=true]{background:var(--olive);border-color:var(--olive);color:#fff}
 .tc-fb-ends{display:flex;justify-content:space-between;color:var(--muted)}.tc-fb textarea{font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink);resize:vertical}
 .tc-fb-note:empty{display:none}
+.fb-inbox .fb-model{order:-1;padding:1px 8px;border-radius:999px;background:var(--olive-soft);color:var(--ink);font-weight:700;direction:ltr}
 .fb-note{margin:0;min-height:1.3em;color:var(--muted);font-size:14px}
 .fb-inbox .fb-item{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-bottom:1px solid var(--line)}.fb-inbox .fb-item.done{opacity:.55}.fb-inbox .fb-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--muted)}.fb-inbox .fb-msg{white-space:pre-wrap;overflow-wrap:anywhere}.fb-inbox .fb-actions{display:flex;gap:8px}.fb-inbox .fb-group{border-top:1px solid var(--line);padding-top:6px;margin-top:6px}.fb-inbox .fb-group>summary{cursor:pointer;font-weight:700;padding:6px 0}
 #myClass:empty+.help{margin-inline-start:auto}
@@ -7402,6 +7403,8 @@ function drawFeedbackInbox(box){
 const FEEDBACK_GROUPS=[["new","חדשים"],["read","נקראו"],["done","טופלו"]], feedbackOpen={};
 function feedbackItem(r){   // one note in the inbox: who and where, the message, the conversation, its status buttons and an answer box
   const item=mark("fb-item"+(r.status==="done"?" done":""),""), head=mark("fb-head","");
+  const tutorModel=r.screen==="tutor"&&(r.item||"").split(" · ").pop();   // a note on a יאללה נדבר conversation ends with its model
+  if(tutorModel) head.append(mark("fb-model","מודל: "+tutorModel,"span"));
   head.append(mark("flag-kind",FEEDBACK_KINDS[r.kind]||r.kind),mark("",r.rating?"★".repeat(r.rating):""),mark("",r.email),mark("",[r.screen,r.item].filter(Boolean).join(" · ")),mark("",new Date(r.created_at).toLocaleString("he-IL")));
   item.append(head);
   if(r.message) item.append(mark("fb-msg",r.message,"p"));

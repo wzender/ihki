@@ -323,3 +323,10 @@ def test_before_the_table_has_the_tutor_kind_the_note_is_kept_as_an_idea(monkeyp
                       headers=bearer("teacher")).status_code == 200
     (note,) = auth.notes
     assert note["kind"] == "idea" and note["screen"] == "tutor" and note["rating"] == 5
+
+
+def test_a_long_scenario_name_is_shortened_and_the_model_is_kept_whole():
+    from app import feedback
+    row = feedback.tutor_note({"quality": 3, "spoken": 4}, "תרחיש " * 40, "claude-sonnet-5-5")
+    assert len(row["item"]) <= feedback.MAX_CONTEXT and row["item"].endswith(" · ערבית מדוברת 4/5 · claude-sonnet-5-5")
+    assert feedback.tutor_note({"quality": 3, "spoken": 4}, "שוק", "")["item"].endswith("· unknown")

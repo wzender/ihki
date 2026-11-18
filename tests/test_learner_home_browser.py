@@ -1574,6 +1574,23 @@ def test_the_conversations_end_asks_how_it_went_and_sends_it(site):
     assert r["sent"] == [["/api/tutor/feedback", {"id": "chat-1", "quality": 4, "spoken": 2, "message": "קצת פורמלי"}]]
     assert r["after"] == "תודה! המשוב נשלח 🙏"
 
+TUTOR_NOTE_MODEL = """
+await sleep(1200);
+document.getElementById("toManage").click(); await sleep(300);
+document.querySelector('#mModes [data-mode="feedback"]').click();
+await until(()=>document.querySelector("#mFeedback .fb-item"),6000);
+out.chips=[...document.querySelectorAll("#mFeedback .fb-item")].map(i=>i.querySelector(".fb-model")?.textContent||null);
+out.kind=document.querySelector("#mFeedback .fb-item .flag-kind").textContent;
+"""
+
+
+def test_a_note_on_a_tutor_conversation_shows_its_model(site):
+    site.auth.notes = [note(id=1, kind="tutor", screen="tutor", rating=4, message="טבעי",
+                            item="בבית הקפה · ערבית מדוברת 5/5 · claude-sonnet-5-5"),
+                       note(id=2, created_at="2026-11-09T08:00:00+00:00")]
+    r = site("boss@x.com", TUTOR_NOTE_MODEL)
+    assert r["chips"] == ["מודל: claude-sonnet-5-5", None] and r["kind"] == "💬 יאללה נדבר"
+
 SETTINGS = """
 await until(()=>document.querySelector("#vids .focus-set"),6000);
 const set=document.querySelector("#vids .focus-set"), box=document.getElementById("autoNextOn");
