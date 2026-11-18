@@ -15,6 +15,7 @@ from collections import defaultdict, deque
 from datetime import datetime, timezone
 
 KINDS = frozenset({"problem", "idea", "score", "praise"})
+TUTOR_KIND = "tutor"   # a note on a יאללה נדבר conversation, sent from its end (see `tutor_note`)
 STATUSES = frozenset({"new", "read", "done"})
 MAX_MESSAGE = 1000
 MAX_CONTEXT = 120
@@ -25,7 +26,7 @@ PER_HOUR = 10   # a user's notes in an hour: enough for a real session, not for 
 
 CREATE_FEEDBACK = ("create table public.feedback (id bigint generated always as identity primary key, "
                    "user_id uuid references auth.users(id) on delete set null, email text not null, "
-                   "kind text not null check (kind in ('problem','idea','score','praise')), "
+                   "kind text not null check (kind in ('problem','idea','score','praise','tutor')), "
                    "rating smallint check (rating between 1 and 5), message text not null default '', "
                    "screen text not null default '', item text not null default '', version text not null default '', "
                    "status text not null default 'new' check (status in ('new','read','done')), "
@@ -94,6 +95,33 @@ def screenshot(value: object) -> tuple[bytes, str, str] | None:
     if not data or len(data) > MAX_IMAGE or not data.startswith(magic) or (ext == "webp" and data[8:12] != b"WEBP"):
         raise FeedbackError("התמונה אינה תקינה" if data and len(data) <= MAX_IMAGE else "התמונה גדולה מדי")
     return data, f"{uuid.uuid4().hex}.{ext}", m.group(1)
+
+
+# a table made before the tutor's own notes: the kind they are kept as (until then they are kept as ideas)
+MIGRATE_FEEDBACK_TUTOR = ("alter table public.feedback drop constraint if exists feedback_kind_check; "
+                          "alter table public.feedback add constraint feedback_kind_check check "
+                          "(kind in ('problem','idea','score','praise','tutor')); notify pgrst, 'reload schema';")
+
+
+def _scale(value: object, what: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 5:
+        raise FeedbackError(f"{what}: בחרו בין 1 ל-5")
+    return value
+
+
+def tutor_note(body: object, scenario: str, model: str) -> dict:
+    """The row of a note on a יאללה נדבר conversation: {quality, spoken, message?}. `rating` is the conversation's
+    quality; how much it was the spoken Arabic is kept, with the scenario and the model, in `item`; FeedbackError when
+    the two answers are not 1-5 or the text is too long."""
+    if not isinstance(body, dict):
+        raise FeedbackError("הבקשה אינה תקינה")
+    quality, spoken = _scale(body.get("quality"), "איכות השיחה"), _scale(body.get("spoken"), "ערבית מדוברת")
+    message = " ".join(str(body.get("message") or "").split())
+    if len(message) > MAX_MESSAGE:
+        raise FeedbackError(f"עד {MAX_MESSAGE} תווים")
+    item = _text(f"{scenario} · ערבית מדוברת {spoken}/5 · {model}", MAX_CONTEXT)
+    return {"kind": TUTOR_KIND, "rating": quality, "message": message, "screen": "tutor", "item": item,
+            "version": _text(body.get("version"), 20)}
 
 
 class RateLimit:

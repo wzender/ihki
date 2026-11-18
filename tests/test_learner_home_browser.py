@@ -1549,6 +1549,31 @@ def test_monitoring_shows_what_the_tutor_cost(site):
     assert r["models"][0].startswith("claude-sonnet-5-5: שיחה אחת") and r["models"][0].endswith("$0.40")
     assert r["rows"] == 2   # the header and today
 
+TUTOR_FEEDBACK_FORM = """
+await sleep(800);
+tc={id:"chat-1"}; const form=tcFeedback(); document.body.append(form);
+out.intro=form.querySelector("p").textContent;
+out.questions=[...form.querySelectorAll(".tc-fb-q b")].map(b=>b.textContent);
+const sent=[]; window.fetch=async(url,opts={})=>{ sent.push([String(url).replace(location.origin,""),JSON.parse(opts.body)]); return new Response('{"ok":true}',{status:200}); };
+form.requestSubmit(); await sleep(100); out.unanswered=form.querySelector(".tc-fb-note").textContent; out.before=sent.length;
+const [q,sp]=form.querySelectorAll(".tc-fb-scale");
+q.children[3].click(); sp.children[1].click(); out.pressed=[...sp.children].map(b=>b.getAttribute("aria-pressed"));
+form.querySelector("textarea").value="קצת פורמלי"; form.requestSubmit();
+await until(()=>form.textContent.includes("תודה"),3000);
+out.sent=sent; out.after=form.textContent;
+"""
+
+
+def test_the_conversations_end_asks_how_it_went_and_sends_it(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", TUTOR_FEEDBACK_FORM)
+    assert "פיצ'ר בהרצה" in r["intro"]
+    assert r["questions"] == ["איך הייתה השיחה?", "כמה זו הייתה ערבית מדוברת אמיתית?"]
+    assert r["unanswered"] == "בחרו ציון בשתי השאלות." and r["before"] == 0
+    assert r["pressed"] == ["false", "true", "false", "false", "false"]
+    assert r["sent"] == [["/api/tutor/feedback", {"id": "chat-1", "quality": 4, "spoken": 2, "message": "קצת פורמלי"}]]
+    assert r["after"] == "תודה! המשוב נשלח 🙏"
+
 SETTINGS = """
 await until(()=>document.querySelector("#vids .focus-set"),6000);
 const set=document.querySelector("#vids .focus-set"), box=document.getElementById("autoNextOn");

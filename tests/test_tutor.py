@@ -274,3 +274,52 @@ def test_the_gemini_key_alone_turns_the_game_on(monkeypatch):
     tutor = load_tutor()
     assert (tutor.client, tutor.gemini_key, tutor.model) == (None, "AIza-test", GEMINI_DEFAULT_MODEL)
     assert load_tutor("sk-ant-x", "", "AIza-test").model == DEFAULT_MODEL   # with both keys, Claude stays the default
+
+
+# --- the feedback form at a conversation's end --------------------------------------------------------------------
+
+class NotesAuth(TutorAuth):
+    """Keeps the feedback notes; `old_table`: the table's kind check is the one from before the tutor's own kind."""
+
+    def __init__(self, old_table=False):
+        super().__init__()
+        self.notes, self.old_table = [], old_table
+
+    def add_feedback(self, row):
+        from app.auth import AuthUnavailable
+        if self.old_table and row["kind"] == "tutor":
+            raise AuthUnavailable('supabase answered 400: new row violates check constraint "feedback_kind_check" (23514)')
+        self.notes.append(dict(row))
+
+
+def test_a_note_on_a_finished_conversation_joins_the_feedback_with_its_scenario_and_model(monkeypatch):
+    monkeypatch.delenv("TUTOR_OPEN", raising=False)
+    auth = NotesAuth()
+    with client(auth, FakeClient()) as c:
+        chat = start(c).json()
+        sent = c.post("/api/tutor/feedback", json={"id": chat["id"], "quality": 4, "spoken": 2, "message": " יותר  מדי פורמלי "},
+                      headers=bearer("teacher"))
+        assert sent.status_code == 200 and sent.json() == {"ok": True}
+        (note,) = auth.notes
+        assert (note["kind"], note["rating"], note["screen"], note["message"]) == ("tutor", 4, "tutor", "יותר מדי פורמלי")
+        assert note["item"] == f"{BY_ID['l2']['title']} · ערבית מדוברת 2/5 · {DEFAULT_MODEL}" and note["email"] == "t@b.c"
+        bad = [c.post("/api/tutor/feedback", json={"id": chat["id"], **body}, headers=bearer("teacher")).status_code
+               for body in ({"quality": 0, "spoken": 3}, {"quality": 3}, {"quality": True, "spoken": 3},
+                            {"quality": 3, "spoken": 3, "message": "x" * 1001})]
+        assert bad == [400, 400, 400, 400]
+        assert c.post("/api/tutor/feedback", json={"id": chat["id"], "quality": 3, "spoken": 3},
+                      headers=bearer("other")).status_code in (403, 410)   # not theirs to tell about
+        assert c.post("/api/tutor/feedback", json={"id": "gone", "quality": 3, "spoken": 3},
+                      headers=bearer("teacher")).status_code == 410
+        assert len(auth.notes) == 1
+
+
+def test_before_the_table_has_the_tutor_kind_the_note_is_kept_as_an_idea(monkeypatch):
+    monkeypatch.delenv("TUTOR_OPEN", raising=False)
+    auth = NotesAuth(old_table=True)
+    with client(auth, FakeClient()) as c:
+        chat = start(c).json()
+        assert c.post("/api/tutor/feedback", json={"id": chat["id"], "quality": 5, "spoken": 5},
+                      headers=bearer("teacher")).status_code == 200
+    (note,) = auth.notes
+    assert note["kind"] == "idea" and note["screen"] == "tutor" and note["rating"] == 5

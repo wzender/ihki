@@ -1693,7 +1693,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             return HTTPException(503, f"הטבלה feedback לא קיימת. הריצו ב-SQL Editor: {feedback_notes.CREATE_FEEDBACK}")
         return HTTPException(503, f"Supabase לא זמין: {e}")
 
-    FEEDBACK_LABELS = {"problem": "משהו לא עובד", "score": "ציון לא נכון", "idea": "רעיון", "praise": "אהבו"}
+    FEEDBACK_LABELS = {"problem": "משהו לא עובד", "score": "ציון לא נכון", "idea": "רעיון", "praise": "אהבו",
+                       "tutor": "יאללה נדבר"}
 
     def notify_developers(row: dict) -> None:
         """A push to the developers' devices for a new note; never raises: the note is kept whatever happens here."""
@@ -1766,8 +1767,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         try:
             rows = a.list_feedback(status or None)
             # a table made before screenshots has no `image` column: its rows say so, and the panel shows the SQL
+            # a tutor note kept as an idea: the table has no tutor kind yet, and the panel shows the SQL that adds it
             return {"feedback": rows, **({"image_setup": feedback_notes.MIGRATE_FEEDBACK_IMAGE}
-                                         if rows and not any("image" in r for r in rows) else {})}
+                                         if rows and not any("image" in r for r in rows) else {}),
+                    **({"tutor_setup": feedback_notes.MIGRATE_FEEDBACK_TUTOR}
+                       if any(r.get("kind") == "idea" and r.get("screen") == "tutor" for r in rows) else {})}
         except AuthUnavailable as e:
             if "answered 404" in str(e):
                 return {"feedback": [], "setup": feedback_notes.CREATE_FEEDBACK}
@@ -3612,6 +3616,39 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if user and app.state.auth:
             tasks.add_task(app.state.auth.save_tutor_chat, chat.row())
         return result
+
+    @app.post("/api/tutor/feedback", dependencies=[Depends(require("tutor.use"))])
+    def tutor_feedback(background: BackgroundTasks, body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        """A note on a conversation, from its end: {id, quality, spoken, message?} (see feedback.tutor_note). It joins
+        the panel's feedback, with the conversation's scenario and model."""
+        if not user or not app.state.auth:
+            raise HTTPException(503, "המשוב נשמר רק למשתמשים מחוברים")
+        t = tutor_for(user)
+        chat = t.get(str(body.get("id", "")), user["id"]) if isinstance(body, dict) else None
+        if chat is None:
+            raise HTTPException(410, "השיחה הזו כבר לא פעילה, ולכן אי אפשר לשלוח עליה משוב.")
+        sc = BY_ID.get(chat.scenario) or {}
+        try:
+            row = feedback_notes.tutor_note(body, sc.get("title") or chat.scenario, chat.model)
+        except feedback_notes.FeedbackError as e:
+            raise HTTPException(400, str(e))
+        if not feedback_limit.allow(str(user["id"])):
+            raise HTTPException(429, "שלחתם הרבה הודעות בשעה האחרונה. נסו שוב מאוחר יותר.")
+        full = {**row, "user_id": user["id"], "email": user["email"].lower()}
+        try:
+            try:
+                app.state.auth.add_feedback(full)
+            except AuthUnavailable as e:
+                if not any(mark in str(e).lower() for mark in ("check constraint", "23514", "feedback_kind_check")):
+                    raise
+                log.warning("feedback has no tutor kind yet: %s", feedback_notes.MIGRATE_FEEDBACK_TUTOR)
+                full["kind"] = row["kind"] = "idea"
+                app.state.auth.add_feedback(full)
+        except AuthUnavailable as e:
+            log.warning("tutor feedback not kept: %s", e)
+            raise feedback_error(e)
+        background.add_task(notify_developers, {**row, "email": user["email"].lower()})
+        return {"ok": True}
 
     @app.get("/api/health")
     def health():

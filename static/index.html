@@ -109,6 +109,12 @@ body.home:not([data-view]) #feedbackBtn{display:none}
 .tutor-usage select{margin:0 0 8px}.usage-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:6px 0}
 .usage-tile{border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--surface);display:flex;flex-direction:column;gap:2px}.usage-tile b{font-size:20px}.usage-tile small{color:var(--muted)}
 .usage-models{margin:6px 0;padding-inline-start:20px;font-size:14px}.usage-days{border-collapse:collapse;font-size:14px;margin:6px 0}.usage-days :is(td,th){padding:3px 8px;border-bottom:1px solid var(--line);text-align:start}
+.tc-fb{display:flex;flex-direction:column;gap:10px;text-align:start}.tc-fb h3{margin:0}.tc-fb p{margin:0}
+.tc-fb-q{display:flex;flex-direction:column;gap:4px}.tc-fb-scale{display:flex;gap:6px}
+.tc-fb-scale button{flex:1;min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 16px/1 var(--f-body);cursor:pointer}
+.tc-fb-scale button[aria-pressed=true]{background:var(--olive);border-color:var(--olive);color:#fff}
+.tc-fb-ends{display:flex;justify-content:space-between;color:var(--muted)}.tc-fb textarea{font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink);resize:vertical}
+.tc-fb-note:empty{display:none}
 .fb-note{margin:0;min-height:1.3em;color:var(--muted);font-size:14px}
 .fb-inbox .fb-item{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-bottom:1px solid var(--line)}.fb-inbox .fb-item.done{opacity:.55}.fb-inbox .fb-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--muted)}.fb-inbox .fb-msg{white-space:pre-wrap;overflow-wrap:anywhere}.fb-inbox .fb-actions{display:flex;gap:8px}.fb-inbox .fb-group{border-top:1px solid var(--line);padding-top:6px;margin-top:6px}.fb-inbox .fb-group>summary{cursor:pointer;font-weight:700;padding:6px 0}
 #myClass:empty+.help{margin-inline-start:auto}
@@ -3774,12 +3780,50 @@ function tcSend(text){   // the student's sentence goes at once; false when it c
         const end=mark("tc-sys end","","div"); end.append(mark("","סיכום השיחה","h3"));
         if(d.summary) end.append(mark("",d.summary,"p"));
         const again=mark("btn primary","שיחה חדשה","button"); again.onclick=()=>openTutorChat(tc.s);
-        end.append(again); tc.log.append(end); tcScroll();
+        const tell=mark("btn","💬 משוב על השיחה","button"); tell.onclick=()=>{ tell.remove(); end.after(tcFeedback()); tcScroll(); };
+        end.append(again,tell); tc.log.append(end); tcScroll();
       }
       tcLock(false);
     })
     .catch(()=>{ if(!tc) return; typing.remove(); mine.remove(); tcNote("השרת לא זמין. נסו שוב.","bad"); tcLock(false); });
   return true;
+}
+/* The end of a conversation asks, once, how it went: יאללה נדבר is in a trial run. How good the conversation was and
+   how much it was the spoken Arabic (each 1-5), and a few words; it joins the panel's feedback (POST /api/tutor/feedback),
+   with the scenario and the model. */
+function tcFeedback(){
+  const box=mark("tc-sys tc-fb","","form"), id=tc.id, answers={quality:null,spoken:null};
+  box.append(mark("","משוב על השיחה","h3"),
+    mark("","יאללה נדבר הוא פיצ'ר בהרצה. נשמח לשמוע איך היה, כדי לשפר אותו.","p"));
+  const scale=(key,question,low,high)=>{
+    const row=mark("tc-fb-q","","div"), name=mark("",question,"b"), buttons=mark("tc-fb-scale","","div");
+    name.id=`tcfb-${key}`; buttons.setAttribute("role","radiogroup"); buttons.setAttribute("aria-labelledby",name.id);
+    for(let v=1;v<=5;v++){
+      const b=mark("",String(v),"button"); b.type="button"; b.setAttribute("aria-pressed","false"); b.setAttribute("aria-label",`${v} מתוך 5`);
+      b.onclick=()=>{ answers[key]=v; for(const x of buttons.children) x.setAttribute("aria-pressed",String(x===b)); };
+      buttons.append(b);
+    }
+    const ends=mark("tc-fb-ends","","div"); ends.append(mark("",`1 · ${low}`,"small"),mark("",`5 · ${high}`,"small"));
+    row.append(name,buttons,ends); return row;
+  };
+  const text=document.createElement("textarea"); text.rows=3; text.maxLength=1000; text.placeholder="עוד משהו? מה עבד, מה הפריע, מה חסר (לא חובה)";
+  text.setAttribute("aria-label","משוב חופשי על השיחה");
+  const note=mark("tc-fb-note","","p"), send=mark("btn primary","שליחה","button"); note.setAttribute("aria-live","polite");
+  box.append(scale("quality","איך הייתה השיחה?","לא טובה","מצוינת"),
+    scale("spoken","כמה זו הייתה ערבית מדוברת אמיתית?","לא מדוברת בכלל","כמו שמדברים באמת"),text,send,note);
+  box.onsubmit=async e=>{
+    e.preventDefault();
+    if(!answers.quality||!answers.spoken){ note.textContent="בחרו ציון בשתי השאלות."; return; }
+    send.disabled=true; note.textContent="שולח…";
+    try{
+      const res=await api("/api/tutor/feedback",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({id,...answers,message:text.value})});
+      const d=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(d.detail||"השליחה נכשלה");
+      box.replaceChildren(mark("","תודה! המשוב נשלח 🙏","p"));
+    }catch(err){ note.textContent=err.message+". נסו שוב."; send.disabled=false; }
+  };
+  return box;
 }
 function tcListen(){   // a tap starts listening; the recognition ends by itself when the student stops (or on a second tap)
   if(!tc||tc.busy||tc.done) return;
@@ -7271,7 +7315,7 @@ function drawLookup(){
   show(); return card;
 }
 // ---- feedback: any signed-in user can send a note (text only); the teachers' panel lists them ----
-const FEEDBACK_KINDS={problem:"🐞 משהו לא עובד",score:"🎯 ציון לא נכון",idea:"💡 רעיון",praise:"❤️ אהבו"};
+const FEEDBACK_KINDS={problem:"🐞 משהו לא עובד",score:"🎯 ציון לא נכון",idea:"💡 רעיון",praise:"❤️ אהבו",tutor:"💬 יאללה נדבר"};
 function feedbackContext(){
   const nav=document.querySelector("#nav [aria-current=page]");
   return {screen:(nav?.dataset.view||"path")||"path", item:(document.getElementById("lessonName")?.textContent||"").trim()+(document.getElementById("catName")?.textContent?" · "+document.getElementById("catName").textContent.trim():"")};
@@ -7340,6 +7384,7 @@ function drawFeedbackInbox(box){
   if(feedbackError){ card.append(mark("meta","לא ניתן לטעון: "+feedbackError,"p")); box.append(card); return; }
   if(!FEEDBACK){ card.append(mark("meta","טוען…","p")); box.append(card); loadFeedback().then(()=>{ if(mMode==="feedback"&&document.body.classList.contains("manage")) drawFeedbackTab(); }); return; }
   if(FEEDBACK.setup){ card.append(mark("meta","הטבלה feedback עדיין לא קיימת. הריצו ב-SQL Editor של Supabase:","p"),mark("meta",FEEDBACK.setup,"p")); box.append(card); return; }
+  if(FEEDBACK.tutor_setup) card.append(mark("meta","משובים על יאללה נדבר נשמרים כרגע כ„רעיון”. כדי שיישמרו כסוג משלהם, הריצו פעם אחת ב-SQL Editor של Supabase:","p"),mark("meta",FEEDBACK.tutor_setup,"p"));
   if(FEEDBACK.image_setup) card.append(mark("meta","כדי לשמור צילומי מסך עם המשוב, הריצו פעם אחת ב-SQL Editor של Supabase:","p"),mark("meta",FEEDBACK.image_setup,"p"));
   const rows=FEEDBACK.feedback||[], open=rows.filter(r=>r.status==="new").length;
   card.append(mark("meta",rows.length?`${open} חדשים מתוך ${rows.length}`:"עדיין לא התקבל משוב.","p"));
