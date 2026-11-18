@@ -121,6 +121,7 @@ body.home:not([data-view]) #feedbackBtn{display:none}
 .fb-cards{display:flex;flex-direction:column;gap:8px}.fb-empty{margin:0;color:var(--muted);font-size:14px;text-align:center;padding:12px 0}
 .fb-board .fb-item{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 10px;cursor:grab;border-bottom:1px solid var(--line)}
 .fb-board .fb-item.dragging{opacity:.45}.fb-board .fb-actions{flex-wrap:wrap}.fb-board .fb-actions .btn{padding:4px 10px;font-size:13px}
+.talks-summary{border-collapse:collapse;font-size:14px;margin:6px 0}.talks-summary :is(td,th){padding:4px 10px;border-bottom:1px solid var(--line);text-align:start}
 .fb-reply-fold>summary{cursor:pointer;font-size:13px;color:var(--muted)}
 @media (max-width:600px){.fb-board{grid-template-columns:repeat(3,85%)}}
 .fb-inbox .fb-model{order:-1;padding:1px 8px;border-radius:999px;background:var(--olive-soft);color:var(--ink);font-weight:700;direction:ltr}
@@ -7419,7 +7420,7 @@ function drawFeedbackInbox(box){
   box.append(card);
   // the notes on יאללה נדבר's conversations: apart, grouped by status as before, with the model each one ran on
   if(talks.length){
-    const part=mark("card fb-inbox fb-talks",""); part.append(mark("","💬 משוב על שיחות ביאללה נדבר","h2"));
+    const part=mark("card fb-inbox fb-talks",""); part.append(mark("","💬 משוב על שיחות ביאללה נדבר","h2"),tutorNotesSummary(talks));
     for(const [status,label] of FEEDBACK_GROUPS){
       const mine=talks.filter(r=>r.status===status); if(!mine.length) continue;
       const group=mark("fb-group","","details"), sum=mark("",`${label} (${mine.length})`,"summary");
@@ -7429,6 +7430,27 @@ function drawFeedbackInbox(box){
     }
     box.append(part);
   }
+}
+/* The notes on יאללה נדבר's conversations summed up by model: how many, and the average of each of the two answers
+   (the quality is the note's rating; the spoken Arabic is in its item, "... · ערבית מדוברת 4/5 · model"). */
+function tutorNoteParts(r){
+  const parts=(r.item||"").split(" · "), spoken=+((r.item||"").match(/ערבית מדוברת (\d)\/5/)||[])[1]||null;
+  return {model:parts.length>1?parts[parts.length-1]:"unknown",quality:r.rating||null,spoken};
+}
+function tutorNotesSummary(talks){
+  const by=new Map();
+  for(const r of talks){ const t=tutorNoteParts(r); if(!by.has(t.model)) by.set(t.model,[]); by.get(t.model).push(t); }
+  const avg=list=>{ const v=list.filter(x=>x!=null); return v.length?(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1):"—"; };
+  const table=mark("talks-summary","","table"), head=document.createElement("tr");
+  for(const h of ["מודל","משובים","איכות השיחה","ערבית מדוברת"]) head.append(mark("",h,"th"));
+  table.append(head);
+  for(const [model,list] of [...by].sort((a,b)=>b[1].length-a[1].length)){
+    const tr=document.createElement("tr"), name=mark("",model,"td"); name.dir="ltr";
+    tr.append(name,mark("",String(list.length),"td"),mark("",`${avg(list.map(t=>t.quality))} / 5`,"td"),mark("",`${avg(list.map(t=>t.spoken))} / 5`,"td"));
+    table.append(tr);
+  }
+  const box=mark("talks-sum",""); box.append(table,mark("meta","ממוצעים לפי מודל, מתוך המשובים שנטענו (200 האחרונים).","p"));
+  return box;
 }
 let feedbackDragged=null;   // the note a manager is dragging to another column
 async function feedbackSetStatus(r,status,button){

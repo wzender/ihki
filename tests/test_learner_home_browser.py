@@ -1608,6 +1608,24 @@ def test_a_note_on_a_tutor_conversation_shows_its_model(site):
     assert r["chips"] == [None, "מודל: claude-sonnet-5-5"]   # the board first, then the conversations' notes
     assert r["kind"] == "🐞 משהו לא עובד"
 
+TALKS_SUMMARY = """
+await sleep(800); showManage(); await sleep(300);
+document.querySelector('#mModes [data-mode="feedback"]').click();
+await until(()=>document.querySelector("#mFeedback .talks-summary"),6000);
+out.rows=[...document.querySelectorAll("#mFeedback .talks-summary tr")].map(tr=>[...tr.children].map(c=>c.textContent));
+"""
+
+
+def test_the_tutor_notes_are_summed_up_by_model(site):
+    talk = lambda i, model, quality, spoken: note(id=i, kind="tutor", screen="tutor", rating=quality, message="",
+                                                  item=f"בשוק · ערבית מדוברת {spoken}/5 · {model}")
+    site.auth.notes = [talk(1, "claude-haiku-5-5", 4, 2), talk(2, "claude-haiku-5-5", 3, 3), talk(3, "claude-haiku-5-5", 5, 4),
+                       talk(4, "claude-sonnet-5-5", 5, 5), note(id=5, message="כללי")]
+    r = site("boss@x.com", TALKS_SUMMARY)
+    assert r["rows"] == [["מודל", "משובים", "איכות השיחה", "ערבית מדוברת"],
+                         ["claude-haiku-5-5", "3", "4.0 / 5", "3.0 / 5"],
+                         ["claude-sonnet-5-5", "1", "5.0 / 5", "5.0 / 5"]]
+
 SETTINGS = """
 await until(()=>document.querySelector("#vids .focus-set"),6000);
 const set=document.querySelector("#vids .focus-set"), box=document.getElementById("autoNextOn");
