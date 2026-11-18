@@ -1626,6 +1626,36 @@ def test_the_tutor_notes_are_summed_up_by_model(site):
                          ["claude-haiku-5-5", "3", "4.0 / 5", "3.0 / 5"],
                          ["claude-sonnet-5-5", "1", "5.0 / 5", "5.0 / 5"]]
 
+KEPT_SCORE = """
+await until(()=>typeof PHRASES!=="undefined"&&PHRASES.length&&Object.keys(best).length,8000);
+const id=window.__secondId;
+out.he=phraseOf(id)?.he; out.best=best[id]; out.newSeq=phraseOf(window.__newId)?.seq; out.oldSeq=phraseOf(id)?.seq;
+"""
+
+
+def test_a_score_stays_on_its_sentence_when_one_is_inserted_before_it(site):
+    """The page names a sentence by its id: with a sentence inserted at the head of its topic, the learner's score is
+    still on the sentence they said, and the page lists the new one first."""
+    import copy
+    from app import course, phrases
+    doc = copy.deepcopy(course.document())
+    say = next(t for t in doc["levels"][0]["lessons"][4]["topics"] if t["tid"] == "say")   # lesson 5
+    second = say["items"][1]
+    say["items"].insert(0, {"id": doc["next_item_id"], "key": "שלום לכם", "he": "שלום לכם", "ar": "مرحبا"})
+    doc["next_item_id"] += 1
+    original = course.current()
+    phrases.serve(course.compile_course(doc))
+    try:
+        site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+        site.auth.attempts = lambda token: [{"cat": "l5-say", "phrase": second["key"], "score": 91,
+                                             "created_at": "2026-11-18T08:00:00+00:00"}]
+        script = f"window.__secondId={second['id']}; window.__newId={doc['next_item_id'] - 1};" + KEPT_SCORE
+        r = site("dana@x.com", script)
+    finally:
+        phrases.serve(original)
+    assert r["he"] == second["he"] and r["best"] == 91
+    assert r["newSeq"] == 1 and r["oldSeq"] == 3
+
 SETTINGS = """
 await until(()=>document.querySelector("#vids .focus-set"),6000);
 const set=document.querySelector("#vids .focus-set"), box=document.getElementById("autoNextOn");

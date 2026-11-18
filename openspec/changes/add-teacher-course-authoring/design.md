@@ -70,10 +70,16 @@ Teacher texts keep their own ids above `TEXT_BASE`; `next_item_id` starts below 
 and the side tables (`STORIES`, `DIALOGUES`, `WRITING`, `UNITS`, `TASKS`) folded into each topic's fields.
 Word reading: Arabic script goes through `workbook._word` (LEX, then the `ب` and `و` rules); Hebrew letters go through
 `texts.read_line` (LEX by transliteration, then rule). Both raise or report exactly as they do today.
-Generated topics are stored as `{"generator": "past", "words": [...]}` and expanded by the existing generator functions,
-so a teacher edits the verb list and the conjugations follow.
-The published compiled course replaces the module-level `CATEGORIES`/`PHRASES` the app reads, through one accessor
-(`course.current()`), refreshed when `course_versions` changes (checked every 30 s, and at once after a publish on this
+Generated topics are stored as `{"generator": {"name": "past", "args": [...]}, "ids": {key: id}}` and expanded by the
+existing generator functions (`workbook.GENERATORS`), so a teacher edits the verb list and the conjugations follow. Only
+the six conjugation generators (`base_forms`, `past`, `present`, `wants`, `before_future`, `possessives`, 35 topics)
+are kept this way; the topics that only format a table into pairs (days, hours, numbers, duals, colors, comparatives:
+21 topics) are exported as their items, which is what a teacher edits in them.
+The games' phrases stay in code, between the lessons' and the "learn" cards' ids: the document reserves their range
+(`reserved`), so no course item can take one of their ids.
+The published compiled course replaces the module-level `CATEGORIES`/`PHRASES` the app reads: `phrases.serve`
+changes those lists' contents in place, so every module that imported them sees the new course without a change to how
+it imports (`course.current()` gives the compiled course itself). It is refreshed when `course_versions` changes (checked every 30 s, and at once after a publish on this
 process). The compiled result is written to `data/course-cache.json` for the degraded case.
 
 *Why:* the rest of the app keeps its data shapes; only where they come from changes. Compiling on save gives the

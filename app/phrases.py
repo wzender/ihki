@@ -13,7 +13,8 @@ Conventions (Palestinian urban speech as the main form):
 """
 from .arabic_diacritics import point_arabic
 from .grammar import day2_phrases
-from .workbook import CATEGORIES as WORKBOOK_CATEGORIES, GAMES as WORKBOOK_GAMES, LESSON_TABS, LEVEL_TABS, workbook_phrases
+from . import course
+from .workbook import GAMES as WORKBOOK_GAMES, game_phrases
 
 PHRASES = [
     # ---- היכרות ----
@@ -126,16 +127,46 @@ PHRASES = [
 ]
 # ---- יום 2 ---- generated: every sentence pattern x pronoun x positive/negative (see grammar.py)
 PHRASES += day2_phrases()
-# ---- שיעורים ---- the workbook's translation exercises, lesson by lesson (see workbook.py)
-PHRASES += workbook_phrases()
+for _id, _p in enumerate(PHRASES):   # these phrases' ids are their places, as they have always been
+    _p["id"] = _id
+# ---- שיעורים ---- the course: lesson by lesson, as a document compiled by course.py (until course versions are
+# stored, the code workbook's, see workbook.py). Each phrase carries its own id and key, fixed when its item was made.
+# ---- משחקים ---- the games' phrases stay in code, in the range the course document reserves for them.
+_FIXED = list(PHRASES)   # the phrases outside the course, ids 0 to len - 1
+_COURSE_START = course.start(first_id=len(_FIXED))
+_GAMES = game_phrases()
+_game_ids = range(*course.document()["reserved"][0])
+assert len(_GAMES) == len(_game_ids), "the games' phrases no longer fit the range the course reserves for them"
+for _id, _p in zip(_game_ids, _GAMES):
+    _p["id"] = _id
 
-# The page asks for a lesson first, then one of its categories: the course's lessons (workbook.py).
-# The phrases that belong to no lesson (meet, talk, city, food, day2) have no tab. They stay in the
-# bank, so phrase ids and the attempts recorded on them hold; public_phrases leaves them out.
-LEVELS = [*LEVEL_TABS]
-LESSONS = [*LESSON_TABS]   # every planned lesson; one not written yet is `soon` and has no categories
-CATEGORIES = [*WORKBOOK_CATEGORIES]
+# What the rest of the app imports. `serve` changes their contents in place, so that every module holding them sees
+# the course being served.
+PHRASES: list[dict] = []
+PHRASE_BY_ID: dict[int, dict] = {}
+LEVELS: list[dict] = []
+LESSONS: list[dict] = []   # every planned lesson; one not written yet is `soon` and has no categories
+CATEGORIES: list[dict] = []
 GAMES = [*WORKBOOK_GAMES]
+
+
+def serve(compiled: "course.Compiled") -> None:
+    """Serves a compiled course: its lessons, topics and phrases, with the phrases outside it and the games' (whose
+    ids its document reserves). The page asks for a lesson first, then one of its categories. The phrases that
+    belong to no lesson (meet, talk, city, food, day2) have no tab; they stay in the bank, so their ids and the
+    attempts recorded on them hold, and public_phrases leaves them out."""
+    PHRASES[:] = sorted(_FIXED + compiled.phrases + _GAMES, key=lambda p: p["id"])
+    PHRASE_BY_ID.clear()
+    PHRASE_BY_ID.update((p["id"], p) for p in PHRASES)
+    LEVELS[:], LESSONS[:], CATEGORIES[:] = compiled.levels, compiled.lessons, compiled.categories
+
+
+def phrase_by_id(phrase_id: int) -> dict | None:
+    """A phrase of the bank by its id (not by its place: an id is fixed, a place is not), or None."""
+    return PHRASE_BY_ID.get(phrase_id)
+
+
+serve(_COURSE_START)
 
 
 def public_phrases():
@@ -147,8 +178,8 @@ def public_phrases():
     """
     shown = {c["id"] for c in CATEGORIES + GAMES}
     return [
-        {"id": i, "cat": p["cat"], "he": p["he"], "tr": p["tr"], "ar": p["variants"][0][0],
+        {"id": p["id"], "cat": p["cat"], "he": p["he"], "tr": p["tr"], "ar": p["variants"][0][0],
          "ar_pointed": point_arabic(*p["variants"][0]),
          **{k: p[k] for k in ("grp", "pron", "neg", "listed", "seq", "read", "unlock", "binyan", "gizra", "speaker", "he_say") if k in p}}
-        for i, p in enumerate(PHRASES) if p["cat"] in shown
+        for p in PHRASES if p["cat"] in shown
     ]

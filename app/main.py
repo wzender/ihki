@@ -54,7 +54,7 @@ from .math_photo import (DAILY_PHOTOS, MAX_PHOTO, MEDIA_TYPES as PHOTO_TYPES, Ph
 from .math_skills import algebra9
 from . import backups as daily_backups
 from . import push as pushes
-from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, public_phrases
+from .phrases import CATEGORIES, GAMES, LESSONS, LEVELS, PHRASES, phrase_by_id, public_phrases
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .model_settings import CREATE_MODEL_SETTINGS, build as build_model_config, clean as clean_model_settings, describe as describe_model_settings
 from .models import (POWSM_ONNX_REPO, availability as model_availability, catalog as model_catalog,
@@ -496,7 +496,8 @@ def summary(rows: list[dict], texts: dict[int, dict] | None = None) -> dict:
     exercise, including one the recognizer labels unrelated. Those are still counted per phrase id in "missed"
     and all together in "unmatched" as diagnostics."""
     shown = {c["id"] for c in CATEGORIES + GAMES}
-    ids = {(p["cat"], p["he"]): i for i, p in enumerate(PHRASES) if p["cat"] in shown}
+    # a sentence is named by its topic and key (its Hebrew when it was made), and told to the page by its id
+    ids = {(p["cat"], p.get("key", p["he"])): p["id"] for p in PHRASES if p["cat"] in shown}
     ids.update({(p["cat"], p["key"]): i for i, p in (texts or {}).items()})   # the lines of the teacher's texts (see `text_bank`)
     best: dict[int, int] = {}
     tries: dict[int, int] = {}
@@ -836,9 +837,10 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     def phrase_of(phrase_id: int) -> dict:
         """A phrase of the bank, or a line of a teacher's text; 404 for any other id."""
-        if 0 <= phrase_id < len(PHRASES):
-            return PHRASES[phrase_id]
-        phrase = text_bank(text_rows()).get(phrase_id) if phrase_id >= TEXT_BASE else None
+        if phrase_id < TEXT_BASE:
+            phrase = phrase_by_id(phrase_id)
+        else:
+            phrase = text_bank(text_rows()).get(phrase_id)
         if phrase is None:
             raise HTTPException(404, "unknown phrase")
         return phrase
@@ -2321,7 +2323,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except ValueError:
             raise HTTPException(400, "could not decode audio")
         phrase = lab.flag_phrase(row)
-        key = next((i for i, p in enumerate(PHRASES) if p is phrase), ("flag", phrase.get("key")))
+        key = phrase["id"] if phrase_by_id(phrase.get("id", -1)) is phrase else ("flag", phrase.get("key"))
         refs = app.state.refs.get(key, phrase) if app.state.refs else []
         result = app.state.scorer.score(wav, phrase, refs, diagnostics=True)
         if result.get("error"):
@@ -3298,7 +3300,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         """Every form of one of the verb table's verbs, past, present and future: what a click on the verb opens.
         LEX's forms, and by rule (table_forms.py) those it lacks."""
         from .conjugation import conjugation_table
-        phrase = PHRASES[phrase_id] if 0 <= phrase_id < len(PHRASES) else None
+        phrase = phrase_by_id(phrase_id)
         if not phrase or not phrase.get("binyan"):
             raise HTTPException(404, "not a verb of the table")
         he = phrase["variants"][0][0].replace(",", "،").split("،")[-1].strip()
@@ -3789,8 +3791,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, f"could not read the voice cache: {e}")
         names = {i: n for n, i in {**VOICES, **LINE_VOICES}.items()}
         known: dict[str, dict] = {}  # file name (sha1 of version, voice and text) -> what it says
-        for phrase_id, phrase in enumerate(PHRASES):
-            text = tts_arabic(*phrase["variants"][0])
+        for phrase in PHRASES:
+            phrase_id, text = phrase["id"], tts_arabic(*phrase["variants"][0])
             for voice in names:
                 info = known.setdefault(Path(tts.cache_key(text, voice)).name,
                                         {"voice_id": voice, "voice": names[voice], "text": text,

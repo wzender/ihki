@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from .arabic_diacritics import point_arabic
 from .conjugation import STAGE_A_VERBS
-from .phrases import CATEGORIES, LESSONS, PHRASES
+from .phrases import CATEGORIES, LESSONS, PHRASES, phrase_by_id
 
 HU = 3   # "הוא" in PRONOUNS: the verb's base form, as the verb games take it
 
@@ -27,7 +27,8 @@ def race_items(lesson: str) -> list[dict]:
     allowed = set(lessons_upto(lesson))
     learn = {c["id"]: c["lesson"] for c in CATEGORIES if c.get("learn") and c["lesson"] in allowed}
     out, seen = [], set()
-    for i, phrase in enumerate(PHRASES):
+    for phrase in PHRASES:
+        i = phrase["id"]
         if phrase["cat"] not in learn:
             continue
         ar, ipa = phrase["variants"][0]
@@ -47,8 +48,8 @@ def race_items(lesson: str) -> list[dict]:
 def speech_of(item_id: str) -> tuple[str, str]:
     """(Arabic, IPA) the voice says for a pool item: a word as the workbook gives it, a verb in "הוא" past + future."""
     kind, key = item_id[:1], item_id[1:]
-    if kind == "w" and key.isdigit() and int(key) < len(PHRASES):
-        return PHRASES[int(key)]["variants"][0]
+    if kind == "w" and key.isdigit() and phrase_by_id(int(key)):
+        return phrase_by_id(int(key))["variants"][0]
     if kind == "v" and key in STAGE_A_VERBS:
         past, future = STAGE_A_VERBS[key]["past"][HU], STAGE_A_VERBS[key]["future"][HU]
         return f'{past["ar"]} {future["ar"]}', f'{past["ipas"][0]} | {future["ipas"][0]}'

@@ -2522,7 +2522,7 @@ def test_the_tts_cache_downloads_as_an_offline_zip_with_a_manifest(monkeypatch, 
     from app.main import create_app
     from app.tts import RAEF_VOICE_ID, SawtakTTS
 
-    phrases = [{"he": "שלום", "tr": "מרחבא", "variants": [("مرحبا", "m a r ħ a b a")]}]
+    phrases = [{"id": 0, "he": "שלום", "tr": "מרחבא", "variants": [("مرحبا", "m a r ħ a b a")]}]   # every phrase has its id
     monkeypatch.setattr(app.main, "PHRASES", phrases)
     monkeypatch.setattr(app.main, "load_auth", lambda: None)
     tts = SawtakTTS("key", cache_dir=tmp_path)

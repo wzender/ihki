@@ -1446,24 +1446,52 @@ BIDD = "بدّي بدّك بدّك#f بدّه بدّها بدّنا بدّكم �
 HE_WANT = ["רוצה"] * 5 + ["רוצים"] * 3
 
 
+class Generated(list):
+    """A topic's items as one of the grammar generators below made them from a word list. The list is the items; its
+    `generator` ({"name", "args"}) is what the course document keeps instead (see course.py), so that a teacher edits
+    the word list and the forms follow."""
+
+    def __init__(self, items, name: str, args: list):
+        super().__init__(items)
+        self.generator = {"name": name, "args": args}
+
+
+GENERATORS: dict = {}   # name -> the function that expands its word list into items
+
+
+def _generator(name: str):
+    def wrap(fn):
+        GENERATORS[name] = fn
+
+        def made(*args):
+            return Generated(fn(*args), name, list(args))
+        made.__name__, made.__doc__ = fn.__name__, fn.__doc__
+        return made
+    return wrap
+
+
+@_generator("wants")
 def _wants(verbs):
     """Every pronoun's "wants to": אני רוצה לצאת -> بدّي اطلع. Arabic has no infinitive: the verb is in the future."""
     return [(_plain(f"{hp} {want} {inf}"), f"{bidd} {a}", f"{hp} {want} {inf}") for inf, ar in verbs
             for hp, want, bidd, a in zip(HE_PRONOUNS, HE_WANT, BIDD, ar.split())]
 
 
+@_generator("before_future")
 def _before_future(word, he_words, verbs):
     """Every pronoun's future after a word that does not change (لازم, رح): אני צריך לראות -> انا لازم اشوف."""
     return [(_plain(f"{hp} {hw} {inf}"), f"{ap} {word} {a}", f"{hp} {hw} {inf}") for inf, ar in verbs
             for hp, ap, hw, a in zip(HE_PRONOUNS, AR_PRONOUNS, he_words, ar.split())]
 
 
+@_generator("present")
 def _present(verbs):
     """Every pronoun's present: אני שואל -> انا بسأل. Hebrew's present has he's form, she's and theirs."""
     return [(_plain(f"{hp} {h}"), f"{ap} {a}", f"{hp} {h}") for m, f, pl, ar in verbs
             for hp, ap, h, a in zip(HE_PRONOUNS, AR_PRONOUNS, (m, m, f, m, f, pl, pl, pl), ar.split())]
 
 
+@_generator("base_forms")
 def _base_forms(verbs):
     """A verb as the workbook lists it: past and future of "he"."""
     out = []
@@ -1473,6 +1501,7 @@ def _base_forms(verbs):
     return out
 
 
+@_generator("past")
 def _past(verbs):
     """Every pronoun with its form (the past's, or the future's of FUTURE_6): אני פתחתי -> انا فتحت."""
     return [(_plain(f"{hp} {h}") + note, f"{ap} {a}", f"{hp} {h}{note}") for he, ar, *rest in verbs
@@ -1501,6 +1530,7 @@ FAMILY = [
 POSSESSIVE_DRILL = [("הבת", "بنت"), ("השולחן", "طاولت"), ("הבן", "ابن"), ("הכלב", "كلب"), ("הנכדה", "حفيدت"), ("הסבא", "جدّ")]
 
 
+@_generator("possessives")
 def _possessives(nouns):
     """Every word with every owner: הבת שלי -> بنتي. שלך is pointed for the prompt voice."""
     return [(f"{he} {owner}", stem + suffix + tag, *([f"{he} {say}"] if say else []))
@@ -4105,45 +4135,44 @@ def _variants(words: list[tuple[str, str, list[str]]]) -> list[tuple[str, str]]:
     return [(ar, " | ".join(c)) for c in combos]
 
 
-def workbook_phrases() -> list[dict]:
-    """The lessons' items as phrases (see phrases.py). `seq` keeps an ordered topic's order and
-    `read` marks the Arabic -> Hebrew ones, where the page shows `tr` and hides `he`;
-    `he_say` is the pointed Hebrew for the prompt voice, where the plain text is misread.
-    A phrase's id is its place in the bank and recorded attempts name it, so the "learn" cards, which came later,
-    are added at the end, after the games'."""
+def topic_phrases(cat: str, kind: str, in_order: bool, items, speakers: dict | None = None, **extra) -> list[dict]:
+    """The phrases of one topic's items ((Hebrew, Arabic) or (Hebrew, Arabic, Hebrew as read aloud) each), in order.
+    `speakers`: a dialogue's voices by speaker name (see DIALOGUES)."""
+    out, speakers, who, said = [], speakers or {}, None, None
+    for seq, (he, sentence, *he_say) in enumerate(items, 1):
+        m = SPEAKER.match(he)
+        if m and m[1] in speakers:
+            who = said = m[1]
+            he = he[m.end():]
+            if isinstance(sentence, str):
+                sentence = SPEAKER.sub("", sentence)
+        # an item written in Hebrew letters arrives already read (course.py): its words, (Arabic, transliteration, readings)
+        words = [_word(t) for t in sentence.split()] if isinstance(sentence, str) else list(sentence)
+        variants = _variants(words)
+        # These vocabulary prompts teach two synonymous words. Saying both remains valid, but unlike
+        # conjugation and singular/dual pairs, either synonym on its own is also a complete answer.
+        if "(שתי מילים)" in he:
+            singles = [(a.rstrip("".join(PUNCT)), tr.rstrip("".join(PUNCT.values())), ipas) for a, tr, ipas in words]
+            variants += [variant for word in singles for variant in _variants([word]) if variant not in variants]
+        phrase = dict(cat=cat, he=he, tr=" ".join(t for _, t, _ in words),
+                      variants=variants, read=kind == "read", **extra)
+        say = _voiced(he_say[0] if he_say else he)
+        if say != he:
+            phrase["he_say"] = say
+        if in_order:
+            phrase["seq"] = seq
+        if said:
+            phrase["speaker"], said = said, None
+        if speakers.get(who):
+            phrase["voice"] = speakers[who]
+        out.append(phrase)
+    return out
+
+
+def game_phrases() -> list[dict]:
+    """The games' phrases (GAME_ITEMS), in order. They stay in code when the lessons become data (course.py), and
+    keep their ids: the course document reserves their range."""
     out = []
-
-    def add(key, tid, kind, in_order, items, **extra):
-        speakers, who, said = DIALOGUES.get(f"l{lesson_id(*key)}-{tid}", {}), None, None
-        for seq, (he, sentence, *he_say) in enumerate(items, 1):
-            m = SPEAKER.match(he)
-            if m and m[1] in speakers:
-                who = said = m[1]
-                he, sentence = he[m.end():], SPEAKER.sub("", sentence)
-            words = [_word(t) for t in sentence.split()]
-            variants = _variants(words)
-            # These vocabulary prompts teach two synonymous words. Saying both remains valid, but unlike
-            # conjugation and singular/dual pairs, either synonym on its own is also a complete answer.
-            if "(שתי מילים)" in he:
-                singles = [(a.rstrip("".join(PUNCT)), tr.rstrip("".join(PUNCT.values())), ipas) for a, tr, ipas in words]
-                variants += [variant for word in singles for variant in _variants([word]) if variant not in variants]
-            phrase = dict(cat=f"l{lesson_id(*key)}-{tid}", he=he, tr=" ".join(t for _, t, _ in words),
-                          variants=variants, read=kind == "read", **extra)
-            say = _voiced(he_say[0] if he_say else he)
-            if say != he:
-                phrase["he_say"] = say
-            if in_order:
-                phrase["seq"] = seq
-            if said:
-                phrase["speaker"], said = said, None
-            if speakers.get(who):
-                phrase["voice"] = speakers[who]
-            out.append(phrase)
-
-    for key, topics in LESSONS.items():
-        for tid, _, kind, in_order, items in topics:
-            if kind != "learn":
-                add(key, tid, kind, in_order, items)
     for game in GAMES:
         for unlock, (he, sentence, *he_say), binyan, gizra in GAME_ITEMS[game["id"]]:
             words = [_word(t) for t in sentence.split()]
@@ -4154,6 +4183,26 @@ def workbook_phrases() -> list[dict]:
             if say != he:
                 phrase["he_say"] = say
             out.append(phrase)
+    return out
+
+
+def workbook_phrases() -> list[dict]:
+    """The lessons' items as phrases (see phrases.py). `seq` keeps an ordered topic's order and
+    `read` marks the Arabic -> Hebrew ones, where the page shows `tr` and hides `he`;
+    `he_say` is the pointed Hebrew for the prompt voice, where the plain text is misread.
+    A phrase's id is its place in the bank and recorded attempts name it, so the "learn" cards, which came later,
+    are added at the end, after the games'."""
+    out = []
+
+    def add(key, tid, kind, in_order, items, **extra):
+        cat = f"l{lesson_id(*key)}-{tid}"
+        out.extend(topic_phrases(cat, kind, in_order, items, DIALOGUES.get(cat), **extra))
+
+    for key, topics in LESSONS.items():
+        for tid, _, kind, in_order, items in topics:
+            if kind != "learn":
+                add(key, tid, kind, in_order, items)
+    out += game_phrases()
     for key, topics in LESSONS.items():
         for tid, _, kind, in_order, items in topics:
             if kind == "learn":
