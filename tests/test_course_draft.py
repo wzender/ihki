@@ -277,3 +277,12 @@ def test_matching_a_revised_page_by_hebrew_alone_and_by_place():
     assert {k: v["id"] for k, v in pairs.items()} == {0: 3, 1: 1}   # reworded, reordered; the third is new
     twins = [{"id": 1, "key": "a", "he": "כן", "ar": "x"}, {"id": 2, "key": "b", "he": "כן", "ar": "y"}]
     assert {k: v["id"] for k, v in course_draft.match_items(twins, [{"he": "כן", "ar": "q"}] * 2).items()} == {0: 1, 1: 2}
+
+
+def test_a_deletion_does_not_count_the_items_after_it_as_moved_and_a_move_counts_once(doc):
+    a, b, c = [i["id"] for i in topic(doc, "l1-say")["items"][:3]]
+    gone, _ = apply(doc, {"op": "delete_items", "cat": "l1-say", "ids": [a]})
+    d = diff(doc, gone)
+    assert [i["id"] for i in d["items_deleted"]] == [a] and d["items_moved"] == []
+    moved, _ = apply(doc, {"op": "move_item", "cat": "l1-say", "id": c, "to": 0})
+    assert [i["id"] for i in diff(doc, moved)["items_moved"]] == [c]

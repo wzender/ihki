@@ -262,13 +262,22 @@ def diff(old: dict, new: dict) -> dict:
     def item(p):
         return {"id": p["id"], "cat": p["cat"], "key": p["key"], "he": p["he"], "tr": p["tr"]}
 
+    # moved: to another topic, or out of the order the topic's other items keep (not merely shifted by an item added
+    # or deleted before it): the items outside the longest run both orders share
+    kept_order = set()
+    for cat in {p["cat"] for p in new_p.values()}:
+        common = old_p.keys() & new_p.keys()
+        was = [p["id"] for p in a.phrases if p["cat"] == cat and p["id"] in common and new_p[p["id"]]["cat"] == cat]
+        now = [p["id"] for p in b.phrases if p["cat"] == cat and p["id"] in common and old_p[p["id"]]["cat"] == cat]
+        for block in difflib.SequenceMatcher(None, was, now, autojunk=False).get_matching_blocks():
+            kept_order.update(was[block.a:block.a + block.size])
     changed, moved = [], []
     for i in old_p.keys() & new_p.keys():
         before, after = old_p[i], new_p[i]
         fields = [f for f in COMPARED if before.get(f) != after.get(f)]
         if fields:
             changed.append({**item(after), "fields": fields, "was": {f: before.get(f) for f in ("he", "tr")}})
-        elif before["cat"] != after["cat"] or before.get("seq") != after.get("seq"):
+        elif before["cat"] != after["cat"] or i not in kept_order:
             moved.append({**item(after), "from_seq": before.get("seq"), "to_seq": after.get("seq")})
     return {
         "lessons_written": sorted(written(b.lessons) - written(a.lessons)),

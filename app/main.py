@@ -4192,13 +4192,15 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
 
     @app.get("/api/course/draft")
     def course_draft_view(a: SupabaseAuth = Depends(course_editor)):
-        """The draft ({number, updated_at, outline}), or {"draft": None} while there is none."""
+        """The draft ({number, updated_at, outline}), or {"draft": None} while there is none; and `outline`, the tree
+        of the course being edited: the draft's, else the published one (the first change makes the draft from it)."""
         store = course_store_of()
-        row = course_call(store.draft)
+        doc, row = course_call(store.working)
+        tree = course_versions.outline(doc)
         if row is None:
-            return {"draft": None}
+            return {"draft": None, "outline": tree}
         return {"draft": {"number": row["number"], "updated_at": row["updated_at"], "created_by": row.get("created_by"),
-                          "outline": course_versions.outline(row["document"])}}
+                          "outline": tree}, "outline": tree}
 
     @app.get("/api/course/topic")
     def course_topic(cat: str, of: str = "draft", a: SupabaseAuth = Depends(course_editor)):

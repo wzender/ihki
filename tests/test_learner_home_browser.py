@@ -125,7 +125,7 @@ def open_site(monkeypatch, tmp_path):
     yield from serve(None, monkeypatch, tmp_path)
 
 
-def serve(auth, monkeypatch, tmp_path):
+def serve(auth, monkeypatch, tmp_path, course_store=None):
     import uvicorn
     from fastapi import Request
     from fastapi.responses import HTMLResponse
@@ -138,8 +138,8 @@ def serve(auth, monkeypatch, tmp_path):
         return None
     monkeypatch.setattr(pushes, "loop", no_loop)   # no reminders are sent while the page is driven
     monkeypatch.setattr(pushes, "streak_loop", no_loop)
-    cases, news_cases, out_cases = {}, set(), set()
-    app = create_app(scorer_for(emissions(["ħ"])), SawtakTTS("k", cache_dir=tmp_path), auth=auth)
+    cases, news_cases, out_cases, preloads = {}, set(), set(), {}
+    app = create_app(scorer_for(emissions(["ħ"])), SawtakTTS("k", cache_dir=tmp_path), auth=auth, course_store=course_store)
 
     @app.get("/t/{email}/{case}")
     def harness(email: str, case: str, request: Request):
@@ -147,6 +147,8 @@ def serve(auth, monkeypatch, tmp_path):
         page = re.sub(r'<script src="https://cdn\.jsdelivr\.net/npm/@supabase/supabase-js[^"]*"></script>',
                       fake_supabase(email, case in news_cases) if auth else "", page)
         stay = "<script>window.__stayOut=true</script>" if case in out_cases else ""
+        if case in preloads:   # run before the page's own scripts (what the device kept from an earlier visit)
+            page = page.replace("<head>", f"<head><script>{preloads[case]}</script>", 1)
         return HTMLResponse(page.replace("</body>", stay + DRIVER % cases[case] + "</body>"))
 
     def index_html():
@@ -160,8 +162,10 @@ def serve(auth, monkeypatch, tmp_path):
         time.sleep(0.05)
     profile = tmp_path / "chrome"
 
-    def run(email, script, query="", width=390, mobile=False, news=False, stay_out=False):
+    def run(email, script, query="", width=390, mobile=False, news=False, stay_out=False, preload=""):
         case = f"c{len(cases)}"; cases[case] = script
+        if preload:
+            preloads[case] = preload
         if news:
             news_cases.add(case)
         if stay_out:

@@ -1174,6 +1174,7 @@ body.manage #manage{width:100%;max-width:none}
 #manage.content :is(#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.content) #mContent{display:none}
 #manage.flags :is(#mClasses,#mContent,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.flags) #mFlags{display:none}
 #manage.feedback :is(#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.feedback) #mFeedback{display:none}
+#manage.course :is(#mClasses,#mContent,#mFlags,#mFeedback,#mAccess,#mModels,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.course) #mCourse{display:none}
 #manage.access :is(#mClasses,#mContent,#mFlags,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.access) #mAccess{display:none}
 #manage.models :is(#mClasses,#mContent,#mFlags,#mAccess,#mTabs,#mHead,#mLessons,#mRoster,#mStudent),#manage:not(.models) #mModels{display:none}
 .lib-pick{list-style:none;margin:6px 0 0;padding:0;text-align:start}.lib-pick ul{list-style:none;margin:2px 0 4px;padding-inline-start:20px}.lib-pick label{display:flex;gap:6px;align-items:center;padding:2px 0;font-size:14px}
@@ -1197,6 +1198,21 @@ body.manage #manage{width:100%;max-width:none}
 @media (prefers-reduced-motion:reduce){.access-table .access-cell.saving,.access-table .access-cell.saving::after{animation:none}}.access-table .access-cell:focus-visible{outline:2px solid var(--olive)}
 .access-table td.own .access-cell{box-shadow:inset 0 0 0 2px currentColor}   /* set by hand for this account */
 #mModes{grid-template-columns:repeat(6,1fr)}
+.course-split{display:grid;grid-template-columns:minmax(240px,1fr) 2fr;gap:12px;align-items:start}
+@media(max-width:800px){.course-split{grid-template-columns:1fr}}
+.course-topics{list-style:none;margin:4px 0;padding:0}.course-topic-btn{all:unset;box-sizing:border-box;display:flex;justify-content:space-between;gap:8px;width:100%;padding:8px 10px;border-radius:8px;cursor:pointer}
+.course-topic-btn:hover,.course-topic-btn[aria-current=true]{background:var(--line)}.course-topic-btn:focus-visible{outline:2px solid var(--olive)}
+.course-items{margin:8px 0;padding-inline-start:22px}.course-items>li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.course-item-text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 220px}.course-ar{color:var(--muted)}
+.course-item-actions,.course-bar-actions,.course-topic-tools,.course-missing,.course-form-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.course-item-actions .btn{min-width:40px;min-height:40px}
+.course-form{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin:6px 0;flex:1 1 100%}.course-field{display:flex;flex-direction:column;gap:2px;flex:1 1 200px;font-size:13px}
+.course-form input,.course-form select,.course-rename input,.course-args{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--surface);color:inherit}
+.course-rename{display:flex;gap:6px;flex:1 1 260px}.course-rename input{flex:1}
+.course-topic-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.course-args{width:100%;min-height:120px;box-sizing:border-box;font-family:var(--f-body)}
+.course-preview-banner{position:sticky;top:0;z-index:60;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px;padding:6px 12px;background:var(--sumac);color:#fff;font:600 14px/1.3 var(--f-body)}.course-preview-banner .btn{padding:4px 10px}
+.course-version-list{list-style:none;margin:0;padding:0}.course-version-list li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
 /* the developers' model comparison under a result: one column per model, the same recording */
 .cmp-box{margin-top:6px;border-top:1px dashed var(--line);padding-top:8px;display:flex;flex-direction:column;gap:8px}
 .cmp-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -2118,11 +2134,12 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
   <section class="wrap" id="manage" aria-labelledby="mTitle">
     <div class="roundbar"><h1 class="mtitle" id="mTitle">ניהול</h1><span class="sep"></span><button class="btn" id="mRefresh">רענון</button><button class="btn" id="mLab">מעבדה</button><button class="btn primary" id="mPractice">לתרגול</button></div>
     <div class="sub" id="mState" aria-live="polite"></div>
-    <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>רשימה ומסנן כיתות</small></button><button role="tab" data-mode="content">תוכן<small>נושאים, סרטונים וטקסטים</small></button><button role="tab" data-mode="flags">ניטור<small>פעילות ודיווחי ציונים</small></button><button role="tab" data-mode="feedback">משוב<small id="mFeedbackCount">הודעות מהמשתמשים</small></button><button role="tab" data-mode="access">הרשאות<small>תפקידים וגישה</small></button><button role="tab" data-mode="models">מודלים<small>בחירה והשוואה</small></button></div>
+    <div class="modes" id="mModes" role="tablist" aria-label="ניהול" hidden><button role="tab" data-mode="classes">כיתות<small>פתיחה, עריכה ומחיקה</small></button><button role="tab" data-mode="students">תלמידים<small>רשימה ומסנן כיתות</small></button><button role="tab" data-mode="content">תוכן<small>נושאים, סרטונים וטקסטים</small></button><button role="tab" data-mode="flags">ניטור<small>פעילות ודיווחי ציונים</small></button><button role="tab" data-mode="feedback">משוב<small id="mFeedbackCount">הודעות מהמשתמשים</small></button><button role="tab" data-mode="course" hidden>חוברת<small>עריכת הקורס ופרסום</small></button><button role="tab" data-mode="access">הרשאות<small>תפקידים וגישה</small></button><button role="tab" data-mode="models">מודלים<small>בחירה והשוואה</small></button></div>
     <div id="mClasses"></div>
     <div id="mContent"></div>
     <div id="mFlags"></div>
     <div id="mFeedback"></div>
+    <div id="mCourse"></div>
     <div class="card" id="mAccess"></div>
     <div id="mModels"></div>
     <div class="tabs" id="mTabs" role="tablist" aria-label="סינון תלמידים לפי כיתה" hidden></div>
@@ -6823,7 +6840,7 @@ async function loadManage(){
   const load=++manageLoad;
   const state=$("mState");
   state.textContent="טוען את נתוני התלמידים…"; state.classList.remove("setup");
-  if(!["classes","students","content","flags","feedback","access","models"].includes(mMode)) mMode="classes";
+  if(!["classes","students","content","flags","feedback","course","access","models"].includes(mMode)||(mMode==="course"&&!can("course.edit"))) mMode="classes";
   drawManageShell();
   const health=fetch("/api/health").then(async res=>{ if(res.ok){ const data=await res.json(); if(load===manageLoad) drawBuild(data.build,data.model); } }).catch(()=>{});
   const content=Promise.all([loadContent(),loadMathUnits()]).then(()=>{ if(load===manageLoad&&mMode==="content") drawContent(); });
@@ -7581,16 +7598,18 @@ async function drawFeedbackTalks(page){
 }
 function selectManageMode(){
   $("mModes").hidden=false;
-  for(const mode of ["classes","content","flags","feedback","access","models"]) $("manage").classList.toggle(mode,mMode===mode);
+  for(const mode of ["classes","content","flags","feedback","course","access","models"]) $("manage").classList.toggle(mode,mMode===mode);
   for(const b of $("mModes").children) b.setAttribute("aria-selected",b.dataset.mode===mMode);
+  $("mModes").querySelector('[data-mode="course"]').hidden=!can("course.edit");
 }
 function drawManageShell(){
   selectManageMode();
   $("manage").classList.remove("student");
-  const id={classes:"mClasses",students:"mRoster",content:"mContent",flags:"mFlags",feedback:"mFeedback",access:"mAccess",models:"mModels"}[mMode];
-  const what={classes:"הכיתות",students:"נתוני התלמידים",content:"התוכן",flags:"הניטור",feedback:"המשוב",access:"ההרשאות",models:"המודלים"}[mMode];
+  const id={classes:"mClasses",students:"mRoster",content:"mContent",flags:"mFlags",feedback:"mFeedback",course:"mCourse",access:"mAccess",models:"mModels"}[mMode];
+  const what={classes:"הכיתות",students:"נתוני התלמידים",content:"התוכן",flags:"הניטור",feedback:"המשוב",course:"החוברת",access:"ההרשאות",models:"המודלים"}[mMode];
   if(mMode==="flags"){ drawFlags(); return; }   // each section shows its own "loading" until its data arrives
   if(mMode==="feedback"){ drawFeedbackTab(); return; }
+  if(mMode==="course"){ drawCourseTab(); return; }
   if(id) $(id).replaceChildren(mark("card",`טוען את ${what}…`));
 }
 function drawManage(){
@@ -7601,6 +7620,7 @@ function drawManage(){
   if(mMode==="content"){ drawContent(); return; }
   if(mMode==="flags"){ drawFlags(); return; }
   if(mMode==="feedback"){ drawFeedbackTab(); return; }
+  if(mMode==="course"){ drawCourseTab(); return; }
   if(mMode==="access"){ drawAccess(); return; }
   if(mMode==="models"){ drawModels(); return; }
   if(shownClass!=="*"&&!classes.some(c=>c.name===shownClass)) shownClass="*";
@@ -7623,6 +7643,7 @@ function drawManage(){
 async function showMode(mode){
   mMode=mode; store.set("ihki.mmode",mode);
   if(mode==="feedback"){ FEEDBACK=null; feedbackError=""; feedbackLoad++; }   // read again each time the tab opens: drawn once, when it is in
+  if(mode==="course"){ COURSE_TAB=null; courseDiff=null; }
   drawManage();
   if(mode==="content"){ await Promise.all([loadContent(),loadMathUnits()]); if(mMode===mode) CLASS?drawManage():drawContent(); }
   if(mode==="flags"&&!flagsLoaded){ await loadFlags(); if(mMode===mode) CLASS?drawManage():drawFlags(); }
@@ -8073,6 +8094,204 @@ function drawStreakTeam(box){
 /* The course being served (GET /api/course/status): from Supabase's published version, its copy on the server, or the
    code workbook; the SQL to run while the course tables do not exist; the stored versions. Editing comes later. */
 let COURSE_STATUS=null, courseStatusLoading=false, courseStatusError="";
+/* חוברת: the course's workbook, edited as a draft that learners do not see (/api/course/*). The tree (level → lesson
+   → topic) opens a topic's items, each with edit, move and delete buttons and a form to add one; the draft bar shows
+   what the draft changes (with the learners of what it changes or deletes), the words it reads by rule, the switch
+   to see the app as a learner would with the draft, and publishing (the classes it changes for are shown first). The
+   versions list publishes an earlier version again (a rollback). Every action is a button; nothing needs dragging. */
+let COURSE_TAB=null, courseTabError="", courseTabLoading=false, courseTopic=null, courseTopicCat="", courseDiff=null, courseMsg="";
+const COURSE_KINDS={learn:"היכרות",match:"התאמה",say:"אמירה",read:"קריאה",write:"כתיבה"};
+const hasArabicLetters=t=>/[؀-ۿ]/.test(t);
+async function courseJson(url,opts){
+  const res=await api(url,opts), d=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(d.detail||res.status);
+  return d;
+}
+async function loadCourseTab(){
+  if(courseTabLoading) return; courseTabLoading=true;
+  try{
+    const [status,draft]=await Promise.all([courseJson("/api/course/status"),courseJson("/api/course/draft").catch(e=>({error:e.message}))]);
+    COURSE_TAB={status,draft:draft.draft||null,outline:draft.outline||[],error:draft.error||""}; courseTabError="";
+  }catch(e){ courseTabError=e.message; }
+  courseTabLoading=false;
+  if(mMode==="course") drawCourseTab();
+}
+async function loadCourseTopic(cat){
+  courseTopicCat=cat; courseTopic=null; drawCourseTab();
+  try{ courseTopic=await courseJson(`/api/course/topic?cat=${encodeURIComponent(cat)}`); }
+  catch(e){ courseTopic={error:e.message}; }
+  if(mMode==="course"&&courseTopicCat===cat) drawCourseTab();
+}
+async function courseChange(op,done){   // one change to the draft; the tree, the topic and the diff are read again
+  try{
+    const out=await courseJson("/api/course/draft",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({...op,expected_updated_at:COURSE_TAB&&COURSE_TAB.draft?COURSE_TAB.draft.updated_at:null})});
+    courseMsg=(out.guessed||[]).length?`נשמר בטיוטה. מילים שנקראות לפי הכללים: ${out.guessed.join(", ")}`:"נשמר בטיוטה";
+    accessToast(courseMsg); courseDiff=null;
+    if(done) done(out);
+    await loadCourseTab();
+    if(courseTopicCat&&op.op!=="delete_topic") await loadCourseTopic(out.cat||courseTopicCat); else{ courseTopicCat=""; courseTopic=null; drawCourseTab(); }
+  }catch(e){ courseMsg=e.message; accessToast(e.message,true); drawCourseTab(); }
+}
+function setCoursePreview(on){
+  try{ on?localStorage.setItem("ihki.coursePreview","true"):localStorage.removeItem("ihki.coursePreview"); }catch{}
+  location.reload();   // the course is read once, when the page opens
+}
+async function coursePublish(number,btn){
+  btn.disabled=true;
+  try{
+    const pre=await courseJson("/api/course/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({number})});
+    const hit=(pre.affected_classes||[]).map(c=>`• ${c.name}: `+[c.lessons_not_written.length&&`שיעורים שאינם כתובים בה: ${c.lessons_not_written.join(", ")}`,
+      c.homework_dropped.length&&`שיעורי בית שיוסרו: ${c.homework_dropped.join(", ")}`].filter(Boolean).join("; "));
+    if(!confirm(`לפרסם את גרסה ${number} לכל התלמידים?`+(hit.length?`\nהכיתות שישתנו:\n${hit.join("\n")}`:"\nאף כיתה לא מאבדת שיעור או שיעורי בית."))){ btn.disabled=false; return; }
+    await courseJson("/api/course/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({number,confirm:true})});
+    accessToast(`גרסה ${number} פורסמה`); COURSE_STATUS=null; courseDiff=null;
+    await loadCourseTab(); if(courseTopicCat) loadCourseTopic(courseTopicCat);
+  }catch(e){ accessToast(e.message,true); btn.disabled=false; }
+}
+function courseItemForm(item,onSave,onCancel){   // Hebrew, the Arabic (in Arabic or in Hebrew letters) and how it is said
+  const form=document.createElement("form"); form.className="course-form";
+  const field=(label,value,name)=>{ const l=mark("course-field","","label"), i=document.createElement("input"); i.name=name; i.value=value||""; i.autocomplete="off"; l.append(mark("",label,"span"),i); form.append(l); return i; };
+  const he=field("עברית",item&&item.he,"he"), ar=field("ערבית (באותיות ערביות או עבריות)",item&&(item.ar||item.tr),"ar"), say=field("איך אומרים (לא חובה)",item&&item.he_say,"he_say");
+  ar.dir="auto";
+  const row=mark("course-form-actions",""), save=mark("btn primary",item?"שמירה":"הוספה","button"); save.type="submit"; row.append(save);
+  if(onCancel){ const c=mark("btn","ביטול","button"); c.type="button"; c.onclick=onCancel; row.append(c); }
+  form.append(row);
+  form.onsubmit=e=>{ e.preventDefault(); const a=ar.value.trim();
+    if(!he.value.trim()||!a){ accessToast("כתבו עברית וערבית",true); return; }
+    save.disabled=true; onSave({he:he.value.trim(),...(hasArabicLetters(a)?{ar:a}:{tr:a}),he_say:say.value.trim()}); };
+  return form;
+}
+function drawCourseTopic(box){
+  const t=courseTopic, card=mark("card course-topic",""); box.append(card);
+  if(!t){ card.append(mark("meta","טוען את הנושא…","p")); return; }
+  if(t.error){ card.append(mark("note",t.error,"p")); return; }
+  const topic=t.topic, cat=courseTopicCat;
+  const head=mark("course-topic-head",""); head.append(mark("",`${topic.name} · ${COURSE_KINDS[topic.kind]||topic.kind}`,"h2"));
+  const close=mark("btn","סגירה","button"); close.onclick=()=>{ courseTopicCat=""; courseTopic=null; drawCourseTab(); }; head.append(close); card.append(head);
+  const rename=document.createElement("form"); rename.className="course-rename";
+  const name=document.createElement("input"); name.value=topic.name; name.setAttribute("aria-label","שם הנושא");
+  const rb=mark("btn","שינוי שם","button"); rb.type="submit"; rename.append(name,rb);
+  rename.onsubmit=e=>{ e.preventDefault(); if(name.value.trim()&&name.value.trim()!==topic.name) courseChange({op:"update_topic",cat,name:name.value.trim()}); };
+  const del=mark("btn danger","מחיקת הנושא","button");
+  del.onclick=()=>{ if(confirm(`למחוק את הנושא "${topic.name}" מהטיוטה? ההתקדמות בו תפסיק להיספר אחרי הפרסום.`)) courseChange({op:"delete_topic",cat}); };
+  const tools=mark("course-topic-tools",""); tools.append(rename,del); card.append(tools);
+  if((t.guessed||[]).length){ const g=mark("note course-guessed",`מילים שנקראות לפי הכללים (בדקו את ההגייה): ${t.guessed.join(", ")}`,"p"); card.append(g); }
+  if(["match","write"].includes(topic.kind)&&!(t.phrases||[]).length){ card.append(mark("meta","לנושא מסוג זה אין פריטים משלו.","p")); return; }
+  if(topic.generator){
+    card.append(mark("meta","טבלת הטיות: עורכים את רשימת המילים, והצורות נבנות ממנה. צורה שנשארת שומרת את ההתקדמות שלה.","p"));
+    const ta=document.createElement("textarea"); ta.className="course-args"; ta.dir="auto"; ta.value=JSON.stringify(topic.generator.args,null,1); ta.setAttribute("aria-label","רשימת המילים");
+    const sb=mark("btn primary","שמירת הרשימה","button");
+    sb.onclick=()=>{ let args; try{ args=JSON.parse(ta.value); }catch{ accessToast("הרשימה אינה JSON תקין",true); return; } courseChange({op:"set_generator",cat,args}); };
+    card.append(ta,sb);
+    const forms=mark("course-items","","ol");
+    for(const p of t.phrases) forms.append(mark("",`${p.he} — ${p.tr}`,"li"));
+    card.append(forms); return;
+  }
+  const items=topic.items||[], list=mark("course-items","","ol");
+  const byId=Object.fromEntries((t.phrases||[]).map(p=>[p.id,p]));
+  items.forEach((item,k)=>{
+    const li=document.createElement("li"), p=byId[item.id];
+    const text=mark("course-item-text",""); text.append(mark("",item.he,"b"),mark("course-ar",p?p.tr:(item.tr||item.ar),"span"));
+    if(item.he_say) text.append(mark("meta",`אומרים: ${item.he_say}`,"small"));
+    const acts=mark("course-item-actions","");
+    const btn=(label,aria,fn,cls="btn")=>{ const b=mark(cls,label,"button"); b.setAttribute("aria-label",aria); b.onclick=fn; acts.append(b); return b; };
+    btn("✏️","עריכת "+item.he,()=>{ li.replaceChildren(courseItemForm(item,v=>courseChange({op:"update_item",cat,id:item.id,...v}),()=>drawCourseTab())); li.querySelector("input").focus(); });
+    btn("↑","הזזה למעלה: "+item.he,()=>courseChange({op:"move_item",cat,id:item.id,to:k-1})).disabled=k===0;
+    btn("↓","הזזה למטה: "+item.he,()=>courseChange({op:"move_item",cat,id:item.id,to:k+1})).disabled=k===items.length-1;
+    btn("🗑","מחיקת "+item.he,()=>{ if(confirm(`למחוק מהטיוטה את "${item.he}"?`)) courseChange({op:"delete_items",cat,ids:[item.id]}); },"btn danger");
+    li.append(text,acts); list.append(li);
+  });
+  card.append(list);
+  const add=document.createElement("details"); add.className="sec course-add"; add.append(mark("","➕ הוספת פריט","summary"));
+  add.append(courseItemForm(null,v=>courseChange({op:"add_items",cat,items:[v]})));
+  card.append(add);
+}
+function drawCourseDraftBar(box){
+  const d=COURSE_TAB.draft, st=COURSE_TAB.status, bar=mark("card course-bar",""); box.append(bar);
+  bar.append(mark("","טיוטה","h2"));
+  bar.append(mark("meta",`התלמידים רואים את גרסה ${st.number||"—"}. `+(d?`בטיוטה (גרסה ${d.number}) יש שינויים שעוד לא פורסמו.`:"אין טיוטה: השינוי הראשון ייצור אותה מהגרסה המפורסמת."),"p"));
+  const acts=mark("course-bar-actions",""); bar.append(acts);
+  const view=mark("btn",COURSE_PREVIEW?"יציאה מתצוגת הטיוטה":"תצוגה כתלמיד","button"); view.setAttribute("aria-pressed",COURSE_PREVIEW);
+  view.onclick=()=>setCoursePreview(!COURSE_PREVIEW); acts.append(view);
+  if(!d) return;
+  const pub=mark("btn primary","פרסום","button"); pub.onclick=()=>coursePublish(d.number,pub); acts.append(pub);
+  const sum=mark("course-diff",""); bar.append(sum);
+  if(!courseDiff){ sum.append(mark("meta","בודק מה השתנה…","p"));
+    courseJson("/api/course/diff").then(x=>{ courseDiff=x; }).catch(e=>{ courseDiff={error:e.message}; }).finally(()=>{ if(sum.isConnected) drawCourseTab(); }); return; }
+  if(courseDiff.error){ sum.append(mark("note",courseDiff.error,"p")); return; }
+  const x=courseDiff, n=k=>(x[k]||[]).length;
+  const counts=[["פריטים נוספו",n("items_added")],["שונו",n("items_changed")],["הוזזו",n("items_moved")],["נמחקו",n("items_deleted")],
+    ["נושאים נוספו",n("topics_added")],["נושאים נמחקו",n("topics_deleted")],["שיעורים נכתבו",n("lessons_written")]].filter(([,v])=>v);
+  sum.append(mark("",counts.length?counts.map(([l,v])=>`${l}: ${v}`).join(" · "):"הטיוטה זהה לגרסה המפורסמת","p"));
+  const touched=[...(x.items_changed||[]).map(i=>({...i,how:"שונה"})),...(x.items_deleted||[]).map(i=>({...i,how:"נמחק"}))].filter(i=>i.learners);
+  if(touched.length){ const ul=mark("course-learners","","ul");
+    for(const i of touched) ul.append(mark("",`${i.how}: ${i.was?i.was.he:i.he} · ${i.learners} תלמידים תרגלו`,"li"));
+    sum.append(mark("meta","פריטים שתלמידים כבר תרגלו:","p"),ul); }
+  const guessed=Object.values(x.guessed||{}).flat();
+  if(guessed.length) sum.append(mark("note",`מילים שנקראות לפי הכללים: ${[...new Set(guessed)].join(", ")}`,"p"));
+  if((x.affected_classes||[]).length) sum.append(mark("note","כיתות שישתנו בפרסום: "+x.affected_classes.map(c=>c.name).join(", "),"p"));
+}
+function drawCourseTree(box){
+  const card=mark("card course-tree",""); card.append(mark("","השיעורים","h2")); box.append(card);
+  for(const level of COURSE_TAB.outline){
+    const lv=document.createElement("details"); lv.className="sec"; lv.append(mark("",`שלב ${level.level} · ${level.name}`,"summary"));
+    const written=new Set(level.lessons.map(l=>l.n));
+    for(const lesson of level.lessons){
+      const ld=document.createElement("details"); ld.className="sec course-lesson"; ld.append(mark("",`שיעור ${lesson.id} · ${lesson.topics.length} נושאים`,"summary"));
+      if(lesson.topics.some(t=>t.id===courseTopicCat)){ lv.open=true; ld.open=true; }
+      const ul=mark("course-topics","","ul");
+      for(const t of lesson.topics){
+        const li=document.createElement("li"), b=mark("course-topic-btn","","button");
+        b.append(mark("",t.name,"span"),mark("meta",`${COURSE_KINDS[t.kind]||t.kind}${t.size?` · ${t.size}`:""}${t.generated?" · טבלה":""}`,"small"));
+        b.dataset.cat=t.id; if(t.id===courseTopicCat) b.setAttribute("aria-current","true");
+        b.onclick=()=>loadCourseTopic(t.id); li.append(b); ul.append(li);
+      }
+      ld.append(ul);
+      const add=document.createElement("details"); add.className="course-add"; add.append(mark("","➕ נושא חדש","summary"));
+      const f=document.createElement("form"); f.className="course-form";
+      const nm=document.createElement("input"); nm.placeholder="שם הנושא"; nm.setAttribute("aria-label","שם הנושא");
+      const kind=document.createElement("select"); kind.setAttribute("aria-label","סוג הנושא");
+      for(const [k,v] of Object.entries(COURSE_KINDS)) kind.add(new Option(v,k)); kind.value="say";
+      const go=mark("btn primary","הוספה","button"); go.type="submit"; f.append(nm,kind,go);
+      f.onsubmit=e=>{ e.preventDefault(); if(!nm.value.trim()) return;
+        const used=new Set(lesson.topics.map(t=>t.tid)); let tid="t1"; for(let i=1;used.has(tid);i++) tid=`t${i}`;
+        courseChange({op:"add_topic",level:level.level,n:lesson.n,tid,name:nm.value.trim(),kind:kind.value},out=>{ courseTopicCat=out.cat; }); };
+      add.append(f); ld.append(add); lv.append(ld);
+    }
+    const missing=[]; for(let n=1;n<=level.count;n++) if(!written.has(n)) missing.push(n);
+    if(missing.length){ const row=mark("course-missing",""); row.append(mark("meta","שיעורים מתוכננים:","span"));
+      for(const n of missing){ const b=mark("btn",`כתיבת שיעור ${n}`,"button"); b.onclick=()=>courseChange({op:"add_lesson",level:level.level,n}); row.append(b); }
+      lv.append(row); }
+    card.append(lv);
+  }
+}
+function drawCourseVersions(box){
+  const versions=COURSE_TAB.status.versions||[]; if(!versions.length) return;
+  const card=mark("card course-versions-card",""); card.append(mark("","גרסאות","h2")); box.append(card);
+  const ul=mark("course-version-list","","ul");
+  for(const v of versions){
+    const li=document.createElement("li");
+    li.append(mark("",`גרסה ${v.number} · ${{published:"מפורסמת",draft:"טיוטה",history:"קודמת"}[v.status]||v.status}`+(v.published_by?` · פורסמה ע״י ${v.published_by}`:v.created_by?` · ${v.created_by}`:"")+(v.note?` · ${v.note}`:""),"span"));
+    if(v.status==="history"){ const b=mark("btn","פרסום מחדש","button"); b.setAttribute("aria-label",`פרסום מחדש של גרסה ${v.number}`); b.onclick=()=>coursePublish(v.number,b); li.append(b); }
+    ul.append(li);
+  }
+  card.append(ul);
+}
+function drawCourseTab(){
+  const box=$("mCourse"); box.replaceChildren();
+  if(courseTabError){ const c=mark("card",""); c.append(mark("","חוברת","h2"),mark("note",courseTabError,"p")); box.append(c); return; }
+  if(!COURSE_TAB){ box.append(mark("card","טוען את החוברת…")); loadCourseTab(); return; }
+  const st=COURSE_TAB.status;
+  if(st.setup){ const c=mark("card",""); c.append(mark("","חוברת","h2"),mark("meta","כדי לערוך את החוברת, הריצו פעם אחת ב-SQL Editor של Supabase:","p"));
+    const code=mark("",st.setup,"code"); code.dir="ltr"; c.append(code); box.append(c); return; }
+  if(COURSE_TAB.error){ const c=mark("card",""); c.append(mark("note",COURSE_TAB.error,"p")); box.append(c); }
+  drawCourseDraftBar(box);
+  const split=mark("course-split",""); box.append(split);
+  drawCourseTree(split);
+  if(courseTopicCat) drawCourseTopic(split);
+  drawCourseVersions(box);
+}
 function drawCourseStatus(box){
   const card=mark("card course-status",""); card.append(mark("","📚 חוברת הקורס","h2")); box.append(card);
   const body=mark("",""); card.append(body);
@@ -10696,6 +10915,11 @@ function useLessons(ids){   // the path shows these lessons only (null: every on
 }
 const ready=(COURSE_PREVIEW?api("/api/phrases"):fetch("/api/phrases")).then(r=>{ if(!r.ok) throw new Error(`phrases: ${r.status}`); return r.json(); }).then(d=>{
   ALL_LEVELS=d.levels||[]; ALL_LESSONS=d.lessons||[]; ALL_CATS=d.categories||[]; GAMES=d.games||[]; PHRASES=d.phrases||[];
+  if(d.preview==="draft"){   // a manager sees the course's draft: say so on every screen, with the way out
+    const b=mark("course-preview-banner","","div"); b.setAttribute("role","status");
+    const out=mark("btn","יציאה מהתצוגה","button"); out.onclick=()=>setCoursePreview(false);
+    b.append(mark("","👁 תצוגת הטיוטה של החוברת: התלמידים עדיין רואים את הגרסה המפורסמת","span"),out); document.body.prepend(b);
+  }
   $("nav").querySelector('[data-view="games"]').hidden=AUTH_URL
     ? !can("games.use")&&!can("tutor.use")
     : !GAMES.some(game=>!game.hidden)&&!(TUTOR_INFO&&TUTOR_INFO.available);

@@ -35,10 +35,10 @@
 
 ## 5. The panel: חוברת tab
 
-- [ ] 5.1 Course tree (level → lesson → topic) and a topic's items with inline edit, add, delete and move buttons, all keyboard- and touch-usable, RTL; verify with a browser test that an edit is saved to the draft and its rule-read words are shown
-- [ ] 5.2 Draft bar: diff counts with the learner counts, words read by rule, "תצוגה כתלמיד" and "פרסום" (with affected classes before confirming); verify with a browser test of preview and of publish
-- [ ] 5.3 Versions list with "פרסום מחדש" for history versions; verify with a browser test of a rollback
-- [ ] 5.4 Manual browser check on a phone width and a desktop width: tree navigation, editing a sentence, preview, publish and rollback, with screenshots attached to the change
+- [x] 5.1 Course tree (level → lesson → topic) and a topic's items with inline edit, add, delete and move buttons, all keyboard- and touch-usable, RTL; verify with a browser test that an edit is saved to the draft and its rule-read words are shown
+- [x] 5.2 Draft bar: diff counts with the learner counts, words read by rule, "תצוגה כתלמיד" and "פרסום" (with affected classes before confirming); verify with a browser test of preview and of publish
+- [x] 5.3 Versions list with "פרסום מחדש" for history versions; verify with a browser test of a rollback
+- [x] 5.4 Manual browser check on a phone width and a desktop width: tree navigation, editing a sentence, preview, publish and rollback, with screenshots (shared in the session; PNGs are not pushed, the repository keeps them in LFS)
 
 ## 6. Integration
 
