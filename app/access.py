@@ -88,6 +88,9 @@ CREATE_FEATURE_ACCESS = (
     "tier text not null, feature_key text not null, old_enabled boolean not null, new_enabled boolean not null, "
     "changed_by uuid not null, created_at timestamptz not null default now()); "
     "alter table public.feature_access_audit enable row level security; notify pgrst, 'reload schema';")
+# the column of an account's own exceptions (clean_overrides), set from the permission editor and through the MCP
+MIGRATE_ACCESS_OVERRIDES = ("alter table public.user_access add column if not exists overrides jsonb not null "
+                            "default '{}'::jsonb; notify pgrst, 'reload schema';")
 
 
 def feature_pins(text: str | None = None) -> dict[tuple[str, str], bool]:
@@ -369,6 +372,35 @@ def what_opens(a: SupabaseAuth, users: list[dict], rows: list[dict], levels_of, 
                            "library.all_sections": set(library.leaf_sections()) <= set(me.get("library_sections") or []),
                            **{k: has(p) for k, p in flags.items()}}
     return out
+
+
+def account_features(a: SupabaseAuth, account: dict, rows: list[dict], overrides: dict | None = None) -> dict:
+    """What one account (a row of account_rows) gets of each learner feature, as the MCP shows it: {"denied": outside
+    every class with nothing of its own, "features": {key: {"tier": its tier's value, "own": its own exception (True,
+    False, or None when it has none), "enabled": what the account gets}}}. `overrides`, in place of the saved ones,
+    shows what a change would give. The same resolution as at sign-in (resolve_user_access)."""
+    saved = next((r for r in rows if r.get("user_id") == account["id"]), None)
+    if overrides is None:
+        overrides = clean_overrides((saved or {}).get("overrides"))
+    else:
+        rows = [r for r in rows if r.get("user_id") != account["id"]] + \
+            [{**(saved or {"user_id": account["id"]}), "overrides": overrides}]
+    me = resolve_user_access(_KnownAccess(a, rows), {"id": account["id"], "email": account.get("email") or ""})
+    denied, perms = bool(me.get("denied")), set(me.get("permissions") or ())
+    tier = effective_features(feature_table(a))[account["tier"]]
+    out = {}
+    for key, (_name, _defaults, gives) in FEATURES.items():
+        own = overrides.get(OVERRIDE_OF_FEATURE[key])
+        if denied:
+            enabled = False
+        elif "*" in perms:
+            enabled = True
+        elif gives:
+            enabled = all(p in perms for p in gives)
+        else:   # library.all_sections gives no permission
+            enabled = tier[key]["enabled"] if own is None else own
+        out[key] = {"tier": tier[key]["enabled"], "own": own, "enabled": enabled}
+    return {"denied": denied, "features": out}
 
 
 def change_tier(a: SupabaseAuth, actor: dict | None, target_id: str, tier: str, developer: bool | None = None) -> dict:

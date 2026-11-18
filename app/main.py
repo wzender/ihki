@@ -77,7 +77,7 @@ from . import glossary
 from . import user_lookup
 from . import library as video_library
 from . import teacher_operations
-from .access import (CREATE_FEATURE_ACCESS, ENTITLEMENTS, FEATURES, TIER_NAMES, effective_features, feature_table, TIERS, AccessChangeError, account_rows, change_tier, clean_overrides, what_opens,
+from .access import (CREATE_FEATURE_ACCESS, ENTITLEMENTS, FEATURES, MIGRATE_ACCESS_OVERRIDES, TIER_NAMES, effective_features, feature_table, TIERS, AccessChangeError, account_rows, change_tier, clean_overrides, what_opens,
                      class_sections, has_permission, resolve_access)
 from .class_management import (ClassManagementError, normalize_class_name, normalize_meetings, parse_roster,
                                visible_classes)
@@ -295,9 +295,6 @@ MIGRATE_USER_ACCESS = ("alter table public.user_access add column if not exists 
                        "where 'path' = any(entitlements) and not ('practice' = any(entitlements)); "
                        "alter table public.user_access add constraint valid_entitlements check "
                        f"(entitlements <@ {ENTITLEMENTS_SQL});")
-# an account's own exceptions to its tier and classes (access.clean_overrides), set from the permission editor
-MIGRATE_ACCESS_OVERRIDES = ("alter table public.user_access add column if not exists overrides jsonb not null "
-                            "default '{}'::jsonb; notify pgrst, 'reload schema';")
 MAX_NOTE = 500
 MIGRATE_ATTEMPT_ISSUES = ("alter table public.attempts add column if not exists issues jsonb not null default '[]'::jsonb, "
                           "add column if not exists model text not null default '', "
