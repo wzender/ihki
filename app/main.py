@@ -3286,15 +3286,41 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except LookupError as e:
             raise HTTPException(404, str(e))
 
+    # A game that keeps nothing of its own on the server writes one system_events row when it is played (kind "game",
+    # the game alone in details: no answers, moves or times), for get_game_popularity. One row per student and game
+    # every GAME_MARK_SECONDS at most, so a reload or a burst of clicks is not counted again.
+    GAME_MARK_SECONDS = 20
+    game_marks: dict[tuple[str, str], float] = {}
+
+    def mark_game_played(tasks: BackgroundTasks, user: dict | None, game: str) -> bool:
+        if not user or app.state.auth is None:
+            return False
+        key, now = (str(user.get("id")), game), time.monotonic()
+        if now - game_marks.get(key, -GAME_MARK_SECONDS) < GAME_MARK_SECONDS:
+            return False
+        if len(game_marks) > 10_000:
+            game_marks.clear()
+        game_marks[key] = now
+        from .monitoring import APP_GAME_LABELS
+        tasks.add_task(app.state.auth.log_event, "game", user, APP_GAME_LABELS[game], {"game": game})
+        return True
+
     @app.get("/api/verb-game/falling", dependencies=[Depends(require("games.use")), Depends(require("games.falling"))])
-    def verb_falling(verb: str = "", user: dict | None = Depends(signed_in)):
-        """A learned verb and its forms for the falling איתן/present-prefix game."""
+    def verb_falling(tasks: BackgroundTasks, verb: str = "", user: dict | None = Depends(signed_in)):
+        """A learned verb and its forms for the falling איתן/present-prefix game; each verb opened is one play of it."""
         try:
-            return app.state.verb_game.falling_letters(
+            answer = app.state.verb_game.falling_letters(
                 verb_lessons(user), drafts=bool(user and user["teacher"]), verb_id=verb or None
             )
         except LookupError as e:
             raise HTTPException(404, str(e))
+        mark_game_played(tasks, user, "falling-letters")
+        return answer
+
+    @app.post("/api/games/verb-memory/finished", dependencies=[Depends(require("games.use"))])
+    def verb_memory_finished(tasks: BackgroundTasks, user: dict | None = Depends(signed_in)):
+        """הפועל זכרון is played on the device alone: a finished board is told here, with nothing of how it went."""
+        return {"recorded": mark_game_played(tasks, user, "verb-memory")}
 
     @app.get("/api/verb-game/falling/tts", dependencies=[Depends(require("games.use")), Depends(require("games.falling"))])
     def verb_falling_tts(verb: str, user: dict | None = Depends(signed_in)):

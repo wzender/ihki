@@ -4041,6 +4041,7 @@ function mgFlip(b){
 }
 function mgWin(){   // every pair found: the misbaha dances, beads rain, and the stars
   if(!mg) return;
+  if(AUTH_URL) api("/api/games/verb-memory/finished",{method:"POST"}).catch(()=>{});   // a finished board, for the games' popularity: nothing of how it went
   mg.party=1; mgTone([[523,.14],[659,.14],[784,.14],[1047,.32],[784,.12],[1047,.4]],"sine",.09);
   const secs=Math.round((Date.now()-mg.start)/1000), stars=mg.moves<=mg.n*1.4?3:mg.moves<=mg.n*2?2:1;
   const old=gameBest.memory, record=!old||mg.moves<old.moves||(mg.moves===old.moves&&secs<old.seconds);

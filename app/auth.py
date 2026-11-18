@@ -1513,6 +1513,9 @@ class SupabaseAuth:
         "verb_game_events": ("system_events", "id,actor_id,created_at,level:details->>level", "actor_id",
                              (("kind", "eq.game"), ("label", "eq.פועל יוצא"))),
         "tutor_chats": ("tutor_chats", "id,user_id,created_at,turns", "user_id", ()),
+        # הפועל זכרון (a finished board) and אותיות נופלות (a verb opened): one row each, the game alone in details
+        "app_game_events": ("system_events", "id,actor_id,created_at,game:details->>game", "actor_id",
+                            (("kind", "eq.game"), ("details->>game", "in.(verb-memory,falling-letters)"))),
     }
 
     def scoped_game_rows(self, source: str, user_ids: set[str], since: datetime, until: datetime, *,

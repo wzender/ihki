@@ -1245,21 +1245,22 @@ def _game_catalog() -> list[dict[str, Any]]:
          "sessions_recorded": False},
         {"game_id": "yalla-nedaber", "game_name": "יאללה נדבר", "tracking": "server", "coverage": "complete",
          "sources": ["tutor_chats"], "activity_unit": "student_turns", "sessions_recorded": True},
-        {"game_id": "verb-memory", "game_name": "הפועל זכרון", "tracking": "device_only", "coverage": "none",
-         "sources": [], "activity_unit": None, "sessions_recorded": False},
-        {"game_id": "falling-letters", "game_name": "אותיות נופלות", "tracking": "none", "coverage": "none",
-         "sources": [], "activity_unit": None, "sessions_recorded": False},
+        {"game_id": "verb-memory", "game_name": "הפועל זכרון", "tracking": "server", "coverage": "partial",
+         "sources": ["app_game_events"], "activity_unit": "finished_boards", "sessions_recorded": False,
+         "coverage_note": (f"One event per board finished, recorded since {APP_GAMES_TRACKED_SINCE.isoformat()}; "
+                           "earlier play and boards left unfinished left no record, so counts are a lower bound.")},
+        {"game_id": "falling-letters", "game_name": "אותיות נופלות", "tracking": "server", "coverage": "partial",
+         "sources": ["app_game_events"], "activity_unit": "verbs_opened", "sessions_recorded": False,
+         "coverage_note": (f"One event per verb opened in the game, recorded since "
+                           f"{APP_GAMES_TRACKED_SINCE.isoformat()}; earlier play left no record.")},
     ]
     return games
 
 
-TRACKING_PROPOSALS = {
-    "verb-memory": ("When a board is completed, POST a body-less request naming only the game to a small endpoint that "
-                    "calls auth.log_event('game', user, 'הפועל זכרון', {'game': 'verb-memory'}). One row per finished "
-                    "board, with no moves, times or answers."),
-    "falling-letters": ("When a round ends, log one system_events row of kind game with details {'game': "
-                        "'falling-letters'} through the same endpoint. No letters, answers or timings."),
-}
+# the day הפועל זכרון and אותיות נופלות began to write an event (system_events, kind "game", details.game)
+APP_GAMES_TRACKED_SINCE = date(2026, 11, 18)
+APP_GAME_LABELS = {"verb-memory": "הפועל זכרון", "falling-letters": "אותיות נופלות"}
+TRACKING_PROPOSALS: dict[str, str] = {}   # every game now writes an event; a new game without one is listed here
 
 
 def _game_rows(auth: Any, source: str, user_ids: set[str], since: datetime, until: datetime,
@@ -1386,6 +1387,10 @@ def game_popularity(auth: Any, actor: dict[str, Any], *, from_date: object, to_d
     verb_rows, events_bad = _game_events(raw, "actor_id", user_ids, since, until, tz, "event")
     sources["system_events"] = {"status": "unavailable" if reason or events_bad else "available",
                                 "reason": reason or ("unreliable_timestamps" if events_bad else None)}
+    raw, reason = _game_rows(auth, "app_game_events", user_ids, since, until)
+    app_rows, app_bad = _game_events(raw, "actor_id", user_ids, since, until, tz, "app")
+    sources["app_game_events"] = {"status": "unavailable" if reason or app_bad else "available",
+                                  "reason": reason or ("unreliable_timestamps" if app_bad else None)}
     raw, reason = _game_rows(auth, "tutor_chats", user_ids, since, until)
     tutor_rows, tutor_bad = _game_events(raw, "user_id", user_ids, since, until, tz, "chat")
     sources["tutor_chats"] = {"status": "unavailable" if reason or tutor_bad else "available",
@@ -1406,6 +1411,7 @@ def game_popularity(auth: Any, actor: dict[str, Any], *, from_date: object, to_d
         "verb-game": [item for item in verb_rows if level(item) in VERB_GAME_LEVELS] + spoken_verb,
         "eitan-verb-builder": [item for item in verb_rows if level(item) in EITAN_GAME_LEVELS],
         "yalla-nedaber": tutor_rows,
+        **{game: [item for item in app_rows if item.get("game") == game] for game in APP_GAME_LABELS},
     }
 
     games: list[dict[str, Any]] = []
@@ -1451,7 +1457,9 @@ def game_popularity(auth: Any, actor: dict[str, Any], *, from_date: object, to_d
             "status": status, "activity_unit": "recorded_answers",
             **({"activity_count": len(combined)} if status == "complete" else {}), **metrics,
             "note": ("These games share one stored event, and rows without a recorded level cannot be split "
-                     "between them, so the pair is reported together and not ranked."),
+                     "between them, so the pair is reported together and not ranked. Events have recorded their level "
+                     "since 2026-10-30: a range from split_possible_from on ranks the two apart."),
+            "split_possible_from": (max(item["local_date"] for item in unattributed) + timedelta(days=1)).isoformat(),
         })
 
     measured = [game for game in games if game["popularity_measurable"]]
@@ -1498,8 +1506,9 @@ def game_popularity(auth: Any, actor: dict[str, Any], *, from_date: object, to_d
             "returning_players": "Players with stored events of the game on at least two different local days in the period.",
             "sessions": ("Only יאללה נדבר stores sessions: one conversation started in the period. Other games store no "
                          "session boundary, so sessions is null."),
-            "activity_count": ("The game's own unit (activity_unit): scored_spoken_attempts, recorded_answers, or "
-                               "student_turns. Not comparable across games and never summed."),
+            "activity_count": ("The game's own unit (activity_unit): scored_spoken_attempts, recorded_answers, "
+                               "student_turns, finished_boards or verbs_opened. Not comparable across games and "
+                               "never summed."),
             "player": "A learner on a selected class roster; teachers are not counted unless they are on a roster.",
         },
         "games": games,

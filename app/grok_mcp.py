@@ -1553,8 +1553,11 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
 
     @tool(description=("Answer 'which game is the most popular?' for one authorized class or all visible classes. "
                        "Read-only. Ranks only games with reliable server-side records, by distinct active players "
-                       "and separately by player-days; games stored only on the device are reported as not "
-                       "measurable, never as zero. Returns privacy-thresholded aggregates only."),
+                       "and separately by player-days; a game whose records cannot be used is reported as not "
+                       "measurable, never as zero. Every game writes server records: הפועל זכרון and אותיות נופלות "
+                       "since 2026-11-18 (earlier play is not counted), and פועל יוצא / בונים פועל עם איתן are "
+                       "split by level from unattributed_activity's split_possible_from on. Returns "
+                       "privacy-thresholded aggregates only."),
           structured_output=True)
     async def get_game_popularity(
         from_date: str, to_date: str, class_id: int | None = None, timezone: str = "Asia/Jerusalem",

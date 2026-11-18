@@ -821,10 +821,10 @@ Only some games leave a record on the server, so every game gets a `status`:
 | פועל יוצא | one `system_events` row per graded answer (levels 1–3) and one `attempts` row (`verb-game`) per spoken answer (levels 4–5); level-5 typed replies are not stored, so its counts are a lower bound (`coverage: partial`) | `not_attributable` |
 | בונים פועל עם איתן | the same `system_events` row as פועל יוצא, told apart only by `details.level` (6–8) | `not_attributable` |
 | יאללה נדבר | one `tutor_chats` row per conversation, with answered student turns | — |
-| הפועל זכרון | nothing: the best result stays in the browser | `not_tracked` |
-| אותיות נופלות | nothing: the server only serves the letters | `not_tracked` |
+| הפועל זכרון | one `system_events` row (`kind` game, `details.game` verb-memory) per finished board, since 2026-11-18; nothing of the moves or times (`coverage: partial`) | — |
+| אותיות נופלות | one `system_events` row (`details.game` falling-letters) per verb opened, since 2026-11-18; no letters or answers (`coverage: partial`) | — |
 
-Until this change, the verb-game event recorded no level, so older rows cannot be split between פועל יוצא and בונים פועל עם איתן. While any such row falls in the period, both games are `not_attributable` and their combined activity is reported once under `unattributed_activity` instead of being ranked. Rows written after deployment carry the level, so these two games become separately measurable over time. Historical usage of הפועל זכרון and אותיות נופלות cannot be reconstructed; `tracking_gaps` proposes the smallest change that would record one identity-free row per finished round.
+Until this change, the verb-game event recorded no level, so older rows cannot be split between פועל יוצא and בונים פועל עם איתן. While any such row falls in the period, both games are `not_attributable` and their combined activity is reported once under `unattributed_activity` instead of being ranked. Rows have carried the level since 2026-10-30, so the two games are measured apart over a range that starts after the last row without one: `unattributed_activity` gives that day as `split_possible_from`. Use of הפועל זכרון and אותיות נופלות before 2026-11-18 left no record and cannot be reconstructed. Each of the two writes at most one row per student every 20 seconds (`POST /api/games/verb-memory/finished` after a board; opening a verb in אותיות נופלות), so a reload is not counted again. `tracking_gaps` lists any game that still writes nothing (none today).
 
 Metrics, per game:
 
@@ -834,7 +834,7 @@ Metrics, per game:
 - `sessions`: only יאללה נדבר stores sessions (conversations started in the period). It is `null` with `sessions_reason: "not_recorded"` for the other games.
 - `activity_count` with `activity_unit`: `scored_spoken_attempts`, `recorded_answers`, or `student_turns`. These are not comparable across games and are never summed.
 
-`rankings.by_distinct_players` and `rankings.by_activity_volume` rank only measurable games (`complete` or `no_activity`). Equal values share a rank. `answer` names the leader(s) of each ranking, reports `leaders_differ` and `orders_differ`, and says whether the result is conclusive among tracked games and among all games. Because two games are never tracked, it is never conclusive among all games.
+`rankings.by_distinct_players` and `rankings.by_activity_volume` rank only measurable games (`complete` or `no_activity`). Equal values share a rank. `answer` names the leader(s) of each ranking, reports `leaders_differ` and `orders_differ`, and says whether the result is conclusive among tracked games and among all games. Before 2026-11-18 two games were not tracked, so a range that starts earlier undercounts them.
 
 The statuses are distinct: `no_activity` is a measured zero and is ranked. `unavailable` means a source could not be read (`source_not_installed`, `source_unavailable`, `row_limit_exceeded`, or `unreliable_timestamps`). `not_tracked` and `not_attributable` mean popularity cannot be measured. `suppressed` is a privacy outcome. None of these is ever shown as zero. A game is shown only if it has 0 events, or at least 3 players and 5 events. In an all-classes answer, a game is also suppressed (`privacy_threshold_complement`) when the learners outside any single selected class form a group below that threshold, so a single-class answer cannot be subtracted from it. `returning_players` is withheld when either the returning or the one-day group is 1–2 learners. Suppressed games have no counts and no rank, and the cross-game `overall` figure is `null` whenever any game is suppressed, unavailable, or not attributable. The tool returns no identities, timestamps, answers, messages, or rows.
 
@@ -866,9 +866,7 @@ Example response (shortened):
              "conclusive_among_tracked_games": false, "conclusive_among_all_games": false},
   "excluded_from_ranking": [
     {"game_id": "verb-game", "game_name": "פועל יוצא", "status": "not_attributable", "reason": "verb_game_events_without_level"},
-    {"game_id": "eitan-verb-builder", "game_name": "בונים פועל עם איתן", "status": "not_attributable", "reason": "verb_game_events_without_level"},
-    {"game_id": "verb-memory", "game_name": "הפועל זכרון", "status": "not_tracked", "reason": "result_stored_on_device_only"},
-    {"game_id": "falling-letters", "game_name": "אותיות נופלות", "status": "not_tracked", "reason": "no_server_record"}]
+    {"game_id": "eitan-verb-builder", "game_name": "בונים פועל עם איתן", "status": "not_attributable", "reason": "verb_game_events_without_level"}]
 }
 ```
 

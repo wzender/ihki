@@ -1459,6 +1459,21 @@ def test_a_server_that_cannot_say_who_the_account_is_lets_no_one_in(site, monkey
     assert r["fail"] and not r["denied"] and "לא הצלחנו לבדוק את החשבון" in r["text"]
     assert not r["entered"] and not r["start"] and r["view"] == ""   # it used to open with every lesson on the path
 
+MEMORY_DONE = """
+await sleep(800);
+const sent=[]; const real=window.fetch;
+window.fetch=(url,opts={})=>{ if(String(url).includes("/api/games/")) sent.push([String(url),opts.method||"GET"]); return real(url,opts); };
+openMemoryGame(); await until(()=>typeof mg!=="undefined"&&mg&&mg.n,6000);
+out.before=sent.length; mgWin(); await sleep(300);
+out.sent=sent.map(([u,m])=>[u.replace(location.origin,""),m]);
+"""
+
+
+def test_a_finished_memory_board_is_told_to_the_server(site):
+    site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
+    r = site("dana@x.com", MEMORY_DONE)
+    assert r["before"] == 0 and r["sent"] == [["/api/games/verb-memory/finished", "POST"]]
+
 SETTINGS = """
 await until(()=>document.querySelector("#vids .focus-set"),6000);
 const set=document.querySelector("#vids .focus-set"), box=document.getElementById("autoNextOn");

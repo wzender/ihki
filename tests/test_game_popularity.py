@@ -27,7 +27,7 @@ class GameAuth:
             {"id": 2, "name": "ב", "subject": "ערבית", "emails": [f"s{i}@example.com" for i in range(4, 9)]},
             {"id": 3, "name": "מתמטיקה", "subject": "מתמטיקה", "emails": ["m@example.com"]},
         ]
-        self.rows = {"game_attempts": [], "verb_game_events": [], "tutor_chats": [], **(rows or {})}
+        self.rows = {"game_attempts": [], "verb_game_events": [], "app_game_events": [], "tutor_chats": [], **(rows or {})}
         self.failures = failures or {}
         self.calls = []
 
@@ -58,6 +58,10 @@ def bubble(user, day, row_id, cat=BUBBLE):
 
 def verb(user, day, row_id, level):
     return {"id": row_id, "actor_id": user, "created_at": stamp(day), "level": None if level is None else str(level)}
+
+
+def played(user, day, row_id, game_id):
+    return {"id": row_id, "actor_id": user, "created_at": stamp(day), "game": game_id}
 
 
 def chat(user, day, row_id, turns=4):
@@ -113,7 +117,7 @@ def test_a_learner_in_two_classes_and_a_repeated_row_count_once():
     result = game_popularity(auth, ADMIN, **RANGE)
     entry = game(result, BUBBLE)
     # Each source is read once for the union of both rosters, never once per class.
-    assert [source for source, _, _ in auth.calls] == ["game_attempts", "verb_game_events", "tutor_chats"]
+    assert [source for source, _, _ in auth.calls] == ["game_attempts", "verb_game_events", "app_game_events", "tutor_chats"]
     assert entry["status"] == "complete"
     assert entry["distinct_active_players"] == 8         # not 10: u4 and u5 count once
     assert entry["activity_count"] == 13                 # the duplicated row id 1 is counted once
@@ -146,18 +150,18 @@ def test_local_calendar_days_follow_the_requested_time_zone():
 
 # --- missing tracking, missing data and zero -------------------------------------------------------------------------
 
-def test_device_only_games_are_not_measurable_and_never_ranked_as_zero():
-    result = game_popularity(GameAuth(), ADMIN, **RANGE)
-    for game_id, reason in (("verb-memory", "result_stored_on_device_only"), ("falling-letters", "no_server_record")):
-        entry = game(result, game_id)
-        assert entry["status"] == "not_tracked" and entry["reason"] == reason
-        assert entry["popularity_measurable"] is False and "distinct_active_players" not in entry
-        assert game_id not in ranked_ids(result, "by_distinct_players")
-        assert game_id not in ranked_ids(result, "by_activity_volume")
-    gaps = {gap["game_id"]: gap for gap in result["tracking_gaps"]}
-    assert set(gaps) == {"verb-memory", "falling-letters"}
-    assert all(gap["historical_usage_recoverable"] is False for gap in gaps.values())
-    assert result["answer"]["conclusive_among_all_games"] is False
+def test_the_memory_game_and_falling_letters_are_measured_from_their_own_events():
+    rows = {"app_game_events": [played(u, 5, f"m{u}", "verb-memory") for u in ("u1", "u2", "u3")]
+            + [played("u1", 6, "m-again", "verb-memory"), played("u2", 6, "m-again2", "verb-memory")]
+            + [played(u, 7, f"f{u}{n}", "falling-letters") for u in ("u1", "u2", "u3", "u4") for n in (1, 2)]}
+    result = game_popularity(GameAuth(rows), ADMIN, class_id=1, **RANGE)
+    memory, falling = game(result, "verb-memory"), game(result, "falling-letters")
+    assert memory["status"] == falling["status"] == "complete"
+    assert (memory["distinct_active_players"], memory["activity_count"], memory["activity_unit"]) == (3, 5, "finished_boards")
+    assert (falling["distinct_active_players"], falling["activity_count"], falling["activity_unit"]) == (4, 8, "verbs_opened")
+    assert "recorded since 2026-11-18" in memory["coverage_note"]
+    assert ranked_ids(result, "by_distinct_players")[:2] == ["falling-letters", "verb-memory"]
+    assert result["tracking_gaps"] == [] and result["answer"]["conclusive_among_all_games"] is True
 
 
 def test_zero_activity_is_ranked_as_zero_and_differs_from_missing_data():
@@ -180,7 +184,7 @@ def test_zero_activity_is_ranked_as_zero_and_differs_from_missing_data():
 
 
 def test_every_source_unavailable_is_not_reported_as_no_activity():
-    failures = {name: AuthUnavailable("timeout") for name in ("game_attempts", "verb_game_events", "tutor_chats")}
+    failures = {name: AuthUnavailable("timeout") for name in ("game_attempts", "verb_game_events", "app_game_events", "tutor_chats")}
     result = game_popularity(GameAuth(failures=failures), ADMIN, **RANGE)
     assert result["status"] == "unavailable"
     assert result["rankings"] == {"by_distinct_players": [], "by_activity_volume": []}
@@ -207,6 +211,7 @@ def test_verb_events_without_a_level_make_both_verb_games_not_attributable():
     [combined] = result["unattributed_activity"]
     assert combined["status"] == "complete" and combined["distinct_active_players"] == 4
     assert combined["activity_count"] == 8
+    assert combined["split_possible_from"] == "2026-10-06"   # the day after the last event without a level
 
 
 def test_levels_split_verb_events_between_the_two_verb_games():
@@ -296,7 +301,7 @@ def test_period_and_provenance_are_reported():
     result = game_popularity(GameAuth(), ADMIN, **RANGE)
     assert (result["from_date"], result["to_date"], result["days_included"]) == ("2026-10-02", "2026-10-29", 28)
     assert result["timezone"] == "Asia/Jerusalem" and result["retrieved_at"] == "2026-10-30T08:00:00Z"
-    assert [source["source"] for source in result["data_sources"]] == ["attempts", "system_events", "tutor_chats"]
+    assert [source["source"] for source in result["data_sources"]] == ["attempts", "system_events", "app_game_events", "tutor_chats"]
     assert set(result["definitions"]) >= {"distinct_active_players", "player_days", "returning_players", "sessions"}
     with pytest.raises(MonitoringError):
         game_popularity(GameAuth(), ADMIN, from_date="2026-10-02", to_date="2026-10-31", today=TODAY)
@@ -324,3 +329,37 @@ def test_storage_reads_minimal_columns_pages_and_signals_truncation():
     assert auth.scoped_game_rows("game_attempts", {"u1"}, since, until) == ([], False)   # no game ids: no read
     assert auth.scoped_game_rows("tutor_chats", set(), since, until) == ([], False)
 
+
+
+# --- the events the two device-side games now write ----------------------------------------------------------------
+
+def test_a_finished_memory_board_and_an_opened_falling_verb_each_write_one_event(monkeypatch):
+    from tests.test_access_tiers import MANAGER, STUDENT, TierAuth, run
+    import app.main as main
+
+    class EventAuth(TierAuth):
+        def __init__(self):
+            super().__init__()
+            self.events = []
+
+        def log_event(self, kind, user, label="", details=None):
+            self.events.append((kind, user["id"], label, details))
+
+    clock = [1000.0]
+    monkeypatch.setattr(main.time, "monotonic", lambda: clock[0])
+    auth = EventAuth()
+
+    async def steps(client):
+        out = {"memory": (await client.post("/api/games/verb-memory/finished", headers=STUDENT)).json(),
+               "again": (await client.post("/api/games/verb-memory/finished", headers=STUDENT)).json()}
+        clock[0] += 21
+        out["later"] = (await client.post("/api/games/verb-memory/finished", headers=STUDENT)).json()
+        out["falling"] = (await client.get("/api/verb-game/falling", headers=MANAGER)).status_code
+        out["anonymous"] = (await client.post("/api/games/verb-memory/finished")).status_code
+        return out
+    out = run(auth, steps, monkeypatch)
+    assert out["memory"] == {"recorded": True} and out["again"] == {"recorded": False}   # a reload is not a new board
+    assert out["later"] == {"recorded": True} and out["falling"] == 200 and out["anonymous"] == 401
+    assert auth.events == [("game", "student-1", "הפועל זכרון", {"game": "verb-memory"}),
+                           ("game", "student-1", "הפועל זכרון", {"game": "verb-memory"}),
+                           ("game", "teacher-1", "אותיות נופלות", {"game": "falling-letters"})]   # the game alone, nothing of the play
