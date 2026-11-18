@@ -14,6 +14,7 @@
 - [ ] 2.2 Import on first use: with the tables present and empty, store and publish the exported version 1; verify a test where the import leaves learner progress, class lessons and homework unchanged
 - [ ] 2.3 Load the published version on startup and every 30 s, compile it, swap it in, and write `data/course-cache.json`; serve the cache when Supabase is down and the code workbook when there is no cache; keep the last good version when a stored one fails to compile; verify each case with a test
 - [ ] 2.4 Publish and roll back (`/api/course/publish`), logging publisher and time to `system_events`, with affected classes computed before confirming and removed lessons/homework dropped from what classes show; verify tests for publish, re-publish of history, and a class whose homework topic was removed
+- [ ] 2.5 Add `course_versions` and `course_lexicon` to the daily backup (`BACKUP_TABLES`, with `BACKUP_NATURAL_KEYS` `id` and `word`), and make a restore keep exactly one published version; verify with a backup-and-restore test that brings back every version and the published one, and that a backup made before the tables existed still restores
 
 ## 3. Drafting, compiling on save, diff and preview
 

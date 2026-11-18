@@ -159,6 +159,11 @@ The service SHALL keep serving the last published version it loaded when Supabas
 - **THEN** learners get version 5 from the cache
 - **AND** the editor shows that authoring is unavailable until Supabase answers
 
+#### Scenario: The course is backed up
+- **WHEN** the daily backup runs
+- **THEN** it contains every course version and every added dictionary word
+- **AND** restoring it brings back the same published version and history
+
 #### Scenario: A version that does not compile
 - **WHEN** a stored version fails to compile on load
 - **THEN** the service keeps serving the version it had and logs the failure

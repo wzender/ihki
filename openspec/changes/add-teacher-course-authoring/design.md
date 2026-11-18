@@ -133,6 +133,9 @@ RTL throughout; every action has a button (no drag-only interaction); keyboard o
   developers get the list in the lab; publishing does not block on it, but the preview shows a warning on each item.
 - [Large Supabase rows] → The document is a few hundred KB; drafts are compressed by Postgres TOAST. History beyond 30
   versions can be pruned by developers.
+- [Supabase becomes the course's source of truth, so losing it loses the course] → Both tables join the daily
+  backup (`BACKUP_TABLES`); every version is kept, so a backup restores the history too, and the code workbook remains
+  a last resort as version 1.
 - [Process-local caches across replicas] → The Space runs one process; the 30 s version check covers a restart or a
   second replica.
 - [An editor deletes a topic that classes use as homework] → Shown before publishing; the class simply stops showing it.

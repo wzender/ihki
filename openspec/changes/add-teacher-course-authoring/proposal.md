@@ -61,7 +61,8 @@ to how topics look or play is not part of this change.
   `prepare_course_change`, `publish_course_change`, `publish_course_version`.
 - **Supabase.** New tables `course_versions` (the documents, with status, author and time) and `course_lexicon` (the words
   teachers added). One-time SQL, shown in the panel until it is run, as for other tables. Attempts keep their
-  `(cat, phrase)` key; no migration of attempt rows.
+  `(cat, phrase)` key; no migration of attempt rows. Both new tables join the daily backup, since Supabase becomes
+  the course's source of truth.
 - **Authorization.** A new permission, `course.edit`, for managers (מנהלים) of the Arabic subject; publishing a version
   needs `course.publish`, given to managers and developers. Students and class teachers can only read the published
   course. The MCP's permission firewall is unchanged otherwise.
