@@ -68,7 +68,7 @@ from .texts import read_line, text_phrases
 from .tts import (BASELINE_VOICES, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
                   playback_voices, voice_name)
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
-                    TutorUnavailable, default_model as default_tutor_model, load_tutor)
+                    TutorUnavailable, CREATE_TUTOR_CHATS, default_model as default_tutor_model, load_tutor)
 from .verb_game import VerbExerciseGenerator
 from .camel_race import race_items as camel_race_items, speech_of as camel_race_speech
 from .grok_mcp import build as build_grok_mcp, oauth_urls
@@ -4032,6 +4032,21 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if name not in KEY_NAMES:
             raise HTTPException(404, "unknown key")
         return name
+
+    @app.get("/api/admin/tutor-usage")
+    def tutor_usage(days: int = Query(30, ge=1, le=90), a: SupabaseAuth = Depends(teacher_only)):
+        """יאללה נדבר's conversations, tokens and estimated dollars by day and by model (see tutor_usage.py)."""
+        from . import tutor_usage as usage
+        today = datetime.now(LOCAL_TZ).date()
+        since = datetime.combine(today - timedelta(days=days - 1), datetime.min.time(), LOCAL_TZ)
+        try:
+            rows = a.tutor_usage_rows(since)
+        except AuthUnavailable as e:
+            if "answered 404" in str(e):
+                return {"setup": CREATE_TUTOR_CHATS}
+            raise HTTPException(503, f"נתוני השימוש אינם זמינים: {e}")
+        tutor = app.state.tutor
+        return {**usage.summarize(rows, days, today, LOCAL_TZ), "model_now": tutor.model if tutor else None}
 
     @app.get("/api/admin/keys")
     def api_keys(response: Response, _a: SupabaseAuth = Depends(keys_only)):

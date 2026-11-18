@@ -1703,6 +1703,20 @@ class SupabaseAuth:
         except AuthUnavailable as e:
             log.warning("a tutor conversation not kept: %s%s", e, _missing_tutor_chats(e))
 
+    def tutor_usage_rows(self, since: datetime, limit: int = 20_000) -> list[dict]:
+        """The tokens of every יאללה נדבר conversation begun since `since`: model, input_tokens, output_tokens, turns,
+        created_at (nothing of what was said, nor who said it)."""
+        rows: list[dict] = []
+        while len(rows) < limit:
+            query = urllib.parse.urlencode([("select", "model,input_tokens,output_tokens,turns,created_at"),
+                                            ("created_at", f"gte.{since.astimezone(timezone.utc).isoformat()}"),
+                                            ("order", "created_at.asc,id.asc"), ("limit", PAGE), ("offset", len(rows))])
+            batch = self._admin(f"/rest/v1/tutor_chats?{query}") or []
+            rows += batch
+            if len(batch) < PAGE:
+                break
+        return rows[:limit]
+
     def tutor_chats_since(self, user_id: str, since: str) -> int:
         """How many conversations with the tutor the student started since this ISO time. 0 when they cannot be read."""
         query = urllib.parse.urlencode({"select": "id", "user_id": f"eq.{user_id}", "created_at": f"gte.{since}"})

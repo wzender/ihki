@@ -1523,6 +1523,32 @@ def test_a_student_attaches_a_screenshot_and_the_feedback_tab_shows_it(site):
     seen = site("boss@x.com", SEE_SHOT)
     assert seen["count"] == "חדש אחד" and seen["shot"] == [1600, 800, True] and not seen["inFlags"]
 
+TUTOR_USAGE_CARD = """
+await sleep(1200);
+document.getElementById("toManage").click(); await sleep(300);
+document.querySelector('#mModes [data-mode="flags"]').click();
+await until(()=>document.querySelector("#mFlags .tutor-usage .usage-tile"),8000);
+const card=document.querySelector("#mFlags .tutor-usage");
+out.title=card.querySelector("h2").textContent;
+out.tiles=[...card.querySelectorAll(".usage-tile")].map(t=>[t.querySelector("small").textContent,t.querySelector("b").textContent]);
+out.models=[...card.querySelectorAll(".usage-models li")].map(l=>l.textContent);
+out.rows=card.querySelectorAll(".usage-days tr").length;
+"""
+
+
+def test_monitoring_shows_what_the_tutor_cost(site):
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    site.auth.tutor_usage_rows = lambda since, limit=20_000: [
+        {"created_at": now, "model": "claude-sonnet-5-5", "input_tokens": 100_000, "output_tokens": 20_000, "turns": 10},
+        {"created_at": now, "model": "claude-haiku-5-5", "input_tokens": 50_000, "output_tokens": 5_000, "turns": 4}]
+    r = site("boss@x.com", TUTOR_USAGE_CARD)
+    assert r["title"] == "💬 יאללה נדבר: שימוש ועלות"
+    # Sonnet: 0.2 + 0.2 = $0.40; Haiku: 0.005 + 0.0025 = $0.0075, so $0.41 in all
+    assert r["tiles"][:2] == [["עלות משוערת", "$0.41"], ["היום", "$0.41"]] and r["tiles"][2:] == [["שיחות", "2"], ["משפטים", "14"]]
+    assert r["models"][0].startswith("claude-sonnet-5-5: שיחה אחת") and r["models"][0].endswith("$0.40")
+    assert r["rows"] == 2   # the header and today
+
 SETTINGS = """
 await until(()=>document.querySelector("#vids .focus-set"),6000);
 const set=document.querySelector("#vids .focus-set"), box=document.getElementById("autoNextOn");

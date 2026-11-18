@@ -106,6 +106,9 @@ body.home:not([data-view]) #feedbackBtn{display:none}
 .fb-shot{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.fb-shot>span{display:flex;gap:8px;align-items:center}.fb-shot>span[hidden]{display:none}
 .fb-shot img{max-height:72px;max-width:120px;border-radius:8px;border:1px solid var(--line);object-fit:cover}
 .fb-inbox .fb-image{display:inline-block;margin:4px 0}.fb-inbox .fb-image img{max-height:160px;max-width:min(100%,260px);border-radius:8px;border:1px solid var(--line);display:block}
+.tutor-usage select{margin:0 0 8px}.usage-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:6px 0}
+.usage-tile{border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--surface);display:flex;flex-direction:column;gap:2px}.usage-tile b{font-size:20px}.usage-tile small{color:var(--muted)}
+.usage-models{margin:6px 0;padding-inline-start:20px;font-size:14px}.usage-days{border-collapse:collapse;font-size:14px;margin:6px 0}.usage-days :is(td,th){padding:3px 8px;border-bottom:1px solid var(--line);text-align:start}
 .fb-note{margin:0;min-height:1.3em;color:var(--muted);font-size:14px}
 .fb-inbox .fb-item{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-bottom:1px solid var(--line)}.fb-inbox .fb-item.done{opacity:.55}.fb-inbox .fb-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--muted)}.fb-inbox .fb-msg{white-space:pre-wrap;overflow-wrap:anywhere}.fb-inbox .fb-actions{display:flex;gap:8px}.fb-inbox .fb-group{border-top:1px solid var(--line);padding-top:6px;margin-top:6px}.fb-inbox .fb-group>summary{cursor:pointer;font-weight:700;padding:6px 0}
 #myClass:empty+.help{margin-inline-start:auto}
@@ -7641,6 +7644,7 @@ function drawFlags(){
   drawStreakTeam(box);
   drawBackupControls(box);
   drawApiKeys(box);
+  drawTutorUsage(box);
   drawSystemActivity(box);
   drawTtsCacheControls(box);
   if(!flagsLoaded){ box.append(mark("card","טוען את הדיווחים…")); return; }
@@ -7940,6 +7944,53 @@ function drawStreakTeam(box){
   const list=mark("streak-list","");
   students.forEach((student,index)=>{ const nick=Object.values(student.classes||{}).find(Boolean), name=student.name||nick||student.email, row=mark("streak-player",""); row.append(mark("streak-rank",index+1),mark("",name,"b"),mark("",`🔥 ${student.streak.current} ימים · שיא אישי ${student.streak.best}`,"small")); row.title=student.email; list.append(row); });
   card.append(list); box.append(card);
+}
+
+/* יאללה נדבר: what its conversations cost (GET /api/admin/tutor-usage): the period's conversations, sentences, tokens
+   and an estimate in dollars, today and the days before it, and by model. Read once a draw of the tab, kept for its
+   redraws; the period is chosen here. The dollars are an upper bound (cached input counted at the full price). */
+let TUTOR_USAGE=null, tutorUsageDays=30, tutorUsageLoading=false, tutorUsageError="";
+function drawTutorUsage(box){
+  const card=mark("card tutor-usage",""); card.append(mark("","💬 יאללה נדבר: שימוש ועלות","h2"));
+  const pick=document.createElement("select"); pick.setAttribute("aria-label","תקופה");
+  for(const d of [7,30,90]) pick.add(new Option(`${d} הימים האחרונים`,d)); pick.value=tutorUsageDays;
+  pick.onchange=()=>{ tutorUsageDays=+pick.value; TUTOR_USAGE=null; draw(); };
+  const body=mark("",""); card.append(pick,body); box.append(card);
+  const usd=v=>v==null?"—":v<0.01&&v>0?"פחות מ־$0.01":`$${v.toFixed(2)}`, n=v=>Number(v||0).toLocaleString("he-IL");
+  function draw(){
+    body.replaceChildren();
+    if(tutorUsageError){ body.append(mark("note","לא ניתן לטעון: "+tutorUsageError,"p")); return; }
+    if(!TUTOR_USAGE){
+      body.append(mark("meta","טוען…","p"));
+      if(!tutorUsageLoading){ tutorUsageLoading=true;
+        api(`/api/admin/tutor-usage?days=${tutorUsageDays}`).then(async res=>{ const d=await res.json().catch(()=>({})); if(!res.ok) throw new Error(d.detail||res.status); TUTOR_USAGE=d; tutorUsageError=""; })
+          .catch(e=>{ tutorUsageError=e.message; }).finally(()=>{ tutorUsageLoading=false; if(card.isConnected) draw(); }); }
+      return;
+    }
+    const u=TUTOR_USAGE;
+    if(u.setup){ body.append(mark("note","הטבלה tutor_chats עוד לא קיימת, ולכן אין נתוני שימוש.","p")); return; }
+    const t=u.total, today=u.daily[0]||{}, tiles=mark("usage-tiles","");
+    for(const [label,value] of [["עלות משוערת",usd(t.cost)],["היום",usd(today.cost)],["שיחות",n(t.conversations)],["משפטים",n(t.turns)]]){
+      const tile=mark("usage-tile",""); tile.append(mark("",value,"b"),mark("",label,"small")); tiles.append(tile);
+    }
+    body.append(tiles);
+    if(u.model_now) body.append(mark("meta",`המודל עכשיו: ${u.model_now}`,"p"));
+    if(t.conversations&&u.models.length){
+      const list=mark("usage-models","","ul");
+      for(const m of u.models) list.append(mark("",`${m.model}: ${m.conversations===1?"שיחה אחת":n(m.conversations)+" שיחות"} · ${n(m.input_tokens)} טוקני קלט · ${n(m.output_tokens)} טוקני פלט · ${m.priced?usd(m.cost):"אין מחיר במחירון"}`,"li"));
+      body.append(list);
+    }
+    const days=mark("sec","","details"), sum=mark("","לפי ימים","summary"), table=mark("usage-days","","table");
+    const head=document.createElement("tr"); for(const h of ["יום","שיחות","משפטים","טוקנים","עלות"]) head.append(mark("",h,"th")); table.append(head);
+    for(const d of u.daily.filter(d=>d.conversations)){
+      const tr=document.createElement("tr"), day=new Date(d.date+"T12:00:00").toLocaleDateString("he-IL",{weekday:"short",day:"numeric",month:"numeric"});
+      for(const v of [day,n(d.conversations),n(d.turns),n(d.input_tokens+d.output_tokens),usd(d.cost)+(d.unpriced?" *":"")]) tr.append(mark("",v,"td"));
+      table.append(tr);
+    }
+    days.append(sum,table.children.length>1?table:mark("meta","אין שיחות בתקופה.","p")); body.append(days);
+    body.append(mark("meta",u.note+(t.unpriced?` * ${t.unpriced} שיחות במודל שאין לו מחיר במחירון לא נכללו בעלות.`:"")+" החשבון המדויק: Usage ו-Cost בקונסולה של Anthropic.","p"));
+  }
+  draw();
 }
 
 let SAVED_BACKUPS=null, backupsLoading=false;
