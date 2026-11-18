@@ -1214,26 +1214,42 @@ def test_a_teacher_answers_a_note_from_the_inbox(site):
     assert site.auth.notes[0]["status"] == "read" and "נקרא" not in r["buttons"]
 
 
-GROUPS = """
+BOARD = """
 await sleep(800); showManage(); await sleep(300);
 document.querySelector('#mModes [data-mode="feedback"]').click();
-await until(()=>document.querySelector(".fb-inbox .fb-group"),6000);
-const groups=()=>[...document.querySelectorAll(".fb-inbox .fb-group")].map(g=>[g.dataset.status,g.querySelector("summary").textContent,g.open,
-  [...g.querySelectorAll(".fb-msg")].map(m=>m.textContent)]);
-out.before=groups();
-document.querySelector('.fb-group[data-status="new"] .fb-actions button').click();   // "נקרא": the note moves to its group
-await until(()=>!document.querySelector('.fb-group[data-status="new"]'),5000); out.after=groups();
+await until(()=>document.querySelector("#mFeedback .fb-board"),6000);
+const cols=()=>[...document.querySelectorAll("#mFeedback .fb-col")].map(c=>[c.dataset.status,c.querySelector(".fb-col-head").textContent,
+  [...c.querySelectorAll(".fb-msg")].map(m=>m.textContent)]);
+out.before=cols(); out.talks=[...document.querySelectorAll("#mFeedback .fb-talks .fb-msg")].map(m=>m.textContent);
+out.draggable=document.querySelector("#mFeedback .fb-board .fb-item").draggable;
+out.replyFolded=!document.querySelector("#mFeedback .fb-board .fb-reply-fold").open;
+document.querySelector('.fb-col[data-status="new"] .fb-actions button').click();   // "נקרא": the card moves to its column
+await until(()=>cols()[0][2].length===0,5000); out.moved=cols();
+// dragged from נקראו to טופלו
+const card=[...document.querySelectorAll('.fb-col[data-status="read"] .fb-item')].find(i=>i.textContent.includes("עוד נקרא"));
+const dt=new DataTransfer(); card.dispatchEvent(new DragEvent("dragstart",{dataTransfer:dt,bubbles:true}));
+const done=document.querySelector('.fb-col[data-status="done"]');
+done.dispatchEvent(new DragEvent("dragover",{dataTransfer:dt,bubbles:true,cancelable:true})); out.over=done.classList.contains("over");
+done.dispatchEvent(new DragEvent("drop",{dataTransfer:dt,bubbles:true,cancelable:true}));
+await until(()=>cols()[2][2].length===2,5000); out.dropped=cols();
 """
 
 
-def test_the_inbox_groups_notes_by_status(site):
+def test_general_feedback_is_a_board_and_the_tutor_notes_stand_apart(site):
     site.auth.notes = [note(id=1, message="חדש"), note(id=2, message="נקרא", status="read"),
-                       note(id=3, message="טופל", status="done"), note(id=4, message="עוד נקרא", status="read")]
-    r = site("boss@x.com", GROUPS)
-    assert r["before"] == [["new", "חדשים (1)", True, ["חדש"]], ["read", "נקראו (2)", True, ["נקרא", "עוד נקרא"]],
-                           ["done", "טופלו (1)", False, ["טופל"]]]   # what is handled starts folded
-    assert r["after"] == [["read", "נקראו (3)", True, ["חדש", "נקרא", "עוד נקרא"]], ["done", "טופלו (1)", False, ["טופל"]]]
-    assert site.auth.notes[0]["status"] == "read"
+                       note(id=3, message="טופל", status="done"), note(id=4, message="עוד נקרא", status="read"),
+                       note(id=5, message="על השיחה", kind="tutor", screen="tutor", rating=4,
+                            item="בשוק · ערבית מדוברת 3/5 · claude-haiku-5-5")]
+    r = site("boss@x.com", BOARD)
+    assert r["before"] == [["new", "חדשים · 1", ["חדש"]], ["read", "נקראו · 2", ["נקרא", "עוד נקרא"]],
+                           ["done", "טופלו · 1", ["טופל"]]]
+    assert r["talks"] == ["על השיחה"]   # the conversation's note is not on the board
+    assert r["draggable"] and r["replyFolded"]
+    assert r["moved"] == [["new", "חדשים · 0", []], ["read", "נקראו · 3", ["חדש", "נקרא", "עוד נקרא"]],
+                          ["done", "טופלו · 1", ["טופל"]]]
+    assert r["over"] and r["dropped"][2] == ["done", "טופלו · 2", ["טופל", "עוד נקרא"]]
+    assert [n["status"] for n in site.auth.notes] == ["read", "read", "done", "done", "new"]
+
 
 def test_the_daily_video_button_is_in_the_progress_bar_even_without_a_video(site):
     site.auth.rows[("dana@x.com", 7)] = {"current_lesson": "5"}
@@ -1589,7 +1605,8 @@ def test_a_note_on_a_tutor_conversation_shows_its_model(site):
                             item="בבית הקפה · ערבית מדוברת 5/5 · claude-sonnet-5-5"),
                        note(id=2, created_at="2026-11-09T08:00:00+00:00")]
     r = site("boss@x.com", TUTOR_NOTE_MODEL)
-    assert r["chips"] == ["מודל: claude-sonnet-5-5", None] and r["kind"] == "💬 יאללה נדבר"
+    assert r["chips"] == [None, "מודל: claude-sonnet-5-5"]   # the board first, then the conversations' notes
+    assert r["kind"] == "🐞 משהו לא עובד"
 
 SETTINGS = """
 await until(()=>document.querySelector("#vids .focus-set"),6000);

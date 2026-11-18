@@ -115,6 +115,14 @@ body.home:not([data-view]) #feedbackBtn{display:none}
 .tc-fb-scale button[aria-pressed=true]{background:var(--olive);border-color:var(--olive);color:#fff}
 .tc-fb-ends{display:flex;justify-content:space-between;color:var(--muted)}.tc-fb textarea{font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink);resize:vertical}
 .tc-fb-note:empty{display:none}
+.fb-board{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px;margin:8px 0}
+.fb-col{scroll-snap-align:start;display:flex;flex-direction:column;gap:8px;min-width:0;padding:8px;border-radius:14px;background:var(--olive-soft);border:2px solid transparent}
+.fb-col.over{border-color:var(--olive)}.fb-col-head{margin:0;font-size:16px}
+.fb-cards{display:flex;flex-direction:column;gap:8px}.fb-empty{margin:0;color:var(--muted);font-size:14px;text-align:center;padding:12px 0}
+.fb-board .fb-item{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 10px;cursor:grab;border-bottom:1px solid var(--line)}
+.fb-board .fb-item.dragging{opacity:.45}.fb-board .fb-actions{flex-wrap:wrap}.fb-board .fb-actions .btn{padding:4px 10px;font-size:13px}
+.fb-reply-fold>summary{cursor:pointer;font-size:13px;color:var(--muted)}
+@media (max-width:600px){.fb-board{grid-template-columns:repeat(3,85%)}}
 .fb-inbox .fb-model{order:-1;padding:1px 8px;border-radius:999px;background:var(--olive-soft);color:var(--ink);font-weight:700;direction:ltr}
 .fb-note{margin:0;min-height:1.3em;color:var(--muted);font-size:14px}
 .fb-inbox .fb-item{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-bottom:1px solid var(--line)}.fb-inbox .fb-item.done{opacity:.55}.fb-inbox .fb-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--muted)}.fb-inbox .fb-msg{white-space:pre-wrap;overflow-wrap:anywhere}.fb-inbox .fb-actions{display:flex;gap:8px}.fb-inbox .fb-group{border-top:1px solid var(--line);padding-top:6px;margin-top:6px}.fb-inbox .fb-group>summary{cursor:pointer;font-weight:700;padding:6px 0}
@@ -7387,22 +7395,57 @@ function drawFeedbackInbox(box){
   if(FEEDBACK.setup){ card.append(mark("meta","הטבלה feedback עדיין לא קיימת. הריצו ב-SQL Editor של Supabase:","p"),mark("meta",FEEDBACK.setup,"p")); box.append(card); return; }
   if(FEEDBACK.tutor_setup) card.append(mark("meta","משובים על יאללה נדבר נשמרים כרגע כ„רעיון”. כדי שיישמרו כסוג משלהם, הריצו פעם אחת ב-SQL Editor של Supabase:","p"),mark("meta",FEEDBACK.tutor_setup,"p"));
   if(FEEDBACK.image_setup) card.append(mark("meta","כדי לשמור צילומי מסך עם המשוב, הריצו פעם אחת ב-SQL Editor של Supabase:","p"),mark("meta",FEEDBACK.image_setup,"p"));
-  const rows=FEEDBACK.feedback||[], open=rows.filter(r=>r.status==="new").length;
+  const all=FEEDBACK.feedback||[], rows=all.filter(r=>r.screen!=="tutor"), talks=all.filter(r=>r.screen==="tutor");
+  const open=rows.filter(r=>r.status==="new").length;
   card.append(mark("meta",rows.length?`${open} חדשים מתוך ${rows.length}`:"עדיין לא התקבל משוב.","p"));
-  // grouped by status, each newest first; what is handled starts folded, and a group a teacher opened or closed stays so
-  for(const [status,label] of FEEDBACK_GROUPS){
-    const mine=rows.filter(r=>r.status===status); if(!mine.length) continue;
-    const group=mark("fb-group","","details"), sum=mark("",`${label} (${mine.length})`,"summary");
-    group.dataset.status=status; group.open=status in feedbackOpen?feedbackOpen[status]:status!=="done";
-    group.ontoggle=()=>{ feedbackOpen[status]=group.open; };
-    group.append(sum); for(const r of mine.slice(0,50)) group.append(feedbackItem(r)); card.append(group);
+  // the general notes as a board: a column for each status, newest first; a card is dragged to another column (on a
+  // computer) or moved with its buttons (on a phone)
+  if(rows.length){
+    const board=mark("fb-board","");
+    for(const [status,label] of FEEDBACK_GROUPS){
+      const mine=rows.filter(r=>r.status===status), col=mark("fb-col","","section"), list=mark("fb-cards","");
+      col.dataset.status=status; col.append(mark("fb-col-head",`${label} · ${mine.length}`,"h3"));
+      for(const r of mine.slice(0,50)) list.append(feedbackItem(r,true));
+      if(mine.length>50) list.append(mark("meta",`ועוד ${mine.length-50}…`,"p"));
+      if(!mine.length) list.append(mark("fb-empty","אין כאן משוב","p"));
+      col.ondragover=e=>{ if(feedbackDragged){ e.preventDefault(); col.classList.add("over"); } };
+      col.ondragleave=e=>{ if(!col.contains(e.relatedTarget)) col.classList.remove("over"); };
+      col.ondrop=e=>{ e.preventDefault(); col.classList.remove("over"); const r=feedbackDragged; feedbackDragged=null; if(r&&r.status!==status) feedbackSetStatus(r,status); };
+      col.append(list); board.append(col);
+    }
+    card.append(board);
+    card.append(mark("meta","תגובה מופיעה במסך הבית של המשתמש ונשלחת אליו כהתראה. תשובה שלו מחזירה את המשוב ל„חדש”.","p"));
   }
-  if(rows.length) card.append(mark("meta","תגובה מופיעה במסך הבית של המשתמש ונשלחת אליו כהתראה. תשובה שלו מחזירה את המשוב ל„חדש”.","p"));
   box.append(card);
+  // the notes on יאללה נדבר's conversations: apart, grouped by status as before, with the model each one ran on
+  if(talks.length){
+    const part=mark("card fb-inbox fb-talks",""); part.append(mark("","💬 משוב על שיחות ביאללה נדבר","h2"));
+    for(const [status,label] of FEEDBACK_GROUPS){
+      const mine=talks.filter(r=>r.status===status); if(!mine.length) continue;
+      const group=mark("fb-group","","details"), sum=mark("",`${label} (${mine.length})`,"summary");
+      group.dataset.status=status; group.open=("t"+status) in feedbackOpen?feedbackOpen["t"+status]:status!=="done";
+      group.ontoggle=()=>{ feedbackOpen["t"+status]=group.open; };
+      group.append(sum); for(const r of mine.slice(0,50)) group.append(feedbackItem(r)); part.append(group);
+    }
+    box.append(part);
+  }
+}
+let feedbackDragged=null;   // the note a manager is dragging to another column
+async function feedbackSetStatus(r,status,button){
+  if(button) button.disabled=true;
+  const res=await api(`/api/feedback/${r.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})}).catch(()=>null);
+  if(res&&res.ok){ feedbackLoad++; r.status=status; drawFeedbackTab(); }
+  else if(button) button.disabled=false;
+  else accessToast?.("המשוב לא הועבר. נסו שוב.",true);
 }
 const FEEDBACK_GROUPS=[["new","חדשים"],["read","נקראו"],["done","טופלו"]], feedbackOpen={};
-function feedbackItem(r){   // one note in the inbox: who and where, the message, the conversation, its status buttons and an answer box
-  const item=mark("fb-item"+(r.status==="done"?" done":""),""), head=mark("fb-head","");
+function feedbackItem(r,onBoard){   // one note: who and where, the message, the conversation, its status buttons and an answer box
+  const item=mark("fb-item"+(r.status==="done"&&!onBoard?" done":""),""), head=mark("fb-head","");
+  if(onBoard){   // a card of the board: dragged by itself, its answer box folded until it is wanted
+    item.draggable=true; item.dataset.id=r.id;
+    item.ondragstart=e=>{ feedbackDragged=r; e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain",String(r.id)); item.classList.add("dragging"); };
+    item.ondragend=()=>{ item.classList.remove("dragging"); };
+  }
   const tutorModel=r.screen==="tutor"&&(r.item||"").split(" · ").pop();   // a note on a יאללה נדבר conversation ends with its model
   if(tutorModel) head.append(mark("fb-model","מודל: "+tutorModel,"span"));
   head.append(mark("flag-kind",FEEDBACK_KINDS[r.kind]||r.kind),mark("",r.rating?"★".repeat(r.rating):""),mark("",r.email),mark("",[r.screen,r.item].filter(Boolean).join(" · ")),mark("",new Date(r.created_at).toLocaleString("he-IL")));
@@ -7414,7 +7457,7 @@ function feedbackItem(r){   // one note in the inbox: who and where, the message
   for(const [status,label] of [["read","נקרא"],["done","טופל"],["new","החזרה לחדש"]]){
     if(r.status===status) continue;
     const b=mark("btn",label,"button"); b.type="button";
-    b.onclick=async()=>{ b.disabled=true; const res=await api(`/api/feedback/${r.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})}); if(res.ok){ feedbackLoad++; r.status=status; drawFeedbackTab(); } else b.disabled=false; };
+    b.onclick=()=>feedbackSetStatus(r,status,b);
     actions.append(b);
   }
   item.append(actions);
@@ -7432,7 +7475,11 @@ function feedbackItem(r){   // one note in the inbox: who and where, the message
       feedbackLoad++; r.replies=data.replies; r.status=data.status||r.status; delete feedbackDrafts[r.id]; drawFeedbackTab();
     }catch(err){ note.className="fb-reply-note bad"; note.textContent="התגובה לא נשלחה: "+err.message; send.disabled=false; }
   };
-  item.append(form,note); return item;
+  if(onBoard){
+    const fold=mark("fb-reply-fold","","details"), sum=mark("",(r.replies||[]).length?`תגובה (${r.replies.length})`:"תגובה","summary");
+    fold.open=!!feedbackDrafts[r.id]; fold.append(sum,form,note); item.append(fold);
+  }else item.append(form,note);
+  return item;
 }
 const feedbackDrafts={};   // an answer being written survives the inbox's redraws
 // a note's screenshot: read once with the manager's session (it is not public), then kept for the inbox's redraws;
