@@ -42,7 +42,7 @@
 
 ## 6. Integration
 
-- [ ] 6.1 End-to-end test: import, edit a sentence's Hebrew, add a sentence with a new word, delete one, preview, publish; a learner's gold bead stays on the edited sentence, the new one is practisable and scored, the deleted one's attempts no longer count, and re-publishing version 1 restores them
+- [x] 6.1 End-to-end test: import, edit a sentence's Hebrew, add a sentence with a new word, delete one, preview, publish; a learner's gold bead stays on the edited sentence, the new one is practisable and scored, the deleted one's attempts no longer count, and re-publishing version 1 restores them
 - [ ] 6.2 Run the full test suite and compare with the baseline failures; verify no new failures
 
 ## Workflow follow-up
