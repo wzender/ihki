@@ -269,6 +269,44 @@ def _topic_phrases(cat: str, topic: dict) -> tuple[list[dict], list[str]]:
     return [{"id": item["id"], "key": item["key"], **p} for item, p in zip(topic["items"], made)], guessed
 
 
+# ---- the course dictionary: the words teachers added (course_lexicon), over the code's LEX --------------------------
+
+_BASE_LEX: dict | None = None   # LEX as the code has it, before any added word
+
+
+def use_lexicon(rows: list[dict]) -> list[str]:
+    """Makes the added words (course_lexicon rows: word, tr, ipa) part of the course dictionary that every item is read
+    with, in place of the ones added before. A word the code's dictionary has keeps the code's entry. Returns the
+    words that were taken."""
+    global _BASE_LEX
+    from . import texts
+    if _BASE_LEX is None:
+        _BASE_LEX = dict(workbook.LEX)
+    workbook.LEX.clear()
+    workbook.LEX.update(_BASE_LEX)
+    taken = []
+    for row in rows or []:
+        word, tr, ipa = str(row.get("word") or "").strip(), str(row.get("tr") or "").strip(), row.get("ipa") or []
+        if word and tr and ipa and word not in _BASE_LEX:
+            workbook.LEX[word] = (tr, [str(i) for i in ipa])
+            taken.append(word)
+    texts.refresh_lexicon()
+    return taken
+
+
+def rule_reading(tr: str) -> list[str]:
+    """A word's pronunciations as the course's rules read its Hebrew-letter spelling (a teacher's new word, until a
+    developer refines them). CourseError when it is not one word that can be read."""
+    words, _ = read_line(tr)
+    if len(words) != 1:
+        raise CourseError("כתבו מילה אחת, באותיות עבריות עם ניקוד")
+    return list(words[0][2])
+
+
+def in_base_lexicon(word: str) -> bool:
+    return word in (_BASE_LEX if _BASE_LEX is not None else workbook.LEX)
+
+
 # ---- the course being served ------------------------------------------------------------------------------------
 
 _current: Compiled | None = None

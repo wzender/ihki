@@ -15,7 +15,7 @@ import os
 import threading
 from pathlib import Path
 
-from . import course, phrases
+from . import course, course_draft, phrases
 from .auth import AuthUnavailable, ClassConflict
 
 log = logging.getLogger("ihki.course")
@@ -65,6 +65,8 @@ class CourseStore:
         self.setup = ""          # the SQL to run while the tables do not exist
         self.error = ""          # why the last load did not serve what Supabase has
         self._lock = threading.Lock()
+        self._draft: tuple[str, dict, "course.Compiled"] | None = None   # (updated_at, document, compiled) of the draft
+        self.lexicon_words: list[str] = []
 
     # ---- what is served ----
 
@@ -123,6 +125,7 @@ class CourseStore:
                     return
                 return
             self.setup = ""
+            self._read_lexicon()
             if published["number"] == self.number and self.source == "supabase":
                 return
             try:
@@ -144,6 +147,111 @@ class CourseStore:
         except ClassConflict:   # stored meanwhile by another process
             pass
         return self.auth.course_published()
+
+    def _read_lexicon(self) -> None:
+        if not hasattr(self.auth, "course_lexicon"):
+            return
+        try:
+            rows = self.auth.course_lexicon()
+        except AuthUnavailable as e:
+            log.warning("course dictionary not read: %s", e)
+            return
+        taken = course.use_lexicon(rows)
+        if taken != self.lexicon_words:
+            self.lexicon_words = taken
+            self.number = None   # the published version is compiled again, with the words
+
+    # ---- the draft ----
+
+    def draft(self) -> dict | None:
+        """The draft's row ({number, updated_at, note, ...}, with its document), or None."""
+        return self.auth.course_draft()
+
+    def _published_doc(self) -> dict:
+        published = self.auth.course_published()
+        if published is None:
+            raise course.CourseError("אין עדיין גרסה מפורסמת")
+        return self.auth.course_version(published["number"])["document"]
+
+    def change(self, op: dict, by: str, expected: str | None = None) -> dict:
+        """Makes one change (course_draft.apply) to the draft, made from the published version when there is none.
+        `expected`: the draft's `updated_at` the change was prepared against; CourseError when it moved since."""
+        row = self.auth.course_draft()
+        if row is None:
+            if expected:
+                raise course.CourseError("הטיוטה שהשינוי הוכן מולה כבר לא קיימת. הכינו אותו מחדש")
+            doc = self._published_doc()
+            number = max([v["number"] for v in self.auth.course_versions()] or [0]) + 1
+            new, report = course_draft.apply(doc, op)
+            self.auth.add_course_version(number, "draft", new, by, "טיוטה")
+            row = self.auth.course_draft()
+            self._draft = None
+            return {"number": number, "updated_at": row["updated_at"], **report}
+        if expected and expected != row["updated_at"]:
+            raise course.CourseError("הטיוטה השתנתה מאז שהשינוי הוכן. הכינו אותו מחדש")
+        new, report = course_draft.apply(row["document"], op)
+        stamp = self.auth.save_course_draft(row["number"], new, row["updated_at"])
+        if stamp is None:
+            raise course.CourseError("הטיוטה השתנתה מאז שהשינוי הוכן. הכינו אותו מחדש")
+        self._draft = None
+        return {"number": row["number"], "updated_at": stamp, **report}
+
+    def draft_compiled(self) -> "course.Compiled | None":
+        """The draft as learners would get it, for its preview; None when there is no draft."""
+        row = self.auth.course_draft()
+        if row is None:
+            return None
+        if self._draft is None or self._draft[0] != row["updated_at"]:
+            self._draft = (row["updated_at"], row["document"], course.compile_course(row["document"]))
+        return self._draft[2]
+
+    def draft_diff(self) -> dict:
+        """What the draft changes against the published version, with how many learners practised each item it
+        changes or deletes (counts only)."""
+        row = self.auth.course_draft()
+        if row is None:
+            raise course.CourseError("אין טיוטה")
+        out = course_draft.diff(self._published_doc(), row["document"])
+        pairs = [(i["cat"], i["key"]) for i in out["items_changed"] + out["items_deleted"]]
+        counts = self.auth.learners_per_item(pairs) if pairs and hasattr(self.auth, "learners_per_item") else {}
+        for i in out["items_changed"] + out["items_deleted"]:
+            i["learners"] = counts.get((i["cat"], i["key"]), 0)
+        return {"number": row["number"], "updated_at": row["updated_at"], **out}
+
+    # ---- the course dictionary ----
+
+    def add_word(self, word: str, tr: str, meaning: str, by: str) -> dict:
+        word, tr = word.strip(), tr.strip()
+        if not word or not tr:
+            raise course.CourseError("כתבו את המילה באותיות ערביות ואת התעתיק שלה באותיות עבריות")
+        if course.in_base_lexicon(word):
+            raise course.CourseError(f"המילה {word} כבר במילון הקורס")
+        row = {"word": word, "tr": tr, "meaning": meaning.strip(), "ipa": course.rule_reading(tr), "ipa_source": "rule",
+               "created_by": by}
+        self.auth.add_course_word(row)
+        self._read_lexicon()
+        self.load()
+        return row
+
+    def set_word_ipa(self, word: str, ipa: list[str], by: str) -> None:
+        if not ipa or not all(isinstance(i, str) and i.strip() for i in ipa):
+            raise course.CourseError("כתבו לפחות הגייה אחת")
+        from datetime import datetime, timezone
+        if not self.auth.update_course_word(word, {"ipa": [i.strip() for i in ipa], "ipa_source": "reviewed",
+                                                   "reviewed_by": by,
+                                                   "reviewed_at": datetime.now(timezone.utc).isoformat()}):
+            raise course.CourseError(f"אין מילה {word} במילון שנוסף")
+        self._read_lexicon()
+        self.load()
+
+    def remove_word(self, word: str) -> None:
+        """Refused while the course being served, or its draft, uses the word."""
+        used = lambda compiled: compiled and any(word in ar.split() for p in compiled.phrases for ar, _ in p["variants"])
+        if used(course.current()) or used(self.draft_compiled()):
+            raise course.CourseError(f"המילה {word} משמשת פריטים בחוברת ולכן אי אפשר להסיר אותה")
+        self.auth.delete_course_word(word)
+        self._read_lexicon()
+        self.load()
 
     def publish(self, number: int, by: str) -> None:
         """Publishes a stored version and serves it at once on this process (the others within POLL_SECONDS)."""

@@ -160,12 +160,17 @@ def on_serve(rebuild) -> None:
     _SERVED.append(rebuild)
 
 
+def bank_of(compiled: "course.Compiled") -> list[dict]:
+    """Every phrase of the bank with this course's: the ones outside it, its own, the games'."""
+    return sorted(_FIXED + compiled.phrases + _GAMES, key=lambda p: p["id"])
+
+
 def serve(compiled: "course.Compiled") -> None:
     """Serves a compiled course: its lessons, topics and phrases, with the phrases outside it and the games' (whose
     ids its document reserves). The page asks for a lesson first, then one of its categories. The phrases that
     belong to no lesson (meet, talk, city, food, day2) have no tab; they stay in the bank, so their ids and the
     attempts recorded on them hold, and public_phrases leaves them out."""
-    PHRASES[:] = sorted(_FIXED + compiled.phrases + _GAMES, key=lambda p: p["id"])
+    PHRASES[:] = bank_of(compiled)
     PHRASE_BY_ID.clear()
     PHRASE_BY_ID.update((p["id"], p) for p in PHRASES)
     LEVELS[:], LESSONS[:], CATEGORIES[:] = compiled.levels, compiled.lessons, compiled.categories
@@ -181,17 +186,18 @@ def phrase_by_id(phrase_id: int) -> dict | None:
 serve(_COURSE_START)
 
 
-def public_phrases():
+def public_phrases(compiled: "course.Compiled | None" = None):
     """What the frontend needs: no IPA, first variant's Arabic as the model answer.
 
     Grammar-built phrases also carry grp / pron / neg / listed / seq (see grammar.py); the page lists a
     category's `listed` phrases, in `seq` order, and reaches the others with its negation and
     conjugation buttons. Workbook phrases carry seq and read (see workbook.py).
     """
-    shown = {c["id"] for c in CATEGORIES + GAMES}
+    bank, categories = (bank_of(compiled), compiled.categories) if compiled else (PHRASES, CATEGORIES)
+    shown = {c["id"] for c in categories + GAMES}
     return [
         {"id": p["id"], "cat": p["cat"], "he": p["he"], "tr": p["tr"], "ar": p["variants"][0][0],
          "ar_pointed": point_arabic(*p["variants"][0]),
          **{k: p[k] for k in ("grp", "pron", "neg", "listed", "seq", "read", "unlock", "binyan", "gizra", "speaker", "he_say") if k in p}}
-        for p in PHRASES if p["cat"] in shown
+        for p in bank if p["cat"] in shown
     ]

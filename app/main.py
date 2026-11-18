@@ -54,7 +54,8 @@ from .math_photo import (DAILY_PHOTOS, MAX_PHOTO, MEDIA_TYPES as PHOTO_TYPES, Ph
 from .math_skills import algebra9
 from . import backups as daily_backups
 from . import push as pushes
-from .phrases import CATEGORIES, COURSE_FIRST_ID, GAMES, LESSONS, LEVELS, PHRASES, on_serve, phrase_by_id, public_phrases
+from .phrases import (CATEGORIES, COURSE_FIRST_ID, GAMES, LESSONS, LEVELS, PHRASES, bank_of as phrases_bank, on_serve,
+                      phrase_by_id, public_phrases)
 from . import course_store as course_versions
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .model_settings import CREATE_MODEL_SETTINGS, build as build_model_config, clean as clean_model_settings, describe as describe_model_settings
@@ -506,14 +507,15 @@ def utc(stamp: str) -> datetime:
     return datetime.strptime(stamp[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
 
 
-def summary(rows: list[dict], texts: dict[int, dict] | None = None) -> dict:
+def summary(rows: list[dict], texts: dict[int, dict] | None = None, bank: list[dict] | None = None,
+            categories: list[dict] | None = None) -> dict:
     """One student's attempts summed up: best score and tries per phrase id, recordings (all, and of the last
     7 days), days practised, time of the last one. Every non-empty scored recording is a try and completes its
     exercise, including one the recognizer labels unrelated. Those are still counted per phrase id in "missed"
     and all together in "unmatched" as diagnostics."""
-    shown = {c["id"] for c in CATEGORIES + GAMES}
+    shown = {c["id"] for c in (categories or CATEGORIES) + GAMES}
     # a sentence is named by its topic and key (its Hebrew when it was made), and told to the page by its id
-    ids = {(p["cat"], p.get("key", p["he"])): p["id"] for p in PHRASES if p["cat"] in shown}
+    ids = {(p["cat"], p.get("key", p["he"])): p["id"] for p in (bank or PHRASES) if p["cat"] in shown}
     ids.update({(p["cat"], p["key"]): i for i, p in (texts or {}).items()})   # the lines of the teacher's texts (see `text_bank`)
     best: dict[int, int] = {}
     tries: dict[int, int] = {}
@@ -705,7 +707,20 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(401, "sign in required")
         if user.get("denied"):
             raise HTTPException(403, "this account is not on the list")
+        if request.headers.get("x-course") == "draft" and user.get("teacher"):
+            user = {**user, "course_preview": True}   # this manager sees the course's draft (see `preview_of`)
         return user
+
+    def preview_of(user: dict | None):
+        """The draft, compiled, for a manager previewing it (X-Course: draft); None for anyone else, or no draft."""
+        store = getattr(app.state, "course", None)
+        if not (user and user.get("course_preview") and store):
+            return None
+        try:
+            return store.draft_compiled()
+        except (AuthUnavailable, course_versions.course.CourseError) as e:
+            log.warning("course draft not previewed: %s", e)
+            return None
 
     def require(permission: str):
         def allowed(user: dict | None = Depends(signed_in)) -> SupabaseAuth:
@@ -862,9 +877,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             log.warning("morning status: activity unknown (%s)", e)
         return report
 
-    def phrase_of(phrase_id: int) -> dict:
-        """A phrase of the bank, or a line of a teacher's text; 404 for any other id."""
-        if phrase_id < TEXT_BASE:
+    def phrase_of(phrase_id: int, user: dict | None = None) -> dict:
+        """A phrase of the bank, or a line of a teacher's text; 404 for any other id. A manager previewing the course's
+        draft gets the draft's phrase, so that a sentence only the draft has is spoken and scored too."""
+        draft = preview_of(user)
+        if draft is not None and phrase_id < TEXT_BASE:
+            phrase = next((p for p in draft.phrases if p["id"] == phrase_id), None) or phrase_by_id(phrase_id)
+        elif phrase_id < TEXT_BASE:
             phrase = phrase_by_id(phrase_id)
         else:
             phrase = text_bank(text_rows()).get(phrase_id)
@@ -1100,7 +1119,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         phrase_id = body.get("phrase_id")
         if not isinstance(phrase_id, int):
             raise HTTPException(400, "צריך לבחור משפט מהמאגר")
-        phrase = phrase_of(phrase_id)
+        phrase = phrase_of(phrase_id, user)
         if topics().get(phrase["cat"]) not in lessons_of(course):
             raise HTTPException(403, "המשפט אינו בשיעורים של הכיתה")
         return {"session": app.state.live.ask(code, {**phrase, "id": phrase_id})}
@@ -1153,7 +1172,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def progress(user: dict | None = Depends(signed_in)):
         """The student's best scores and compact practice totals, including this week's active days."""
         rows = app.state.auth.attempts(user["token"]) if user else []
-        s = summary(rows, text_bank(text_rows()))
+        draft = preview_of(user)
+        s = summary(rows, text_bank(text_rows()), *((phrases_bank(draft), draft.categories) if draft else ()))
         return {**{k: s[k] for k in ("best", "tries", "recordings", "days")},
                 "week_days": weekly_practice_days(rows), "streak": practice_streak(rows)}
 
@@ -3278,7 +3298,18 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return {**out, "left": DAILY_PHOTOS - photo_counts.get(who, 0) if who else None}
 
     @app.get("/api/phrases")
-    def phrases():
+    def phrases(request: Request):
+        """The course as the page gets it; a manager previewing the draft (X-Course: draft) gets the draft's."""
+        draft = None
+        if request.headers.get("x-course") == "draft":
+            try:
+                draft = preview_of(signed_in(request))
+            except HTTPException:
+                draft = None
+        if draft is not None:
+            return {"levels": draft.levels, "lessons": draft.lessons, "categories": draft.categories, "games": GAMES,
+                    "phrases": public_phrases(draft), "preview": "draft",
+                    "voices": [{"id": i, "name": n} for n, i in playback_voices().items()]}
         return {"levels": LEVELS, "lessons": LESSONS, "categories": CATEGORIES, "games": GAMES, "phrases": public_phrases(),
                 "voices": [{"id": i, "name": n} for n, i in playback_voices().items()]}
 
@@ -3691,7 +3722,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         """The model answer in the playback voice (SAWTAK_VOICE_ID, else Raef), or a dialogue line's own voice.
         503 tells the page to use the device voice."""
         names = {i: n for n, i in {**playback_voices(), **LINE_VOICES}.items()}
-        phrase = phrase_of(phrase_id)
+        phrase = phrase_of(phrase_id, user)
         bubble_allowed(user, phrase)
         text = tts_arabic(*phrase["variants"][0])
         if app.state.tts is None:
@@ -4146,6 +4177,109 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, f"Supabase לא זמין: {e}")
         return {"number": number, "published": store.number == number, "affected_classes": affected, **store.status()}
 
+    def outline(doc: dict) -> list[dict]:
+        """The course's tree without its items: levels, their written lessons, each topic's id, name, kind and size."""
+        out = []
+        for level in doc["levels"]:
+            out.append({"level": level["level"], "name": level["name"], "count": level["count"], "lessons": [
+                {"id": course_versions.course.workbook.lesson_id(level["level"], lesson["n"]), "n": lesson["n"],
+                 "topics": [{"id": course_versions.course.cat_of(level["level"], lesson["n"], t["tid"]), "tid": t["tid"],
+                             "name": t["name"], "kind": t["kind"], "generated": "generator" in t,
+                             "size": len(t.get("items") or t.get("ids") or {})} for t in lesson["topics"]]}
+                for lesson in level.get("lessons") or []]})
+        return out
+
+    def course_call(fn):
+        """Runs a course store call; a refused change is a 409 with its Hebrew message."""
+        try:
+            return fn()
+        except course_versions.course.CourseError as e:
+            raise HTTPException(409, str(e))
+        except course_versions.ClassConflict:
+            raise HTTPException(409, "הגרסה נשמרה בינתיים על ידי מישהו אחר. נסו שוב")
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+
+    @app.get("/api/course/draft")
+    def course_draft_view(a: SupabaseAuth = Depends(teacher_only)):
+        """The draft ({number, updated_at, outline}), or {"draft": None} while there is none."""
+        store = course_store_of()
+        row = course_call(store.draft)
+        if row is None:
+            return {"draft": None}
+        return {"draft": {"number": row["number"], "updated_at": row["updated_at"], "created_by": row.get("created_by"),
+                          "outline": outline(row["document"])}}
+
+    @app.get("/api/course/topic")
+    def course_topic(cat: str, of: str = "draft", a: SupabaseAuth = Depends(teacher_only)):
+        """One topic's items as stored and as they compile, in the draft (of=draft, the published course while there is
+        no draft) or the published course (of=published)."""
+        store = course_store_of()
+
+        def read():
+            row = store.draft() if of == "draft" else None
+            doc = row["document"] if row else store._published_doc()
+            _, topic = course_versions.course_draft._find_topic(doc, cat)
+            compiled = course_versions.course.compile_course(doc)
+            return {"of": "draft" if row else "published", "updated_at": row["updated_at"] if row else None,
+                    "topic": topic, "phrases": [p for p in compiled.phrases if p["cat"] == cat],
+                    "guessed": compiled.guessed.get(cat, [])}
+        return course_call(read)
+
+    @app.post("/api/course/draft")
+    def course_draft_change(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+                            user: dict | None = Depends(signed_in)):
+        """One change to the draft (see course_draft.apply), made from the published version when there is no draft:
+        {"op", ..., "expected_updated_at"?}. Gives the draft's number and new updated_at, the changed topic's compiled
+        items and the words they read by rule. Nothing learners see changes until the draft is published."""
+        store = course_store_of()
+        op = {k: v for k, v in body.items() if k != "expected_updated_at"}
+        return course_call(lambda: store.change(op, (user or {}).get("email", ""), body.get("expected_updated_at")))
+
+    @app.get("/api/course/diff")
+    def course_diff(a: SupabaseAuth = Depends(teacher_only)):
+        """What the draft changes against the published version, with how many learners practised each item it changes
+        or deletes, and the classes it would change for."""
+        store = course_store_of()
+
+        def read():
+            out = store.draft_diff()
+            row = store.draft()
+            return {**out, "affected_classes": course_versions.affected_classes(row["document"], store.auth.classes(fresh=True))}
+        return course_call(read)
+
+    @app.get("/api/course/lexicon")
+    def course_lexicon(a: SupabaseAuth = Depends(teacher_only)):
+        return {"words": course_call(store_lexicon)}
+
+    def store_lexicon():
+        return course_store_of().auth.course_lexicon()
+
+    @app.post("/api/course/lexicon")
+    def course_add_word(body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+                        user: dict | None = Depends(signed_in)):
+        """A word for the course's dictionary: {"word" (Arabic), "tr" (Hebrew letters, pointed), "meaning"}. Its
+        pronunciations are read by rule until a developer sets them."""
+        store = course_store_of()
+        return course_call(lambda: store.add_word(str(body.get("word") or ""), str(body.get("tr") or ""),
+                                                  str(body.get("meaning") or ""), (user or {}).get("email", "")))
+
+    @app.put("/api/course/lexicon/{word}")
+    def course_word_ipa(word: str, body: dict = Body(...), a: SupabaseAuth = Depends(teacher_only),
+                        user: dict | None = Depends(signed_in)):
+        """A developer sets an added word's accepted pronunciations: {"ipa": ["z a r aː f a", ...]}."""
+        if "*" not in set((user or {}).get("permissions", ())):
+            raise HTTPException(403, "רק מפתחים משנים הגיות")
+        store = course_store_of()
+        course_call(lambda: store.set_word_ipa(word, body.get("ipa") or [], (user or {}).get("email", "")))
+        return {"ok": True}
+
+    @app.delete("/api/course/lexicon/{word}")
+    def course_remove_word(word: str, a: SupabaseAuth = Depends(teacher_only)):
+        store = course_store_of()
+        course_call(lambda: store.remove_word(word))
+        return {"ok": True}
+
     @app.get("/api/admin/tutor-usage")
     def tutor_usage(days: int = Query(30, ge=1, le=90), a: SupabaseAuth = Depends(teacher_only)):
         """יאללה נדבר's conversations, tokens and estimated dollars by day and by model (see tutor_usage.py)."""
@@ -4358,7 +4492,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 raise HTTPException(404, "no such quick benchmark item")
             phrase, reference_key = lab.phrase(found), f"quick:{item}"
         elif phrase_id is not None:
-            phrase, reference_key = phrase_of(phrase_id), phrase_id
+            phrase, reference_key = phrase_of(phrase_id, user), phrase_id
         else:
             raise HTTPException(400, "phrase_id or item is required")
         data = audio.file.read(MAX_UPLOAD + 1)
@@ -4484,7 +4618,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.get("/api/prompt-audio/{phrase_id}", dependencies=[Depends(require("practice.use"))])
     def prompt_audio(phrase_id: int, engine: str = "gtts", user: dict | None = Depends(signed_in)):
         """The Hebrew prompt read aloud (edge-tts or gTTS). 503 tells the page to stay silent."""
-        phrase = phrase_of(phrase_id)
+        phrase = phrase_of(phrase_id, user)
         bubble_allowed(user, phrase)
         if engine not in ENGINES:
             raise HTTPException(400, "unknown engine")
@@ -4511,7 +4645,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.post("/api/score", dependencies=[Depends(require("practice.use"))])
     def score(tasks: BackgroundTasks, phrase_id: int = Form(...), audio: UploadFile = File(...),
               user: dict | None = Depends(signed_in)):
-        phrase = phrase_of(phrase_id)
+        phrase = phrase_of(phrase_id, user)
         bubble_allowed(user, phrase)
         data = audio.file.read(MAX_UPLOAD + 1)
         if len(data) > MAX_UPLOAD:
@@ -4552,7 +4686,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(403, "tutors only")
         if kind not in FLAG_KINDS:
             raise HTTPException(400, "invalid flag kind")
-        phrase = phrase_of(phrase_id)
+        phrase = phrase_of(phrase_id, user)
         attempt_id, existing = report_attempt(attempt_id, user, phrase)
         if existing:
             return existing

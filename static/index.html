@@ -2691,7 +2691,11 @@ const rumTrack=(name,data={})=>{
 const oops=(what="משהו השתבש")=>navigator.onLine===false?"אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב.":`${what}, נסו שוב בעוד רגע 🙏`;
 let sessionRefresh=null;
 const refreshSession=()=>sessionRefresh||(sessionRefresh=sb.auth.refreshSession().catch(error=>({data:{session:null},error})).finally(()=>sessionRefresh=null));
+// A manager previewing the course's draft (the course editor turns it on, on this device): every call asks for the
+// draft, and the server, which checks who asks, answers with it (sentences, progress, speech, scores)
+const COURSE_PREVIEW=(()=>{ try{ return localStorage.getItem("ihki.coursePreview")==="true"; }catch{ return false; } })();
 async function api(url,opts={}){   // refresh once on 401; only a freshly issued token being refused proves the sign-in is no longer valid
+  if(COURSE_PREVIEW) opts={...opts,headers:{...opts.headers,"X-Course":"draft"}};
   if(!sb) return fetch(url,opts);
   const current=await sb.auth.getSession().catch(error=>({data:{session:null},error}));
   const request=async token=>{
@@ -10690,7 +10694,7 @@ function useLessons(ids){   // the path shows these lessons only (null: every on
   const said=c=>PHRASES.some(p=>p.cat===c.id&&p.listed!==false);   // a topic with sentences to say: not new words, pairs or writing
   if(CATS.length&&!CATS.some(c=>c.id===cat&&said(c))) cat=(CATS.find(said)||CATS[0]).id;   // e.g. the last topic was a game
 }
-const ready=fetch("/api/phrases").then(r=>{ if(!r.ok) throw new Error(`phrases: ${r.status}`); return r.json(); }).then(d=>{
+const ready=(COURSE_PREVIEW?api("/api/phrases"):fetch("/api/phrases")).then(r=>{ if(!r.ok) throw new Error(`phrases: ${r.status}`); return r.json(); }).then(d=>{
   ALL_LEVELS=d.levels||[]; ALL_LESSONS=d.lessons||[]; ALL_CATS=d.categories||[]; GAMES=d.games||[]; PHRASES=d.phrases||[];
   $("nav").querySelector('[data-view="games"]').hidden=AUTH_URL
     ? !can("games.use")&&!can("tutor.use")

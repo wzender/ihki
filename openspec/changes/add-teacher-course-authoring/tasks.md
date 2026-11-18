@@ -18,11 +18,11 @@
 
 ## 3. Drafting, compiling on save, diff and preview
 
-- [ ] 3.1 Draft operations (add/update/delete/move items; add/update/delete/move topics; add lesson), creating the draft from the published version on first change and refusing a change prepared against an older draft; verify one test per operation and one for the concurrent-edit refusal
-- [ ] 3.2 Compile on save with words read by rule reported and unreadable words rejected with guidance; verify tests for a known word, a rule-read Hebrew-letter word, and an unknown Arabic-script word
-- [ ] 3.3 The diff (by item id: added, changed, moved, deleted; words read by rule) with distinct-learner counts per changed and deleted item from one grouped attempts query; verify a test that the counts are right and no learner id or email appears in the response
-- [ ] 3.4 Preview: `course.edit` holders can switch their own session to the draft for `/api/phrases`, progress mapping and scoring; verify a test that a learner never receives the draft and that a preview attempt is stored under the draft item's key
-- [ ] 3.5 The course dictionary: add a word (rule-derived IPA, `ipa_source='rule'`), developers-only IPA edit, refuse removing a word a published item uses, overlay on LEX at compile; verify tests for each, including that a reported rule-read word stops being reported once added
+- [x] 3.1 Draft operations (add/update/delete/move items; add/update/delete/move topics; add lesson), creating the draft from the published version on first change and refusing a change prepared against an older draft; verify one test per operation and one for the concurrent-edit refusal
+- [x] 3.2 Compile on save with words read by rule reported and unreadable words rejected with guidance; verify tests for a known word, a rule-read Hebrew-letter word, and an unknown Arabic-script word
+- [x] 3.3 The diff (by item id: added, changed, moved, deleted; words read by rule) with distinct-learner counts per changed and deleted item from one grouped attempts query; verify a test that the counts are right and no learner id or email appears in the response
+- [x] 3.4 Preview: `course.edit` holders can switch their own session to the draft for `/api/phrases`, progress mapping and scoring; verify a test that a learner never receives the draft and that a preview attempt is stored under the draft item's key
+- [x] 3.5 The course dictionary: add a word (rule-derived IPA, `ipa_source='rule'`), developers-only IPA edit, refuse removing a word a published item uses, overlay on LEX at compile; verify tests for each, including that a reported rule-read word stops being reported once added
 
 ## 4. Permissions and the MCP
 

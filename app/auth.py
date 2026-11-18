@@ -1737,6 +1737,55 @@ class SupabaseAuth:
                                                             if status == "published" else {})},
                     prefer="return=minimal")
 
+    def course_draft(self) -> dict | None:
+        """The draft version, with its document, or None."""
+        rows = self._admin("/rest/v1/course_versions?select=*&status=eq.draft") or []
+        return rows[0] if rows else None
+
+    def save_course_draft(self, number: int, document: dict, expected_updated_at: str) -> str | None:
+        """Replaces the draft's document when it is still as it was read (its `updated_at`); its new `updated_at`, or
+        None when it changed meanwhile."""
+        now = datetime.now(timezone.utc).isoformat()
+        query = urllib.parse.urlencode({"number": f"eq.{int(number)}", "status": "eq.draft",
+                                        "updated_at": f"eq.{expected_updated_at}", "select": "updated_at"})
+        rows = self._admin(f"/rest/v1/course_versions?{query}", "PATCH", {"document": document, "updated_at": now})
+        return rows[0]["updated_at"] if rows else None
+
+    def learners_per_item(self, items: list[tuple[str, str]]) -> dict[tuple[str, str], int]:
+        """How many learners have attempts on each (topic, key): counts only, read in one filtered pass."""
+        def quoted(values):
+            return "(" + ",".join('"' + str(v).replace("\\", "\\\\").replace('"', '\\"') + '"' for v in values) + ")"
+        wanted = set(items)
+        if not wanted:
+            return {}
+        seen: dict[tuple[str, str], set] = {}
+        cats, keys = sorted({c for c, _ in wanted}), sorted({k for _, k in wanted})
+        for offset in range(0, 1_000_000, PAGE):
+            query = urllib.parse.urlencode({"select": "cat,phrase,user_id", "cat": f"in.{quoted(cats)}",
+                                            "phrase": f"in.{quoted(keys)}", "limit": PAGE, "offset": offset})
+            batch = self._admin(f"/rest/v1/attempts?{query}") or []
+            for r in batch:
+                pair = (r.get("cat"), r.get("phrase"))
+                if pair in wanted and r.get("user_id"):
+                    seen.setdefault(pair, set()).add(r["user_id"])
+            if len(batch) < PAGE:
+                break
+        return {pair: len(seen.get(pair, ())) for pair in wanted}
+
+    def course_lexicon(self) -> list[dict]:
+        """The words teachers added to the course's dictionary."""
+        return self._admin("/rest/v1/course_lexicon?select=*&order=word.asc") or []
+
+    def add_course_word(self, row: dict) -> None:
+        self._admin("/rest/v1/course_lexicon", "POST", row, prefer="return=minimal")
+
+    def update_course_word(self, word: str, values: dict) -> bool:
+        rows = self._admin(f"/rest/v1/course_lexicon?word=eq.{urllib.parse.quote(word)}", "PATCH", values)
+        return bool(rows)
+
+    def delete_course_word(self, word: str) -> None:
+        self._admin(f"/rest/v1/course_lexicon?word=eq.{urllib.parse.quote(word)}", "DELETE", prefer="return=minimal")
+
     def publish_course_version(self, number: int, by: str) -> None:
         """Publishes a stored version, making the one published until now history, in one transaction."""
         self._admin("/rest/v1/rpc/publish_course_version", "POST", {"p_number": int(number), "p_by": by},

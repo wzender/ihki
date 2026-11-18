@@ -70,6 +70,15 @@ def _lexicon() -> tuple[dict, dict]:
 POINTED, PLAIN = _lexicon()
 
 
+def refresh_lexicon() -> None:
+    """Reads LEX again: words were added to the course's dictionary (course.use_lexicon)."""
+    pointed, plain = _lexicon()
+    POINTED.clear()
+    POINTED.update(pointed)
+    PLAIN.clear()
+    PLAIN.update(plain)
+
+
 def _guess(cl: list[Cluster], silent_l: bool = False) -> tuple[str, list[str]]:
     """(Arabic spelling, readings) of a word the course does not have, from its letters and points. `silent_l`: the
     word was written with the article's (ל), so its first vowel is the article."""

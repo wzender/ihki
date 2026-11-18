@@ -106,14 +106,15 @@ draft moved (spec: "Two editors at once"). The MCP prepares against the draft an
 
 The diff walks both documents by lesson, topic and item `id`: added, deleted, moved (topic or position), changed (any
 of `he`, the Arabic, the transliteration, `he_say`, speaker). For deleted and changed items it counts distinct learners
-with attempts under `(cat, key)`, using one grouped query (`select cat, phrase, count(distinct user_id)`), never
-returning ids or emails. Affected classes come from `classes.lessons` and `classes.homeworks` against removed lessons and
+with attempts under `(cat, key)`, reading only those topics' and keys' attempts (`cat=in.(...)&phrase=in.(...)`, paged)
+and counting on the server, never returning ids or emails. Affected classes come from `classes.lessons` and `classes.homeworks` against removed lessons and
 topics.
 
 ### 6. Preview is a per-session switch, not a second deployment
 
 A reviewer with `course.edit` turns on preview; `/api/phrases`, `/api/progress` mapping and practice scoring then read
-the draft for that account only (`?course=draft` checked against the permission, and remembered on the device).
+the draft for that account only. The page sends `X-Course: draft` on every call while preview is on (kept on the device
+as `ihki.coursePreview`); the server honours it only for a manager, and any other account gets the published course.
 Attempts made in preview are stored with the draft's keys, so they stay valid when it is published.
 
 ### 7. Course dictionary as a separate table that overlays LEX
