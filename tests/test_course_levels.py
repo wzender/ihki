@@ -74,8 +74,10 @@ def test_a_document_with_levels_out_of_order_does_not_validate(doc):
         course.validate(doc)
 
 
-def test_a_published_level_reaches_the_class_tools_and_the_library_at_once(ready):
+def test_a_published_level_reaches_the_class_tools_and_the_library_at_once(ready, monkeypatch):
     from app.main import create_app
+    monkeypatch.setattr(library, "BASE_ROWS", [*library.SEED_ROWS, *library.LESSON_ROWS])   # the lessons' sections on
+    library.reset()
     from tests.test_course_mcp import MANAGER as ACTOR, Session
     auth, store = ready
     with TestClient(create_app(scorer_for(emissions(["w", "eː", "n"])), auth=TierAuth(), course_store=store)) as c:

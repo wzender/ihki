@@ -189,9 +189,11 @@ _stored: list[dict] = []   # the table's rows as last read (empty: the seed is t
 
 
 def _rebuild_lessons() -> None:   # another version of the course is served (phrases.serve): its lessons' sections
-    global _tree
-    LESSON_ROWS[:] = _lesson_rows()
-    BASE_ROWS[:] = [*SEED_ROWS, *LESSON_ROWS]
+    global _tree, LESSON_ROWS, BASE_ROWS
+    with_lessons = BASE_ROWS is not SEED_ROWS   # (a test may leave the lessons' sections out)
+    LESSON_ROWS = _lesson_rows()
+    if with_lessons:
+        BASE_ROWS = [*SEED_ROWS, *LESSON_ROWS]
     _tree = Tree([*_stored, *_missing(_stored)]) if _stored else Tree(BASE_ROWS)
 
 
