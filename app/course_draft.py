@@ -17,6 +17,11 @@ is not touched. Operations (`op["op"]`), each naming the topic by its id (`cat`,
   delete_topic {cat}
   move_topic {cat, to}                                      within its lesson
   add_lesson {level, n}                                     a planned lesson of the level gets written (empty)
+  add_level {name, count, first?}                           a new level after the last one, with `count` planned
+                                                           lessons shown from `first` (by default, on from the last's)
+  update_level {level, name?, count?}                       its name, or how many lessons it plans (not fewer than
+                                                           the highest written one)
+  delete_level {level}                                      the last level, while none of its lessons is written
 `diff(old, new)` compares two documents by their compiled phrases' ids and their topics' ids.
 """
 from __future__ import annotations
@@ -196,6 +201,36 @@ def apply(doc: dict, op: dict) -> tuple[dict, dict]:
             raise CourseError(f"שיעור {workbook.lesson_id(level, n)} כבר כתוב")
         lv["lessons"].append({"n": n, "topics": []})
         lv["lessons"].sort(key=lambda lesson: lesson["n"])
+    elif kind == "add_level":
+        name, count = str(op.get("name") or "").strip(), _count(op.get("count"))
+        if not name:
+            raise CourseError("כתבו את שם השלב")
+        if any(lv["name"] == name for lv in new["levels"]):
+            raise CourseError(f"כבר יש שלב בשם {name}")
+        last = new["levels"][-1]
+        first = op.get("first")
+        first = last.get("first", 1) + last["count"] if first in (None, "") else _count(first, "מספר השיעור הראשון", 1000)
+        new["levels"].append({"level": last["level"] + 1, "name": name, "count": count, "first": first, "lessons": []})
+    elif kind == "update_level":
+        lv = _level(new, op.get("level"))
+        if op.get("name") not in (None, ""):
+            name = str(op["name"]).strip()
+            if any(v is not lv and v["name"] == name for v in new["levels"]):
+                raise CourseError(f"כבר יש שלב בשם {name}")
+            lv["name"] = name
+        if op.get("count") not in (None, ""):
+            count = _count(op["count"])
+            written = max((lesson["n"] for lesson in lv["lessons"]), default=0)
+            if count < written:
+                raise CourseError(f"שיעור {written} של {lv['name']} כתוב, ולכן השלב צריך לפחות {written} שיעורים")
+            lv["count"] = count
+    elif kind == "delete_level":
+        lv = _level(new, op.get("level"))
+        if lv is not new["levels"][-1] or len(new["levels"]) == 1:
+            raise CourseError("אפשר למחוק רק את השלב האחרון, ולא את השלב היחיד")
+        if lv["lessons"]:
+            raise CourseError(f"ב{lv['name']} יש שיעורים כתובים. מחקו אותם קודם")
+        new["levels"].pop()
     else:
         raise CourseError(f"פעולה לא מוכרת: {kind}")
     compiled = course.compile_course(new)   # every change leaves a course that compiles, or is refused
@@ -234,6 +269,23 @@ def match_items(existing: list[dict], incoming: list[dict]) -> dict[int, dict]:
             used_new.add(k)
             used_old.add(j)
     return pairs
+
+
+def _level(doc: dict, number) -> dict:
+    lv = next((v for v in doc["levels"] if v["level"] == number or str(v["level"]) == str(number)), None)
+    if lv is None:
+        raise CourseError(f"אין שלב {number}")
+    return lv
+
+
+def _count(value, what: str = "מספר השיעורים", top: int = course.MAX_LEVEL_LESSONS) -> int:
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        n = 0
+    if not 1 <= n <= top:
+        raise CourseError(f"{what} צריך להיות בין 1 ל-{top}")
+    return n
 
 
 def _expand(topic: dict, cat: str):
@@ -279,7 +331,15 @@ def diff(old: dict, new: dict) -> dict:
             changed.append({**item(after), "fields": fields, "was": {f: before.get(f) for f in ("he", "tr")}})
         elif before["cat"] != after["cat"] or i not in kept_order:
             moved.append({**item(after), "from_seq": before.get("seq"), "to_seq": after.get("seq")})
+    old_lv, new_lv = {v["id"]: v for v in a.levels}, {v["id"]: v for v in b.levels}
+    planned = lambda c, lv: sum(l["level"] == lv for l in c.lessons)
     return {
+        "levels_added": [{"id": i, "name": new_lv[i]["name"], "lessons": planned(b, i)} for i in new_lv.keys() - old_lv.keys()],
+        "levels_deleted": [{"id": i, "name": old_lv[i]["name"]} for i in old_lv.keys() - new_lv.keys()],
+        "levels_changed": [{"id": i, "name": new_lv[i]["name"], "was": old_lv[i]["name"],
+                            "lessons": planned(b, i), "lessons_were": planned(a, i)}
+                           for i in sorted(old_lv.keys() & new_lv.keys())
+                           if old_lv[i]["name"] != new_lv[i]["name"] or planned(a, i) != planned(b, i)],
         "lessons_written": sorted(written(b.lessons) - written(a.lessons)),
         "lessons_unwritten": sorted(written(a.lessons) - written(b.lessons)),
         "topics_added": [{"id": c, "name": new_cats[c]["name"]} for c in new_cats.keys() - old_cats.keys()],

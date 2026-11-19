@@ -26,6 +26,7 @@ import tempfile
 import subprocess
 import threading
 import time
+import weakref
 import urllib.parse
 import uuid
 import zipfile
@@ -322,6 +323,7 @@ def _rebuild_course_tables() -> None:
     """The tables above that come from the course, rebuilt in place when another version of it is served."""
     ALL_LESSONS[:] = [l["id"] for l in LESSONS]
     READY_LESSONS[:] = [l["id"] for l in LESSONS if not l.get("soon")]
+    LEVEL_IDS[:] = [v["id"] for v in LEVELS]
     for table, rows in ((LESSON_LEVEL, {l["id"]: l["level"] for l in LESSONS}),
                         (LESSON_TOPICS, {l: sum(c["lesson"] == l for c in CATEGORIES) for l in READY_LESSONS}),
                         (WRITE_TOPICS, {c["id"]: c["write"]["lines"] for c in CATEGORIES if "write" in c}),
@@ -663,22 +665,35 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     app.state.verb_game = VerbExerciseGenerator()
     app.state.live = LiveStore()
     app.state.video_link = video_link
-    app.state.initial_class_lessons = {SUBJECT_LABELS["arabic"]: READY_LESSONS[0],
+    def course_state(state=app.state) -> None:
+        """What the class tools (the panel's and the MCP's) take from the course: the levels a class opens, the topics
+        a homework names, the lessons and levels a video goes to. Set again whenever another version is served, so a
+        published level, lesson or topic is offered at once."""
+        state.initial_class_lessons = {SUBJECT_LABELS["arabic"]: READY_LESSONS[0] if READY_LESSONS else "",
                                        SUBJECT_LABELS["math"]: algebra9()["units"][0]["id"]}
-    app.state.class_content_collections = [
-        {"id": f"arabic-stage-{level['id']}", "name": level["name"], "subject": SUBJECT_LABELS["arabic"],
-         "content_ids": [lesson["id"] for lesson in LESSONS if lesson["level"] == level["id"]]}
-        for level in LEVELS
-    ] + [
-        {"id": f"math-unit-{unit['id']}", "name": unit["name"], "subject": SUBJECT_LABELS["math"],
-         "content_ids": [unit["id"]]}
-        for unit in algebra9()["units"]
-    ]
-    app.state.class_topics = {category["id"]: category["lesson"] for category in CATEGORIES}
+        state.class_content_collections = [
+            {"id": f"arabic-stage-{level['id']}", "name": level["name"], "subject": SUBJECT_LABELS["arabic"],
+             "content_ids": [lesson["id"] for lesson in LESSONS if lesson["level"] == level["id"]]}
+            for level in LEVELS
+        ] + [
+            {"id": f"math-unit-{unit['id']}", "name": unit["name"], "subject": SUBJECT_LABELS["math"],
+             "content_ids": [unit["id"]]}
+            for unit in algebra9()["units"]
+        ]
+        state.class_topics = {category["id"]: category["lesson"] for category in CATEGORIES}
+        state.teacher_lessons = list(READY_LESSONS)
+        state.teacher_levels = list(LEVEL_IDS)
+        state.lesson_topic_counts = dict(LESSON_TOPICS)
+
+    course_state()
+    held = weakref.ref(app.state)   # an app that is gone (a test's) is not kept by the hook
+
+    def refresh_course_state() -> None:
+        state = held()
+        if state is not None:
+            course_state(state)
+    on_serve(refresh_course_state)   # after _rebuild_course_tables, which registered first
     app.state.teacher_voice_names = list(VOICE_NAMES)
-    app.state.teacher_lessons = list(READY_LESSONS)
-    app.state.teacher_levels = list(LEVEL_IDS)
-    app.state.lesson_topic_counts = dict(LESSON_TOPICS)
     metadata = build_metadata()
     app.state.mcp_build_info = {"version": metadata["version"], "revision": metadata["commit"][:40],
                                 "updated_at": metadata["updated_at"]}

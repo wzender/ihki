@@ -19,7 +19,8 @@ from .auth import AuthUnavailable, ClassConflict
 log = logging.getLogger("ihki.course_mcp")
 
 DRAFT_OPERATIONS = ("add_items", "update_item", "delete_items", "move_item", "replace_topic_items", "set_generator",
-                    "add_topic", "update_topic", "delete_topic", "move_topic", "add_lesson")
+                    "add_topic", "update_topic", "delete_topic", "move_topic", "add_lesson", "add_level",
+                    "update_level", "delete_level")
 OPERATIONS = DRAFT_OPERATIONS + ("add_word",)
 STALE = "הטיוטה השתנתה מאז שהשינוי הוכן. הכינו אותו מחדש"
 INVALID = "האישור אינו תקף, פג תוקף, שייך למשתמש אחר או כבר נוצל."
@@ -34,7 +35,11 @@ CHANGE_HELP = (
     "incoming item is matched to an existing one by its Hebrew, and its place, and keeps its id and key, so its "
     "learners' progress; unmatched existing items are deleted); set_generator {cat, args} (a conjugation table's word "
     "list, as get_course_topic shows it); add_topic {level, n, tid, name, kind: learn|match|say|read|write, ordered?, "
-    "at?}; update_topic {cat, name?, ordered?}; delete_topic {cat}; move_topic {cat, to}; add_lesson {level, n}; "
+    "at?}; update_topic {cat, name?, ordered?}; delete_topic {cat}; move_topic {cat, to}; add_lesson {level, n} (a "
+    "lesson the level plans, written empty, then filled with add_topic); add_level {name, count, first?} (a new level "
+    "after the last, e.g. {\"name\": \"שלב ג\", \"count\": 10}: its lessons are numbered on from the last level's "
+    "unless `first` says otherwise); update_level {level, name?, count?} (rename, or plan more lessons); delete_level "
+    "{level} (the last level, while it has no written lesson); "
     "add_word {word (Arabic letters), tr (Hebrew letters, pointed), meaning}. An item's Arabic is written in Arabic "
     "letters (ar) or in Hebrew letters (tr), one of them; a word in Hebrew letters the course's dictionary does not "
     "have is read by rule and listed in `guessed`.")

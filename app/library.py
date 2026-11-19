@@ -6,7 +6,7 @@ import secrets
 from typing import Callable
 
 from .auth import AuthUnavailable, ClassConflict, SupabaseAuth
-from .phrases import LESSONS, LEVELS
+from .phrases import LESSONS, LEVELS, on_serve
 
 
 MAX_TITLE = 80
@@ -185,6 +185,17 @@ class Tree:
 
 
 _tree = Tree(BASE_ROWS)
+_stored: list[dict] = []   # the table's rows as last read (empty: the seed is the tree)
+
+
+def _rebuild_lessons() -> None:   # another version of the course is served (phrases.serve): its lessons' sections
+    global _tree
+    LESSON_ROWS[:] = _lesson_rows()
+    BASE_ROWS[:] = [*SEED_ROWS, *LESSON_ROWS]
+    _tree = Tree([*_stored, *_missing(_stored)]) if _stored else Tree(BASE_ROWS)
+
+
+on_serve(_rebuild_lessons)
 
 
 def tree() -> Tree:
@@ -193,7 +204,8 @@ def tree() -> Tree:
 
 def reset() -> None:
     """Back to the seed (what a deployment without the table has)."""
-    global _tree
+    global _tree, _stored
+    _stored = []
     _tree = Tree(BASE_ROWS)
 
 
@@ -333,6 +345,8 @@ def refresh(auth, *, fresh: bool = False, strict: bool = False) -> None:
     if not stored:
         reset()
         return
+    global _stored
+    _stored = list(stored)
     _tree = Tree([*stored, *_missing(stored)])   # a seeded id is never missing
 
 

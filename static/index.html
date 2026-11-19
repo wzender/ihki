@@ -8221,7 +8221,7 @@ function drawCourseDraftBar(box){
     courseJson("/api/course/diff").then(x=>{ courseDiff=x; }).catch(e=>{ courseDiff={error:e.message}; }).finally(()=>{ if(sum.isConnected) drawCourseTab(); }); return; }
   if(courseDiff.error){ sum.append(mark("note",courseDiff.error,"p")); return; }
   const x=courseDiff, n=k=>(x[k]||[]).length;
-  const counts=[["פריטים נוספו",n("items_added")],["שונו",n("items_changed")],["הוזזו",n("items_moved")],["נמחקו",n("items_deleted")],
+  const counts=[["שלבים נוספו",n("levels_added")],["שלבים שונו",n("levels_changed")],["שלבים נמחקו",n("levels_deleted")],["פריטים נוספו",n("items_added")],["שונו",n("items_changed")],["הוזזו",n("items_moved")],["נמחקו",n("items_deleted")],
     ["נושאים נוספו",n("topics_added")],["נושאים נמחקו",n("topics_deleted")],["שיעורים נכתבו",n("lessons_written")]].filter(([,v])=>v);
   sum.append(mark("",counts.length?counts.map(([l,v])=>`${l}: ${v}`).join(" · "):"הטיוטה זהה לגרסה המפורסמת","p"));
   const touched=[...(x.items_changed||[]).map(i=>({...i,how:"שונה"})),...(x.items_deleted||[]).map(i=>({...i,how:"נמחק"}))].filter(i=>i.learners);
@@ -8259,12 +8259,37 @@ function drawCourseTree(box){
         courseChange({op:"add_topic",level:level.level,n:lesson.n,tid,name:nm.value.trim(),kind:kind.value},out=>{ courseTopicCat=out.cat; }); };
       add.append(f); ld.append(add); lv.append(ld);
     }
+    const edit=document.createElement("details"); edit.className="course-add course-level-edit"; edit.append(mark("","✏️ עריכת השלב","summary"));
+    const lf=document.createElement("form"); lf.className="course-form";
+    const ln=document.createElement("input"); ln.value=level.name; ln.setAttribute("aria-label","שם השלב");
+    const lc=document.createElement("input"); lc.type="number"; lc.min=Math.max(1,...level.lessons.map(l=>l.n)); lc.max=60; lc.value=level.count; lc.setAttribute("aria-label","מספר השיעורים בשלב");
+    const ls=mark("btn primary","שמירה","button"); ls.type="submit"; lf.append(ln,lc,ls);
+    lf.onsubmit=e=>{ e.preventDefault(); const op={op:"update_level",level:level.level};
+      if(ln.value.trim()&&ln.value.trim()!==level.name) op.name=ln.value.trim();
+      if(+lc.value!==level.count) op.count=+lc.value;
+      if(op.name||op.count) courseChange(op); };
+    edit.append(lf);
+    const last=COURSE_TAB.outline[COURSE_TAB.outline.length-1];
+    if(level===last&&COURSE_TAB.outline.length>1&&!level.lessons.length){
+      const del=mark("btn danger","מחיקת השלב","button");
+      del.onclick=()=>{ if(confirm(`למחוק את ${level.name} מהטיוטה?`)) courseChange({op:"delete_level",level:level.level}); };
+      edit.append(del); }
+    lv.append(edit);
     const missing=[]; for(let n=1;n<=level.count;n++) if(!written.has(n)) missing.push(n);
     if(missing.length){ const row=mark("course-missing",""); row.append(mark("meta","שיעורים מתוכננים:","span"));
       for(const n of missing){ const b=mark("btn",`כתיבת שיעור ${n}`,"button"); b.onclick=()=>courseChange({op:"add_lesson",level:level.level,n}); row.append(b); }
       lv.append(row); }
     card.append(lv);
   }
+  const add=document.createElement("details"); add.className="course-add course-level-add"; add.append(mark("","➕ שלב חדש","summary"));
+  const f=document.createElement("form"); f.className="course-form";
+  const prev=COURSE_TAB.outline[COURSE_TAB.outline.length-1];
+  const nm=document.createElement("input"); nm.placeholder="שם השלב, למשל שלב ג"; nm.setAttribute("aria-label","שם השלב");
+  const cnt=document.createElement("input"); cnt.type="number"; cnt.min=1; cnt.max=60; cnt.value=10; cnt.setAttribute("aria-label","מספר השיעורים");
+  const go=mark("btn primary","הוספה","button"); go.type="submit";
+  f.append(nm,cnt,go,mark("meta",prev?`השיעורים ימוספרו אחרי השיעורים של ${prev.name}`:"","small"));
+  f.onsubmit=e=>{ e.preventDefault(); if(!nm.value.trim()) return; courseChange({op:"add_level",name:nm.value.trim(),count:+cnt.value}); };
+  add.append(f); card.append(add);
 }
 function drawCourseVersions(box){
   const versions=COURSE_TAB.status.versions||[]; if(!versions.length) return;

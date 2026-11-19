@@ -45,7 +45,7 @@ Every course item SHALL have a key fixed when it is created, and the service SHA
 - **AND** publishing the earlier version again counts them again
 
 ### Requirement: Drafting course changes
-An authorized editor SHALL be able to change a draft: add, edit, delete and reorder items within a topic; add, rename, delete and reorder topics within a lesson; and add lessons to a level. Each change SHALL apply to the editor's current draft, created from the published version when none exists.
+An authorized editor SHALL be able to change a draft: add, edit, delete and reorder items within a topic; add, rename, delete and reorder topics within a lesson; add lessons to a level; and add a level after the last one, rename a level, plan more lessons for it, or delete the last level while none of its lessons is written. Each change SHALL apply to the editor's current draft, created from the published version when none exists.
 
 #### Scenario: Editing starts a draft
 - **GIVEN** version 4 is published and there is no draft
@@ -57,6 +57,12 @@ An authorized editor SHALL be able to change a draft: add, edit, delete and reor
 - **WHEN** an editor adds an item to a "match" topic or a "write" topic, which have no items of their own
 - **THEN** the change is rejected with a message naming the topic's kind
 - **AND** a "learn" topic accepts word items and a "say" or "read" topic accepts sentence items
+
+#### Scenario: A new level
+- **GIVEN** the course's last level, שלב ב, ends at שיעור 18
+- **WHEN** an editor adds a level named שלב ג with ten lessons
+- **THEN** the draft has a third level whose lessons are shown as שיעור 19 to שיעור 28, all still to be written
+- **AND** reducing a level's planned lessons below its highest written lesson is refused
 
 #### Scenario: Two editors at once
 - **WHEN** an editor saves a change prepared against a draft that another editor changed since
@@ -103,6 +109,11 @@ An authorized publisher SHALL be able to publish a draft or any earlier version,
 - **WHEN** a publisher publishes history version 4 again
 - **THEN** learners get version 4 within a minute
 - **AND** progress on items present in version 4 counts as before
+
+#### Scenario: A published level reaches the class tools
+- **WHEN** a version that adds a level, lesson or topic is published
+- **THEN** opening a class offers the new level at once, a homework can name the new topic, and a video can go to the new lesson, through the panel and the MCP alike
+- **AND** the digital library shows the new lessons' sections under the level's section, without a restart
 
 #### Scenario: A class's lessons and homework point at removed content
 - **WHEN** a version without a lesson or topic is about to be published while a class has that lesson or a homework on that topic

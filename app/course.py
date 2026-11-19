@@ -125,6 +125,9 @@ def _plain(value):
 
 # ---- validation -------------------------------------------------------------------------------------------------
 
+MAX_LEVEL_LESSONS = 60
+
+
 def validate(doc: dict) -> None:
     """CourseError for a document that cannot be compiled or would break what learners have: a kind that does not
     exist, items in a topic that takes none, an item without its Hebrew or its Arabic, an id used twice or outside
@@ -148,8 +151,15 @@ def validate(doc: dict) -> None:
             raise CourseError(f"{where}: המזהה {item_id} כבר בשימוש")
         seen_ids.add(item_id)
 
+    numbers = [level.get("level") for level in doc.get("levels") or []]
+    if not numbers or numbers != list(range(1, len(numbers) + 1)):
+        raise CourseError("השלבים צריכים להיות ממוספרים ברצף מ-1")
     for level in doc.get("levels") or []:
         number = level.get("level")
+        count = level.get("count")
+        if not str(level.get("name") or "").strip() or not isinstance(count, int) or isinstance(count, bool) \
+                or not 1 <= count <= MAX_LEVEL_LESSONS or not isinstance(level.get("first", 1), int):
+            raise CourseError(f"שלב {number}: צריך שם ומספר שיעורים בין 1 ל-{MAX_LEVEL_LESSONS}")
         for lesson in level.get("lessons") or []:
             n = lesson.get("n")
             if not isinstance(n, int) or not 1 <= n <= int(level.get("count") or 0) or (number, n) in seen_lessons:
