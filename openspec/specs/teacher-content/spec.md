@@ -37,11 +37,17 @@ Authorized staff SHALL be able to add a story or dialogue from paired Hebrew and
 - **AND** times on only some lines, times that go back, or times on a text without a video are rejected
 
 ### Requirement: Ordered lesson content
-Authorized staff SHALL be able to place and reorder videos and teacher-authored texts among a lesson's built-in topics.
+Authorized staff SHALL be able to place and reorder videos and teacher-authored texts among a lesson's course topics, and the course topics' own order SHALL come from the published course version.
 
 #### Scenario: Learner opens the path
 - **WHEN** lesson content is requested
 - **THEN** built-in topics, videos, and texts appear in the teacher-defined order
+
+#### Scenario: A course revision reorders a lesson's topics
+- **GIVEN** a lesson has a teacher text placed after its second topic
+- **WHEN** a version that swaps the lesson's first two topics is published
+- **THEN** learners see the topics in the new order
+- **AND** the text stays after the topic that is now second, until staff move it
 
 ### Requirement: Privacy-preserving monitoring
 Teacher activity views SHALL expose only learners and aggregate data within the caller's scope, and pronunciation-pattern reports SHALL not return learner identities.
