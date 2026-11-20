@@ -259,3 +259,55 @@ def test_before_the_image_column_exists_the_note_is_kept_without_it_and_the_pane
         assert auth.rows[0]["message"] == "נתקע" and "image" not in auth.rows[0]
         listed = c.get("/api/feedback", headers=H("t")).json()
         assert listed["image_setup"] == feedback.MIGRATE_FEEDBACK_IMAGE
+
+
+# ---- a sign-in problem, from the opening screen, with no session ----------------------------------------------------
+
+LOGIN = {"reason": "denied", "email": " Dana@Example.com ", "message": "כתוב שאני לא בכיתה",
+         "state": "denied,login_shown,<script>", "browser": "Android Chrome<b>"}
+
+
+def test_a_login_note_names_the_reason_the_address_and_what_the_screen_showed():
+    row = feedback.login_note(LOGIN)
+    assert row["kind"] == "problem" and row["screen"] == "login" and row["email"] == "dana@example.com"
+    assert row["item"] == "כתוב שהכתובת אינה באף כיתה · denied,login_shown,script · Android Chromeb"
+    for bad, says in [({**LOGIN, "reason": "x"}, "מה קרה"), ({**LOGIN, "email": "dana"}, "כתובת"),
+                      ({**LOGIN, "email": ""}, "כתובת"), ({**LOGIN, "reason": "other", "message": " "}, "במילים"),
+                      ({**LOGIN, "message": "א" * 1001}, "1000")]:
+        with pytest.raises(feedback.FeedbackError, match=says):
+            feedback.login_note(bad)
+
+
+def test_someone_who_cannot_sign_in_sends_a_login_note_without_a_session(client):
+    auth = client.app.state.auth
+    r = client.post("/api/feedback/login", json=LOGIN)
+    assert r.status_code == 200 and r.json() == {"ok": True}
+    row = auth.rows[-1]
+    assert (row["kind"], row["screen"], row["email"], row["user_id"]) == ("problem", "login", "dana@example.com", None)
+    assert row["message"] == "כתוב שאני לא בכיתה"
+    listed = client.get("/api/feedback", headers=H("t")).json()["feedback"]
+    assert any(n["screen"] == "login" for n in listed)   # on the panel's board with the others
+    assert client.post("/api/feedback/login", json={**LOGIN, "email": "nope"}).status_code == 400
+
+
+def test_a_robot_that_fills_the_hidden_field_is_thanked_and_nothing_is_kept(client):
+    auth = client.app.state.auth
+    r = client.post("/api/feedback/login", json={**LOGIN, "website": "http://spam.example"})
+    assert r.status_code == 200 and auth.rows == []
+
+
+def test_login_notes_are_limited_by_address_and_for_everyone(client):
+    auth = client.app.state.auth
+    one = {"X-Forwarded-For": "1.2.3.4, 10.0.0.1"}
+    codes = [client.post("/api/feedback/login", json=LOGIN, headers=one).status_code for _ in range(4)]
+    assert codes == [200, 200, 200, 429] and len(auth.rows) == 3
+    assert client.post("/api/feedback/login", json=LOGIN, headers={"X-Forwarded-For": "5.6.7.8"}).status_code == 200
+    for k in range(feedback.LOGIN_ALL_PER_HOUR):
+        client.post("/api/feedback/login", json=LOGIN, headers={"X-Forwarded-For": f"9.9.{k // 250}.{k % 250}"})
+    assert client.post("/api/feedback/login", json=LOGIN, headers={"X-Forwarded-For": "8.8.8.8"}).status_code == 429
+    assert len(auth.rows) == feedback.LOGIN_ALL_PER_HOUR
+
+
+def test_without_sign_in_configured_there_is_no_login_note():
+    with TestClient(create_app(scorer_for(emissions(["w"])), auth=None)) as c:
+        assert c.post("/api/feedback/login", json=LOGIN).status_code == 503

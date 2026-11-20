@@ -128,6 +128,42 @@ def tutor_note(body: object, scenario: str, model: str) -> dict:
             "version": _text(body.get("version"), 20)}
 
 
+# A sign-in problem, sent from the opening screen by someone who cannot get in (no session, so no account to name it
+# by): what went wrong, the address they tried, and what the screen showed. It is kept as a "problem" note whose screen
+# is "login", so the table needs no change, and the panel's board shows it with the others.
+LOGIN_SCREEN = "login"
+LOGIN_REASONS = {"no_link": "לא מגיע קישור למייל", "denied": "כתוב שהכתובת אינה באף כיתה",
+                 "google": "הכניסה עם Google לא עובדת", "in_app": "האתר נפתח בתוך וואטסאפ / אינסטגרם",
+                 "stuck": "נתקע או מופיעה שגיאה", "other": "אחר"}
+LOGIN_PER_HOUR = 3       # from one address: a person retrying, not a script
+LOGIN_ALL_PER_HOUR = 60  # from everyone together: a flood cannot fill the table
+EMAIL = re.compile(r"[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,24}")
+
+
+def login_note(body: object) -> dict:
+    """The row of a sign-in problem: {reason, email, message?, state?, browser?, version?}. `state`: what the opening
+    screen showed (short codes from the page); `browser`: the device and browser in a few words. FeedbackError when
+    the reason is unknown, the address is not one, or the text is too long."""
+    if not isinstance(body, dict):
+        raise FeedbackError("הבקשה אינה תקינה")
+    reason = body.get("reason")
+    if reason not in LOGIN_REASONS:
+        raise FeedbackError("בחרו מה קרה")
+    email = str(body.get("email") or "").strip().lower()
+    if not EMAIL.fullmatch(email):
+        raise FeedbackError("כתבו את כתובת הדוא\"ל שאיתה ניסיתם להיכנס, כדי שנוכל לבדוק ולחזור אליכם")
+    message = " ".join(str(body.get("message") or "").split())
+    if len(message) > MAX_MESSAGE:
+        raise FeedbackError(f"עד {MAX_MESSAGE} תווים")
+    if reason == "other" and not message:
+        raise FeedbackError("ספרו במילים מה קרה")
+    state = ",".join(w for w in re.findall(r"[a-z_]{1,20}", str(body.get("state") or ""))[:6])
+    browser = re.sub(r"[^\w .()/-]", "", _text(body.get("browser"), 40))
+    item = " · ".join(filter(None, [LOGIN_REASONS[reason], state, browser]))
+    return {"kind": "problem", "rating": None, "message": message, "screen": LOGIN_SCREEN,
+            "item": _text(item, MAX_CONTEXT), "version": _text(body.get("version"), 20), "email": email}
+
+
 class RateLimit:
     """At most PER_HOUR notes per user per hour, kept in memory (a restart forgets it, which is fine for a courtesy limit)."""
 

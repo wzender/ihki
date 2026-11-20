@@ -1845,3 +1845,37 @@ def test_the_subtitles_follow_vimeos_clock_by_asking_for_it(site):
     r = site("dana@x.com", VIMEO_SUBTITLES)
     assert r["before"] == ["", ""] and r["start"] == ["מַרְחַבַּא!", "שלום!"] and r["later"] == ["כִּיף חַאלַכּ?", "מה שלומך?"] and r["back"] == r["start"]
     assert r["asked"] == ["addEventListener"]   # never YouTube's "listening" call
+
+
+LOGIN_HELP = STAY_OUT + """
+const btn=document.getElementById("loginHelpBtn");
+out.shown=!btn.hidden; out.label=btn.textContent;
+btn.click(); await until(()=>open("loginHelpDlg"));
+const form=document.getElementById("loginHelpForm");
+out.reason=form.elements.lhReason.value; out.email=document.getElementById("loginHelpEmail").value;
+out.fits=document.documentElement.scrollWidth<=innerWidth;
+document.getElementById("loginHelpText").value="ניסיתי כמה פעמים";
+form.requestSubmit();
+await until(()=>/תודה/.test(document.getElementById("loginHelpNote").textContent),8000);
+out.note=document.getElementById("loginHelpNote").textContent; out.sendHidden=document.getElementById("loginHelpSend").hidden;
+"""
+
+
+def test_someone_who_cannot_get_in_tells_the_team_from_the_opening_screen(site):
+    r = site("typo@x.com", LOGIN_HELP, stay_out=True)
+    assert r["denied"] and r["shown"] and "לא מצליחים להיכנס" in r["label"]
+    assert r["reason"] == "denied" and r["email"] == "typo@x.com" and r["fits"]
+    assert "typo@x.com" in r["note"] and r["sendHidden"]
+    note = site.auth.notes[-1]
+    assert (note["screen"], note["email"], note["user_id"], note["message"]) == ("login", "typo@x.com", None, "ניסיתי כמה פעמים")
+    assert note["item"].startswith("כתוב שהכתובת אינה באף כיתה · denied")
+
+
+INSIDE = """
+await sleep(1000); const b=document.getElementById("loginHelpBtn"); out.hidden=!b||b.hidden||!b.offsetParent; out.entered=ENTERED;
+"""
+
+
+def test_the_button_is_not_there_once_inside(site):
+    r = site("dana@x.com", INSIDE)
+    assert r["entered"] and r["hidden"]

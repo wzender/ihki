@@ -98,6 +98,8 @@ The teacher only needs that link. Free Spaces sleep after inactivity, so the fir
 
 Optional. With `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` set, the page asks for a sign-in (through Supabase Auth): with Google, or with a link sent to the student's email (no password), for one without a Google account. The practice endpoints refuse calls without a session. Who may sign in is set by the teacher's classes (see below). Without the two values the service is open.
 
+Someone who cannot get in can tell the team from the opening screen: **🆘 לא מצליחים להיכנס?** is under the sign-in buttons whenever the screen offers a way in or says why there is none (the address is in no class, the account could not be checked, the site opened inside an app). It asks what happened (the screen's own message picks the answer), the address they tried, and optional words, and sends them with what the screen showed and the device in a few words to `POST /api/feedback/login`, which needs no session. The note is kept in `feedback` as a problem whose screen is `login` (no table change), shows on the panel's **משוב** board as **🔐 בעיית כניסה**, and is pushed to the developers. There is no screenshot, at most three notes an hour from one address and sixty from everyone, and a field people never see that a robot fills is answered as if kept and dropped.
+
 ### Better Stack observability
 
 `BETTER_STACK_SOURCE_TOKEN` and `BETTER_STACK_INGESTING_HOST` forward server logs and OpenTelemetry request spans. Logs emitted inside a request carry the matching trace and span IDs. Static assets and health polling are excluded from tracing.

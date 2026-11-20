@@ -100,7 +100,8 @@ body.home:not([data-view]) #feedbackBtn{display:none}
 @media (max-width:420px){.fb-more{display:none}body:not(.home) #feedbackBtn{width:34px;padding:0;justify-content:center}body:not(.home) #feedbackBtn .fb-word{display:none}}   /* a phone: the lesson's name keeps its room */
 .helprow{display:flex;gap:8px;align-items:center}.help.pill{width:auto;height:34px;border-radius:999px;padding:0 14px;display:flex;gap:6px;font:700 15px/1 var(--f-body)}.help.pill b{font-size:16px}
 #feedbackDlg{width:min(92vw,460px);max-height:calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow:auto;overscroll-behavior:contain}#feedbackDlg .dlg-head h2 small{display:block;font:500 13px/1.35 var(--f-body);color:var(--muted);margin-top:4px}
-.feedback-form{display:flex;flex-direction:column;gap:12px}.feedback-form label{display:flex;flex-direction:column;gap:5px;font-weight:600}.feedback-form textarea{font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink);resize:vertical}
+.feedback-form{display:flex;flex-direction:column;gap:12px}.feedback-form label{display:flex;flex-direction:column;gap:5px;font-weight:600}.feedback-form :is(textarea,input[type=email]){font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink);resize:vertical}
+.feedback-form input[type=email]{text-align:left}
 .fb-kinds{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}.fb-kinds legend{font-weight:700;margin-bottom:4px}.fb-kinds label{flex-direction:row;align-items:center;gap:8px;font-weight:500;padding:8px 10px;border:1px solid var(--line);border-radius:10px}
 .fb-rating{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.fb-rating span{flex-basis:100%;font-weight:600}.fb-rating button{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 16px var(--f-body);cursor:pointer}.fb-rating button[aria-pressed=true]{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
 .fb-shot{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.fb-shot>span{display:flex;gap:8px;align-items:center}.fb-shot>span[hidden]{display:none}
@@ -128,6 +129,7 @@ body.home:not([data-view]) #feedbackBtn{display:none}
 @media (max-width:600px){.fb-board{grid-template-columns:repeat(3,85%)}}
 .fb-inbox .fb-model{order:-1;padding:1px 8px;border-radius:999px;background:var(--olive-soft);color:var(--ink);font-weight:700;direction:ltr}
 .fb-note{margin:0;min-height:1.3em;color:var(--muted);font-size:14px}
+.fb-note.bad{color:var(--sumac)}
 .fb-inbox .fb-item{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-bottom:1px solid var(--line)}.fb-inbox .fb-item.done{opacity:.55}.fb-inbox .fb-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--muted)}.fb-inbox .fb-msg{white-space:pre-wrap;overflow-wrap:anywhere}.fb-inbox .fb-actions{display:flex;gap:8px}.fb-inbox .fb-group{border-top:1px solid var(--line);padding-top:6px;margin-top:6px}.fb-inbox .fb-group>summary{cursor:pointer;font-weight:700;padding:6px 0}
 #myClass:empty+.help{margin-inline-start:auto}
 /* the videos (daily and library) in the top row, beside the help: amber with a dot while today's video is unwatched */
@@ -942,6 +944,8 @@ body.driving .mic::before{display:none} body.driving .mic-zone.two{display:flex}
 .tips .what .ar{font-family:var(--f-ar);font-size:14px;font-weight:400;color:var(--muted)}
 #meFail{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;font:600 17px/1.5 var(--f-body);color:#1C241D;padding:0 20px}#meFail[hidden]{display:none}
 #meFail button{font:400 20px/1 var(--f-display);padding:12px 28px;border-radius:14px;border:0;cursor:pointer;background:#4B6A2C;color:#fff}
+#loginHelpBtn{background:none;border:0;padding:10px 12px;margin-top:4px;color:#1C241D;font:600 15px/1.3 var(--f-body);text-decoration:underline;text-underline-offset:3px;cursor:pointer}#loginHelpBtn[hidden]{display:none}
+.lh-trap{position:absolute!important;inset-inline-start:-9999px;width:1px;height:1px;overflow:hidden}
 #denied{text-align:center;font:600 18px/1.5 var(--f-body);color:#1C241D;padding:0 20px}
 #denied button{display:block;margin:12px auto 0;font:600 16px/1 var(--f-body);padding:10px 22px;border-radius:10px;border:1px solid #4B6A2C;background:#fff;color:#4B6A2C;cursor:pointer}
 /* The teacher's panel (its parts are styled further down: the class tabs, the figures, the lessons, the students). */
@@ -2000,7 +2004,7 @@ __BETTER_STACK_RUM__
   <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></symbol>
   <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
 </defs></svg>
-<div id="logo-splash"><img src="__SPLASH_LOGO__" alt="__SPLASH_ALT__" width="489" height="225"><button id="startBtn">__START_LABEL__</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="manageBtn">ניהול</button><button id="labBtn">מעבדה</button></div><p id="tagline" hidden>__TAGLINE__</p><div id="inApp" role="alert" hidden><b>האתר נפתח בתוך אפליקציה</b><span id="inAppText"></span><div class="row"><a class="btn" id="inAppOpen" hidden>פתיחה ב-Chrome</a><button type="button" class="btn" id="inAppCopy">העתקת הקישור</button></div></div><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="meFail" role="alert" hidden><span id="meFailText"></span><button type="button" id="meRetry">נסו שוב</button></div><div id="denied" hidden><span id="deniedText">הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.</span><button id="switchBtn">כניסה עם חשבון אחר</button></div></div>
+<div id="logo-splash"><img src="__SPLASH_LOGO__" alt="__SPLASH_ALT__" width="489" height="225"><button id="startBtn">__START_LABEL__</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="manageBtn">ניהול</button><button id="labBtn">מעבדה</button></div><p id="tagline" hidden>__TAGLINE__</p><div id="inApp" role="alert" hidden><b>האתר נפתח בתוך אפליקציה</b><span id="inAppText"></span><div class="row"><a class="btn" id="inAppOpen" hidden>פתיחה ב-Chrome</a><button type="button" class="btn" id="inAppCopy">העתקת הקישור</button></div></div><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="meFail" role="alert" hidden><span id="meFailText"></span><button type="button" id="meRetry">נסו שוב</button></div><div id="denied" hidden><span id="deniedText">הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.</span><button id="switchBtn">כניסה עם חשבון אחר</button></div><button type="button" id="loginHelpBtn" hidden>🆘 לא מצליחים להיכנס?</button></div>
 <script>
 /* A device that a student signed in on last (ihki.student, set below) and that still holds the session skips the opening
    screen: the home fades in once the account is checked. Anyone else (signed out, a teacher) gets it as before, except
@@ -2412,6 +2416,24 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
     <div class="fb-shot"><input type="file" id="feedbackShot" accept="image/*" hidden><button type="button" class="btn" id="feedbackShotBtn">📷 צירוף צילום מסך</button><span id="feedbackShotView" hidden><img id="feedbackShotImg" alt="צילום המסך שיצורף"><button type="button" class="btn" id="feedbackShotDrop" aria-label="הסרת צילום המסך">✕ הסרה</button></span></div>
     <p class="fb-note" id="feedbackNote" aria-live="polite"></p>
     <div class="row"><button class="btn primary" id="feedbackSend">שליחה</button></div>
+  </form>
+</dialog>
+<dialog id="loginHelpDlg" aria-labelledby="loginHelpTitle">
+  <div class="dlg-head"><h2 id="loginHelpTitle">לא מצליחים להיכנס?<small>ספרו לנו מה קרה, וזה יגיע ישר לצוות</small></h2><button class="btn" type="button" id="loginHelpClose">סגירה</button></div>
+  <form id="loginHelpForm" class="feedback-form" novalidate>
+    <fieldset class="fb-kinds" role="radiogroup" aria-label="מה קרה"><legend>מה קרה?</legend>
+      <label><input type="radio" name="lhReason" value="no_link">📧 לא מגיע קישור למייל</label>
+      <label><input type="radio" name="lhReason" value="denied">🚫 כתוב שהכתובת אינה באף כיתה</label>
+      <label><input type="radio" name="lhReason" value="google">🔑 הכניסה עם Google לא עובדת</label>
+      <label><input type="radio" name="lhReason" value="in_app">📱 האתר נפתח בתוך וואטסאפ / אינסטגרם</label>
+      <label><input type="radio" name="lhReason" value="stuck">⏳ נתקע או מופיעה שגיאה</label>
+      <label><input type="radio" name="lhReason" value="other">✏️ משהו אחר</label>
+    </fieldset>
+    <label>כתובת הדוא"ל שאיתה ניסיתם להיכנס<input id="loginHelpEmail" type="email" dir="ltr" autocomplete="email" placeholder="name@example.com" required></label>
+    <label>מה עוד כדאי שנדע? (לא חובה)<textarea id="loginHelpText" maxlength="1000" rows="3" placeholder="למשל: באיזה מכשיר, מה כתוב על המסך"></textarea></label>
+    <label class="lh-trap" aria-hidden="true">אתר<input id="loginHelpSite" tabindex="-1" autocomplete="off"></label>
+    <p class="fb-note" id="loginHelpNote" aria-live="polite"></p>
+    <div class="row"><button class="btn primary" id="loginHelpSend">שליחה</button></div>
   </form>
 </dialog>
 <dialog id="msgDlg" aria-labelledby="msgTitle" aria-describedby="msgText">
@@ -7349,6 +7371,52 @@ function drawLookup(){
 }
 // ---- feedback: any signed-in user can send a note (text only); the teachers' panel lists them ----
 const FEEDBACK_KINDS={problem:"🐞 משהו לא עובד",score:"🎯 ציון לא נכון",idea:"💡 רעיון",praise:"❤️ אהבו",tutor:"💬 יאללה נדבר"};
+/* "לא מצליחים להיכנס?": on the opening screen, while it offers a way in or says why there is none, a note to the
+   team from someone who has no session (POST /api/feedback/login). It goes with what the screen showed and the
+   device in a few words; the reason is chosen for them where the screen already says it. */
+function loginState(){
+  const shown=id=>{ const e=$(id); return !!e&&!e.hidden; };
+  return [shown("denied")&&"denied",shown("meFail")&&"me_fail",shown("inApp")&&"in_app",shown("mailMsg")&&"mail_sent",
+    shown("loginBtn")&&"login_shown"].filter(Boolean);
+}
+function browserName(){
+  const ua=navigator.userAgent;
+  const os=/iPad/.test(ua)?"iPad":/iPhone/.test(ua)?"iPhone":/Android/.test(ua)?"Android":/Windows/.test(ua)?"Windows":/Mac OS X/.test(ua)?"Mac":/Linux/.test(ua)?"Linux":"";
+  const app=/WhatsApp/i.test(ua)?"WhatsApp":/Instagram/.test(ua)?"Instagram":/FBAN|FBAV/.test(ua)?"Facebook":/SamsungBrowser/.test(ua)?"Samsung":
+    /Edg\//.test(ua)?"Edge":/Firefox|FxiOS/.test(ua)?"Firefox":/CriOS|Chrome/.test(ua)?"Chrome":/Safari/.test(ua)?"Safari":"";
+  return [os,app].filter(Boolean).join(" ");
+}
+function initLoginHelp(){
+  const btn=$("loginHelpBtn"), dlg=$("loginHelpDlg"), form=$("loginHelpForm"), note=$("loginHelpNote"), send=$("loginHelpSend");
+  if(!btn||btn.dataset.ready) return; btn.dataset.ready="1";
+  const watched=["loginBtn","mailForm","denied","meFail","inApp"].map(id=>$(id)).filter(Boolean);
+  const sync=()=>{ btn.hidden=ENTERED||!watched.some(e=>!e.hidden)||!AUTH_URL; };
+  const seen=new MutationObserver(sync); watched.forEach(e=>seen.observe(e,{attributes:true,attributeFilter:["hidden"]})); sync();
+  btn.onclick=()=>{
+    const st=loginState(), pick=st.includes("denied")?"denied":st.includes("me_fail")?"stuck":st.includes("in_app")?"in_app":st.includes("mail_sent")?"no_link":"";
+    form.reset(); if(pick) form.elements.lhReason.value=pick;
+    $("loginHelpEmail").value=($("mailIn")&&$("mailIn").value.trim())||ME_EMAIL||"";
+    note.textContent=""; note.classList.remove("bad"); send.disabled=false; send.hidden=false; dlg.showModal(); $("loginHelpClose").focus();
+  };
+  $("loginHelpClose").onclick=()=>dlg.close();
+  form.onsubmit=async e=>{
+    e.preventDefault();
+    const reason=form.elements.lhReason.value, email=$("loginHelpEmail").value.trim(), message=$("loginHelpText").value.trim();
+    note.classList.add("bad");
+    if(!reason){ note.textContent="בחרו מה קרה."; return; }
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)){ note.textContent="כתבו את כתובת הדוא\"ל שאיתה ניסיתם להיכנס, כדי שנוכל לבדוק ולחזור אליכם."; $("loginHelpEmail").focus(); return; }
+    if(reason==="other"&&!message){ note.textContent="ספרו במילים מה קרה."; $("loginHelpText").focus(); return; }
+    note.classList.remove("bad"); send.disabled=true; note.textContent="שולח…";
+    try{
+      const res=await fetch("/api/feedback/login",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({reason,email,message,state:loginState().join(","),browser:browserName(),website:$("loginHelpSite").value})});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok){ note.classList.add("bad"); note.textContent=data.detail||"השליחה נכשלה. נסו שוב, או פנו למורה."; send.disabled=false; return; }
+      note.textContent=`תודה! ההודעה הגיעה לצוות. נבדוק ונחזור אליכם לכתובת ${email} 🙏`; send.hidden=true;
+    }catch{ note.classList.add("bad"); note.textContent="אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב."; send.disabled=false; }
+  };
+}
+initLoginHelp();
 function feedbackContext(){
   const nav=document.querySelector("#nav [aria-current=page]");
   return {screen:(nav?.dataset.view||"path")||"path", item:(document.getElementById("lessonName")?.textContent||"").trim()+(document.getElementById("catName")?.textContent?" · "+document.getElementById("catName").textContent.trim():"")};
@@ -7493,7 +7561,7 @@ function feedbackItem(r,onBoard){   // one note: who and where, the message, the
   }
   const tutorModel=r.screen==="tutor"&&(r.item||"").split(" · ").pop();   // a note on a יאללה נדבר conversation ends with its model
   if(tutorModel) head.append(mark("fb-model","מודל: "+tutorModel,"span"));
-  head.append(mark("flag-kind",FEEDBACK_KINDS[r.kind]||r.kind),mark("",r.rating?"★".repeat(r.rating):""),mark("",r.email),mark("",[r.screen,r.item].filter(Boolean).join(" · ")),mark("",new Date(r.created_at).toLocaleString("he-IL")));
+  head.append(mark("flag-kind",r.screen==="login"?"🔐 בעיית כניסה":FEEDBACK_KINDS[r.kind]||r.kind),mark("",r.rating?"★".repeat(r.rating):""),mark("",r.email),mark("",[r.screen,r.item].filter(Boolean).join(" · ")),mark("",new Date(r.created_at).toLocaleString("he-IL")));
   item.append(head);
   if(r.message) item.append(mark("fb-msg",r.message,"p"));
   if(r.image) item.append(feedbackImage(r));

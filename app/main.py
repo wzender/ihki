@@ -1757,7 +1757,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return HTTPException(503, f"Supabase לא זמין: {e}")
 
     FEEDBACK_LABELS = {"problem": "משהו לא עובד", "score": "ציון לא נכון", "idea": "רעיון", "praise": "אהבו",
-                       "tutor": "יאללה נדבר"}
+                       "tutor": "יאללה נדבר", "login": "בעיית כניסה"}
 
     def notify_developers(row: dict) -> None:
         """A push to the developers' devices for a new note; never raises: the note is kept whatever happens here."""
@@ -1807,6 +1807,36 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise feedback_error(e)
         background.add_task(notify_developers, {**row, "email": user["email"].lower()})
         return {"ok": True, "image": kept}
+
+    login_limit = feedback_notes.RateLimit(feedback_notes.LOGIN_PER_HOUR)
+    login_all = feedback_notes.RateLimit(feedback_notes.LOGIN_ALL_PER_HOUR)
+
+    @app.post("/api/feedback/login")
+    def login_problem(request: Request, background: BackgroundTasks, body: dict = Body(...)):
+        """A sign-in problem from the opening screen, by someone who cannot sign in (so no session is asked for):
+        {reason, email, message?, state?, browser?, version?, website?}. A few from one address an hour, and a ceiling
+        for everyone; no screenshot. `website` is a field people never see: a form that fills it is not a person's."""
+        a = app.state.auth
+        if a is None:
+            raise HTTPException(503, "אין כאן כניסה, ולכן גם אין מה לדווח")
+        if isinstance(body, dict) and str(body.get("website") or "").strip():
+            return {"ok": True}   # said to the robot as to anyone; nothing is kept
+        try:
+            row = feedback_notes.login_note(body)
+        except feedback_notes.FeedbackError as e:
+            raise HTTPException(400, str(e))
+        address = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+                   or (request.client.host if request.client else "")) or "unknown"
+        if not login_limit.allow(address) or not login_all.allow("all"):
+            raise HTTPException(429, "נשלחו הרבה הודעות. נסו שוב בעוד שעה, או פנו למורה.")
+        try:
+            a.add_feedback({**row, "user_id": None})
+        except AuthUnavailable as e:
+            log.warning("login problem not kept: %s", e)
+            raise feedback_error(e)
+        log.info("login problem kept: reason=%s state=%s", body.get("reason"), row["item"])
+        background.add_task(notify_developers, {**row, "kind": "login", "message": row["message"] or row["item"]})
+        return {"ok": True}
 
     @app.get("/api/feedback/{feedback_id}/image")
     def feedback_image(feedback_id: int, a: SupabaseAuth = Depends(teacher_only)):
