@@ -1894,13 +1894,32 @@ out.note=document.getElementById("joinNote").textContent; out.fits=document.docu
 """
 
 
-def test_an_account_in_no_class_asks_to_join_one(site, monkeypatch):
-    from app import mailer
-    sent = []
-    monkeypatch.setattr(mailer, "send", lambda subject, text, reply_to="": sent.append((subject, reply_to)) or True)
+def test_an_account_in_no_class_asks_to_join_one(site):
     r = site("typo@x.com", JOIN, stay_out=True)
     assert "typo@x.com" in r["who"] and r["focused"] == "joinName" and "שם מלא" in r["empty"]
     assert "typo@x.com" in r["note"] and r["fits"]
     note = site.auth.notes[-1]
     assert (note["screen"], note["email"]) == ("join", "typo@x.com") and "דנה כהן" in note["item"]
-    assert sent == [("🙋 בקשת הצטרפות לכיתה: דנה כהן (typo@x.com)", "typo@x.com")]
+
+
+MAIL = STAY_OUT + """
+const opened=[]; window.openMail=url=>opened.push(url);
+out.onPage=document.documentElement.outerHTML.includes("office"+String.fromCharCode(64));
+document.getElementById("joinBtn").click(); await until(()=>open("joinDlg"));
+document.getElementById("joinName").value="דנה כהן"; document.getElementById("joinClass").value="שלב א";
+document.getElementById("joinMail").click(); document.getElementById("joinDlg").close();
+document.getElementById("loginHelpBtn").click(); await until(()=>open("loginHelpDlg"));
+document.getElementById("loginHelpMail").click();
+out.opened=opened.map(decodeURIComponent);
+out.onPageAfter=document.documentElement.outerHTML.includes("office"+String.fromCharCode(64));
+"""
+
+
+def test_the_forms_offer_a_mail_to_the_office_without_showing_its_address(site):
+    r = site("typo@x.com", MAIL, stay_out=True)
+    assert not r["onPage"] and not r["onPageAfter"]
+    join, login = r["opened"]
+    assert join.startswith("mailto:office@ahalawasahala.com?subject=בקשת הצטרפות לכיתה&body=")
+    assert "שם: דנה כהן" in join and "typo@x.com" in join and "כיתה / מורה: שלב א" in join and "טלפון" not in join
+    assert login.startswith("mailto:office@ahalawasahala.com?subject=בעיה בכניסה לאפליקציה")
+    assert "כתוב שהכתובת אינה באף כיתה" in login and "typo@x.com" in login

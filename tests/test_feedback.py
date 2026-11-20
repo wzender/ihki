@@ -313,10 +313,7 @@ def test_without_sign_in_configured_there_is_no_login_note():
         assert c.post("/api/feedback/login", json=LOGIN).status_code == 503
 
 
-# ---- a request to join a class, and the office's mail ----------------------------------------------------------------
-
-from app import mailer  # noqa: E402
-
+# ---- a request to join a class ----------------------------------------------------------------
 
 class ClassAuth(FakeAuth):
     """One class, which has t@b.c's student x@b.c but not s@b.c: s signs in and is in no class."""
@@ -327,13 +324,6 @@ class ClassAuth(FakeAuth):
 
     def user(self, token):
         return {"s": {"id": "u2", "email": "S@b.c"}, "x": {"id": "u3", "email": "x@b.c"}, "t": {"id": "u1", "email": "t@b.c"}}.get(token)
-
-
-@pytest.fixture
-def mails(monkeypatch):
-    sent = []
-    monkeypatch.setattr(mailer, "send", lambda subject, text, reply_to="": sent.append((subject, text, reply_to)) or True)
-    return sent
 
 
 @pytest.fixture
@@ -352,89 +342,14 @@ def test_a_join_note_needs_a_name_and_a_real_phone():
             feedback.join_note(bad)
 
 
-def test_an_account_in_no_class_asks_to_join_and_the_office_is_mailed(joining, mails):
+def test_an_account_in_no_class_asks_to_join(joining):
     auth = joining.app.state.auth
     r = joining.post("/api/join-request", json={"name": "דנה כהן", "phone": "050-1234567", "class_name": "שלב א"},
                      headers=H("s"))
     assert r.status_code == 200 and r.json() == {"ok": True, "email": "s@b.c"}
     row = auth.rows[-1]
     assert (row["screen"], row["email"], row["user_id"]) == ("join", "s@b.c", "u2") and "details" not in row
-    (subject, text, reply_to), = mails
-    assert "בקשת הצטרפות" in subject and "דנה כהן" in subject and reply_to == "s@b.c"
-    assert "050-1234567" in text and "שלב א" in text and "s@b.c" in text
     assert joining.post("/api/join-request", json={"name": "דנה"}).status_code == 401              # no session
     assert joining.post("/api/join-request", json={"name": "איקס"}, headers=H("x")).status_code == 409   # in a class
     codes = [joining.post("/api/join-request", json={"name": "דנה כהן"}, headers=H("s")).status_code for _ in range(3)]
     assert codes == [200, 200, 429]
-
-
-def test_a_login_problem_is_mailed_to_the_office_too(client, mails):
-    assert client.post("/api/feedback/login", json=LOGIN).status_code == 200
-    (subject, text, reply_to), = mails
-    assert subject == "🔐 בעיית כניסה: dana@example.com" and reply_to == "dana@example.com"
-    assert "כתוב שהכתובת אינה באף כיתה" in text and "כתוב שאני לא בכיתה" in text
-
-
-def test_without_a_way_to_send_nothing_is_sent_and_nothing_breaks(monkeypatch):
-    for k in ("SMTP_HOST", "RESEND_API_KEY"):
-        monkeypatch.delenv(k, raising=False)
-    assert mailer.configured() == "" and mailer.send("s", "t") is False
-    assert mailer.office() == ["office@ahalawasahala.com"]
-    monkeypatch.setenv("OFFICE_EMAIL", "a@b.c, d@e.f")
-    assert mailer.office() == ["a@b.c", "d@e.f"]
-
-
-def test_smtp_and_resend_are_handed_the_mail(monkeypatch):
-    sent = {}
-
-    class FakeSMTP:
-        def __init__(self, host, port, timeout=None, **k):
-            sent["server"] = (host, port)
-        def starttls(self, context=None):
-            sent["tls"] = True
-        def login(self, user, password):
-            sent["login"] = (user, password)
-        def send_message(self, msg):
-            sent["msg"] = msg
-        def __enter__(self):
-            return self
-        def __exit__(self, *a):
-            return False
-
-    monkeypatch.setattr(mailer.smtplib, "SMTP", FakeSMTP)
-    monkeypatch.delenv("RESEND_API_KEY", raising=False)
-    monkeypatch.delenv("OFFICE_EMAIL", raising=False)
-    monkeypatch.setenv("SMTP_HOST", "smtp.gmail.com")
-    monkeypatch.setenv("SMTP_USER", "office@ahalawasahala.com")
-    monkeypatch.setenv("SMTP_PASSWORD", "app-password")
-    assert mailer.send("נושא", "גוף", reply_to="dana@example.com")
-    msg = sent["msg"]
-    assert sent["server"] == ("smtp.gmail.com", 587) and sent["tls"] and sent["login"][0] == "office@ahalawasahala.com"
-    assert (msg["To"], msg["From"], msg["Reply-To"], msg["Subject"]) == (
-        "office@ahalawasahala.com", "office@ahalawasahala.com", "dana@example.com", "נושא")
-
-    posted = {}
-
-    class Answer:
-        status = 200
-        def __enter__(self):
-            return self
-        def __exit__(self, *a):
-            return False
-
-    def urlopen(req, timeout=None):
-        import json
-        posted.update(url=req.full_url, auth=req.headers["Authorization"], body=json.loads(req.data))
-        return Answer()
-
-    monkeypatch.delenv("SMTP_HOST")
-    monkeypatch.setenv("RESEND_API_KEY", "re_test")
-    monkeypatch.setattr(mailer.urllib.request, "urlopen", urlopen)
-    assert mailer.send("נושא", "גוף", reply_to="dana@example.com")
-    assert posted["url"] == mailer.RESEND_URL and posted["auth"] == "Bearer re_test"
-    assert posted["body"]["to"] == ["office@ahalawasahala.com"] and posted["body"]["reply_to"] == "dana@example.com"
-
-    def broken(req, timeout=None):
-        raise OSError("down")
-    monkeypatch.setattr(mailer.urllib.request, "urlopen", broken)
-    assert mailer.send("נושא", "גוף") is False   # logged, never raised

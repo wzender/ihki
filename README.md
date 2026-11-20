@@ -102,7 +102,8 @@ Someone who cannot get in can tell the team from the opening screen: **🆘 לא
 
 An account that signed in and is in no class sees **📝 בקשת הצטרפות לכיתה** above "כניסה עם חשבון אחר": its name, an optional phone and the class or teacher it means are sent with the session to `POST /api/join-request` (refused to an account already in a class, three an hour), kept on the **משוב** board as **🙋 בקשת הצטרפות** with the address that signed in, so the office adds exactly that address to the class.
 
-Both kinds of note are also mailed to the office (`app/mailer.py`), replying to the person who sent it. The app sends no mail until one way is set in the Space's settings: `SMTP_HOST`, `SMTP_PORT` (587, or 465 for SSL), `SMTP_USER` and `SMTP_PASSWORD` (for Google Workspace, `smtp.gmail.com` with an app password of the sending account), or `RESEND_API_KEY` (https://resend.com; its sender must be a domain verified there, set in `MAIL_FROM`). `OFFICE_EMAIL` is where it goes (default `office@ahalawasahala.com`, several separated by commas); `MAIL_FROM` is the sender (default `SMTP_USER`). A mail that cannot be sent is logged; the note stays on the board.
+Both forms also have **✉️ שליחה במייל**: it opens the person's own mail app with a mail to the office already written (what they filled in, the address and the device). The app sends no mail itself. The office's address is put together only when the button is pressed, so it is neither shown on the page nor written whole in its source.
+
 
 ### Better Stack observability
 

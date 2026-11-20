@@ -2428,7 +2428,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
     <label>לאיזו כיתה או אצל איזה מורה? (לא חובה)<input id="joinClass" type="text" maxlength="60" placeholder="למשל: שלב א, יום שלישי, אצל אמיר"></label>
     <label>משהו נוסף? (לא חובה)<textarea id="joinText" maxlength="1000" rows="2"></textarea></label>
     <p class="fb-note" id="joinNote" aria-live="polite"></p>
-    <div class="row"><button class="btn primary" id="joinSend">שליחת הבקשה</button></div>
+    <div class="row"><button class="btn primary" id="joinSend">שליחת הבקשה</button><button class="btn" type="button" id="joinMail">✉️ שליחה במייל</button></div>
   </form>
 </dialog>
 <dialog id="loginHelpDlg" aria-labelledby="loginHelpTitle">
@@ -2446,7 +2446,7 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
     <label>מה עוד כדאי שנדע? (לא חובה)<textarea id="loginHelpText" maxlength="1000" rows="3" placeholder="למשל: באיזה מכשיר, מה כתוב על המסך"></textarea></label>
     <label class="lh-trap" aria-hidden="true">אתר<input id="loginHelpSite" tabindex="-1" autocomplete="off"></label>
     <p class="fb-note" id="loginHelpNote" aria-live="polite"></p>
-    <div class="row"><button class="btn primary" id="loginHelpSend">שליחה</button></div>
+    <div class="row"><button class="btn primary" id="loginHelpSend">שליחה</button><button class="btn" type="button" id="loginHelpMail">✉️ שליחה במייל</button></div>
   </form>
 </dialog>
 <dialog id="msgDlg" aria-labelledby="msgTitle" aria-describedby="msgText">
@@ -7399,6 +7399,13 @@ function browserName(){
     /Edg\//.test(ua)?"Edge":/Firefox|FxiOS/.test(ua)?"Firefox":/CriOS|Chrome/.test(ua)?"Chrome":/Safari/.test(ua)?"Safari":"";
   return [os,app].filter(Boolean).join(" ");
 }
+/* "✉️ שליחה במייל": the same note as a mail the person sends from their own mail app, to the office. The address is
+   put together only when the button is pressed: it is not on the page or written whole in its source. */
+function officeAddress(){ return ["office","ahalawasahala.com"].join(String.fromCharCode(64)); }
+function openMail(url){ location.href=url; }
+function mailOffice(subject,lines){
+  openMail(`mailto:${officeAddress()}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lines.filter(Boolean).join("\n"))}`);
+}
 function initLoginHelp(){
   const btn=$("loginHelpBtn"), dlg=$("loginHelpDlg"), form=$("loginHelpForm"), note=$("loginHelpNote"), send=$("loginHelpSend");
   if(!btn||btn.dataset.ready) return; btn.dataset.ready="1";
@@ -7412,6 +7419,14 @@ function initLoginHelp(){
     note.textContent=""; note.classList.remove("bad"); send.disabled=false; send.hidden=false; dlg.showModal(); $("loginHelpClose").focus();
   };
   $("loginHelpClose").onclick=()=>dlg.close();
+  $("loginHelpMail").onclick=()=>{
+    const picked=form.querySelector("input[name=lhReason]:checked");
+    mailOffice("בעיה בכניסה לאפליקציה",[
+      `מה קרה: ${picked?picked.parentElement.textContent.trim():"לא צוין"}`,
+      `הכתובת שאיתה ניסיתי להיכנס: ${$("loginHelpEmail").value.trim()||"לא צוינה"}`,
+      $("loginHelpText").value.trim()&&`\n${$("loginHelpText").value.trim()}`,
+      `\n(${[browserName(),loginState().join(",")].filter(Boolean).join(" · ")})`]);
+  };
   form.onsubmit=async e=>{
     e.preventDefault();
     const reason=form.elements.lhReason.value, email=$("loginHelpEmail").value.trim(), message=$("loginHelpText").value.trim();
@@ -7441,6 +7456,11 @@ function initJoin(){
     dlg.showModal(); $("joinName").focus();
   };
   $("joinClose").onclick=()=>dlg.close();
+  $("joinMail").onclick=()=>mailOffice("בקשת הצטרפות לכיתה",[
+    `שם: ${$("joinName").value.trim()||"—"}`, `הכתובת שאיתה נכנסתי: ${ME_EMAIL||"—"}`,
+    $("joinPhone").value.trim()&&`טלפון: ${$("joinPhone").value.trim()}`,
+    $("joinClass").value.trim()&&`כיתה / מורה: ${$("joinClass").value.trim()}`,
+    $("joinText").value.trim()&&`\n${$("joinText").value.trim()}`]);
   form.onsubmit=async e=>{
     e.preventDefault();
     const name=$("joinName").value.trim(), phone=$("joinPhone").value.trim();

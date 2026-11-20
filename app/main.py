@@ -58,7 +58,6 @@ from . import push as pushes
 from .phrases import (CATEGORIES, COURSE_FIRST_ID, GAMES, LESSONS, LEVELS, PHRASES, bank_of as phrases_bank, on_serve,
                       phrase_by_id, public_phrases)
 from . import course_store as course_versions
-from . import mailer
 from .prompt_tts import ENGINES, PromptTTSUnavailable, hebrew_mp3
 from .model_settings import CREATE_MODEL_SETTINGS, build as build_model_config, clean as clean_model_settings, describe as describe_model_settings
 from .models import (POWSM_ONNX_REPO, availability as model_availability, catalog as model_catalog,
@@ -1760,15 +1759,6 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     FEEDBACK_LABELS = {"problem": "משהו לא עובד", "score": "ציון לא נכון", "idea": "רעיון", "praise": "אהבו",
                        "tutor": "יאללה נדבר", "login": "בעיית כניסה", "join": "בקשת הצטרפות לכיתה"}
 
-    def mail_office(make, row: dict) -> None:
-        """The office's mail for a sign-in problem or a request to join (mailer.py); never raises."""
-        subject, text = make(row, app_url())
-        mailer.send(subject, text, reply_to=row.get("email") or "")
-
-    def app_url() -> str:
-        host = os.environ.get("SPACE_HOST", "").strip()
-        return f"https://{host}" if host else ""
-
 
     def notify_developers(row: dict) -> None:
         """A push to the developers' devices for a new note; never raises: the note is kept whatever happens here."""
@@ -1847,7 +1837,6 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise feedback_error(e)
         log.info("login problem kept: reason=%s state=%s", body.get("reason"), row["item"])
         background.add_task(notify_developers, {**row, "kind": "login", "message": row["message"] or row["item"]})
-        background.add_task(mail_office, mailer.login_problem, row)
         return {"ok": True}
 
     join_limit = feedback_notes.RateLimit(feedback_notes.JOIN_PER_HOUR)
@@ -1856,7 +1845,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     def join_request(request: Request, background: BackgroundTasks, body: dict = Body(...)):
         """A request to join a class from an account that signed in and is in none ({name, phone?, class_name?,
         message?}): its address is the session's, checked by Supabase, so the office knows whom to add. Kept on the
-        panel's משוב board and mailed to the office (mailer.py). Refused to an account that is already in a class."""
+        panel's משוב board. Refused to an account that is already in a class."""
         a = app.state.auth
         if a is None:
             raise HTTPException(503, "אין כאן כניסה")
@@ -1876,7 +1865,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not join_limit.allow(str(user["id"])):
             raise HTTPException(429, "הבקשה כבר נשלחה. המשרד יחזור אליכם.")
         email = str(user.get("email") or "").lower()
-        details = row.pop("details")
+        row.pop("details")
         try:
             a.add_feedback({**row, "user_id": user["id"], "email": email})
         except AuthUnavailable as e:
@@ -1885,7 +1874,6 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         log.info("join request kept")
         background.add_task(notify_developers, {**row, "email": email, "kind": "join",
                                                 "message": row["message"] or row["item"]})
-        background.add_task(mail_office, mailer.join_request, {**row, "email": email, "details": details})
         return {"ok": True, "email": email}
 
     @app.get("/api/feedback/{feedback_id}/image")
