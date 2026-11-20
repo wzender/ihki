@@ -1879,3 +1879,28 @@ await sleep(1000); const b=document.getElementById("loginHelpBtn"); out.hidden=!
 def test_the_button_is_not_there_once_inside(site):
     r = site("dana@x.com", INSIDE)
     assert r["entered"] and r["hidden"]
+
+
+JOIN = STAY_OUT + """
+document.getElementById("joinBtn").click(); await until(()=>open("joinDlg"));
+out.who=document.getElementById("joinWho").textContent; out.focused=document.activeElement.id;
+document.getElementById("joinForm").requestSubmit(); await sleep(100);
+out.empty=document.getElementById("joinNote").textContent;
+document.getElementById("joinName").value="דנה כהן"; document.getElementById("joinPhone").value="050-1234567";
+document.getElementById("joinClass").value="שלב א, שלישי";
+document.getElementById("joinForm").requestSubmit();
+await until(()=>/נשלחה/.test(document.getElementById("joinNote").textContent),8000);
+out.note=document.getElementById("joinNote").textContent; out.fits=document.documentElement.scrollWidth<=innerWidth;
+"""
+
+
+def test_an_account_in_no_class_asks_to_join_one(site, monkeypatch):
+    from app import mailer
+    sent = []
+    monkeypatch.setattr(mailer, "send", lambda subject, text, reply_to="": sent.append((subject, reply_to)) or True)
+    r = site("typo@x.com", JOIN, stay_out=True)
+    assert "typo@x.com" in r["who"] and r["focused"] == "joinName" and "שם מלא" in r["empty"]
+    assert "typo@x.com" in r["note"] and r["fits"]
+    note = site.auth.notes[-1]
+    assert (note["screen"], note["email"]) == ("join", "typo@x.com") and "דנה כהן" in note["item"]
+    assert sent == [("🙋 בקשת הצטרפות לכיתה: דנה כהן (typo@x.com)", "typo@x.com")]

@@ -164,6 +164,33 @@ def login_note(body: object) -> dict:
             "item": _text(item, MAX_CONTEXT), "version": _text(body.get("version"), 20), "email": email}
 
 
+# A request to join a class, from an account that signed in and is in none: its name, a phone and the class or
+# teacher it means, for the office to add it. Kept as a note whose screen is "join".
+JOIN_SCREEN = "join"
+JOIN_PER_HOUR = 3
+
+
+def join_note(body: object) -> dict:
+    """The row of a request to join: {name, phone?, class_name?, message?}, with `details` (the fields themselves, for
+    the office's mail; not a column). FeedbackError without a name, with a phone that is not one, or too long a text."""
+    if not isinstance(body, dict):
+        raise FeedbackError("הבקשה אינה תקינה")
+    name = _text(body.get("name"), 60)
+    if len(name) < 2:
+        raise FeedbackError("כתבו שם מלא")
+    phone = _text(body.get("phone"), 20)
+    if phone and not re.fullmatch(r"\+?[\d\s-]{7,18}", phone):
+        raise FeedbackError("מספר הטלפון אינו תקין")
+    class_name = _text(body.get("class_name"), 60)
+    message = " ".join(str(body.get("message") or "").split())
+    if len(message) > MAX_MESSAGE:
+        raise FeedbackError(f"עד {MAX_MESSAGE} תווים")
+    item = " · ".join(filter(None, ["בקשת הצטרפות", name, phone, class_name and f"כיתה: {class_name}"]))
+    return {"kind": "problem", "rating": None, "message": message, "screen": JOIN_SCREEN,
+            "item": _text(item, MAX_CONTEXT), "version": _text(body.get("version"), 20),
+            "details": {"name": name, "phone": phone, "class_name": class_name}}
+
+
 class RateLimit:
     """At most PER_HOUR notes per user per hour, kept in memory (a restart forgets it, which is fine for a courtesy limit)."""
 

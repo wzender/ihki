@@ -100,8 +100,9 @@ body.home:not([data-view]) #feedbackBtn{display:none}
 @media (max-width:420px){.fb-more{display:none}body:not(.home) #feedbackBtn{width:34px;padding:0;justify-content:center}body:not(.home) #feedbackBtn .fb-word{display:none}}   /* a phone: the lesson's name keeps its room */
 .helprow{display:flex;gap:8px;align-items:center}.help.pill{width:auto;height:34px;border-radius:999px;padding:0 14px;display:flex;gap:6px;font:700 15px/1 var(--f-body)}.help.pill b{font-size:16px}
 #feedbackDlg{width:min(92vw,460px);max-height:calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow:auto;overscroll-behavior:contain}#feedbackDlg .dlg-head h2 small{display:block;font:500 13px/1.35 var(--f-body);color:var(--muted);margin-top:4px}
-.feedback-form{display:flex;flex-direction:column;gap:12px}.feedback-form label{display:flex;flex-direction:column;gap:5px;font-weight:600}.feedback-form :is(textarea,input[type=email]){font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink);resize:vertical}
-.feedback-form input[type=email]{text-align:left}
+.feedback-form{display:flex;flex-direction:column;gap:12px}.feedback-form label{display:flex;flex-direction:column;gap:5px;font-weight:600}.feedback-form :is(textarea,input[type=email],input[type=text],input[type=tel]){font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink);resize:vertical}
+.feedback-form :is(input[type=email],input[type=tel]){text-align:left}
+#denied #joinBtn{background:#4B6A2C;color:#fff}
 .fb-kinds{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}.fb-kinds legend{font-weight:700;margin-bottom:4px}.fb-kinds label{flex-direction:row;align-items:center;gap:8px;font-weight:500;padding:8px 10px;border:1px solid var(--line);border-radius:10px}
 .fb-rating{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.fb-rating span{flex-basis:100%;font-weight:600}.fb-rating button{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 16px var(--f-body);cursor:pointer}.fb-rating button[aria-pressed=true]{background:var(--olive);border-color:var(--olive);color:var(--on-olive)}
 .fb-shot{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.fb-shot>span{display:flex;gap:8px;align-items:center}.fb-shot>span[hidden]{display:none}
@@ -2004,7 +2005,7 @@ __BETTER_STACK_RUM__
   <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></symbol>
   <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
 </defs></svg>
-<div id="logo-splash"><img src="__SPLASH_LOGO__" alt="__SPLASH_ALT__" width="489" height="225"><button id="startBtn">__START_LABEL__</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="manageBtn">ניהול</button><button id="labBtn">מעבדה</button></div><p id="tagline" hidden>__TAGLINE__</p><div id="inApp" role="alert" hidden><b>האתר נפתח בתוך אפליקציה</b><span id="inAppText"></span><div class="row"><a class="btn" id="inAppOpen" hidden>פתיחה ב-Chrome</a><button type="button" class="btn" id="inAppCopy">העתקת הקישור</button></div></div><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="meFail" role="alert" hidden><span id="meFailText"></span><button type="button" id="meRetry">נסו שוב</button></div><div id="denied" hidden><span id="deniedText">הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.</span><button id="switchBtn">כניסה עם חשבון אחר</button></div><button type="button" id="loginHelpBtn" hidden>🆘 לא מצליחים להיכנס?</button></div>
+<div id="logo-splash"><img src="__SPLASH_LOGO__" alt="__SPLASH_ALT__" width="489" height="225"><button id="startBtn">__START_LABEL__</button><div id="roles" hidden><button id="practiceBtn">תרגול</button><button id="manageBtn">ניהול</button><button id="labBtn">מעבדה</button></div><p id="tagline" hidden>__TAGLINE__</p><div id="inApp" role="alert" hidden><b>האתר נפתח בתוך אפליקציה</b><span id="inAppText"></span><div class="row"><a class="btn" id="inAppOpen" hidden>פתיחה ב-Chrome</a><button type="button" class="btn" id="inAppCopy">העתקת הקישור</button></div></div><button id="loginBtn" hidden>כניסה עם Google</button><form id="mailForm" hidden><span>או עם קישור שנשלח לדוא"ל</span><input id="mailIn" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" aria-label="כתובת הדוא&quot;ל"><button id="mailBtn">שלחו לי קישור כניסה</button><p id="mailMsg" role="status" hidden></p></form><div id="meFail" role="alert" hidden><span id="meFailText"></span><button type="button" id="meRetry">נסו שוב</button></div><div id="denied" hidden><span id="deniedText">הכתובת הזו אינה באף כיתה. בקשו מהמורה להוסיף אותו.</span><button type="button" id="joinBtn">📝 בקשת הצטרפות לכיתה</button><button id="switchBtn">כניסה עם חשבון אחר</button></div><button type="button" id="loginHelpBtn" hidden>🆘 לא מצליחים להיכנס?</button></div>
 <script>
 /* A device that a student signed in on last (ihki.student, set below) and that still holds the session skips the opening
    screen: the home fades in once the account is checked. Anyone else (signed out, a teacher) gets it as before, except
@@ -2416,6 +2417,18 @@ try{ if((localStorage.getItem("ihki.student")==="1"||/[?&](view=daily\b|video=)/
     <div class="fb-shot"><input type="file" id="feedbackShot" accept="image/*" hidden><button type="button" class="btn" id="feedbackShotBtn">📷 צירוף צילום מסך</button><span id="feedbackShotView" hidden><img id="feedbackShotImg" alt="צילום המסך שיצורף"><button type="button" class="btn" id="feedbackShotDrop" aria-label="הסרת צילום המסך">✕ הסרה</button></span></div>
     <p class="fb-note" id="feedbackNote" aria-live="polite"></p>
     <div class="row"><button class="btn primary" id="feedbackSend">שליחה</button></div>
+  </form>
+</dialog>
+<dialog id="joinDlg" aria-labelledby="joinTitle">
+  <div class="dlg-head"><h2 id="joinTitle">בקשת הצטרפות לכיתה<small>הבקשה תגיע למשרד, ויצרפו אתכם עם הכתובת שאיתה נכנסתם</small></h2><button class="btn" type="button" id="joinClose">סגירה</button></div>
+  <form id="joinForm" class="feedback-form" novalidate>
+    <p class="fb-note" id="joinWho"></p>
+    <label>שם מלא<input id="joinName" type="text" autocomplete="name" maxlength="60" required></label>
+    <label>טלפון (לא חובה)<input id="joinPhone" type="tel" dir="ltr" autocomplete="tel" maxlength="20" placeholder="050-0000000"></label>
+    <label>לאיזו כיתה או אצל איזה מורה? (לא חובה)<input id="joinClass" type="text" maxlength="60" placeholder="למשל: שלב א, יום שלישי, אצל אמיר"></label>
+    <label>משהו נוסף? (לא חובה)<textarea id="joinText" maxlength="1000" rows="2"></textarea></label>
+    <p class="fb-note" id="joinNote" aria-live="polite"></p>
+    <div class="row"><button class="btn primary" id="joinSend">שליחת הבקשה</button></div>
   </form>
 </dialog>
 <dialog id="loginHelpDlg" aria-labelledby="loginHelpTitle">
@@ -7417,6 +7430,34 @@ function initLoginHelp(){
   };
 }
 initLoginHelp();
+/* "בקשת הצטרפות לכיתה": an account that signed in and is in no class asks the office to add it (POST
+   /api/join-request, with the session: the address it is added with is the one that signed in). */
+function initJoin(){
+  const btn=$("joinBtn"), dlg=$("joinDlg"), form=$("joinForm"), note=$("joinNote"), send=$("joinSend");
+  if(!btn||btn.dataset.ready) return; btn.dataset.ready="1";
+  btn.onclick=()=>{
+    form.reset(); note.textContent=""; note.classList.remove("bad"); send.disabled=false; send.hidden=false;
+    $("joinWho").textContent=ME_EMAIL?`הבקשה תישלח עם הכתובת ${ME_EMAIL}. אם המורה רשם אתכם עם כתובת אחרת, היכנסו איתה במקום.`:"";
+    dlg.showModal(); $("joinName").focus();
+  };
+  $("joinClose").onclick=()=>dlg.close();
+  form.onsubmit=async e=>{
+    e.preventDefault();
+    const name=$("joinName").value.trim(), phone=$("joinPhone").value.trim();
+    note.classList.add("bad");
+    if(name.length<2){ note.textContent="כתבו שם מלא."; $("joinName").focus(); return; }
+    if(phone&&!/^\+?[\d\s-]{7,18}$/.test(phone)){ note.textContent="מספר הטלפון אינו תקין."; $("joinPhone").focus(); return; }
+    note.classList.remove("bad"); send.disabled=true; note.textContent="שולח…";
+    try{
+      const res=await api("/api/join-request",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({name,phone,class_name:$("joinClass").value.trim(),message:$("joinText").value.trim()})});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok){ note.classList.add("bad"); note.textContent=data.detail||"השליחה נכשלה. נסו שוב."; send.disabled=false; return; }
+      note.textContent=`הבקשה נשלחה למשרד 🙏 כשתצורפו לכיתה, היכנסו שוב עם ${data.email||ME_EMAIL}.`; send.hidden=true;
+    }catch{ note.classList.add("bad"); note.textContent="אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב."; send.disabled=false; }
+  };
+}
+initJoin();
 function feedbackContext(){
   const nav=document.querySelector("#nav [aria-current=page]");
   return {screen:(nav?.dataset.view||"path")||"path", item:(document.getElementById("lessonName")?.textContent||"").trim()+(document.getElementById("catName")?.textContent?" · "+document.getElementById("catName").textContent.trim():"")};
@@ -7561,7 +7602,7 @@ function feedbackItem(r,onBoard){   // one note: who and where, the message, the
   }
   const tutorModel=r.screen==="tutor"&&(r.item||"").split(" · ").pop();   // a note on a יאללה נדבר conversation ends with its model
   if(tutorModel) head.append(mark("fb-model","מודל: "+tutorModel,"span"));
-  head.append(mark("flag-kind",r.screen==="login"?"🔐 בעיית כניסה":FEEDBACK_KINDS[r.kind]||r.kind),mark("",r.rating?"★".repeat(r.rating):""),mark("",r.email),mark("",[r.screen,r.item].filter(Boolean).join(" · ")),mark("",new Date(r.created_at).toLocaleString("he-IL")));
+  head.append(mark("flag-kind",r.screen==="login"?"🔐 בעיית כניסה":r.screen==="join"?"🙋 בקשת הצטרפות":FEEDBACK_KINDS[r.kind]||r.kind),mark("",r.rating?"★".repeat(r.rating):""),mark("",r.email),mark("",[r.screen,r.item].filter(Boolean).join(" · ")),mark("",new Date(r.created_at).toLocaleString("he-IL")));
   item.append(head);
   if(r.message) item.append(mark("fb-msg",r.message,"p"));
   if(r.image) item.append(feedbackImage(r));
