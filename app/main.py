@@ -68,7 +68,7 @@ from .archi import archify
 from .scorer import SAMPLE_RATE, Scorer, decode_audio, decode_audio_with_timing, frame_energy, load_scorer, tokenize
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
-from .tts import (BASELINE_VOICES, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
+from .tts import (BASELINE_VOICES, ELEVEN_PREFIX, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
                   playback_voices, voice_name)
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
                     TutorUnavailable, CREATE_TUTOR_CHATS, default_model as default_tutor_model, load_tutor)
@@ -3818,10 +3818,11 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             record_failure(app.state.auth, "text_to_speech")
             raise HTTPException(503, str(e))
         tts = app.state.tts  # debug: lets the page show which voice spoke
+        eleven = used.startswith(ELEVEN_PREFIX)
         return Response(data, media_type="audio/wav", headers={
-            "Cache-Control": "private, no-store", "X-TTS-Provider": "sawtakarabi.ai",
+            "Cache-Control": "private, no-store", "X-TTS-Provider": "elevenlabs.io" if eleven else "sawtakarabi.ai",
             "X-TTS-Voice-Id": urllib.parse.quote(used),
-            "X-TTS-Voice-Name": urllib.parse.quote(names.get(used) or getattr(tts, "voice_name", ""))})
+            "X-TTS-Voice-Name": urllib.parse.quote("ElevenLabs" if eleven else names.get(used) or getattr(tts, "voice_name", ""))})
 
     @app.get("/api/tts-cache")
     def tts_cache_usage(_a: SupabaseAuth = Depends(teacher_only)):

@@ -11,6 +11,11 @@ Env:  SAWTAK_API_KEY   required; without it /api/tts answers 503 and the page fa
       TTS_BUCKET_PREFIX  folder inside the bucket; default "ihki-tts"
       TTS_STAGING_DIR  with TTS_BUCKET: a fast local folder new recordings are written to before their upload;
                        default <tmp>/ihki-tts-staging. A bucket mounted at /data takes ~10 s per written file.
+      ELEVEN_LABS_API_KEY  optional: ElevenLabs (https://elevenlabs.io) says a sentence for students' playback when
+                       Sawtak cannot (no key, refused, down). A recording either one made is kept and played again.
+      ELEVEN_LABS_VOICE_ID  the ElevenLabs voice; without it, the first voice the account added (else its first)
+      ELEVEN_LABS_FEMALE_VOICE_ID  optional: for the lines a dialogue gives Hanan (LINE_VOICES)
+      ELEVEN_LABS_MODEL  default eleven_v4_turbo
 """
 from __future__ import annotations
 
@@ -76,6 +81,93 @@ class TTSUnavailable(Exception):
         self.status, self.retry_after = status, retry_after
         # worth retrying: rate limited, a provider-side 5xx, or the connection dropped mid-request
         self.transient = transient or status == 429 or (status is not None and status >= 500)
+
+
+ELEVEN_URL = "https://api.elevenlabs.io/v1"
+ELEVEN_MODEL = "eleven_v4_turbo"
+ELEVEN_RATE = 24000
+ELEVEN_PREFIX = "elevenlabs-"   # the cache folder of its recordings: elevenlabs-<model>-<voice>
+SAWTAK_REST = 600   # after Sawtak fails, students' playback goes straight to ElevenLabs for this many seconds
+
+
+class ElevenLabsTTS:
+    """ElevenLabs text to speech, as the fallback of SawtakTTS (see its `fallback`): a WAV for a text, in one voice
+    for the narrator and, when set, a female one for Hanan's dialogue lines."""
+    provider = "elevenlabs.io"
+
+    def __init__(self, api_key: str, voice_id: str = "", female_voice_id: str = "", model: str = ELEVEN_MODEL):
+        self.api_key, self.model = api_key.strip(), (model or ELEVEN_MODEL).strip()
+        self.voice_id, self.female_voice_id = voice_id.strip(), female_voice_id.strip()
+        self._resolve = threading.Lock()
+
+    def _call(self, path: str, body: dict | None = None):
+        req = urllib.request.Request(ELEVEN_URL + path, data=json.dumps(body).encode() if body is not None else None,
+                                     headers={"xi-api-key": self.api_key, "Content-Type": "application/json",
+                                              "User-Agent": "ihki/1.0"}, method="POST" if body is not None else "GET")
+        try:
+            return urllib.request.urlopen(req, timeout=TIMEOUT)
+        except urllib.error.HTTPError as e:
+            try:
+                detail = json.load(e).get("detail")
+            except ValueError:
+                detail = None
+            message = (detail.get("message") if isinstance(detail, dict) else detail) or "request failed"
+            log.warning("elevenlabs %s -> %s %s", path.split("?")[0], e.code, str(message)[:120])
+            raise TTSUnavailable(f"elevenlabs error {e.code}: {message}", e.code) from None
+        except OSError as e:
+            log.warning("elevenlabs unreachable: %s", e)
+            raise TTSUnavailable("elevenlabs unreachable", transient=True) from None
+
+    def narrator(self) -> str:
+        """The narrator's voice: ELEVEN_LABS_VOICE_ID, else the first voice the account added (once looked up)."""
+        with self._resolve:
+            if not self.voice_id:
+                with self._call("/voices") as res:
+                    voices = json.load(res).get("voices") or []
+                mine = [v for v in voices if v.get("category") != "premade"] or voices
+                if not mine:
+                    raise TTSUnavailable("elevenlabs account has no voice")
+                self.voice_id = mine[0]["voice_id"]
+                log.info("elevenlabs voice: %s (%s)", mine[0].get("name"), self.voice_id)
+            return self.voice_id
+
+    def voice_for(self, sawtak_voice: str, look_up: bool = True) -> str:
+        """Its voice for a Sawtak voice's lines; "" when the narrator is not known yet and `look_up` is off."""
+        if sawtak_voice in LINE_VOICES.values() and self.female_voice_id:
+            return self.female_voice_id
+        return self.narrator() if look_up or self.voice_id else ""
+
+    def folder(self, sawtak_voice: str, look_up: bool = True) -> str:
+        """Where its recordings of a Sawtak voice's lines are cached (a "voice" of the cache); "" when its voice is
+        not known yet and `look_up` is off (nothing is asked of ElevenLabs just to look in the cache)."""
+        v = self.voice_for(sawtak_voice, look_up)
+        return f"{ELEVEN_PREFIX}{self.model}-{v}" if v else ""
+
+    def generate(self, text: str, sawtak_voice: str) -> bytes:
+        voice = self.voice_for(sawtak_voice)
+        with self._call(f"/text-to-speech/{voice}?output_format=pcm_{ELEVEN_RATE}",
+                        {"text": text, "model_id": self.model}) as res:
+            try:
+                pcm = res.read(ELEVEN_RATE * 2 * MAX_AUDIO_SECONDS + 1)
+            except (http.client.HTTPException, OSError):
+                raise TTSUnavailable("elevenlabs audio download broke off", transient=True) from None
+        if len(pcm) < ELEVEN_RATE // 5 or len(pcm) > ELEVEN_RATE * 2 * MAX_AUDIO_SECONDS:
+            raise TTSUnavailable("elevenlabs returned no audio, or too much")
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(ELEVEN_RATE)
+            w.writeframes(pcm[: len(pcm) // 2 * 2])
+        return buf.getvalue()
+
+
+def load_elevenlabs() -> ElevenLabsTTS | None:
+    key = os.environ.get("ELEVEN_LABS_API_KEY", "").strip()
+    if not key:
+        return None
+    return ElevenLabsTTS(key, os.environ.get("ELEVEN_LABS_VOICE_ID", ""), os.environ.get("ELEVEN_LABS_FEMALE_VOICE_ID", ""),
+                         os.environ.get("ELEVEN_LABS_MODEL", "") or ELEVEN_MODEL)
 
 
 class ActivityLog:
@@ -190,6 +282,8 @@ class SawtakTTS:
         # With a mirror, new recordings are written here (local disk) and uploaded through the Bucket API, instead
         # of into cache_dir: a bucket mounted there only flushes a few files every ~30 s, so each write crawled.
         self.staging_dir: Path | None = None
+        self.fallback: ElevenLabsTTS | None = None   # says students' sentences when Sawtak cannot (load_tts)
+        self._sawtak_rest_until = 0.0
 
     @property
     def mirror(self) -> BucketMirror | None:
@@ -318,6 +412,8 @@ class SawtakTTS:
             return data
 
     def _generate_now(self, text: str, voice: str) -> bytes:
+        if not self.api_key:
+            raise TTSUnavailable("no Sawtak key")
         # Sawtak currently returns 320 seconds of silence whenever `temperature` is present,
         # including for 0 and 0.1. Omitting it uses the provider's deterministic supported path.
         with self._request("/audio/speech", {"model": MODEL, "voice": voice, "input": text,
@@ -407,43 +503,78 @@ class SawtakTTS:
             raise TTSUnavailable(f"could not inspect voice cache: {e}") from None
         self._disk = (time.monotonic(), files, size)
 
+    def _cached_bytes(self, text: str, voice: str) -> bytes | None:
+        """The recording of `text` in `voice` if it is cached (moving a legacy flat one into its voice's folder)."""
+        found = self.cache_file(text, voice) if self.staging_dir else None
+        if found is not None:  # with a mirror the cache folder may be a slow mount: no migration there
+            return found.read_bytes()
+        path = self._path(text, voice)
+        legacy = self._legacy_path(path)
+        if self.staging_dir is None and not path.exists() and legacy.exists():
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                legacy.replace(path)
+            except OSError as e:
+                log.warning("tts cache migration failed: %s: %s", type(e).__name__, e)
+                path = legacy
+        return path.read_bytes() if path.exists() else None
+
+    def _keep(self, text: str, voice: str, data: bytes, upload: bool) -> None:
+        path = self.staging_dir / self.cache_key(text, voice) if self.staging_dir is not None else self._path(text, voice)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            tmp.write_bytes(data)
+            tmp.replace(path)
+        except OSError as e:  # read-only or full cache dir: the audio is still good, it just isn't kept
+            log.warning("tts cache write failed: %s: %s", type(e).__name__, e)
+        if upload and self.mirror is not None:
+            self._upload_soon(data, self.cache_key(text, voice))
+
     def _wav(self, text: str, voice: str, upload: bool = False, source: str = "") -> tuple[bytes, str]:
         """Generate or read `text` for an already validated voice id. `upload`: send a new recording to the bucket
         in the background (playback); the cache-warm sweep uploads its own in batches. Different recordings can be
-        generated at the same time (see _generate); the same one waits for the first request and then reads it."""
+        generated at the same time (see _generate); the same one waits for the first request and then reads it.
+        For students' playback with a fallback (ElevenLabs): its recording when it made one, and it makes one when
+        Sawtak fails; Sawtak is then left alone for SAWTAK_REST seconds. The voice returned is then its folder."""
+        backup = self.fallback if source == "playback" else None
         with self._key_lock(self.cache_key(text, voice)):
-            found = self.cache_file(text, voice) if self.staging_dir else None
-            if found is not None:  # with a mirror the cache folder may be a slow mount: no migration there
+            data = self._cached_bytes(text, voice)
+            if data is None and backup is not None:
+                folder = backup.folder(voice, look_up=False)
+                data = self._cached_bytes(text, folder) if folder else None
+                if data is not None:
+                    self._count(hit=True)
+                    return data, folder
+            elif data is not None:
                 if source == "playback": self._count(hit=True)
-                return found.read_bytes(), voice
-            path = self._path(text, voice)
-            legacy = self._legacy_path(path)
-            if self.staging_dir is None and not path.exists() and legacy.exists():
-                try:
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    legacy.replace(path)
-                except OSError as e:
-                    log.warning("tts cache migration failed: %s: %s", type(e).__name__, e)
-                    path = legacy
-            if path.exists():
-                if source == "playback": self._count(hit=True)
-                return path.read_bytes(), voice
+                return data, voice
             if source == "playback": self._count(hit=False)
-            # The caller supplies the phrase's Palestinian vowel marks. Sawtak preserves existing
-            # marks; enhancement fills remaining pronunciation cues using the selected voice's dialect.
-            data = self._generate(text, voice, source)
-            if self.staging_dir is not None:
-                path = self.staging_dir / self.cache_key(text, voice)
+            if backup is None or time.monotonic() >= self._sawtak_rest_until:
+                try:
+                    # The caller supplies the phrase's Palestinian vowel marks. Sawtak preserves existing
+                    # marks; enhancement fills remaining pronunciation cues using the selected voice's dialect.
+                    data = self._generate(text, voice, source)
+                    self._keep(text, voice, data, upload)
+                    return data, voice
+                except TTSUnavailable as e:
+                    if backup is None:
+                        raise
+                    self._sawtak_rest_until = time.monotonic() + SAWTAK_REST
+                    log.warning("sawtak failed (%s): ElevenLabs says students' sentences for %d s", e, SAWTAK_REST)
+            folder = backup.folder(voice)   # its voice looked up now, if it had to be
+            data = self._cached_bytes(text, folder)
+            if data is not None:   # made before this voice was known in this process
+                return data, folder
+            n = self.activity.begin(kind="elevenlabs", source=source, text=text[:80], voice=voice, waited_ms=0)
             try:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                tmp = path.with_suffix(".tmp")
-                tmp.write_bytes(data)
-                tmp.replace(path)
-            except OSError as e:  # read-only or full cache dir: the audio is still good, it just isn't kept
-                log.warning("tts cache write failed: %s: %s", type(e).__name__, e)
-            if upload and self.mirror is not None:
-                self._upload_soon(data, self.cache_key(text, voice))
-            return data, voice
+                data = backup.generate(text, voice)
+            except TTSUnavailable as e:
+                self.activity.end(n, status=e.status or "error", message=str(e)[:200])
+                raise
+            self.activity.end(n, status=200, bytes=len(data))
+            self._keep(text, folder, data, upload)
+            return data, folder
 
     def _count(self, hit: bool) -> None:
         with self._counts:
@@ -477,12 +608,16 @@ class SawtakTTS:
 def load_tts(key: str | None = None) -> SawtakTTS | None:
     """`key`: the one the panel set (see keystore.py); None reads the environment's."""
     key = (os.environ.get("SAWTAK_API_KEY", "") if key is None else key).strip()
-    if not key:
+    backup = load_elevenlabs()
+    if not key and backup is None:
         log.info("SAWTAK_API_KEY not set: playback uses the device voice")
         return None
     cache = os.environ.get("TTS_CACHE_DIR", "").strip()
     voice = os.environ.get("SAWTAK_VOICE_ID", RAEF_VOICE_ID).strip() or RAEF_VOICE_ID
     tts = SawtakTTS(key, voice, Path(cache) if cache else None)
+    tts.fallback = backup
+    if backup is not None:
+        log.info("ElevenLabs (%s) says students' sentences when Sawtak cannot", backup.model)
     bucket = os.environ.get("TTS_BUCKET", "").strip()
     if bucket:
         tts.mirror = BucketMirror(bucket, os.environ.get("TTS_BUCKET_PREFIX", "ihki-tts"),
