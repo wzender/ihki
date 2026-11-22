@@ -1976,7 +1976,7 @@ def test_the_tutor_speaks_his_messages_once_and_the_device_keeps_the_choice(site
     assert r["autoShown"] and r["autoOn"] == "true" and r["hear"]
     assert r["asked"] == ["/api/tutor/say/chat1/0"] and r["played"] == 1   # said on its own when it came
     assert r["autoAfter"] == "false" and r["kept"] == "false"
-    assert r["askedAgain"] == 1 and r["playedAgain"] == 2   # 🔊 plays it again without asking the server
+    assert r["askedAgain"] == 2 and r["playedAgain"] == 2   # 🔊 says it anew: no cache in יאללה נדבר
     assert r["silentAuto"] and r["silentHear"] == "🔇"   # no voice chosen: 🔇, and a tap says why
     assert "לא נבחר קול ליאללה נדבר" in r["why"]
 

@@ -3799,22 +3799,21 @@ function openTutorChat(s){
 }
 const tcAutoplay=()=>store.get("ihki.tutorAutoplay",true)!==false;
 function tcStopVoice(){ if(tc&&tc.playing){ tc.playing.pause(); tc.playing=null; } }
-async function tcSay(n,btn){   // the tutor's nth message in his own voice: fetched once, played again from memory
+async function tcSay(n,btn){   // the tutor's nth message in his own voice: said anew each time (no cache), one sound at a time
   if(!tc||!tc.id) return;
   if(tc.loadingSay===n) return;   // this message is on its way already: a second tap would play it twice (an echo)
   tcStopVoice();
   const t=tc, mine=t.sayTurn=(t.sayTurn||0)+1;   // only the latest call plays: an earlier one that was still loading does not
   try{
-    if(!t.audio[n]){
-      btn&&btn.classList.add("loading"); t.loadingSay=n;
-      try{
-        const res=await api(`/api/tutor/say/${encodeURIComponent(t.id)}/${n}`);
-        if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
-        t.audio[n]=URL.createObjectURL(await res.blob());
-      }finally{ if(t.loadingSay===n) t.loadingSay=null; }
-    }
-    if(tc!==t||t.sayTurn!==mine) return;
-    tcStopVoice(); const a=new Audio(t.audio[n]); t.playing=a; await a.play();
+    let url;
+    btn&&btn.classList.add("loading"); t.loadingSay=n;
+    try{
+      const res=await api(`/api/tutor/say/${encodeURIComponent(t.id)}/${n}`,{cache:"no-store"});
+      if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
+      url=URL.createObjectURL(await res.blob());
+    }finally{ if(t.loadingSay===n) t.loadingSay=null; }
+    if(tc!==t||t.sayTurn!==mine){ URL.revokeObjectURL(url); return; }
+    tcStopVoice(); const a=new Audio(url); a.onended=a.onerror=()=>URL.revokeObjectURL(url); t.playing=a; await a.play();
   }catch(err){
     if(tc!==t) return;
     const blocked=err&&err.name==="NotAllowedError";   // the browser holds back sound it was not asked for by a tap

@@ -353,15 +353,15 @@ def voices(monkeypatch):
     return said
 
 
-def test_the_tutors_messages_are_said_by_elevenlabs_in_the_parts_voice_once_each(voices):
+def test_the_tutors_messages_are_said_by_elevenlabs_in_the_parts_voice_each_time(voices):
     with client(TutorAuth(), FakeClient()) as c:
         assert c.get("/api/tutor", headers=bearer("teacher")).json()["voice"] is True
         man = start(c, scenario="l2").json()   # ח'ליל
         r = c.get(f"/api/tutor/say/{man['id']}/0", headers=bearer("teacher"))
         assert r.status_code == 200 and r.content == b"RIFF-palman01" and r.headers["x-tts-provider"] == "elevenlabs.io"
         assert voices == [("كيف حالك؟", "palman01")]   # the message's own Arabic
-        c.get(f"/api/tutor/say/{man['id']}/0", headers=bearer("teacher"))
-        assert len(voices) == 1   # said once, played again from memory
+        again = c.get(f"/api/tutor/say/{man['id']}/0", headers=bearer("teacher"))
+        assert len(voices) == 2 and "no-store" in again.headers["cache-control"]   # no cache: said anew each time
         assert c.get(f"/api/tutor/say/{man['id']}/1", headers=bearer("teacher")).status_code == 404   # no such message yet
         woman = start(c, scenario="l3").json()   # רובה
         assert c.get(f"/api/tutor/say/{woman['id']}/0", headers=bearer("teacher")).content == b"RIFF-palwoman1"

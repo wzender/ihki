@@ -27,7 +27,6 @@ import subprocess
 import threading
 import time
 import weakref
-from collections import OrderedDict
 import urllib.parse
 import uuid
 import zipfile
@@ -4393,10 +4392,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         tutor = app.state.tutor
         return {**usage.summarize(rows, days, today, LOCAL_TZ), "model_now": tutor.model if tutor else None}
 
-    # ---- יאללה נדבר's voice: ElevenLabs only (no Sawtak, no device voice), a Palestinian voice for a man's part and
-    # one for a woman's; each message is said once per conversation and kept for playing again
-    tutor_audio: "OrderedDict[tuple[str, int], bytes]" = OrderedDict()
-    TUTOR_AUDIO_KEPT = 300
+    # ---- יאללה נדבר's voice: ElevenLabs only (no Sawtak, no device voice), a voice for a man's part and one for a
+    # woman's; every play is said anew, in the voice chosen now (no cache: neither here nor in the page)
 
     def tutor_voice(she: bool) -> tuple[str, str]:
         """(the ElevenLabs key, the voice for a woman's part or a man's), either "" when not set. A part whose own voice
@@ -4585,18 +4582,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not voice:
             raise HTTPException(503, "הדובר לא מושמע: לא נבחר קול ליאללה נדבר (ELEVEN_LABS_TUTOR_VOICE_ID). בוחרים ב-🎙️ בחירת קול "
                                      "בכרטיס המפתחות (למפתחים), או מגדירים את מזהה הקול בהגדרות ה-Space.")
-        kept = tutor_audio.get((chat.id, n))
-        if kept is None:
-            model = os.environ.get("ELEVEN_LABS_MODEL", "") or ELEVEN_MODEL
-            try:
-                kept = ElevenLabsTTS(key, model=model).speak(said[n]["ar"].strip(), voice)
-            except TTSUnavailable as e:
-                record_failure(app.state.auth, "text_to_speech")
-                raise HTTPException(503, eleven_trouble(e, model))
-            tutor_audio[(chat.id, n)] = kept
-            while len(tutor_audio) > TUTOR_AUDIO_KEPT:
-                tutor_audio.popitem(last=False)
-        return Response(kept, media_type="audio/wav", headers={"Cache-Control": "private, no-store",
+        model = os.environ.get("ELEVEN_LABS_MODEL", "") or ELEVEN_MODEL
+        try:   # said anew each time, in the voice chosen now: nothing is kept (each play is a new ElevenLabs request)
+            spoken = ElevenLabsTTS(key, model=model).speak(said[n]["ar"].strip(), voice)
+        except TTSUnavailable as e:
+            record_failure(app.state.auth, "text_to_speech")
+            raise HTTPException(503, eleven_trouble(e, model))
+        return Response(spoken, media_type="audio/wav", headers={"Cache-Control": "private, no-store",
                                                                 "X-TTS-Provider": "elevenlabs.io"})
 
     @app.get("/api/admin/keys")
