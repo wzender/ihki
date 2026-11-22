@@ -2208,3 +2208,21 @@ def test_the_tutors_voice_picker_offers_every_palestinian_voice_for_any_part(sit
     assert r["heads"] == ["פלסטיני (1)", "פלסטיני (2)", "לבנטיני (1)", "מצרי (1)"]   # the account's, then the library's
     assert r["palestinian"] == ["Salma copy", "Salma", "Yousef"]
     assert r["men"] == ["Yousef", "Rami", "Omar"]
+
+
+MONITOR_VOICES = """
+await sleep(800);
+MONITOR={live:{},tts:{},build:{},errors:{},supabase:{auth:{ok:true,ms:100},db:{ok:true,ms:100}},voices:{key:true,voices:[
+  {setting:"ELEVEN_LABS_VOICE_ID",purpose:"playback",voice_id:"",name:"כבוי"},
+  {setting:"ELEVEN_LABS_TUTOR_VOICE_ID",purpose:"tutor-male",voice_id:"added001",name:"Yousef"},
+  {setting:"ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID",purpose:"tutor-female",voice_id:"",name:""}]}};
+const box=document.createElement("div"); document.body.append(box); drawMonitorSummary(box);
+const t=box.querySelector(".mon-voices"); out.text=t&&t.textContent; out.title=t&&t.querySelector(".mon-sub b[title]")?.title;
+"""
+
+
+def test_monitoring_shows_the_voice_of_each_setting(site):
+    r = site("boss@x.com", MONITOR_VOICES)
+    assert "1/3 נבחרו" in r["text"] and "קולות ElevenLabs" in r["text"]
+    assert "השמעה בחוברת (גיבוי): כבוי" in r["text"] and "יאללה נדבר · גבר: Yousef" in r["text"]
+    assert "יאללה נדבר · אישה: לא נבחר" in r["text"] and r["title"] == "added001"

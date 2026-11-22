@@ -69,7 +69,7 @@ from .archi import archify
 from .scorer import SAMPLE_RATE, Scorer, decode_audio, decode_audio_with_timing, frame_energy, load_scorer, tokenize
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
-from .tts import (BASELINE_VOICES, ELEVEN_MODEL, ELEVEN_PREFIX, STT_MAX_BYTES, ElevenLabsTTS, eleven_transcribe, load_elevenlabs, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
+from .tts import (BASELINE_VOICES, ELEVEN_MODEL, FALLBACK_OFF, ELEVEN_PREFIX, STT_MAX_BYTES, ElevenLabsTTS, eleven_transcribe, load_elevenlabs, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
                   playback_voices, voice_name)
 from .tutor import letters as tutor_letters
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
@@ -4638,6 +4638,29 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return min((rank for word, rank in ACCENT_RANK if word in words), default=3)
 
     SHARED_PAGES = 5
+    voice_names: dict[tuple[str, str], str] = {}   # (key, voice id) -> its name in the account
+
+    @app.get("/api/eleven-voices-in-use")
+    def eleven_voices_in_use(_a: SupabaseAuth = Depends(teacher_only)):
+        """For Monitoring: the ElevenLabs voice of each setting (the workbook's fallback, יאללה נדבר's man and woman),
+        by its name in the account. Ids and names only, never the key."""
+        key = app.state.keys.get("ELEVEN_LABS_API_KEY") or ""
+        out = []
+        for name, purpose in VOICE_SETTINGS.items():
+            vid = (app.state.keys.get(name) or "").strip()
+            label = ""
+            if vid.lower() == FALLBACK_OFF:
+                label = "כבוי"
+            elif vid and key:
+                if (key, vid) not in voice_names:
+                    try:
+                        voice_names[(key, vid)] = str(eleven_api(f"/voices/{vid}", key).get("name") or "")
+                    except KeyRefused:
+                        voice_names[(key, vid)] = ""   # not in the account (or no answer): the id is shown
+                label = voice_names[(key, vid)]
+            out.append({"setting": name, "purpose": purpose, "voice_id": "" if vid.lower() == FALLBACK_OFF else vid,
+                        "name": label})
+        return {"key": bool(key), "voices": out}
 
     @app.get("/api/admin/eleven-voices")
     def eleven_voices(_a: SupabaseAuth = Depends(keys_only)):

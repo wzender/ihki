@@ -1,4 +1,6 @@
 """The API keys a developer replaces from the panel (app/keystore.py): kept encrypted, never shown back, put to work at once."""
+import json
+
 import pytest
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
@@ -359,3 +361,21 @@ def test_a_voice_added_from_the_library_says_which_it_was(keys_env, tmp_path, mo
                headers=bearer("teacher"))
         mine = c.get("/api/admin/eleven-voices", headers=bearer("teacher")).json()["mine"]
         assert {v["voice_id"]: v["original_id"] for v in mine} == {"mine0001": "", "added001": "pal00001"}
+
+
+def test_monitoring_shows_each_settings_voice_by_name(keys_env, tmp_path, monkeypatch):
+    calls = eleven_env(monkeypatch)
+    real = app.main.eleven_api
+    monkeypatch.setattr(app.main, "eleven_api", lambda path, key, body=None: {"name": "Yousef"} if path == "/voices/added001"
+                        else real(path, key, body))
+    with client(KeyAuth(), tmp_path) as c:
+        assert c.get("/api/eleven-voices-in-use", headers=bearer("teacher")).json()["key"] is False
+        c.put("/api/admin/keys/ELEVEN_LABS_API_KEY", json={"value": "sk_eleven_key_123456"}, headers=bearer("teacher"))
+        c.post("/api/admin/eleven-voices/use", json={"voice_id": "pal00001", "owner_id": "owner004", "name": "Yousef",
+                                                    "target": "ELEVEN_LABS_TUTOR_VOICE_ID"}, headers=bearer("teacher"))
+        c.put("/api/admin/keys/ELEVEN_LABS_VOICE_ID", json={"value": "off"}, headers=bearer("teacher"))
+        got = c.get("/api/eleven-voices-in-use", headers=bearer("teacher")).json()
+        assert got["key"] is True and "sk_eleven" not in json.dumps(got)
+        assert {v["purpose"]: (v["voice_id"], v["name"]) for v in got["voices"]} == {
+            "playback": ("", "כבוי"), "tutor-male": ("added001", "Yousef"), "tutor-female": ("", "")}
+        assert c.get("/api/eleven-voices-in-use", headers=bearer("student")).status_code in (401, 403)
