@@ -3918,7 +3918,7 @@ function tcTrialNote(){
   else if(!TUTOR_INFO.voice) parts.push("לא נבחר קול ליאללה נדבר, ולכן הדובר לא מושמע");
   else if(she&&miss.has("ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID")) parts.push("לא נבחר קול לדמות אישה: היא מדברת בקול הגבר");
   else if(!she&&miss.has("ELEVEN_LABS_TUTOR_VOICE_ID")) parts.push("לא נבחר קול לדמות גבר: הוא מדבר בקול האישה");
-  const hear=TUTOR_INFO.stt?"זיהוי הדיבור: ElevenLabs":SR?"זיהוי הדיבור: הדפדפן":"זיהוי הדיבור: אין (הקלדה בלבד)";
+  const hear=SR?(TUTOR_INFO.stt?"זיהוי הדיבור: הדפדפן (ElevenLabs כגיבוי)":"זיהוי הדיבור: הדפדפן"):TUTOR_INFO.stt?"זיהוי הדיבור: ElevenLabs":"זיהוי הדיבור: אין (הקלדה בלבד)";
   const head=parts.length?"⚠️ גרסת ניסיון · ":"🧪 גרסת ניסיון · ";
   const fix=parts.length?" · ההגדרה: ניהול ← ניטור ← \"מפתחות API ומודל\" (למפתחים), או בהגדרות ה־Space":"";
   tcNote(head+[...parts,hear].join(" · ")+fix,parts.length?"bad trial":"trial");
@@ -4049,10 +4049,12 @@ function tcFeedback(){
   };
   return box;
 }
-const tcEleven=()=>!!(TUTOR_INFO&&TUTOR_INFO.stt&&window.MediaRecorder&&navigator.mediaDevices&&!(tc&&tc.sttFailed>=2));
-/* ElevenLabs hears the student (the tier's switch, "stt"): a tap records, a second tap (or 15 s) ends it, the server
-   recognizes it with the lesson's words, and the text goes on as the browser's would. Failing twice in a
-   conversation, it goes back to the browser's recognition. */
+// Hybrid: the browser's own recognition wherever it has one (Chrome, Android: it hears spoken Arabic best); ElevenLabs
+// (the tier's switch, "stt") where it has none (iPhone's Safari, Firefox), or once the browser's fails in a conversation
+const tcEleven=()=>!!(TUTOR_INFO&&TUTOR_INFO.stt&&window.MediaRecorder&&navigator.mediaDevices&&(!SR||(tc&&tc.browserFailed))&&!(tc&&tc.sttFailed>=2));
+/* ElevenLabs hears the student: a tap records, a second tap (or 15 s) ends it, the server recognizes it with the
+   lesson's words, and the text goes on as the browser's would. Failing twice in a conversation, it goes back to the
+   browser's recognition (if there is one). */
 async function tcRecord(){
   if(!tc||tc.busy||tc.done) return;
   if(tc.recorder){ if(tc.recorder.state==="recording") tc.recorder.stop(); return; }
@@ -4100,7 +4102,10 @@ function tcListen(){   // a tap starts listening; the recognition ends by itself
     if(!tc||tc.rec!==r) return;
     tc.rec=null; tc.mic.classList.remove("live"); tc.live.hidden=true; tc.live.textContent="";
     if(err==="language-not-supported"&&tc.lang!=="ar-JO"){ tc.lang="ar-JO"; tcListen(); return; }   // the nearest Arabic the device has
-    if(err==="not-allowed"||err==="service-not-allowed"){ tcNote("אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן, או הקלידו.","bad"); tc.type.hidden=false; return; }
+    if(err==="not-allowed"){ tcNote("אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן, או הקלידו.","bad"); tc.type.hidden=false; return; }
+    if(["network","service-not-allowed","language-not-supported"].includes(err)&&TUTOR_INFO&&TUTOR_INFO.stt&&!tc.browserFailed){
+      tc.browserFailed=true;   // the browser cannot hear here: ElevenLabs from now on in this conversation
+      tcNote("זיהוי הדיבור של הדפדפן לא זמין. עוברים לזיהוי של ElevenLabs: לחצו שוב ודברו.","trial"); return; }
     if(!said){ tcNote(err&&err!=="no-speech"?"זיהוי הדיבור לא זמין כרגע. נסו שוב, או הקלידו.":"לא נשמע דיבור. לחצו ודברו, קרוב יותר למיקרופון."); return; }
     tcHeard(said);
   };

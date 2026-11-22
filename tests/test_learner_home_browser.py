@@ -2014,8 +2014,11 @@ out.sent=sent; out.browserHeard=browserHeard;
 """
 
 
+NO_BROWSER_RECOGNITION = "delete window.SpeechRecognition; delete window.webkitSpeechRecognition;"
+
+
 def test_with_the_switch_on_the_tutor_hears_through_elevenlabs_not_the_browser(site):
-    r = site("boss@x.com", TUTOR_HEAR)
+    r = site("boss@x.com", TUTOR_HEAR, preload=NO_BROWSER_RECOGNITION)   # as on an iPhone: ElevenLabs hears
     assert r["recording"] and "מקליט" in r["live"]
     assert r["box"] == "מְנִיח אֵלְחַמְדֻ לִלַה" and r["beforeSend"] == ["hear"]   # in Hebrew letters (no shadda a box cannot draw)
     assert "תקנו" in r["hint"] and r["arrow"] == "שליחה" and r["hintAfter"]
@@ -2283,3 +2286,41 @@ out.says=says; out.most=most; out.playing=playing;
 def test_a_tutor_message_never_plays_twice_at_once(site):
     r = site("boss@x.com", TUTOR_ONE_VOICE)
     assert r["says"] == 1 and r["most"] == 1 and r["playing"] == 1   # fetched once, one sound at a time (no echo)
+
+
+TUTOR_HYBRID = """
+await sleep(800);
+const real=window.fetch, sent=[];
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/start")) return Promise.resolve(new Response(JSON.stringify({id:"chat1",turns:10,left:null,
+    message:{ar:"كيف حالك؟",tr:"כִּיף חַאלַכּ?",he:"מה שלומך?",words:[]}}),{status:200}));
+  if(u.includes("/api/tutor/hear")){ sent.push("hear"); return Promise.resolve(new Response(JSON.stringify({text:"منيح",tr:"מְנִיח"}),{status:200})); }
+  if(u.includes("/api/tutor/letters")) return Promise.resolve(new Response(JSON.stringify({tr:"מְנִיח"}),{status:200}));
+  return real(url,opts); };
+navigator.mediaDevices.getUserMedia=async()=>({getTracks:()=>[{stop(){}}]});
+window.MediaRecorder=function(stream,o){ this.state="inactive"; this.mimeType="audio/webm";
+  this.start=()=>{ this.state="recording"; }; this.stop=()=>{ this.state="inactive"; this.ondataavailable({data:new Blob([new Uint8Array(4000)])}); this.onstop(); }; };
+MediaRecorder.isTypeSupported=t=>t==="audio/webm";
+localStorage.setItem("ihki.tutorGender",JSON.stringify("m"));
+TUTOR_INFO={available:true,voice:false,stt:true,turns:10,left:null,scenarios:[]};
+openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
+await until(()=>document.querySelector(".tc .tc-msg.in"),5000);
+out.note=document.querySelector(".tc .tc-note.trial")?.textContent||"";
+const mic=document.querySelector(".tc .tc-mic");
+mic.click(); await sleep(50); out.first=window.__browser.length; out.sentFirst=sent.length;
+window.__browser.at(-1).fail("network"); await sleep(100);   // the browser cannot hear here
+out.switched=document.querySelector(".tc").textContent.includes("עוברים לזיהוי של ElevenLabs");
+mic.click(); await sleep(100); mic.click(); await until(()=>sent.length,5000);
+out.sent=sent; out.browserAfter=window.__browser.length;
+"""
+
+FAKE_BROWSER_RECOGNITION = """window.__browser=[]; window.webkitSpeechRecognition=window.SpeechRecognition=function(){
+  window.__browser.push(this); this.start=()=>{}; this.stop=()=>{}; this.abort=()=>{};
+  this.fail=e=>{ this.onerror&&this.onerror({error:e}); this.onend&&this.onend(); }; };"""
+
+
+def test_the_browser_hears_where_it_can_and_elevenlabs_where_it_cannot(site):
+    r = site("boss@x.com", TUTOR_HYBRID, preload=FAKE_BROWSER_RECOGNITION)
+    assert "הדפדפן (ElevenLabs כגיבוי)" in r["note"]
+    assert r["first"] == 1 and r["sentFirst"] == 0   # Chrome: its own recognition, nothing sent to ElevenLabs
+    assert r["switched"] and r["sent"] == ["hear"] and r["browserAfter"] == 1   # it failed: ElevenLabs from then on

@@ -2,6 +2,7 @@
 The model is a stub."""
 import io
 import json
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -441,24 +442,54 @@ def test_with_the_switch_off_the_browser_hears_as_before(hearing, monkeypatch):
         assert r.status_code == 403 and hearing == []
 
 
-def test_the_recognizer_retries_without_the_words_when_they_are_refused(monkeypatch):
+def recognizer(monkeypatch, refuse):
+    """ElevenLabs' speech to text, faked: refuses (422) the requests `refuse` says no to; the requests' form fields."""
     from app import tts
     sent = []
+    monkeypatch.setattr(tts, "_stt_works", [])
 
     class Answer(io.BytesIO):
         def __enter__(self): return self
         def __exit__(self, *a): return False
 
+    def field(data, name):
+        m = re.search(rb'name="' + name.encode() + rb'"\r\n\r\n([^\r]*)', data)
+        return m and m.group(1).decode()
+
     def urlopen(req, timeout=None):
-        sent.append(req.data)
-        if len(sent) == 1:
-            raise tts.urllib.error.HTTPError(req.full_url, 422, "bad keyterms", {}, io.BytesIO(b"{}"))
+        form = {"model": field(req.data, "model_id"), "language": field(req.data, "language_code"),
+                "terms": req.data.count(b'name="keyterms"')}
+        sent.append(form)
+        if refuse(form):
+            raise tts.urllib.error.HTTPError(req.full_url, 422, "no", {}, io.BytesIO(b"{}"))
         return Answer(json.dumps({"text": " شو اسمك "}).encode())
     monkeypatch.setattr(tts.urllib.request, "urlopen", urlopen)
-    assert tts.eleven_transcribe("k", b"audio", "audio/webm", ["شو", "اسم", "شو", "x" * 60]) == "شو اسمك"
-    first, second = sent
-    assert first.count(b'name="keyterms"') == 2 and b'name="keyterms"' not in second   # deduped, too long dropped
-    assert b'name="language_code"\r\n\r\nar\r\n' in first and b'name="model_id"\r\n\r\nscribe_v2' in first
+    return sent
+
+
+def test_the_recognizer_asks_for_scribe_v3_in_levantine_arabic_with_at_most_100_words(monkeypatch):
+    from app import tts
+    sent = recognizer(monkeypatch, lambda f: False)
+    words = ["شو", "اسم", "شو", "x" * 60] + [f"كلمة{i}" for i in range(150)]
+    assert tts.eleven_transcribe("k", b"audio", "audio/webm", words) == "شو اسمك"
+    assert sent == [{"model": "scribe_v3", "language": "ajp", "terms": 100}]   # deduped, too long dropped, 100 at most
+
+
+def test_a_refused_model_or_dialect_falls_back_and_the_one_taken_is_kept(monkeypatch):
+    from app import tts
+    sent = recognizer(monkeypatch, lambda f: f["language"] == "ajp")   # the dialect is not taken
+    assert tts.eleven_transcribe("k", b"audio", "audio/webm", ["شو"]) == "شو اسمك"
+    assert [(f["model"], f["language"]) for f in sent] == [("scribe_v3", "ajp"), ("scribe_v3", "ar")]
+    sent.clear()
+    tts.eleven_transcribe("k", b"audio", "audio/webm", ["شو"])
+    assert [(f["model"], f["language"]) for f in sent] == [("scribe_v3", "ar")]   # remembered: no second try
+
+
+def test_when_every_try_is_refused_the_last_resort_has_no_words(monkeypatch):
+    from app import tts
+    sent = recognizer(monkeypatch, lambda f: f["terms"] > 0)   # the words themselves are refused
+    assert tts.eleven_transcribe("k", b"audio", "audio/webm", ["شو"]) == "شو اسمك"
+    assert sent[-1] == {"model": "scribe_v2", "language": "ar", "terms": 0} and len(sent) == 4
 
 
 def test_the_tutor_says_what_of_elevenlabs_is_missing_by_name_only(voices, monkeypatch):

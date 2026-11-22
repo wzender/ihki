@@ -166,21 +166,27 @@ class ElevenLabsTTS:
 
 
 FALLBACK_OFF = "off"   # ELEVEN_LABS_VOICE_ID's value that turns the workbook's fallback off
-STT_MODEL = "scribe_v2"
+STT_MODEL = "scribe_v2"   # the last resort; the first tried are STT_TRIES
+# Scribe's newest model, in South Levantine Arabic (ISO 639-3 ajp: Palestinian and Jordanian), then plain Arabic: the
+# first one ElevenLabs accepts is kept for the process (a refused one is a 400/422, which costs nothing)
+STT_TRIES = (("scribe_v3", "ajp"), ("scribe_v3", "ar"), ("scribe_v2", "ar"))
+_stt_works: list[tuple[str, str]] = []
 STT_MAX_BYTES = 2 * 1024 * 1024   # a student's sentence: a few seconds of compressed audio
-STT_KEYTERMS = 300   # the lesson's words it is told to expect, the latest lessons' first (each up to 50 characters)
+STT_KEYTERMS = 100   # the lesson's words it is told to expect, the latest lessons' first (each up to 50 characters);
+# above 100 ElevenLabs bills each request as at least 20 seconds
 
 
 def eleven_transcribe(key: str, audio: bytes, mime: str, keyterms: list[str] | None = None,
-                      model: str = STT_MODEL) -> str:
+                      model: str | None = None) -> str:
     """ElevenLabs' speech to text of a short Arabic recording: its text ("" when nothing was said). The words it
-    should expect go with it; if ElevenLabs refuses them, the recording is sent again without. TTSUnavailable when
-    it fails."""
+    should expect go with it. The model and language are the first of STT_TRIES that ElevenLabs accepts (`model`
+    fixes one, in Arabic); if it refuses them all, the last resort is scribe_v2 in Arabic without the words.
+    TTSUnavailable when it fails."""
     import uuid
 
-    def send(terms: list[str]) -> str:
+    def send(terms: list[str], model: str, language: str) -> str:
         boundary = uuid.uuid4().hex
-        parts = [("model_id", model), ("language_code", "ar"), ("tag_audio_events", "false")]
+        parts = [("model_id", model), ("language_code", language), ("tag_audio_events", "false")]
         parts += [("keyterms", t) for t in terms]
         body = b"".join(f'--{boundary}\r\nContent-Disposition: form-data; name="{n}"\r\n\r\n{v}\r\n'.encode()
                         for n, v in parts)
@@ -199,12 +205,19 @@ def eleven_transcribe(key: str, audio: bytes, mime: str, keyterms: list[str] | N
             raise TTSUnavailable("elevenlabs speech-to-text unreachable", transient=True) from None
 
     terms = [t for t in dict.fromkeys(t.strip() for t in keyterms or []) if t and len(t) <= 50][:STT_KEYTERMS]
-    try:
-        return send(terms)
-    except TTSUnavailable as e:
-        if terms and e.status in (400, 422):
-            return send([])
-        raise
+    tries = [(model, "ar")] if model else (_stt_works[:1] or list(STT_TRIES))
+    for m, language in tries:
+        try:
+            text = send(terms, m, language)
+        except TTSUnavailable as e:
+            if e.status in (400, 422):
+                continue   # this model or language is not taken: the next one
+            raise
+        if not model and not _stt_works:
+            _stt_works.append((m, language))
+            log.info("elevenlabs speech-to-text: %s in %s", m, language)
+        return text
+    return send([], STT_MODEL, "ar")
 
 
 def load_elevenlabs(key: str | None = None, voice: str | None = None) -> ElevenLabsTTS | None:
