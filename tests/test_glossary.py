@@ -30,7 +30,7 @@ def test_a_student_keeps_their_own_dictionary_and_the_subtitles_mark_its_words(m
             self.kept = {}
 
         def texts(self, fresh=False):
-            return [{"id": 2, "lesson": "2", "title": "היכרות", "voices": [], "pos": 11, "ord": 0,
+            return [{"id": 2, "lesson": "1", "title": "היכרות", "voices": [], "pos": 11, "ord": 0,
                      "video": "https://www.youtube.com/watch?v=abcdefghijk",
                      "lines": [["מי פתח את הדלת?", "מִין פַתַח אֵלְבַּאבּ?", 0.1], ["סמיר", "סַמִיר", 3]]}]
 

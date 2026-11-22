@@ -15,6 +15,16 @@ SYMS = ["<pad>", "w", "eː", "n", "i", "l", "ħ", "a", "m", "aː", "χ", "h", "k
 VOCAB = {s: i for i, s in enumerate(SYMS)}
 
 
+
+def fits(actual, expected) -> bool:
+    """Whether `actual` has `expected`'s fields with its values (dicts compared on the expected keys only, lists item by
+    item): /api/me carries more than a test is about."""
+    if isinstance(expected, dict):
+        return isinstance(actual, dict) and all(k in actual and fits(actual[k], v) for k, v in expected.items())
+    if isinstance(expected, list):
+        return isinstance(actual, list) and len(actual) == len(expected) and all(map(fits, actual, expected))
+    return actual == expected
+
 def emissions(phones, frames=3, gap=2, peak=0.9, long_by=2):
     """Log-posteriors where each phone peaks for `frames` frames (a long vowel `long_by` times as many), separated
     by blanks."""
@@ -423,10 +433,10 @@ def test_api_end_to_end_with_stub_model():
     with TestClient(app) as c:
         assert c.get("/").status_code == 200
         ph = c.get("/api/phrases").json()
-        shown = {c["id"] for c in ph["categories"]}   # the phrases of no lesson are in the bank, not on the page
+        shown = {c["id"] for c in ph["categories"] + ph["games"]}   # the phrases of no lesson are in the bank, not on the page
         assert len(ph["phrases"]) == sum(p["cat"] in shown for p in PHRASES) and "ipa" not in ph["phrases"][0]
         assert TOILET["cat"] not in shown and [l["id"] for l in ph["lessons"] if not l.get("soon")] == ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9"]
-        assert len(ph["lessons"]) == 20 and [v["name"] for v in ph["levels"]] == ["שלב א", "שלב ב"]
+        assert len(ph["lessons"]) == 19 and [v["name"] for v in ph["levels"]] == ["שלב א", "שלב ב"]
         pid = PHRASES.index(TOILET)
         r = c.post("/api/score", data={"phrase_id": pid}, files={"audio": ("a.wav", buf.getvalue(), "audio/wav")})
         assert r.status_code == 200, r.text
@@ -1037,20 +1047,22 @@ def test_workbook_lesson_1():
 
     assert [l["id"] for l in LESSONS if not l.get("soon")] == ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9"]
     assert [c["id"] for c in CATEGORIES if c["lesson"] == "1"] == ["l1-new", "l1-pairs", "l1-pron","l1-verbs", "l1-past", "l1-say", "l1-read", "l1-hw"]
-    assert GAMES == [{"id": "game-yalla-verb", "name": "יאללה הפועל", "lesson": "1", "bubble": True, "hidden": True,
+    assert GAMES == [{"id": "game-yalla-verb", "name": "פועל זמני", "lesson": "1", "bubble": True, "hidden": False,
                       "unit": "פועל", "task": "אמרו את הפועל בערבית מדוברת: בעבר ואז בעתיד, לפני שהבועה נעלמת"}]
     hw = next(c for c in CATEGORIES if c["id"] == "l1-hw")["write"]   # the workbook's homework: a task and five sentences to write, with nothing to say
     assert hw["lines"] == 5 and hw["task"].startswith("כתבו חמישה משפטים") and "מִין - מי" in hw["task"]
     pub = public_phrases()
     count = lambda cat: sum(p["cat"] == cat for p in pub)
-    assert [count(c) for c in ("l1-pron", "l1-verbs", "game-yalla-verb", "l1-past", "l1-say", "l1-read")] == [8, 4, 4, 32, 10, 22]
+    assert [count(c) for c in ("l1-pron", "l1-verbs", "l1-past", "l1-say", "l1-read")] == [8, 4, 32, 10, 22]
+    from app.workbook import _game_verbs
+    assert count("game-yalla-verb") == len(_game_verbs()) > count("l1-verbs")   # every verb the course teaches, once
     assert all(p["cat"] in {c["id"] for c in CATEGORIES + GAMES} for p in pub)
     assert all(p["read"] == (p["cat"] == "l1-read") and "#" not in p["ar"] for p in pub if p["cat"].startswith("l1-"))
     assert all("seq" not in p for p in pub if p["cat"] == "l1-past")   # conjugations are drilled in random order
     by = {(p["cat"], p["he"]): p for p in PHRASES}
     assert by["l1-pron", "אנחנו"]["tr"] == "אִחְנַא"
     assert by["l1-verbs", "ישב (עבר, עתיד)"]["tr"] == "קַעַד, יֻקְעֹד"
-    assert by["game-yalla-verb", "ישב (עבר, עתיד)"]["tr"] == "קַעַד, יֻקְעֹד"
+    assert by["game-yalla-verb", "ישב"]["tr"] == "קַעַד, יֻקְעֹד"
     assert by["l1-past", "היא שאלה"]["tr"] == "הִיֵّ סַאְלַת"
     # the prompt voice gets pointed Hebrew (פתח is otherwise read "petach"); the page shows it plain
     assert by["l1-verbs", "פתח (עבר, עתיד)"]["he_say"] == "פָּתַח"
@@ -1664,7 +1676,7 @@ def test_sign_in_guards_the_practice_endpoints():
 
         def __init__(self):
             self.rows, self.cls, self.vids, self.txts, self.days, self.wrote = [], [], [], [], {"dailies": [], "library": []}, {}
-            self.rank = frozenset()
+            self.rank, self.events = frozenset(), []
 
         def writings(self, token):
             return {t: lines for (u, t), lines in self.wrote.items() if u == "u1"}
@@ -1687,7 +1699,7 @@ def test_sign_in_guards_the_practice_endpoints():
             self.rank = self.rank | {email} if on else self.rank - {email}
             self.by = by
 
-        def save_class(self, id, name, emails, nicknames, lessons, homeworks=(), dailies=None, subject=""):
+        def save_class(self, id, name, emails, nicknames, lessons, homeworks=(), dailies=None, subject="", teachers=None, library_sections=None, meetings=None):
             row = {"name": name, "emails": emails, "nicknames": nicknames, "lessons": lessons, "homeworks": list(homeworks),
                    **({} if dailies is None else {"dailies": list(dailies)}), **({"subject": subject} if id is None and subject else {})}
             if id is None:
@@ -1696,6 +1708,9 @@ def test_sign_in_guards_the_practice_endpoints():
                 c.update(row)
             else:
                 raise KeyError(id)
+
+        def log_event(self, kind, user, label="", details=None):
+            self.events.append((kind, label))
 
         def delete_class(self, id):
             self.cls = [c for c in self.cls if c["id"] != id]
@@ -1782,7 +1797,8 @@ def test_sign_in_guards_the_practice_endpoints():
         assert put(T1, ["x"]) == 404 and put("l1-hw", ["x"] * 6) == 400 and put("l1-hw", ["x" * 301]) == 400 and put("l1-hw", "x") == 400
         assert c.put("/api/writing/l1-hw", json={"lines": ["x"]}).status_code == 401
         # no class yet: any account is let in, to every lesson
-        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": False, "classes": [], "lessons": ALL}
+        me = lambda: c.get("/api/me", headers=good).json()   # compared on the fields named (its permissions and tier: test_access_tiers.py)
+        assert fits(me(), {"email": "A@b.c", "teacher": False, "classes": [], "lessons": ALL})
         assert c.get("/api/class").status_code == 401 and c.get("/api/class", headers=good).status_code == 403
         assert c.post("/api/classes", json={"name": "x", "emails": "", "lessons": ALL}, headers=good).status_code == 403   # teachers only
         assert c.get("/api/classmates", headers=good).json() == {"classes": []}
@@ -1790,26 +1806,26 @@ def test_sign_in_guards_the_practice_endpoints():
         c.app.state.auth.cls = [beginners]   # a class without this account
         assert c.get("/api/me", headers=good).status_code == 403 and c.get("/api/tts/0", headers=good).status_code == 403
         beginners["emails"].append("a@b.c")   # case does not matter; the student studies their class's lessons
-        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": False, "lessons": ALL[:1],
-                                                         "classes": [{"name": "Beginners", "lessons": ALL[:1], **NO_HW}]}
+        assert fits(me(), {"email": "A@b.c", "teacher": False, "lessons": ALL[:1],
+                           "classes": [{"name": "Beginners", "lessons": ALL[:1], **NO_HW}]})
         # the class's homework reaches its students: a topic of its lessons, and the day it is due
         beginners.update(homework=T1, due="2026-10-15")
-        assert c.get("/api/me", headers=good).json()["classes"] == [{"name": "Beginners", "lessons": ALL[:1], "homework": T1, "due": "2026-10-15",
-                                                                             "homeworks": [{"topic": T1, "due": "2026-10-15"}], "dailies": []}]
+        assert fits(me()["classes"], [{"name": "Beginners", "lessons": ALL[:1], "homework": T1, "due": "2026-10-15",
+                                       "homeworks": [{"topic": T1, "due": "2026-10-15"}], "dailies": []}])
         beginners.update(homework=T2)   # a topic of a lesson the class does not study is no homework
-        assert c.get("/api/me", headers=good).json()["classes"] == [{"name": "Beginners", "lessons": ALL[:1], **NO_HW}]
+        assert fits(me()["classes"], [{"name": "Beginners", "lessons": ALL[:1], **NO_HW}])
         del beginners["homework"], beginners["due"]
         # in a second class too: the lessons of both, in the course's order
         c.app.state.auth.cls = [{"id": 2, "name": "Advanced", "emails": ["a@b.c"], "nicknames": {}, "lessons": ALL[1:]}, beginners]
-        me = c.get("/api/me", headers=good).json()   # each class with its own lessons: the student chooses one to practise in
-        assert me["lessons"] == ALL and me["classes"] == [{"name": "Advanced", "lessons": ALL[1:], **NO_HW}, {"name": "Beginners", "lessons": ALL[:1], **NO_HW}]
+        assert fits(me(), {"lessons": ALL, "classes": [{"name": "Advanced", "lessons": ALL[1:], **NO_HW},   # each class with its own
+                                                       {"name": "Beginners", "lessons": ALL[:1], **NO_HW}]})   # lessons: the student chooses one
         c.app.state.auth.cls = [{**beginners, "lessons": []}]   # a class saved before classes had lessons has every one
         assert c.get("/api/me", headers=good).json()["lessons"] == ALL
         # a teacher is let in without a class, studies every lesson, and opens classes in the panel
         c.app.state.auth.cls, c.app.state.auth.teachers = [], frozenset({"a@b.c"})
         assert c.post("/api/classes", json={"name": "September 2026", "emails": "x@b.c", "lessons": ALL[:1]},
                       headers=good).status_code == 200
-        assert c.get("/api/me", headers=good).json() == {"email": "A@b.c", "teacher": True, "tutor": True, "classes": [], "lessons": ALL, "dailies": []}
+        assert fits(me(), {"email": "A@b.c", "teacher": True, "tutor": True, "classes": [], "lessons": ALL, "dailies": []})
         activity = c.get("/api/activity?hours=12&bucket_minutes=30", headers=good)
         assert activity.json() == {"hours": 12, "bucket_minutes": 30, "buckets": [
             {"bucket": "2026-10-13T10:00:00+00:00", "attempts": 4, "active_students": 2}]}
@@ -1817,7 +1833,7 @@ def test_sign_in_guards_the_practice_endpoints():
         assert c.get("/api/activity?hours=0", headers=good).status_code == 422
         # the content part: a teacher adds a video to a ready lesson by its Vimeo link, kept without the sharing parameters
         READY = [l["id"] for l in LESSONS if not l.get("soon")]
-        SOON = next(l["id"] for l in LESSONS if l.get("soon"))
+        SOON = next((l["id"] for l in LESSONS if l.get("soon")), "2.99")   # a lesson not written yet (the course has none planned now)
         link = "https://vimeo.com/1233611297/d46ac373c8?share=copy&fl=sv&fe=ci"
         assert c.get("/api/videos").status_code == 401 and c.get("/api/videos", headers=good).json() == {"videos": []}
         for body, code in (({"lesson": READY[0], "title": "  פתיחה   לשיעור ", "url": link}, 200),
@@ -1939,8 +1955,8 @@ def test_sign_in_guards_the_practice_endpoints():
         assert c.delete("/api/dailies/1", headers=good).status_code == 200 and mine() == []   # gone from the library, gone from the class
         # the library: videos for every student, whatever the level and the class
         shelf = lambda **body: c.post("/api/library", json=body, headers=good).status_code
-        assert c.get("/api/library").status_code == 401 and c.get("/api/library", headers=good).json() == {"library": []}
-        assert shelf(title="two", url=link) == 200 and shelf(level=L1, title=" one ", url=link) == 200 and shelf(title="gone", url=link) == 200
+        assert c.get("/api/library").status_code == 401 and c.get("/api/library", headers=good).json()["library"] == []
+        assert shelf(title="two", url=link) == 200 and shelf(title=" one ", url=link) == 200 and shelf(title="gone", url=link) == 200
         assert shelf(title="", url=link) == 400 and shelf(title="x", url="nope") == 400
         assert c.delete("/api/library/3", headers=good).status_code == 200
         shelves = c.get("/api/library", headers=good).json()["library"]
@@ -1964,7 +1980,8 @@ def test_sign_in_guards_the_practice_endpoints():
                      "homework": T2, "due": "2026-10-15"}
         assert c.post("/api/classes", json=new_class, headers=good).status_code == 200
         assert c.app.state.auth.cls[0] == {"id": 2, "name": "October 2026", "emails": ["new@b.c", "s@b.c", "x@b.c"],
-                                           "nicknames": {"new@b.c": "דנה"}, "lessons": ALL, "homeworks": [{"topic": T2, "due": "2026-10-15"}]}
+                                           "nicknames": {"new@b.c": "דנה"}, "lessons": ALL, "homeworks": [{"topic": T2, "due": "2026-10-15"}],
+                                           "dailies": []}
         for body, code in (({"name": "", "emails": "", "lessons": ALL}, 400), ({"name": "y", "emails": "not-an-email", "lessons": ALL}, 400),
                            ({"name": "y", "emails": "z@b.c w@b.c Dana", "lessons": ALL}, 400),   # whose nickname?
                            ({"name": "y", "emails": "", "lessons": []}, 400), ({"name": "y", "emails": ""}, 400),   # no lesson
@@ -2048,8 +2065,8 @@ def test_sign_in_guards_the_practice_endpoints():
         assert 0 <= progress["week_days"] <= 7
         assert set(progress["streak"]) == {"current", "best", "last", "frozen", "freeze_ready"}
     with TestClient(create_app(scorer_for(emissions(["w"])))) as c:   # no sign-in: nothing to show
-        assert c.get("/api/progress").json() == {"best": {}, "tries": {}, "recordings": 0, "days": 0,
-                                                  "week_days": 0, "streak": {"current": 0, "best": 0, "last": None}}
+        assert fits(c.get("/api/progress").json(), {"best": {}, "tries": {}, "recordings": 0, "days": 0,
+                                                  "week_days": 0, "streak": {"current": 0, "best": 0, "last": None}})   # (the streak's freezes: test_streak.py)
     with TestClient(create_app(scorer_for(emissions(["w"])))) as c:   # not configured: open, as before
         assert 'AUTH_URL=""' in c.get("/").text and c.get("/api/tts/0").status_code == 503
 

@@ -146,13 +146,19 @@ def test_a_correction_that_changes_nothing_is_dropped(fix, note):
         assert c.post("/api/tutor/turn", json={"id": chat["id"], "text": "جملة 0"}, headers=bearer("teacher")).json()["fix"] is None
 
 
-def test_only_teachers_play_until_it_is_opened(monkeypatch):
-    monkeypatch.delenv("TUTOR_OPEN", raising=False)
+def students_have_the_tutor(monkeypatch):
+    """יאללה נדבר is off for the student tier by default (access.FEATURES): these tests switch it on, as a manager does."""
+    monkeypatch.setenv("FEATURE_PINS", "games.yalla_nedaber:student=on")
+
+
+def test_only_managers_play_until_the_students_tier_has_it(monkeypatch):
+    monkeypatch.delenv("FEATURE_PINS", raising=False)
     with client(TutorAuth(), FakeClient()) as c:
-        assert c.get("/api/tutor", headers=bearer("student")).json() == {"available": False}
-        assert start(c, "student").status_code == 404
+        refused = c.get("/api/tutor", headers=bearer("student"))
+        assert refused.status_code == 403 and "יאללה נדבר אינו זמין" in refused.json()["detail"]
+        assert start(c, "student").status_code == 403
         assert c.get("/api/tutor", headers=bearer("teacher")).json()["available"]
-    monkeypatch.setenv("TUTOR_OPEN", "1")
+    students_have_the_tutor(monkeypatch)
     with client(TutorAuth(), FakeClient()) as c:
         info = c.get("/api/tutor", headers=bearer("student")).json()
         assert info["available"] and info["left"] == DAILY_LIMIT
@@ -160,7 +166,7 @@ def test_only_teachers_play_until_it_is_opened(monkeypatch):
 
 
 def test_the_days_limit_counts_what_supabase_kept(monkeypatch):
-    monkeypatch.setenv("TUTOR_OPEN", "1")
+    students_have_the_tutor(monkeypatch)
     with client(TutorAuth(kept_today=DAILY_LIMIT - 1), FakeClient()) as c:   # a restart: the count comes from the table
         ok = start(c, "student")
         assert ok.status_code == 200 and ok.json()["left"] == 0
@@ -169,7 +175,7 @@ def test_the_days_limit_counts_what_supabase_kept(monkeypatch):
 
 
 def test_a_conversation_is_its_students_only(monkeypatch):
-    monkeypatch.setenv("TUTOR_OPEN", "1")
+    students_have_the_tutor(monkeypatch)
     with client(TutorAuth(), FakeClient()) as c:
         chat = start(c, "student").json()
         assert c.post("/api/tutor/turn", json={"id": chat["id"], "text": "مرحبا"}, headers=bearer("other")).status_code == 410

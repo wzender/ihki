@@ -134,9 +134,9 @@ def test_a_math_class_studies_math_units():
         new = lambda body, who="m": c.post("/api/classes", json={"name": "ט2", "emails": "", **body}, headers=tok(who))
         assert new({"lessons": [ALL_LESSONS[0]]}).status_code == 400
         assert new({"lessons": ["t", "f"], "homeworks": [{"topic": "x", "due": ""}], "dailies": [{"video": 9, "date": "2026-01-01"}]}).status_code == 200
-        assert auth.saved[-1][4:] == (["f", "t"], [], None, "מתמטיקה")
+        assert auth.saved[-1][4:] == (["f", "t"], [], [], "מתמטיקה")
         # a developer has no subject: the page says which; an edit keeps the class's own
-        assert new({"lessons": ["n"], "subject": "מתמטיקה"}, "d").status_code == 200 and auth.saved[-1][4:] == (["n"], [], None, "מתמטיקה")
+        assert new({"lessons": ["n"], "subject": "מתמטיקה"}, "d").status_code == 200 and auth.saved[-1][4:] == (["n"], [], [], "מתמטיקה")
         assert new({"lessons": ["n"], "subject": "חשבון"}, "d").status_code == 400   # no subject: Arabic lessons
         assert c.put("/api/classes/1", json={"name": "ט1", "emails": "s@b.c", "lessons": ["w"]}, headers=tok("d")).status_code == 200
         assert auth.saved[-1][4] == ["w"]
