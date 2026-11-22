@@ -361,6 +361,8 @@ body.tutor-chat{overflow:hidden}
 .tc-avatar{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#E3EAD6;color:#36501D;font:700 20px/1 var(--f-ar)}
 .tc-who{flex:1;display:flex;flex-direction:column;line-height:1.2}.tc-who small{opacity:.8}
 .tc-count{font-weight:700;opacity:.9}
+.tc-auto{all:unset;cursor:pointer;font-size:20px;padding:4px 6px;border-radius:8px}.tc-auto:focus-visible{outline:2px solid #fff}
+.tc-hear{all:unset;cursor:pointer;font-size:18px;padding:2px 6px;border-radius:8px;margin-inline-start:6px}.tc-hear.loading{opacity:.5;animation:access-pulse 1s ease-in-out infinite}.tc-hear:focus-visible{outline:2px solid var(--olive)}
 .tc-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:12px 12px 16px}
 .tc-msg{max-width:min(82%,520px);padding:6px 10px 4px;border-radius:10px;box-shadow:0 1px 1px rgba(0,0,0,.13);display:flex;flex-direction:column}
 .tc-msg.in{align-self:flex-start;background:var(--tc-in);border-start-start-radius:2px}
@@ -3744,7 +3746,7 @@ function openTutorChat(s){
   const root=mark("tc","","section"); root.setAttribute("role","dialog"); root.setAttribute("aria-label",`יאללה נדבר · ${s.title}`);
   root.innerHTML=`<header class="tc-head"><button class="tc-close" type="button" aria-label="יציאה מהשיחה">→</button>
     <span class="tc-avatar" lang="ar" aria-hidden="true"></span>
-    <div class="tc-who"><b></b><small></small></div><span class="tc-count"></span></header>
+    <div class="tc-who"><b></b><small></small></div><button class="tc-auto" type="button" hidden></button><span class="tc-count"></span></header>
     <div class="tc-log" aria-live="polite"></div>
     <footer class="tc-foot"><p class="tc-live" hidden></p>
       <form class="tc-type" hidden><input type="text" dir="auto" maxlength="300" placeholder="כתבו בערבית, באותיות עבריות…" aria-label="ההודעה שלכם"><button type="submit" aria-label="שליחה">➤</button></form>
@@ -3756,7 +3758,13 @@ function openTutorChat(s){
   root.querySelector(".tc-who small").textContent=`${(ALL_LESSONS.find(l=>l.id===s.lesson)||{}).name||""} · ${s.title}`;
   const pop=mark("tc-pop","","div"); pop.hidden=true; root.append(pop);
   tc={root,s,id:null,rec:null,busy:false,done:false,log:root.querySelector(".tc-log"),live:root.querySelector(".tc-live"),
-      type:root.querySelector(".tc-type"),mic:root.querySelector(".tc-mic"),lang:"ar-PS",pop};
+      type:root.querySelector(".tc-type"),mic:root.querySelector(".tc-mic"),lang:"ar-PS",pop,said:0,audio:{},playing:null};
+  const auto=root.querySelector(".tc-auto");   // the tutor's voice (ElevenLabs): on by default, kept on the device
+  if(TUTOR_INFO&&TUTOR_INFO.voice){
+    const paint=()=>{ const on=tcAutoplay(); auto.textContent=on?"🔊":"🔈"; auto.setAttribute("aria-pressed",String(on));
+      auto.setAttribute("aria-label",on?"השמעה אוטומטית של הדובר: פועלת":"השמעה אוטומטית של הדובר: כבויה"); auto.title=auto.getAttribute("aria-label"); };
+    auto.hidden=false; paint(); auto.onclick=()=>{ store.set("ihki.tutorAutoplay",!tcAutoplay()); if(!tcAutoplay()) tcStopVoice(); paint(); };
+  }
   root.addEventListener("click",e=>{ if(!e.target.closest(".tc-w")) pop.hidden=true; });
   tc.log.addEventListener("scroll",()=>{ pop.hidden=true; });
   root.querySelector(".tc-close").onclick=closeTutorChat;
@@ -3775,8 +3783,27 @@ function openTutorChat(s){
     tc.log.append(ask); tcLock(true);
   }
 }
+const tcAutoplay=()=>store.get("ihki.tutorAutoplay",true)!==false;
+function tcStopVoice(){ if(tc&&tc.playing){ tc.playing.pause(); tc.playing=null; } }
+async function tcSay(n,btn){   // the tutor's nth message in his own voice: fetched once, played again from memory
+  if(!tc||!tc.id) return;
+  tcStopVoice();
+  const t=tc;
+  try{
+    if(!t.audio[n]){
+      btn&&btn.classList.add("loading");
+      const res=await api(`/api/tutor/say/${encodeURIComponent(t.id)}/${n}`);
+      if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
+      t.audio[n]=URL.createObjectURL(await res.blob());
+    }
+    if(tc!==t) return;
+    const a=new Audio(t.audio[n]); t.playing=a; await a.play();
+  }catch(err){ if(btn){ btn.title="ההשמעה נכשלה: "+(err.message||err); btn.textContent="⚠"; } }
+  finally{ btn&&btn.classList.remove("loading"); }
+}
 function closeTutorChat(){
   if(!tc) return;
+  tcStopVoice(); for(const u of Object.values(tc.audio)) URL.revokeObjectURL(u);
   if(tc.rec){ const r=tc.rec; tc.rec=null; try{ r.abort(); }catch{} }
   removeEventListener("keydown",tc.onkey); tc.root.remove(); document.body.classList.remove("tutor-chat"); tc=null;
   if(document.body.dataset.view==="games") drawNav();   // the conversations left today
@@ -3800,7 +3827,10 @@ function tcTutor(m){   // the tutor's message: the Arabic in Hebrew letters, wor
   });
   else setTr(tr,m.tr||"");
   he.hidden=true; show.type="button"; show.onclick=()=>{ he.hidden=!he.hidden; show.textContent=he.hidden?"תרגום":"הסתרה"; };
-  b.append(tr,he,show,mark("tc-time",tcTime(),"small")); tc.log.append(b); tcScroll();
+  const n=tc.said++, voiced=!!(TUTOR_INFO&&TUTOR_INFO.voice);
+  const hear=mark("tc-hear","🔊","button"); hear.type="button"; hear.hidden=!voiced; hear.setAttribute("aria-label","השמעת ההודעה"); hear.onclick=()=>tcSay(n,hear);
+  b.append(tr,he,show,hear,mark("tc-time",tcTime(),"small")); tc.log.append(b); tcScroll();
+  if(voiced&&tcAutoplay()) tcSay(n,hear);
 }
 function tcWord(el,w){   // a word's meaning in a bubble over it; a new word says so
   const pop=tc.pop;
@@ -8761,6 +8791,13 @@ const KEY_GUIDES={
     ["לחצו Create API key ותנו לו שם (למשל ihki). אם יש בחירת הרשאות, אפשרו Text to Speech ו־Voices (קריאה וכתיבה, כדי שאפשר יהיה להוסיף קול מהספרייה)."],
     ["העתיקו את המפתח מיד: הוא מוצג פעם אחת בלבד."],
     ["הדביקו אותו כאן ולחצו שמירה. אחר כך בחרו קול פלסטיני בשורה \"הקול\" שמתחת."]],
+  ELEVEN_LABS_TUTOR_VOICE_ID:[
+    ["בשיחות של יאללה נדבר הדובר מושמע רק ב־ElevenLabs (לא ב־Sawtak ולא בקול של המכשיר), כשמפתח ElevenLabs שמור למעלה ונבחר כאן קול."],
+    ["לחצו \"🎙️ בחירת קול\": מוצגים רק קולות פלסטיניים של גבר. הקשיבו (▶) ובחרו."],
+    ["כל הודעה של הדובר היא טקסט חדש, ולכן כל השמעה ראשונה עולה (בערך 1,000 תווים לשיחה שלמה). השמעה חוזרת של אותה הודעה לא עולה."]],
+  ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID:[
+    ["הקול לדמויות הנשים ביאללה נדבר (רובה, אם סמיר, סוהא, ד\"ר לילא). בלעדיו הן מדברות בקול הגבר."],
+    ["לחצו \"🎙️ בחירת קול\": מוצגים רק קולות פלסטיניים של אישה."]],
   ELEVEN_LABS_VOICE_ID:[
     ["לחצו \"🎙️ בחירת קול\": יופיעו הקולות שבחשבון וקולות בערבית מהספרייה של ElevenLabs, הפלסטיניים (⭐) ראשונים."],
     ["הקשיבו לדוגמה (▶) ובחרו. קול מהספרייה מתווסף לחשבון אוטומטית."],
@@ -8862,7 +8899,7 @@ function drawApiKeys(box){
       };
       form.onsubmit=e=>{ e.preventDefault(); const value=select&&select.value?select.value:input.value.trim(); if(value) send("PUT",{value},choice?"בודק את המודל מול הספק…":"בודק את המפתח מול הספק…"); };
       if(select) form.append(select); form.append(input,save);
-      if(picker){ const open=mark("btn","🎙️ בחירת קול","button"); open.type="button"; open.onclick=()=>elevenVoicePicker(row,show); form.append(open); }
+      if(picker){ const open=mark("btn","🎙️ בחירת קול","button"); open.type="button"; open.onclick=()=>elevenVoicePicker(row,show,k.name,k.voice_picker); form.append(open); }
       if(k.source==="db"){ const back=mark("btn",choice?"חזרה לברירת המחדל של השרת":"חזרה למפתח השרת","button"); back.type="button"; back.onclick=()=>{ if(confirm(choice?"לחזור למודל שמוגדר בשרת (או לברירת המחדל)?":"למחוק את המפתח שנשמר בפאנל ולחזור למפתח שמוגדר בשרת (אם יש)?")) send("DELETE",null,"מוחק…"); }; form.append(back); }
       form.append(msg); row.append(form);
     }
@@ -8875,13 +8912,20 @@ function drawApiKeys(box){
 /* בחירת קול של ElevenLabs: the account's voices and the Arabic voices of its library (the Palestinian first, then the
    Levantine), each with its sample to hear; "בחירה" makes it the voice ElevenLabs speaks in (a library voice is added
    to the account first). */
-async function elevenVoicePicker(row,done){
+async function elevenVoicePicker(row,done,target="ELEVEN_LABS_VOICE_ID",purpose="playback"){
   row.querySelector(".eleven-voices")?.remove();
   const box=mark("eleven-voices",""), note=mark("note","טוען את הקולות מ־ElevenLabs…","p"); box.append(note); row.append(box);
   let data;
   try{ const res=await api("/api/admin/eleven-voices"); data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); }
   catch(err){ note.textContent="לא ניתן לטעון את הקולות: "+err.message; return; }
   note.textContent="הקשיבו לדוגמה (▶) ובחרו. קול פלסטיני מסומן ⭐, קול לבנטיני ✓. דוגמאות הספרייה לרוב באנגלית: כדאי לנסות קול על משפט מהחוברת לפני שמחליטים.";
+  // יאללה נדבר's parts: Palestinian voices only, of the part's gender (all the Palestinian ones when none is of it)
+  const tutor=purpose==="tutor-male"||purpose==="tutor-female", gender=purpose==="tutor-female"?"female":"male";
+  if(tutor){
+    const pal=list=>list.filter(v=>v.rank===0), fit=list=>{ const p=pal(list), g=p.filter(v=>v.gender===gender); return g.length?g:p; };
+    data={...data,mine:fit(data.mine),library:fit(data.library)};
+    note.textContent=`קולות פלסטיניים בלבד, ${gender==="female"?"של אישה":"של גבר"} (או כל הפלסטיניים, אם אין כאלה). הקשיבו (▶) ובחרו.`;
+  }
   let audio=null;
   const RANK=["⭐ פלסטיני","✓ לבנטיני","~ ירדני/סורי/לבנוני",""];
   const list=(title,voices)=>{
@@ -8898,9 +8942,9 @@ async function elevenVoicePicker(row,done){
         play.onclick=()=>{ if(audio) audio.pause(); audio=new Audio(v.preview_url); audio.play().catch(()=>{ play.textContent="✕"; }); }; acts.append(play); }
       const pick=mark("btn primary","בחירה","button"); pick.disabled=v.voice_id===data.current;
       pick.onclick=async()=>{
-        if(!confirm(`לבחור את הקול "${v.name}"? משפטים חדשים יושמעו בו כש־Sawtak לא זמין. הקלטות שכבר נוצרו לא משתנות.`)) return;
+        if(!confirm(tutor?`לבחור את הקול "${v.name}" ל${gender==="female"?"דמויות הנשים":"דמויות הגברים"} של יאללה נדבר?`:`לבחור את הקול "${v.name}"? משפטים חדשים יושמעו בו כש־Sawtak לא זמין. הקלטות שכבר נוצרו לא משתנות.`)) return;
         pick.disabled=true; pick.textContent="שומר…";
-        try{ const res=await api("/api/admin/eleven-voices/use",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({voice_id:v.voice_id,owner_id:v.owner_id||"",name:v.name})}), d=await res.json().catch(()=>({}));
+        try{ const res=await api("/api/admin/eleven-voices/use",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({voice_id:v.voice_id,owner_id:v.owner_id||"",name:v.name,target})}), d=await res.json().catch(()=>({}));
           if(!res.ok) throw new Error(d.detail||res.status); if(audio) audio.pause(); done(d); }
         catch(err){ pick.disabled=false; pick.textContent="בחירה"; note.textContent="הבחירה נכשלה: "+err.message; }
       };
@@ -8909,7 +8953,7 @@ async function elevenVoicePicker(row,done){
     sec.append(ul); box.append(sec);
   };
   list("הקולות בחשבון",data.mine); list("קולות בערבית מהספרייה",data.library);
-  if(!data.mine.length&&!data.library.length) note.textContent="לא נמצאו קולות. בדקו את המפתח, או הוסיפו קול בחשבון ElevenLabs.";
+  if(!data.mine.length&&!data.library.length) note.textContent=tutor?"לא נמצאו קולות פלסטיניים בספרייה. אפשר להוסיף קול פלסטיני בחשבון ElevenLabs (למשל שכפול קול של מורה) ולבחור אותו כאן, או להדביק מזהה קול.":"לא נמצאו קולות. בדקו את המפתח, או הוסיפו קול בחשבון ElevenLabs.";
 }
 function drawActivity(box){
   const config=ACTIVITY_RANGES[activityRange], range=config.title, bucket=config.bucket, days=["week","month","all"].includes(activityRange);

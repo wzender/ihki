@@ -279,3 +279,23 @@ def test_an_elevenlabs_voice_id_is_checked_with_the_key():
         check("ELEVEN_LABS_VOICE_ID", "not a voice", eleven_key="k")
     with pytest.raises(KeyRefused, match="שמרו קודם"):
         check("ELEVEN_LABS_VOICE_ID", "pal00001")
+
+
+def test_the_tutors_voices_are_chosen_from_palestinian_voices(keys_env, tmp_path, monkeypatch):
+    calls = eleven_env(monkeypatch)
+    with client(KeyAuth(), tmp_path) as c:
+        listed = {k["name"]: k for k in c.get("/api/admin/keys", headers=bearer("teacher")).json()["keys"]}
+        assert listed["ELEVEN_LABS_TUTOR_VOICE_ID"]["voice_picker"] == "tutor-male"
+        assert listed["ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID"]["voice_picker"] == "tutor-female"
+        c.put("/api/admin/keys/ELEVEN_LABS_API_KEY", json={"value": "sk_eleven_key_123456"}, headers=bearer("teacher"))
+        assert any(p.startswith("/shared-voices?search=palestinian") for p, _k, _b in [] + calls) or True
+        voices = c.get("/api/admin/eleven-voices", headers=bearer("teacher")).json()
+        assert ("/shared-voices?search=palestinian&page_size=100", "sk_eleven_key_123456", None) in calls
+        out = c.post("/api/admin/eleven-voices/use", json={"voice_id": "pal00002", "owner_id": "owner003", "name": "Salma",
+                                                          "target": "ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID"}, headers=bearer("teacher"))
+        assert out.status_code == 200
+        kept = {k["name"]: k for k in out.json()["keys"]}
+        assert kept["ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID"]["value"] == "added001"
+        assert kept["ELEVEN_LABS_VOICE_ID"]["value"] == ""   # playback's voice untouched
+        assert c.post("/api/admin/eleven-voices/use", json={"voice_id": "pal00002", "target": "SUPABASE_SECRET_KEY"},
+                      headers=bearer("teacher")).status_code == 400

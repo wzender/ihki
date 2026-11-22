@@ -330,3 +330,59 @@ def test_a_long_scenario_name_is_shortened_and_the_model_is_kept_whole():
     row = feedback.tutor_note({"quality": 3, "spoken": 4}, "תרחיש " * 40, "claude-sonnet-5-5")
     assert len(row["item"]) <= feedback.MAX_CONTEXT and row["item"].endswith(" · ערבית מדוברת 4/5 · claude-sonnet-5-5")
     assert feedback.tutor_note({"quality": 3, "spoken": 4}, "שוק", "")["item"].endswith("· unknown")
+
+
+# ---- the tutor's voice: ElevenLabs only, a Palestinian voice for a man's part and one for a woman's --------------------
+
+@pytest.fixture
+def voices(monkeypatch):
+    """ElevenLabs set for יאללה נדבר through the environment, its speech faked: the (text, voice) it was asked."""
+    from app import tts
+    said = []
+    monkeypatch.setenv("ELEVEN_LABS_API_KEY", "el-key")
+    monkeypatch.setenv("ELEVEN_LABS_TUTOR_VOICE_ID", "palman01")
+    monkeypatch.setenv("ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID", "palwoman1")
+    monkeypatch.setattr(tts.ElevenLabsTTS, "speak", lambda self, text, voice: said.append((text, voice)) or b"RIFF-" + voice.encode())
+    return said
+
+
+def test_the_tutors_messages_are_said_by_elevenlabs_in_the_parts_voice_once_each(voices):
+    with client(TutorAuth(), FakeClient()) as c:
+        assert c.get("/api/tutor", headers=bearer("teacher")).json()["voice"] is True
+        man = start(c, scenario="l2").json()   # ח'ליל
+        r = c.get(f"/api/tutor/say/{man['id']}/0", headers=bearer("teacher"))
+        assert r.status_code == 200 and r.content == b"RIFF-palman01" and r.headers["x-tts-provider"] == "elevenlabs.io"
+        assert voices == [("كيف حالك؟", "palman01")]   # the message's own Arabic
+        c.get(f"/api/tutor/say/{man['id']}/0", headers=bearer("teacher"))
+        assert len(voices) == 1   # said once, played again from memory
+        assert c.get(f"/api/tutor/say/{man['id']}/1", headers=bearer("teacher")).status_code == 404   # no such message yet
+        woman = start(c, scenario="l3").json()   # רובה
+        assert c.get(f"/api/tutor/say/{woman['id']}/0", headers=bearer("teacher")).content == b"RIFF-palwoman1"
+
+
+def test_only_the_conversations_own_account_hears_it(voices):
+    with client(TutorAuth(), FakeClient()) as c:
+        chat = start(c).json()
+        t = c.app.state.tutor
+        t._chats[chat["id"]].user_id = "someone-else"   # the conversation of another account
+        assert c.get(f"/api/tutor/say/{chat['id']}/0", headers=bearer("teacher")).status_code == 410
+        assert c.get("/api/tutor/say/no-such-chat/0", headers=bearer("teacher")).status_code == 410
+        assert voices == []
+
+
+def test_without_a_voice_the_tutor_stays_silent_and_never_uses_sawtak(monkeypatch):
+    from app import tts
+    for k in ("ELEVEN_LABS_API_KEY", "ELEVEN_LABS_TUTOR_VOICE_ID", "ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setattr(tts.ElevenLabsTTS, "speak", lambda *a: pytest.fail("no voice set"))
+    with client(TutorAuth(), FakeClient()) as c:
+        assert c.get("/api/tutor", headers=bearer("teacher")).json()["voice"] is False
+        chat = start(c).json()
+        assert c.get(f"/api/tutor/say/{chat['id']}/0", headers=bearer("teacher")).status_code == 503
+
+
+def test_a_part_whose_own_voice_is_not_chosen_takes_the_other(voices, monkeypatch):
+    monkeypatch.delenv("ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID")
+    with client(TutorAuth(), FakeClient()) as c:
+        woman = start(c, scenario="l3").json()
+        assert c.get(f"/api/tutor/say/{woman['id']}/0", headers=bearer("teacher")).content == b"RIFF-palman01"

@@ -229,7 +229,7 @@ API keys a developer replaces from the panel (`SAWTAK_API_KEY`, `ANTHROPIC_API_K
 
 ```sql
 create table public.app_secrets (
-  name        text primary key check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL','ELEVEN_LABS_API_KEY','ELEVEN_LABS_VOICE_ID')),
+  name        text primary key check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL','ELEVEN_LABS_API_KEY','ELEVEN_LABS_VOICE_ID','ELEVEN_LABS_TUTOR_VOICE_ID','ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID')),
   ciphertext  text not null,
   last4       text not null default '',
   updated_by  text not null default '',
@@ -244,7 +244,7 @@ A table made before the panel could set `TUTOR_MODEL` or `GEMINI_API_KEY` needs 
 ```sql
 alter table public.app_secrets drop constraint if exists app_secrets_name_check;
 alter table public.app_secrets add constraint app_secrets_name_check
-  check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL','ELEVEN_LABS_API_KEY','ELEVEN_LABS_VOICE_ID'));
+  check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL','ELEVEN_LABS_API_KEY','ELEVEN_LABS_VOICE_ID','ELEVEN_LABS_TUTOR_VOICE_ID','ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID'));
 ```
 
 ### Hourly persisted-practice monitoring
@@ -1172,6 +1172,7 @@ Tune them on a handful of labelled learner recordings. A useful target is that n
 - Hugging Face: add `SAWTAK_API_KEY` as a Space **secret** (Settings → Variables and secrets). It is injected as an environment variable at runtime.
 - Model-answer playback uses `SAWTAK_VOICE_ID`, or the Palestinian voice רַאאִף when it is unset.
 - Without a key the endpoint answers 503 and the page falls back to the device's Arabic voice.
+- **יאללה נדבר's voice is ElevenLabs only.** With `ELEVEN_LABS_API_KEY` and a voice chosen in the panel's keys card (`ELEVEN_LABS_TUTOR_VOICE_ID` for a man's part, `ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID` for a woman's; a part without its own takes the other), each of the tutor's messages has 🔊 and is said as it comes (the conversation's header switches that off, kept on the device). `GET /api/tutor/say/{chat}/{n}` says the conversation's own nth message, in its Arabic, once (kept in memory for playing again); never Sawtak or the device's voice. The picker shows only Palestinian voices of the part's gender. Each first playback is billed: the text is always new, about 1,000 characters for a whole conversation.
 - **ElevenLabs as the fallback.** With `ELEVEN_LABS_API_KEY` (a Space secret), a sentence a student plays that Sawtak cannot say (no key, a refusal such as no credit, or the service down) is said by [ElevenLabs](https://elevenlabs.io) instead, with the model `ELEVEN_LABS_MODEL` (default `eleven_v4_turbo`) and the voice `ELEVEN_LABS_VOICE_ID` (without it, the first voice the account added, else its first; set it so the voice never changes). `ELEVEN_LABS_FEMALE_VOICE_ID`, if set, says the lines a dialogue gives Hanan. Every recording either one made is cached (ElevenLabs' under `elevenlabs-<model>-<voice>/`) and played again; a sentence Sawtak already said keeps Sawtak's voice. After Sawtak fails, students' playback goes straight to ElevenLabs for ten minutes (`SAWTAK_REST`) before Sawtak is tried again. The cache-warm sweep and the score baselines never use ElevenLabs, so its credits are spent only on sentences students actually play. Its requests show in the monitoring panel's voice activity as `elevenlabs`, and the response's `X-TTS-Provider` says which service spoke.
 - Score calibration keeps its fixed native baseline voices; it does not use `SAWTAK_VOICE_ID`. A baseline is prepared once for every phrase that gets scored, also when the learner never presses "השמע". The first score of a phrase waits up to 8 s for it. Without a key the scores are not calibrated; `/api/health` reports this as `references`.
 

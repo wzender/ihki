@@ -144,7 +144,10 @@ class ElevenLabsTTS:
         return f"{ELEVEN_PREFIX}{self.model}-{v}" if v else ""
 
     def generate(self, text: str, sawtak_voice: str) -> bytes:
-        voice = self.voice_for(sawtak_voice)
+        return self.speak(text, self.voice_for(sawtak_voice))
+
+    def speak(self, text: str, voice: str) -> bytes:
+        """A WAV of `text` in the ElevenLabs voice `voice`."""
         with self._call(f"/text-to-speech/{voice}?output_format=pcm_{ELEVEN_RATE}",
                         {"text": text, "model_id": self.model}) as res:
             try:

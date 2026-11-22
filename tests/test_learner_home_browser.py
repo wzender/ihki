@@ -1939,3 +1939,40 @@ def test_with_sign_in_the_start_button_is_sent_hidden_until_the_account_is_check
     assert _re.search(r'<button id="startBtn" hidden>', signed) and _re.search(r'<p id="splashWait" role="status">טוען', signed)
     assert '<button id="startBtn">' in open_page and '<p id="splashWait" role="status" hidden>' in open_page
     assert "__START_HIDDEN__" not in signed + open_page and "__WAIT_HIDDEN__" not in signed + open_page
+
+
+TUTOR_VOICE = """
+await sleep(800);
+const asked=[]; const real=window.fetch;
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/start")) return Promise.resolve(new Response(JSON.stringify({id:"chat1",turns:10,left:null,
+    message:{ar:"كيف حالك؟",tr:"כִּיף חַאלַכּ?",he:"מה שלומך?",words:[{tr:"כִּיף",he:"איך",new:false},{tr:"חַאלַכּ?",he:"מצבך",new:false}]}}),{status:200}));
+  if(u.includes("/api/tutor/say/")){ asked.push(u.replace(location.origin,"")); return Promise.resolve(new Response(new Blob(["RIFF"],{type:"audio/wav"}),{status:200})); }
+  return real(url,opts); };
+const played=[]; window.Audio=function(src){ this.src=src; this.play=()=>{ played.push(src); return Promise.resolve(); }; this.pause=()=>{}; };
+localStorage.setItem("ihki.tutorGender",JSON.stringify("m"));
+TUTOR_INFO={available:true,voice:true,turns:10,left:null,scenarios:[]};
+openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
+await until(()=>document.querySelector(".tc .tc-msg.in"),5000); await sleep(300);
+const auto=document.querySelector(".tc .tc-auto");
+out.autoShown=!auto.hidden; out.autoOn=auto.getAttribute("aria-pressed");
+out.hear=!document.querySelector(".tc .tc-msg.in .tc-hear").hidden;
+out.asked=[...asked]; out.played=played.length;
+auto.click(); out.autoAfter=auto.getAttribute("aria-pressed"); out.kept=localStorage.getItem("ihki.tutorAutoplay");
+document.querySelector(".tc .tc-msg.in .tc-hear").click(); await sleep(300);
+out.askedAgain=asked.length; out.playedAgain=played.length;
+closeTutorChat();
+TUTOR_INFO={available:true,voice:false,turns:10,left:null,scenarios:[]};
+openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
+await until(()=>document.querySelector(".tc .tc-msg.in"),5000);
+out.silentAuto=document.querySelector(".tc .tc-auto").hidden; out.silentHear=document.querySelector(".tc .tc-msg.in .tc-hear").hidden;
+"""
+
+
+def test_the_tutor_speaks_his_messages_once_and_the_device_keeps_the_choice(site):
+    r = site("boss@x.com", TUTOR_VOICE)
+    assert r["autoShown"] and r["autoOn"] == "true" and r["hear"]
+    assert r["asked"] == ["/api/tutor/say/chat1/0"] and r["played"] == 1   # said on its own when it came
+    assert r["autoAfter"] == "false" and r["kept"] == "false"
+    assert r["askedAgain"] == 1 and r["playedAgain"] == 2   # 🔊 plays it again without asking the server
+    assert r["silentAuto"] and r["silentHear"]   # no voice chosen: no buttons, the tutor is text only

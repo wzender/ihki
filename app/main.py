@@ -27,6 +27,7 @@ import subprocess
 import threading
 import time
 import weakref
+from collections import OrderedDict
 import urllib.parse
 import uuid
 import zipfile
@@ -48,7 +49,7 @@ from . import feedback as feedback_notes
 from . import lab
 from .auth import AuthUnavailable, ClassConflict, FlagExists, MAX_MONITOR_ATTEMPTS, SupabaseAuth, load_auth
 from .keystore import (CREATE_APP_SECRETS, MAX_LEN as MAX_KEY_LEN, MIGRATE_APP_SECRETS, NAMES as KEY_NAMES, KeyRefused,
-                       check as check_key, eleven as eleven_api, load_keys)
+                       VOICE_SETTINGS, check as check_key, eleven as eleven_api, load_keys)
 from .live import LiveConflict, LiveStore
 from .math_photo import (DAILY_PHOTOS, MAX_PHOTO, MEDIA_TYPES as PHOTO_TYPES, PhotoSolver, PhotoUnavailable, math_model,
                          photo_client)
@@ -68,7 +69,7 @@ from .archi import archify
 from .scorer import SAMPLE_RATE, Scorer, decode_audio, decode_audio_with_timing, frame_energy, load_scorer, tokenize
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
-from .tts import (BASELINE_VOICES, ELEVEN_PREFIX, load_elevenlabs, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
+from .tts import (BASELINE_VOICES, ELEVEN_MODEL, ELEVEN_PREFIX, ElevenLabsTTS, load_elevenlabs, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
                   playback_voices, voice_name)
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
                     TutorUnavailable, CREATE_TUTOR_CHATS, default_model as default_tutor_model, load_tutor)
@@ -3714,7 +3715,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except HTTPException:
             return {"available": False}
         student, day, limit, seed = tutor_day(user)
-        return {"available": True, "turns": MAX_TURNS,
+        key, male = tutor_voice(False)
+        return {"available": True, "turns": MAX_TURNS, "voice": bool(key and male),
                 "daily_limit": limit,
                 "left": None if limit is None else max(0, limit - t.started(student, day, seed)),
                 "scenarios": [{k: s[k] for k in ("id", "lesson", "title", "desc", "who", "ar", "she")} for s in SCENARIOS]}
@@ -4196,6 +4198,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if name == "TUTOR_MODEL":   # open conversations go on with the new model from their next sentence
             if app.state.tutor is not None:
                 app.state.tutor.model = value or default_tutor_model(app.state.keys.get("ANTHROPIC_API_KEY"))
+        elif name in ("ELEVEN_LABS_TUTOR_VOICE_ID", "ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID"):
+            pass   # יאללה נדבר reads its voices on each message (tutor_voice)
         elif name in ("SAWTAK_API_KEY", "ELEVEN_LABS_API_KEY", "ELEVEN_LABS_VOICE_ID"):
             keys = app.state.keys
             backup = load_elevenlabs(keys.get("ELEVEN_LABS_API_KEY"), keys.get("ELEVEN_LABS_VOICE_ID"))
@@ -4381,6 +4385,46 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         tutor = app.state.tutor
         return {**usage.summarize(rows, days, today, LOCAL_TZ), "model_now": tutor.model if tutor else None}
 
+    # ---- יאללה נדבר's voice: ElevenLabs only (no Sawtak, no device voice), a Palestinian voice for a man's part and
+    # one for a woman's; each message is said once per conversation and kept for playing again
+    tutor_audio: "OrderedDict[tuple[str, int], bytes]" = OrderedDict()
+    TUTOR_AUDIO_KEPT = 300
+
+    def tutor_voice(she: bool) -> tuple[str, str]:
+        """(the ElevenLabs key, the voice for a woman's part or a man's), either "" when not set. A part whose own voice
+        is not chosen takes the other one."""
+        keys = app.state.keys
+        male, female = keys.get("ELEVEN_LABS_TUTOR_VOICE_ID"), keys.get("ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID")
+        return keys.get("ELEVEN_LABS_API_KEY"), (female or male) if she else (male or female)
+
+    @app.get("/api/tutor/say/{chat_id}/{n}", dependencies=[Depends(require("tutor.use"))])
+    def tutor_say(chat_id: str, n: int, user: dict | None = Depends(signed_in)):
+        """The tutor's `n`th message (from 0) in the student's conversation, spoken by ElevenLabs in the part's
+        voice. 503 when יאללה נדבר has no voice; only this conversation's own messages are said."""
+        t = tutor_for(user)
+        chat = t.get(chat_id, user["id"] if user else None)
+        if chat is None:
+            raise HTTPException(410, "השיחה הזו כבר לא פעילה")
+        said = [e for e in chat.log if e.get("from") == "tutor"]
+        if not 0 <= n < len(said) or not str(said[n].get("ar") or "").strip():
+            raise HTTPException(404, "אין הודעה כזו")
+        key, voice = tutor_voice(bool(BY_ID[chat.scenario]["she"]))
+        if not key or not voice:
+            raise HTTPException(503, "ליאללה נדבר עוד לא נבחר קול")
+        kept = tutor_audio.get((chat.id, n))
+        if kept is None:
+            try:
+                kept = ElevenLabsTTS(key, model=os.environ.get("ELEVEN_LABS_MODEL", "") or ELEVEN_MODEL).speak(
+                    said[n]["ar"].strip(), voice)
+            except TTSUnavailable as e:
+                record_failure(app.state.auth, "text_to_speech")
+                raise HTTPException(503, str(e))
+            tutor_audio[(chat.id, n)] = kept
+            while len(tutor_audio) > TUTOR_AUDIO_KEPT:
+                tutor_audio.popitem(last=False)
+        return Response(kept, media_type="audio/wav", headers={"Cache-Control": "private, no-store",
+                                                                "X-TTS-Provider": "elevenlabs.io"})
+
     @app.get("/api/admin/keys")
     def api_keys(response: Response, _a: SupabaseAuth = Depends(keys_only)):
         """Which API keys are set and where from (the panel, the server's environment, or none); never the keys."""
@@ -4398,7 +4442,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         value = value.strip()
         try:
             check_key(name, value, app.state.keys.get("ANTHROPIC_API_KEY"), app.state.keys.get("GEMINI_API_KEY"),
-                      **({"eleven_key": app.state.keys.get("ELEVEN_LABS_API_KEY")} if name == "ELEVEN_LABS_VOICE_ID" else {}))
+                      **({"eleven_key": app.state.keys.get("ELEVEN_LABS_API_KEY")} if name in VOICE_SETTINGS else {}))
         except KeyRefused as e:
             raise HTTPException(400, str(e))
         try:
@@ -4436,8 +4480,14 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                     "rank": accent_rank({**v, **labels})}
         try:
             mine = [voice(v) for v in (eleven_api("/voices", key).get("voices") or [])]
-            library = [voice(v, str(v.get("public_owner_id") or "")) for v in
-                       (eleven_api("/shared-voices?language=ar&page_size=100", key).get("voices") or [])]
+            shared = eleven_api("/shared-voices?language=ar&page_size=100", key).get("voices") or []
+            try:   # the library's Palestinian voices, beyond the first page of its Arabic ones
+                shared += eleven_api("/shared-voices?search=palestinian&page_size=100", key).get("voices") or []
+            except KeyRefused:
+                pass
+            seen: set[str] = set()
+            library = [voice(v, str(v.get("public_owner_id") or "")) for v in shared
+                       if v.get("voice_id") not in seen and not seen.add(v.get("voice_id"))]
         except KeyRefused as e:
             raise HTTPException(502, str(e))
         library.sort(key=lambda v: (v["rank"], v["gender"] != "male", v["name"] or ""))
@@ -4447,8 +4497,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     @app.post("/api/admin/eleven-voices/use")
     def use_eleven_voice(response: Response, body: dict = Body(...), _a: SupabaseAuth = Depends(keys_only),
                          user: dict | None = Depends(signed_in)):
-        """Makes a voice the one ElevenLabs speaks in: {voice_id, owner_id?, name?}. A library voice (owner_id) is
-        first added to the account, which ElevenLabs needs before it speaks in it."""
+        """Makes a voice one ElevenLabs speaks in: {voice_id, owner_id?, name?, target?}; `target` is the setting it
+        becomes (keystore.VOICE_SETTINGS: playback by default, or יאללה נדבר's male or female voice). A library voice
+        (owner_id) is first added to the account, which ElevenLabs needs before it speaks in it."""
+        target = str(body.get("target") or "ELEVEN_LABS_VOICE_ID")
+        if target not in VOICE_SETTINGS:
+            raise HTTPException(400, "unknown voice setting")
         key = app.state.keys.get("ELEVEN_LABS_API_KEY")
         voice_id, owner = str(body.get("voice_id") or "").strip(), str(body.get("owner_id") or "").strip()
         if not key:
@@ -4462,17 +4516,17 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 added = eleven_api(f"/voices/add/{owner}/{voice_id}", key,
                                    {"new_name": str(body.get("name") or "ihki")[:60] or "ihki"})
                 voice_id = str(added.get("voice_id") or voice_id)
-            check_key("ELEVEN_LABS_VOICE_ID", voice_id, eleven_key=key)
-            app.state.keys.set("ELEVEN_LABS_VOICE_ID", voice_id, (user or {}).get("email", ""))
+            check_key(target, voice_id, eleven_key=key)
+            app.state.keys.set(target, voice_id, (user or {}).get("email", ""))
         except KeyRefused as e:
             raise HTTPException(400, str(e))
         except AuthUnavailable as e:
             if any(m in str(e).lower() for m in ("check constraint", "23514")):
                 raise HTTPException(409, f"הטבלה app_secrets צריכה עדכון; הריצו ב-Supabase: {MIGRATE_APP_SECRETS}")
             raise HTTPException(503, f"Supabase לא זמין: {e}")
-        use_key("ELEVEN_LABS_VOICE_ID")
+        use_key(target)
         if app.state.auth:
-            app.state.auth.log_event("permission", user, "קול ElevenLabs", {"key": "ELEVEN_LABS_VOICE_ID", "action": "set"})
+            app.state.auth.log_event("permission", user, "קול ElevenLabs", {"key": target, "action": "set"})
         return keys_status(response)
 
     @app.delete("/api/admin/keys/{name}")
