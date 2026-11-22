@@ -2257,3 +2257,29 @@ def test_a_chosen_voice_stays_in_its_field_with_its_name(site):
     r = site("boss@x.com", KEYS_CARD_VOICES)
     assert r["values"] == ["", "NeokBGcPJaElDOj380Qt", ""]   # the voice in use; not "off", and nothing when none is chosen
     assert "בשימוש: Bader (NeokBGcPJaElDOj380Qt)" in r["male"]
+
+
+TUTOR_ONE_VOICE = """
+await sleep(800);
+const real=window.fetch; let says=0;
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/start")) return Promise.resolve(new Response(JSON.stringify({id:"chat1",turns:10,left:null,
+    message:{ar:"كيف حالك؟",tr:"כִּיף חַאלַכּ?",he:"מה שלומך?",words:[]}}),{status:200}));
+  if(u.includes("/api/tutor/say/")){ says++; return new Promise(r=>setTimeout(()=>r(new Response(new Blob(["RIFF"]),{status:200})),400)); }   // slow
+  return real(url,opts); };
+let playing=0, most=0;
+window.Audio=function(){ this.play=()=>{ playing++; most=Math.max(most,playing); return Promise.resolve(); }; this.pause=()=>{ playing--; }; };
+localStorage.setItem("ihki.tutorGender",JSON.stringify("m"));
+TUTOR_INFO={available:true,voice:true,stt:false,turns:10,left:null,scenarios:[]};
+openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
+await until(()=>document.querySelector(".tc .tc-msg.in .tc-hear"),5000);
+const hear=document.querySelector(".tc .tc-msg.in .tc-hear");
+hear.click(); hear.click();   // tapped while autoplay is still loading it
+await sleep(1200);
+out.says=says; out.most=most; out.playing=playing;
+"""
+
+
+def test_a_tutor_message_never_plays_twice_at_once(site):
+    r = site("boss@x.com", TUTOR_ONE_VOICE)
+    assert r["says"] == 1 and r["most"] == 1 and r["playing"] == 1   # fetched once, one sound at a time (no echo)
