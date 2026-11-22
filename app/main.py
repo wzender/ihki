@@ -920,7 +920,10 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         marks = {"__VERSION__": version, "__ASSET_V__": version.split(" ")[0], "__SUPABASE_URL__": a.url if a else "",
                  "__SUPABASE_KEY__": a.key if a else "", "__SUBJECT__": subject, "__HOME__": home, **SUBJECTS[subject]}
         marks["__BETTER_STACK_RUM__"] = rum
-        for mark, value in marks.items():
+        # with sign-in, "start" is not the way in until the page's code has checked the account: it is sent hidden,
+        # with "טוען…" in its place, so a slow load never shows a button that does nothing when pressed
+        marks["__START_HIDDEN__"], marks["__WAIT_HIDDEN__"] = (" hidden", "") if a else ("", " hidden")
+        for mark, value in sorted(marks.items(), key=lambda kv: -len(kv[0])):   # __START_HIDDEN__ before __START_LABEL__'s kin
             html = html.replace(mark, value)
         headers = {"Cache-Control": "no-cache"}
         if traceparent := current_traceparent():

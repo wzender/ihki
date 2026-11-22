@@ -1923,3 +1923,19 @@ def test_the_forms_offer_a_mail_to_the_office_without_showing_its_address(site):
     assert "שם: דנה כהן" in join and "typo@x.com" in join and "כיתה / מורה: שלב א" in join and "טלפון" not in join
     assert login.startswith("mailto:office@ahalawasahala.com?subject=בעיה בכניסה לאפליקציה")
     assert "כתוב שהכתובת אינה באף כיתה" in login and "typo@x.com" in login
+
+
+def test_with_sign_in_the_start_button_is_sent_hidden_until_the_account_is_checked():
+    """A slow load showed "יאללה נבלש" alone, a button that did nothing yet: with sign-in it comes hidden, "טוען…" in
+    its place; the open service still shows it at once."""
+    import re as _re
+    from app.main import create_app
+    from test_scoring import emissions, scorer_for
+    from fastapi.testclient import TestClient
+    with TestClient(create_app(scorer_for(emissions(["ħ"])), auth=PageAuth())) as c:
+        signed = c.get("/").text
+    with TestClient(create_app(scorer_for(emissions(["ħ"])), auth=None)) as c:
+        open_page = c.get("/").text
+    assert _re.search(r'<button id="startBtn" hidden>', signed) and _re.search(r'<p id="splashWait" role="status">טוען', signed)
+    assert '<button id="startBtn">' in open_page and '<p id="splashWait" role="status" hidden>' in open_page
+    assert "__START_HIDDEN__" not in signed + open_page and "__WAIT_HIDDEN__" not in signed + open_page
