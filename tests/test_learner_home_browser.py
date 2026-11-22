@@ -2017,9 +2017,9 @@ out.sent=sent; out.browserHeard=browserHeard;
 def test_with_the_switch_on_the_tutor_hears_through_elevenlabs_not_the_browser(site):
     r = site("boss@x.com", TUTOR_HEAR)
     assert r["recording"] and "מקליט" in r["live"]
-    assert r["box"] == "מְנִיח אֵלְחַמְדֻ לִלַّה" and r["beforeSend"] == ["hear"]   # in Hebrew letters, waiting to be checked
+    assert r["box"] == "מְנִיח אֵלְחַמְדֻ לִלַה" and r["beforeSend"] == ["hear"]   # in Hebrew letters (no shadda a box cannot draw)
     assert "תקנו" in r["hint"] and r["arrow"] == "שליחה" and r["hintAfter"]
-    assert r["sent"] == [["hear", "chat1", 4000], ["turn", "מְנִיחַה אֵלְחַמְדֻ לִלַّה"],   # as the student fixed it
+    assert r["sent"] == [["hear", "chat1", 4000], ["turn", "מְנִיחַה אֵלְחַמְדֻ לִלַה"],   # as the student fixed it
                          ["hear", "chat1", 4000], ["turn", "منيح الحمد لله"]]   # unchanged: the recognizer's Arabic
     assert r["browserHeard"] == 0
 

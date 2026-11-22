@@ -3847,7 +3847,7 @@ async function tcHeard(text,tr){   // what was recognized waits in the box, as W
       tr=r.ok?(await r.json()).tr:""; }catch{ tr=""; }
     if(tc!==t) return;
   }
-  tr=tr||text;
+  tr=(tr||text).replace(/\u0651/g,"");   // a text box cannot draw a shadda on a Hebrew letter (an empty box); the bubbles do
   const i=tc.input, before=i.value.trim(); i.value=(before?before+" ":"")+tr; tc.sync();
   tc.heardAs={shown:i.value,said:(before?before+" ":"")+text};   // sent unchanged, the tutor gets what was recognized
   tc.live.textContent="זה מה שנשמע: תקנו מילה אם צריך, ולחצו ➤ לשליחה"; tc.live.hidden=false; tc.heardHint=true;
