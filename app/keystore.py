@@ -18,6 +18,7 @@ Env:  SECRETS_MASTER_KEY  (a Fernet key; make one with
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -30,11 +31,15 @@ from .auth import AuthUnavailable
 log = logging.getLogger("ihki.keys")
 # the keys the panel may set, and how the panel names them; nothing else (the master key, the Supabase keys) is settable
 NAMES = {"SAWTAK_API_KEY": "Sawtak Arabi · השמעת התשובה", "ANTHROPIC_API_KEY": "Anthropic · המורה (יאללה נדבר)",
-         "GEMINI_API_KEY": "Google Gemini · המורה (יאללה נדבר) במודל gemini", "TUTOR_MODEL": "המודל של המורה (TUTOR_MODEL)"}
+         "GEMINI_API_KEY": "Google Gemini · המורה (יאללה נדבר) במודל gemini", "TUTOR_MODEL": "המודל של המורה (TUTOR_MODEL)",
+         "ELEVEN_LABS_API_KEY": "ElevenLabs · השמעת התשובה כש-Sawtak לא זמין",
+         "ELEVEN_LABS_VOICE_ID": "ElevenLabs · הקול (ELEVEN_LABS_VOICE_ID)"}
 FALLBACK = {"ANTHROPIC_API_KEY": ("ANTHROPIC_API_KEY", "CLAUDE_API_KEY"), "SAWTAK_API_KEY": ("SAWTAK_API_KEY",),
             "GEMINI_API_KEY": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
-            "TUTOR_MODEL": ("TUTOR_MODEL",)}
-PUBLIC = frozenset({"TUTOR_MODEL"})   # settings the panel may show in full
+            "TUTOR_MODEL": ("TUTOR_MODEL",), "ELEVEN_LABS_API_KEY": ("ELEVEN_LABS_API_KEY",),
+            "ELEVEN_LABS_VOICE_ID": ("ELEVEN_LABS_VOICE_ID",)}
+PUBLIC = frozenset({"TUTOR_MODEL", "ELEVEN_LABS_VOICE_ID"})   # settings the panel may show in full
+ELEVEN_URL = "https://api.elevenlabs.io/v1"
 # the panel's list of tutor models (any other id can be typed); empty = the code's default (tutor.DEFAULT_MODEL)
 MODEL_CHOICES = [("claude-haiku-5-5", "Haiku 5.5 · ברירת המחדל, הזול ביותר"), ("claude-sonnet-5-5", "Sonnet 5.5"),
                  ("claude-opus-5-5", "Opus 5.5"), ("claude-fable-5-1", "Fable 5.1 · היקר ביותר"), ("claude-haiku-4-5", "Haiku 4.5"),
@@ -45,7 +50,7 @@ MODEL_ID = re.compile(r"^(?:claude|gemini)-[a-z0-9][a-z0-9.-]{2,60}$")
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 MAX_LEN = 300
 TIMEOUT = 15
-CREATE_APP_SECRETS = ("create table public.app_secrets (name text primary key check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL')), "
+CREATE_APP_SECRETS = ("create table public.app_secrets (name text primary key check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL','ELEVEN_LABS_API_KEY','ELEVEN_LABS_VOICE_ID')), "
                       "ciphertext text not null, last4 text not null default '', updated_by text not null default '', "
                       "updated_at timestamptz not null default now()); "
                       "alter table public.app_secrets enable row level security; "
@@ -53,7 +58,7 @@ CREATE_APP_SECRETS = ("create table public.app_secrets (name text primary key ch
 # for a table made before TUTOR_MODEL or GEMINI_API_KEY could be kept in it
 MIGRATE_APP_SECRETS = ("alter table public.app_secrets drop constraint if exists app_secrets_name_check; "
                        "alter table public.app_secrets add constraint app_secrets_name_check "
-                       "check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL'));")
+                       "check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL','ELEVEN_LABS_API_KEY','ELEVEN_LABS_VOICE_ID'));")
 
 
 class KeyRefused(ValueError):
@@ -141,7 +146,11 @@ class KeyStore:
                     "last4": "" if name in PUBLIC else row["last4"] if row else env[-4:] if len(env) >= 12 else "",
                     "updated_by": row["updated_by"] if row else "", "updated_at": row["updated_at"] if row else None}
             if name in PUBLIC:
-                item.update(value=row["value"] if row else env, choices=[{"id": i, "label": l} for i, l in MODEL_CHOICES])
+                item.update(value=row["value"] if row else env)
+            if name == "TUTOR_MODEL":
+                item.update(choices=[{"id": i, "label": l} for i, l in MODEL_CHOICES])
+            if name == "ELEVEN_LABS_VOICE_ID":
+                item.update(voice_picker=True)
             out.append(item)
         return out
 
@@ -176,9 +185,38 @@ def _gemini(path: str, key: str, missing: str) -> None:
         raise KeyRefused("אין חיבור ל-Google כרגע. נסו שוב.") from None
 
 
-def check(name: str, value: str, anthropic_key: str = "", gemini_key: str = "") -> None:
+def eleven(path: str, key: str, body: dict | None = None):
+    """One call to ElevenLabs' API with `key`: its JSON. KeyRefused with the reason when it is refused."""
+    req = urllib.request.Request(ELEVEN_URL + path, data=json.dumps(body).encode() if body is not None else None,
+                                 headers={"xi-api-key": key, "Content-Type": "application/json", "User-Agent": "ihki/1.0"},
+                                 method="POST" if body is not None else "GET")
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
+            return json.load(res)
+    except urllib.error.HTTPError as e:
+        if e.code == 401:
+            raise KeyRefused("ElevenLabs דחה את המפתח.") from None
+        if e.code in (400, 404, 422):
+            raise KeyRefused(f"ElevenLabs לא מכיר את מה שנשלח ({e.code}).") from None
+        raise KeyRefused(f"לא ניתן לבדוק מול ElevenLabs כרגע ({e.code}). נסו שוב.") from None
+    except (OSError, ValueError):
+        raise KeyRefused("אין חיבור ל-ElevenLabs כרגע. נסו שוב.") from None
+
+
+def check(name: str, value: str, anthropic_key: str = "", gemini_key: str = "", eleven_key: str = "") -> None:
     """Tries the key with its provider, with a call that costs nothing; a tutor model, by asking its provider for it
-    with the key in use (`anthropic_key`, or `gemini_key` for a gemini- model). Raises KeyRefused."""
+    with the key in use (`anthropic_key`, or `gemini_key` for a gemini- model); an ElevenLabs voice, by asking for it
+    with `eleven_key`. Raises KeyRefused."""
+    if name == "ELEVEN_LABS_API_KEY":
+        eleven("/voices", value)
+        return
+    if name == "ELEVEN_LABS_VOICE_ID":
+        if not re.fullmatch(r"[A-Za-z0-9]{8,64}", value):
+            raise KeyRefused("מזהה קול של ElevenLabs הוא מילה אחת של אותיות וספרות.")
+        if not eleven_key:
+            raise KeyRefused("שמרו קודם את מפתח ElevenLabs.")
+        eleven(f"/voices/{value}", eleven_key)
+        return
     if name == "GEMINI_API_KEY":
         return _gemini("?pageSize=1", value, "Google לא מכיר את המפתח.")
     if name == "TUTOR_MODEL":

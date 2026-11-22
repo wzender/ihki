@@ -48,7 +48,7 @@ from . import feedback as feedback_notes
 from . import lab
 from .auth import AuthUnavailable, ClassConflict, FlagExists, MAX_MONITOR_ATTEMPTS, SupabaseAuth, load_auth
 from .keystore import (CREATE_APP_SECRETS, MAX_LEN as MAX_KEY_LEN, MIGRATE_APP_SECRETS, NAMES as KEY_NAMES, KeyRefused,
-                       check as check_key, load_keys)
+                       check as check_key, eleven as eleven_api, load_keys)
 from .live import LiveConflict, LiveStore
 from .math_photo import (DAILY_PHOTOS, MAX_PHOTO, MEDIA_TYPES as PHOTO_TYPES, PhotoSolver, PhotoUnavailable, math_model,
                          photo_client)
@@ -68,7 +68,7 @@ from .archi import archify
 from .scorer import SAMPLE_RATE, Scorer, decode_audio, decode_audio_with_timing, frame_energy, load_scorer, tokenize
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
-from .tts import (BASELINE_VOICES, ELEVEN_PREFIX, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
+from .tts import (BASELINE_VOICES, ELEVEN_PREFIX, load_elevenlabs, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
                   playback_voices, voice_name)
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
                     TutorUnavailable, CREATE_TUTOR_CHATS, default_model as default_tutor_model, load_tutor)
@@ -600,7 +600,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if app.state.auth and hasattr(app.state.auth, "migrate_legacy_audio"):
             app.state.auth.migrate_legacy_audio()
         app.state.keys = load_keys(app.state.auth)   # the API keys a developer set in the panel, else the environment's
-        app.state.tts = tts or load_tts(app.state.keys.get("SAWTAK_API_KEY"))
+        app.state.tts = tts or load_tts(app.state.keys.get("SAWTAK_API_KEY"), app.state.keys.get("ELEVEN_LABS_API_KEY"),
+                                        app.state.keys.get("ELEVEN_LABS_VOICE_ID"))
         app.state.tts_warm = {"running": False, "voice_id": "", "total": 0, "done": 0, "generated": 0,
                               "skipped": 0, "failed": 0, "current": "", "waiting": 0, "error": "",
                               "bucket": "", "uploaded": 0, "upload_failed": 0, "upload_error": "", "stopped": False,
@@ -4192,11 +4193,17 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if name == "TUTOR_MODEL":   # open conversations go on with the new model from their next sentence
             if app.state.tutor is not None:
                 app.state.tutor.model = value or default_tutor_model(app.state.keys.get("ANTHROPIC_API_KEY"))
-        elif name == "SAWTAK_API_KEY":
-            if app.state.tts is not None and value:
-                app.state.tts.api_key = value
+        elif name in ("SAWTAK_API_KEY", "ELEVEN_LABS_API_KEY", "ELEVEN_LABS_VOICE_ID"):
+            keys = app.state.keys
+            backup = load_elevenlabs(keys.get("ELEVEN_LABS_API_KEY"), keys.get("ELEVEN_LABS_VOICE_ID"))
+            sawtak = keys.get("SAWTAK_API_KEY")
+            if app.state.tts is not None and (sawtak or backup is not None):   # the cache and its counts stay
+                if name == "SAWTAK_API_KEY":
+                    app.state.tts.api_key = sawtak
+                else:
+                    app.state.tts.fallback = backup
             else:
-                app.state.tts = load_tts(value)
+                app.state.tts = load_tts(sawtak, keys.get("ELEVEN_LABS_API_KEY"), keys.get("ELEVEN_LABS_VOICE_ID"))
                 app.state.refs = References(app.state.scorer, app.state.tts, list(BASELINE_VOICES.values())) if app.state.tts else None
         else:   # one of the tutor's two keys (Anthropic's, Gemini's)
             fresh = load_tutor(app.state.keys.get("ANTHROPIC_API_KEY"), app.state.keys.get("TUTOR_MODEL"),
@@ -4387,7 +4394,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, app.state.keys.why or f"the table app_secrets is missing; run: {CREATE_APP_SECRETS}")
         value = value.strip()
         try:
-            check_key(name, value, app.state.keys.get("ANTHROPIC_API_KEY"), app.state.keys.get("GEMINI_API_KEY"))
+            check_key(name, value, app.state.keys.get("ANTHROPIC_API_KEY"), app.state.keys.get("GEMINI_API_KEY"),
+                      **({"eleven_key": app.state.keys.get("ELEVEN_LABS_API_KEY")} if name == "ELEVEN_LABS_VOICE_ID" else {}))
         except KeyRefused as e:
             raise HTTPException(400, str(e))
         try:
@@ -4400,6 +4408,68 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         log.info("API key %s replaced by %s", name, (user or {}).get("email", "?"))
         if app.state.auth:
             app.state.auth.log_event("permission", user, f"מפתח API: {name}", {"key": name, "action": "set"})
+        return keys_status(response)
+
+    ACCENT_RANK = (("palestin", 0), ("levant", 1), ("jordan", 2), ("syria", 2), ("leban", 2), ("shami", 1))
+
+    def accent_rank(v: dict) -> int:
+        words = " ".join(str(v.get(k) or "") for k in ("accent", "description", "name", "descriptive", "labels")).lower()
+        return min((rank for word, rank in ACCENT_RANK if word in words), default=3)
+
+    @app.get("/api/admin/eleven-voices")
+    def eleven_voices(_a: SupabaseAuth = Depends(keys_only)):
+        """ElevenLabs voices to choose from: the account's own, and Arabic voices of its library, the Palestinian first,
+        then the Levantine; each with a short sample to hear. Needs the ElevenLabs key."""
+        key = app.state.keys.get("ELEVEN_LABS_API_KEY")
+        if not key:
+            raise HTTPException(409, "שמרו קודם את מפתח ElevenLabs")
+
+        def voice(v: dict, owner: str = "") -> dict:
+            labels = v.get("labels") or {}
+            return {"voice_id": v.get("voice_id"), "owner_id": owner, "name": v.get("name"),
+                    "accent": v.get("accent") or labels.get("accent") or "", "gender": v.get("gender") or labels.get("gender") or "",
+                    "age": v.get("age") or labels.get("age") or "", "description": (v.get("description") or labels.get("description") or "")[:160],
+                    "language": v.get("language") or labels.get("language") or "", "preview_url": v.get("preview_url") or "",
+                    "rank": accent_rank({**v, **labels})}
+        try:
+            mine = [voice(v) for v in (eleven_api("/voices", key).get("voices") or [])]
+            library = [voice(v, str(v.get("public_owner_id") or "")) for v in
+                       (eleven_api("/shared-voices?language=ar&page_size=100", key).get("voices") or [])]
+        except KeyRefused as e:
+            raise HTTPException(502, str(e))
+        library.sort(key=lambda v: (v["rank"], v["gender"] != "male", v["name"] or ""))
+        mine.sort(key=lambda v: (v["rank"], v["name"] or ""))
+        return {"current": app.state.keys.get("ELEVEN_LABS_VOICE_ID"), "mine": mine, "library": library}
+
+    @app.post("/api/admin/eleven-voices/use")
+    def use_eleven_voice(response: Response, body: dict = Body(...), _a: SupabaseAuth = Depends(keys_only),
+                         user: dict | None = Depends(signed_in)):
+        """Makes a voice the one ElevenLabs speaks in: {voice_id, owner_id?, name?}. A library voice (owner_id) is
+        first added to the account, which ElevenLabs needs before it speaks in it."""
+        key = app.state.keys.get("ELEVEN_LABS_API_KEY")
+        voice_id, owner = str(body.get("voice_id") or "").strip(), str(body.get("owner_id") or "").strip()
+        if not key:
+            raise HTTPException(409, "שמרו קודם את מפתח ElevenLabs")
+        if not app.state.keys.writable:
+            raise HTTPException(503, app.state.keys.why or f"the table app_secrets is missing; run: {CREATE_APP_SECRETS}")
+        if not re.fullmatch(r"[A-Za-z0-9]{8,64}", voice_id) or (owner and not re.fullmatch(r"[A-Za-z0-9]{8,80}", owner)):
+            raise HTTPException(400, "מזהה קול אינו תקין")
+        try:
+            if owner:
+                added = eleven_api(f"/voices/add/{owner}/{voice_id}", key,
+                                   {"new_name": str(body.get("name") or "ihki")[:60] or "ihki"})
+                voice_id = str(added.get("voice_id") or voice_id)
+            check_key("ELEVEN_LABS_VOICE_ID", voice_id, eleven_key=key)
+            app.state.keys.set("ELEVEN_LABS_VOICE_ID", voice_id, (user or {}).get("email", ""))
+        except KeyRefused as e:
+            raise HTTPException(400, str(e))
+        except AuthUnavailable as e:
+            if any(m in str(e).lower() for m in ("check constraint", "23514")):
+                raise HTTPException(409, f"הטבלה app_secrets צריכה עדכון; הריצו ב-Supabase: {MIGRATE_APP_SECRETS}")
+            raise HTTPException(503, f"Supabase לא זמין: {e}")
+        use_key("ELEVEN_LABS_VOICE_ID")
+        if app.state.auth:
+            app.state.auth.log_event("permission", user, "קול ElevenLabs", {"key": "ELEVEN_LABS_VOICE_ID", "action": "set"})
         return keys_status(response)
 
     @app.delete("/api/admin/keys/{name}")

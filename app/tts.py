@@ -162,11 +162,13 @@ class ElevenLabsTTS:
         return buf.getvalue()
 
 
-def load_elevenlabs() -> ElevenLabsTTS | None:
-    key = os.environ.get("ELEVEN_LABS_API_KEY", "").strip()
+def load_elevenlabs(key: str | None = None, voice: str | None = None) -> ElevenLabsTTS | None:
+    """`key`, `voice`: the ones the panel set (keystore.py); None reads the environment's."""
+    key = (os.environ.get("ELEVEN_LABS_API_KEY", "") if key is None else key).strip()
     if not key:
         return None
-    return ElevenLabsTTS(key, os.environ.get("ELEVEN_LABS_VOICE_ID", ""), os.environ.get("ELEVEN_LABS_FEMALE_VOICE_ID", ""),
+    voice = os.environ.get("ELEVEN_LABS_VOICE_ID", "") if voice is None else voice
+    return ElevenLabsTTS(key, voice, os.environ.get("ELEVEN_LABS_FEMALE_VOICE_ID", ""),
                          os.environ.get("ELEVEN_LABS_MODEL", "") or ELEVEN_MODEL)
 
 
@@ -605,10 +607,10 @@ class SawtakTTS:
         return self._wav(text, voice, upload=upload, source=source)
 
 
-def load_tts(key: str | None = None) -> SawtakTTS | None:
-    """`key`: the one the panel set (see keystore.py); None reads the environment's."""
+def load_tts(key: str | None = None, eleven_key: str | None = None, eleven_voice: str | None = None) -> SawtakTTS | None:
+    """`key`, `eleven_key`, `eleven_voice`: the ones the panel set (see keystore.py); None reads the environment's."""
     key = (os.environ.get("SAWTAK_API_KEY", "") if key is None else key).strip()
-    backup = load_elevenlabs()
+    backup = load_elevenlabs(eleven_key, eleven_voice)
     if not key and backup is None:
         log.info("SAWTAK_API_KEY not set: playback uses the device voice")
         return None

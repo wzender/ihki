@@ -225,11 +225,11 @@ create index system_events_created_at_idx on public.system_events (created_at de
 alter table public.system_events enable row level security;
 ```
 
-API keys a developer replaces from the panel (`SAWTAK_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, see `app/keystore.py`), and the tutor's model (`TUTOR_MODEL`, chosen from a list or typed), so changing one needs no access to the Space. Each value is stored encrypted with `SECRETS_MASTER_KEY`, a Space secret, and the page never gets a key back (the model, which is no secret, it shows). No browser role can read the table:
+API keys a developer replaces from the panel (`SAWTAK_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `ELEVEN_LABS_API_KEY`, see `app/keystore.py`), the ElevenLabs voice (`ELEVEN_LABS_VOICE_ID`, chosen with **🎙️ בחירת קול**: the account's voices and the Arabic voices of ElevenLabs' library, Palestinian ones first, each with its sample; a library voice is added to the account when chosen), and the tutor's model (`TUTOR_MODEL`, chosen from a list or typed), so changing one needs no access to the Space. Each value is stored encrypted with `SECRETS_MASTER_KEY`, a Space secret, and the page never gets a key back (the model, which is no secret, it shows). No browser role can read the table:
 
 ```sql
 create table public.app_secrets (
-  name        text primary key check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL')),
+  name        text primary key check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL','ELEVEN_LABS_API_KEY','ELEVEN_LABS_VOICE_ID')),
   ciphertext  text not null,
   last4       text not null default '',
   updated_by  text not null default '',
@@ -244,7 +244,7 @@ A table made before the panel could set `TUTOR_MODEL` or `GEMINI_API_KEY` needs 
 ```sql
 alter table public.app_secrets drop constraint if exists app_secrets_name_check;
 alter table public.app_secrets add constraint app_secrets_name_check
-  check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL'));
+  check (name in ('SAWTAK_API_KEY','ANTHROPIC_API_KEY','GEMINI_API_KEY','TUTOR_MODEL','ELEVEN_LABS_API_KEY','ELEVEN_LABS_VOICE_ID'));
 ```
 
 ### Hourly persisted-practice monitoring

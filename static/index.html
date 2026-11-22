@@ -1217,6 +1217,8 @@ body.manage #manage{width:100%;max-width:none}
 .course-topic-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .course-args{width:100%;min-height:120px;box-sizing:border-box;font-family:var(--f-body)}
 .course-preview-banner{position:sticky;top:0;z-index:60;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px;padding:6px 12px;background:var(--sumac);color:#fff;font:600 14px/1.3 var(--f-body)}.course-preview-banner .btn{padding:4px 10px}
+.eleven-voices{margin-top:8px}.eleven-voice-list{list-style:none;margin:0;padding:0}.eleven-voice-list li{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.eleven-voice-info{display:flex;flex-direction:column;gap:2px;flex:1 1 220px;min-width:0}.eleven-voice-actions{display:flex;gap:6px}.eleven-voice-actions .btn{min-height:40px}
 .course-version-list{list-style:none;margin:0;padding:0}.course-version-list li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
 /* the developers' model comparison under a result: one column per model, the same recording */
 .cmp-box{margin-top:6px;border-top:1px dashed var(--line);padding-top:8px;display:flex;flex-direction:column;gap:8px}
@@ -8752,6 +8754,17 @@ const KEY_GUIDES={
     ["לשימוש של כיתה שלמה הפעילו חיוב (Billing) בפרויקט: במסלול החינמי יש מכסה קטנה של בקשות, והשיחות ייכשלו כשהיא נגמרת."],
     ["הדביקו את המפתח כאן ולחצו שמירה."],
     ["המפתח לבדו לא משנה את המורה: כדי לעבור ל־Gemini בחרו מודל gemini ב\"המודל של המורה\" למטה. כדי לחזור ל־Claude בחרו שם מודל claude."]],
+  ELEVEN_LABS_API_KEY:[
+    ["המפתח הזה משמיע משפטים חדשים כש־Sawtak לא זמין (אין מפתח, אין יתרה, או שהשירות נפל). הקלטות קיימות ממשיכות להתנגן כמו שהן."],
+    ["היכנסו ל־",["elevenlabs.io/app/settings/api-keys","https://elevenlabs.io/app/settings/api-keys"]," והתחברו (או הירשמו)."],
+    ["לחצו Create API key ותנו לו שם (למשל ihki). אם יש בחירת הרשאות, אפשרו Text to Speech ו־Voices (קריאה וכתיבה, כדי שאפשר יהיה להוסיף קול מהספרייה)."],
+    ["העתיקו את המפתח מיד: הוא מוצג פעם אחת בלבד."],
+    ["הדביקו אותו כאן ולחצו שמירה. אחר כך בחרו קול פלסטיני בשורה \"הקול\" שמתחת."]],
+  ELEVEN_LABS_VOICE_ID:[
+    ["לחצו \"🎙️ בחירת קול\": יופיעו הקולות שבחשבון וקולות בערבית מהספרייה של ElevenLabs, הפלסטיניים (⭐) ראשונים."],
+    ["הקשיבו לדוגמה (▶) ובחרו. קול מהספרייה מתווסף לחשבון אוטומטית."],
+    ["אם בחרתם קול באתר של ElevenLabs, העתיקו את המזהה שלו (Voices ← הקול ← Copy voice ID) והדביקו כאן."],
+    ["החלפת קול משפיעה רק על משפטים חדשים: מה שכבר הוקלט נשמר במטמון ונשמע כמו קודם."]],
   TUTOR_MODEL:[
     ["בחרו מודל מהרשימה. Haiku 5.5 הוא ברירת המחדל; השוואת העלויות נמצאת בהערכת העלות של מפתח Anthropic ושל מפתח Gemini למעלה."],
     ["מודל claude רץ עם מפתח Anthropic, ומודל gemini עם מפתח Gemini. כך עוברים בין הספקים: שומרים את המפתח של הספק ובוחרים כאן מודל שלו."],
@@ -8822,12 +8835,13 @@ function drawApiKeys(box){
     const sources={db:"נשמר בפאנל",env:"מוגדר בשרת",none:"לא מוגדר"};
     for(const k of data.keys||[]){
       const row=mark("key-row",""), info=document.createElement("div"), when=k.updated_at?new Date(k.updated_at).toLocaleDateString("he-IL",{timeZone:"Asia/Jerusalem"}):"";
-      const choice=!!k.choices, inUse=choice&&(k.value?`בשימוש: ${k.value}`:"ברירת המחדל של הקוד (claude-haiku-5-5; עם מפתח Gemini בלבד: gemini-3.1-flash-lite)");
+      const choice=!!k.choices, picker=!!k.voice_picker;
+      const inUse=choice?(k.value?`בשימוש: ${k.value}`:"ברירת המחדל של הקוד (claude-haiku-5-5; עם מפתח Gemini בלבד: gemini-3.1-flash-lite)"):picker&&(k.value?`בשימוש: ${k.value}`:"לא נבחר: הקול הראשון שבחשבון");
       info.append(mark("",k.label,"b"),mark("",[choice&&k.source==="none"?"":sources[k.source]||k.source,inUse,k.last4&&`מסתיים ב־${k.last4}`,k.updated_by&&`על ידי ${k.updated_by}`,when].filter(Boolean).join(" · "),"small"));
       row.append(info); const guide=keyGuide(k.name); if(guide) row.append(guide); list.append(row);
       if(!data.writable) continue;
       const form=document.createElement("form"), input=document.createElement("input"), save=mark("btn primary","שמירה","button"), msg=mark("msg","");
-      input.type=choice?"text":"password"; input.autocomplete="off"; input.spellcheck=false; input.dir="ltr"; input.maxLength=300; input.placeholder=choice?"claude-… / gemini-…":"מפתח חדש"; input.setAttribute("aria-label",choice?"מזהה מודל אחר":`מפתח חדש: ${k.label}`); save.type="submit";
+      input.type=choice||picker?"text":"password"; input.autocomplete="off"; input.spellcheck=false; input.dir="ltr"; input.maxLength=300; input.placeholder=choice?"claude-… / gemini-…":picker?"מזהה קול":"מפתח חדש"; input.setAttribute("aria-label",choice?"מזהה מודל אחר":picker?"מזהה קול של ElevenLabs":`מפתח חדש: ${k.label}`); save.type="submit";
       let select=null;
       if(choice){   // the list, and "other" for an id typed in the field
         select=document.createElement("select"); select.setAttribute("aria-label",k.label);
@@ -8847,6 +8861,7 @@ function drawApiKeys(box){
       };
       form.onsubmit=e=>{ e.preventDefault(); const value=select&&select.value?select.value:input.value.trim(); if(value) send("PUT",{value},choice?"בודק את המודל מול הספק…":"בודק את המפתח מול הספק…"); };
       if(select) form.append(select); form.append(input,save);
+      if(picker){ const open=mark("btn","🎙️ בחירת קול","button"); open.type="button"; open.onclick=()=>elevenVoicePicker(row,show); form.append(open); }
       if(k.source==="db"){ const back=mark("btn",choice?"חזרה לברירת המחדל של השרת":"חזרה למפתח השרת","button"); back.type="button"; back.onclick=()=>{ if(confirm(choice?"לחזור למודל שמוגדר בשרת (או לברירת המחדל)?":"למחוק את המפתח שנשמר בפאנל ולחזור למפתח שמוגדר בשרת (אם יש)?")) send("DELETE",null,"מוחק…"); }; form.append(back); }
       form.append(msg); row.append(form);
     }
@@ -8855,6 +8870,45 @@ function drawApiKeys(box){
   list.append(mark("note","טוען…","p"));
   api("/api/admin/keys").then(async res=>{ const d=await res.json().catch(()=>({})); if(!res.ok) throw new Error(d.detail||res.status); show(d); })
     .catch(err=>{ list.innerHTML=""; list.append(mark("note","לא ניתן לטעון את המפתחות: "+err.message,"p")); });
+}
+/* בחירת קול של ElevenLabs: the account's voices and the Arabic voices of its library (the Palestinian first, then the
+   Levantine), each with its sample to hear; "בחירה" makes it the voice ElevenLabs speaks in (a library voice is added
+   to the account first). */
+async function elevenVoicePicker(row,done){
+  row.querySelector(".eleven-voices")?.remove();
+  const box=mark("eleven-voices",""), note=mark("note","טוען את הקולות מ־ElevenLabs…","p"); box.append(note); row.append(box);
+  let data;
+  try{ const res=await api("/api/admin/eleven-voices"); data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); }
+  catch(err){ note.textContent="לא ניתן לטעון את הקולות: "+err.message; return; }
+  note.textContent="הקשיבו לדוגמה (▶) ובחרו. קול פלסטיני מסומן ⭐, קול לבנטיני ✓. דוגמאות הספרייה לרוב באנגלית: כדאי לנסות קול על משפט מהחוברת לפני שמחליטים.";
+  let audio=null;
+  const RANK=["⭐ פלסטיני","✓ לבנטיני","~ ירדני/סורי/לבנוני",""];
+  const list=(title,voices)=>{
+    if(!voices.length) return;
+    const sec=document.createElement("details"); sec.className="sec"; sec.open=voices===data.mine||!data.mine.length;
+    sec.append(mark("",`${title} (${voices.length})`,"summary"));
+    const ul=mark("eleven-voice-list","","ul");
+    for(const v of voices){
+      const li=document.createElement("li"), info=mark("eleven-voice-info","");
+      info.append(mark("",v.name||v.voice_id,"b"),mark("meta",[RANK[v.rank],v.accent,v.gender==="male"?"גבר":v.gender==="female"?"אישה":v.gender,v.age,v.description].filter(Boolean).join(" · "),"small"));
+      if(v.voice_id===data.current) info.append(mark("pill","בשימוש","span"));
+      const acts=mark("eleven-voice-actions","");
+      if(v.preview_url){ const play=mark("btn","▶","button"); play.setAttribute("aria-label",`דוגמה: ${v.name}`);
+        play.onclick=()=>{ if(audio) audio.pause(); audio=new Audio(v.preview_url); audio.play().catch(()=>{ play.textContent="✕"; }); }; acts.append(play); }
+      const pick=mark("btn primary","בחירה","button"); pick.disabled=v.voice_id===data.current;
+      pick.onclick=async()=>{
+        if(!confirm(`לבחור את הקול "${v.name}"? משפטים חדשים יושמעו בו כש־Sawtak לא זמין. הקלטות שכבר נוצרו לא משתנות.`)) return;
+        pick.disabled=true; pick.textContent="שומר…";
+        try{ const res=await api("/api/admin/eleven-voices/use",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({voice_id:v.voice_id,owner_id:v.owner_id||"",name:v.name})}), d=await res.json().catch(()=>({}));
+          if(!res.ok) throw new Error(d.detail||res.status); if(audio) audio.pause(); done(d); }
+        catch(err){ pick.disabled=false; pick.textContent="בחירה"; note.textContent="הבחירה נכשלה: "+err.message; }
+      };
+      acts.append(pick); li.append(info,acts); ul.append(li);
+    }
+    sec.append(ul); box.append(sec);
+  };
+  list("הקולות בחשבון",data.mine); list("קולות בערבית מהספרייה",data.library);
+  if(!data.mine.length&&!data.library.length) note.textContent="לא נמצאו קולות. בדקו את המפתח, או הוסיפו קול בחשבון ElevenLabs.";
 }
 function drawActivity(box){
   const config=ACTIVITY_RANGES[activityRange], range=config.title, bucket=config.bucket, days=["week","month","all"].includes(activityRange);

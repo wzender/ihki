@@ -207,3 +207,75 @@ def test_a_gemini_model_needs_the_gemini_key():
     from app.keystore import KeyRefused, check
     with pytest.raises(KeyRefused, match="Gemini"):
         check("TUTOR_MODEL", "gemini-3.1-flash-lite", "sk-ant-x", "")
+
+
+# ---- ElevenLabs: the fallback voice's key, and its voice chosen from the panel ----------------------------------------
+
+def eleven_env(monkeypatch, calls=None):
+    """ElevenLabs' API, faked for the panel's voice picker (app.main.eleven_api) and the key checks."""
+    calls = [] if calls is None else calls
+
+    def api(path, key, body=None):
+        calls.append((path, key, body))
+        if path == "/voices":
+            return {"voices": [{"voice_id": "mine0001", "name": "Teacher", "category": "cloned",
+                                "labels": {"accent": "palestinian", "gender": "male"}, "preview_url": "https://x/1.mp3"}]}
+        if path.startswith("/shared-voices"):
+            return {"voices": [
+                {"voice_id": "gulf0001", "public_owner_id": "owner001", "name": "Khalid", "accent": "gulf", "gender": "male"},
+                {"voice_id": "lev00001", "public_owner_id": "owner002", "name": "Rami", "accent": "levantine", "gender": "male"},
+                {"voice_id": "pal00002", "public_owner_id": "owner003", "name": "Salma", "accent": "palestinian", "gender": "female"},
+                {"voice_id": "pal00001", "public_owner_id": "owner004", "name": "Yousef", "accent": "palestinian", "gender": "male",
+                 "preview_url": "https://x/yousef.mp3"}]}
+        if path.startswith("/voices/add/"):
+            return {"voice_id": "added001"}
+        return {}
+    monkeypatch.setattr(app.main, "eleven_api", api)
+    monkeypatch.setattr(app.main, "check_key", lambda name, value, anthropic_key="", gemini_key="", eleven_key="": None)
+    return calls
+
+
+def test_the_elevenlabs_key_and_voice_are_set_from_the_panel_and_put_to_work(keys_env, tmp_path, monkeypatch):
+    eleven_env(monkeypatch)
+    with client(KeyAuth(), tmp_path) as c:
+        listed = {k["name"]: k for k in c.get("/api/admin/keys", headers=bearer("teacher")).json()["keys"]}
+        assert listed["ELEVEN_LABS_VOICE_ID"]["voice_picker"] and "choices" not in listed["ELEVEN_LABS_VOICE_ID"]
+        assert c.put("/api/admin/keys/ELEVEN_LABS_API_KEY", json={"value": "sk_eleven_key_123456"},
+                     headers=bearer("teacher")).status_code == 200
+        tts = c.app.state.tts
+        assert tts.fallback is not None and tts.fallback.api_key == "sk_eleven_key_123456" and tts.api_key == "old-sawtak-key"
+        out = c.put("/api/admin/keys/ELEVEN_LABS_VOICE_ID", json={"value": "pal00001"}, headers=bearer("teacher")).json()
+        voice = next(k for k in out["keys"] if k["name"] == "ELEVEN_LABS_VOICE_ID")
+        assert voice["value"] == "pal00001" and c.app.state.tts.fallback.voice_id == "pal00001"
+
+
+def test_the_voice_picker_puts_palestinian_voices_first_and_adds_a_library_voice(keys_env, tmp_path, monkeypatch):
+    calls = eleven_env(monkeypatch)
+    with client(KeyAuth(), tmp_path) as c:
+        assert c.get("/api/admin/eleven-voices", headers=bearer("teacher")).status_code == 409   # no key yet
+        c.put("/api/admin/keys/ELEVEN_LABS_API_KEY", json={"value": "sk_eleven_key_123456"}, headers=bearer("teacher"))
+        voices = c.get("/api/admin/eleven-voices", headers=bearer("teacher")).json()
+        assert [v["name"] for v in voices["library"]] == ["Yousef", "Salma", "Rami", "Khalid"]   # Palestinian, male first
+        assert voices["library"][0]["preview_url"] == "https://x/yousef.mp3" and voices["mine"][0]["rank"] == 0
+        assert ("/shared-voices?language=ar&page_size=100", "sk_eleven_key_123456", None) in calls
+        out = c.post("/api/admin/eleven-voices/use", json={"voice_id": "pal00001", "owner_id": "owner004", "name": "Yousef"},
+                     headers=bearer("teacher"))
+        assert out.status_code == 200
+        assert ("/voices/add/owner004/pal00001", "sk_eleven_key_123456", {"new_name": "Yousef"}) in calls
+        assert c.app.state.tts.fallback.voice_id == "added001"   # the id the voice has in the account
+        assert c.post("/api/admin/eleven-voices/use", json={"voice_id": "../etc"}, headers=bearer("teacher")).status_code == 400
+
+
+def test_only_developers_choose_the_elevenlabs_voice(keys_env, tmp_path, monkeypatch):
+    eleven_env(monkeypatch)
+    with client(KeyAuth(), tmp_path) as c:
+        assert c.get("/api/admin/eleven-voices", headers=bearer("student")).status_code in (401, 403)
+        assert c.post("/api/admin/eleven-voices/use", json={"voice_id": "pal00001"}, headers=bearer("student")).status_code in (401, 403)
+
+
+def test_an_elevenlabs_voice_id_is_checked_with_the_key():
+    from app.keystore import KeyRefused, check
+    with pytest.raises(KeyRefused, match="מילה אחת"):
+        check("ELEVEN_LABS_VOICE_ID", "not a voice", eleven_key="k")
+    with pytest.raises(KeyRefused, match="שמרו קודם"):
+        check("ELEVEN_LABS_VOICE_ID", "pal00001")
