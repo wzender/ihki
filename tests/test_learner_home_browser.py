@@ -1987,7 +1987,7 @@ const sent=[]; const real=window.fetch;
 window.fetch=(url,opts={})=>{ const u=String(url);
   if(u.includes("/api/tutor/start")) return Promise.resolve(new Response(JSON.stringify({id:"chat1",turns:10,left:null,
     message:{ar:"كيف حالك؟",tr:"כִּיף חַאלַכּ?",he:"מה שלומך?",words:[]}}),{status:200}));
-  if(u.includes("/api/tutor/hear")){ sent.push(["hear",opts.body.get("id"),opts.body.get("audio").size]); return Promise.resolve(new Response(JSON.stringify({text:"منيح الحمد لله"}),{status:200})); }
+  if(u.includes("/api/tutor/hear")){ sent.push(["hear",opts.body.get("id"),opts.body.get("audio").size]); return Promise.resolve(new Response(JSON.stringify({text:"منيح الحمد لله",tr:"מְנִיח אֵלְחַמְדֻ לִלַّה"}),{status:200})); }
   if(u.includes("/api/tutor/turn")){ sent.push(["turn",JSON.parse(opts.body).text]); return Promise.resolve(new Response(JSON.stringify({heard:"מְנִיח",reply:{ar:"تمام",tr:"תַמַאם",he:"מצוין",words:[]},fix:null,summary:null,turn:1,turns:10,done:false}),{status:200})); }
   return real(url,opts); };
 let browserHeard=0; window.webkitSpeechRecognition=window.SpeechRecognition=function(){ browserHeard++; this.start=()=>{}; this.stop=()=>{}; };
@@ -2004,18 +2004,23 @@ mic.click(); await sleep(100); out.live=document.querySelector(".tc .tc-live").t
 mic.click(); await until(()=>document.querySelector(".tc .tc-type input").value,5000);
 out.box=document.querySelector(".tc .tc-type input").value; out.beforeSend=sent.map(s=>s[0]);
 out.hint=document.querySelector(".tc .tc-live").textContent; out.arrow=mic.getAttribute("aria-label");
-const box=document.querySelector(".tc .tc-type input"); box.value=box.value.replace("الحمد","والحمد"); box.dispatchEvent(new Event("input"));
+const box=document.querySelector(".tc .tc-type input"); box.value=box.value.replace("מְנִיח","מְנִיחַה"); box.dispatchEvent(new Event("input"));
 document.querySelector(".tc .tc-type").requestSubmit(); await until(()=>sent.some(s=>s[0]==="turn"),5000);
-out.sent=sent; out.browserHeard=browserHeard; out.hintAfter=document.querySelector(".tc .tc-live").hidden;
+out.hintAfter=document.querySelector(".tc .tc-live").hidden;
+await until(()=>!mic.disabled,5000); mic.click(); await sleep(100); mic.click();   // again, sent as it was heard
+await until(()=>box.value,5000); document.querySelector(".tc .tc-type").requestSubmit();
+await until(()=>sent.filter(s=>s[0]==="turn").length===2,5000);
+out.sent=sent; out.browserHeard=browserHeard;
 """
 
 
 def test_with_the_switch_on_the_tutor_hears_through_elevenlabs_not_the_browser(site):
     r = site("boss@x.com", TUTOR_HEAR)
     assert r["recording"] and "מקליט" in r["live"]
-    assert r["box"] == "منيح الحمد لله" and r["beforeSend"] == ["hear"]   # waits in the box, to be checked
-    assert "תקנו" in r["hint"] and r["arrow"] == "שליחה"
-    assert r["sent"] == [["hear", "chat1", 4000], ["turn", "منيح والحمد لله"]] and r["hintAfter"]   # as the student fixed it
+    assert r["box"] == "מְנִיח אֵלְחַמְדֻ לִלַّה" and r["beforeSend"] == ["hear"]   # in Hebrew letters, waiting to be checked
+    assert "תקנו" in r["hint"] and r["arrow"] == "שליחה" and r["hintAfter"]
+    assert r["sent"] == [["hear", "chat1", 4000], ["turn", "מְנִיחַה אֵלְחַמְדֻ לִלַّה"],   # as the student fixed it
+                         ["hear", "chat1", 4000], ["turn", "منيح الحمد لله"]]   # unchanged: the recognizer's Arabic
     assert r["browserHeard"] == 0
 
 

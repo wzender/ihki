@@ -3781,7 +3781,8 @@ function openTutorChat(s){
   tc.input.oninput=()=>{ tc.sync(); if(tc.heardHint&&!tc.input.value.trim()){ tc.heardHint=false; tc.live.hidden=true; } }; tc.sync();
   tc.type.onsubmit=e=>{ e.preventDefault(); const t=tc.input.value.trim();
     if(tc.rec||tc.recorder||(!t&&tc.speaks)) return tcListen();
-    if(t&&tcSend(t)){ tc.input.value=""; tc.sync(); if(tc.heardHint){ tc.heardHint=false; tc.live.hidden=true; } } tcFocus(); };
+    const said=tc.heardAs&&tc.heardAs.shown.trim()===t?tc.heardAs.said:t;   // not fixed: the recognizer's Arabic, more exact
+    if(t&&tcSend(said)){ tc.input.value=""; tc.heardAs=null; tc.sync(); if(tc.heardHint){ tc.heardHint=false; tc.live.hidden=true; } } tcFocus(); };
   tc.fit=()=>{ const vv=window.visualViewport; if(!vv||!tc) return;   // the row stays above the phone's keyboard
     root.style.setProperty("--vvh",`${vv.height}px`); root.style.setProperty("--vvt",`${vv.offsetTop}px`); tc.log.scrollTop=tc.log.scrollHeight; };
   window.visualViewport?.addEventListener("resize",tc.fit); window.visualViewport?.addEventListener("scroll",tc.fit); tc.fit();
@@ -3839,9 +3840,16 @@ function closeTutorChat(){
 const tcTime=()=>new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
 function tcScroll(){ tc.log.scrollTop=tc.log.scrollHeight; }
 function tcNote(text,cls=""){ const n=mark("tc-note "+cls,text,"p"); tc.log.append(n); tcScroll(); return n; }
-function tcHeard(text){   // what was recognized waits in the box, as WhatsApp's voice typing: fixed if a word was misheard, then sent
-  if(!tc) return;
-  const i=tc.input; i.value=(i.value.trim()?i.value.trim()+" ":"")+text; tc.sync();
+async function tcHeard(text,tr){   // what was recognized waits in the box, as WhatsApp's voice typing: fixed if a word was misheard, then sent
+  if(!tc) return; const t=tc;
+  if(tr===undefined){   // the browser's recognition: its Arabic letters in the course's Hebrew ones
+    try{ const r=await api("/api/tutor/letters",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text})});
+      tr=r.ok?(await r.json()).tr:""; }catch{ tr=""; }
+    if(tc!==t) return;
+  }
+  tr=tr||text;
+  const i=tc.input, before=i.value.trim(); i.value=(before?before+" ":"")+tr; tc.sync();
+  tc.heardAs={shown:i.value,said:(before?before+" ":"")+text};   // sent unchanged, the tutor gets what was recognized
   tc.live.textContent="זה מה שנשמע: תקנו מילה אם צריך, ולחצו ➤ לשליחה"; tc.live.hidden=false; tc.heardHint=true;
   i.focus({preventScroll:true}); try{ i.setSelectionRange(i.value.length,i.value.length); }catch{}
 }
@@ -4068,7 +4076,7 @@ async function tcRecord(){
       tcLock(false); t.live.hidden=true; t.live.textContent="";
       if(!r.ok) throw new Error(d.detail||r.status);
       if(!d.text){ tcNote("לא נשמע דיבור. לחצו ודברו, קרוב יותר למיקרופון."); return; }
-      tcHeard(d.text);
+      tcHeard(d.text,d.tr);
     }catch(err){
       if(tc!==t) return;
       tcLock(false); t.live.hidden=true; t.sttFailed=(t.sttFailed||0)+1;

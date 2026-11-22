@@ -418,7 +418,7 @@ def test_with_the_switch_on_elevenlabs_hears_the_student_with_the_lessons_words(
         chat = start(c, scenario="l2").json()
         r = c.post("/api/tutor/hear", data={"id": chat["id"]}, files={"audio": ("speech", b"OggS" * 500, "audio/webm")},
                    headers=bearer("teacher"))
-        assert r.status_code == 200 and r.json() == {"text": "مرحبا كيفك"}
+        assert r.status_code == 200 and r.json() == {"text": "مرحبا كيفك", "tr": "מַרְחַבַּא כִּיפַכּ"}
         (call,) = hearing
         assert call["key"] == "el-key" and call["mime"] == "audio/webm" and call["audio"].startswith(b"OggS")
         from app.tutor import vocabulary
@@ -493,3 +493,17 @@ def test_a_missing_key_or_voice_is_named_in_the_answer(voices, monkeypatch):
         assert "ELEVEN_LABS_TUTOR_VOICE_ID" in c.get(f"/api/tutor/say/{chat['id']}/0", headers=bearer("teacher")).json()["detail"]
         monkeypatch.delenv("ELEVEN_LABS_API_KEY")
         assert "ELEVEN_LABS_API_KEY" in c.get(f"/api/tutor/say/{chat['id']}/0", headers=bearer("teacher")).json()["detail"]
+
+
+def test_what_was_recognized_is_written_in_hebrew_letters_as_the_course_writes_it():
+    from app.tutor import letters
+    assert letters("منيح الحمد لله") == "מְנִיח אֵלְחַמְדֻ לִלַّה"   # words of the course, as it spells them
+    assert letters("كيفك؟") == "כִּיפַכּ?"
+    assert letters("ويسام") == "ויסאם"   # not the course's: letter by letter, a final letter at the end
+    assert letters("خليل") == "חַ'לִיל"   # the course has the name
+    assert letters("غسيل") == "ע'סיל" and letters("ثلج") == "ת'לג'" and letters("ضيف") == "דֿיף"   # geresh, and דֿ for ض
+    assert letters("מְנִיח بس") == "מְנִיח בַּסّ"   # Hebrew letters stay
+    with client(TutorAuth(), FakeClient()) as c:
+        r = c.post("/api/tutor/letters", json={"text": "انا مبسوط"}, headers=bearer("teacher"))
+        assert r.status_code == 200 and r.json() == {"tr": "אַנַא מַבְּסוּט"}
+        assert c.post("/api/tutor/letters", json={"text": "x" * 400}, headers=bearer("teacher")).status_code == 400

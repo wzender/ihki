@@ -187,6 +187,40 @@ def norm(word: str) -> str:
 
 TR_OF = {norm(k): v[0] for k, v in LEX.items()}   # a word's reading in Hebrew letters, as the course writes it
 
+# Arabic letters as the course writes them in Hebrew ones (geresh for the sounds Hebrew lacks, דֿ for ض), for a word the
+# course does not have; its vowel signs, when the recognizer gave any, become points
+AR_LETTER = {"ا": "א", "أ": "א", "إ": "א", "آ": "א", "ٱ": "א", "ء": "א", "ئ": "א", "ؤ": "א", "ى": "א", "ب": "ב", "ت": "ת",
+             "ث": "ת'", "ج": "ג'", "ح": "ח", "خ": "ח'", "د": "ד", "ذ": "ד'", "ر": "ר", "ز": "ז", "س": "ס", "ش": "ש",
+             "ص": "צ", "ض": "דֿ", "ط": "ט", "ظ": "ט'", "ع": "ע", "غ": "ע'", "ف": "פ", "ق": "ק", "ك": "כּ", "ل": "ל",
+             "م": "מ", "ن": "נ", "ه": "ה", "ة": "ה", "و": "ו", "ي": "י", "\u064e": "\u05b7", "\u0650": "\u05b4",
+             "\u064f": "\u05bb", "\u0652": "\u05b0", "\u0651": "\u0651", "؟": "?", "،": ","}
+FINAL = {"מ": "ם", "נ": "ן", "פ": "ף", "צ": "ץ"}
+
+
+def letters(text: str) -> str:
+    """Arabic as the student said it (what a recognizer wrote, in Arabic letters) in Hebrew letters, as the course writes
+    it: a word the course has (with a prefix such as و or ال, or without) as the course spells it, any other letter by
+    letter. A word already in Hebrew letters stays."""
+    out = []
+    for token in text.split():
+        core, tail = token.rstrip(PUNCT), token[len(token.rstrip(PUNCT)):]
+        tail = tail.translate(str.maketrans({"؟": "?", "،": ","}))
+        if not ARABIC.search(core):
+            out.append(token)
+            continue
+        w = norm(core)
+        tr = TR_OF.get(w)
+        if tr is None:
+            for pre in ("و", "ال"):
+                if w.startswith(pre) and TR_OF.get(w[len(pre):]):
+                    tr = {"و": "וּ", "ال": "אֵל"}[pre] + TR_OF[w[len(pre):]]
+                    break
+        if tr is None:
+            tr = "".join(AR_LETTER.get(ch, ch) for ch in core if ch != "\u0640")
+            tr = re.sub("([מנפצ])([\u05b0-\u05bc\u0651]*)$", lambda m: FINAL[m.group(1)] + m.group(2), tr)   # its final form
+        out.append(tr.replace("-", "") + tail)
+    return " ".join(out)
+
 
 @functools.lru_cache(maxsize=None)
 def vocabulary(lesson: str) -> tuple[list[tuple[str, str, str]], frozenset[str]]:

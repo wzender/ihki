@@ -71,6 +71,7 @@ from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
 from .tts import (BASELINE_VOICES, ELEVEN_MODEL, ELEVEN_PREFIX, STT_MAX_BYTES, ElevenLabsTTS, eleven_transcribe, load_elevenlabs, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
                   playback_voices, voice_name)
+from .tutor import letters as tutor_letters
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
                     TutorUnavailable, CREATE_TUTOR_CHATS, default_model as default_tutor_model, load_tutor,
                     vocabulary as tutor_vocabulary)
@@ -4541,7 +4542,15 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except TTSUnavailable as e:
             record_failure(app.state.auth, "text_to_speech")
             raise HTTPException(503, str(e))
-        return {"text": text}
+        return {"text": text, "tr": tutor_letters(text)}
+
+    @app.post("/api/tutor/letters", dependencies=[Depends(require("tutor.use"))])
+    def tutor_to_letters(body: dict = Body(...)):
+        """What the browser recognized (Arabic letters) in Hebrew letters, as the course writes it: {"text"} -> {"tr"}."""
+        text = " ".join(str(body.get("text", "") if isinstance(body, dict) else "").split())
+        if len(text) > MAX_TEXT:
+            raise HTTPException(400, f"a sentence of up to {MAX_TEXT} characters")
+        return {"tr": tutor_letters(text)}
 
     def eleven_trouble(e: TTSUnavailable, model: str) -> str:
         """An ElevenLabs failure in words a tester can act on: which setting to look at."""
