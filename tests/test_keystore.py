@@ -222,8 +222,12 @@ def eleven_env(monkeypatch, calls=None):
             return {"voices": [{"voice_id": "mine0001", "name": "Teacher", "category": "cloned",
                                 "labels": {"accent": "palestinian", "gender": "male"}, "preview_url": "https://x/1.mp3"},
                                *({"voice_id": "added001", "name": "ihki", "sharing": {"original_voice_id": v}} for v in added)]}
+        if path.startswith("/shared-voices?language=ar") and not path.endswith("page=0"):   # the library's next pages
+            n = int(path.rsplit("=", 1)[1])
+            return {"voices": [{"voice_id": f"more{n:04d}", "public_owner_id": "owner009", "name": f"More {n}", "accent": "egyptian",
+                                "gender": "male"}], "has_more": n < 2}
         if path.startswith("/shared-voices"):
-            return {"voices": [
+            return {"has_more": path.startswith("/shared-voices?language=ar"), "voices": [
                 {"voice_id": "gulf0001", "public_owner_id": "owner001", "name": "Khalid", "accent": "gulf", "gender": "male"},
                 {"voice_id": "lev00001", "public_owner_id": "owner002", "name": "Rami", "accent": "levantine", "gender": "male"},
                 {"voice_id": "pal00002", "public_owner_id": "owner003", "name": "Salma", "accent": "palestinian", "gender": "female"},
@@ -259,9 +263,11 @@ def test_the_voice_picker_puts_palestinian_voices_first_and_adds_a_library_voice
         assert c.get("/api/admin/eleven-voices", headers=bearer("teacher")).status_code == 409   # no key yet
         c.put("/api/admin/keys/ELEVEN_LABS_API_KEY", json={"value": "sk_eleven_key_123456"}, headers=bearer("teacher"))
         voices = c.get("/api/admin/eleven-voices", headers=bearer("teacher")).json()
-        assert [v["name"] for v in voices["library"]] == ["Yousef", "Salma", "Rami", "Khalid"]   # Palestinian, male first
+        assert [v["name"] for v in voices["library"]][:4] == ["Yousef", "Salma", "Rami", "Khalid"]   # Palestinian, male first
+        assert {"More 1", "More 2"} <= {v["name"] for v in voices["library"]}   # the library's next pages too
+        assert not any("page=3" in p for p, _k, _b in calls)   # until it has no more
         assert voices["library"][0]["preview_url"] == "https://x/yousef.mp3" and voices["mine"][0]["rank"] == 0
-        assert ("/shared-voices?language=ar&page_size=100", "sk_eleven_key_123456", None) in calls
+        assert ("/shared-voices?language=ar&page_size=100&page=0", "sk_eleven_key_123456", None) in calls
         out = c.post("/api/admin/eleven-voices/use", json={"voice_id": "pal00001", "owner_id": "owner004", "name": "Yousef"},
                      headers=bearer("teacher"))
         assert out.status_code == 200
@@ -343,3 +349,13 @@ def test_one_library_voice_can_be_every_speakers(keys_env, tmp_path, monkeypatch
         voices = c.get("/api/admin/eleven-voices", headers=bearer("teacher")).json()
         assert voices["currents"] == {"ELEVEN_LABS_VOICE_ID": "added001", "ELEVEN_LABS_TUTOR_VOICE_ID": "added001",
                                       "ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID": "added001"}
+
+
+def test_a_voice_added_from_the_library_says_which_it_was(keys_env, tmp_path, monkeypatch):
+    eleven_env(monkeypatch)
+    with client(KeyAuth(), tmp_path) as c:
+        c.put("/api/admin/keys/ELEVEN_LABS_API_KEY", json={"value": "sk_eleven_key_123456"}, headers=bearer("teacher"))
+        c.post("/api/admin/eleven-voices/use", json={"voice_id": "pal00001", "owner_id": "owner004", "name": "Yousef"},
+               headers=bearer("teacher"))
+        mine = c.get("/api/admin/eleven-voices", headers=bearer("teacher")).json()["mine"]
+        assert {v["voice_id"]: v["original_id"] for v in mine} == {"mine0001": "", "added001": "pal00001"}

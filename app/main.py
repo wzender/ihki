@@ -4637,6 +4637,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         words = " ".join(str(v.get(k) or "") for k in ("accent", "description", "name", "descriptive", "labels")).lower()
         return min((rank for word, rank in ACCENT_RANK if word in words), default=3)
 
+    SHARED_PAGES = 5
+
     @app.get("/api/admin/eleven-voices")
     def eleven_voices(_a: SupabaseAuth = Depends(keys_only)):
         """ElevenLabs voices to choose from: the account's own, and Arabic voices of its library, the Palestinian first,
@@ -4651,10 +4653,17 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                     "accent": v.get("accent") or labels.get("accent") or "", "gender": v.get("gender") or labels.get("gender") or "",
                     "age": v.get("age") or labels.get("age") or "", "description": (v.get("description") or labels.get("description") or "")[:160],
                     "language": v.get("language") or labels.get("language") or "", "preview_url": v.get("preview_url") or "",
-                    "rank": accent_rank({**v, **labels})}
+                    "rank": accent_rank({**v, **labels}),
+                    # a library voice added to the account: the library's id of it (the page shows it once)
+                    "original_id": (v.get("sharing") or {}).get("original_voice_id") or ""}
         try:
             mine = [voice(v) for v in (eleven_api("/voices", key).get("voices") or [])]
-            shared = eleven_api("/shared-voices?language=ar&page_size=100", key).get("voices") or []
+            shared = []
+            for page in range(SHARED_PAGES):   # the library's Arabic voices, a hundred a page
+                got = eleven_api(f"/shared-voices?language=ar&page_size=100&page={page}", key)
+                shared += got.get("voices") or []
+                if not got.get("has_more"):
+                    break
             try:   # the library's Palestinian voices, beyond the first page of its Arabic ones
                 shared += eleven_api("/shared-voices?search=palestinian&page_size=100", key).get("voices") or []
             except KeyRefused:

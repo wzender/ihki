@@ -2180,8 +2180,10 @@ await sleep(800);
 const real=window.fetch;
 window.fetch=(url,opts={})=>String(url).includes("/api/admin/eleven-voices")?Promise.resolve(new Response(JSON.stringify({
   current:"pal00001",currents:{ELEVEN_LABS_VOICE_ID:"pal00001",ELEVEN_LABS_TUTOR_VOICE_ID:"pal00001",ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID:"pal00002"},
-  mine:[],library:[{voice_id:"pal00001",owner_id:"o1",name:"Yousef",gender:"male",rank:0},{voice_id:"pal00002",owner_id:"o2",name:"Salma",gender:"female",rank:0},
-                   {voice_id:"lev00001",owner_id:"o3",name:"Rami",gender:"male",rank:1}]}),{status:200})):real(url,opts);
+  mine:[{voice_id:"adam0001",name:"Adam",gender:"male",rank:3,language:"en",accent:"american"},
+        {voice_id:"copy0001",name:"Salma copy",gender:"female",rank:0,original_id:"pal00009"}],
+  library:[{voice_id:"pal00009",owner_id:"o9",name:"Salma original",gender:"female",rank:0},{voice_id:"pal00001",owner_id:"o1",name:"Yousef",gender:"male",rank:0},{voice_id:"pal00002",owner_id:"o2",name:"Salma",gender:"female",rank:0},
+                   {voice_id:"lev00001",owner_id:"o3",name:"Rami",gender:"male",rank:1},{voice_id:"egy00001",owner_id:"o4",name:"Omar",gender:"male",rank:3,accent:"egyptian"}]}),{status:200})):real(url,opts);
 const row=document.createElement("div"); document.body.append(row);
 await elevenVoicePicker(row,()=>{},"ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID","tutor-female");
 const items=[...row.querySelectorAll(".eleven-voice-list li")];
@@ -2189,16 +2191,20 @@ out.names=items.map(li=>li.querySelector("b").textContent);
 out.inUse=items.filter(li=>li.querySelector(".pill")).map(li=>li.querySelector("b").textContent);
 out.disabled=items.filter(li=>li.querySelector(".btn.primary").disabled).map(li=>li.querySelector("b").textContent);
 const [g,a]=row.querySelectorAll(".eleven-voice-filters select"); out.accent=a.value; out.accents=[...a.options].map(o=>o.textContent);
-a.value=""; a.onchange(); out.everyAccent=[...row.querySelectorAll(".eleven-voice-list li b")].map(b=>b.textContent);
 out.heads=[...row.querySelectorAll(".eleven-voice-accent")].map(h=>h.textContent);
+a.value="פלסטיני"; a.onchange(); out.palestinian=[...row.querySelectorAll(".eleven-voice-list li b")].map(b=>b.textContent);
+a.value=""; a.onchange();
 g.value="male"; g.onchange(); out.men=[...row.querySelectorAll(".eleven-voice-list li b")].map(b=>b.textContent);
 """
 
 
 def test_the_tutors_voice_picker_offers_every_palestinian_voice_for_any_part(site):
     r = site("boss@x.com", VOICE_PICKER)
-    assert r["names"] == ["Salma", "Yousef"]   # the part's gender first, the other too; Palestinian only
+    # every Arabic voice (not the account's English one), each once (the library's copy in the account stands for it),
+    # Palestinian first and the part's gender first in each accent
+    assert r["names"] == ["Salma copy", "Salma", "Yousef", "Rami", "Omar"]
     assert r["inUse"] == ["Salma"] and r["disabled"] == ["Salma"]   # this part's voice, not playback's
-    assert r["accent"] == "פלסטיני" and r["accents"] == ["כל המבטאים", "פלסטיני", "לבנטיני"]   # by accent, Palestinian first
-    assert r["everyAccent"] == ["Salma", "Yousef", "Rami"] and r["heads"] == ["פלסטיני (2)", "לבנטיני (1)"]
-    assert r["men"] == ["Yousef", "Rami"]
+    assert r["accent"] == "" and r["accents"] == ["כל המבטאים", "פלסטיני", "לבנטיני", "מצרי"]
+    assert r["heads"] == ["פלסטיני (1)", "פלסטיני (2)", "לבנטיני (1)", "מצרי (1)"]   # the account's, then the library's
+    assert r["palestinian"] == ["Salma copy", "Salma", "Yousef"]
+    assert r["men"] == ["Yousef", "Rami", "Omar"]

@@ -9094,6 +9094,12 @@ async function elevenVoicePicker(row,done,target="ELEVEN_LABS_VOICE_ID",purpose=
     gulf:"מפרצי",saudi:"סעודי",emirati:"אמירתי",kuwaiti:"כוויתי",iraqi:"עיראקי",moroccan:"מרוקאי",algerian:"אלג'יראי",tunisian:"תוניסאי",
     sudanese:"סודאני",yemeni:"תימני",standard:"ספרותי",msa:"ספרותי",modern_standard:"ספרותי",arabic:"ערבית (כללי)"};
   const accentOf=v=>["פלסטיני","לבנטיני"][v.rank]||ACCENT_HE[String(v.accent||"").toLowerCase().trim().replace(/[\s-]+/g,"_")]||v.accent||"ללא מבטא";
+  // Arabic voices only: the library's are; of the account's, those it marks Arabic (its English built-in ones are not).
+  // A library voice already added to the account is shown once, as the account's.
+  const arabic=v=>/^ar/i.test(v.language||"")||v.rank<3||!!ACCENT_HE[String(v.accent||"").toLowerCase().trim().replace(/[\s-]+/g,"_")]||!!v.original_id;
+  const added=new Set(data.mine.map(v=>v.original_id).filter(Boolean));
+  const once=new Set(), mine=data.mine.filter(arabic).sort((a,b)=>(b.voice_id===current)-(a.voice_id===current)).filter(v=>!v.original_id||(!once.has(v.original_id)&&once.add(v.original_id)));   // one copy each
+  data={...data,mine,library:data.library.filter(v=>!added.has(v.voice_id))};
   const all=[...data.mine.map(v=>({...v,mine:true})),...data.library];
   const accents=[...new Map(all.map(v=>[accentOf(v),v.rank])).entries()].sort((a,b)=>a[1]-b[1]||a[0].localeCompare(b[0],"he")).map(a=>a[0]);
   const filters=mark("eleven-voice-filters",""), pickBy=(label,options,value)=>{
@@ -9101,10 +9107,10 @@ async function elevenVoicePicker(row,done,target="ELEVEN_LABS_VOICE_ID",purpose=
     for(const [v,t] of options){ const o=document.createElement("option"); o.value=v; o.textContent=t; sel.append(o); }
     sel.value=options.some(o=>o[0]===value)?value:""; const l=mark("",label+" ","label"); l.append(sel); filters.append(l); return sel; };
   const byGender=pickBy("מגדר",[["","הכל"],["male","גבר"],["female","אישה"]],"");
-  const byAccent=pickBy("מבטא",[["","כל המבטאים"],...accents.map(a=>[a,a])],tutor&&accents.includes("פלסטיני")?"פלסטיני":"");
+  const byAccent=pickBy("מבטא",[["","כל המבטאים"],...accents.map(a=>[a,a])],"");   // every Arabic voice; Palestinian first
   box.append(filters);
   const lists=mark("eleven-voice-lists",""); box.append(lists);
-  if(tutor) note.textContent=`קולות פלסטיניים קודם, ${gender==="female"?"של אישה":"של גבר"} ראשונים. אפשר לבחור כל קול לכל דמות, גם אותו קול לכולן, ולסנן לפי מגדר ומבטא. הקשיבו (▶) ובחרו.`;
+  if(tutor) note.textContent=`קולות בערבית, הפלסטיניים קודם ו${gender==="female"?"של אישה":"של גבר"} ראשונים. אפשר לבחור כל קול לכל דמות, גם אותו קול לכולן, ולסנן לפי מגדר ומבטא. הקשיבו (▶) ובחרו.`;
   let audio=null;
   const GENDER_HE={male:"גבר",female:"אישה"};
   const row1=v=>{
