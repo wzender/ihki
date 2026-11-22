@@ -1,5 +1,6 @@
 """בחכי ערבי (app/tutor.py): the scenarios, the words, the conversation's turns, who may play, the day's limit.
 The model is a stub."""
+import io
 import json
 from types import SimpleNamespace
 
@@ -386,3 +387,69 @@ def test_a_part_whose_own_voice_is_not_chosen_takes_the_other(voices, monkeypatc
     with client(TutorAuth(), FakeClient()) as c:
         woman = start(c, scenario="l3").json()
         assert c.get(f"/api/tutor/say/{woman['id']}/0", headers=bearer("teacher")).content == b"RIFF-palman01"
+
+
+# ---- ElevenLabs hears the student, when the tier's switch is on ------------------------------------------------------
+
+@pytest.fixture
+def hearing(monkeypatch):
+    """The switch on for managers (FEATURE_PINS), the key set, ElevenLabs' speech to text faked: what it was given."""
+    from app import main as main_module
+    got = []
+    monkeypatch.setenv("FEATURE_PINS", "tutor.eleven_stt:admin=on")
+    monkeypatch.setenv("ELEVEN_LABS_API_KEY", "el-key")
+
+    def transcribe(key, audio, mime, keyterms=None):
+        got.append({"key": key, "audio": audio, "mime": mime, "terms": keyterms})
+        return "مرحبا كيفك"
+    monkeypatch.setattr(main_module, "eleven_transcribe", transcribe)
+    return got
+
+
+def test_with_the_switch_on_elevenlabs_hears_the_student_with_the_lessons_words(hearing):
+    with client(TutorAuth(), FakeClient()) as c:
+        assert c.get("/api/tutor", headers=bearer("teacher")).json()["stt"] is True
+        chat = start(c, scenario="l2").json()
+        r = c.post("/api/tutor/hear", data={"id": chat["id"]}, files={"audio": ("speech", b"OggS" * 500, "audio/webm")},
+                   headers=bearer("teacher"))
+        assert r.status_code == 200 and r.json() == {"text": "مرحبا كيفك"}
+        (call,) = hearing
+        assert call["key"] == "el-key" and call["mime"] == "audio/webm" and call["audio"].startswith(b"OggS")
+        from app.tutor import vocabulary
+        learnt, _ = vocabulary("2")
+        assert call["terms"][0] == learnt[-1][0] and len(call["terms"]) == len(learnt)   # the latest lesson's words first
+        assert c.post("/api/tutor/hear", data={"id": "nope"}, files={"audio": ("speech", b"x" * 2000, "audio/webm")},
+                      headers=bearer("teacher")).status_code == 410
+        big = b"x" * (2 * 1024 * 1024 + 10)
+        assert c.post("/api/tutor/hear", data={"id": chat["id"]}, files={"audio": ("speech", big, "audio/webm")},
+                      headers=bearer("teacher")).status_code == 413
+
+
+def test_with_the_switch_off_the_browser_hears_as_before(hearing, monkeypatch):
+    monkeypatch.setenv("FEATURE_PINS", "tutor.eleven_stt:admin=off")
+    with client(TutorAuth(), FakeClient()) as c:
+        assert c.get("/api/tutor", headers=bearer("teacher")).json()["stt"] is False
+        chat = start(c).json()
+        r = c.post("/api/tutor/hear", data={"id": chat["id"]}, files={"audio": ("speech", b"x" * 2000, "audio/webm")},
+                   headers=bearer("teacher"))
+        assert r.status_code == 403 and hearing == []
+
+
+def test_the_recognizer_retries_without_the_words_when_they_are_refused(monkeypatch):
+    from app import tts
+    sent = []
+
+    class Answer(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def urlopen(req, timeout=None):
+        sent.append(req.data)
+        if len(sent) == 1:
+            raise tts.urllib.error.HTTPError(req.full_url, 422, "bad keyterms", {}, io.BytesIO(b"{}"))
+        return Answer(json.dumps({"text": " شو اسمك "}).encode())
+    monkeypatch.setattr(tts.urllib.request, "urlopen", urlopen)
+    assert tts.eleven_transcribe("k", b"audio", "audio/webm", ["شو", "اسم", "شو", "x" * 60]) == "شو اسمك"
+    first, second = sent
+    assert first.count(b'name="keyterms"') == 2 and b'name="keyterms"' not in second   # deduped, too long dropped
+    assert b'name="language_code"\r\n\r\nar\r\n' in first and b'name="model_id"\r\n\r\nscribe_v2' in first

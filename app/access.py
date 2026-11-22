@@ -67,7 +67,8 @@ OVERRIDE_FEATURES = {"practice": ("practice.use", "exercises.use"), "games": ("g
                      "games.verb": ("games.verb",), "games.eitan": ("games.eitan",),
                      "games.falling": ("games.falling",), "games.bubble": ("games.bubble",),
                      "games.camel": ("games.camel",), "path.all_lessons": ("exercises.use_all",),
-                     "library.all_sections": ()}   # every library section, instead of the classes' own
+                     "library.all_sections": (),   # every library section, instead of the classes' own
+                     "tutor.eleven_stt": ("tutor.eleven_stt",)}
 
 
 # The learner features a tier has or not: key -> (Hebrew name, default per tier, the permissions it gives).
@@ -87,11 +88,15 @@ FEATURES: dict[str, tuple[str, dict[str, bool], tuple[str, ...]]] = {
                          ("exercises.use_all",)),
     "library.all_sections": ("כל מדורי המערכת הדיגיטלית (לא רק של הכיתות)",
                              {"admin": True, "student": False}, ()),
+    # the switch between the browser's speech recognition in יאללה נדבר and ElevenLabs' (with the lesson's words):
+    # off for everyone until it is tried, on a tier at a time
+    "tutor.eleven_stt": ("יאללה נדבר: זיהוי דיבור ב-ElevenLabs (במקום הדפדפן)", {"admin": False, "student": False},
+                         ("tutor.eleven_stt",)),
 }
 # a per-account exception (clean_overrides) of the same thing as a tier's feature
 OVERRIDE_OF_FEATURE = {"games.yalla_nedaber": "tutor", "games.all": "games", "practice": "practice", "path": "path",
                        **{k: k for k in ("games.verb", "games.eitan", "games.falling", "games.bubble", "games.camel",
-                                         "path.all_lessons", "library.all_sections")}}
+                                         "path.all_lessons", "library.all_sections", "tutor.eleven_stt")}}
 CREATE_FEATURE_ACCESS = (
     "create table public.feature_access (tier text not null check (tier in ('admin','teacher','student')), "
     "feature_key text not null, enabled boolean not null, updated_by uuid, "

@@ -69,10 +69,11 @@ from .archi import archify
 from .scorer import SAMPLE_RATE, Scorer, decode_audio, decode_audio_with_timing, frame_energy, load_scorer, tokenize
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
-from .tts import (BASELINE_VOICES, ELEVEN_MODEL, ELEVEN_PREFIX, ElevenLabsTTS, load_elevenlabs, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
+from .tts import (BASELINE_VOICES, ELEVEN_MODEL, ELEVEN_PREFIX, STT_MAX_BYTES, ElevenLabsTTS, eleven_transcribe, load_elevenlabs, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
                   playback_voices, voice_name)
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
-                    TutorUnavailable, CREATE_TUTOR_CHATS, default_model as default_tutor_model, load_tutor)
+                    TutorUnavailable, CREATE_TUTOR_CHATS, default_model as default_tutor_model, load_tutor,
+                    vocabulary as tutor_vocabulary)
 from .verb_game import VerbExerciseGenerator
 from .camel_race import race_items as camel_race_items, speech_of as camel_race_speech
 from .grok_mcp import build as build_grok_mcp, oauth_urls
@@ -3717,6 +3718,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         student, day, limit, seed = tutor_day(user)
         key, male = tutor_voice(False)
         return {"available": True, "turns": MAX_TURNS, "voice": bool(key and male),
+                "stt": eleven_hears(user),
                 "daily_limit": limit,
                 "left": None if limit is None else max(0, limit - t.started(student, day, seed)),
                 "scenarios": [{k: s[k] for k in ("id", "lesson", "title", "desc", "who", "ar", "she")} for s in SCENARIOS]}
@@ -4396,6 +4398,47 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         keys = app.state.keys
         male, female = keys.get("ELEVEN_LABS_TUTOR_VOICE_ID"), keys.get("ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID")
         return keys.get("ELEVEN_LABS_API_KEY"), (female or male) if she else (male or female)
+
+    def eleven_hears(user: dict | None) -> bool:
+        """Whether ElevenLabs hears this account in יאללה נדבר: its own exception, else its tier's switch
+        (tutor.eleven_stt), developers included: they too try the browser's recognition while it is off."""
+        if not app.state.keys.get("ELEVEN_LABS_API_KEY"):
+            return False
+        if app.state.auth is None:
+            return True
+        own = (user or {}).get("overrides", {}).get("tutor.eleven_stt")
+        if own is not None:
+            return bool(own)
+        try:
+            tier = effective_features(feature_table(app.state.auth))[(user or {}).get("tier", "student")]
+        except (AuthUnavailable, KeyError):
+            return False
+        return bool(tier.get("tutor.eleven_stt", {}).get("enabled"))
+
+    @app.post("/api/tutor/hear", dependencies=[Depends(require("tutor.use"))])
+    async def tutor_hear(request: Request, id: str = Form(...), audio: UploadFile = File(...),
+                         user: dict | None = Depends(signed_in)):
+        """The student's sentence in their conversation, recognized by ElevenLabs (the tier's switch tutor.eleven_stt):
+        a short recording in, {"text"} out, the lesson's words given as the ones to expect. The page then sends the text
+        as it does what the browser recognized. Only for a conversation of the account that is still going."""
+        if not eleven_hears(user):
+            raise HTTPException(403, "זיהוי הדיבור של ElevenLabs כבוי לחשבון הזה")
+        key = app.state.keys.get("ELEVEN_LABS_API_KEY")
+        t = tutor_for(user)
+        chat = t.get(id, user["id"] if user else None)
+        if chat is None or chat.done:
+            raise HTTPException(410, "השיחה הזו כבר לא פעילה")
+        data = await audio.read(STT_MAX_BYTES + 1)
+        if not data or len(data) > STT_MAX_BYTES:
+            raise HTTPException(413, "ההקלטה ארוכה מדי. נסו משפט קצר יותר")
+        learnt, _ = tutor_vocabulary(BY_ID[chat.scenario]["lesson"])
+        terms = [ar for ar, _tr, _he in reversed(learnt)]   # the latest lessons' words first
+        try:
+            text = await asyncio.to_thread(eleven_transcribe, key, data, audio.content_type or "", terms)
+        except TTSUnavailable as e:
+            record_failure(app.state.auth, "text_to_speech")
+            raise HTTPException(503, str(e))
+        return {"text": text}
 
     @app.get("/api/tutor/say/{chat_id}/{n}", dependencies=[Depends(require("tutor.use"))])
     def tutor_say(chat_id: str, n: int, user: dict | None = Depends(signed_in)):

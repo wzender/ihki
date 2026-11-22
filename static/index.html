@@ -3772,7 +3772,7 @@ function openTutorChat(s){
   root.querySelector(".tc-kb").onclick=()=>{ tc.type.hidden=!tc.type.hidden; if(!tc.type.hidden) tc.type.querySelector("input").focus(); };
   tc.type.onsubmit=e=>{ e.preventDefault(); const i=tc.type.querySelector("input"), t=i.value.trim(); if(t&&tcSend(t)) i.value=""; };
   tc.mic.onclick=tcListen;
-  if(!SR){ tc.mic.hidden=true; tc.type.hidden=false; tcNote("הדפדפן הזה לא מזהה דיבור. אפשר להקליד בערבית באותיות עבריות, או לפתוח את האפליקציה ב-Chrome."); }
+  if(!SR&&!tcEleven()){ tc.mic.hidden=true; tc.type.hidden=false; tcNote("הדפדפן הזה לא מזהה דיבור. אפשר להקליד בערבית באותיות עבריות, או לפתוח את האפליקציה ב-Chrome."); }
   const g=store.get("ihki.tutorGender","");
   if(g) tcStart(g);
   else{   // Arabic speaks to a man or to a woman: asked once, kept on the device
@@ -3805,6 +3805,8 @@ function closeTutorChat(){
   if(!tc) return;
   tcStopVoice(); for(const u of Object.values(tc.audio)) URL.revokeObjectURL(u);
   if(tc.rec){ const r=tc.rec; tc.rec=null; try{ r.abort(); }catch{} }
+  if(tc.recorder){ const r=tc.recorder; tc.recorder=null; try{ r.stop(); }catch{} }
+  if(tc.stream){ tc.stream.getTracks().forEach(x=>x.stop()); tc.stream=null; }
   removeEventListener("keydown",tc.onkey); tc.root.remove(); document.body.classList.remove("tutor-chat"); tc=null;
   if(document.body.dataset.view==="games") drawNav();   // the conversations left today
 }
@@ -3926,8 +3928,48 @@ function tcFeedback(){
   };
   return box;
 }
+const tcEleven=()=>!!(TUTOR_INFO&&TUTOR_INFO.stt&&window.MediaRecorder&&navigator.mediaDevices&&!(tc&&tc.sttFailed>=2));
+/* ElevenLabs hears the student (the tier's switch, "stt"): a tap records, a second tap (or 15 s) ends it, the server
+   recognizes it with the lesson's words, and the text goes on as the browser's would. Failing twice in a
+   conversation, it goes back to the browser's recognition. */
+async function tcRecord(){
+  if(!tc||tc.busy||tc.done) return;
+  if(tc.recorder){ if(tc.recorder.state==="recording") tc.recorder.stop(); return; }
+  let stream;
+  try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }
+  catch{ tcNote("אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן, או הקלידו.","bad"); tc.type.hidden=false; return; }
+  if(!tc){ stream.getTracks().forEach(t=>t.stop()); return; }
+  const type=["audio/webm;codecs=opus","audio/webm","audio/mp4","audio/ogg;codecs=opus"].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||"";
+  const rec=new MediaRecorder(stream,type?{mimeType:type}:undefined), chunks=[], t=tc; tc.recorder=rec; tc.stream=stream;
+  rec.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
+  const cap=setTimeout(()=>{ if(rec.state==="recording") rec.stop(); },15000);
+  rec.onstop=async()=>{
+    clearTimeout(cap); stream.getTracks().forEach(x=>x.stop());
+    if(tc!==t||t.recorder!==rec) return;
+    t.recorder=null; t.stream=null; t.mic.classList.remove("live");
+    const blob=new Blob(chunks,{type:rec.mimeType||type||"audio/webm"});
+    if(blob.size<1500){ t.live.hidden=true; tcNote("לא נשמע דיבור. לחצו ודברו, קרוב יותר למיקרופון."); return; }
+    t.live.textContent="מזהה מה אמרתם…"; tcLock(true);
+    const fd=new FormData(); fd.append("id",t.id); fd.append("audio",blob,"speech");
+    try{
+      const r=await api("/api/tutor/hear",{method:"POST",body:fd}), d=await r.json().catch(()=>({}));
+      if(tc!==t) return;
+      tcLock(false); t.live.hidden=true; t.live.textContent="";
+      if(!r.ok) throw new Error(d.detail||r.status);
+      if(!d.text){ tcNote("לא נשמע דיבור. לחצו ודברו, קרוב יותר למיקרופון."); return; }
+      tcSend(d.text);
+    }catch(err){
+      if(tc!==t) return;
+      tcLock(false); t.live.hidden=true; t.sttFailed=(t.sttFailed||0)+1;
+      tcNote(`זיהוי הדיבור לא הצליח (${err.message||err}). `+(t.sttFailed>=2&&SR?"עוברים לזיהוי של הדפדפן: לחצו שוב ודברו.":"לחצו שוב ודברו, או הקלידו."),"bad");
+      if(t.sttFailed>=2&&!SR) t.type.hidden=false;
+    }
+  };
+  rec.start(); tc.mic.classList.add("live"); tc.live.textContent="מקליט… דברו בערבית ולחצו שוב לסיום"; tc.live.hidden=false;
+}
 function tcListen(){   // a tap starts listening; the recognition ends by itself when the student stops (or on a second tap)
   if(!tc||tc.busy||tc.done) return;
+  if(tcEleven()||tc.recorder) return tcRecord();
   if(tc.rec){ try{ tc.rec.stop(); }catch{} return; }
   const r=tc.rec=new SR(); let said="", err="";
   r.lang=tc.lang; r.continuous=false; r.interimResults=true;

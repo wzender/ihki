@@ -1976,3 +1976,35 @@ def test_the_tutor_speaks_his_messages_once_and_the_device_keeps_the_choice(site
     assert r["autoAfter"] == "false" and r["kept"] == "false"
     assert r["askedAgain"] == 1 and r["playedAgain"] == 2   # 🔊 plays it again without asking the server
     assert r["silentAuto"] and r["silentHear"]   # no voice chosen: no buttons, the tutor is text only
+
+
+TUTOR_HEAR = """
+await sleep(800);
+const sent=[]; const real=window.fetch;
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/start")) return Promise.resolve(new Response(JSON.stringify({id:"chat1",turns:10,left:null,
+    message:{ar:"كيف حالك؟",tr:"כִּיף חַאלַכּ?",he:"מה שלומך?",words:[]}}),{status:200}));
+  if(u.includes("/api/tutor/hear")){ sent.push(["hear",opts.body.get("id"),opts.body.get("audio").size]); return Promise.resolve(new Response(JSON.stringify({text:"منيح الحمد لله"}),{status:200})); }
+  if(u.includes("/api/tutor/turn")){ sent.push(["turn",JSON.parse(opts.body).text]); return Promise.resolve(new Response(JSON.stringify({heard:"מְנִיח",reply:{ar:"تمام",tr:"תַמַאם",he:"מצוין",words:[]},fix:null,summary:null,turn:1,turns:10,done:false}),{status:200})); }
+  return real(url,opts); };
+let browserHeard=0; window.webkitSpeechRecognition=window.SpeechRecognition=function(){ browserHeard++; this.start=()=>{}; this.stop=()=>{}; };
+navigator.mediaDevices.getUserMedia=async()=>({getTracks:()=>[{stop(){}}]});
+window.MediaRecorder=function(stream,o){ this.state="inactive"; this.mimeType=(o&&o.mimeType)||"audio/webm";
+  this.start=()=>{ this.state="recording"; }; this.stop=()=>{ this.state="inactive"; this.ondataavailable({data:new Blob([new Uint8Array(4000)])}); this.onstop(); }; };
+MediaRecorder.isTypeSupported=t=>t==="audio/webm";
+localStorage.setItem("ihki.tutorGender",JSON.stringify("m"));
+TUTOR_INFO={available:true,voice:false,stt:true,turns:10,left:null,scenarios:[]};
+openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
+await until(()=>document.querySelector(".tc .tc-msg.in"),5000);
+const mic=document.querySelector(".tc .tc-mic");
+mic.click(); await sleep(100); out.live=document.querySelector(".tc .tc-live").textContent; out.recording=mic.classList.contains("live");
+mic.click(); await until(()=>sent.some(s=>s[0]==="turn"),5000);
+out.sent=sent; out.browserHeard=browserHeard;
+"""
+
+
+def test_with_the_switch_on_the_tutor_hears_through_elevenlabs_not_the_browser(site):
+    r = site("boss@x.com", TUTOR_HEAR)
+    assert r["recording"] and "מקליט" in r["live"]
+    assert r["sent"] == [["hear", "chat1", 4000], ["turn", "منيح الحمد لله"]]   # the server's text goes on as the browser's would
+    assert r["browserHeard"] == 0

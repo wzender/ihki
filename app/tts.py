@@ -165,6 +165,47 @@ class ElevenLabsTTS:
         return buf.getvalue()
 
 
+STT_MODEL = "scribe_v2"
+STT_MAX_BYTES = 2 * 1024 * 1024   # a student's sentence: a few seconds of compressed audio
+STT_KEYTERMS = 300   # the lesson's words it is told to expect, the latest lessons' first (each up to 50 characters)
+
+
+def eleven_transcribe(key: str, audio: bytes, mime: str, keyterms: list[str] | None = None,
+                      model: str = STT_MODEL) -> str:
+    """ElevenLabs' speech to text of a short Arabic recording: its text ("" when nothing was said). The words it
+    should expect go with it; if ElevenLabs refuses them, the recording is sent again without. TTSUnavailable when
+    it fails."""
+    import uuid
+
+    def send(terms: list[str]) -> str:
+        boundary = uuid.uuid4().hex
+        parts = [("model_id", model), ("language_code", "ar"), ("tag_audio_events", "false")]
+        parts += [("keyterms", t) for t in terms]
+        body = b"".join(f'--{boundary}\r\nContent-Disposition: form-data; name="{n}"\r\n\r\n{v}\r\n'.encode()
+                        for n, v in parts)
+        body += (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="speech"\r\n'
+                 f"Content-Type: {mime or 'application/octet-stream'}\r\n\r\n").encode() + audio + f"\r\n--{boundary}--\r\n".encode()
+        req = urllib.request.Request(ELEVEN_URL + "/speech-to-text", data=body, method="POST", headers={
+            "xi-api-key": key, "Content-Type": f"multipart/form-data; boundary={boundary}", "User-Agent": "ihki/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
+                return str(json.load(res).get("text") or "").strip()
+        except urllib.error.HTTPError as e:
+            log.warning("elevenlabs speech-to-text -> %s", e.code)
+            raise TTSUnavailable(f"elevenlabs speech-to-text error {e.code}", e.code) from None
+        except (OSError, ValueError) as e:
+            log.warning("elevenlabs speech-to-text unreachable: %s", e)
+            raise TTSUnavailable("elevenlabs speech-to-text unreachable", transient=True) from None
+
+    terms = [t for t in dict.fromkeys(t.strip() for t in keyterms or []) if t and len(t) <= 50][:STT_KEYTERMS]
+    try:
+        return send(terms)
+    except TTSUnavailable as e:
+        if terms and e.status in (400, 422):
+            return send([])
+        raise
+
+
 def load_elevenlabs(key: str | None = None, voice: str | None = None) -> ElevenLabsTTS | None:
     """`key`, `voice`: the ones the panel set (keystore.py); None reads the environment's."""
     key = (os.environ.get("ELEVEN_LABS_API_KEY", "") if key is None else key).strip()
