@@ -2001,15 +2001,21 @@ openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خل�
 await until(()=>document.querySelector(".tc .tc-msg.in"),5000);
 const mic=document.querySelector(".tc .tc-mic");
 mic.click(); await sleep(100); out.live=document.querySelector(".tc .tc-live").textContent; out.recording=mic.classList.contains("live");
-mic.click(); await until(()=>sent.some(s=>s[0]==="turn"),5000);
-out.sent=sent; out.browserHeard=browserHeard;
+mic.click(); await until(()=>document.querySelector(".tc .tc-type input").value,5000);
+out.box=document.querySelector(".tc .tc-type input").value; out.beforeSend=sent.map(s=>s[0]);
+out.hint=document.querySelector(".tc .tc-live").textContent; out.arrow=mic.getAttribute("aria-label");
+const box=document.querySelector(".tc .tc-type input"); box.value=box.value.replace("الحمد","والحمد"); box.dispatchEvent(new Event("input"));
+document.querySelector(".tc .tc-type").requestSubmit(); await until(()=>sent.some(s=>s[0]==="turn"),5000);
+out.sent=sent; out.browserHeard=browserHeard; out.hintAfter=document.querySelector(".tc .tc-live").hidden;
 """
 
 
 def test_with_the_switch_on_the_tutor_hears_through_elevenlabs_not_the_browser(site):
     r = site("boss@x.com", TUTOR_HEAR)
     assert r["recording"] and "מקליט" in r["live"]
-    assert r["sent"] == [["hear", "chat1", 4000], ["turn", "منيح الحمد لله"]]   # the server's text goes on as the browser's would
+    assert r["box"] == "منيح الحمد لله" and r["beforeSend"] == ["hear"]   # waits in the box, to be checked
+    assert "תקנו" in r["hint"] and r["arrow"] == "שליחה"
+    assert r["sent"] == [["hear", "chat1", 4000], ["turn", "منيح والحمد لله"]] and r["hintAfter"]   # as the student fixed it
     assert r["browserHeard"] == 0
 
 
