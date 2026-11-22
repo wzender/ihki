@@ -2051,7 +2051,7 @@ def test_the_trial_note_says_what_is_missing_and_what_hears(site):
     r = site("boss@x.com", TUTOR_TRIAL)
     assert r["noKey"][1] and "אין מפתח ElevenLabs" in r["noKey"][0] and "מפתחות API" in r["noKey"][0]
     assert r["noVoice"][1] and "לא נבחר קול ליאללה נדבר" in r["noVoice"][0]
-    assert r["noFemale"][1] and "בקול הגבר" in r["noFemale"][0] and "זיהוי הדיבור: ElevenLabs" in r["noFemale"][0]
+    assert r["noFemale"][1] and "בקול הגבר" in r["noFemale"][0] and "זיהוי הדיבור: הדפדפן (ElevenLabs כגיבוי)" in r["noFemale"][0]   # hybrid: the browser hears where it can
     assert not r["all"][1] and r["all"][0].startswith("🧪 גרסת ניסיון") and "מפתחות API" not in r["all"][0]
 
 
