@@ -2324,3 +2324,24 @@ def test_the_browser_hears_where_it_can_and_elevenlabs_where_it_cannot(site):
     assert "הדפדפן (ElevenLabs כגיבוי)" in r["note"]
     assert r["first"] == 1 and r["sentFirst"] == 0   # Chrome: its own recognition, nothing sent to ElevenLabs
     assert r["switched"] and r["sent"] == ["hear"] and r["browserAfter"] == 1   # it failed: ElevenLabs from then on
+
+
+TUTOR_CHOOSE = TUTOR_HYBRID.split('out.note=')[0] + """
+const note=()=>document.querySelector(".tc .tc-note.trial"), pick=()=>note().querySelector(".tc-engine");
+out.before=[note().textContent.includes("הדפדפן (ElevenLabs כגיבוי)"),pick().textContent];
+pick().click(); out.chosen=[note().textContent.includes("זיהוי הדיבור: ElevenLabs"),pick().textContent,localStorage.getItem("ihki.tutorHears")];
+const mic=document.querySelector(".tc .tc-mic");
+mic.click(); await sleep(100); mic.click(); await until(()=>sent.length,5000);
+out.sent=sent.slice(); out.browser=window.__browser.length;
+pick().click(); out.back=[pick().textContent,localStorage.getItem("ihki.tutorHears")];
+const box=document.querySelector(".tc .tc-type input"); box.value=""; box.dispatchEvent(new Event("input"));   // the heard sentence cleared
+mic.click(); await sleep(50); out.browserAfter=window.__browser.length;
+"""
+
+
+def test_the_student_chooses_who_hears_and_the_device_keeps_it(site):
+    r = site("boss@x.com", TUTOR_CHOOSE, preload=FAKE_BROWSER_RECOGNITION)
+    assert r["before"] == [True, "החלפה ל־ElevenLabs"]
+    assert r["chosen"] == [True, "החלפה לזיהוי של הדפדפן", '"eleven"']
+    assert r["sent"] == ["hear"] and r["browser"] == 0   # ElevenLabs heard it, not the browser
+    assert r["back"] == ["החלפה ל־ElevenLabs", '"browser"'] and r["browserAfter"] == 1

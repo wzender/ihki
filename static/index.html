@@ -401,6 +401,7 @@ body.tutor-chat{overflow:hidden}
 .tc-mic svg{width:22px;height:22px}
 .tc-call{border:0;background:none;color:inherit;font-size:20px;cursor:pointer;padding:4px 6px;border-radius:50%}
 .tc-call.on{background:var(--sumac);color:#fff}
+.tc-engine{border:1px solid currentColor;background:none;color:inherit;font:600 13px/1.3 var(--f-body);border-radius:999px;padding:2px 10px;margin-inline-start:4px;cursor:pointer}
 .tc-mic.live{background:var(--sumac);animation:tcPulse 1.2s ease-in-out infinite}
 .tc-mic:disabled{opacity:.45;cursor:default}
 @keyframes tcPulse{50%{transform:scale(1.08)}}
@@ -3918,10 +3919,25 @@ function tcTrialNote(){
   else if(!TUTOR_INFO.voice) parts.push("לא נבחר קול ליאללה נדבר, ולכן הדובר לא מושמע");
   else if(she&&miss.has("ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID")) parts.push("לא נבחר קול לדמות אישה: היא מדברת בקול הגבר");
   else if(!she&&miss.has("ELEVEN_LABS_TUTOR_VOICE_ID")) parts.push("לא נבחר קול לדמות גבר: הוא מדבר בקול האישה");
-  const hear=SR?(TUTOR_INFO.stt?"זיהוי הדיבור: הדפדפן (ElevenLabs כגיבוי)":"זיהוי הדיבור: הדפדפן"):TUTOR_INFO.stt?"זיהוי הדיבור: ElevenLabs":"זיהוי הדיבור: אין (הקלדה בלבד)";
   const head=parts.length?"⚠️ גרסת ניסיון · ":"🧪 גרסת ניסיון · ";
   const fix=parts.length?" · ההגדרה: ניהול ← ניטור ← \"מפתחות API ומודל\" (למפתחים), או בהגדרות ה־Space":"";
-  tcNote(head+[...parts,hear].join(" · ")+fix,parts.length?"bad trial":"trial");
+  const note=tcNote(head+[...parts,tcHearsWith()].join(" · ")+fix,parts.length?"bad trial":"trial");
+  if(tcCanChoose()){   // the trial: the student picks who hears, now and in later conversations (kept on the device)
+    const pick=mark("tc-engine","","button"); pick.type="button";
+    const paint=()=>{ note.firstChild.textContent=head+[...parts,tcHearsWith()].join(" · ")+fix+" ";
+      const el=tcEleven(); pick.textContent=el?"החלפה לזיהוי של הדפדפן":"החלפה ל־ElevenLabs";
+      pick.setAttribute("aria-label",pick.textContent); };
+    pick.onclick=()=>{ if(tc.rec||tc.recorder) tcListen(); store.set("ihki.tutorHears",tcEleven()?"browser":"eleven"); tc.browserFailed=false; tc.sttFailed=0; paint(); };
+    note.append(pick); paint();
+  }
+}
+// who hears the student: the trial lets them choose when both can (ihki.tutorHears: "browser" or "eleven", else the hybrid)
+const tcCanChoose=()=>!!(SR&&TUTOR_INFO&&TUTOR_INFO.stt&&window.MediaRecorder&&navigator.mediaDevices);
+function tcHearsWith(){
+  if(!TUTOR_INFO) return "";
+  if(!SR&&!TUTOR_INFO.stt) return "זיהוי הדיבור: אין (הקלדה בלבד)";
+  if(tcEleven()) return "זיהוי הדיבור: ElevenLabs";
+  return TUTOR_INFO.stt&&store.get("ihki.tutorHears","")!=="browser"?"זיהוי הדיבור: הדפדפן (ElevenLabs כגיבוי)":"זיהוי הדיבור: הדפדפן";
 }
 function tcSend(text){   // the student's sentence goes at once; false when it cannot go now
   if(!tc||tc.busy||tc.done||!tc.id) return false;
@@ -4051,7 +4067,7 @@ function tcFeedback(){
 }
 // Hybrid: the browser's own recognition wherever it has one (Chrome, Android: it hears spoken Arabic best); ElevenLabs
 // (the tier's switch, "stt") where it has none (iPhone's Safari, Firefox), or once the browser's fails in a conversation
-const tcEleven=()=>!!(TUTOR_INFO&&TUTOR_INFO.stt&&window.MediaRecorder&&navigator.mediaDevices&&(!SR||(tc&&tc.browserFailed))&&!(tc&&tc.sttFailed>=2));
+const tcEleven=()=>!!(TUTOR_INFO&&TUTOR_INFO.stt&&window.MediaRecorder&&navigator.mediaDevices&&(!SR||(tc&&tc.browserFailed)||store.get("ihki.tutorHears","")==="eleven")&&!(tc&&tc.sttFailed>=2));
 /* ElevenLabs hears the student: a tap records, a second tap (or 15 s) ends it, the server recognizes it with the
    lesson's words, and the text goes on as the browser's would. Failing twice in a conversation, it goes back to the
    browser's recognition (if there is one). */
