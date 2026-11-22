@@ -5,7 +5,7 @@ sounds get their probability, a 1e-4 floor goes to the rest, blank takes what is
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 import pytest
@@ -37,7 +37,7 @@ class Scenario:
     name: str
     logp: np.ndarray
     good: bool                     # a correct /a/ (should pass) or a substitution (should fail)
-    energy: np.ndarray = LOUD
+    energy: np.ndarray = field(default_factory=lambda: LOUD)
     spans: tuple = tuple(SPANS)
 
 

@@ -2071,3 +2071,36 @@ def test_a_tutor_that_cannot_be_heard_says_why(site):
     r = site("boss@x.com", TUTOR_BLOCKED)
     assert "לחצו 🔊" in r["blocked"]
     assert r["server"].startswith("🔇 הדובר לא מושמע: הקול שנבחר לא נמצא")
+
+
+TUTOR_COMPOSE = """
+await sleep(800);
+const real=window.fetch, sent=[];
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/start")) return Promise.resolve(new Response(JSON.stringify({id:"chat1",turns:10,left:null,
+    message:{ar:"كيف حالك؟",tr:"כִּיף חַאלַכּ?",he:"מה שלומך?",words:[]}}),{status:200}));
+  if(u.includes("/api/tutor/turn")){ sent.push(JSON.parse(opts.body).text); return Promise.resolve(new Response(JSON.stringify({heard:"מְנִיח",reply:{ar:"تمام",tr:"תַמַאם",he:"מצוין",words:[]},fix:null,summary:null,turn:1,turns:10,done:false}),{status:200})); }
+  return real(url,opts); };
+window.webkitSpeechRecognition=window.SpeechRecognition=function(){ this.start=()=>{}; this.stop=()=>{}; };
+localStorage.setItem("ihki.tutorGender",JSON.stringify("m"));
+TUTOR_INFO={available:true,voice:false,stt:false,turns:10,left:null,scenarios:[]};
+openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
+await until(()=>document.querySelector(".tc .tc-msg.in"),5000); await sleep(100);
+const input=document.querySelector(".tc .tc-type input"), btn=document.querySelector(".tc .tc-type .tc-mic");
+out.visible=!document.querySelector(".tc .tc-type").hidden&&input.offsetWidth>0;
+out.focused=document.activeElement===input; out.empty=btn.getAttribute("aria-label");
+out.kb=!!document.querySelector(".tc .tc-kb");
+input.value="מְנִיח"; input.dispatchEvent(new Event("input")); out.typed=btn.getAttribute("aria-label");
+input.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true})); document.querySelector(".tc .tc-type").requestSubmit();
+await until(()=>sent.length&&!btn.disabled,5000); await sleep(100);
+out.sent=sent; out.after=btn.getAttribute("aria-label"); out.cleared=input.value; out.refocused=document.activeElement===input;
+const foot=document.querySelector(".tc .tc-foot").getBoundingClientRect(); out.footInView=foot.bottom<=innerHeight+1;
+"""
+
+
+def test_the_tutor_chat_types_like_whatsapp(site):
+    r = site("boss@x.com", TUTOR_COMPOSE)
+    assert r["visible"] and r["focused"] and not r["kb"]
+    assert r["empty"] == "לחצו ודברו בערבית" and r["typed"] == "שליחה"
+    assert r["sent"] == ["מְנִיח"] and r["cleared"] == "" and r["after"] == "לחצו ודברו בערבית"
+    assert r["refocused"] and r["footInView"]
