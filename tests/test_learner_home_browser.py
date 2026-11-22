@@ -2177,6 +2177,10 @@ const items=[...row.querySelectorAll(".eleven-voice-list li")];
 out.names=items.map(li=>li.querySelector("b").textContent);
 out.inUse=items.filter(li=>li.querySelector(".pill")).map(li=>li.querySelector("b").textContent);
 out.disabled=items.filter(li=>li.querySelector(".btn.primary").disabled).map(li=>li.querySelector("b").textContent);
+const [g,a]=row.querySelectorAll(".eleven-voice-filters select"); out.accent=a.value; out.accents=[...a.options].map(o=>o.textContent);
+a.value=""; a.onchange(); out.everyAccent=[...row.querySelectorAll(".eleven-voice-list li b")].map(b=>b.textContent);
+out.heads=[...row.querySelectorAll(".eleven-voice-accent")].map(h=>h.textContent);
+g.value="male"; g.onchange(); out.men=[...row.querySelectorAll(".eleven-voice-list li b")].map(b=>b.textContent);
 """
 
 
@@ -2184,3 +2188,6 @@ def test_the_tutors_voice_picker_offers_every_palestinian_voice_for_any_part(sit
     r = site("boss@x.com", VOICE_PICKER)
     assert r["names"] == ["Salma", "Yousef"]   # the part's gender first, the other too; Palestinian only
     assert r["inUse"] == ["Salma"] and r["disabled"] == ["Salma"]   # this part's voice, not playback's
+    assert r["accent"] == "פלסטיני" and r["accents"] == ["כל המבטאים", "פלסטיני", "לבנטיני"]   # by accent, Palestinian first
+    assert r["everyAccent"] == ["Salma", "Yousef", "Rami"] and r["heads"] == ["פלסטיני (2)", "לבנטיני (1)"]
+    assert r["men"] == ["Yousef", "Rami"]
