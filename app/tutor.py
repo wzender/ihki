@@ -332,6 +332,8 @@ class Chat:
     input_tokens: int = 0
     output_tokens: int = 0
     model: str = DEFAULT_MODEL
+    live: list[dict] = field(default_factory=list)   # the turns of a live call (tutor_agent), for the page to show
+    lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)   # one turn at a time
 
     def row(self) -> dict:
         """The conversation as the table `tutor_chats` keeps it."""
@@ -441,6 +443,11 @@ class Tutor:
         with self._lock:
             chat = self._chats.get(chat_id)
         return chat if chat and chat.user_id == user_id else None
+
+    def get_any(self, chat_id: str) -> Chat | None:
+        """A conversation by its id alone: for the live call's agent, which the page gave it (tutor_agent)."""
+        with self._lock:
+            return self._chats.get(chat_id)
 
     @staticmethod
     def message(data: dict, sc: dict) -> dict:

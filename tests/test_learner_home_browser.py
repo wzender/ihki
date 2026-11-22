@@ -2104,3 +2104,44 @@ def test_the_tutor_chat_types_like_whatsapp(site):
     assert r["empty"] == "לחצו ודברו בערבית" and r["typed"] == "שליחה"
     assert r["sent"] == ["מְנִיח"] and r["cleared"] == "" and r["after"] == "לחצו ודברו בערבית"
     assert r["refocused"] and r["footInView"]
+
+
+TUTOR_CALL = """
+await sleep(800);
+const real=window.fetch, sent=[];
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/start")) return Promise.resolve(new Response(JSON.stringify({id:"chat1",turns:10,left:null,
+    message:{ar:"كيف حالك؟",tr:"כִּיף חַאלַכּ?",he:"מה שלומך?",words:[]}}),{status:200}));
+  if(u.endsWith("/api/tutor/live")){ sent.push(JSON.parse(opts.body)); return Promise.resolve(new Response(JSON.stringify({signed_url:"wss://x/y",voice_id:"him",
+    first_message:"كيف حالك؟",chat_id:"chat1",since:0,keywords:["مرحبا"],sdk:"/nowhere.js"}),{status:200})); }
+  if(u.includes("/api/tutor/live/chat1")) return Promise.resolve(new Response(JSON.stringify({done:false,turns:[
+    {heard:"מְנִיח",fix:null,reply:{ar:"تمام",tr:"תַמַאם",he:"מצוין",words:[]},summary:null,turn:1,turns:10,done:false}]}),{status:200}));
+  return real(url,opts); };
+let session=null, ended=0;
+window.ElevenLabsClient={Conversation:{startSession:async o=>{ session=o; return {endSession(){ ended++; }}; }}};
+localStorage.setItem("ihki.tutorGender",JSON.stringify("m"));
+TUTOR_INFO={available:true,voice:false,stt:false,live:true,turns:10,left:null,scenarios:[]};
+openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
+await until(()=>document.querySelector(".tc .tc-msg.in"),5000);
+const btn=document.querySelector(".tc .tc-call"); out.shown=!btn.hidden;
+btn.click(); await until(()=>session&&btn.textContent==="📵",5000);
+out.sent=sent; out.opts={signedUrl:session.signedUrl,first:session.overrides.agent.firstMessage,lang:session.overrides.agent.language,
+  voice:session.overrides.tts.voiceId,keywords:session.overrides.asr.keywords,extra:session.customLlmExtraBody,vars:session.dynamicVariables};
+out.locked=document.querySelector(".tc .tc-type .tc-mic").disabled; out.live=document.querySelector(".tc .tc-live").textContent;
+session.onMessage({role:"agent",source:"ai",message:"تمام"});
+await until(()=>document.querySelectorAll(".tc .tc-msg.in").length===2,5000);
+out.heard=document.querySelector(".tc .tc-msg.out .heard").textContent;
+out.count=document.querySelector(".tc .tc-count").textContent;
+btn.click(); await sleep(200);
+out.ended=ended; out.after=btn.textContent; out.unlocked=!document.querySelector(".tc .tc-type .tc-mic").disabled;
+"""
+
+
+def test_the_tutor_live_call_shows_each_turn_and_hangs_up(site):
+    r = site("boss@x.com", TUTOR_CALL)
+    assert r["shown"] and r["sent"] == [{"id": "chat1"}]
+    assert r["opts"] == {"signedUrl": "wss://x/y", "first": "كيف حالك؟", "lang": "ar", "voice": "him",
+                         "keywords": ["مرحبا"], "extra": {"chat_id": "chat1"}, "vars": {"chat_id": "chat1"}}
+    assert r["locked"] and "בשיחה" in r["live"]
+    assert r["heard"] == "מְנִיח" and "9" in r["count"]
+    assert r["ended"] == 1 and r["after"] == "📞" and r["unlocked"]

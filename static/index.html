@@ -399,6 +399,8 @@ body.tutor-chat{overflow:hidden}
 .tc-type{display:flex;gap:8px;align-items:center}.tc-type input{flex:1;min-width:0;font:400 17px/1.4 var(--f-body);padding:9px 14px;border:1px solid var(--line);border-radius:22px;background:var(--surface);color:var(--ink)}
 .tc-mic{flex:none;width:44px;height:44px;border:0;border-radius:50%;background:#25A35A;color:#fff;cursor:pointer;display:grid;place-items:center;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .tc-mic svg{width:22px;height:22px}
+.tc-call{border:0;background:none;color:inherit;font-size:20px;cursor:pointer;padding:4px 6px;border-radius:50%}
+.tc-call.on{background:var(--sumac);color:#fff}
 .tc-mic.live{background:var(--sumac);animation:tcPulse 1.2s ease-in-out infinite}
 .tc-mic:disabled{opacity:.45;cursor:default}
 @keyframes tcPulse{50%{transform:scale(1.08)}}
@@ -3745,7 +3747,7 @@ function openTutorChat(s){
   const root=mark("tc","","section"); root.setAttribute("role","dialog"); root.setAttribute("aria-label",`יאללה נדבר · ${s.title}`);
   root.innerHTML=`<header class="tc-head"><button class="tc-close" type="button" aria-label="יציאה מהשיחה">→</button>
     <span class="tc-avatar" lang="ar" aria-hidden="true"></span>
-    <div class="tc-who"><b></b><small></small></div><button class="tc-auto" type="button" hidden></button><span class="tc-count"></span></header>
+    <div class="tc-who"><b></b><small></small></div><button class="tc-auto" type="button" hidden></button><button class="tc-call" type="button" hidden aria-label="שיחה קולית חיה" title="שיחה קולית חיה (ניסיון)">📞</button><span class="tc-count"></span></header>
     <div class="tc-log" aria-live="polite"></div>
     <footer class="tc-foot"><p class="tc-live" hidden></p>
       <form class="tc-type"><input type="text" dir="auto" maxlength="300" enterkeyhint="send" autocomplete="off" placeholder="כתבו בערבית או הקליטו" aria-label="ההודעה שלכם"><button class="tc-mic" type="submit"></button></form></footer>`;
@@ -3762,6 +3764,8 @@ function openTutorChat(s){
       auto.setAttribute("aria-label",on?"השמעה אוטומטית של הדובר: פועלת":"השמעה אוטומטית של הדובר: כבויה"); auto.title=auto.getAttribute("aria-label"); };
     auto.hidden=false; paint(); auto.onclick=()=>{ store.set("ihki.tutorAutoplay",!tcAutoplay()); if(!tcAutoplay()) tcStopVoice(); paint(); };
   }
+  const call=root.querySelector(".tc-call");   // the live voice call (a trial, the switch tutor.eleven_agent)
+  if(TUTOR_INFO&&TUTOR_INFO.live){ call.hidden=false; call.onclick=tcCall; }
   root.addEventListener("click",e=>{ if(!e.target.closest(".tc-w")) pop.hidden=true; });
   tc.log.addEventListener("scroll",()=>{ pop.hidden=true; });
   root.querySelector(".tc-close").onclick=closeTutorChat;
@@ -3821,6 +3825,7 @@ function tcNoVoice(){
 function closeTutorChat(){
   if(!tc) return;
   tcStopVoice(); for(const u of Object.values(tc.audio)) URL.revokeObjectURL(u);
+  if(tc.call){ const c=tc.call; tc.call=null; try{ c.endSession(); }catch{} }
   if(tc.rec){ const r=tc.rec; tc.rec=null; try{ r.abort(); }catch{} }
   if(tc.recorder){ const r=tc.recorder; tc.recorder=null; try{ r.stop(); }catch{} }
   if(tc.stream){ tc.stream.getTracks().forEach(x=>x.stop()); tc.stream=null; }
@@ -3851,7 +3856,7 @@ function tcTutor(m){   // the tutor's message: the Arabic in Hebrew letters, wor
   const hear=mark("tc-hear",voiced?"🔊":"🔇","button"); hear.type="button"; hear.setAttribute("aria-label",voiced?"השמעת ההודעה":"ההודעה לא מושמעת: למה?");
   hear.onclick=()=>{ if(voiced) tcSay(n,hear); else tcNote("🔇 "+tcNoVoice(),"bad trial"); };
   b.append(tr,he,show,hear,mark("tc-time",tcTime(),"small")); tc.log.append(b); tcScroll();
-  if(voiced&&tcAutoplay()) tcSay(n,hear);
+  if(voiced&&tcAutoplay()&&!tc.call) tcSay(n,hear);   // in a live call the agent says it
 }
 function tcWord(el,w){   // a word's meaning in a bubble over it; a new word says so
   const pop=tc.pop;
@@ -3911,18 +3916,81 @@ function tcSend(text){   // the student's sentence goes at once; false when it c
       setTr(mine.querySelector(".heard"),d.heard||text);
       if(d.fix) tcFix(mine,d.fix);
       tcTutor(d.reply); tcCount(d.turn,d.turns);
-      if(d.done){
-        tc.done=true;
-        const end=mark("tc-sys end","","div"); end.append(mark("","סיכום השיחה","h3"));
-        if(d.summary) end.append(mark("",d.summary,"p"));
-        const again=mark("btn primary","שיחה חדשה","button"); again.onclick=()=>openTutorChat(tc.s);
-        const tell=mark("btn","💬 משוב על השיחה","button"); tell.onclick=()=>{ tell.remove(); end.after(tcFeedback()); tcScroll(); };
-        end.append(again,tell); tc.log.append(end); tcScroll();
-      }
+      if(d.done) tcEnd(d.summary);
       tcLock(false);
     })
     .catch(()=>{ if(!tc) return; typing.remove(); mine.remove(); tcNote("השרת לא זמין. נסו שוב.","bad"); tcLock(false); });
   return true;
+}
+function tcEnd(summary){   // the conversation's last turn: its summary, a new one, and a note on how it went
+  tc.done=true;
+  const end=mark("tc-sys end","","div"); end.append(mark("","סיכום השיחה","h3"));
+  if(summary) end.append(mark("",summary,"p"));
+  const again=mark("btn primary","שיחה חדשה","button"); again.onclick=()=>openTutorChat(tc.s);
+  const tell=mark("btn","💬 משוב על השיחה","button"); tell.onclick=()=>{ tell.remove(); end.after(tcFeedback()); tcScroll(); };
+  end.append(again,tell); tc.log.append(end); tcScroll();
+}
+/* A live voice call (a trial, POST /api/tutor/live): an ElevenLabs agent hears the student and speaks; our tutor writes
+   each answer, and its turn (the Hebrew letters, the translation, a correction, the summary) is fetched and shown here as
+   a typed one is. 📞 starts it from where the conversation is; a second tap, or the conversation's end, hangs up. */
+let tcSdk=null;
+function tcLoadSdk(url){
+  if(window.ElevenLabsClient) return Promise.resolve(window.ElevenLabsClient);
+  return tcSdk||(tcSdk=new Promise((ok,no)=>{ const el=document.createElement("script"); el.src=url;
+    el.onload=()=>window.ElevenLabsClient?ok(window.ElevenLabsClient):no(new Error("no client"));
+    el.onerror=()=>{ tcSdk=null; no(new Error("load")); }; document.head.append(el); }));
+}
+async function tcCall(){
+  if(!tc) return;
+  if(tc.call||tc.calling){ tcHangUp(); return; }
+  if(!tc.id||tc.busy||tc.done) return;
+  tcStopVoice(); if(tc.rec||tc.recorder) tcListen();
+  const btn=tc.root.querySelector(".tc-call"), t=tc; tc.calling=true; btn.classList.add("on"); btn.textContent="⏳";
+  tcLock(true); tc.live.textContent="מתחברים לשיחה…"; tc.live.hidden=false;
+  const fail=msg=>{ if(tc!==t) return; tc.calling=false; tc.call=null; btn.classList.remove("on"); btn.textContent="📞";
+    tc.live.hidden=true; tcNote(msg,"bad trial"); tcLock(false); };
+  try{
+    const r=await api("/api/tutor/live",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:tc.id})});
+    const d=await r.json().catch(()=>({})); if(tc!==t) return;
+    if(!r.ok) return fail(d.detail||"השיחה החיה לא התחילה. נסו שוב.");
+    const lib=await tcLoadSdk(d.sdk).catch(()=>null); if(tc!==t) return;
+    if(!lib) return fail("לא נטען רכיב השיחה של ElevenLabs. בדקו את החיבור ונסו שוב.");
+    tc.since=d.since;
+    const call=await lib.Conversation.startSession({signedUrl:d.signed_url,
+      overrides:{agent:{firstMessage:d.first_message,language:"ar"},tts:{voiceId:d.voice_id},asr:{keywords:d.keywords}},
+      customLlmExtraBody:{chat_id:d.chat_id},dynamicVariables:{chat_id:d.chat_id},
+      onMessage:m=>{ if(tc===t&&(m.role==="agent"||m.source==="ai")) tcCallPull(); },
+      onModeChange:({mode})=>{ if(tc!==t||!tc.call) return;
+        tc.live.textContent=mode==="speaking"?`${tc.s.who} ${tc.s.she?"מדברת":"מדבר"}…`:"🔴 בשיחה · דברו בערבית"; },
+      onError:msg=>{ if(tc===t) tcNote(`השיחה החיה: ${msg}`,"bad trial"); },
+      onDisconnect:()=>{ if(tc===t) tcCallEnded(); }});
+    if(tc!==t||!tc.calling){ call.endSession(); return; }
+    tc.call=call; tc.calling=false; btn.textContent="📵"; btn.setAttribute("aria-label","ניתוק השיחה הקולית");
+    tc.live.textContent="🔴 בשיחה · דברו בערבית";
+  }catch(e){
+    fail(/permission|notallowed/i.test(String(e&&(e.name||e.message)))?"אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן.":`השיחה החיה לא התחילה (${e&&e.message||e}).`);
+  }
+}
+function tcHangUp(){ if(!tc) return; tc.calling=false; const c=tc.call; tc.call=null; if(c) try{ c.endSession(); }catch{} tcCallEnded(); }
+function tcCallEnded(){
+  if(!tc) return; const c=tc.call; tc.call=null; tc.calling=false; if(c) try{ c.endSession(); }catch{}
+  const btn=tc.root.querySelector(".tc-call"); btn.classList.remove("on"); btn.textContent="📞"; btn.setAttribute("aria-label","שיחה קולית חיה");
+  tc.live.hidden=true; tc.live.textContent=""; tcCallPull(); if(!tc.done) tcLock(false);
+}
+async function tcCallPull(){   // the call's turns the page has not shown yet
+  if(!tc||!tc.id) return; const t=tc;
+  if(t.pulling){ t.pullAgain=true; return; } t.pulling=true;
+  try{
+    const r=await api(`/api/tutor/live/${encodeURIComponent(t.id)}?since=${t.since||0}`), d=await r.json().catch(()=>({}));
+    if(tc!==t||!r.ok) return;
+    for(const turn of d.turns||[]){
+      t.since=(t.since||0)+1;
+      if(turn.error){ tcNote(`${turn.error} (${turn.said})`,"bad"); continue; }
+      const mine=tcStudent(); setTr(mine.querySelector(".heard"),turn.heard); if(turn.fix) tcFix(mine,turn.fix);
+      tcTutor(turn.reply); tcCount(turn.turn,turn.turns);
+      if(turn.done&&!t.done){ tcEnd(turn.summary); setTimeout(()=>{ if(tc===t&&t.call) tcHangUp(); },6000); }   // after the goodbye is said
+    }
+  }finally{ t.pulling=false; if(t.pullAgain){ t.pullAgain=false; tcCallPull(); } }
 }
 /* The end of a conversation asks, once, how it went: יאללה נדבר is in a trial run. How good the conversation was and
    how much it was the spoken Arabic (each 1-5), and a few words; it joins the panel's feedback (POST /api/tutor/feedback),

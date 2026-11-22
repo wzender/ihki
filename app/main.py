@@ -79,6 +79,7 @@ from .camel_race import race_items as camel_race_items, speech_of as camel_race_
 from .grok_mcp import build as build_grok_mcp, oauth_urls
 from .mcp_diagnostics import McpPathNormalizer
 from . import glossary
+from . import tutor_agent
 from . import user_lookup
 from . import library as video_library
 from . import teacher_operations
@@ -3722,7 +3723,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         missing = [name for name in ("ELEVEN_LABS_API_KEY", "ELEVEN_LABS_TUTOR_VOICE_ID", "ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID")
                    if not keys.get(name)]
         return {"available": True, "turns": MAX_TURNS, "voice": bool(key and male),
-                "stt": eleven_hears(user), "voice_missing": missing,
+                "stt": eleven_hears(user), "live": eleven_calls(user) and bool(key and male), "voice_missing": missing,
                 "daily_limit": limit,
                 "left": None if limit is None else max(0, limit - t.started(student, day, seed)),
                 "scenarios": [{k: s[k] for k in ("id", "lesson", "title", "desc", "who", "ar", "she")} for s in SCENARIOS]}
@@ -4403,21 +4404,119 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         male, female = keys.get("ELEVEN_LABS_TUTOR_VOICE_ID"), keys.get("ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID")
         return keys.get("ELEVEN_LABS_API_KEY"), (female or male) if she else (male or female)
 
-    def eleven_hears(user: dict | None) -> bool:
-        """Whether ElevenLabs hears this account in יאללה נדבר: its own exception, else its tier's switch
-        (tutor.eleven_stt), developers included: they too try the browser's recognition while it is off."""
+    def eleven_switch(user: dict | None, feature: str) -> bool:
+        """Whether one of יאללה נדבר's ElevenLabs trials is on for this account: its own exception, else its tier's
+        switch, developers included (their "*" does not turn a trial on: they too see it as it is while it is off)."""
         if not app.state.keys.get("ELEVEN_LABS_API_KEY"):
             return False
         if app.state.auth is None:
             return True
-        own = (user or {}).get("overrides", {}).get("tutor.eleven_stt")
+        own = (user or {}).get("overrides", {}).get(feature)
         if own is not None:
             return bool(own)
         try:
             tier = effective_features(feature_table(app.state.auth))[(user or {}).get("tier", "student")]
         except (AuthUnavailable, KeyError):
             return False
-        return bool(tier.get("tutor.eleven_stt", {}).get("enabled"))
+        return bool(tier.get(feature, {}).get("enabled"))
+
+    def eleven_hears(user: dict | None) -> bool:
+        """Whether ElevenLabs hears this account in יאללה נדבר (tutor.eleven_stt) instead of the browser."""
+        return eleven_switch(user, "tutor.eleven_stt")
+
+    def eleven_calls(user: dict | None) -> bool:
+        """Whether this account may talk to the tutor in a live voice call (tutor.eleven_agent, see tutor_agent.py)."""
+        return eleven_switch(user, "tutor.eleven_agent")
+
+    # ---- the live call (a trial): an ElevenLabs agent hears and speaks; this server writes the answers ----
+    agents = tutor_agent.AgentSetup()
+
+    def public_base(request: Request) -> str:
+        """This server's address as the outside world reaches it (the agent calls it): PUBLIC_URL, else the request's
+        own host behind the Space's proxy."""
+        fixed = os.environ.get("PUBLIC_URL", "").strip().rstrip("/")
+        if fixed:
+            return fixed
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+        proto = request.headers.get("x-forwarded-proto") or ("http" if host.startswith(("localhost", "127.")) else "https")
+        return f"{proto.split(',')[0].strip()}://{host.split(',')[0].strip()}"
+
+    @app.post("/api/tutor/live", dependencies=[Depends(require("tutor.use"))])
+    async def tutor_live(request: Request, body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        """A live call in the student's conversation {"id"}: the signed address for the page's ElevenLabs client, the
+        voice of the part, the line the call opens with (the tutor's latest message) and the lesson's words to listen
+        for. 403 when the trial is off for the account, 503 with the setting's name when one is missing."""
+        if not eleven_calls(user):
+            raise HTTPException(403, "השיחה הקולית החיה כבויה לחשבון הזה")
+        t = tutor_for(user)
+        chat = t.get(str(body.get("id", "")), user["id"] if user else None)
+        if chat is None or chat.done:
+            raise HTTPException(410, "השיחה הזו כבר לא פעילה")
+        sc = BY_ID[chat.scenario]
+        key, voice = tutor_voice(bool(sc.get("she")))
+        if not voice:
+            raise HTTPException(503, "השיחה החיה צריכה קול: לא נבחר קול ליאללה נדבר (ELEVEN_LABS_TUTOR_VOICE_ID).")
+        male = tutor_voice(False)[1]   # the agent's own voice; a woman's part sets hers for the call
+        try:
+            agent = await asyncio.to_thread(agents.ensure, key, public_base(request) + tutor_agent.LLM_PATH, male)
+            url = await asyncio.to_thread(agents.signed_url, key, agent)
+        except TTSUnavailable as e:
+            record_failure(app.state.auth, "text_to_speech")
+            log.warning("live call not started: %s", e)
+            raise HTTPException(503, f"השיחה החיה לא התחילה: ElevenLabs ענה {e.status or ''} ({e})".replace("  ", " "))
+        learnt, _ = tutor_vocabulary(sc["lesson"])
+        opening = next((m for m in reversed(chat.log) if m.get("from") == "tutor"), {})
+        return {"signed_url": url, "voice_id": voice, "first_message": opening.get("ar", ""), "chat_id": chat.id,
+                "since": len(chat.live), "keywords": [ar for ar, _tr, _he in reversed(learnt)][:50],
+                "sdk": tutor_agent.SDK_URL}
+
+    @app.get("/api/tutor/live/{chat_id}", dependencies=[Depends(require("tutor.use"))])
+    def tutor_live_turns(chat_id: str, since: int = Query(0, ge=0), user: dict | None = Depends(signed_in)):
+        """The call's turns from the `since`th on, each as /api/tutor/turn gives it (or {"error"}), for the page."""
+        t = tutor_for(user)
+        chat = t.get(chat_id, user["id"] if user else None)
+        if chat is None:
+            raise HTTPException(410, "השיחה הזו כבר לא פעילה")
+        return {"turns": chat.live[since:], "done": chat.done}
+
+    async def agent_llm(request: Request, tasks: BackgroundTasks):
+        """The live call's model (see tutor_agent.py): the agent's request in, the tutor's turn run on the student's
+        words, and the reply's Arabic given back for the agent to say."""
+        key = app.state.keys.get("ELEVEN_LABS_API_KEY") or ""
+        if not tutor_agent.token_ok(key, request.headers.get("authorization", "")):
+            raise HTTPException(401, "unknown caller")
+        try:
+            body = await request.json()
+        except ValueError:
+            raise HTTPException(400, "not JSON")
+        t = app.state.tutor
+        chat = t.get_any(tutor_agent.chat_id_of(body)) if t and isinstance(body, dict) else None
+        if chat is None:
+            raise HTTPException(404, "no such conversation")
+        said = tutor_agent.student_said(body)[:MAX_TEXT]
+
+        def run() -> str:
+            with chat.lock:   # the agent may ask again while an answer is on its way: one turn at a time
+                if chat.done or not said:
+                    return ""
+                try:
+                    result = t.turn(chat, said)
+                except TutorUnavailable as e:
+                    record_failure(app.state.auth, "model")
+                    chat.live.append({"error": str(e), "said": said})
+                    return tutor_agent.SORRY
+                chat.live.append(result)
+                return result["reply"]["ar"]
+        text = await asyncio.to_thread(run)
+        if chat.user_id and app.state.auth:
+            tasks.add_task(app.state.auth.save_tutor_chat, chat.row())
+        if body.get("stream") is False:
+            return tutor_agent.completion(text)
+        return StreamingResponse(tutor_agent.completion_chunks(text), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache"})
+
+    app.add_api_route(tutor_agent.LLM_PATH + "/chat/completions", agent_llm, methods=["POST"], include_in_schema=False)
+    app.add_api_route(tutor_agent.LLM_PATH, agent_llm, methods=["POST"], include_in_schema=False)
 
     @app.post("/api/tutor/hear", dependencies=[Depends(require("tutor.use"))])
     async def tutor_hear(request: Request, id: str = Form(...), audio: UploadFile = File(...),
