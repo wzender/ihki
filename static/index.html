@@ -8916,7 +8916,8 @@ function drawApiKeys(box){
     for(const k of data.keys||[]){
       const row=mark("key-row",""), info=document.createElement("div"), when=k.updated_at?new Date(k.updated_at).toLocaleDateString("he-IL",{timeZone:"Asia/Jerusalem"}):"";
       const choice=!!k.choices, picker=!!k.voice_picker;
-      const inUse=choice?(k.value?`בשימוש: ${k.value}`:"ברירת המחדל של הקוד (claude-haiku-5-5; עם מפתח Gemini בלבד: gemini-3.1-flash-lite)"):picker&&(k.value?`בשימוש: ${k.value}`:"לא נבחר: הקול הראשון שבחשבון");
+      const off=k.name==="ELEVEN_LABS_VOICE_ID"&&(k.value||"").toLowerCase()==="off";
+      const inUse=choice?(k.value?`בשימוש: ${k.value}`:"ברירת המחדל של הקוד (claude-haiku-5-5; עם מפתח Gemini בלבד: gemini-3.1-flash-lite)"):picker&&(off?"⏸ הגיבוי לחוברת כבוי: ElevenLabs לא משמיע משפטי חוברת":k.value?`בשימוש: ${k.value}`:k.name==="ELEVEN_LABS_VOICE_ID"?"לא נבחר: הקול הראשון שבחשבון":"לא נבחר");
       info.append(mark("",k.label,"b"),mark("",[choice&&k.source==="none"?"":sources[k.source]||k.source,inUse,k.last4&&`מסתיים ב־${k.last4}`,k.updated_by&&`על ידי ${k.updated_by}`,when].filter(Boolean).join(" · "),"small"));
       row.append(info); const guide=keyGuide(k.name); if(guide) row.append(guide); list.append(row);
       if(!data.writable) continue;
@@ -8942,6 +8943,11 @@ function drawApiKeys(box){
       form.onsubmit=e=>{ e.preventDefault(); const value=select&&select.value?select.value:input.value.trim(); if(value) send("PUT",{value},choice?"בודק את המודל מול הספק…":"בודק את המפתח מול הספק…"); };
       if(select) form.append(select); form.append(input,save);
       if(picker){ const open=mark("btn","🎙️ בחירת קול","button"); open.type="button"; open.onclick=()=>elevenVoicePicker(row,show,k.name,k.voice_picker); form.append(open); }
+      if(k.name==="ELEVEN_LABS_VOICE_ID"&&!off){   // ElevenLabs for יאללה נדבר only: the workbook's sentences are left to Sawtak (or the device)
+        const stop=mark("btn","⏸ כיבוי הגיבוי לחוברת","button"); stop.type="button";
+        stop.onclick=()=>{ if(confirm("לכבות את הגיבוי של ElevenLabs למשפטי החוברת? משפט חדש שאין לו הקלטה יושמע בקול של המכשיר כש־Sawtak לא זמין. יאללה נדבר ממשיך עם ElevenLabs.")) send("PUT",{value:"off"},"מכבה…"); };
+        form.append(stop);
+      }
       if(k.source==="db"){ const back=mark("btn",choice?"חזרה לברירת המחדל של השרת":"חזרה למפתח השרת","button"); back.type="button"; back.onclick=()=>{ if(confirm(choice?"לחזור למודל שמוגדר בשרת (או לברירת המחדל)?":"למחוק את המפתח שנשמר בפאנל ולחזור למפתח שמוגדר בשרת (אם יש)?")) send("DELETE",null,"מוחק…"); }; form.append(back); }
       form.append(msg); row.append(form);
     }

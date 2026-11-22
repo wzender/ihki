@@ -217,6 +217,8 @@ def check(name: str, value: str, anthropic_key: str = "", gemini_key: str = "", 
     if name == "ELEVEN_LABS_API_KEY":
         eleven("/voices", value)
         return
+    if name == "ELEVEN_LABS_VOICE_ID" and value.strip().lower() == "off":
+        return   # the workbook's fallback switched off: nothing to ask ElevenLabs
     if name in VOICE_SETTINGS:
         if not re.fullmatch(r"[A-Za-z0-9]{8,64}", value):
             raise KeyRefused("מזהה קול של ElevenLabs הוא מילה אחת של אותיות וספרות.")

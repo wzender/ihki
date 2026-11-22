@@ -4206,7 +4206,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             keys = app.state.keys
             backup = load_elevenlabs(keys.get("ELEVEN_LABS_API_KEY"), keys.get("ELEVEN_LABS_VOICE_ID"))
             sawtak = keys.get("SAWTAK_API_KEY")
-            if app.state.tts is not None and (sawtak or backup is not None):   # the cache and its counts stay
+            if app.state.tts is not None:   # the cache (and what it already holds), its counts stay
                 if name == "SAWTAK_API_KEY":
                     app.state.tts.api_key = sawtak
                 else:

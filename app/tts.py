@@ -165,6 +165,7 @@ class ElevenLabsTTS:
         return buf.getvalue()
 
 
+FALLBACK_OFF = "off"   # ELEVEN_LABS_VOICE_ID's value that turns the workbook's fallback off
 STT_MODEL = "scribe_v2"
 STT_MAX_BYTES = 2 * 1024 * 1024   # a student's sentence: a few seconds of compressed audio
 STT_KEYTERMS = 300   # the lesson's words it is told to expect, the latest lessons' first (each up to 50 characters)
@@ -209,9 +210,9 @@ def eleven_transcribe(key: str, audio: bytes, mime: str, keyterms: list[str] | N
 def load_elevenlabs(key: str | None = None, voice: str | None = None) -> ElevenLabsTTS | None:
     """`key`, `voice`: the ones the panel set (keystore.py); None reads the environment's."""
     key = (os.environ.get("ELEVEN_LABS_API_KEY", "") if key is None else key).strip()
-    if not key:
-        return None
     voice = os.environ.get("ELEVEN_LABS_VOICE_ID", "") if voice is None else voice
+    if not key or voice.strip().lower() == FALLBACK_OFF:   # off: ElevenLabs says no workbook sentence (יאללה נדבר still)
+        return None
     return ElevenLabsTTS(key, voice, os.environ.get("ELEVEN_LABS_FEMALE_VOICE_ID", ""),
                          os.environ.get("ELEVEN_LABS_MODEL", "") or ELEVEN_MODEL)
 

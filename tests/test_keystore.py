@@ -299,3 +299,29 @@ def test_the_tutors_voices_are_chosen_from_palestinian_voices(keys_env, tmp_path
         assert kept["ELEVEN_LABS_VOICE_ID"]["value"] == ""   # playback's voice untouched
         assert c.post("/api/admin/eleven-voices/use", json={"voice_id": "pal00002", "target": "SUPABASE_SECRET_KEY"},
                       headers=bearer("teacher")).status_code == 400
+
+
+def test_the_workbooks_elevenlabs_fallback_can_be_switched_off_and_on(keys_env, tmp_path, monkeypatch):
+    eleven_env(monkeypatch)
+    with client(KeyAuth(), tmp_path) as c:
+        c.put("/api/admin/keys/ELEVEN_LABS_API_KEY", json={"value": "sk_eleven_key_123456"}, headers=bearer("teacher"))
+        tts = c.app.state.tts
+        assert tts.fallback is not None
+        out = c.put("/api/admin/keys/ELEVEN_LABS_VOICE_ID", json={"value": "off"}, headers=bearer("teacher"))
+        assert out.status_code == 200 and c.app.state.tts is tts and tts.fallback is None   # the cache stays, no fallback
+        assert next(k for k in out.json()["keys"] if k["name"] == "ELEVEN_LABS_VOICE_ID")["value"] == "off"
+        c.post("/api/admin/eleven-voices/use", json={"voice_id": "pal00001"}, headers=bearer("teacher"))
+        assert tts.fallback is not None and tts.fallback.voice_id == "pal00001"   # choosing a voice turns it on again
+
+
+def test_off_is_a_value_the_voice_setting_takes_without_asking_elevenlabs():
+    from app.keystore import check
+    check("ELEVEN_LABS_VOICE_ID", "off")   # no key needed, no call
+
+
+def test_with_the_fallback_off_load_tts_has_none(monkeypatch, tmp_path):
+    from app import tts
+    monkeypatch.setenv("TTS_CACHE_DIR", str(tmp_path))
+    monkeypatch.delenv("TTS_BUCKET", raising=False)
+    assert tts.load_tts("sk", "el-key", "off").fallback is None
+    assert tts.load_tts("sk", "el-key", "v1").fallback.voice_id == "v1"
