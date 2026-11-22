@@ -2212,17 +2212,22 @@ def test_the_tutors_voice_picker_offers_every_palestinian_voice_for_any_part(sit
 
 MONITOR_VOICES = """
 await sleep(800);
-MONITOR={live:{},tts:{},build:{},errors:{},supabase:{auth:{ok:true,ms:100},db:{ok:true,ms:100}},voices:{key:true,voices:[
+const real=window.fetch;
+window.fetch=(url,opts={})=>String(url).includes("/api/eleven-voices-in-use")?Promise.resolve(new Response(JSON.stringify({key:true,voices:[
   {setting:"ELEVEN_LABS_VOICE_ID",purpose:"playback",voice_id:"",name:"כבוי"},
   {setting:"ELEVEN_LABS_TUTOR_VOICE_ID",purpose:"tutor-male",voice_id:"added001",name:"Yousef"},
-  {setting:"ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID",purpose:"tutor-female",voice_id:"",name:""}]}};
-const box=document.createElement("div"); document.body.append(box); drawMonitorSummary(box);
-const t=box.querySelector(".mon-voices"); out.text=t&&t.textContent; out.title=t&&t.querySelector(".mon-sub b[title]")?.title;
+  {setting:"ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID",purpose:"tutor-female",voice_id:"",name:""}]}),{status:200})):real(url,opts);
+TUTOR_USAGE={total:{cost:0.1,conversations:1,turns:2},daily:[],models:[],model_now:"claude-haiku-5-5",note:""};
+const box=document.createElement("div"); document.body.append(box); drawTutorUsage(box);
+await until(()=>box.querySelector(".tutor-voices li"),5000);
+const v=box.querySelector(".tutor-usage .tutor-voices"); out.lines=[...v.querySelectorAll("li")].map(li=>li.textContent);
+out.title=v.querySelector("b[title]")?.title; out.after=!!v.previousElementSibling&&/המודל עכשיו/.test(v.previousElementSibling.textContent);
+const mon=document.createElement("div"); document.body.append(mon); MONITOR={live:{},tts:{},build:{},errors:{},supabase:null};
+drawMonitorSummary(mon); out.inSnapshot=/קולות ElevenLabs|ElevenLabs/.test(mon.textContent);
 """
 
 
-def test_monitoring_shows_the_voice_of_each_setting(site):
+def test_the_tutors_card_shows_the_voice_of_each_setting(site):
     r = site("boss@x.com", MONITOR_VOICES)
-    assert "1/3 נבחרו" in r["text"] and "קולות ElevenLabs" in r["text"]
-    assert "השמעה בחוברת (גיבוי): כבוי" in r["text"] and "יאללה נדבר · גבר: Yousef" in r["text"]
-    assert "יאללה נדבר · אישה: לא נבחר" in r["text"] and r["title"] == "added001"
+    assert r["lines"] == ["דמות גבר: Yousef", "דמות אישה: לא נבחר", "השמעה בחוברת (גיבוי): כבוי"]
+    assert r["title"] == "added001" and r["after"] and not r["inSnapshot"]   # under the model, not in the snapshot

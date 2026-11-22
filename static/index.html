@@ -7998,10 +7998,8 @@ async function loadMonitorSummary(){
   const get=async url=>{ try{ const res=await api(url), data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); return data; }catch(err){ return {error:err.message}; } };
   // Supabase is timed on its own: when it is slow, the other tiles do not wait for it
   const supabase=get("/api/supabase-health").then(data=>{ MONITOR={...MONITOR,supabase:data}; redrawFlagsSection("mon-summary",drawMonitorSummary); });
-  // the ElevenLabs voice of each setting, by name (asks ElevenLabs once for a name: on its own too)
-  get("/api/eleven-voices-in-use").then(data=>{ MONITOR={...MONITOR,voices:data}; redrawFlagsSection("mon-summary",drawMonitorSummary); });
   const [live,tts,health,errors]=await Promise.all([get("/api/activity?period=5m"),get("/api/tts-cache"),get("/api/health"),get("/api/log-errors")]);
-  MONITOR={live,tts,build:health.error?{error:health.error}:health.build||{error:"אין פרטי גרסה"},errors,supabase:MONITOR.supabase,voices:MONITOR.voices};
+  MONITOR={live,tts,build:health.error?{error:health.error}:health.build||{error:"אין פרטי גרסה"},errors,supabase:MONITOR.supabase};
   await supabase;
 }
 // Draws one Monitoring section again in place, if the tab is on screen.
@@ -8344,16 +8342,6 @@ function drawMonitorSummary(box){
     const sub=!supabase?"בודק…":supabase.error?supabase.error:parts.map(([name,x])=>x.ok?`${name} ${(x.ms/1000).toFixed(1)} ש׳`:`${name}: ${x.error||"לא עונה"}`).join(" · ");
     tile(!supabase?"…":supabase.error?"–":down?"לא זמין":slow?"איטי":"תקין","Supabase",sub,!supabase||supabase.error?"":down?"bad":slow?"warn":"ready"); }
 
-  // the ElevenLabs voice chosen for each setting (one each): the workbook's fallback, יאללה נדבר's man and woman
-  { const v=MONITOR.voices, PURPOSE={playback:"השמעה בחוברת (גיבוי)","tutor-male":"יאללה נדבר · גבר","tutor-female":"יאללה נדבר · אישה"};
-    const sub=document.createDocumentFragment();
-    if(!v) sub.append("טוען…"); else if(v.error) sub.append(v.error);
-    else (v.voices||[]).forEach((x,i)=>{ if(i) sub.append(document.createElement("br"));
-      const who=mark("",x.name||x.voice_id||"לא נבחר","b"); if(x.voice_id&&x.name) who.title=x.voice_id;   // its name; the id on hover
-      sub.append(`${PURPOSE[x.purpose]||x.setting}: `,who); });
-    const chosen=v&&!v.error?(v.voices||[]).filter(x=>x.voice_id).length:0;
-    tile(!v?"…":v.error?"–":!v.key?"אין מפתח":`${chosen}/3 נבחרו`,"קולות ElevenLabs",sub,!v||v.error?"":!v.key||!chosen?"warn":"ready").classList.add("mon-voices"); }
-
   // the last 5 actions
   const acts=mark("mon-panel",""); acts.append(mark("","5 הפעולות האחרונות","h3"));
   const events=(SYSTEM_ACTIVITY?.events||[]).slice(0,5);
@@ -8684,6 +8672,29 @@ function drawCourseStatus(box){
    and an estimate in dollars, today and the days before it, and by model. Read once a draw of the tab, kept for its
    redraws; the period is chosen here. The dollars are an upper bound (cached input counted at the full price). */
 let TUTOR_USAGE=null, tutorUsageDays=30, tutorUsageLoading=false, tutorUsageError="";
+/* The one ElevenLabs voice of each setting (GET /api/eleven-voices-in-use), by its name: יאללה נדבר's man and woman, and
+   the workbook's fallback. Read once a visit of the tab. */
+let TUTOR_VOICES=null, tutorVoicesLoading=false;
+function tutorVoices(redraw){
+  const box=mark("tutor-voices",""), PURPOSE={"tutor-male":"דמות גבר","tutor-female":"דמות אישה",playback:"השמעה בחוברת (גיבוי)"};
+  box.append(mark("","🎙️ הקולות (ElevenLabs)","h3"));
+  if(!TUTOR_VOICES){
+    box.append(mark("meta","טוען…","p"));
+    if(!tutorVoicesLoading){ tutorVoicesLoading=true;
+      api("/api/eleven-voices-in-use").then(async r=>{ const d=await r.json().catch(()=>({})); TUTOR_VOICES=r.ok?d:{error:d.detail||String(r.status)}; })
+        .catch(e=>{ TUTOR_VOICES={error:e.message}; }).finally(()=>{ tutorVoicesLoading=false; redraw(); }); }
+    return box;
+  }
+  if(TUTOR_VOICES.error){ box.append(mark("note","לא ניתן לטעון: "+TUTOR_VOICES.error,"p")); return box; }
+  if(!TUTOR_VOICES.key){ box.append(mark("note","אין מפתח ElevenLabs, ולכן אין קולות.","p")); return box; }
+  const list=mark("usage-models","","ul"), order=["tutor-male","tutor-female","playback"];
+  for(const x of [...TUTOR_VOICES.voices].sort((a,b)=>order.indexOf(a.purpose)-order.indexOf(b.purpose))){
+    const li=document.createElement("li"), who=mark("",x.name||x.voice_id||"לא נבחר","b");
+    if(x.voice_id&&x.name) who.title=x.voice_id;   // the id on hover
+    li.append(`${PURPOSE[x.purpose]||x.setting}: `,who); list.append(li);
+  }
+  box.append(list); return box;
+}
 function drawTutorUsage(box){
   const card=mark("card tutor-usage",""); card.append(mark("","💬 יאללה נדבר: שימוש ועלות","h2"));
   const pick=document.createElement("select"); pick.setAttribute("aria-label","תקופה");
@@ -8709,6 +8720,7 @@ function drawTutorUsage(box){
     }
     body.append(tiles);
     if(u.model_now) body.append(mark("meta",`המודל עכשיו: ${u.model_now}`,"p"));
+    body.append(tutorVoices(()=>{ if(card.isConnected) draw(); }));
     if(t.conversations&&u.models.length){
       const list=mark("usage-models","","ul");
       for(const m of u.models) list.append(mark("",`${m.model}: ${m.conversations===1?"שיחה אחת":n(m.conversations)+" שיחות"} · ${n(m.input_tokens)} טוקני קלט · ${n(m.output_tokens)} טוקני פלט · ${m.priced?usd(m.cost):"אין מחיר במחירון"}`,"li"));
@@ -9137,7 +9149,7 @@ async function elevenVoicePicker(row,done,target="ELEVEN_LABS_VOICE_ID",purpose=
       if(!confirm(tutor?`לבחור את הקול "${v.name}" ל${gender==="female"?"דמויות הנשים":"דמויות הגברים"} של יאללה נדבר?`:`לבחור את הקול "${v.name}"? משפטים חדשים יושמעו בו כש־Sawtak לא זמין. הקלטות שכבר נוצרו לא משתנות.`)) return;
       pick.disabled=true; pick.textContent="שומר…";
       try{ const res=await api("/api/admin/eleven-voices/use",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({voice_id:v.voice_id,owner_id:v.owner_id||"",name:v.name,target})}), d=await res.json().catch(()=>({}));
-        if(!res.ok) throw new Error(d.detail||res.status); if(audio) audio.pause(); done(d); }
+        if(!res.ok) throw new Error(d.detail||res.status); if(audio) audio.pause(); TUTOR_VOICES=null; done(d); }
       catch(err){ pick.disabled=false; pick.textContent="בחירה"; note.textContent="הבחירה נכשלה: "+err.message; }
     };
     acts.append(pick); li.append(info,acts); return li;
