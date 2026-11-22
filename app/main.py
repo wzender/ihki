@@ -4444,6 +4444,21 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, str(e))
         return {"text": text}
 
+    def eleven_trouble(e: TTSUnavailable, model: str) -> str:
+        """An ElevenLabs failure in words a tester can act on: which setting to look at."""
+        if e.status == 401:
+            return "הדובר לא מושמע: ElevenLabs דחה את המפתח (ELEVEN_LABS_API_KEY). בדקו שהמפתח הועתק במלואו ושלא נמחק."
+        if e.status == 403:
+            return "הדובר לא מושמע: למפתח של ElevenLabs אין הרשאת Text to Speech. צרו מפתח עם ההרשאה הזו."
+        if e.status == 404:
+            return "הדובר לא מושמע: הקול שנבחר לא נמצא בחשבון ElevenLabs (ELEVEN_LABS_TUTOR_VOICE_ID). בחרו קול מחדש."
+        if e.status in (400, 422):
+            return (f"הדובר לא מושמע: ElevenLabs דחה את הבקשה. ייתכן שהמודל {model} אינו נכון; אפשר לקבוע אחר "
+                    "ב-ELEVEN_LABS_MODEL (למשל eleven_multilingual_v2). פרטים: " + str(e))
+        if e.status in (402, 429) or "quota" in str(e).lower():
+            return "הדובר לא מושמע: נגמרו הקרדיט או המכסה בחשבון ElevenLabs, או שנשלחו יותר מדי בקשות. בדקו את החשבון."
+        return f"הדובר לא מושמע: ElevenLabs לא זמין כרגע ({e}). נסו שוב בעוד רגע."
+
     @app.get("/api/tutor/say/{chat_id}/{n}", dependencies=[Depends(require("tutor.use"))])
     def tutor_say(chat_id: str, n: int, user: dict | None = Depends(signed_in)):
         """The tutor's `n`th message (from 0) in the student's conversation, spoken by ElevenLabs in the part's
@@ -4456,16 +4471,20 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not 0 <= n < len(said) or not str(said[n].get("ar") or "").strip():
             raise HTTPException(404, "אין הודעה כזו")
         key, voice = tutor_voice(bool(BY_ID[chat.scenario]["she"]))
-        if not key or not voice:
-            raise HTTPException(503, "ליאללה נדבר עוד לא נבחר קול")
+        if not key:
+            raise HTTPException(503, "הדובר לא מושמע: חסר מפתח ElevenLabs (ELEVEN_LABS_API_KEY). מפתח שומרים בניהול ← ניטור ← "
+                                     "\"מפתחות API ומודל\" (למפתחים), או כסוד בהגדרות ה-Space.")
+        if not voice:
+            raise HTTPException(503, "הדובר לא מושמע: לא נבחר קול ליאללה נדבר (ELEVEN_LABS_TUTOR_VOICE_ID). בוחרים ב-🎙️ בחירת קול "
+                                     "בכרטיס המפתחות (למפתחים), או מגדירים את מזהה הקול בהגדרות ה-Space.")
         kept = tutor_audio.get((chat.id, n))
         if kept is None:
+            model = os.environ.get("ELEVEN_LABS_MODEL", "") or ELEVEN_MODEL
             try:
-                kept = ElevenLabsTTS(key, model=os.environ.get("ELEVEN_LABS_MODEL", "") or ELEVEN_MODEL).speak(
-                    said[n]["ar"].strip(), voice)
+                kept = ElevenLabsTTS(key, model=model).speak(said[n]["ar"].strip(), voice)
             except TTSUnavailable as e:
                 record_failure(app.state.auth, "text_to_speech")
-                raise HTTPException(503, str(e))
+                raise HTTPException(503, eleven_trouble(e, model))
             tutor_audio[(chat.id, n)] = kept
             while len(tutor_audio) > TUTOR_AUDIO_KEPT:
                 tutor_audio.popitem(last=False)

@@ -464,3 +464,26 @@ def test_the_tutor_says_what_of_elevenlabs_is_missing_by_name_only(voices, monke
         info = c.get("/api/tutor", headers=bearer("teacher")).json()
         assert info["voice_missing"] == ["ELEVEN_LABS_API_KEY", "ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID"] and info["voice"] is False
         assert "el-key" not in str(info) and "palman01" not in str(info)   # names, never values
+
+
+@pytest.mark.parametrize("status, says", [(401, "דחה את המפתח"), (403, "הרשאת Text to Speech"),
+                                          (404, "לא נמצא בחשבון"), (422, "המודל eleven_v4_turbo"),
+                                          (402, "קרדיט"), (500, "לא זמין כרגע")])
+def test_an_elevenlabs_failure_names_the_setting_to_look_at(voices, monkeypatch, status, says):
+    from app import tts
+    def fail(self, text, voice):
+        raise tts.TTSUnavailable(f"elevenlabs error {status}: x", status)
+    monkeypatch.setattr(tts.ElevenLabsTTS, "speak", fail)
+    with client(TutorAuth(), FakeClient()) as c:
+        chat = start(c).json()
+        r = c.get(f"/api/tutor/say/{chat['id']}/0", headers=bearer("teacher"))
+        assert r.status_code == 503 and says in r.json()["detail"]
+
+
+def test_a_missing_key_or_voice_is_named_in_the_answer(voices, monkeypatch):
+    with client(TutorAuth(), FakeClient()) as c:
+        chat = start(c).json()
+        monkeypatch.delenv("ELEVEN_LABS_TUTOR_VOICE_ID"); monkeypatch.delenv("ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID")
+        assert "ELEVEN_LABS_TUTOR_VOICE_ID" in c.get(f"/api/tutor/say/{chat['id']}/0", headers=bearer("teacher")).json()["detail"]
+        monkeypatch.delenv("ELEVEN_LABS_API_KEY")
+        assert "ELEVEN_LABS_API_KEY" in c.get(f"/api/tutor/say/{chat['id']}/0", headers=bearer("teacher")).json()["detail"]

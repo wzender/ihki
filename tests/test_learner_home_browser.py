@@ -1965,7 +1965,9 @@ closeTutorChat();
 TUTOR_INFO={available:true,voice:false,turns:10,left:null,scenarios:[]};
 openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
 await until(()=>document.querySelector(".tc .tc-msg.in"),5000);
-out.silentAuto=document.querySelector(".tc .tc-auto").hidden; out.silentHear=document.querySelector(".tc .tc-msg.in .tc-hear").hidden;
+out.silentAuto=document.querySelector(".tc .tc-auto").hidden;
+const mute=document.querySelector(".tc .tc-msg.in .tc-hear"); out.silentHear=mute.textContent; mute.click(); await sleep(100);
+out.why=[...document.querySelectorAll(".tc .tc-note.bad")].map(n=>n.textContent).pop()||"";
 """
 
 
@@ -1975,7 +1977,8 @@ def test_the_tutor_speaks_his_messages_once_and_the_device_keeps_the_choice(site
     assert r["asked"] == ["/api/tutor/say/chat1/0"] and r["played"] == 1   # said on its own when it came
     assert r["autoAfter"] == "false" and r["kept"] == "false"
     assert r["askedAgain"] == 1 and r["playedAgain"] == 2   # 🔊 plays it again without asking the server
-    assert r["silentAuto"] and r["silentHear"]   # no voice chosen: no buttons, the tutor is text only
+    assert r["silentAuto"] and r["silentHear"] == "🔇"   # no voice chosen: 🔇, and a tap says why
+    assert "לא נבחר קול ליאללה נדבר" in r["why"]
 
 
 TUTOR_HEAR = """
@@ -2036,3 +2039,35 @@ def test_the_trial_note_says_what_is_missing_and_what_hears(site):
     assert r["noVoice"][1] and "לא נבחר קול ליאללה נדבר" in r["noVoice"][0]
     assert r["noFemale"][1] and "בקול הגבר" in r["noFemale"][0] and "זיהוי הדיבור: ElevenLabs" in r["noFemale"][0]
     assert not r["all"][1] and r["all"][0].startswith("🧪 גרסת ניסיון") and "מפתחות API" not in r["all"][0]
+
+
+TUTOR_BLOCKED = """
+await sleep(800);
+const real=window.fetch;
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/start")) return Promise.resolve(new Response(JSON.stringify({id:"chat1",turns:10,left:null,
+    message:{ar:"كيف حالك؟",tr:"כִּיף חַאלַכּ?",he:"מה שלומך?",words:[]}}),{status:200}));
+  if(u.includes("/api/tutor/say/0")||u.includes("/say/chat1/0")) return Promise.resolve(new Response(new Blob(["RIFF"]),{status:200}));
+  return real(url,opts); };
+window.Audio=function(){ this.play=()=>Promise.reject(Object.assign(new Error("blocked"),{name:"NotAllowedError"})); this.pause=()=>{}; };
+localStorage.setItem("ihki.tutorGender",JSON.stringify("m"));
+TUTOR_INFO={available:true,voice:true,stt:false,voice_missing:[],turns:10,left:null,scenarios:[]};
+openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
+await until(()=>[...document.querySelectorAll(".tc .tc-note.bad")].some(n=>/חסם/.test(n.textContent)),5000);
+out.blocked=[...document.querySelectorAll(".tc .tc-note.bad")].map(n=>n.textContent).find(t=>/חסם/.test(t));
+closeTutorChat();
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/start")) return Promise.resolve(new Response(JSON.stringify({id:"chat2",turns:10,left:null,
+    message:{ar:"كيف حالك؟",tr:"כִּיף חַאלַכּ?",he:"מה שלומך?",words:[]}}),{status:200}));
+  if(u.includes("/api/tutor/say/")) return Promise.resolve(new Response(JSON.stringify({detail:"הדובר לא מושמע: הקול שנבחר לא נמצא בחשבון ElevenLabs"}),{status:503}));
+  return real(url,opts); };
+openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
+await until(()=>[...document.querySelectorAll(".tc .tc-note.bad")].some(n=>/לא נמצא/.test(n.textContent)),5000);
+out.server=[...document.querySelectorAll(".tc .tc-note.bad")].map(n=>n.textContent).find(t=>/לא נמצא/.test(t));
+"""
+
+
+def test_a_tutor_that_cannot_be_heard_says_why(site):
+    r = site("boss@x.com", TUTOR_BLOCKED)
+    assert "לחצו 🔊" in r["blocked"]
+    assert r["server"].startswith("🔇 הדובר לא מושמע: הקול שנבחר לא נמצא")

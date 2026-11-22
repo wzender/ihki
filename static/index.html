@@ -3798,8 +3798,20 @@ async function tcSay(n,btn){   // the tutor's nth message in his own voice: fetc
     }
     if(tc!==t) return;
     const a=new Audio(t.audio[n]); t.playing=a; await a.play();
-  }catch(err){ if(btn){ btn.title="ההשמעה נכשלה: "+(err.message||err); btn.textContent="⚠"; } }
+  }catch(err){
+    if(tc!==t) return;
+    const blocked=err&&err.name==="NotAllowedError";   // the browser holds back sound it was not asked for by a tap
+    const why=blocked?"הדפדפן חסם השמעה אוטומטית. לחצו 🔊 כדי לשמוע.":(err.message||String(err));
+    if(btn){ btn.title=why; btn.textContent=blocked?"🔊":"⚠"; }
+    if(!t.told||!t.told.has(why)){ (t.told=t.told||new Set()).add(why); tcNote("🔇 "+why,"bad trial"); }   // said once per conversation
+  }
   finally{ btn&&btn.classList.remove("loading"); }
+}
+/* No voice for יאללה נדבר: 🔊 says why, from what is missing (names of settings only). */
+function tcNoVoice(){
+  const miss=new Set((TUTOR_INFO&&TUTOR_INFO.voice_missing)||[]);
+  return miss.has("ELEVEN_LABS_API_KEY")?"הדובר לא מושמע: חסר מפתח ElevenLabs (ELEVEN_LABS_API_KEY). מפתח שומרים בניהול ← ניטור ← \"מפתחות API ומודל\" (למפתחים), או כסוד בהגדרות ה־Space."
+    :"הדובר לא מושמע: לא נבחר קול ליאללה נדבר (ELEVEN_LABS_TUTOR_VOICE_ID). בוחרים ב־🎙️ בחירת קול בכרטיס המפתחות (למפתחים), או מגדירים את מזהה הקול בהגדרות ה־Space.";
 }
 function closeTutorChat(){
   if(!tc) return;
@@ -3830,7 +3842,8 @@ function tcTutor(m){   // the tutor's message: the Arabic in Hebrew letters, wor
   else setTr(tr,m.tr||"");
   he.hidden=true; show.type="button"; show.onclick=()=>{ he.hidden=!he.hidden; show.textContent=he.hidden?"תרגום":"הסתרה"; };
   const n=tc.said++, voiced=!!(TUTOR_INFO&&TUTOR_INFO.voice);
-  const hear=mark("tc-hear","🔊","button"); hear.type="button"; hear.hidden=!voiced; hear.setAttribute("aria-label","השמעת ההודעה"); hear.onclick=()=>tcSay(n,hear);
+  const hear=mark("tc-hear",voiced?"🔊":"🔇","button"); hear.type="button"; hear.setAttribute("aria-label",voiced?"השמעת ההודעה":"ההודעה לא מושמעת: למה?");
+  hear.onclick=()=>{ if(voiced) tcSay(n,hear); else tcNote("🔇 "+tcNoVoice(),"bad trial"); };
   b.append(tr,he,show,hear,mark("tc-time",tcTime(),"small")); tc.log.append(b); tcScroll();
   if(voiced&&tcAutoplay()) tcSay(n,hear);
 }
