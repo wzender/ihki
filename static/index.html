@@ -2748,6 +2748,7 @@ const rumTrack=(name,data={})=>{
 /* A failure the student sees: in words, never a status code (that goes to the console). */
 const oops=(what="משהו השתבש")=>navigator.onLine===false?"אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב.":`${what}, נסו שוב בעוד רגע 🙏`;
 let sessionRefresh=null;
+const refreshRefused=e=>!!e&&!/retryable/i.test(e.name||"")&&e.status>=400&&e.status<500;   // not a network or server hiccup
 const refreshSession=()=>sessionRefresh||(sessionRefresh=sb.auth.refreshSession().catch(error=>({data:{session:null},error})).finally(()=>sessionRefresh=null));
 // A manager previewing the course's draft (the course editor turns it on, on this device): every call asks for the
 // draft, and the server, which checks who asks, answers with it (sentences, progress, speech, scores)
@@ -2771,8 +2772,10 @@ async function api(url,opts={}){   // refresh once on 401; only a freshly issued
   if(res.status!==401) return res;
   const renewed=await refreshSession(), fresh=renewed.data?.session?.access_token||"";
   // A sleeping phone or a network change can make refresh fail temporarily. Keep the local session and let the
-  // exercise show its normal retry message instead of turning a transient failure into a forced sign-out.
-  if(renewed.error||!fresh) return res;
+  // exercise show its normal retry message instead of turning a transient failure into a forced sign-out. But a
+  // refresh token Supabase refuses (400: expired, revoked, signed out elsewhere) never works again: sign out on this
+  // device, so the sign-in screen comes back by itself instead of "צאו והתחברו שוב".
+  if(renewed.error||!fresh){ if(refreshRefused(renewed.error)) await sb.auth.signOut({scope:"local"}).catch(()=>{}); return res; }
   res=await request(fresh);
   if(res.status===401){ await sb.auth.signOut({scope:"local"}); }
   return res;

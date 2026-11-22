@@ -2145,3 +2145,20 @@ def test_the_tutor_live_call_shows_each_turn_and_hangs_up(site):
     assert r["locked"] and "בשיחה" in r["live"]
     assert r["heard"] == "מְנִיח" and "9" in r["count"]
     assert r["ended"] == 1 and r["after"] == "📞" and r["unlocked"]
+
+
+REFRESH_REFUSED = """
+await sleep(800);
+const real=window.fetch; let outs=0;
+window.fetch=(url,opts={})=>String(url).includes("/api/probe")?Promise.resolve(new Response("{}",{status:401})):real(url,opts);
+sb.auth.signOut=async()=>{ outs++; return {}; };
+sb.auth.refreshSession=async()=>({data:{session:null},error:{name:"AuthRetryableFetchError",status:0}});
+await api("/api/probe"); out.afterNetwork=outs;
+sb.auth.refreshSession=async()=>({data:{session:null},error:{name:"AuthApiError",status:400,code:"refresh_token_not_found"}});
+const r=await api("/api/probe"); out.afterRefused=outs; out.status=r.status;
+"""
+
+
+def test_a_refused_refresh_signs_out_on_this_device_and_a_network_hiccup_does_not(site):
+    r = site("dana@x.com", REFRESH_REFUSED)
+    assert r["afterNetwork"] == 0 and r["afterRefused"] == 1 and r["status"] == 401
