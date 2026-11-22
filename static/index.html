@@ -9071,12 +9071,14 @@ async function elevenVoicePicker(row,done,target="ELEVEN_LABS_VOICE_ID",purpose=
   try{ const res=await api("/api/admin/eleven-voices"); data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.detail||res.status); }
   catch(err){ note.textContent="לא ניתן לטעון את הקולות: "+err.message; return; }
   note.textContent="הקשיבו לדוגמה (▶) ובחרו. קול פלסטיני מסומן ⭐, קול לבנטיני ✓. דוגמאות הספרייה לרוב באנגלית: כדאי לנסות קול על משפט מהחוברת לפני שמחליטים.";
-  // יאללה נדבר's parts: Palestinian voices only, of the part's gender (all the Palestinian ones when none is of it)
+  // יאללה נדבר's parts: Palestinian voices only, those of the part's gender first; any of them may be chosen for any
+  // part (the same voice for every speaker too)
   const tutor=purpose==="tutor-male"||purpose==="tutor-female", gender=purpose==="tutor-female"?"female":"male";
+  const current=(data.currents||{})[target]??(target==="ELEVEN_LABS_VOICE_ID"?data.current:"");   // this setting's voice
   if(tutor){
-    const pal=list=>list.filter(v=>v.rank===0), fit=list=>{ const p=pal(list), g=p.filter(v=>v.gender===gender); return g.length?g:p; };
+    const fit=list=>list.filter(v=>v.rank===0).sort((a,b)=>(a.gender!==gender)-(b.gender!==gender));
     data={...data,mine:fit(data.mine),library:fit(data.library)};
-    note.textContent=`קולות פלסטיניים בלבד, ${gender==="female"?"של אישה":"של גבר"} (או כל הפלסטיניים, אם אין כאלה). הקשיבו (▶) ובחרו.`;
+    note.textContent=`קולות פלסטיניים בלבד, ${gender==="female"?"של אישה":"של גבר"} קודם. אפשר לבחור כל קול לכל דמות, גם אותו קול לכולן. הקשיבו (▶) ובחרו.`;
   }
   let audio=null;
   const RANK=["⭐ פלסטיני","✓ לבנטיני","~ ירדני/סורי/לבנוני",""];
@@ -9088,11 +9090,11 @@ async function elevenVoicePicker(row,done,target="ELEVEN_LABS_VOICE_ID",purpose=
     for(const v of voices){
       const li=document.createElement("li"), info=mark("eleven-voice-info","");
       info.append(mark("",v.name||v.voice_id,"b"),mark("meta",[RANK[v.rank],v.accent,v.gender==="male"?"גבר":v.gender==="female"?"אישה":v.gender,v.age,v.description].filter(Boolean).join(" · "),"small"));
-      if(v.voice_id===data.current) info.append(mark("pill","בשימוש","span"));
+      if(v.voice_id===current) info.append(mark("pill","בשימוש","span"));
       const acts=mark("eleven-voice-actions","");
       if(v.preview_url){ const play=mark("btn","▶","button"); play.setAttribute("aria-label",`דוגמה: ${v.name}`);
         play.onclick=()=>{ if(audio) audio.pause(); audio=new Audio(v.preview_url); audio.play().catch(()=>{ play.textContent="✕"; }); }; acts.append(play); }
-      const pick=mark("btn primary","בחירה","button"); pick.disabled=v.voice_id===data.current;
+      const pick=mark("btn primary","בחירה","button"); pick.disabled=v.voice_id===current;
       pick.onclick=async()=>{
         if(!confirm(tutor?`לבחור את הקול "${v.name}" ל${gender==="female"?"דמויות הנשים":"דמויות הגברים"} של יאללה נדבר?`:`לבחור את הקול "${v.name}"? משפטים חדשים יושמעו בו כש־Sawtak לא זמין. הקלטות שכבר נוצרו לא משתנות.`)) return;
         pick.disabled=true; pick.textContent="שומר…";

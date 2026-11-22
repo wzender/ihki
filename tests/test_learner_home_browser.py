@@ -2162,3 +2162,25 @@ const r=await api("/api/probe"); out.afterRefused=outs; out.status=r.status;
 def test_a_refused_refresh_signs_out_on_this_device_and_a_network_hiccup_does_not(site):
     r = site("dana@x.com", REFRESH_REFUSED)
     assert r["afterNetwork"] == 0 and r["afterRefused"] == 1 and r["status"] == 401
+
+
+VOICE_PICKER = """
+await sleep(800);
+const real=window.fetch;
+window.fetch=(url,opts={})=>String(url).includes("/api/admin/eleven-voices")?Promise.resolve(new Response(JSON.stringify({
+  current:"pal00001",currents:{ELEVEN_LABS_VOICE_ID:"pal00001",ELEVEN_LABS_TUTOR_VOICE_ID:"pal00001",ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID:"pal00002"},
+  mine:[],library:[{voice_id:"pal00001",owner_id:"o1",name:"Yousef",gender:"male",rank:0},{voice_id:"pal00002",owner_id:"o2",name:"Salma",gender:"female",rank:0},
+                   {voice_id:"lev00001",owner_id:"o3",name:"Rami",gender:"male",rank:1}]}),{status:200})):real(url,opts);
+const row=document.createElement("div"); document.body.append(row);
+await elevenVoicePicker(row,()=>{},"ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID","tutor-female");
+const items=[...row.querySelectorAll(".eleven-voice-list li")];
+out.names=items.map(li=>li.querySelector("b").textContent);
+out.inUse=items.filter(li=>li.querySelector(".pill")).map(li=>li.querySelector("b").textContent);
+out.disabled=items.filter(li=>li.querySelector(".btn.primary").disabled).map(li=>li.querySelector("b").textContent);
+"""
+
+
+def test_the_tutors_voice_picker_offers_every_palestinian_voice_for_any_part(site):
+    r = site("boss@x.com", VOICE_PICKER)
+    assert r["names"] == ["Salma", "Yousef"]   # the part's gender first, the other too; Palestinian only
+    assert r["inUse"] == ["Salma"] and r["disabled"] == ["Salma"]   # this part's voice, not playback's

@@ -4657,7 +4657,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(502, str(e))
         library.sort(key=lambda v: (v["rank"], v["gender"] != "male", v["name"] or ""))
         mine.sort(key=lambda v: (v["rank"], v["name"] or ""))
-        return {"current": app.state.keys.get("ELEVEN_LABS_VOICE_ID"), "mine": mine, "library": library}
+        return {"current": app.state.keys.get("ELEVEN_LABS_VOICE_ID"), "mine": mine, "library": library,
+                "currents": {name: app.state.keys.get(name) or "" for name in VOICE_SETTINGS}}   # each setting's voice
 
     @app.post("/api/admin/eleven-voices/use")
     def use_eleven_voice(response: Response, body: dict = Body(...), _a: SupabaseAuth = Depends(keys_only),
@@ -4677,10 +4678,15 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not re.fullmatch(r"[A-Za-z0-9]{8,64}", voice_id) or (owner and not re.fullmatch(r"[A-Za-z0-9]{8,80}", owner)):
             raise HTTPException(400, "מזהה קול אינו תקין")
         try:
-            if owner:
-                added = eleven_api(f"/voices/add/{owner}/{voice_id}", key,
-                                   {"new_name": str(body.get("name") or "ihki")[:60] or "ihki"})
-                voice_id = str(added.get("voice_id") or voice_id)
+            if owner:   # a library voice: added to the account once; chosen again (for another part), the same one
+                have = next((v["voice_id"] for v in eleven_api("/voices", key).get("voices") or []
+                             if voice_id in (v.get("voice_id"), (v.get("sharing") or {}).get("original_voice_id"))), "")
+                if have:
+                    voice_id = have
+                else:
+                    added = eleven_api(f"/voices/add/{owner}/{voice_id}", key,
+                                       {"new_name": str(body.get("name") or "ihki")[:60] or "ihki"})
+                    voice_id = str(added.get("voice_id") or voice_id)
             check_key(target, voice_id, eleven_key=key)
             app.state.keys.set(target, voice_id, (user or {}).get("email", ""))
         except KeyRefused as e:

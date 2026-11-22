@@ -214,12 +214,14 @@ def test_a_gemini_model_needs_the_gemini_key():
 def eleven_env(monkeypatch, calls=None):
     """ElevenLabs' API, faked for the panel's voice picker (app.main.eleven_api) and the key checks."""
     calls = [] if calls is None else calls
+    added = []   # library voices added to the account: listed with the account's own from then on
 
     def api(path, key, body=None):
         calls.append((path, key, body))
         if path == "/voices":
             return {"voices": [{"voice_id": "mine0001", "name": "Teacher", "category": "cloned",
-                                "labels": {"accent": "palestinian", "gender": "male"}, "preview_url": "https://x/1.mp3"}]}
+                                "labels": {"accent": "palestinian", "gender": "male"}, "preview_url": "https://x/1.mp3"},
+                               *({"voice_id": "added001", "name": "ihki", "sharing": {"original_voice_id": v}} for v in added)]}
         if path.startswith("/shared-voices"):
             return {"voices": [
                 {"voice_id": "gulf0001", "public_owner_id": "owner001", "name": "Khalid", "accent": "gulf", "gender": "male"},
@@ -228,6 +230,8 @@ def eleven_env(monkeypatch, calls=None):
                 {"voice_id": "pal00001", "public_owner_id": "owner004", "name": "Yousef", "accent": "palestinian", "gender": "male",
                  "preview_url": "https://x/yousef.mp3"}]}
         if path.startswith("/voices/add/"):
+            assert path.rsplit("/", 1)[1] not in added, "ElevenLabs refuses a voice the account has"
+            added.append(path.rsplit("/", 1)[1])
             return {"voice_id": "added001"}
         return {}
     monkeypatch.setattr(app.main, "eleven_api", api)
@@ -325,3 +329,17 @@ def test_with_the_fallback_off_load_tts_has_none(monkeypatch, tmp_path):
     monkeypatch.delenv("TTS_BUCKET", raising=False)
     assert tts.load_tts("sk", "el-key", "off").fallback is None
     assert tts.load_tts("sk", "el-key", "v1").fallback.voice_id == "v1"
+
+
+def test_one_library_voice_can_be_every_speakers(keys_env, tmp_path, monkeypatch):
+    calls = eleven_env(monkeypatch)
+    with client(KeyAuth(), tmp_path) as c:
+        c.put("/api/admin/keys/ELEVEN_LABS_API_KEY", json={"value": "sk_eleven_key_123456"}, headers=bearer("teacher"))
+        for target in ("ELEVEN_LABS_TUTOR_VOICE_ID", "ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID", "ELEVEN_LABS_VOICE_ID"):
+            out = c.post("/api/admin/eleven-voices/use", json={"voice_id": "pal00001", "owner_id": "owner004",
+                                                              "name": "Yousef", "target": target}, headers=bearer("teacher"))
+            assert out.status_code == 200, out.text
+        assert sum(p.startswith("/voices/add/") for p, _k, _b in calls) == 1   # added once, then the account's copy
+        voices = c.get("/api/admin/eleven-voices", headers=bearer("teacher")).json()
+        assert voices["currents"] == {"ELEVEN_LABS_VOICE_ID": "added001", "ELEVEN_LABS_TUTOR_VOICE_ID": "added001",
+                                      "ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID": "added001"}
