@@ -2231,3 +2231,29 @@ def test_the_tutors_card_shows_the_voice_of_each_setting(site):
     r = site("boss@x.com", MONITOR_VOICES)
     assert r["lines"] == ["דמות גבר: Yousef", "דמות אישה: לא נבחר", "השמעה בחוברת (גיבוי): כבוי"]
     assert r["title"] == "added001" and r["after"] and not r["inSnapshot"]   # under the model, not in the snapshot
+
+
+KEYS_CARD_VOICES = """
+await sleep(800);
+const real=window.fetch;
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.endsWith("/api/admin/keys")) return Promise.resolve(new Response(JSON.stringify({writable:true,keys:[
+    {name:"ELEVEN_LABS_VOICE_ID",label:"ElevenLabs · הקול",source:"db",value:"off",voice_picker:"playback"},
+    {name:"ELEVEN_LABS_TUTOR_VOICE_ID",label:"דמות גבר",source:"db",value:"NeokBGcPJaElDOj380Qt",voice_picker:"tutor-male"},
+    {name:"ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID",label:"דמות אישה",source:"none",value:"",voice_picker:"tutor-female"}]}),{status:200}));
+  if(u.includes("/api/eleven-voices-in-use")) return Promise.resolve(new Response(JSON.stringify({key:true,voices:[
+    {setting:"ELEVEN_LABS_TUTOR_VOICE_ID",purpose:"tutor-male",voice_id:"NeokBGcPJaElDOj380Qt",name:"Bader"}]}),{status:200}));
+  return real(url,opts); };
+ME_PERMISSIONS=new Set(["*"]); API_KEYS=null;
+const box=document.createElement("div"); document.body.append(box); drawApiKeys(box);
+await until(()=>/Bader/.test(box.textContent),5000);
+const rows=[...box.querySelectorAll(".key-row")];
+out.values=rows.map(r=>r.querySelector("form input")?.value??null);
+out.male=rows[1].querySelector("small").textContent;
+"""
+
+
+def test_a_chosen_voice_stays_in_its_field_with_its_name(site):
+    r = site("boss@x.com", KEYS_CARD_VOICES)
+    assert r["values"] == ["", "NeokBGcPJaElDOj380Qt", ""]   # the voice in use; not "off", and nothing when none is chosen
+    assert "בשימוש: Bader (NeokBGcPJaElDOj380Qt)" in r["male"]

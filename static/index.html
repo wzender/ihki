@@ -8978,11 +8978,11 @@ const KEY_GUIDES={
     ["הדביקו אותו כאן ולחצו שמירה. אחר כך בחרו קול פלסטיני בשורה \"הקול\" שמתחת."]],
   ELEVEN_LABS_TUTOR_VOICE_ID:[
     ["בשיחות של יאללה נדבר הדובר מושמע רק ב־ElevenLabs (לא ב־Sawtak ולא בקול של המכשיר), כשמפתח ElevenLabs שמור למעלה ונבחר כאן קול."],
-    ["לחצו \"🎙️ בחירת קול\": מוצגים רק קולות פלסטיניים של גבר. הקשיבו (▶) ובחרו."],
+    ["לחצו \"🎙️ בחירת קול\": מוצגים הקולות בערבית, הפלסטיניים ושל גבר קודם, עם סינון לפי מגדר ומבטא. הקשיבו (▶) ובחרו. אפשר לבחור אותו קול לכל הדמויות."],
     ["כל הודעה של הדובר היא טקסט חדש, ולכן כל השמעה ראשונה עולה (בערך 1,000 תווים לשיחה שלמה). השמעה חוזרת של אותה הודעה לא עולה."]],
   ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID:[
     ["הקול לדמויות הנשים ביאללה נדבר (רובה, אם סמיר, סוהא, ד\"ר לילא). בלעדיו הן מדברות בקול הגבר."],
-    ["לחצו \"🎙️ בחירת קול\": מוצגים רק קולות פלסטיניים של אישה."]],
+    ["לחצו \"🎙️ בחירת קול\": מוצגים הקולות בערבית, הפלסטיניים ושל אישה קודם, עם סינון לפי מגדר ומבטא."]],
   ELEVEN_LABS_VOICE_ID:[
     ["לחצו \"🎙️ בחירת קול\": יופיעו הקולות שבחשבון וקולות בערבית מהספרייה של ElevenLabs, הפלסטיניים (⭐) ראשונים."],
     ["הקשיבו לדוגמה (▶) ובחרו. קול מהספרייה מתווסף לחשבון אוטומטית."],
@@ -9055,16 +9055,19 @@ function drawApiKeys(box){
     API_KEYS=data; list.innerHTML="";
     if(data.setup){ const code=mark("",data.setup,"code"); code.dir="ltr"; list.append(mark("note","כדי לשמור מפתחות מהפאנל, יש ליצור את הטבלה app_secrets ב־Supabase:","p"),code); }
     else if(!data.writable&&data.why) list.append(mark("note",data.why,"p"));
-    const sources={db:"נשמר בפאנל",env:"מוגדר בשרת",none:"לא מוגדר"};
+    const sources={db:"נשמר בפאנל",env:"מוגדר בשרת",none:"לא מוגדר"}, voiceRows=[];
     for(const k of data.keys||[]){
       const row=mark("key-row",""), info=document.createElement("div"), when=k.updated_at?new Date(k.updated_at).toLocaleDateString("he-IL",{timeZone:"Asia/Jerusalem"}):"";
       const choice=!!k.choices, picker=!!k.voice_picker;
       const off=k.name==="ELEVEN_LABS_VOICE_ID"&&(k.value||"").toLowerCase()==="off";
       const inUse=choice?(k.value?`בשימוש: ${k.value}`:"ברירת המחדל של הקוד (claude-haiku-5-5; עם מפתח Gemini בלבד: gemini-3.1-flash-lite)"):picker&&(off?"⏸ הגיבוי לחוברת כבוי: ElevenLabs לא משמיע משפטי חוברת":k.value?`בשימוש: ${k.value}`:k.name==="ELEVEN_LABS_VOICE_ID"?"לא נבחר: הקול הראשון שבחשבון":"לא נבחר");
-      info.append(mark("",k.label,"b"),mark("",[choice&&k.source==="none"?"":sources[k.source]||k.source,inUse,k.last4&&`מסתיים ב־${k.last4}`,k.updated_by&&`על ידי ${k.updated_by}`,when].filter(Boolean).join(" · "),"small"));
+      const meta=mark("",[choice&&k.source==="none"?"":sources[k.source]||k.source,inUse,k.last4&&`מסתיים ב־${k.last4}`,k.updated_by&&`על ידי ${k.updated_by}`,when].filter(Boolean).join(" · "),"small");
+      info.append(mark("",k.label,"b"),meta);
+      if(picker&&k.value&&!off) voiceRows.push([k.name,meta,k.value]);   // its voice's name is added once it is read
       row.append(info); const guide=keyGuide(k.name); if(guide) row.append(guide); list.append(row);
       if(!data.writable) continue;
       const form=document.createElement("form"), input=document.createElement("input"), save=mark("btn primary","שמירה","button"), msg=mark("msg","");
+      if(picker&&k.value&&!off) input.value=k.value;   // a voice id is not a secret: the one in use stays in the field
       input.type=choice||picker?"text":"password"; input.autocomplete="off"; input.spellcheck=false; input.dir="ltr"; input.maxLength=300; input.placeholder=choice?"claude-… / gemini-…":picker?"מזהה קול":"מפתח חדש"; input.setAttribute("aria-label",choice?"מזהה מודל אחר":picker?"מזהה קול של ElevenLabs":`מפתח חדש: ${k.label}`); save.type="submit";
       let select=null;
       if(choice){   // the list, and "other" for an id typed in the field
@@ -9094,6 +9097,10 @@ function drawApiKeys(box){
       if(k.source==="db"){ const back=mark("btn",choice?"חזרה לברירת המחדל של השרת":"חזרה למפתח השרת","button"); back.type="button"; back.onclick=()=>{ if(confirm(choice?"לחזור למודל שמוגדר בשרת (או לברירת המחדל)?":"למחוק את המפתח שנשמר בפאנל ולחזור למפתח שמוגדר בשרת (אם יש)?")) send("DELETE",null,"מוחק…"); }; form.append(back); }
       form.append(msg); row.append(form);
     }
+    if(voiceRows.length) api("/api/eleven-voices-in-use").then(r=>r.ok?r.json():null).then(d=>{   // each voice by its name too
+      const names=Object.fromEntries(((d&&d.voices)||[]).map(v=>[v.setting,v.name]));
+      for(const [name,meta,id] of voiceRows) if(names[name]&&meta.isConnected) meta.textContent=meta.textContent.replace(`בשימוש: ${id}`,`בשימוש: ${names[name]} (${id})`);
+    }).catch(()=>{});
   };
   if(API_KEYS){ show(API_KEYS); return; }
   list.append(mark("note","טוען…","p"));
