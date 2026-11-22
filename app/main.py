@@ -3717,8 +3717,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             return {"available": False}
         student, day, limit, seed = tutor_day(user)
         key, male = tutor_voice(False)
+        keys = app.state.keys
+        # the trial's notice in the conversation: what of ElevenLabs is not set (names only, never a value)
+        missing = [name for name in ("ELEVEN_LABS_API_KEY", "ELEVEN_LABS_TUTOR_VOICE_ID", "ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID")
+                   if not keys.get(name)]
         return {"available": True, "turns": MAX_TURNS, "voice": bool(key and male),
-                "stt": eleven_hears(user),
+                "stt": eleven_hears(user), "voice_missing": missing,
                 "daily_limit": limit,
                 "left": None if limit is None else max(0, limit - t.started(student, day, seed)),
                 "scenarios": [{k: s[k] for k in ("id", "lesson", "title", "desc", "who", "ar", "she")} for s in SCENARIOS]}

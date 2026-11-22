@@ -3863,7 +3863,21 @@ async function tcStart(gender){
     tc.id=d.id; if(TUTOR_INFO&&d.left!=null) TUTOR_INFO.left=d.left;
     tcCount(0,d.turns); tcTutor(d.message); tcLock(false);
     tcNote("לחצו על מילה כדי לראות מה היא אומרת · ✦ מסמן מילה שעוד לא למדתם");
+    tcTrialNote();
   }catch{ if(tc){ wait.remove(); tcNote("השרת לא זמין. נסו שוב.","bad"); } }
+}
+/* גרסת ניסיון: what the conversation runs on, and what of ElevenLabs is missing, so a silent tutor says why. */
+function tcTrialNote(){
+  if(!tc||!TUTOR_INFO) return;
+  const miss=new Set(TUTOR_INFO.voice_missing||[]), she=!!tc.s.she, parts=[];
+  if(miss.has("ELEVEN_LABS_API_KEY")) parts.push("אין מפתח ElevenLabs, ולכן הדובר לא מושמע");
+  else if(!TUTOR_INFO.voice) parts.push("לא נבחר קול ליאללה נדבר, ולכן הדובר לא מושמע");
+  else if(she&&miss.has("ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID")) parts.push("לא נבחר קול לדמות אישה: היא מדברת בקול הגבר");
+  else if(!she&&miss.has("ELEVEN_LABS_TUTOR_VOICE_ID")) parts.push("לא נבחר קול לדמות גבר: הוא מדבר בקול האישה");
+  const hear=TUTOR_INFO.stt?"זיהוי הדיבור: ElevenLabs":SR?"זיהוי הדיבור: הדפדפן":"זיהוי הדיבור: אין (הקלדה בלבד)";
+  const head=parts.length?"⚠️ גרסת ניסיון · ":"🧪 גרסת ניסיון · ";
+  const fix=parts.length?" · ההגדרה: ניהול ← ניטור ← \"מפתחות API ומודל\" (למפתחים), או בהגדרות ה־Space":"";
+  tcNote(head+[...parts,hear].join(" · ")+fix,parts.length?"bad trial":"trial");
 }
 function tcSend(text){   // the student's sentence goes at once; false when it cannot go now
   if(!tc||tc.busy||tc.done||!tc.id) return false;

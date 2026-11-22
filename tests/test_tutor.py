@@ -453,3 +453,14 @@ def test_the_recognizer_retries_without_the_words_when_they_are_refused(monkeypa
     first, second = sent
     assert first.count(b'name="keyterms"') == 2 and b'name="keyterms"' not in second   # deduped, too long dropped
     assert b'name="language_code"\r\n\r\nar\r\n' in first and b'name="model_id"\r\n\r\nscribe_v2' in first
+
+
+def test_the_tutor_says_what_of_elevenlabs_is_missing_by_name_only(voices, monkeypatch):
+    with client(TutorAuth(), FakeClient()) as c:
+        assert c.get("/api/tutor", headers=bearer("teacher")).json()["voice_missing"] == []
+        monkeypatch.delenv("ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID")
+        assert c.get("/api/tutor", headers=bearer("teacher")).json()["voice_missing"] == ["ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID"]
+        monkeypatch.delenv("ELEVEN_LABS_API_KEY")
+        info = c.get("/api/tutor", headers=bearer("teacher")).json()
+        assert info["voice_missing"] == ["ELEVEN_LABS_API_KEY", "ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID"] and info["voice"] is False
+        assert "el-key" not in str(info) and "palman01" not in str(info)   # names, never values

@@ -2008,3 +2008,31 @@ def test_with_the_switch_on_the_tutor_hears_through_elevenlabs_not_the_browser(s
     assert r["recording"] and "מקליט" in r["live"]
     assert r["sent"] == [["hear", "chat1", 4000], ["turn", "منيح الحمد لله"]]   # the server's text goes on as the browser's would
     assert r["browserHeard"] == 0
+
+
+TUTOR_TRIAL = """
+await sleep(800);
+const real=window.fetch;
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/start")) return Promise.resolve(new Response(JSON.stringify({id:"chat1",turns:10,left:null,
+    message:{ar:"كيف حالك؟",tr:"כִּיף חַאלַכּ?",he:"מה שלומך?",words:[]}}),{status:200}));
+  if(u.includes("/api/tutor/say/")) return Promise.resolve(new Response(new Blob(["RIFF"]),{status:200}));
+  return real(url,opts); };
+window.Audio=function(){ this.play=()=>Promise.resolve(); this.pause=()=>{}; };
+localStorage.setItem("ihki.tutorGender",JSON.stringify("m"));
+const notes=async(info,s)=>{ TUTOR_INFO=info; openTutorChat(s); await until(()=>document.querySelector(".tc .tc-note.trial"),5000);
+  const t=document.querySelector(".tc .tc-note.trial"); const r=[t.textContent,t.classList.contains("bad")]; closeTutorChat(); return r; };
+const man={id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false}, woman={id:"l3",lesson:"3",title:"סיפור",who:"רובה",ar:"روبا",she:true};
+out.noKey=await notes({available:true,voice:false,stt:false,voice_missing:["ELEVEN_LABS_API_KEY","ELEVEN_LABS_TUTOR_VOICE_ID","ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID"]},man);
+out.noVoice=await notes({available:true,voice:false,stt:false,voice_missing:["ELEVEN_LABS_TUTOR_VOICE_ID","ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID"]},man);
+out.noFemale=await notes({available:true,voice:true,stt:true,voice_missing:["ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID"]},woman);
+out.all=await notes({available:true,voice:true,stt:false,voice_missing:[]},man);
+"""
+
+
+def test_the_trial_note_says_what_is_missing_and_what_hears(site):
+    r = site("boss@x.com", TUTOR_TRIAL)
+    assert r["noKey"][1] and "אין מפתח ElevenLabs" in r["noKey"][0] and "מפתחות API" in r["noKey"][0]
+    assert r["noVoice"][1] and "לא נבחר קול ליאללה נדבר" in r["noVoice"][0]
+    assert r["noFemale"][1] and "בקול הגבר" in r["noFemale"][0] and "זיהוי הדיבור: ElevenLabs" in r["noFemale"][0]
+    assert not r["all"][1] and r["all"][0].startswith("🧪 גרסת ניסיון") and "מפתחות API" not in r["all"][0]
