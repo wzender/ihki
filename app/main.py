@@ -4660,6 +4660,24 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             return "הדובר לא מושמע: נגמרו הקרדיט או המכסה בחשבון ElevenLabs, או שנשלחו יותר מדי בקשות. בדקו את החשבון."
         return f"הדובר לא מושמע: ElevenLabs לא זמין כרגע ({e}). נסו שוב בעוד רגע."
 
+    voice_samples: dict[tuple[str, str], dict] = {}   # (key, voice id) -> its name and sample in the account
+
+    @app.get("/api/tutor/voice-sample", dependencies=[Depends(require("tutor.use"))])
+    def tutor_voice_sample(she: bool = Query(False)):
+        """The sample of the voice chosen for a man's part (or a woman's): its name and ElevenLabs' own recording of
+        it (preview_url), as the voice picker plays it, to set beside what the tutor sounds like."""
+        key, voice = tutor_voice(she)
+        if not key or not voice:
+            raise HTTPException(404, "לא נבחר קול ליאללה נדבר")
+        if (key, voice) not in voice_samples:
+            try:
+                v = eleven_api(f"/voices/{voice}", key)
+            except KeyRefused as e:
+                raise HTTPException(502, str(e))
+            voice_samples[(key, voice)] = {"voice_id": voice, "name": str(v.get("name") or ""),
+                                           "preview_url": str(v.get("preview_url") or "")}
+        return voice_samples[(key, voice)]
+
     @app.get("/api/tutor/say/{chat_id}/{n}", dependencies=[Depends(require("tutor.use"))])
     def tutor_say(chat_id: str, n: int, user: dict | None = Depends(signed_in)):
         """The tutor's `n`th message (from 0) in the student's conversation, spoken by ElevenLabs in the part's

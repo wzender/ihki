@@ -2487,3 +2487,28 @@ out.text=el.textContent; out.sh=!!el.querySelector(".sh");
 def test_arabic_vowel_signs_on_hebrew_letters_are_drawn_as_hebrew_points(site):
     r = site("boss@x.com", ARABIC_MARKS)
     assert r["text"] == "עַלַיְכֻם סַלאם" and r["sh"]   # no Arabic sign left (no box); the shadda drawn by its span
+
+
+TUTOR_SAMPLE = """
+await sleep(800);
+const real=window.fetch; let askedShe=null;
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/start")) return Promise.resolve(new Response(JSON.stringify({id:"chat1",turns:10,left:null,
+    message:{ar:"كيف حالك؟",tr:"כִּיף חַאלַכּ?",he:"מה שלומך?",words:[]}}),{status:200}));
+  if(u.includes("/api/tutor/voice-sample")){ askedShe=u.includes("she=true"); return Promise.resolve(new Response(JSON.stringify({voice_id:"v1",name:"Bader",preview_url:"https://x/bader.mp3"}),{status:200})); }
+  if(u.includes("/api/tutor/say/")) return Promise.resolve(new Response(new Blob(["ID3"]),{status:200}));
+  return real(url,opts); };
+const played=[]; window.Audio=function(src){ this.src=src; this.play=()=>{ played.push(src); return Promise.resolve(); }; this.pause=()=>{}; };
+localStorage.setItem("ihki.tutorGender",JSON.stringify("m")); localStorage.setItem("ihki.tutorAutoplay",JSON.stringify(false));
+TUTOR_INFO={available:true,voice:true,stt:false,turns:10,left:null,scenarios:[]};
+openTutorChat({id:"l3",lesson:"3",title:"השכנה",who:"רובה",ar:"روبا",she:true});
+await until(()=>document.querySelector(".tc .tc-note.trial"),5000);
+const b=[...document.querySelectorAll(".tc .tc-note.trial button")].find(x=>x.textContent.includes("דוגמית"));
+out.button=!!b; b.click(); await until(()=>played.length,5000);
+out.played=played; out.she=askedShe;
+"""
+
+
+def test_the_tutor_plays_the_chosen_voices_own_sample(site):
+    r = site("boss@x.com", TUTOR_SAMPLE)
+    assert r["button"] and r["played"] == ["https://x/bader.mp3"] and r["she"] is True   # the woman's part's voice

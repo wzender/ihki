@@ -3939,6 +3939,18 @@ function tcTrialNote(){
   const head=parts.length?"⚠️ גרסת ניסיון · ":"🧪 גרסת ניסיון · ";
   const fix=parts.length?" · ההגדרה: ניהול ← ניטור ← \"מפתחות API ומודל\" (למפתחים), או בהגדרות ה־Space":"";
   const note=tcNote(head+[...parts,tcHearsWith()].join(" · ")+fix,parts.length?"bad trial":"trial");
+  if(TUTOR_INFO.voice){   // the trial: the chosen voice's own sample (as the voice picker plays it), beside the tutor's
+    const sample=mark("tc-engine","🎧 דוגמית הקול","button"); sample.type="button"; sample.title="הדוגמית של הקול שנבחר, כמו בבחירת הקול";
+    sample.onclick=async()=>{
+      tcStopVoice(); sample.disabled=true;
+      try{ const r=await api(`/api/tutor/voice-sample?she=${tc.s.she?"true":"false"}`), d=await r.json().catch(()=>({}));
+        if(!r.ok||!d.preview_url) throw new Error(d.detail||"אין דוגמית לקול הזה");
+        const a=new Audio(d.preview_url); tc.playing=a; sample.title=d.name||sample.title; await a.play(); }
+      catch(e){ tcNote("🎧 "+(e.message||e),"bad trial"); }
+      finally{ sample.disabled=false; }
+    };
+    note.append(sample);
+  }
   if(tcCanChoose()){   // the trial: the student picks who hears, now and in later conversations (kept on the device)
     const pick=document.createElement("select"); pick.className="tc-engine"; pick.setAttribute("aria-label","מי מזהה את הדיבור");
     for(const [v,label] of [["both","השוואה: שניהם"],["browser","הדפדפן"],["eleven","ElevenLabs"]]) pick.add(new Option(label,v));

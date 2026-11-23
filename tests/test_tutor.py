@@ -581,3 +581,19 @@ def test_arabic_vowel_signs_on_hebrew_letters_become_hebrew_points():
     with client(TutorAuth(), FakeClient(script={1: answer(words=words)})) as c:
         reply = start(c).json()["message"]
     assert reply["tr"] == "אֵ(ל)סַּלַאם עַלַיְכֻם" and not any("ً" <= ch <= "ْ" and ch != "ّ" for ch in reply["tr"])
+
+
+def test_the_chosen_voices_own_sample_is_given_for_each_part(voices, monkeypatch):
+    from app import main as main_module
+    asked = []
+
+    def api(path, key, body=None):
+        asked.append(path)
+        return {"name": path.rsplit("/", 1)[1].upper(), "preview_url": f"https://storage.example/{path.rsplit('/', 1)[1]}.mp3"}
+    monkeypatch.setattr(main_module, "eleven_api", api)
+    with client(TutorAuth(), FakeClient()) as c:
+        man = c.get("/api/tutor/voice-sample", headers=bearer("teacher")).json()
+        woman = c.get("/api/tutor/voice-sample?she=true", headers=bearer("teacher")).json()
+        c.get("/api/tutor/voice-sample", headers=bearer("teacher"))
+    assert man == {"voice_id": "palman01", "name": "PALMAN01", "preview_url": "https://storage.example/palman01.mp3"}
+    assert woman["voice_id"] == "palwoman1" and asked == ["/voices/palman01", "/voices/palwoman1"]   # asked once each
