@@ -1805,6 +1805,21 @@ class SupabaseAuth:
                 break
         return rows[:limit]
 
+    def tutor_stt_choices(self, since: datetime, limit: int = 5_000) -> list[dict]:
+        """The trial's comparisons of speech recognition (the conversations' entries from "stt") since `since`."""
+        out: list[dict] = []
+        offset = 0
+        while len(out) < limit:
+            query = urllib.parse.urlencode([("select", "messages"), ("updated_at", f"gte.{since.astimezone(timezone.utc).isoformat()}"),
+                                            ("order", "updated_at.desc"), ("limit", PAGE), ("offset", offset)])
+            batch = self._admin(f"/rest/v1/tutor_chats?{query}") or []
+            offset += len(batch)
+            for row in batch:
+                out += [m for m in row.get("messages") or [] if isinstance(m, dict) and m.get("from") == "stt"]
+            if len(batch) < PAGE:
+                break
+        return out[:limit]
+
     def tutor_chats_since(self, user_id: str, since: str) -> int:
         """How many conversations with the tutor the student started since this ISO time. 0 when they cannot be read."""
         query = urllib.parse.urlencode({"select": "id", "user_id": f"eq.{user_id}", "created_at": f"gte.{since}"})

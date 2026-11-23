@@ -350,7 +350,8 @@ def voices(monkeypatch):
     monkeypatch.setenv("ELEVEN_LABS_API_KEY", "el-key")
     monkeypatch.setenv("ELEVEN_LABS_TUTOR_VOICE_ID", "palman01")
     monkeypatch.setenv("ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID", "palwoman1")
-    monkeypatch.setattr(tts.ElevenLabsTTS, "speak", lambda self, text, voice: said.append((text, voice)) or b"RIFF-" + voice.encode())
+    monkeypatch.setattr(tts.ElevenLabsTTS, "speak_clear", lambda self, text, voice, model=tts.TUTOR_MODEL:
+                        said.append((text, voice)) or b"RIFF-" + voice.encode())
     return said
 
 
@@ -360,6 +361,7 @@ def test_the_tutors_messages_are_said_by_elevenlabs_in_the_parts_voice_each_time
         man = start(c, scenario="l2").json()   # ח'ליל
         r = c.get(f"/api/tutor/say/{man['id']}/0", headers=bearer("teacher"))
         assert r.status_code == 200 and r.content == b"RIFF-palman01" and r.headers["x-tts-provider"] == "elevenlabs.io"
+        assert r.headers["content-type"] == "audio/mpeg"   # the full model in 44.1 kHz MP3, as the voice's own sample
         assert voices == [("كيف حالك؟", "palman01")]   # the message's own Arabic
         again = c.get(f"/api/tutor/say/{man['id']}/0", headers=bearer("teacher"))
         assert len(voices) == 2 and "no-store" in again.headers["cache-control"]   # no cache: said anew each time
@@ -382,7 +384,7 @@ def test_without_a_voice_the_tutor_stays_silent_and_never_uses_sawtak(monkeypatc
     from app import tts
     for k in ("ELEVEN_LABS_API_KEY", "ELEVEN_LABS_TUTOR_VOICE_ID", "ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID"):
         monkeypatch.delenv(k, raising=False)
-    monkeypatch.setattr(tts.ElevenLabsTTS, "speak", lambda *a: pytest.fail("no voice set"))
+    monkeypatch.setattr(tts.ElevenLabsTTS, "speak_clear", lambda *a: pytest.fail("no voice set"))
     with client(TutorAuth(), FakeClient()) as c:
         assert c.get("/api/tutor", headers=bearer("teacher")).json()["voice"] is False
         chat = start(c).json()
@@ -419,7 +421,7 @@ def test_with_the_switch_on_elevenlabs_hears_the_student_with_the_lessons_words(
         chat = start(c, scenario="l2").json()
         r = c.post("/api/tutor/hear", data={"id": chat["id"]}, files={"audio": ("speech", b"OggS" * 500, "audio/webm")},
                    headers=bearer("teacher"))
-        assert r.status_code == 200 and r.json() == {"text": "مرحبا كيفك", "tr": "מַרְחַבַּא כִּיפַכּ"}
+        assert r.status_code == 200 and r.json()["text"] == "مرحبا كيفك" and r.json()["tr"] == "מַרְחַבַּא כִּיפַכּ"
         (call,) = hearing
         assert call["key"] == "el-key" and call["mime"] == "audio/webm" and call["audio"].startswith(b"OggS")
         from app.tutor import vocabulary
@@ -504,13 +506,13 @@ def test_the_tutor_says_what_of_elevenlabs_is_missing_by_name_only(voices, monke
 
 
 @pytest.mark.parametrize("status, says", [(401, "דחה את המפתח"), (403, "הרשאת Text to Speech"),
-                                          (404, "לא נמצא בחשבון"), (422, "המודל eleven_v4_turbo"),
+                                          (404, "לא נמצא בחשבון"), (422, "המודל eleven_v4"),
                                           (402, "קרדיט"), (500, "לא זמין כרגע")])
 def test_an_elevenlabs_failure_names_the_setting_to_look_at(voices, monkeypatch, status, says):
     from app import tts
-    def fail(self, text, voice):
+    def fail(self, text, voice, model=tts.TUTOR_MODEL):
         raise tts.TTSUnavailable(f"elevenlabs error {status}: x", status)
-    monkeypatch.setattr(tts.ElevenLabsTTS, "speak", fail)
+    monkeypatch.setattr(tts.ElevenLabsTTS, "speak_clear", fail)
     with client(TutorAuth(), FakeClient()) as c:
         chat = start(c).json()
         r = c.get(f"/api/tutor/say/{chat['id']}/0", headers=bearer("teacher"))
@@ -538,3 +540,34 @@ def test_what_was_recognized_is_written_in_hebrew_letters_as_the_course_writes_i
         r = c.post("/api/tutor/letters", json={"text": "انا مبسوط"}, headers=bearer("teacher"))
         assert r.status_code == 200 and r.json() == {"tr": "אַנַא מַבְּסוּט"}
         assert c.post("/api/tutor/letters", json={"text": "x" * 400}, headers=bearer("teacher")).status_code == 400
+
+
+def test_the_trials_comparison_is_kept_with_the_conversation():
+    auth = TutorAuth()
+    with client(auth, FakeClient()) as c:
+        chat = start(c).json()
+        body = {"id": chat["id"], "chosen": "eleven",
+                "browser": {"text": "منيح", "tr": "מְנִיח", "engine": "Android Chrome · ar-PS"},
+                "eleven": {"text": "منيح الحمد لله", "tr": "מְנִיח…", "model": "scribe_v3", "language": "ajp", "hints": 57}}
+        assert c.post("/api/tutor/stt-choice", json=body, headers=bearer("teacher")).json() == {"ok": True}
+        entry = c.app.state.tutor.get_any(chat["id"]).log[-1]
+        assert entry["from"] == "stt" and entry["chosen"] == "eleven" and entry["browser"]["engine"] == "Android Chrome · ar-PS"
+        assert entry["eleven"] == {"text": "منيح الحمد لله", "tr": "מְנִיח…", "model": "scribe_v3", "language": "ajp", "hints": 57}
+        assert auth.chats[chat["id"]]["messages"][-1]["from"] == "stt"   # in its row of tutor_chats
+        assert c.post("/api/tutor/stt-choice", json={**body, "chosen": "x"}, headers=bearer("teacher")).status_code == 400
+        assert c.post("/api/tutor/stt-choice", json={**body, "id": "nope"}, headers=bearer("teacher")).status_code == 410
+        # the tutor's own messages are the ones it says: the comparison is not one of them
+        assert [e["from"] for e in c.app.state.tutor.get_any(chat["id"]).log].count("tutor") == 1
+
+
+def test_the_panel_counts_the_choices_by_browser_and_by_model():
+    auth = TutorAuth()
+    auth.tutor_stt_choices = lambda since: [
+        {"from": "stt", "at": "2026-11-23T06:00:00+00:00", "chosen": "eleven", "browser": {"engine": "Android Chrome"}, "eleven": {"model": "scribe_v3"}},
+        {"from": "stt", "at": "2026-11-23T06:01:00+00:00", "chosen": "browser", "browser": {"engine": "Android Chrome"}, "eleven": {"model": "scribe_v3"}},
+        {"from": "stt", "at": "2026-11-23T06:02:00+00:00", "chosen": "eleven", "browser": {"engine": "Windows Chrome"}, "eleven": {"model": "scribe_v2"}}]
+    with client(auth, FakeClient()) as c:
+        d = c.get("/api/admin/stt-compare", headers=bearer("teacher")).json()
+    assert d["total"] == 3 and d["chosen"] == {"browser": 1, "eleven": 2, "same": 0, "neither": 0}
+    assert d["by_engine"]["Android Chrome"] == {"browser": 1, "eleven": 1, "same": 0, "neither": 0}
+    assert d["by_model"]["scribe_v2"]["eleven"] == 1 and d["latest"][0]["at"].endswith("06:02:00+00:00")

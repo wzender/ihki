@@ -68,6 +68,7 @@ from .archi import archify
 from .scorer import SAMPLE_RATE, Scorer, decode_audio, decode_audio_with_timing, frame_energy, load_scorer, tokenize
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
+from .tts import TUTOR_MODEL, last_stt
 from .tts import (BASELINE_VOICES, ELEVEN_MODEL, FALLBACK_OFF, ELEVEN_PREFIX, STT_MAX_BYTES, ElevenLabsTTS, eleven_transcribe, load_elevenlabs, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
                   playback_voices, voice_name)
 from .tutor import letters as tutor_letters
@@ -4579,7 +4580,52 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         except TTSUnavailable as e:
             record_failure(app.state.auth, "text_to_speech")
             raise HTTPException(503, str(e))
-        return {"text": text, "tr": tutor_letters(text)}
+        return {"text": text, "tr": tutor_letters(text), "model": last_stt.get("model", ""),
+                "language": last_stt.get("language", ""), "hints": last_stt.get("hints", 0)}
+
+    @app.post("/api/tutor/stt-choice", dependencies=[Depends(require("tutor.use"))])
+    def tutor_stt_choice(tasks: BackgroundTasks, body: dict = Body(...), user: dict | None = Depends(signed_in)):
+        """The trial's comparison of one sentence: what the browser heard and what ElevenLabs heard, and which the
+        student chose ("browser", "eleven", "same" or "neither"); kept in the conversation (its row in tutor_chats),
+        with the browser that heard and ElevenLabs' model, language and number of words given."""
+        t = tutor_for(user)
+        chat = t.get(str(body.get("id", "")), user["id"] if user else None) if isinstance(body, dict) else None
+        if chat is None:
+            raise HTTPException(410, "השיחה הזו כבר לא פעילה")
+        chosen = body.get("chosen")
+        if chosen not in ("browser", "eleven", "same", "neither"):
+            raise HTTPException(400, "chosen: browser, eleven, same or neither")
+        clip = lambda v, n=MAX_TEXT: str(v or "")[:n]
+        b, e = body.get("browser") or {}, body.get("eleven") or {}
+        entry = {"from": "stt", "at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "chosen": chosen,
+                 "browser": {"text": clip(b.get("text")), "tr": clip(b.get("tr")), "engine": clip(b.get("engine"), 120)},
+                 "eleven": {"text": clip(e.get("text")), "tr": clip(e.get("tr")), "model": clip(e.get("model"), 40),
+                            "language": clip(e.get("language"), 10), "hints": int(e.get("hints") or 0)}}
+        chat.log.append(entry)
+        if user and app.state.auth:
+            tasks.add_task(app.state.auth.save_tutor_chat, chat.row())
+        return {"ok": True}
+
+    @app.get("/api/admin/stt-compare")
+    def stt_compare(days: int = Query(30, ge=1, le=90), a: SupabaseAuth = Depends(teacher_only)):
+        """The trial's comparisons of the last `days`: how often each was chosen, by browser and by ElevenLabs model,
+        and the latest ones (what each heard; no names)."""
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+        try:
+            rows = a.tutor_stt_choices(since)
+        except AuthUnavailable as e:
+            raise HTTPException(503, f"נתוני ההשוואה אינם זמינים: {e}")
+        out = {"total": 0, "chosen": {"browser": 0, "eleven": 0, "same": 0, "neither": 0}, "by_engine": {}, "by_model": {},
+               "latest": []}
+        for c in rows:
+            out["total"] += 1
+            out["chosen"][c.get("chosen")] = out["chosen"].get(c.get("chosen"), 0) + 1
+            for key, name in (("by_engine", (c.get("browser") or {}).get("engine") or "?"),
+                              ("by_model", (c.get("eleven") or {}).get("model") or "?")):
+                d = out[key].setdefault(name, {"browser": 0, "eleven": 0, "same": 0, "neither": 0})
+                d[c.get("chosen")] = d.get(c.get("chosen"), 0) + 1
+        out["latest"] = sorted(rows, key=lambda c: c.get("at") or "", reverse=True)[:20]
+        return out
 
     @app.post("/api/tutor/letters", dependencies=[Depends(require("tutor.use"))])
     def tutor_to_letters(body: dict = Body(...)):
@@ -4622,13 +4668,13 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not voice:
             raise HTTPException(503, "הדובר לא מושמע: לא נבחר קול ליאללה נדבר (ELEVEN_LABS_TUTOR_VOICE_ID). בוחרים ב-🎙️ בחירת קול "
                                      "בכרטיס המפתחות (למפתחים), או מגדירים את מזהה הקול בהגדרות ה-Space.")
-        model = os.environ.get("ELEVEN_LABS_MODEL", "") or ELEVEN_MODEL
+        model = os.environ.get("ELEVEN_LABS_TUTOR_MODEL", "") or TUTOR_MODEL
         try:   # said anew each time, in the voice chosen now: nothing is kept (each play is a new ElevenLabs request)
-            spoken = ElevenLabsTTS(key, model=model).speak(said[n]["ar"].strip(), voice)
+            spoken = ElevenLabsTTS(key, model=model).speak_clear(said[n]["ar"].strip(), voice, model)
         except TTSUnavailable as e:
             record_failure(app.state.auth, "text_to_speech")
             raise HTTPException(503, eleven_trouble(e, model))
-        return Response(spoken, media_type="audio/wav", headers={"Cache-Control": "private, no-store",
+        return Response(spoken, media_type="audio/mpeg", headers={"Cache-Control": "private, no-store",
                                                                 "X-TTS-Provider": "elevenlabs.io"})
 
     @app.get("/api/admin/keys")

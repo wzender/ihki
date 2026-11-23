@@ -2051,7 +2051,7 @@ def test_the_trial_note_says_what_is_missing_and_what_hears(site):
     r = site("boss@x.com", TUTOR_TRIAL)
     assert r["noKey"][1] and "אין מפתח ElevenLabs" in r["noKey"][0] and "מפתחות API" in r["noKey"][0]
     assert r["noVoice"][1] and "לא נבחר קול ליאללה נדבר" in r["noVoice"][0]
-    assert r["noFemale"][1] and "בקול הגבר" in r["noFemale"][0] and "זיהוי הדיבור: הדפדפן (ElevenLabs כגיבוי)" in r["noFemale"][0]   # hybrid: the browser hears where it can
+    assert r["noFemale"][1] and "בקול הגבר" in r["noFemale"][0] and "זיהוי הדיבור: השוואה בין הדפדפן ל־ElevenLabs" in r["noFemale"][0]   # the trial compares where both can hear
     assert not r["all"][1] and r["all"][0].startswith("🧪 גרסת ניסיון") and "מפתחות API" not in r["all"][0]
 
 
@@ -2219,10 +2219,13 @@ const real=window.fetch;
 window.fetch=(url,opts={})=>String(url).includes("/api/eleven-voices-in-use")?Promise.resolve(new Response(JSON.stringify({key:true,voices:[
   {setting:"ELEVEN_LABS_VOICE_ID",purpose:"playback",voice_id:"",name:"כבוי"},
   {setting:"ELEVEN_LABS_TUTOR_VOICE_ID",purpose:"tutor-male",voice_id:"added001",name:"Yousef"},
-  {setting:"ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID",purpose:"tutor-female",voice_id:"",name:""}]}),{status:200})):real(url,opts);
+  {setting:"ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID",purpose:"tutor-female",voice_id:"",name:""}]}),{status:200}))
+  :String(url).includes("/api/admin/stt-compare")?Promise.resolve(new Response(JSON.stringify({total:4,chosen:{eleven:3,browser:1,same:0,neither:0},
+    by_engine:{"Android Chrome":{eleven:3,browser:1,same:0,neither:0}},by_model:{scribe_v3:{eleven:3,browser:1,same:0,neither:0}},latest:[]}),{status:200})):real(url,opts);
 TUTOR_USAGE={total:{cost:0.1,conversations:1,turns:2},daily:[],models:[],model_now:"claude-haiku-5-5",note:""};
 const box=document.createElement("div"); document.body.append(box); drawTutorUsage(box);
-await until(()=>box.querySelector(".tutor-voices li"),5000);
+await until(()=>box.querySelector(".tutor-voices li")&&/משפטים ב־30/.test(box.textContent),5000);
+out.compare=box.textContent.match(/4 משפטים[^·]*·[^·]*/)?.[0]||"";
 const v=box.querySelector(".tutor-usage .tutor-voices"); out.lines=[...v.querySelectorAll("li")].map(li=>li.textContent);
 out.title=v.querySelector("b[title]")?.title; out.after=!!v.previousElementSibling&&/המודל עכשיו/.test(v.previousElementSibling.textContent);
 const mon=document.createElement("div"); document.body.append(mon); MONITOR={live:{},tts:{},build:{},errors:{},supabase:null};
@@ -2234,6 +2237,7 @@ def test_the_tutors_card_shows_the_voice_of_each_setting(site):
     r = site("boss@x.com", MONITOR_VOICES)
     assert r["lines"] == ["דמות גבר: Yousef", "דמות אישה: לא נבחר", "השמעה בחוברת (גיבוי): כבוי"]
     assert r["title"] == "added001" and r["after"] and not r["inSnapshot"]   # under the model, not in the snapshot
+    assert "ElevenLabs 3 (75%)" in r["compare"]   # the trial's comparison of speech recognition
 
 
 KEYS_CARD_VOICES = """
@@ -2320,20 +2324,21 @@ FAKE_BROWSER_RECOGNITION = """window.__browser=[]; window.webkitSpeechRecognitio
 
 
 def test_the_browser_hears_where_it_can_and_elevenlabs_where_it_cannot(site):
-    r = site("boss@x.com", TUTOR_HYBRID, preload=FAKE_BROWSER_RECOGNITION)
-    assert "הדפדפן (ElevenLabs כגיבוי)" in r["note"]
+    r = site("boss@x.com", TUTOR_HYBRID, preload=FAKE_BROWSER_RECOGNITION+'localStorage.setItem("ihki.tutorHears",JSON.stringify("browser"));')
+    assert "זיהוי הדיבור: הדפדפן" in r["note"]
     assert r["first"] == 1 and r["sentFirst"] == 0   # Chrome: its own recognition, nothing sent to ElevenLabs
     assert r["switched"] and r["sent"] == ["hear"] and r["browserAfter"] == 1   # it failed: ElevenLabs from then on
 
 
 TUTOR_CHOOSE = TUTOR_HYBRID.split('out.note=')[0] + """
-const note=()=>document.querySelector(".tc .tc-note.trial"), pick=()=>note().querySelector(".tc-engine");
-out.before=[note().textContent.includes("הדפדפן (ElevenLabs כגיבוי)"),pick().textContent];
-pick().click(); out.chosen=[note().textContent.includes("זיהוי הדיבור: ElevenLabs"),pick().textContent,localStorage.getItem("ihki.tutorHears")];
+const note=()=>document.querySelector(".tc .tc-note.trial"), pick=()=>note().querySelector("select.tc-engine");
+out.before=[pick().value,[...pick().options].map(o=>o.textContent)];
+pick().value="eleven"; pick().onchange();
+out.chosen=[note().textContent.includes("זיהוי הדיבור: ElevenLabs"),localStorage.getItem("ihki.tutorHears")];
 const mic=document.querySelector(".tc .tc-mic");
 mic.click(); await sleep(100); mic.click(); await until(()=>sent.length,5000);
 out.sent=sent.slice(); out.browser=window.__browser.length;
-pick().click(); out.back=[pick().textContent,localStorage.getItem("ihki.tutorHears")];
+pick().value="browser"; pick().onchange(); out.back=localStorage.getItem("ihki.tutorHears");
 const box=document.querySelector(".tc .tc-type input"); box.value=""; box.dispatchEvent(new Event("input"));   // the heard sentence cleared
 mic.click(); await sleep(50); out.browserAfter=window.__browser.length;
 """
@@ -2341,10 +2346,10 @@ mic.click(); await sleep(50); out.browserAfter=window.__browser.length;
 
 def test_the_student_chooses_who_hears_and_the_device_keeps_it(site):
     r = site("boss@x.com", TUTOR_CHOOSE, preload=FAKE_BROWSER_RECOGNITION)
-    assert r["before"] == [True, "החלפה ל־ElevenLabs"]
-    assert r["chosen"] == [True, "החלפה לזיהוי של הדפדפן", '"eleven"']
+    assert r["before"] == ["both", ["השוואה: שניהם", "הדפדפן", "ElevenLabs"]]   # the trial compares by default
+    assert r["chosen"] == [True, '"eleven"']
     assert r["sent"] == ["hear"] and r["browser"] == 0   # ElevenLabs heard it, not the browser
-    assert r["back"] == ["החלפה ל־ElevenLabs", '"browser"'] and r["browserAfter"] == 1
+    assert r["back"] == '"browser"' and r["browserAfter"] == 1
 
 
 
@@ -2409,3 +2414,32 @@ def test_feedback_stacks_on_a_phone_and_a_note_goes_to_the_office(site):
     assert r["mailed"].startswith("mailto:office@ahalawasahala.com?subject=")
     assert "בעיית כניסה" in r["mailed"] and "dana@x.com" in r["mailed"] and "לא מצליחה להיכנס" in r["mailed"] and "בודקים" in r["mailed"]
     assert not r["inPage"]   # the address is not on the page
+
+
+TUTOR_COMPARE = TUTOR_HYBRID.split('out.note=')[0].replace('return Promise.resolve(new Response(JSON.stringify({text:"منيح",tr:"מְנִיח"}),{status:200}));',
+  'return Promise.resolve(new Response(JSON.stringify({text:"منيح الحمد لله",tr:"מְנִיח אֵלְחַמְדֻ לִלַّה",model:"scribe_v3",language:"ajp",hints:57}),{status:200}));') + """
+const choices=[]; const real2=window.fetch;
+window.fetch=(url,opts={})=>{ if(String(url).includes("/api/tutor/stt-choice")){ choices.push(JSON.parse(opts.body)); return Promise.resolve(new Response('{"ok":true}',{status:200})); }
+  if(String(url).includes("/api/tutor/letters")) return Promise.resolve(new Response(JSON.stringify({tr:"מְנִיח"}),{status:200})); return real2(url,opts); };
+out.note=document.querySelector(".tc .tc-note.trial").textContent;
+const mic=document.querySelector(".tc .tc-mic");
+mic.click(); await sleep(100);
+out.both=window.__browser.length===1;   // the browser listens beside the recording
+const b=window.__browser[0]; b.onresult({results:[[{transcript:"منيح"}]]});
+mic.click(); b.onend();
+await until(()=>document.querySelector(".tc .tc-cmp"),5000);
+const picks=[...document.querySelectorAll(".tc .tc-cmp button")]; out.picks=picks.map(p=>p.textContent);
+picks[1].click(); await until(()=>choices.length,5000);
+out.choice=choices[0]; out.box=document.querySelector(".tc .tc-type input").value; out.gone=!document.querySelector(".tc .tc-cmp");
+"""
+
+
+def test_the_trial_compares_both_recognizers_and_keeps_the_students_choice(site):
+    r = site("boss@x.com", TUTOR_COMPARE, preload=FAKE_BROWSER_RECOGNITION)
+    assert "השוואה" in r["note"] and r["both"]
+    assert [p[:len(x)] for p, x in zip(r["picks"], ("🌐 הדפדפן", "ElevenLabs", "שניהם לא נכונים"))] == ["🌐 הדפדפן", "ElevenLabs", "שניהם לא נכונים"]
+    assert "מְנִיח" in r["picks"][0] and "אֵלְחַמְדֻ" in r["picks"][1]   # each as it heard it, in Hebrew letters
+    c = r["choice"]
+    assert c["chosen"] == "eleven" and c["browser"]["text"] == "منيح" and "ar-PS" in c["browser"]["engine"]
+    assert c["eleven"] == {"text": "منيح الحمد لله", "tr": "מְנִיח אֵלְחַמְדֻ לִלַّה", "model": "scribe_v3", "language": "ajp", "hints": 57}
+    assert r["box"] == "מְנִיח אֵלְחַמְדֻ לִלַה" and r["gone"]   # ElevenLabs' sentence waits in the box (no shadda in a box)

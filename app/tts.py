@@ -85,6 +85,10 @@ class TTSUnavailable(Exception):
 
 ELEVEN_URL = "https://api.elevenlabs.io/v1"
 ELEVEN_MODEL = "eleven_v4_turbo"
+# יאללה נדבר's voice: the full model (not turbo) in 44.1 kHz MP3, as a voice's own sample sounds; the turbo model in
+# 24 kHz sounded far and muffled next to it. ELEVEN_LABS_TUTOR_MODEL sets another.
+TUTOR_MODEL = "eleven_v4"
+TUTOR_FORMAT = "mp3_44100_128"
 ELEVEN_RATE = 24000
 ELEVEN_PREFIX = "elevenlabs-"   # the cache folder of its recordings: elevenlabs-<model>-<voice>
 SAWTAK_REST = 600   # after Sawtak fails, students' playback goes straight to ElevenLabs for this many seconds
@@ -165,12 +169,25 @@ class ElevenLabsTTS:
         return buf.getvalue()
 
 
+    def speak_clear(self, text: str, voice: str, model: str = TUTOR_MODEL) -> bytes:
+        """An MP3 of `text` in `voice`, at the quality of the voice's own sample (TUTOR_MODEL, TUTOR_FORMAT)."""
+        with self._call(f"/text-to-speech/{voice}?output_format={TUTOR_FORMAT}", {"text": text, "model_id": model}) as res:
+            try:
+                mp3 = res.read(400_000 * MAX_AUDIO_SECONDS // 30 + 1)
+            except (http.client.HTTPException, OSError):
+                raise TTSUnavailable("elevenlabs audio download broke off", transient=True) from None
+        if len(mp3) < 1000:
+            raise TTSUnavailable("elevenlabs returned no audio")
+        return mp3
+
+
 FALLBACK_OFF = "off"   # ELEVEN_LABS_VOICE_ID's value that turns the workbook's fallback off
 STT_MODEL = "scribe_v2"   # the last resort; the first tried are STT_TRIES
 # Scribe's newest model, in South Levantine Arabic (ISO 639-3 ajp: Palestinian and Jordanian), then plain Arabic: the
 # first one ElevenLabs accepts is kept for the process (a refused one is a 400/422, which costs nothing)
 STT_TRIES = (("scribe_v3", "ajp"), ("scribe_v3", "ar"), ("scribe_v2", "ar"))
 _stt_works: list[tuple[str, str]] = []
+last_stt: dict = {}   # the model, language and number of words of the last recognition (the trial's comparison)
 STT_MAX_BYTES = 2 * 1024 * 1024   # a student's sentence: a few seconds of compressed audio
 STT_KEYTERMS = 100   # the lesson's words it is told to expect, the latest lessons' first (each up to 50 characters);
 # above 100 ElevenLabs bills each request as at least 20 seconds
@@ -216,7 +233,9 @@ def eleven_transcribe(key: str, audio: bytes, mime: str, keyterms: list[str] | N
         if not model and not _stt_works:
             _stt_works.append((m, language))
             log.info("elevenlabs speech-to-text: %s in %s", m, language)
+        last_stt.update(model=m, language=language, hints=len(terms))
         return text
+    last_stt.update(model=STT_MODEL, language="ar", hints=0)
     return send([], STT_MODEL, "ar")
 
 
