@@ -3952,7 +3952,7 @@ function tcTrialNote(){
     };
     // the trial: which ElevenLabs model says the tutor's messages (kept on the device); 🔊 again hears the change
     const models=mark("tc-engine","","select"); models.setAttribute("aria-label","מודל הקול");
-    for(const [v,label] of [["","מודל הקול: רגיל (multilingual v2)"],["eleven_v4","מודל הקול: v4"],["eleven_v4_turbo","מודל הקול: v4 turbo"],["eleven_v3","מודל הקול: v3"]]) models.add(new Option(label,v));
+    for(const [v,label] of [["","מודל הקול: v3 (ברירת המחדל)"],["eleven_multilingual_v2","מודל הקול: multilingual v2"],["eleven_v4","מודל הקול: v4"],["eleven_v4_turbo","מודל הקול: v4 turbo"]]) models.add(new Option(label,v));
     models.value=store.get("ihki.tutorVoiceModel","");
     models.onchange=()=>{ store.set("ihki.tutorVoiceModel",models.value); tcStopVoice(); const last=[...tc.log.querySelectorAll(".tc-msg.in .tc-hear")].pop(); if(last) last.click(); };
     note.append(sample,models);
@@ -3972,7 +3972,7 @@ function tcHearsWith(){
   if(!SR&&!TUTOR_INFO.stt) return "זיהוי הדיבור: אין (הקלדה בלבד)";
   if(tcComparing()) return "זיהוי הדיבור: השוואה בין הדפדפן ל־ElevenLabs";
   if(tcEleven()) return "זיהוי הדיבור: ElevenLabs";
-  return TUTOR_INFO.stt&&tcHearsChoice()!=="browser"?"זיהוי הדיבור: הדפדפן (ElevenLabs כגיבוי)":"זיהוי הדיבור: הדפדפן";
+  return TUTOR_INFO.stt?"זיהוי הדיבור: הדפדפן (ElevenLabs כגיבוי)":"זיהוי הדיבור: הדפדפן";   // ElevenLabs hears once the browser's fails
 }
 function tcSend(text){   // the student's sentence goes at once; false when it cannot go now
   if(!tc||tc.busy||tc.done||!tc.id) return false;
@@ -4103,8 +4103,8 @@ function tcFeedback(){
 // Hybrid: the browser's own recognition wherever it has one (Chrome, Android: it hears spoken Arabic best); ElevenLabs
 // (the tier's switch, "stt") where it has none (iPhone's Safari, Firefox), or once the browser's fails in a conversation
 const tcEleven=()=>!!(TUTOR_INFO&&TUTOR_INFO.stt&&window.MediaRecorder&&navigator.mediaDevices&&(!SR||(tc&&tc.browserFailed)||["eleven","both"].includes(tcHearsChoice()))&&!(tc&&tc.sttFailed>=2));
-// both: the trial's comparison (the default where both can hear); browser or eleven: one of them
-const tcHearsChoice=()=>{ const v=store.get("ihki.tutorHears",""); return ["browser","eleven","both"].includes(v)?v:tcCanChoose()?"both":""; };
+// browser (the default where it can hear; ElevenLabs where it cannot, or once it fails), eleven, or both: the trial's comparison
+const tcHearsChoice=()=>{ const v=store.get("ihki.tutorHears",""); return ["browser","eleven","both"].includes(v)?v:tcCanChoose()?"browser":""; };
 const tcComparing=()=>tcCanChoose()&&tcHearsChoice()==="both"&&!(tc&&(tc.browserFailed||tc.sttFailed>=2));
 /* ElevenLabs hears the student: a tap records, a second tap (or 15 s) ends it, the server recognizes it with the
    lesson's words, and the text goes on as the browser's would. Failing twice in a conversation, it goes back to the

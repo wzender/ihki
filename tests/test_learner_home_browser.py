@@ -2051,7 +2051,7 @@ def test_the_trial_note_says_what_is_missing_and_what_hears(site):
     r = site("boss@x.com", TUTOR_TRIAL)
     assert r["noKey"][1] and "אין מפתח ElevenLabs" in r["noKey"][0] and "מפתחות API" in r["noKey"][0]
     assert r["noVoice"][1] and "לא נבחר קול ליאללה נדבר" in r["noVoice"][0]
-    assert r["noFemale"][1] and "בקול הגבר" in r["noFemale"][0] and "זיהוי הדיבור: השוואה בין הדפדפן ל־ElevenLabs" in r["noFemale"][0]   # the trial compares where both can hear
+    assert r["noFemale"][1] and "בקול הגבר" in r["noFemale"][0] and "זיהוי הדיבור: הדפדפן (ElevenLabs כגיבוי)" in r["noFemale"][0]   # the browser hears by default, ElevenLabs its backup
     assert not r["all"][1] and r["all"][0].startswith("🧪 גרסת ניסיון") and "מפתחות API" not in r["all"][0]
 
 
@@ -2346,7 +2346,7 @@ mic.click(); await sleep(50); out.browserAfter=window.__browser.length;
 
 def test_the_student_chooses_who_hears_and_the_device_keeps_it(site):
     r = site("boss@x.com", TUTOR_CHOOSE, preload=FAKE_BROWSER_RECOGNITION)
-    assert r["before"] == ["both", ["השוואה: שניהם", "הדפדפן", "ElevenLabs"]]   # the trial compares by default
+    assert r["before"] == ["browser", ["השוואה: שניהם", "הדפדפן", "ElevenLabs"]]   # the browser hears by default
     assert r["chosen"] == [True, '"eleven"']
     assert r["sent"] == ["hear"] and r["browser"] == 0   # ElevenLabs heard it, not the browser
     assert r["back"] == '"browser"' and r["browserAfter"] == 1
@@ -2440,7 +2440,7 @@ out.choice=choices[0]; out.box=document.querySelector(".tc .tc-type input").valu
 
 
 def test_the_trial_compares_both_recognizers_and_keeps_the_students_choice(site):
-    r = site("boss@x.com", TUTOR_COMPARE, preload=FAKE_BROWSER_RECOGNITION)
+    r = site("boss@x.com", TUTOR_COMPARE, preload=FAKE_BROWSER_RECOGNITION+'localStorage.setItem("ihki.tutorHears",JSON.stringify("both"));')
     assert "השוואה" in r["note"] and r["both"]
     assert [p[:len(x)] for p, x in zip(r["picks"], ("🌐 הדפדפן", "ElevenLabs", "שניהם לא נכונים"))] == ["🌐 הדפדפן", "ElevenLabs", "שניהם לא נכונים"]
     assert "מְנִיח" in r["picks"][0] and "אֵלְחַמְדֻ" in r["picks"][1]   # each as it heard it, in Hebrew letters
@@ -2516,5 +2516,5 @@ await until(()=>says.length,5000); out.say=says[0]; out.kept=localStorage.getIte
 def test_the_tutor_plays_the_chosen_voices_own_sample(site):
     r = site("boss@x.com", TUTOR_SAMPLE)
     assert r["button"] and r["played"] == ["https://x/bader.mp3"] and r["she"] is True   # the woman's part's voice
-    assert r["models"] == ["", "eleven_v4", "eleven_v4_turbo", "eleven_v3"]
+    assert r["models"] == ["", "eleven_multilingual_v2", "eleven_v4", "eleven_v4_turbo"]   # "": v3, the default
     assert r["say"].endswith("/0?model=eleven_v4") and r["kept"] == '"eleven_v4"'   # the message again, in the chosen model

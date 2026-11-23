@@ -506,7 +506,7 @@ def test_the_tutor_says_what_of_elevenlabs_is_missing_by_name_only(voices, monke
 
 
 @pytest.mark.parametrize("status, says", [(401, "דחה את המפתח"), (403, "הרשאת Text to Speech"),
-                                          (404, "לא נמצא בחשבון"), (422, "המודל eleven_multilingual_v2"),
+                                          (404, "לא נמצא בחשבון"), (422, "המודל eleven_v3"),
                                           (402, "קרדיט"), (500, "לא זמין כרגע")])
 def test_an_elevenlabs_failure_names_the_setting_to_look_at(voices, monkeypatch, status, says):
     from app import tts
@@ -605,6 +605,6 @@ def test_the_trial_says_a_message_with_the_model_the_device_chose(voices, monkey
     monkeypatch.setattr(tts.ElevenLabsTTS, "speak_clear", lambda self, text, voice, model=tts.TUTOR_MODEL: models.append(model) or b"ID3")
     with client(TutorAuth(), FakeClient()) as c:
         chat = start(c).json()
-        for q in ("", "?model=eleven_v4", "?model=eleven_v3", "?model=../../x"):
+        for q in ("", "?model=eleven_v4", "?model=eleven_multilingual_v2", "?model=../../x"):
             assert c.get(f"/api/tutor/say/{chat['id']}/0{q}", headers=bearer("teacher")).status_code == 200
-    assert models == ["eleven_multilingual_v2", "eleven_v4", "eleven_v3", "eleven_multilingual_v2"]   # an unknown one: the default
+    assert models == ["eleven_v3", "eleven_v4", "eleven_multilingual_v2", "eleven_v3"]   # the default is v3; an unknown one: it
