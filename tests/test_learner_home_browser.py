@@ -2366,3 +2366,21 @@ def test_a_screen_of_manage_that_fails_says_so_and_offers_the_reset(site):
     assert "המסך לא נטען" in r["card"] and "a kept value no screen knows" in r["card"]
     assert r["buttons"] == ["איפוס ההגדרות השמורות", "נסו שוב"]
     assert r["resetsClass"] and not r["resetsProgress"]   # the reset leaves the sign-in and a learner's progress alone
+
+
+MANAGE_RETRY = """
+await sleep(800);
+const real=window.fetch; let tries=0;
+window.fetch=(url,opts={})=>{ if(String(url).endsWith("/api/class")){ tries++; return tries===1?Promise.reject(new TypeError("Failed to fetch"))
+  :Promise.resolve(new Response(JSON.stringify({detail:"Supabase איטי"}),{status:503})); } return real(url,opts); };
+showManage(); await until(()=>/השרת לא זמין כרגע/.test(document.getElementById("mState").textContent),8000);
+const state=document.getElementById("mState"); out.failed=state.textContent; out.button=!!state.querySelector("button");
+state.querySelector("button").click();
+await until(()=>/Supabase איטי/.test(state.textContent),8000); out.tries=tries; out.after=state.textContent; out.again=!!state.querySelector("button");
+"""
+
+
+def test_a_failed_load_of_manage_offers_to_try_again(site):
+    r = site("boss@x.com", MANAGE_RETRY)
+    assert "השרת לא זמין כרגע" in r["failed"] and r["button"]
+    assert r["tries"] == 2 and "לא זמינים כרגע (Supabase איטי)" in r["after"] and r["again"]   # asked again, and says why

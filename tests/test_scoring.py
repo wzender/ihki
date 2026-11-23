@@ -3028,3 +3028,14 @@ def test_a_long_target_is_scored_exactly_as_before():
 def test_another_word_stays_capped_at_30():
     on, _ = _both(lambda: scorer_for(emissions(["ʃ", "a", "l", "a", "m"])), WE)
     assert on["unrelated"] and on["score"] <= 30
+
+
+def test_big_json_goes_compressed_for_a_phones_network():
+    from fastapi.testclient import TestClient
+    from app.main import create_app
+    app = create_app(scorer_for(emissions(["ħ"])))
+    with TestClient(app) as c:
+        r = c.get("/api/phrases", headers={"Accept-Encoding": "gzip"})
+        assert r.status_code == 200 and r.headers["content-encoding"] == "gzip" and r.json()["phrases"]
+        plain = c.get("/api/phrases", headers={"Accept-Encoding": "identity"})   # one that does not ask for it: as before
+        assert "content-encoding" not in plain.headers and plain.json()["phrases"]

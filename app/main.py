@@ -704,6 +704,14 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
     app.state.mcp_server, mcp_app, app.state.mcp_http = build_grok_mcp(app)
     app.mount("/mcp", mcp_app, name="mcp")
     app.add_middleware(McpPathNormalizer)  # /mcp would otherwise 307 to http:// behind the Space proxy
+    # big JSON (the panel's classes with every student's progress: megabytes) goes compressed, which a phone's network
+    # needs; a live stream (the live call's model) and audio are left as they are
+    from starlette.middleware.gzip import GZipMiddleware
+    try:
+        app.add_middleware(GZipMiddleware, minimum_size=2048, compresslevel=5,
+                           exclude_content_types=("text/event-stream", "audio/wav", "audio/mpeg", "audio/ogg", "audio/webm"))
+    except TypeError:   # an older Starlette: it already leaves text/event-stream alone
+        app.add_middleware(GZipMiddleware, minimum_size=2048, compresslevel=5)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
     def signed_in(request: Request) -> dict | None:

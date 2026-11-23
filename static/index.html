@@ -7112,17 +7112,26 @@ async function loadManage(){
     mMode==="feedback"?loadFeedback().then(()=>{ if(load===manageLoad&&mMode==="feedback") drawFeedbackTab(); }):
     mMode==="access"?loadAccess().then(()=>{ if(load===manageLoad&&mMode==="access") drawAccess(); }):
     mMode==="models"?loadModels().then(async()=>{ if(MODELS) await loadModelSettings(MS_MODEL||MODELS.active); if(load===manageLoad&&mMode==="models") drawModels(); }):Promise.resolve();
+  // every student's progress: megabytes (compressed on the way), slow on a phone's network. A slow load says so; a
+  // failed one says why, with a button to try again, instead of "loading…" for ever
+  const again=text=>{ state.textContent=text+" "; const b=mark("btn","נסו שוב","button"); b.type="button"; b.onclick=()=>loadManage(); state.append(b); };
+  const slow=setTimeout(()=>{ if(load===manageLoad&&!CLASS) state.textContent="טוען את נתוני התלמידים… זה לוקח יותר מהרגיל (רשת איטית?)"; },12000);
+  const ctl=window.AbortController?new AbortController():null, cut=setTimeout(()=>ctl&&ctl.abort(),90000);
   try{
     await ready;
-    const res=await api("/api/class");
+    const res=await api("/api/class",ctl?{signal:ctl.signal}:{});
     if(load!==manageLoad) return;
     if(!res.ok){
       const detail=(await res.json().catch(()=>({}))).detail||res.status;
-      state.textContent=res.status===403?"הפאנל פתוח למורים בלבד.":`נתוני התלמידים לא זמינים כרגע (${detail}).`; return;
+      if(res.status===403) state.textContent="הפאנל פתוח למורים בלבד."; else again(`נתוני התלמידים לא זמינים כרגע (${detail}).`); return;
     }
     CLASS=await res.json();
     TEACHER_DAILIES=CLASS.classes.flatMap(classDailies).map(d=>({...d.v,date:d.date})).sort((a,b)=>a.date.localeCompare(b.date));   // as just saved; the earliest day of each comes first
-  }catch{ state.textContent="השרת לא זמין."; return; }
+  }catch(err){
+    if(load===manageLoad) again(err&&err.name==="AbortError"?"נתוני התלמידים לא נטענו תוך דקה וחצי (רשת איטית?).":
+      navigator.onLine===false?"אין חיבור לאינטרנט.":"השרת לא זמין כרגע.");
+    return;
+  }finally{ clearTimeout(slow); clearTimeout(cut); }
   state.textContent=""; state.classList.toggle("setup",!!(CLASS.setup||[]).length);
   for(const x of CLASS.setup||[]){   // a table the teacher still has to create in Supabase: what is missing, and the command
     const code=mark("",x.sql,"code"); code.dir="ltr"; state.append(mark("",x.what,"b"),mark(""," הריצו ב-SQL Editor של Supabase:"),code); }

@@ -120,6 +120,7 @@ def test_the_agents_model_is_the_tutor_and_the_page_gets_each_turn(calling):
         chat = start(c).json()
         r = agent_says(c, chat["id"], "انا مبسوط")
         assert r.status_code == 200 and r.headers["content-type"].startswith("text/event-stream")
+        assert "content-encoding" not in r.headers   # a live stream is not held back to be compressed
         assert spoken(r) == "كيف حالك؟"   # the reply's Arabic, as the page's message has it
         got = c.get(f"/api/tutor/live/{chat['id']}?since=0", headers=bearer("teacher")).json()
         (turn,) = got["turns"]
