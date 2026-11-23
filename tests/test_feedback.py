@@ -353,3 +353,29 @@ def test_an_account_in_no_class_asks_to_join(joining):
     assert joining.post("/api/join-request", json={"name": "איקס"}, headers=H("x")).status_code == 409   # in a class
     codes = [joining.post("/api/join-request", json={"name": "דנה כהן"}, headers=H("s")).status_code for _ in range(3)]
     assert codes == [200, 200, 429]
+
+
+@pytest.mark.parametrize("migrated", [True, False])
+def test_tutor_notes_kept_as_ideas_get_their_kind_once_the_sql_ran(migrated):
+    auth = FakeAuth()
+    auth.rows = [{"id": 1, "kind": "idea", "screen": "tutor", "status": "new", "email": "s@b.c", "image": None, "replies": []},
+                 {"id": 2, "kind": "idea", "screen": "", "status": "new", "email": "s@b.c", "image": None, "replies": []}]
+    tried = []
+
+    def retag():
+        tried.append(1)
+        if migrated:
+            for r in auth.rows:
+                if r["kind"] == "idea" and r["screen"] == "tutor":
+                    r["kind"] = "tutor"
+        return migrated
+    auth.retag_tutor_feedback = retag
+    with TestClient(create_app(scorer_for(emissions(["w"])), auth=auth)) as c:
+        d = c.get("/api/feedback", headers=H("t")).json()
+        again = c.get("/api/feedback", headers=H("t")).json()
+    kinds = [r["kind"] for r in d["feedback"]]
+    if migrated:   # the SQL ran: the old notes get their kind, and the note on the SQL is gone
+        assert kinds == ["tutor", "idea"] and "tutor_setup" not in d and "tutor_setup" not in again
+        assert len(tried) == 1   # nothing left to retag on the next visit
+    else:   # not yet: the table refuses, and the panel still shows the SQL
+        assert kinds == ["idea", "idea"] and "alter table public.feedback" in d["tutor_setup"]

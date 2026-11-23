@@ -1069,6 +1069,17 @@ class SupabaseAuth:
         """A note's screenshot and its media type."""
         return self._get_audio("feedback", name)
 
+    def retag_tutor_feedback(self) -> bool:
+        """The notes on יאללה נדבר kept as "idea" before the table had a tutor kind, given their own kind. False when
+        the table still refuses it (feedback.MIGRATE_FEEDBACK_TUTOR not run yet)."""
+        try:
+            self._admin("/rest/v1/feedback?kind=eq.idea&screen=eq.tutor", "PATCH", {"kind": "tutor"}, prefer="return=minimal")
+            return True
+        except AuthUnavailable as e:
+            if any(m in str(e).lower() for m in ("check constraint", "23514", "feedback_kind_check")):
+                return False
+            raise
+
     def list_feedback(self, status: str | None = None, limit: int = 200) -> list[dict]:
         """The feedback notes, newest first; one status, or all of them."""
         query = {"select": "*", "order": "created_at.desc", "limit": int(limit)}

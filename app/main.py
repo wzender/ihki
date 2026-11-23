@@ -1945,6 +1945,16 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(400, "invalid feedback status")
         try:
             rows = a.list_feedback(status or None)
+            # tutor notes kept as ideas before the SQL ran: once it has, they get their own kind (and the note on the
+            # SQL goes); while it has not, the table refuses and the note stays
+            if any(r.get("kind") == "idea" and r.get("screen") == "tutor" for r in rows) and hasattr(a, "retag_tutor_feedback"):
+                try:
+                    if a.retag_tutor_feedback():
+                        for r in rows:
+                            if r.get("kind") == "idea" and r.get("screen") == "tutor":
+                                r["kind"] = "tutor"
+                except AuthUnavailable as e:
+                    log.warning("tutor feedback not retagged: %s", e)
             # a table made before screenshots has no `image` column: its rows say so, and the panel shows the SQL
             # a tutor note kept as an idea: the table has no tutor kind yet, and the panel shows the SQL that adds it
             return {"feedback": rows, **({"image_setup": feedback_notes.MIGRATE_FEEDBACK_IMAGE}
