@@ -2384,3 +2384,28 @@ def test_a_failed_load_of_manage_offers_to_try_again(site):
     r = site("boss@x.com", MANAGE_RETRY)
     assert "השרת לא זמין כרגע" in r["failed"] and r["button"]
     assert r["tries"] == 2 and "לא זמינים כרגע (Supabase איטי)" in r["after"] and r["again"]   # asked again, and says why
+
+
+FEEDBACK_OFFICE = """
+await sleep(800);
+const real=window.fetch;
+window.fetch=(url,opts={})=>String(url).endsWith("/api/feedback")?Promise.resolve(new Response(JSON.stringify({feedback:[
+  {id:1,kind:"problem",status:"new",email:"dana@x.com",screen:"login",item:"Android",message:"לא מצליחה להיכנס",created_at:"2026-11-23T05:00:00Z",replies:[{from:"team",by:"boss",text:"בודקים"}]},
+  {id:2,kind:"idea",status:"read",email:"rami@x.com",screen:"",item:"",message:"רעיון",created_at:"2026-11-22T05:00:00Z"}]}),{status:200})):real(url,opts);
+let mailed=""; openMail=u=>{ mailed=u; };
+showManage(); await sleep(300); document.querySelector('#mModes [data-mode="feedback"]').click();
+await until(()=>document.querySelector(".fb-board .fb-item"),8000);
+const cols=[...document.querySelectorAll(".fb-board .fb-col")].map(c=>c.getBoundingClientRect());
+out.stacked=cols.length===3&&cols[1].top>=cols[0].bottom-1&&cols.every(r=>r.width>innerWidth*0.7);
+out.noOverflow=document.documentElement.scrollWidth<=innerWidth;
+const card=document.querySelector('.fb-board .fb-item[data-id="1"]'); const btn=[...card.querySelectorAll(".fb-actions button")].find(b=>b.textContent.includes("למשרד"));
+btn.click(); out.mailed=decodeURIComponent(mailed); out.inPage=document.body.innerText.includes(["office","ahalawasahala"].join("@"))||[...document.querySelectorAll("a[href]")].some(a=>a.href.includes("ahalawasahala"));
+"""
+
+
+def test_feedback_stacks_on_a_phone_and_a_note_goes_to_the_office(site):
+    r = site("boss@x.com", FEEDBACK_OFFICE, mobile=True)
+    assert r["stacked"] and r["noOverflow"]   # the columns one under another
+    assert r["mailed"].startswith("mailto:office@ahalawasahala.com?subject=")
+    assert "בעיית כניסה" in r["mailed"] and "dana@x.com" in r["mailed"] and "לא מצליחה להיכנס" in r["mailed"] and "בודקים" in r["mailed"]
+    assert not r["inPage"]   # the address is not on the page

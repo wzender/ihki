@@ -127,7 +127,7 @@ body.home:not([data-view]) #feedbackBtn{display:none}
 .fb-board .fb-item.dragging{opacity:.45}.fb-board .fb-actions{flex-wrap:wrap}.fb-board .fb-actions .btn{padding:4px 10px;font-size:13px}
 .talks-summary{border-collapse:collapse;font-size:14px;margin:6px 0}.talks-summary :is(td,th){padding:4px 10px;border-bottom:1px solid var(--line);text-align:start}
 .fb-reply-fold>summary{cursor:pointer;font-size:13px;color:var(--muted)}
-@media (max-width:600px){.fb-board{grid-template-columns:repeat(3,85%)}}
+@media (max-width:600px){.fb-board{grid-template-columns:1fr;overflow-x:visible;scroll-snap-type:none}}   /* a phone: the columns one under another */
 .fb-inbox .fb-model{order:-1;padding:1px 8px;border-radius:999px;background:var(--olive-soft);color:var(--ink);font-weight:700;direction:ltr}
 .fb-note{margin:0;min-height:1.3em;color:var(--muted);font-size:14px}
 .fb-note.bad{color:var(--sumac)}
@@ -7871,6 +7871,16 @@ function feedbackItem(r,onBoard){   // one note: who and where, the message, the
     b.onclick=()=>feedbackSetStatus(r,status,b);
     actions.append(b);
   }
+  // to the office: the note as a mail from the manager's own mail app (the address is put together on the press)
+  const office=mark("btn","✉️ למשרד","button"); office.type="button"; office.title="שליחת המשוב במייל למשרד";
+  office.onclick=()=>{
+    const kind=r.screen==="login"?"בעיית כניסה":r.screen==="join"?"בקשת הצטרפות":FEEDBACK_KINDS[r.kind]||r.kind||"משוב";
+    mailOffice(`אהלא וסהלא · ${kind} · ${r.email||""}`,[
+      `סוג: ${kind}`, r.email&&`מאת: ${r.email}`, [r.screen,r.item].filter(Boolean).join(" · ")&&`איפה: ${[r.screen,r.item].filter(Boolean).join(" · ")}`,
+      r.rating&&`דירוג: ${"★".repeat(r.rating)}`, `נשלח: ${new Date(r.created_at).toLocaleString("he-IL")}`, "",
+      r.message||"", ...(r.replies||[]).map(m=>`\n${m.from==="team"?m.by||"הצוות":r.email}: ${m.text}`)]);
+  };
+  actions.append(office);
   item.append(actions);
   // the answer: kept in the note's conversation, shown on the user's home and pushed to their devices
   const form=mark("fb-reply","","form"), text=document.createElement("textarea"), send=mark("btn primary","שליחת תגובה","button"), note=mark("fb-reply-note","","p");
