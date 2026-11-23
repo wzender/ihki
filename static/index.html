@@ -2782,7 +2782,18 @@ async function api(url,opts={}){   // refresh once on 401; only a freshly issued
   if(res.status===401){ await sb.auth.signOut({scope:"local"}); }
   return res;
 }
-const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+// What the device keeps (localStorage). A kept value of another kind than the default (text for a list, a number
+// for a word…), left by an older version, is not used: the default is (storeKind).
+const storeKind=v=>v===null?"null":Array.isArray(v)?"array":typeof v;
+const store={get(k,d){try{const v=localStorage.getItem(k); if(!v) return d; const x=JSON.parse(v);
+    if(d!==undefined&&d!==null&&x!==null&&storeKind(x)!==storeKind(d)){ console.warn("ihki: a kept value of another kind is not used",k); return d; }
+    return x}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+/* The settings kept on the device that only say how the app looks (not the sign-in, not a learner's progress): what
+   "איפוס ההגדרות השמורות" clears when a screen of ניהול fails. */
+const UI_KEYS=["ihki.mmode","ihki.activityRange","ihki.labMode","ihki.labSave","ihki.mstudentClass","ihki.copen","ihki.coursePreview",
+  "ihki.class","ihki.cat","ihki.tutorHears","ihki.skin","ihki.speed","ihki.readHe","ihki.arOnly","ihki.showDone","ihki.subs",
+  "ihki.silent","ihki.autoNext","ihki.fbAway","ihki.tutorAutoplay"];
+function resetUiSettings(){ for(const k of UI_KEYS){ try{ localStorage.removeItem(k); }catch{} } location.reload(); }
 let driving=false;
 /* LESSONS and CATS are the student's: the lessons of their classes (all of them for a teacher, or before the first class) */
 let TEACHER_DAILIES=[];   // for a teacher: the daily videos of every class, {id, title, embed, date}
@@ -7997,6 +8008,24 @@ async function showMode(mode){
   if(mode==="models"){ await loadModels(); if(!MS&&MODELS) await loadModelSettings(MODELS.active); if(mMode===mode) CLASS?drawManage():drawModels(); }
 }
 for(const b of $("mModes").children) b.onclick=()=>showMode(b.dataset.mode);
+/* A screen of ניהול that fails to draw shows what failed and how to go on, instead of an empty (black) screen: a
+   value kept by an older version (cleared by the reset), or a fault of the app (reported to monitoring). */
+function manageFailed(err,where){
+  console.error("ihki: ניהול failed to draw",where,err);
+  try{ rumTrack("manage-error",{where,message:String(err&&err.message||err).slice(0,200)}); }catch{}
+  const box=$("manage"); if(!box) return;
+  box.querySelector(".manage-failed")?.remove();
+  const card=mark("card manage-failed",""), again=mark("btn","נסו שוב","button"), reset=mark("btn primary","איפוס ההגדרות השמורות","button");
+  card.append(mark("","המסך לא נטען","h2"),mark("","משהו השתבש בהצגת המסך הזה. לרוב זו הגדרה ישנה ששמורה במכשיר: האיפוס מוחק את הגדרות התצוגה בלבד (לא את ההתחברות ולא את ההתקדמות) וטוען מחדש.","p"),
+    mark("meta",`${where}: ${String(err&&err.message||err).slice(0,160)}`,"p"));
+  again.type=reset.type="button"; again.onclick=()=>location.reload(); reset.onclick=resetUiSettings;
+  const acts=mark("lab-actions",""); acts.append(reset,again); card.append(acts);
+  box.prepend(card); box.hidden=false; window.scrollTo(0,0);
+}
+for(const name of ["drawManage","drawManageShell","drawFlags","drawContent","drawAccess","drawModels","drawFeedbackTab","drawMonitorSummaryOnly","drawActivityOnly"]){
+  const fn=window[name]; if(typeof fn!=="function") continue;
+  window[name]=function(...a){ try{ const r=fn.apply(this,a); return r&&r.catch?r.catch(e=>manageFailed(e,name)):r; }catch(e){ manageFailed(e,name); } };
+}
 setInterval(()=>{
   if(!document.body.classList.contains("manage")||document.body.classList.contains("lab")||document.hidden) return;
   if(mMode==="flags"){ loadActivity().then(()=>drawActivityOnly()); Promise.all([loadMonitorSummary(),loadSystemActivity()]).then(()=>drawMonitorSummaryOnly()); }

@@ -2345,3 +2345,24 @@ def test_the_student_chooses_who_hears_and_the_device_keeps_it(site):
     assert r["chosen"] == [True, "החלפה לזיהוי של הדפדפן", '"eleven"']
     assert r["sent"] == ["hear"] and r["browser"] == 0   # ElevenLabs heard it, not the browser
     assert r["back"] == ["החלפה ל־ElevenLabs", '"browser"'] and r["browserAfter"] == 1
+
+
+
+MANAGE_FAILS = """
+await sleep(800); showManage(); await sleep(500);
+out.wrongKind=store.get("ihki.speed",1);   // "fast" was kept where a number belongs: the default instead
+const orig=CLASS; CLASS={get classes(){ throw new Error("a kept value no screen knows"); }};
+drawManage(); await sleep(100);   // a screen that fails to draw
+const card=document.querySelector("#manage .manage-failed");
+out.card=card&&card.textContent; out.buttons=card&&[...card.querySelectorAll("button")].map(b=>b.textContent);
+CLASS=orig;
+out.resetsClass=UI_KEYS.includes("ihki.class"); out.resetsProgress=UI_KEYS.some(k=>/best|learned|written|practiceDays|words/.test(k));
+"""
+
+
+def test_a_screen_of_manage_that_fails_says_so_and_offers_the_reset(site):
+    r = site("boss@x.com", MANAGE_FAILS, preload='localStorage.setItem("ihki.speed",JSON.stringify("fast"));')
+    assert r["wrongKind"] == 1
+    assert "המסך לא נטען" in r["card"] and "a kept value no screen knows" in r["card"]
+    assert r["buttons"] == ["איפוס ההגדרות השמורות", "נסו שוב"]
+    assert r["resetsClass"] and not r["resetsProgress"]   # the reset leaves the sign-in and a learner's progress alone
