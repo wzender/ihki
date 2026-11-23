@@ -2394,7 +2394,7 @@ def test_a_failed_load_of_manage_offers_to_try_again(site):
 FEEDBACK_OFFICE = """
 await sleep(800);
 const real=window.fetch;
-window.fetch=(url,opts={})=>String(url).endsWith("/api/feedback")?Promise.resolve(new Response(JSON.stringify({feedback:[
+window.fetch=(url,opts={})=>String(url).endsWith("/api/feedback")?Promise.resolve(new Response(JSON.stringify({tutor_setup:"alter table public.feedback add constraint x check (kind in ('tutor')); notify pgrst, 'reload schema';",feedback:[
   {id:1,kind:"problem",status:"new",email:"dana@x.com",screen:"login",item:"Android",message:"לא מצליחה להיכנס",created_at:"2026-11-23T05:00:00Z",replies:[{from:"team",by:"boss",text:"בודקים"}]},
   {id:2,kind:"idea",status:"read",email:"rami@x.com",screen:"",item:"",message:"רעיון",created_at:"2026-11-22T05:00:00Z"}]}),{status:200})):real(url,opts);
 let mailed=""; openMail=u=>{ mailed=u; };
@@ -2403,7 +2403,10 @@ await until(()=>document.querySelector(".fb-board .fb-item"),8000);
 const cols=[...document.querySelectorAll(".fb-board .fb-col")].map(c=>c.getBoundingClientRect());
 out.stacked=cols.length===3&&cols[1].top>=cols[0].bottom-1&&cols.every(r=>r.width>innerWidth*0.7);
 out.noOverflow=document.documentElement.scrollWidth<=innerWidth;
+const sql=document.querySelector("#mFeedback .sql-block code"); out.sql=sql&&[sql.dir,getComputedStyle(sql).direction,!!sql.parentElement.querySelector("button")];
 const card=document.querySelector('.fb-board .fb-item[data-id="1"]'); const btn=[...card.querySelectorAll(".fb-actions button")].find(b=>b.textContent.includes("למשרד"));
+const exit=document.getElementById("logoutBtn"), acts=card.querySelector(".fb-actions").getBoundingClientRect(), ex=exit.getBoundingClientRect();
+out.exitFloats=getComputedStyle(exit).position==="fixed"&&!(ex.bottom<acts.top||ex.top>acts.bottom||ex.right<acts.left||ex.left>acts.right);
 btn.click(); out.mailed=decodeURIComponent(mailed); out.inPage=document.body.innerText.includes(["office","ahalawasahala"].join("@"))||[...document.querySelectorAll("a[href]")].some(a=>a.href.includes("ahalawasahala"));
 """
 
@@ -2411,6 +2414,8 @@ btn.click(); out.mailed=decodeURIComponent(mailed); out.inPage=document.body.inn
 def test_feedback_stacks_on_a_phone_and_a_note_goes_to_the_office(site):
     r = site("boss@x.com", FEEDBACK_OFFICE, mobile=True)
     assert r["stacked"] and r["noOverflow"]   # the columns one under another
+    assert not r["exitFloats"]   # "יציאה" is at the page's end in ניהול, not over a card's buttons
+    assert r["sql"] == ["ltr", "ltr", True]   # the SQL to run reads left to right, with its copy button
     assert r["mailed"].startswith("mailto:office@ahalawasahala.com?subject=")
     assert "בעיית כניסה" in r["mailed"] and "dana@x.com" in r["mailed"] and "לא מצליחה להיכנס" in r["mailed"] and "בודקים" in r["mailed"]
     assert not r["inPage"]   # the address is not on the page

@@ -121,6 +121,7 @@ body.home:not([data-view]) #feedbackBtn{display:none}
 .tc-fb-note:empty{display:none}
 .fb-board{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px;margin:8px 0}
 .fb-col{scroll-snap-align:start;display:flex;flex-direction:column;gap:8px;min-width:0;padding:8px;border-radius:14px;background:var(--olive-soft);border:2px solid transparent}
+.sql-block{display:flex;flex-direction:column;gap:6px;align-items:flex-start;margin:6px 0}.sql-block code{display:block;direction:ltr;text-align:left;unicode-bidi:isolate;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;padding:8px 10px;border-radius:8px;background:var(--surface);border:1px solid var(--line);width:100%;box-sizing:border-box}
 .fb-col.over{border-color:var(--olive)}.fb-col-head{margin:0;font-size:16px}
 .fb-cards{display:flex;flex-direction:column;gap:8px}.fb-empty{margin:0;color:var(--muted);font-size:14px;text-align:center;padding:12px 0}
 .fb-board .fb-item{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 10px;cursor:grab;border-bottom:1px solid var(--line)}
@@ -217,7 +218,8 @@ body:not([data-view=live]) #liveView{display:none}.live-page{display:flex;flex-d
 body.home:not(.manage){padding-bottom:84px}
 body.home:not(.manage) #toNow{bottom:76px} body.home:not(.manage) #logoutBtn{bottom:62px}
 body.home:not(.manage).class-exit #logoutBtn{display:none}   /* on the path the exit is in the class dialogs: floating, it covers the nav on a phone */
-body:not(.home):not(.manage) #logoutBtn{display:none}   /* in an exercise the one way out is the back button at the top; signing out is from the path */
+body:not(.home):not(.manage) #logoutBtn{display:none}
+body.manage #logoutBtn{position:static;display:block;margin:24px auto 32px}   /* in ניהול at the page's end: floating, it covered the cards' buttons on a phone */   /* in an exercise the one way out is the back button at the top; signing out is from the path */
 .dlg-exit:not([hidden]){display:block;margin:14px auto 0;color:var(--muted)}
 #vids{display:flex;flex-direction:column;gap:6px;width:100%;max-width:460px;margin:8px auto 0}
 #vids h2{margin:0 0 4px;font:400 26px/1.2 var(--f-display)}
@@ -7696,6 +7698,13 @@ function browserName(){
 }
 /* "✉️ שליחה במייל": the same note as a mail the person sends from their own mail app, to the office. The address is
    put together only when the button is pressed: it is not on the page or written whole in its source. */
+/* SQL to run in Supabase: left to right (in the page's right-to-left its punctuation came out reversed), with a copy button */
+function sqlBlock(sql){
+  const box=mark("sql-block",""), code=mark("",sql,"code"), copy=mark("btn","העתקה","button");
+  code.dir="ltr"; copy.type="button";
+  copy.onclick=async()=>{ try{ await navigator.clipboard.writeText(sql); copy.textContent="✓ הועתק"; }catch{ const r=document.createRange(); r.selectNodeContents(code); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); copy.textContent="סמנו והעתיקו"; } };
+  box.append(code,copy); return box;
+}
 function officeAddress(){ return ["office","ahalawasahala.com"].join(String.fromCharCode(64)); }
 function openMail(url){ location.href=url; }
 function mailOffice(subject,lines){
@@ -7841,7 +7850,7 @@ function drawFeedbackInbox(box){
   if(feedbackError){ card.append(mark("meta","לא ניתן לטעון: "+feedbackError,"p")); box.append(card); return; }
   if(!FEEDBACK){ card.append(mark("meta","טוען…","p")); box.append(card); loadFeedback().then(()=>{ if(mMode==="feedback"&&document.body.classList.contains("manage")) drawFeedbackTab(); }); return; }
   if(FEEDBACK.setup){ card.append(mark("meta","הטבלה feedback עדיין לא קיימת. הריצו ב-SQL Editor של Supabase:","p"),mark("meta",FEEDBACK.setup,"p")); box.append(card); return; }
-  if(FEEDBACK.tutor_setup) card.append(mark("meta","משובים על יאללה נדבר נשמרים כרגע כ„רעיון”. כדי שיישמרו כסוג משלהם, הריצו פעם אחת ב-SQL Editor של Supabase:","p"),mark("meta",FEEDBACK.tutor_setup,"p"));
+  if(FEEDBACK.tutor_setup) card.append(mark("meta","משובים על יאללה נדבר נשמרים כרגע כ„רעיון”. כדי שיישמרו כסוג משלהם, הריצו פעם אחת ב-SQL Editor של Supabase:","p"),sqlBlock(FEEDBACK.tutor_setup));
   if(FEEDBACK.image_setup) card.append(mark("meta","כדי לשמור צילומי מסך עם המשוב, הריצו פעם אחת ב-SQL Editor של Supabase:","p"),mark("meta",FEEDBACK.image_setup,"p"));
   const all=FEEDBACK.feedback||[], rows=all.filter(r=>r.screen!=="tutor"), talks=all.filter(r=>r.screen==="tutor");
   const open=rows.filter(r=>r.status==="new").length;
