@@ -263,3 +263,27 @@ def test_a_student_in_no_class_is_let_in_only_by_a_level_given_to_them(monkeypat
     me = run(auth, steps, monkeypatch)
     from app.main import LESSON_LEVEL
     assert me["lessons"] and {LESSON_LEVEL[l] for l in me["lessons"]} == {"1"}
+
+
+def test_the_panels_summary_is_kept_a_while_and_read_afresh_after_a_change(monkeypatch):
+    auth = TierAuth({"teacher-1": {"roles": ["developer", "admin"], "entitlements": []}})
+    reads = []
+    auth.all_attempts = lambda: reads.append(1) or []
+    base = {"name": "א", "emails": "student@example.com", "lessons": ["1"], "homeworks": []}
+
+    async def steps(client):
+        await client.get("/api/class", headers=MANAGER)
+        await client.get("/api/class", headers=MANAGER)
+        out = {"kept": len(reads)}
+        await client.post("/api/score", headers=STUDENT, data={"phrase_id": 0})   # a learner's practice: still kept
+        await client.get("/api/class", headers=MANAGER)
+        out["after_practice"] = len(reads)
+        await client.put("/api/classes/1", headers=MANAGER, json=base)   # a change through the panel
+        await client.get("/api/class", headers=MANAGER)
+        out["after_change"] = len(reads)
+        await client.get("/api/class?fresh=1", headers=MANAGER)   # "רענון"
+        out["fresh"] = len(reads)
+        return out
+
+    out = run(auth, steps, monkeypatch)
+    assert out == {"kept": 1, "after_practice": 1, "after_change": 2, "fresh": 3}

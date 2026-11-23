@@ -1270,8 +1270,40 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             raise HTTPException(503, f"saved words not kept: {e}")
         return {"ok": True, "words": glossary.saved(kept)}
 
+    # ניהול's summary is read from every student's attempts (seconds of Supabase): kept CLASS_KEPT seconds for each
+    # manager, and dropped by any change made through the panel (data_generation); a learner's practice does not drop
+    # it (progress shows up to CLASS_KEPT late), and "רענון" asks for it afresh
+    CLASS_KEPT = 120
+    class_kept: dict[tuple, tuple[float, int, dict]] = {}
+    app.state.data_generation = 0
+    LEARNER_WRITES = ("/api/score", "/api/verb", "/api/tutor", "/api/tts", "/api/words", "/api/writing", "/api/push",
+                      "/api/feedback", "/api/flag", "/api/lab", "/api/live", "/api/join-request", "/api/prompt-audio",
+                      "/api/progress", "/api/practice", "/api/game", "/api/daily", "/api/me")
+
+    @app.middleware("http")
+    async def panel_changes(request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if request.method in ("POST", "PUT", "PATCH", "DELETE") and path.startswith("/api/") and response.status_code < 400 \
+                and not path.startswith(LEARNER_WRITES):
+            app.state.data_generation += 1   # a change of the panel's: ניהול's summary is read afresh
+        return response
+
     @app.get("/api/class")
-    def class_progress(a: SupabaseAuth = Depends(teacher_only), actor: dict | None = Depends(signed_in)):
+    def class_progress(a: SupabaseAuth = Depends(teacher_only), actor: dict | None = Depends(signed_in),
+                       fresh: bool = Query(False)):
+        key = (str((actor or {}).get("id") or ""), tuple((actor or {}).get("roles") or ()), str((actor or {}).get("subject") or ""))
+        kept = class_kept.get(key)
+        if kept and not fresh and kept[1] == app.state.data_generation and time.monotonic() - kept[0] < CLASS_KEPT:
+            return kept[2]
+        generation = app.state.data_generation
+        out = class_summary(a, actor)
+        if len(class_kept) > 50:
+            class_kept.clear()
+        class_kept[key] = (time.monotonic(), generation, out)
+        return out
+
+    def class_summary(a: SupabaseAuth, actor: dict | None) -> dict:
         """The teacher's panel: the classes (with their lessons and homework), and every student's summary (see `summary`) with
         "written", their written homework ({topic id: its lines}), with
         "tutor" (the teacher gave them the tutor's rank, see `set_tutor`; "tutor_fixed" when TEACHER_EMAILS or TUTORS_EMAIL gives it, which the panel cannot change),

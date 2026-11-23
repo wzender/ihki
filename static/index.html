@@ -7061,7 +7061,8 @@ function showManage(){
   if(!home) showPath();
   document.body.classList.remove("lab"); document.body.classList.add("manage"); scrollTo(0,0); loadManage();
 }
-$("toManage").onclick=$("mRefresh").onclick=showManage;
+$("toManage").onclick=showManage;
+$("mRefresh").onclick=()=>{ manageFresh=true; showManage(); };   // "רענון": the server reads the students' progress afresh
 $("mPractice").onclick=$("labPractice").onclick=()=>{ document.body.classList.remove("manage","lab"); shownStudent=""; drawPath(); };   // the path was not laid out while hidden
 $("mLab").onclick=()=>showLab(); $("labManage").onclick=showManage;
 const grade=n=>mark("pill "+(n>=EXCELLENT?"good":n>=60?"mid":"bad"),n);
@@ -7099,8 +7100,9 @@ const ratio=t=>{ const m=document.createElement("small"), n=document.createEleme
 const bar=frac=>{ const b=mark("progress",""), f=document.createElement("i"); f.style.width=`${Math.round(frac*100)}%`; b.append(f); return b; };
 const place=p=>{ const c=ALL_CATS.find(c=>c.id===p.cat), l=c&&ALL_LESSONS.find(l=>l.id===c.lesson); return [lessonName(l),c&&c.name].filter(Boolean).join(" · "); };
 const part=into=>{ const d=document.createElement("details"); d.className="sec"; d.append(document.createElement("summary")); into.append(d); return d; };   // a closed part of a card
+let manageFresh=false;
 async function loadManage(){
-  const load=++manageLoad;
+  const load=++manageLoad, fresh=manageFresh; manageFresh=false;
   const state=$("mState");
   state.textContent="טוען את נתוני התלמידים…"; state.classList.remove("setup");
   if(!["classes","students","content","flags","feedback","course","access","models"].includes(mMode)||(mMode==="course"&&!can("course.edit"))) mMode="classes";
@@ -7119,7 +7121,7 @@ async function loadManage(){
   const ctl=window.AbortController?new AbortController():null, cut=setTimeout(()=>ctl&&ctl.abort(),90000);
   try{
     await ready;
-    const res=await api("/api/class",ctl?{signal:ctl.signal}:{});
+    const res=await api(fresh?"/api/class?fresh=1":"/api/class",ctl?{signal:ctl.signal}:{});
     if(load!==manageLoad) return;
     if(!res.ok){
       const detail=(await res.json().catch(()=>({}))).detail||res.status;
