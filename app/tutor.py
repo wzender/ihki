@@ -175,6 +175,15 @@ def _rebuild_course_tables() -> None:   # another version of the course is serve
 TASHKEEL = re.compile(r"[ً-ْٰـ]")
 PUNCT = "،؟!.,:;\"'()«»…-"
 ARABIC = re.compile(r"[ء-ي]")
+# Arabic vowel signs the model sometimes puts on Hebrew letters: no Hebrew font draws them (an empty box). Each becomes
+# the Hebrew point it stands for; tanwin, the dagger alef and tatweel go; the shadda stays (the page draws it).
+AR_MARKS = str.maketrans({"\u064e": "\u05b7", "\u0650": "\u05b4", "\u064f": "\u05bb", "\u0652": "\u05b0",
+                          "\u064b": None, "\u064c": None, "\u064d": None, "\u0670": None, "\u0640": None})
+
+
+def hebrew_marks(tr: str) -> str:
+    """Hebrew letters with Arabic vowel signs (as the model may write them) with Hebrew points instead."""
+    return tr.translate(AR_MARKS)
 PREFIXES = ("وال", "بال", "فال", "لل", "ال", "و", "ب", "ف", "ل", "ع", "م")
 SUFFIXES = ("كم", "هم", "ها", "نا", "ني", "تي", "ين", "ات", "ي", "ك", "ه", "و", "ت", "ة")
 
@@ -490,7 +499,7 @@ class Tutor:
         _, forms = vocabulary(sc["lesson"])
         words: list[dict] = []
         for w in data["words"]:
-            tr, ar = w["tr"].strip(), w["ar"].strip()
+            tr, ar = hebrew_marks(w["tr"].strip()), w["ar"].strip()
             if not tr:
                 continue
             if not re.search(r"[א-ת]", tr):   # punctuation the model gave as a word of its own
@@ -519,13 +528,13 @@ class Tutor:
         data = self._answer(chat, messages)
         chat.turns += 1
         chat.done = last
-        fix = {"ar": data["fix_ar"].strip(), "tr": data["fix_tr"].strip(), "note": data["fix_note"].strip()}
+        fix = {"ar": data["fix_ar"].strip(), "tr": hebrew_marks(data["fix_tr"].strip()), "note": data["fix_note"].strip()}
         if not fix["ar"] or not fix["note"] or NO_FIX.search(fix["note"]) or \
                 [norm(w) for w in fix["ar"].split()] == [norm(w) for w in text.split()]:
             fix = None   # no correction, or one that changes nothing: the model is not to correct a correct sentence
         reply = self.message(data, BY_ID[chat.scenario])
         summary = data["summary"].strip() if last else ""
-        heard = data["heard_tr"].strip() or text
+        heard = hebrew_marks(data["heard_tr"].strip()) or text
         chat.log.append({"from": "student", "text": text, "tr": heard, **({"fix": fix} if fix else {})})
         chat.log.append({"from": "tutor", **reply, **({"summary": summary} if summary else {})})
         return {"heard": heard, "reply": reply, "fix": fix, "summary": summary or None, "turn": chat.turns,

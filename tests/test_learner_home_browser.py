@@ -2474,3 +2474,16 @@ def test_access_draws_its_rows_a_page_at_a_time_and_searches_them_all(site):
     assert r["fits"]   # the wide table scrolls in its own box: the page stays the phone's width (no dark, empty screen)
     assert r["second"] == 80 and r["found"] == ["s117@x.com"]   # an account not drawn yet is found
     assert r["cleared"] == 40 and r["kept"] == 80   # a redraw keeps the rows shown
+
+
+ARABIC_MARKS = """
+await sleep(500);
+const el=document.createElement("p"); document.body.append(el);
+setTr(el,"ע\\u064eל\\u064eי\\u0652כ\\u064fם ס\\u05b7\\u0651לאם");
+out.text=el.textContent; out.sh=!!el.querySelector(".sh");
+"""
+
+
+def test_arabic_vowel_signs_on_hebrew_letters_are_drawn_as_hebrew_points(site):
+    r = site("boss@x.com", ARABIC_MARKS)
+    assert r["text"] == "עַלַיְכֻם סַלאם" and r["sh"]   # no Arabic sign left (no box); the shadda drawn by its span

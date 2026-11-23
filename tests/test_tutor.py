@@ -571,3 +571,13 @@ def test_the_panel_counts_the_choices_by_browser_and_by_model():
     assert d["total"] == 3 and d["chosen"] == {"browser": 1, "eleven": 2, "same": 0, "neither": 0}
     assert d["by_engine"]["Android Chrome"] == {"browser": 1, "eleven": 1, "same": 0, "neither": 0}
     assert d["by_model"]["scribe_v2"]["eleven"] == 1 and d["latest"][0]["at"].endswith("06:02:00+00:00")
+
+
+def test_arabic_vowel_signs_on_hebrew_letters_become_hebrew_points():
+    from app.tutor import hebrew_marks
+    marked = "עَלَיْכُם"   # the model's עلَيْكُم: Arabic signs on Hebrew letters (empty boxes)
+    assert hebrew_marks(marked) == "עַלַיְכֻם" and hebrew_marks("סַّ") == "סַّ"   # the shadda stays
+    words = (("السلام", "אֵ(ל)סַּלַאם", "שלום"), ("عليكم", marked, "עליכם"))
+    with client(TutorAuth(), FakeClient(script={1: answer(words=words)})) as c:
+        reply = start(c).json()["message"]
+    assert reply["tr"] == "אֵ(ל)סַּלַאם עַלַיְכֻם" and not any("ً" <= ch <= "ْ" and ch != "ّ" for ch in reply["tr"])

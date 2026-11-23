@@ -2820,6 +2820,8 @@ function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;
 const SHADDA=/([\u05D0-\u05EA]['\u05F3]?[\u0591-\u05C7]*)\u0651([\u0591-\u05C7]*)/g;
 function trNode(text){const f=document.createDocumentFragment(),box=document.createElement("span");setTr(box,text);f.append(...box.childNodes);return f}
 function setTr(el,text){
+  // Arabic vowel signs on Hebrew letters (no Hebrew font draws them: an empty box) as the Hebrew points they stand for
+  text=String(text??"").replace(/[\u064B-\u0650\u0652\u0670\u0640]/g,m=>({"\u064E":"\u05B7","\u0650":"\u05B4","\u064F":"\u05BB","\u0652":"\u05B0"})[m]||"");
   el.textContent=""; let at=0;
   for(const m of text.matchAll(SHADDA)){
     const sp=document.createElement("span"); sp.className="sh"; sp.textContent=m[1]+m[2];
