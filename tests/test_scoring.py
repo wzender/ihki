@@ -2306,7 +2306,7 @@ def test_a_tutor_flags_a_recording_scored_wrong(monkeypatch):
         a.user = lambda token: {"id": "u3", "email": "out@b.c"} if token == "x" else known(token)
         assert c.get("/api/me", headers=tok("x")).status_code == 403
         a.rank = None   # before the table is created: the panel says what to run, and so does giving the rank
-        assert "create table public.tutors" in c.get("/api/class", headers=tok("t")).json()["setup"][-1]["sql"]
+        assert "create table public.tutors" in c.get("/api/class?fresh=1", headers=tok("t")).json()["setup"][-1]["sql"]
         r = rank("t", email="s@b.c", tutor=True)
         assert r.status_code == 503 and "create table public.tutors" in r.json()["detail"]
 
