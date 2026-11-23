@@ -1971,8 +1971,14 @@ out.why=[...document.querySelectorAll(".tc .tc-note.bad")].map(n=>n.textContent)
 """
 
 
+# a conversation with the tutor's voice first asks how it goes (a chat or a voice dialogue): these tests talk in the chat
+PICK_CHAT = """addEventListener("DOMContentLoaded",()=>new MutationObserver(()=>{
+  const b=[...document.querySelectorAll(".tc .tc-mode button")].find(x=>x.textContent.includes("צ'אט")); if(b) b.click();
+}).observe(document.body,{childList:true,subtree:true}));"""
+
+
 def test_the_tutor_speaks_his_messages_once_and_the_device_keeps_the_choice(site):
-    r = site("boss@x.com", TUTOR_VOICE)
+    r = site("boss@x.com", TUTOR_VOICE, preload=PICK_CHAT)
     assert r["autoShown"] and r["autoOn"] == "true" and r["hear"]
     assert r["asked"] == ["/api/tutor/say/chat1/0"] and r["played"] == 1   # said on its own when it came
     assert r["autoAfter"] == "false" and r["kept"] == "false"
@@ -2048,7 +2054,7 @@ out.all=await notes({available:true,voice:true,stt:false,voice_missing:[]},man);
 
 
 def test_the_trial_note_says_what_is_missing_and_what_hears(site):
-    r = site("boss@x.com", TUTOR_TRIAL)
+    r = site("boss@x.com", TUTOR_TRIAL, preload=PICK_CHAT)
     assert r["noKey"][1] and "אין מפתח ElevenLabs" in r["noKey"][0] and "מפתחות API" in r["noKey"][0]
     assert r["noVoice"][1] and "לא נבחר קול ליאללה נדבר" in r["noVoice"][0]
     assert r["noFemale"][1] and "בקול הגבר" in r["noFemale"][0] and "זיהוי הדיבור: הדפדפן (ElevenLabs כגיבוי)" in r["noFemale"][0]   # the browser hears by default, ElevenLabs its backup
@@ -2082,7 +2088,7 @@ out.server=[...document.querySelectorAll(".tc .tc-note.bad")].map(n=>n.textConte
 
 
 def test_a_tutor_that_cannot_be_heard_says_why(site):
-    r = site("boss@x.com", TUTOR_BLOCKED)
+    r = site("boss@x.com", TUTOR_BLOCKED, preload=PICK_CHAT)
     assert "לחצו 🔊" in r["blocked"]
     assert r["server"].startswith("🔇 הדובר לא מושמע: הקול שנבחר לא נמצא")
 
@@ -2288,7 +2294,7 @@ out.says=says; out.most=most; out.playing=playing;
 
 
 def test_a_tutor_message_never_plays_twice_at_once(site):
-    r = site("boss@x.com", TUTOR_ONE_VOICE)
+    r = site("boss@x.com", TUTOR_ONE_VOICE, preload=PICK_CHAT)
     assert r["says"] == 1 and r["most"] == 1 and r["playing"] == 1   # fetched once, one sound at a time (no echo)
 
 
@@ -2514,7 +2520,43 @@ await until(()=>says.length,5000); out.say=says[0]; out.kept=localStorage.getIte
 
 
 def test_the_tutor_plays_the_chosen_voices_own_sample(site):
-    r = site("boss@x.com", TUTOR_SAMPLE)
+    r = site("boss@x.com", TUTOR_SAMPLE, preload=PICK_CHAT)
     assert r["button"] and r["played"] == ["https://x/bader.mp3"] and r["she"] is True   # the woman's part's voice
     assert r["models"] == ["", "eleven_multilingual_v2", "eleven_v4", "eleven_v4_turbo"]   # "": v3, the default
     assert r["say"].endswith("/0?model=eleven_v4") and r["kept"] == '"eleven_v4"'   # the message again, in the chosen model
+
+
+TUTOR_DIALOG = """
+await sleep(800);
+const real=window.fetch, sent=[];
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/start")) return Promise.resolve(new Response(JSON.stringify({id:"chat1",turns:10,left:null,
+    message:{ar:"كيف حالك؟",tr:"כִּיף חַאלַכּ?",he:"מה שלומך?",words:[]}}),{status:200}));
+  if(u.includes("/api/tutor/say/")) return Promise.resolve(new Response(new Blob(["ID3"]),{status:200}));
+  if(u.includes("/api/tutor/turn")){ sent.push(JSON.parse(opts.body).text); const last=sent.length>=2;
+    return Promise.resolve(new Response(JSON.stringify({heard:"מְנִיח",reply:{ar:"تمام",tr:"תַמַאם",he:"מצוין",words:[]},fix:null,
+      summary:last?"כל הכבוד":null,turn:sent.length,turns:10,done:last}),{status:200})); }
+  return real(url,opts); };
+const played=[]; window.Audio=function(){ this.play=()=>{ played.push(1); setTimeout(()=>this.onended&&this.onended(),50); return Promise.resolve(); }; this.pause=()=>{}; };
+localStorage.setItem("ihki.tutorGender",JSON.stringify("m"));
+TUTOR_INFO={available:true,voice:true,stt:false,turns:10,left:null,scenarios:[]};
+openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
+await until(()=>document.querySelector(".tc .tc-mode"),5000);
+out.modes=[...document.querySelectorAll(".tc .tc-mode button")].map(b=>b.textContent);
+[...document.querySelectorAll(".tc .tc-mode button")].find(b=>b.textContent.includes("דו־שיח")).click();
+await until(()=>window.__browser.length===1,5000);   // the opening was said, and the student's turn began
+out.box=document.querySelector(".tc .tc-type").hidden; out.state=document.querySelector(".tc .tc-dialog-state").textContent;
+window.__browser[0].onresult({results:[[{transcript:"منيح"}]]}); window.__browser[0].onend();   // the student spoke
+await until(()=>window.__browser.length===2,5000);   // the answer was said, and it listens again
+window.__browser[1].onresult({results:[[{transcript:"شكرا"}]]}); window.__browser[1].onend();
+await until(()=>/הסתיימה/.test(document.querySelector(".tc .tc-dialog-state").textContent),5000);
+out.sent=sent; out.played=played.length; out.listened=window.__browser.length; out.boxAtEnd=document.querySelector(".tc .tc-type input").value;
+"""
+
+
+def test_the_voice_dialogue_says_listens_and_answers_without_the_text_box(site):
+    r = site("boss@x.com", TUTOR_DIALOG, preload=FAKE_BROWSER_RECOGNITION)
+    assert r["modes"][0].startswith("💬") and "דו־שיח" in r["modes"][1]
+    assert r["box"] and "תורכם" in r["state"]   # no text box; the student's turn
+    assert r["sent"] == ["منيح", "شكرا"] and r["boxAtEnd"] == ""   # what was heard went straight to the tutor
+    assert r["played"] == 3 and r["listened"] == 2   # the opening and both answers said; no listening after the end
