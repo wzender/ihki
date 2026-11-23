@@ -2448,3 +2448,27 @@ def test_the_trial_compares_both_recognizers_and_keeps_the_students_choice(site)
     assert c["chosen"] == "eleven" and c["browser"]["text"] == "منيح" and "ar-PS" in c["browser"]["engine"]
     assert c["eleven"] == {"text": "منيح الحمد لله", "tr": "מְנִיח אֵלְחַמְדֻ לִלַّה", "model": "scribe_v3", "language": "ajp", "hints": 57}
     assert r["box"] == "מְנִיח אֵלְחַמְדֻ לִלַה" and r["gone"]   # ElevenLabs' sentence waits in the box (no shadda in a box)
+
+
+ACCESS_MANY = """
+await sleep(800);
+const users=[...Array(120)].map((_,i)=>({id:"u"+i,email:`s${i}@x.com`,name:"",tier:"student",opens:{levels:["1"],overrides:{}},fixed:[]}));
+const real=window.fetch;
+window.fetch=(url,opts={})=>String(url).includes("/api/access/users")&&!opts.method?Promise.resolve(new Response(JSON.stringify({users,me:"boss"}),{status:200})):real(url,opts);
+showManage(); await sleep(300); document.querySelector('#mModes [data-mode="access"]').click();
+await until(()=>document.querySelector("#mAccess .access-group tbody tr"),8000);
+const rowsNow=()=>document.querySelectorAll("#mAccess tbody tr").length, more=()=>[...document.querySelectorAll("#mAccess .access-group > button")].find(b=>!b.hidden);
+out.first=rowsNow(); out.moreText=more()&&more().textContent;
+more().click(); out.second=rowsNow();
+const find=document.querySelector("#mAccess .access-find"); find.value="s117@"; find.oninput();
+out.found=[...document.querySelectorAll("#mAccess tbody tr")].map(r=>r.querySelector("small").textContent);
+find.value=""; find.oninput(); out.cleared=rowsNow();
+more().click(); redrawAccess(); out.kept=rowsNow();
+"""
+
+
+def test_access_draws_its_rows_a_page_at_a_time_and_searches_them_all(site):
+    r = site("boss@x.com", ACCESS_MANY, mobile=True)
+    assert r["first"] == 40 and "40 מתוך 80" in r["moreText"]
+    assert r["second"] == 80 and r["found"] == ["s117@x.com"]   # an account not drawn yet is found
+    assert r["cleared"] == 40 and r["kept"] == 80   # a redraw keeps the rows shown

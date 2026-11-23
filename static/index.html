@@ -7477,6 +7477,7 @@ function sectionPicker(tree,chosen,label,onChange){
 const ACCESS_COLS=[["level:1","שלב א"],["level:2","שלב ב"],["path.all_lessons","כל\nהשיעורים"],["path","מסלול"],["practice","תרגול"],
   ["games","משחקים"],["games.verb","פועל\nיוצא"],["games.eitan","בונים פועל\nעם איתן"],["games.falling","אותיות\nנופלות"],["games.bubble","פועל\nזמני"],["games.camel","מרוץ\nגמלים"],["tutor","יאללה\nנדבר"],
   ["lib:d1","ספרייה\nשלב א"],["lib:d2","ספרייה\nשלב ב"],["lib:guides","ספרייה\nמנחים ומתרגלים"],["library.all_sections","כל\nהספרייה"],["management","ניהול"],["lab","מעבדה"]];
+const ACCESS_PAGE=40, accessShown={};   // the accounts' rows drawn at a time in הרשאות; how many each group shows (kept across redraws)
 const ACCESS_OWN=new Set(ACCESS_COLS.map(([k])=>k).filter(k=>k!=="management"&&k!=="lab"));   // what one account may be given or denied on its own (not ניהול, not the lab)
 function accessOpens(o,key){
   if(key.startsWith("level:")) return (o.levels||[]).includes("*")||(o.levels||[]).includes(key.slice(6));
@@ -7552,7 +7553,7 @@ function drawAccess(){
   if((ACCESS.users||[]).length&&!ACCESS.users.some(u=>u.opens)) box.append(mark("setup","פירוט ההרשאות לא זמין: השרת עוד לא עודכן לגרסה שמחשבת אותו. הפעילו אותו מחדש (או העלו את העדכון) ורעננו.","p"));
   box.append(drawLookup());
   if(ACCESS.features) box.append(drawTierFeatures(note));
-  const lab=can("lab.access"), rows=[];
+  const lab=can("lab.access"), rows=[], fills=[];   // fills: each group's redraw, for the search
   const save=async(r)=>{
     const {user,select,dev,btn}=r, body={tier:select.value,...(lab&&dev?{developer:dev.checked}:{})};
     btn.disabled=true;
@@ -7571,7 +7572,9 @@ function drawAccess(){
     for(const [,h] of ACCESS_COLS){ const th=mark("",h,"th"); head.append(th); }
     head.append(mark("","העברה לקבוצה","th"));
     const thead=document.createElement("thead"), body=document.createElement("tbody"); thead.append(head); table.append(thead,body);
-    for(const user of users){
+    // a phone gave up drawing every account's row at once (hundreds of rows of 18 cells: a black screen): the rows are
+    // made as they are shown, ACCESS_PAGE at a time, and the search looks through every account
+    const rowOf=new Map(), makeRow=user=>{
       const tr=document.createElement("tr"), who=document.createElement("td"), email=mark("",user.email,"small"); email.dir="ltr";
       who.append(user.name||user.email,email);
       if(user.developer) who.append(mark("access-badge","מפתח · מעבדה","span"));
@@ -7611,11 +7614,19 @@ function drawAccess(){
       const mark_=()=>{ r.dirty=select.value!==user.tier||(dev&&dev.checked!==!!user.developer); btn.disabled=!r.dirty||locked; };
       select.onchange=mark_; if(dev) dev.onchange=mark_;
       btn.onclick=async()=>{ if(await save(r)){ const msg=`${user.name||user.email} נשמר/ה ב${TIER_INFO[user.tier].name}.`; await loadAccess(); drawAccess(); $("mAccess").querySelector("p.sub").textContent=msg; } };
-      body.append(tr);
-    }
-    const scroll=mark("access-scroll",""); scroll.append(table); group.append(scroll); box.append(group);
+      return tr;
+    };
+    const more=mark("btn","","button"); more.type="button"; let query="";
+    const fill=q=>{ if(q!==undefined&&q!==query){ query=q; accessShown[tier]=ACCESS_PAGE; }
+      const shown=accessShown[tier]||ACCESS_PAGE;
+      const list=users.filter(u=>!query||`${u.name||""} ${u.email}`.toLowerCase().includes(query));
+      body.replaceChildren(...list.slice(0,shown).map(u=>rowOf.get(u)||(rowOf.set(u,makeRow(u)),rowOf.get(u))));
+      more.hidden=list.length<=shown; more.textContent=`הצגת עוד (${Math.min(ACCESS_PAGE,list.length-shown)} מתוך ${list.length-shown} שנותרו)`; };
+    more.onclick=()=>{ accessShown[tier]=(accessShown[tier]||ACCESS_PAGE)+ACCESS_PAGE; fill(); };
+    fills.push(fill); fill();
+    const scroll=mark("access-scroll",""); scroll.append(table); group.append(scroll,more); box.append(group);
   }
-  find.oninput=()=>{ const q=find.value.trim().toLowerCase(); for(const r of rows) r.tr.hidden=!!q&&!`${r.user.name||""} ${r.user.email}`.toLowerCase().includes(q); };
+  find.oninput=()=>{ const q=find.value.trim().toLowerCase(); for(const fill of fills) fill(q); };
   saveAll.onclick=async()=>{
     const dirty=rows.filter(r=>r.dirty);
     if(!dirty.length){ note.textContent="אין שינויים לשמור."; return; }
