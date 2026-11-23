@@ -2505,10 +2505,16 @@ openTutorChat({id:"l3",lesson:"3",title:"השכנה",who:"רובה",ar:"روبا
 await until(()=>document.querySelector(".tc .tc-note.trial"),5000);
 const b=[...document.querySelectorAll(".tc .tc-note.trial button")].find(x=>x.textContent.includes("דוגמית"));
 out.button=!!b; b.click(); await until(()=>played.length,5000);
-out.played=played; out.she=askedShe;
+out.played=played.slice(); out.she=askedShe;
+const says=[]; const real2=window.fetch; window.fetch=(url,opts={})=>{ if(String(url).includes("/api/tutor/say/")) says.push(String(url)); return real2(url,opts); };
+const sel=[...document.querySelectorAll(".tc .tc-note.trial select")].find(x=>x.getAttribute("aria-label")==="מודל הקול");
+out.models=[...sel.options].map(o=>o.value); sel.value="eleven_v4"; sel.onchange();
+await until(()=>says.length,5000); out.say=says[0]; out.kept=localStorage.getItem("ihki.tutorVoiceModel");
 """
 
 
 def test_the_tutor_plays_the_chosen_voices_own_sample(site):
     r = site("boss@x.com", TUTOR_SAMPLE)
     assert r["button"] and r["played"] == ["https://x/bader.mp3"] and r["she"] is True   # the woman's part's voice
+    assert r["models"] == ["", "eleven_v4", "eleven_v4_turbo", "eleven_v3"]
+    assert r["say"].endswith("/0?model=eleven_v4") and r["kept"] == '"eleven_v4"'   # the message again, in the chosen model

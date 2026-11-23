@@ -68,7 +68,7 @@ from .archi import archify
 from .scorer import SAMPLE_RATE, Scorer, decode_audio, decode_audio_with_timing, frame_energy, load_scorer, tokenize
 from .speech_evaluation import SpeechEvaluationService
 from .texts import read_line, text_phrases
-from .tts import TUTOR_MODEL, last_stt
+from .tts import TUTOR_MODEL, TUTOR_MODELS, last_stt
 from .tts import (BASELINE_VOICES, ELEVEN_MODEL, FALLBACK_OFF, ELEVEN_PREFIX, STT_MAX_BYTES, ElevenLabsTTS, eleven_transcribe, load_elevenlabs, LINE_VOICES, RAEF_VOICE_ID, VOICES, SawtakTTS, TTSUnavailable, load_tts,
                   playback_voices, voice_name)
 from .tutor import letters as tutor_letters
@@ -4679,7 +4679,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return voice_samples[(key, voice)]
 
     @app.get("/api/tutor/say/{chat_id}/{n}", dependencies=[Depends(require("tutor.use"))])
-    def tutor_say(chat_id: str, n: int, user: dict | None = Depends(signed_in)):
+    def tutor_say(chat_id: str, n: int, user: dict | None = Depends(signed_in), model: str = Query("")):
         """The tutor's `n`th message (from 0) in the student's conversation, spoken by ElevenLabs in the part's
         voice. 503 when יאללה נדבר has no voice; only this conversation's own messages are said."""
         t = tutor_for(user)
@@ -4696,7 +4696,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         if not voice:
             raise HTTPException(503, "הדובר לא מושמע: לא נבחר קול ליאללה נדבר (ELEVEN_LABS_TUTOR_VOICE_ID). בוחרים ב-🎙️ בחירת קול "
                                      "בכרטיס המפתחות (למפתחים), או מגדירים את מזהה הקול בהגדרות ה-Space.")
-        model = os.environ.get("ELEVEN_LABS_TUTOR_MODEL", "") or TUTOR_MODEL
+        # the trial's choice of model (one of TUTOR_MODELS), else the server's
+        model = model if model in TUTOR_MODELS else os.environ.get("ELEVEN_LABS_TUTOR_MODEL", "") or TUTOR_MODEL
         try:   # said anew each time, in the voice chosen now: nothing is kept (each play is a new ElevenLabs request)
             spoken = ElevenLabsTTS(key, model=model).speak_clear(said[n]["ar"].strip(), voice, model)
         except TTSUnavailable as e:

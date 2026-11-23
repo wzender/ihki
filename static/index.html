@@ -3826,7 +3826,8 @@ async function tcSay(n,btn){   // the tutor's nth message in his own voice: said
     let url;
     btn&&btn.classList.add("loading"); t.loadingSay=n;
     try{
-      const res=await api(`/api/tutor/say/${encodeURIComponent(t.id)}/${n}`,{cache:"no-store"});
+      const model=store.get("ihki.tutorVoiceModel","");   // the trial's choice of ElevenLabs model ("": the server's)
+      const res=await api(`/api/tutor/say/${encodeURIComponent(t.id)}/${n}${model?`?model=${encodeURIComponent(model)}`:""}`,{cache:"no-store"});
       if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
       url=URL.createObjectURL(await res.blob());
     }finally{ if(t.loadingSay===n) t.loadingSay=null; }
@@ -3949,7 +3950,12 @@ function tcTrialNote(){
       catch(e){ tcNote("🎧 "+(e.message||e),"bad trial"); }
       finally{ sample.disabled=false; }
     };
-    note.append(sample);
+    // the trial: which ElevenLabs model says the tutor's messages (kept on the device); 🔊 again hears the change
+    const models=mark("tc-engine","","select"); models.setAttribute("aria-label","מודל הקול");
+    for(const [v,label] of [["","מודל הקול: רגיל (multilingual v2)"],["eleven_v4","מודל הקול: v4"],["eleven_v4_turbo","מודל הקול: v4 turbo"],["eleven_v3","מודל הקול: v3"]]) models.add(new Option(label,v));
+    models.value=store.get("ihki.tutorVoiceModel","");
+    models.onchange=()=>{ store.set("ihki.tutorVoiceModel",models.value); tcStopVoice(); const last=[...tc.log.querySelectorAll(".tc-msg.in .tc-hear")].pop(); if(last) last.click(); };
+    note.append(sample,models);
   }
   if(tcCanChoose()){   // the trial: the student picks who hears, now and in later conversations (kept on the device)
     const pick=document.createElement("select"); pick.className="tc-engine"; pick.setAttribute("aria-label","מי מזהה את הדיבור");

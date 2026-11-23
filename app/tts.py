@@ -85,9 +85,11 @@ class TTSUnavailable(Exception):
 
 ELEVEN_URL = "https://api.elevenlabs.io/v1"
 ELEVEN_MODEL = "eleven_v4_turbo"
-# יאללה נדבר's voice: the full model (not turbo) in 44.1 kHz MP3, as a voice's own sample sounds; the turbo model in
-# 24 kHz sounded far and muffled next to it. ELEVEN_LABS_TUTOR_MODEL sets another.
-TUTOR_MODEL = "eleven_v4"
+# יאללה נדבר's voice in 44.1 kHz MP3, by the model a voice's own sample is made with (multilingual v2): eleven_v4 (and
+# its turbo) sounded far, as in a big empty hall, next to the sample. ELEVEN_LABS_TUTOR_MODEL sets another; the trial
+# lets a device try each of TUTOR_MODELS on the same message.
+TUTOR_MODEL = "eleven_multilingual_v2"
+TUTOR_MODELS = ("eleven_multilingual_v2", "eleven_v4", "eleven_v4_turbo", "eleven_v3")
 TUTOR_FORMAT = "mp3_44100_128"
 ELEVEN_RATE = 24000
 ELEVEN_PREFIX = "elevenlabs-"   # the cache folder of its recordings: elevenlabs-<model>-<voice>
