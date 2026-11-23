@@ -2459,6 +2459,7 @@ showManage(); await sleep(300); document.querySelector('#mModes [data-mode="acce
 await until(()=>document.querySelector("#mAccess .access-group tbody tr"),8000);
 const rowsNow=()=>document.querySelectorAll("#mAccess tbody tr").length, more=()=>[...document.querySelectorAll("#mAccess .access-group > button")].find(b=>!b.hidden);
 out.first=rowsNow(); out.moreText=more()&&more().textContent;
+const sc=document.querySelector("#mAccess .access-scroll"); out.fits=document.documentElement.scrollWidth<=innerWidth&&sc.scrollWidth>sc.clientWidth;   // the table scrolls in its box
 more().click(); out.second=rowsNow();
 const find=document.querySelector("#mAccess .access-find"); find.value="s117@"; find.oninput();
 out.found=[...document.querySelectorAll("#mAccess tbody tr")].map(r=>r.querySelector("small").textContent);
@@ -2470,5 +2471,6 @@ more().click(); redrawAccess(); out.kept=rowsNow();
 def test_access_draws_its_rows_a_page_at_a_time_and_searches_them_all(site):
     r = site("boss@x.com", ACCESS_MANY, mobile=True)
     assert r["first"] == 40 and "40 מתוך 80" in r["moreText"]
+    assert r["fits"]   # the wide table scrolls in its own box: the page stays the phone's width (no dark, empty screen)
     assert r["second"] == 80 and r["found"] == ["s117@x.com"]   # an account not drawn yet is found
     assert r["cleared"] == 40 and r["kept"] == 80   # a redraw keeps the rows shown
