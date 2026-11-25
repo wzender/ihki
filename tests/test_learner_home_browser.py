@@ -2327,7 +2327,7 @@ out.sent=sent; out.browserAfter=window.__browser.length;
 FAKE_BROWSER_RECOGNITION = """addEventListener("DOMContentLoaded",()=>new MutationObserver(()=>{   // the wizard: the choice it marks
   const b=document.querySelector(".tc .tc-mode button.primary"); if(b&&!window.__wizardOwn) b.click();
 }).observe(document.body,{childList:true,subtree:true})); window.__browser=[]; window.webkitSpeechRecognition=window.SpeechRecognition=function(){
-  window.__browser.push(this); this.start=()=>{}; this.stop=()=>{}; this.abort=()=>{};
+  window.__browser.push(this); this.start=()=>{ setTimeout(()=>this.onstart&&this.onstart(),0); }; this.stop=()=>{}; this.abort=()=>{};
   this.fail=e=>{ this.onerror&&this.onerror({error:e}); this.onend&&this.onend(); }; };"""
 
 
@@ -2599,3 +2599,41 @@ def test_the_conversation_starts_with_a_wizard_how_it_goes_and_who_hears(site):
     assert r["one"] == ["שלב 1 מתוך 2", "איך מדברים הפעם?", ["chat", "dialog"]] and r["startedEarly"] == 0
     assert r["two"] == ["שלב 2 מתוך 2", "מי מזהה את הדיבור שלכם?", ["browser", "eleven"]]   # the device first by default
     assert r["kept"] == ['"chat"', '"eleven"'] and "זיהוי הדיבור: ElevenLabs" in r["note"]   # the conversation, as chosen
+
+
+TUTOR_DIALOG_STUCK = """
+await sleep(800);
+const real=window.fetch, sent=[];
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/start")) return Promise.resolve(new Response(JSON.stringify({id:"chat1",turns:10,left:null,
+    message:{ar:"كيف حالك؟",tr:"כִּיף חַאלַכּ?",he:"מה שלומך?",words:[]}}),{status:200}));
+  if(u.includes("/api/tutor/say/")) return Promise.resolve(new Response(new Blob(["ID3"]),{status:200}));
+  return real(url,opts); };
+let blockOnce=true, plays=0;
+window.Audio=function(){ this.play=()=>{ plays++; if(blockOnce){ blockOnce=false; const e=new Error("blocked"); e.name="NotAllowedError"; return Promise.reject(e); }
+  setTimeout(()=>this.onended&&this.onended(),30); return Promise.resolve(); }; this.pause=()=>{}; };
+window.__silent=[]; window.webkitSpeechRecognition=window.SpeechRecognition;   // (kept by the page as SR)
+localStorage.setItem("ihki.tutorGender",JSON.stringify("m"));
+TUTOR_INFO={available:true,voice:true,stt:false,turns:10,left:null,scenarios:[]};
+openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
+await until(()=>document.querySelector(".tc .tc-mode"),5000);
+document.querySelector('.tc .tc-mode button[data-value="dialog"]').click();
+await until(()=>/חסם/.test(document.querySelector(".tc").textContent),5000);
+const state=()=>document.querySelector(".tc .tc-dialog-state").textContent, btn=()=>document.querySelector(".tc .tc-dialog button");
+out.blocked=state(); out.button=btn().textContent;
+window.__noStart=true;   // the device's recognition will not start (as Safari without a tap)
+btn().click();   // ▶ המשך: says the held-back message again, then listens
+await until(()=>/לא התחיל להקשיב/.test(document.querySelector(".tc").textContent),8000);
+out.plays=plays; out.notStarted=state();
+window.__noStart=false; btn().click(); await until(()=>window.__browser.length>=2&&/תורכם/.test(state()),5000);
+out.resumed=state();
+"""
+
+
+def test_the_voice_dialogue_says_why_it_stopped_and_goes_on_from_play(site):
+    stall = FAKE_BROWSER_RECOGNITION.replace("this.start=()=>{ setTimeout(()=>this.onstart&&this.onstart(),0); };",
+                                             "this.start=()=>{ if(!window.__noStart) setTimeout(()=>this.onstart&&this.onstart(),0); };")
+    r = site("boss@x.com", TUTOR_DIALOG_STUCK, preload="window.__wizardOwn=true;" + stall)
+    assert "עצור" in r["blocked"] and r["button"] == "▶ המשך"   # the voice was blocked: it says so, and waits
+    assert r["plays"] == 2 and "עצור" in r["notStarted"]   # ▶ said it again; then listening did not start: said, and waits
+    assert "תורכם" in r["resumed"]   # ▶ again: it listens

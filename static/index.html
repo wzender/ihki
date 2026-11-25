@@ -3870,10 +3870,11 @@ async function tcSay(n,btn){   // the tutor's nth message in his own voice: said
     if(tc!==t||t.sayTurn!==mine){ URL.revokeObjectURL(url); return; }
     tcStopVoice(); const a=new Audio(url); t.playing=a;
     const said=new Promise(done=>{ a.onended=a.onerror=a.onpause=()=>{ URL.revokeObjectURL(url); done(); }; });
-    await a.play(); await said;   // the voice dialogue goes on once the message has been said
+    await a.play(); await Promise.race([said,new Promise(r=>setTimeout(r,60000))]);   // the dialogue goes on once it was said (a minute at most)
   }catch(err){
     if(tc!==t) return;
     const blocked=err&&err.name==="NotAllowedError";   // the browser holds back sound it was not asked for by a tap
+    if(t.dialog){ t.dialogReplay=n; tcDialogStuck(blocked?"הדפדפן חסם את השמעת הדובר. לחצו ▶ המשך כדי לשמוע.":`הדובר לא הושמע (${err.message||err}). לחצו ▶ המשך לנסות שוב, או עברו לצ'אט.`); return; }
     const why=blocked?"הדפדפן חסם השמעה אוטומטית. לחצו 🔊 כדי לשמוע.":(err.message||String(err));
     if(btn){ btn.title=why; btn.textContent=blocked?"🔊":"⚠"; }
     if(!t.told||!t.told.has(why)){ (t.told=t.told||new Set()).add(why); tcNote("🔇 "+why,"bad trial"); }   // said once per conversation
@@ -3975,7 +3976,12 @@ function tcDialogOn(){
   if(!box){
     box=mark("tc-dialog",""); const state=mark("tc-dialog-state","","p"), stop=mark("btn","⏸ עצירה","button"), chat=mark("btn","⌨ מעבר לצ'אט","button");
     stop.type=chat.type="button"; box.append(state,stop,chat); tc.type.after(box);
-    stop.onclick=()=>{ if(tc.dialogPaused){ tc.dialogPaused=false; tcDialogNext(); } else tcDialogPause(); };
+    stop.onclick=()=>{
+      if(!tc.dialogPaused) return tcDialogPause();
+      tc.dialogPaused=false;
+      if(tc.dialogReplay!=null){ const n=tc.dialogReplay, t=tc; tc.dialogReplay=null; tcDialogState("speak"); tcSay(n).finally(()=>{ if(tc===t) tcDialogNext(); }); }
+      else tcDialogNext();
+    };
     chat.onclick=()=>{ tcDialogPause(); tc.dialog=false; box.hidden=true; tc.type.hidden=false; tc.live.hidden=true; store.set("ihki.tutorMode","chat"); tcFocus(); };
   }
   box.hidden=false; tcDialogState("wait");
@@ -3999,6 +4005,11 @@ function tcDialogMiss(){   // nothing was heard: listen again, and after two sil
   tc.dialogMiss=(tc.dialogMiss||0)+1;
   if(tc.dialogMiss>=3){ tcDialogPause(); tcNote("לא שמעתי אתכם. לחצו ▶ המשך כשתרצו להמשיך."); return; }
   setTimeout(()=>tcDialogNext(),400);
+}
+function tcDialogStuck(why){   // the dialogue cannot go on by itself: why, in the conversation, and it waits for ▶
+  if(!tc) return;
+  tcNote("⚠️ "+why,"bad"); try{ rumTrack("tutor-dialog-stuck",{why:String(why).slice(0,120),ios:IS_IOS}); }catch{}
+  tcDialogPause();
 }
 function tcDialogPause(){
   if(!tc) return; tc.dialogPaused=true; tcStopVoice();
@@ -4179,7 +4190,8 @@ function tcFeedback(){
 }
 // Hybrid: the browser's own recognition wherever it has one (Chrome, Android: it hears spoken Arabic best); ElevenLabs
 // (the tier's switch, "stt") where it has none (iPhone's Safari, Firefox), or once the browser's fails in a conversation
-const tcEleven=()=>!!(TUTOR_INFO&&TUTOR_INFO.stt&&window.MediaRecorder&&navigator.mediaDevices&&(!SR||(tc&&tc.browserFailed)||["eleven","both"].includes(tcHearsChoice()))&&!(tc&&tc.sttFailed>=2));
+const IS_IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1;
+const tcEleven=()=>!!(TUTOR_INFO&&TUTOR_INFO.stt&&window.MediaRecorder&&navigator.mediaDevices&&(!SR||(tc&&tc.browserFailed)||["eleven","both"].includes(tcHearsChoice())||(tc&&tc.dialog&&IS_IOS))&&!(tc&&tc.sttFailed>=2));
 // browser (the default where it can hear; ElevenLabs where it cannot, or once it fails), eleven, or both: the trial's comparison
 const tcHearsChoice=()=>{ const v=store.get("ihki.tutorHears",""); return ["browser","eleven","both"].includes(v)?v:tcCanChoose()?"browser":""; };
 const tcComparing=()=>tcCanChoose()&&tcHearsChoice()==="both"&&!(tc&&(tc.dialog||tc.browserFailed||tc.sttFailed>=2));
@@ -4210,7 +4222,8 @@ async function tcRecord(compare=false){
   if(tc.recorder){ if(tc.recorder.state==="recording") tc.recorder.stop(); return; }
   let stream;
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }
-  catch{ tcNote("אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן, או הקלידו.","bad"); tc.type.hidden=false; return; }
+  catch{ if(tc&&tc.dialog) return tcDialogStuck("אין גישה למיקרופון: אשרו גישה בהגדרות הדפדפן (באייפון: הגדרות ← Safari ← מיקרופון), ולחצו ▶ המשך.");
+    tcNote("אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן, או הקלידו.","bad"); tc.type.hidden=false; return; }
   if(!tc){ stream.getTracks().forEach(t=>t.stop()); return; }
   const type=["audio/webm;codecs=opus","audio/webm","audio/mp4","audio/ogg;codecs=opus"].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||"";
   const rec=new MediaRecorder(stream,type?{mimeType:type}:undefined), chunks=[], t=tc; tc.recorder=rec; tc.stream=stream;
@@ -4247,6 +4260,7 @@ async function tcRecord(compare=false){
     }catch(err){
       if(tc!==t) return;
       tcLock(false); t.live.hidden=true; t.sttFailed=(t.sttFailed||0)+1;
+      if(t.dialog) return tcDialogStuck(`זיהוי הדיבור של ElevenLabs נכשל (${err.message||err}). לחצו ▶ המשך ונסו שוב.`);
       tcNote(`זיהוי הדיבור לא הצליח (${err.message||err}). `+(t.sttFailed>=2&&SR?"עוברים לזיהוי של הדפדפן: לחצו שוב ודברו.":"לחצו שוב ודברו, או הקלידו."),"bad");
       if(t.sttFailed>=2&&!SR) t.type.hidden=false;
     }
@@ -4284,19 +4298,32 @@ function tcListen(){   // a tap starts listening; the recognition ends by itself
   r.onresult=e=>{ said=[...e.results].map(x=>x[0].transcript).join(" ").trim(); if(said) tc.live.textContent="שומע… לחצו שוב לסיום"; };   // its Arabic script is not shown: the tutor answers with it in Hebrew letters
   r.onerror=e=>{ err=e.error; };
   r.onend=()=>{
+    clearTimeout(watchStart); clearTimeout(watchLong);
     if(!tc||tc.rec!==r) return;
     tc.rec=null; tc.mic.classList.remove("live"); tc.live.hidden=true; tc.live.textContent="";
     if(err==="language-not-supported"&&tc.lang!=="ar-JO"){ tc.lang="ar-JO"; tcListen(); return; }   // the nearest Arabic the device has
-    if(err==="not-allowed"){ tcNote("אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן, או הקלידו.","bad"); tc.type.hidden=false; return; }
-    if(["network","service-not-allowed","language-not-supported"].includes(err)&&TUTOR_INFO&&TUTOR_INFO.stt&&!tc.browserFailed){
+    if(err==="not-allowed"){ if(tc.dialog) return tcDialogStuck("אין גישה למיקרופון: אשרו גישה בהגדרות הדפדפן (באייפון: הגדרות ← Safari ← מיקרופון), ולחצו ▶ המשך.");
+      tcNote("אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן, או הקלידו.","bad"); tc.type.hidden=false; return; }
+    if(["network","service-not-allowed","language-not-supported","audio-capture"].includes(err)&&TUTOR_INFO&&TUTOR_INFO.stt&&!tc.browserFailed){
       tc.browserFailed=true;   // the browser cannot hear here: ElevenLabs from now on in this conversation
+      if(tc.dialog){ tcNote(`זיהוי הדיבור של המכשיר נכשל (${err}). עוברים לזיהוי של ElevenLabs.`,"trial"); return tcDialogNext(); }
       tcNote("זיהוי הדיבור של הדפדפן לא זמין. עוברים לזיהוי של ElevenLabs: לחצו שוב ודברו.","trial"); return; }
+    if(tc.dialog&&err&&!["no-speech","aborted"].includes(err)&&!tc.dialogDrop)
+      return tcDialogStuck({network:"אין חיבור לשירות זיהוי הדיבור של המכשיר.","audio-capture":"המיקרופון לא זמין (אולי אפליקציה אחרת משתמשת בו).",
+        "service-not-allowed":"המכשיר לא מאפשר זיהוי דיבור כאן.","language-not-supported":"המכשיר לא מזהה ערבית."}[err]||`זיהוי הדיבור נכשל (${err}).`);
     if(tc.dialogDrop){ tc.dialogDrop=false; return; }   // the dialogue was paused: nothing goes
     if(!said){ if(tc.dialog&&(!err||err==="no-speech"||err==="aborted")) return tcDialogMiss(); tcNote(err&&err!=="no-speech"?"זיהוי הדיבור לא זמין כרגע. נסו שוב, או הקלידו.":"לא נשמע דיבור. לחצו ודברו, קרוב יותר למיקרופון."); return; }
     if(tc.dialog) return tcDialogSay(said);
     tcHeard(said);
   };
-  try{ r.start(); }catch{ tc.rec=null; tcNote("זיהוי הדיבור לא זמין כרגע. אפשר להקליד.","bad"); tc.type.hidden=false; return; }
+  // the dialogue's watch: listening that does not start in 3 s (Safari, without a tap) or does not end in 20 s
+  const t=tc; let started=false, watchStart=0, watchLong=0; r.onstart=()=>{ started=true; };
+  try{ r.start(); }catch{ tc.rec=null; if(tc.dialog) return tcDialogStuck("המכשיר לא התחיל להקשיב. לחצו ▶ המשך ודברו."); tcNote("זיהוי הדיבור לא זמין כרגע. אפשר להקליד.","bad"); tc.type.hidden=false; return; }
+  if(tc.dialog){
+    watchStart=setTimeout(()=>{ if(tc===t&&t.rec===r&&!started){ t.rec=null; try{ r.abort(); }catch{}   // its end then finds another rec: nothing goes
+      tcDialogStuck("המכשיר לא התחיל להקשיב (באייפון זה קורה בלי לחיצה). לחצו ▶ המשך ודברו."); } },3000);
+    watchLong=setTimeout(()=>{ if(tc===t&&t.rec===r){ try{ r.stop(); }catch{} } },20000);
+  }
   tc.mic.classList.add("live"); tc.live.textContent="מקשיב… דברו בערבית"; tc.live.hidden=false;
 }
 /* ---- מרוץ גמלים: the teacher picks the last lesson, the teams answer aloud, the teacher taps what they said ---- */
