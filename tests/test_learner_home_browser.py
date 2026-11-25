@@ -2637,3 +2637,21 @@ def test_the_voice_dialogue_says_why_it_stopped_and_goes_on_from_play(site):
     assert "עצור" in r["blocked"] and r["button"] == "▶ המשך"   # the voice was blocked: it says so, and waits
     assert r["plays"] == 2 and "עצור" in r["notStarted"]   # ▶ said it again; then listening did not start: said, and waits
     assert "תורכם" in r["resumed"]   # ▶ again: it listens
+
+
+TUTOR_ALL_SCENARIOS = """
+await sleep(800);
+const [one,two]=LESSONS.map(l=>l.id);
+TUTOR_INFO={available:true,scenarios:[{id:"a",lesson:one},{id:"b",lesson:two},{id:"c",lesson:"no-such-lesson"}]};
+const ids=()=>tutorScenarios().map(s=>s.id).join(",");
+FREE=false; ME_TEACHES=false; ME_PERMISSIONS=new Set(); for(const k in best) delete best[k];
+out.student=ids();
+ME_TEACHES=true; out.teacher=ids(); ME_TEACHES=false;
+ME_PERMISSIONS=new Set(["tutor.all_scenarios"]); out.granted=ids();
+"""
+
+
+def test_a_class_teacher_or_an_account_given_it_has_every_tutor_scenario(site):
+    r = site("dana@x.com", TUTOR_ALL_SCENARIOS)
+    assert r["student"] == ""   # no lesson begun: no scenario yet
+    assert r["teacher"] == "a,b" and r["granted"] == "a,b"   # every scenario of their lessons

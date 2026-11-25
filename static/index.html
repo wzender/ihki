@@ -2812,7 +2812,7 @@ let ALL_LEVELS=[], ALL_LESSONS=[], ALL_CATS=[], GAMES=[], MY_LESSONS=null, LESSO
 let serverWeekDays=0, serverStreak={current:0,best:0,last:null}, rewardTimer=null;
 let myAudioUrl=null;
 let TUTOR=false, lastRec=null;   // a teacher, or an account of TUTORS_EMAIL, flags a score that is wrong; the latest recording sent to be scored, {id, blob}
-let ME_PERMISSIONS=new Set(), ME_ROLES=[], ME_ENTITLEMENTS=[];
+let ME_PERMISSIONS=new Set(), ME_ROLES=[], ME_ENTITLEMENTS=[], ME_TEACHES=false;
 const can=permission=>ME_PERMISSIONS.has("*")||ME_PERMISSIONS.has(permission);
 const phraseOf=id=>PHRASES.find(p=>p.id===id);   // by id: the list skips the phrases that have no tab
 const categoryOf=id=>CATS.find(c=>c.id===id)||GAMES.find(g=>g.id===id);
@@ -3736,7 +3736,8 @@ async function loadTutor(){
   if(document.body.dataset.view==="games") drawNav();
 }
 function lessonStarted(id){   // a sentence of the lesson has been said (a teacher has every lesson open)
-  if(FREE) return true;
+  // every scenario: a manager, a class's own teacher, or an account given tutor.all_scenarios (its own exception)
+  if(FREE||ME_TEACHES||can("tutor.all_scenarios")) return true;
   const cats=new Set(ALL_CATS.filter(c=>c.lesson===id).map(c=>c.id));
   return PHRASES.some(p=>cats.has(p.cat)&&best[p.id]!=null);
 }
@@ -11922,6 +11923,7 @@ if(AUTH_URL){
         if(me.subject&&me.subject!==document.documentElement.dataset.subject){ location.replace((me.subject===document.documentElement.dataset.home?"/":"/"+me.subject)+reminderSearch()); return; }
         ME_SUBJECT=me.subject||"";
         ME_PERMISSIONS=new Set(me.permissions||[]); ME_ROLES=me.roles||[]; ME_ENTITLEMENTS=me.entitlements||[];
+        ME_TEACHES=!!(me.teaches&&me.teaches.length);   // a class's own teacher: every יאללה נדבר scenario
         if(res&&res.ok) pushSync();   // this device's reminders go to the account now signed in
         $("nav").querySelector('[data-view=""]').hidden=!can("path.use");
         $("nav").querySelector('[data-view="verbs"]').hidden=!can("games.use");

@@ -188,7 +188,7 @@ def test_descriptions_do_not_claim_a_tiers_features():
         assert "list_feature_access" in tools[name] and "games but יאללה נדבר" not in tools[name]
     assert set(FEATURES) == {"games.yalla_nedaber", "games.all", "games.verb", "games.eitan", "games.falling",
                              "games.bubble", "games.camel", "practice", "path", "path.all_lessons", "library.all_sections",
-                             "tutor.eleven_stt", "tutor.eleven_agent"}
+                             "tutor.eleven_stt", "tutor.eleven_agent", "tutor.all_scenarios"}
 
 
 def test_the_permission_screen_switches_a_group_and_one_account(monkeypatch):
