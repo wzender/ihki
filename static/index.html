@@ -404,6 +404,7 @@ body.tutor-chat{overflow:hidden}
 .tc-call{border:0;background:none;color:inherit;font-size:20px;cursor:pointer;padding:4px 6px;border-radius:50%}
 .tc-call.on{background:var(--sumac);color:#fff}
 .tc-engine{border:1px solid currentColor;background:none;color:inherit;font:600 13px/1.3 var(--f-body);border-radius:999px;padding:2px 10px;margin-inline-start:4px;cursor:pointer}
+.tc-step{color:var(--muted);font-size:13px}.tc-step:empty{display:none}
 .tc-dialog{display:flex;flex-direction:column;align-items:center;gap:8px;padding:6px 0}.tc-dialog[hidden]{display:none}
 .tc-dialog-state{margin:0;font:700 22px/1.4 var(--f-body);text-align:center}.tc-dialog[data-state=listen] .tc-dialog-state{color:var(--olive)}
 .tc-dialog .btn{min-width:180px;min-height:48px;font-size:18px}
@@ -3813,17 +3814,31 @@ function openTutorChat(s){
 /* Each conversation starts with how it goes: a chat (written and recorded, as before), or a voice dialogue (in the car:
    no text box; the speaker says each message, listens, and what the student said goes to him at once). The dialogue
    needs the tutor's voice and a way to hear the student. */
-function tcAskMode(go){
-  const can=!!(TUTOR_INFO&&TUTOR_INFO.voice&&(SR||tcEleven()));
-  if(!can){ go(); return; }
-  const ask=mark("tc-sys tc-mode","","div"); ask.append(mark("","איך מדברים הפעם?","p"));
-  const chat=mark("btn","💬 צ'אט (כתיבה והקלטה)","button"), talk=mark("btn primary","🚗 דו־שיח קולי (בלי מסך)","button");
-  chat.type=talk.type="button";
-  chat.onclick=()=>{ ask.remove(); store.set("ihki.tutorMode","chat"); go(); };
-  talk.onclick=()=>{ ask.remove(); store.set("ihki.tutorMode","dialog"); tcDialogOn(); go(); };   // the press lets the voice play
-  ask.append(store.get("ihki.tutorMode","")==="dialog"?talk:chat,store.get("ihki.tutorMode","")==="dialog"?chat:talk);
-  ask.append(mark("meta","בדו־שיח הדובר מדבר, מקשיב לכם, ועונה ברגע שסיימתם לדבר. אפשר לעצור או לעבור לצ'אט בכל רגע.","p"));
-  tc.log.append(ask); tcLock(true);
+function tcAskMode(go){   // a short wizard before the conversation: how it goes, then who hears
+  const steps=[];
+  if(TUTOR_INFO&&TUTOR_INFO.voice&&(SR||tcEleven())) steps.push({key:"mode",q:"איך מדברים הפעם?",
+    note:"בדו־שיח הדובר מדבר, מקשיב לכם, ועונה ברגע שסיימתם לדבר, בלי מסך. בהתכתבות כותבים או שולחים הודעה קולית, כמו בווטסאפ.",
+    opts:[["dialog","🚗 דו־שיח קולי"],["chat","💬 התכתבות (גם הודעות קוליות)"]],
+    was:store.get("ihki.tutorMode","")==="dialog"?"dialog":"chat",
+    pick:v=>{ store.set("ihki.tutorMode",v); if(v==="dialog") tcDialogOn(); }});   // the press lets the voice play
+  if(tcCanChoose()) steps.push({key:"hears",q:"מי מזהה את הדיבור שלכם?",
+    note:"המכשיר מזהה בעצמו, בחינם. ElevenLabs הוא מודל בענן שמכיר את מילות השיעור. אפשר להחליף גם באמצע השיחה, בשורת הניסיון.",
+    opts:[["browser","📱 המכשיר (הזיהוי המובנה)"],["eleven","☁️ מודל ElevenLabs"]],
+    was:tcHearsChoice()==="eleven"?"eleven":"browser",
+    pick:v=>{ store.set("ihki.tutorHears",v); }});
+  if(!steps.length){ go(); return; }
+  const next=k=>{
+    if(!tc) return;
+    if(k>=steps.length){ go(); return; }
+    const st=steps[k], ask=mark("tc-sys tc-mode","","div");
+    ask.append(mark("tc-step",steps.length>1?`שלב ${k+1} מתוך ${steps.length}`:"","small"),mark("",st.q,"p"));
+    const opts=[...st.opts].sort((a,b)=>(b[0]===st.was)-(a[0]===st.was));   // the last choice first
+    for(const [v,label] of opts){ const b=mark(v===st.was?"btn primary":"btn",label,"button"); b.type="button"; b.dataset.value=v;
+      b.onclick=()=>{ ask.remove(); st.pick(v); next(k+1); }; ask.append(b); }
+    ask.append(mark("meta",st.note,"p")); ask.dataset.step=st.key;
+    tc.log.append(ask); tcScroll(); tcLock(true);
+  };
+  next(0);
 }
 function tcAskGender(s){
   const g=store.get("ihki.tutorGender","");

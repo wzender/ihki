@@ -1973,7 +1973,7 @@ out.why=[...document.querySelectorAll(".tc .tc-note.bad")].map(n=>n.textContent)
 
 # a conversation with the tutor's voice first asks how it goes (a chat or a voice dialogue): these tests talk in the chat
 PICK_CHAT = """addEventListener("DOMContentLoaded",()=>new MutationObserver(()=>{
-  const b=[...document.querySelectorAll(".tc .tc-mode button")].find(x=>x.textContent.includes("צ'אט")); if(b) b.click();
+  const b=document.querySelector('.tc .tc-mode button[data-value="chat"], .tc .tc-mode button[data-value="browser"]'); if(b) b.click();
 }).observe(document.body,{childList:true,subtree:true}));"""
 
 
@@ -2324,7 +2324,9 @@ mic.click(); await sleep(100); mic.click(); await until(()=>sent.length,5000);
 out.sent=sent; out.browserAfter=window.__browser.length;
 """
 
-FAKE_BROWSER_RECOGNITION = """window.__browser=[]; window.webkitSpeechRecognition=window.SpeechRecognition=function(){
+FAKE_BROWSER_RECOGNITION = """addEventListener("DOMContentLoaded",()=>new MutationObserver(()=>{   // the wizard: the choice it marks
+  const b=document.querySelector(".tc .tc-mode button.primary"); if(b&&!window.__wizardOwn) b.click();
+}).observe(document.body,{childList:true,subtree:true})); window.__browser=[]; window.webkitSpeechRecognition=window.SpeechRecognition=function(){
   window.__browser.push(this); this.start=()=>{}; this.stop=()=>{}; this.abort=()=>{};
   this.fail=e=>{ this.onerror&&this.onerror({error:e}); this.onend&&this.onend(); }; };"""
 
@@ -2432,6 +2434,8 @@ TUTOR_COMPARE = TUTOR_HYBRID.split('out.note=')[0].replace('return Promise.resol
 const choices=[]; const real2=window.fetch;
 window.fetch=(url,opts={})=>{ if(String(url).includes("/api/tutor/stt-choice")){ choices.push(JSON.parse(opts.body)); return Promise.resolve(new Response('{"ok":true}',{status:200})); }
   if(String(url).includes("/api/tutor/letters")) return Promise.resolve(new Response(JSON.stringify({tr:"מְנִיח"}),{status:200})); return real2(url,opts); };
+const pickBoth=[...document.querySelectorAll(".tc .tc-note.trial select")].find(x=>x.getAttribute("aria-label")==="מי מזהה את הדיבור");
+pickBoth.value="both"; pickBoth.onchange();   // the comparison: the trial note's choice (the wizard offers the two alone)
 out.note=document.querySelector(".tc .tc-note.trial").textContent;
 const mic=document.querySelector(".tc .tc-mic");
 mic.click(); await sleep(100);
@@ -2555,8 +2559,43 @@ out.sent=sent; out.played=played.length; out.listened=window.__browser.length; o
 
 
 def test_the_voice_dialogue_says_listens_and_answers_without_the_text_box(site):
-    r = site("boss@x.com", TUTOR_DIALOG, preload=FAKE_BROWSER_RECOGNITION)
-    assert r["modes"][0].startswith("💬") and "דו־שיח" in r["modes"][1]
+    r = site("boss@x.com", TUTOR_DIALOG, preload="window.__wizardOwn=true;"+FAKE_BROWSER_RECOGNITION)
+    assert r["modes"][0].startswith("💬") and "דו־שיח" in r["modes"][1]   # the last choice first (none yet: the chat)
     assert r["box"] and "תורכם" in r["state"]   # no text box; the student's turn
     assert r["sent"] == ["منيح", "شكرا"] and r["boxAtEnd"] == ""   # what was heard went straight to the tutor
     assert r["played"] == 3 and r["listened"] == 2   # the opening and both answers said; no listening after the end
+
+
+TUTOR_WIZARD = """
+await sleep(800);
+const real=window.fetch; let started=0;
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/start")){ started++; return Promise.resolve(new Response(JSON.stringify({id:"chat1",turns:10,left:null,
+    message:{ar:"كيف حالك؟",tr:"כִּיף חַאלַכּ?",he:"מה שלומך?",words:[]}}),{status:200})); }
+  if(u.includes("/api/tutor/say/")) return Promise.resolve(new Response(new Blob(["ID3"]),{status:200}));
+  return real(url,opts); };
+window.Audio=function(){ this.play=()=>Promise.resolve(); this.pause=()=>{}; };
+navigator.mediaDevices.getUserMedia=async()=>({getTracks:()=>[{stop(){}}]});
+window.MediaRecorder=function(){ this.state="inactive"; this.start=()=>{ this.state="recording"; }; this.stop=()=>{}; }; MediaRecorder.isTypeSupported=()=>true;
+localStorage.setItem("ihki.tutorGender",JSON.stringify("m")); localStorage.setItem("ihki.tutorAutoplay",JSON.stringify(false));
+TUTOR_INFO={available:true,voice:true,stt:true,turns:10,left:null,scenarios:[]};
+openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
+const step=()=>document.querySelector(".tc .tc-mode");
+await until(()=>step(),5000);
+out.one=[step().querySelector(".tc-step").textContent,step().querySelector("p").textContent,[...step().querySelectorAll("button")].map(b=>b.dataset.value)];
+out.startedEarly=started;
+step().querySelector('button[data-value="chat"]').click();
+await until(()=>step()&&step().dataset.step==="hears",5000);
+out.two=[step().querySelector(".tc-step").textContent,step().querySelector("p").textContent,[...step().querySelectorAll("button")].map(b=>b.dataset.value)];
+step().querySelector('button[data-value="eleven"]').click();
+await until(()=>started,5000);
+out.kept=[localStorage.getItem("ihki.tutorMode"),localStorage.getItem("ihki.tutorHears")];
+out.note=(document.querySelector(".tc .tc-note.trial")||{}).textContent||"";
+"""
+
+
+def test_the_conversation_starts_with_a_wizard_how_it_goes_and_who_hears(site):
+    r = site("boss@x.com", TUTOR_WIZARD, preload="window.__wizardOwn=true;"+FAKE_BROWSER_RECOGNITION)
+    assert r["one"] == ["שלב 1 מתוך 2", "איך מדברים הפעם?", ["chat", "dialog"]] and r["startedEarly"] == 0
+    assert r["two"] == ["שלב 2 מתוך 2", "מי מזהה את הדיבור שלכם?", ["browser", "eleven"]]   # the device first by default
+    assert r["kept"] == ['"chat"', '"eleven"'] and "זיהוי הדיבור: ElevenLabs" in r["note"]   # the conversation, as chosen
