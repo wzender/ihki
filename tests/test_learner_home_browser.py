@@ -2692,3 +2692,20 @@ def test_the_morning_talk_card_opens_a_talk_built_for_the_student(site):
     assert r["chips"] == ["חוזרים: אַנַא בַּדִּי", "תיקון משיחה קודמת", "מילה חדשה אחת"]
     assert r["sent"]["scenario"] == "morning" and r["sent"]["lesson"] == "2"
     assert "אַנַא בַּדִּי" in r["plan"] and "פֻסְטַאן" in r["plan"]
+
+
+MORNING_LIST = """
+await sleep(800);
+const real=window.fetch;
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/morning")) return Promise.resolve(new Response(JSON.stringify({lesson:"2",who:"ח'ליל",ar:"خليل",she:false,knows:false,done:false,weak:[],fixes:[],new:[{tr:"פֻסְטַאן",he:"שמלה"}]}),{status:200}));
+  return real(url,opts); };
+TUTOR_INFO={available:true,voice:false,stt:false,turns:10,left:null,morning:true,scenarios:[{id:"l1",lesson:"1",title:"x",desc:"y",who:"ראמי",ar:"رامي",she:false}]};
+tutorList=true; showView("games"); await sleep(500);
+out.card=!!document.querySelector(".morning-card"); out.view=document.body.dataset.view; out.perm=can("tutor.morning");
+"""
+
+
+def test_the_morning_card_is_on_the_scenario_list(site):
+    r = site("boss@x.com", MORNING_LIST)
+    assert r["card"], r
