@@ -431,6 +431,17 @@ body.tutor-chat{overflow:hidden}
 @keyframes tcWave{0%,100%{height:10px}50%{height:42px}}
 @keyframes tcBreath{0%,100%{transform:scale(.86)}50%{transform:scale(1)}}
 @keyframes tcDot{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.morning-card{display:flex;flex-direction:column;gap:10px;margin:10px 0;padding:14px;border:2px solid var(--olive);border-radius:16px;background:var(--surface);color:var(--ink)}
+.morning-card.done{border-color:var(--line)}
+.mc-head{display:flex;gap:12px;align-items:center}
+.mc-face{flex:none;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:var(--olive);color:var(--on-olive);font:700 20px/1 var(--f-body)}
+.mc-words{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mc-kicker{font-weight:700;color:var(--olive)}.mc-title{font:19px/1.3 var(--f-display)}.mc-line,.mc-foot{color:var(--muted)}
+.mc-label{font-weight:700;color:var(--muted)}
+.mc-chips{display:flex;flex-wrap:wrap;gap:6px}
+.mc-chip{padding:5px 10px;border-radius:999px;font:600 14px/1.3 var(--f-tr)}
+.mc-chip.again{background:var(--amber-bg);color:var(--amber)}.mc-chip.fresh{background:var(--ok-bg);color:var(--ok)}
+.mc-go{min-height:48px;font-size:17px}.mc-foot{text-align:center}
 .tc-dialog-heard{margin:0;min-height:1.5em;max-width:100%;font:600 18px/1.5 var(--f-tr);color:var(--ink);text-align:center;overflow-wrap:anywhere}
 .tc-dialog-heard.wait{color:var(--muted);font-weight:400;font-size:15px}
 .tc-mic.live{box-shadow:0 0 0 calc(3px + 12px*var(--lv,0)) var(--olive-soft)}
@@ -3091,7 +3102,7 @@ function drawHome(box){
   const page=LH.renderHome(box,{className:MY_CLASS.name,lessonName:l?(lv?`${lv.name} · ${l.name}`:l.name):currentLesson(),done,actions:homeActions(),
     onChange:()=>askLesson(false),onPath:openFullPath,onSettings:()=>$("setDlg").showModal(),onRefer:openRefer,onHelp:guideSeen,referNew:!store.get(referSeenKey,false)},FOCUS_HEADING);
   FOCUS_HEADING=false;
-  drawClassWeek(page); drawFeedbackTalks(page); drawPushCard(page);
+  drawClassWeek(page); drawFeedbackTalks(page); drawPushCard(page); drawMorningCard(page);
 }
 /* The class's week on the home: what its students said together against a shared goal, and the student's own part.
    Totals only (GET /api/class/week): nobody else's numbers, no ranking. Read again at most every CLASS_WEEK_MS. */
@@ -3756,6 +3767,38 @@ async function loadTutor(){
   try{ const r=await api("/api/tutor"); TUTOR_INFO=r.ok?await r.json():null; }catch{ TUTOR_INFO=null; }
   if((!AUTH_URL||can("tutor.use"))&&TUTOR_INFO&&TUTOR_INFO.available) $("nav").querySelector('[data-view="games"]').hidden=false;
   if(document.body.dataset.view==="games") drawNav();
+  const home=document.querySelector(".focus-home"); if(home&&home.isConnected) drawMorningCard(home);
+}
+/* The morning talk (GET /api/tutor/morning): once a day, a conversation with a tutor who knows the student, built from
+   the sentences they find hard, the corrections they got, what they told the tutor before, and a few new words of
+   their lesson. A card on the home (and at the top of יאללה נדבר's list); everything on it is in Hebrew letters. */
+let morningCard=null, morningAt=0;
+const MORNING_MS=10*60e3;
+async function drawMorningCard(page,lesson){
+  if(!TUTOR_INFO||!TUTOR_INFO.available||!TUTOR_INFO.morning||(AUTH_URL&&!can("tutor.morning"))) return;
+  lesson=lesson??(focusOn()?(homeLesson().l||{}).id:undefined);
+  if(!morningCard||Date.now()-morningAt>MORNING_MS||(lesson&&morningCard.lesson!==lesson)){
+    try{ const r=await api("/api/tutor/morning"+(lesson?"?lesson="+encodeURIComponent(lesson):"")); if(!r.ok) return; morningCard=await r.json(); morningAt=Date.now(); }catch{ return; }
+  }
+  if(!page.isConnected) return;
+  const d=morningCard, she=!!d.she, card=mark("morning-card"+(d.done?" done":""),"","section");
+  card.setAttribute("aria-label","השיחה של הבוקר");
+  const head=mark("mc-head",""), face=mark("mc-face",(d.who.match(/^.'?/)||[""])[0]); face.setAttribute("aria-hidden","true");
+  const words=mark("mc-words","");
+  words.append(mark("mc-kicker","השיחה של הבוקר · כ־5 דקות","small"),
+    mark("mc-title",d.done?`✓ דיברתם עם ${d.who} היום`:`${d.who} מחכה לך`,"b"),
+    mark("mc-line",d.done?"נתראה מחר בבוקר. אפשר גם לדבר שוב.":d.knows?(she?"היא זוכרת":"הוא זוכר")+" מה סיפרתם, ומתרגל איתכם מה שקשה":"שיחה ראשונה: נכיר, ונתרגל את מה שקשה","small"));
+  head.append(face,words); card.append(head);
+  const chips=mark("mc-chips","");
+  for(const w of d.weak.slice(0,3)) chips.append(mark("mc-chip again","חוזרים: "+w.tr,"span"));
+  if(d.fixes.length) chips.append(mark("mc-chip again",d.fixes.length===1?"תיקון משיחה קודמת":`${d.fixes.length} תיקונים משיחות קודמות`,"span"));
+  if(d.new.length) chips.append(mark("mc-chip fresh",d.new.length===1?"מילה חדשה אחת":`${d.new.length} מילים חדשות`,"span"));
+  if(chips.childElementCount){ card.append(mark("mc-label","מה נתרגל היום","small"),chips); }
+  const go=mark("btn primary mc-go",d.done?"עוד שיחה":"🎙 מתחילים לדבר","button"); go.type="button";
+  go.onclick=()=>openTutorChat({id:"morning",lesson:d.lesson,title:"השיחה של הבוקר",desc:"",who:d.who,ar:d.ar,she,morning:d});
+  card.append(go,mark("mc-foot","נבנה בשבילך מהתרגולים שלך ומהשיחות הקודמות","small"));
+  page.querySelector(".morning-card")?.remove();
+  const at=page.querySelector(".focus-actions,.tc-intro"); if(at) at.after(card); else page.prepend(card);
 }
 function lessonStarted(id){   // a sentence of the lesson has been said (a teacher has every lesson open)
   // every scenario: a manager, a class's own teacher, or an account given tutor.all_scenarios (its own exception)
@@ -3774,6 +3817,7 @@ function drawTutorList(box){   // יאללה נדבר: open scenarios from the f
   const order=new Map(ALL_LESSONS.map((l,i)=>[l.id,i])), open=tutorScenarios().sort((a,b)=>(order.get(a.lesson)??1e9)-(order.get(b.lesson)??1e9)), all=((TUTOR_INFO&&TUTOR_INFO.scenarios)||[]).filter(s=>LESSONS.some(l=>l.id===s.lesson)), left=TUTOR_INFO.left;
   const activeLesson=(ALL_CATS.find(c=>c.id===cat)||{}).lesson, here=open.some(s=>s.lesson===activeLesson)?activeLesson:(open[open.length-1]||{}).lesson;
   box.append(mark("tc-intro","בחרו שיחה. ח'ליל וחבריו מדברים רק במילים שכבר למדתם.","p"));
+  drawMorningCard(box,activeLesson||here);
   if(left!=null){
     const limit=TUTOR_INFO.daily_limit||5, quota=mark("tc-quota","","div"), bar=mark("tc-quota-bar","","div"), fill=document.createElement("i");
     quota.setAttribute("role","status"); quota.setAttribute("aria-label",`${left} מתוך ${limit} שיחות נשארו היום`);
@@ -3983,12 +4027,15 @@ function tcFix(after,fix){   // under the student's message: how to say it, expl
 async function tcStart(gender){
   tcLock(true); const wait=tcNote("פותחים את השיחה…","typing");
   try{
-    const r=await api("/api/tutor/start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({scenario:tc.s.id,gender})});
+    const r=await api("/api/tutor/start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({scenario:tc.s.id,gender,...(tc.s.morning?{lesson:tc.s.lesson}:{})})});
     const d=await r.json().catch(()=>({})); if(!tc) return; wait.remove();
     if(!r.ok){ tcNote(d.detail||"השיחה לא נפתחה. נסו שוב.","bad"); return; }
     tc.id=d.id; if(TUTOR_INFO&&d.left!=null) TUTOR_INFO.left=d.left;
     tcCount(0,d.turns); tcTutor(d.message); tcLock(false);
     tcNote("לחצו על מילה כדי לראות מה היא אומרת · ✦ מסמן מילה שעוד לא למדתם");
+    if(tc.s.morning){ const m=tc.s.morning, parts=[...m.weak.map(w=>w.tr),...m.new.map(w=>`✦ ${w.tr} (${w.he})`)];
+      if(parts.length) tcNote("☀️ היום נתרגל: "+parts.join(" · "),"trial");
+      morningCard={...m,done:true}; }
     tcTrialNote();
   }catch{ if(tc){ wait.remove(); tcNote("השרת לא זמין. נסו שוב.","bad"); } }
 }

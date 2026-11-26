@@ -1831,6 +1831,17 @@ class SupabaseAuth:
                 break
         return out[:limit]
 
+    def tutor_chats_of(self, user_id: str, limit: int = 12) -> list[dict]:
+        """The student's latest conversations with the tutor, newest first: scenario, messages, created_at (for the
+        morning talk's tutor, who knows them). Empty when they cannot be read."""
+        query = urllib.parse.urlencode({"select": "scenario,messages,created_at", "user_id": f"eq.{user_id}",
+                                        "order": "created_at.desc", "limit": limit})
+        try:
+            return self._admin(f"/rest/v1/tutor_chats?{query}") or []
+        except AuthUnavailable as e:
+            log.warning("tutor conversations not read: %s%s", e, _missing_tutor_chats(e))
+            return []
+
     def tutor_chats_since(self, user_id: str, since: str) -> int:
         """How many conversations with the tutor the student started since this ISO time. 0 when they cannot be read."""
         query = urllib.parse.urlencode({"select": "id", "user_id": f"eq.{user_id}", "created_at": f"gte.{since}"})

@@ -2661,3 +2661,34 @@ def test_a_class_teacher_or_an_account_given_it_has_every_tutor_scenario(site):
     r = site("dana@x.com", TUTOR_ALL_SCENARIOS)
     assert r["student"] == ""   # no lesson begun: no scenario yet
     assert r["teacher"] == "a,b" and r["granted"] == "a,b"   # every scenario of their lessons
+
+
+MORNING = """
+await sleep(800);
+const sent=[]; const real=window.fetch;
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/morning")) return Promise.resolve(new Response(JSON.stringify({lesson:"2",who:"ח'ליל",ar:"خليل",she:false,knows:true,done:false,
+    weak:[{tr:"אַנַא בַּדִּי",he:"אני רוצה"}],fixes:[{tr:"תַלַאתִין",note:"בניב אומרים תַלַאתִין"}],new:[{tr:"פֻסְטַאן",he:"שמלה"}]}),{status:200}));
+  if(u.includes("/api/tutor/start")){ sent.push(JSON.parse(opts.body)); return Promise.resolve(new Response(JSON.stringify({id:"chat1",turns:10,left:null,
+    message:{ar:"صباح الخير",tr:"צַבַּאח אֵלְח'יר",he:"בוקר טוב",words:[]}}),{status:200})); }
+  return real(url,opts); };
+TUTOR_INFO={available:true,voice:false,stt:false,turns:10,left:null,morning:true,scenarios:[]};
+ME_PERMISSIONS=new Set([...ME_PERMISSIONS,"tutor.use","tutor.morning"]);
+const page=document.createElement("div"); page.className="focus-home"; document.body.append(page);
+await drawMorningCard(page,"2");
+const card=page.querySelector(".morning-card");
+out.title=card.querySelector(".mc-title").textContent; out.chips=[...card.querySelectorAll(".mc-chip")].map(c=>c.textContent);
+out.arabic=/[\\u0600-\\u06FF]/.test(card.textContent);
+localStorage.setItem("ihki.tutorGender",JSON.stringify("f"));
+card.querySelector(".mc-go").click();
+await until(()=>sent.length&&document.querySelector(".tc .tc-msg.in"),5000);
+out.sent=sent[0]; out.plan=[...document.querySelectorAll(".tc .tc-note")].map(n=>n.textContent).find(t=>t.includes("היום נתרגל"))||"";
+"""
+
+
+def test_the_morning_talk_card_opens_a_talk_built_for_the_student(site):
+    r = site("boss@x.com", MORNING, preload=PICK_CHAT)
+    assert r["title"] == "ח'ליל מחכה לך" and not r["arabic"]   # Hebrew letters only
+    assert r["chips"] == ["חוזרים: אַנַא בַּדִּי", "תיקון משיחה קודמת", "מילה חדשה אחת"]
+    assert r["sent"]["scenario"] == "morning" and r["sent"]["lesson"] == "2"
+    assert "אַנַא בַּדִּי" in r["plan"] and "פֻסְטַאן" in r["plan"]

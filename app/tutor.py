@@ -346,9 +346,16 @@ The words the student has learnt (Arabic | Hebrew letters | Hebrew):
 Every word form the lessons so far have used:
 {" ".join(sorted(forms))}
 
+{sc.get("extra", "")}
+
 YOUR ROLE NOW: you are {sc["ar"]}. {sc["goal"]}. From your very first message, be this character in this situation
 and lead the conversation toward it; every answer of yours moves the scenario on. Speak to the student as
 {student.split(":")[0]}."""
+
+
+def scenario_of(chat) -> dict:
+    """A conversation's scenario: its own (the morning talk's), else the card's."""
+    return chat.sc or BY_ID[chat.scenario]
 
 
 class TutorUnavailable(Exception):
@@ -376,6 +383,7 @@ class Chat:
     output_tokens: int = 0
     model: str = DEFAULT_MODEL
     live: list[dict] = field(default_factory=list)   # the turns of a live call (tutor_agent), for the page to show
+    sc: dict | None = None   # the scenario when it is not one of SCENARIOS (the morning talk, made for the student)
     lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)   # one turn at a time
 
     def row(self) -> dict:
@@ -464,14 +472,14 @@ class Tutor:
             return self._started.setdefault(key, n)
 
     def start(self, scenario: str, gender: str, user_id: str | None, email: str, student: str, day: str,
-              limit: int | None, seed=None) -> tuple[Chat, dict]:
+              limit: int | None, seed=None, sc: dict | None = None) -> tuple[Chat, dict]:
         """A new conversation and the tutor's opening message (see `message`). Raises TutorLimit past the day's
         `limit` (None: none), and TutorUnavailable when the model fails (the conversation is then not counted)."""
-        sc = BY_ID[scenario]
+        sc = sc or BY_ID[scenario]
         if limit is not None and self.started(student, day, seed) >= limit:
             raise TutorLimit()
         chat = Chat(id=str(uuid.uuid4()), scenario=scenario, gender=gender, user_id=user_id, email=email,
-                    system=system_prompt(sc, gender), model=self.model)
+                    system=system_prompt(sc, gender), model=self.model, sc=sc if scenario not in BY_ID else None)
         messages = [{"role": "user", "content": OPEN}]
         data = self._answer(chat, messages)
         opening = self.message(data, sc)
@@ -532,7 +540,7 @@ class Tutor:
         if not fix["ar"] or not fix["note"] or NO_FIX.search(fix["note"]) or \
                 [norm(w) for w in fix["ar"].split()] == [norm(w) for w in text.split()]:
             fix = None   # no correction, or one that changes nothing: the model is not to correct a correct sentence
-        reply = self.message(data, BY_ID[chat.scenario])
+        reply = self.message(data, scenario_of(chat))
         summary = data["summary"].strip() if last else ""
         heard = hebrew_marks(data["heard_tr"].strip()) or text
         chat.log.append({"from": "student", "text": text, "tr": heard, **({"fix": fix} if fix else {})})

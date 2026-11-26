@@ -74,7 +74,8 @@ from .tts import (BASELINE_VOICES, ELEVEN_MODEL, FALLBACK_OFF, ELEVEN_PREFIX, ST
 from .tutor import letters as tutor_letters
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
                     TutorUnavailable, CREATE_TUTOR_CHATS, default_model as default_tutor_model, load_tutor,
-                    vocabulary as tutor_vocabulary)
+                    vocabulary as tutor_vocabulary, scenario_of)
+from . import morning
 from .verb_game import VerbExerciseGenerator
 from .camel_race import race_items as camel_race_items, speech_of as camel_race_speech
 from .grok_mcp import build as build_grok_mcp, oauth_urls
@@ -3777,7 +3778,33 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
                 "stt": eleven_hears(user), "live": eleven_calls(user) and bool(key and male), "voice_missing": missing,
                 "daily_limit": limit,
                 "left": None if limit is None else max(0, limit - t.started(student, day, seed)),
+                "morning": has_permission(user, "tutor.morning") if app.state.auth else True,
                 "scenarios": [{k: s[k] for k in ("id", "lesson", "title", "desc", "who", "ar", "she")} for s in SCENARIOS]}
+
+    morning_plans: dict[tuple[str, str], dict] = {}   # (account, day) -> the day's plan, so the talk is the card's
+
+    def morning_plan(user: dict | None, lesson: str | None, fresh: bool = False) -> tuple[dict, bool]:
+        """The account's morning talk for today (see morning.py) and whether it already had it today."""
+        day = datetime.now(LOCAL_TZ).date().isoformat()
+        uid = user["id"] if user else "open"
+        key = (uid, day)
+        chats = app.state.auth.tutor_chats_of(user["id"], morning.RECENT_CHATS) if user and app.state.auth else []
+        start = datetime.now(LOCAL_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
+        done = any(c.get("scenario") == morning.ID and utc(c["created_at"]) >= start for c in chats if c.get("created_at"))
+        if fresh or key not in morning_plans or (lesson and morning_plans[key]["lesson"] != lesson):
+            attempts = app.state.auth.attempts(user["token"]) if user and app.state.auth else []
+            for k in [k for k in morning_plans if k[1] != day]:
+                del morning_plans[k]
+            morning_plans[key] = morning.plan(attempts, chats, lesson)
+        return morning_plans[key], done
+
+    @app.get("/api/tutor/morning", dependencies=[Depends(require("tutor.use")), Depends(require("tutor.morning"))])
+    def tutor_morning(lesson: str | None = Query(None), user: dict | None = Depends(signed_in)):
+        """The morning talk's card: who talks with the student today, and what the talk practises (the sentences they
+        find hard, the corrections they got, a few new words), and whether they had it today."""
+        tutor_for(user)
+        p, done = morning_plan(user, lesson)
+        return {**morning.shown(p), "done": done}
 
     @app.post("/api/tutor/start", dependencies=[Depends(require("tutor.use"))])
     def tutor_start(tasks: BackgroundTasks, body: dict = Body(...), user: dict | None = Depends(signed_in)):
@@ -3786,12 +3813,17 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         did not answer."""
         t = tutor_for(user)
         scenario, gender = body.get("scenario"), body.get("gender")
-        if scenario not in BY_ID or gender not in ("m", "f"):
+        if (scenario not in BY_ID and scenario != morning.ID) or gender not in ("m", "f"):
             raise HTTPException(400, "unknown scenario or gender")
+        sc = None
+        if scenario == morning.ID:   # the morning talk: the day's plan, made for this student
+            if app.state.auth and not has_permission(user, "tutor.morning"):
+                raise HTTPException(403, refused("tutor.morning"))
+            sc = morning.scenario(morning_plan(user, body.get("lesson") or None)[0])
         student, day, limit, seed = tutor_day(user)
         try:
             chat, opening = t.start(scenario, gender, user["id"] if user else None,
-                                    user["email"].lower() if user else "", student, day, limit, seed)
+                                    user["email"].lower() if user else "", student, day, limit, seed, sc=sc)
         except TutorLimit:
             raise HTTPException(429, f"סיימתם את {DAILY_LIMIT} השיחות של היום. נתראה מחר!")
         except TutorUnavailable as e:
@@ -3833,7 +3865,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         chat = t.get(str(body.get("id", "")), user["id"]) if isinstance(body, dict) else None
         if chat is None:
             raise HTTPException(410, "השיחה הזו כבר לא פעילה, ולכן אי אפשר לשלוח עליה משוב.")
-        sc = BY_ID.get(chat.scenario) or {}
+        sc = chat.sc or BY_ID.get(chat.scenario) or {}
         try:
             row = feedback_notes.tutor_note(body, sc.get("title") or chat.scenario, chat.model)
         except feedback_notes.FeedbackError as e:
@@ -4501,7 +4533,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         chat = t.get(str(body.get("id", "")), user["id"] if user else None)
         if chat is None or chat.done:
             raise HTTPException(410, "השיחה הזו כבר לא פעילה")
-        sc = BY_ID[chat.scenario]
+        sc = scenario_of(chat)
         key, voice = tutor_voice(bool(sc.get("she")))
         if not voice:
             raise HTTPException(503, "השיחה החיה צריכה קול: לא נבחר קול ליאללה נדבר (ELEVEN_LABS_TUTOR_VOICE_ID).")
@@ -4583,7 +4615,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         data = await audio.read(STT_MAX_BYTES + 1)
         if not data or len(data) > STT_MAX_BYTES:
             raise HTTPException(413, "ההקלטה ארוכה מדי. נסו משפט קצר יותר")
-        learnt, _ = tutor_vocabulary(BY_ID[chat.scenario]["lesson"])
+        learnt, _ = tutor_vocabulary(scenario_of(chat)["lesson"])
         terms = [ar for ar, _tr, _he in reversed(learnt)]   # the latest lessons' words first
         try:
             text = await asyncio.to_thread(eleven_transcribe, key, data, audio.content_type or "", terms)
@@ -4689,7 +4721,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         said = [e for e in chat.log if e.get("from") == "tutor"]
         if not 0 <= n < len(said) or not str(said[n].get("ar") or "").strip():
             raise HTTPException(404, "אין הודעה כזו")
-        key, voice = tutor_voice(bool(BY_ID[chat.scenario]["she"]))
+        key, voice = tutor_voice(bool(scenario_of(chat)["she"]))
         if not key:
             raise HTTPException(503, "הדובר לא מושמע: חסר מפתח ElevenLabs (ELEVEN_LABS_API_KEY). מפתח שומרים בניהול ← ניטור ← "
                                      "\"מפתחות API ומודל\" (למפתחים), או כסוד בהגדרות ה-Space.")
