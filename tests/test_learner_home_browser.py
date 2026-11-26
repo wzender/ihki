@@ -2709,3 +2709,38 @@ out.card=!!document.querySelector(".morning-card"); out.view=document.body.datas
 def test_the_morning_card_is_on_the_scenario_list(site):
     r = site("boss@x.com", MORNING_LIST)
     assert r["card"], r
+
+
+PREVIEW_ASK = """
+await until(()=>PREVIEW_CLASSES.length,8000);
+const c=PREVIEW_CLASSES.find(k=>k.name==="מעורבת"); out.c={lessons:c.lessons,levels:c.levels,level:c.level};
+setPreview(c); await sleep(500);
+out.state=LH.classState(MY_CLASS); out.mine=MY_CLASS&&MY_CLASS.lessons;
+await askLesson(true); await sleep(300);
+out.options=[...document.querySelectorAll("#lessonDlg input[name=lesson]")].map(r=>r.value);
+out.err=(document.querySelector("#lessonDlg .lesson-error")||{}).textContent||"";
+"""
+
+
+def test_a_teacher_viewing_a_class_as_its_student_can_pick_its_lesson(site):
+    site.auth.layout = site.auth.layout + [{"id": 31, "name": "מעורבת", "emails": [], "lessons": ["1", "2", "3", "2.1", "2.2"]}]
+    r = site("boss@x.com", PREVIEW_ASK)
+    assert r["options"] or r["err"], r
+
+
+NO_LESSONS_ASK = """
+await until(()=>PREVIEW_CLASSES.length,8000);
+const c=PREVIEW_CLASSES.find(k=>k.name==="רפאים"); setPreview(c); await sleep(500);
+MY_CLASS.lessons=["77","78"];   // lessons the course on this page does not have, the class's level still known
+await askLesson(true); await sleep(300);
+out.options=[...document.querySelectorAll("#lessonDlg input[name=lesson]")].length;
+out.err=(document.querySelector("#lessonDlg .lesson-error")||{}).textContent||"";
+out.way=!![...document.querySelectorAll("#lessonDlg button")].find(b=>b.textContent.includes("למסלול המלא"));
+"""
+
+
+def test_a_lesson_question_with_no_lesson_to_offer_has_a_way_out(site):
+    # a class whose lessons the app's course does not have: no question without an answer
+    site.auth.layout = site.auth.layout + [{"id": 32, "name": "רפאים", "emails": [], "lessons": ["1", "2"]}]
+    r = site("boss@x.com", NO_LESSONS_ASK)
+    assert r["options"] == 0 and "לא נבחרו שיעורים" in r["err"] and r["way"], r

@@ -3045,9 +3045,11 @@ async function askLesson(required){   // the question; true when it came up
   LESSON_ASKED=true;
   const level=ALL_LEVELS.find(v=>v.id===k.level), several=(k.levels||[]).length>1;   // a class of several levels: the lessons under each one's name
   const levelName=id=>(ALL_LEVELS.find(v=>v.id===id)||{}).name||"";
-  LH.openLessonDialog($("lessonDlg"),{className:k.name,levelName:several?"":level&&level.name,required,selected:k.currentLesson,
-    lessons:ALL_LESSONS.filter(l=>(k.lessons||[]).includes(l.id)).map(l=>({id:l.id,name:l.soon?`${l.name} (בקרוב)`:l.name,...(several?{group:levelName(l.level)}:{})})),
-    error:state==="ambiguous"?"לכיתה הזאת לא נבחרו שיעורים, ולכן אי אפשר לבחור את השיעור הנוכחי. בקשו מהמורה לתקן את הגדרות הכיתה. בינתיים אפשר ללמוד מהמסלול המלא.":"",
+  const lessons=ALL_LESSONS.filter(l=>(k.lessons||[]).includes(l.id)).map(l=>({id:l.id,name:l.soon?`${l.name} (בקרוב)`:l.name,...(several?{group:levelName(l.level)}:{})}));
+  if(!lessons.length) try{ rumTrack("lesson-dialog-empty",{lessons:(k.lessons||[]).length,known:ALL_LESSONS.length}); }catch{}
+  // no lesson to offer (the class's lessons are not in the course the app has): never a question with no answer
+  LH.openLessonDialog($("lessonDlg"),{className:k.name,levelName:several?"":level&&level.name,required,selected:k.currentLesson,lessons,
+    error:state==="ambiguous"||!lessons.length?"לכיתה הזאת לא נבחרו שיעורים, ולכן אי אפשר לבחור את השיעור הנוכחי. בקשו מהמורה לתקן את הגדרות הכיתה. בינתיים אפשר ללמוד מהמסלול המלא.":"",
     onConfirm:id=>saveLesson(k,id), after:()=>{ FOCUS_HEADING=true; goHome(); }, onPath:()=>showView("")});
   return true;
 }
