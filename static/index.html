@@ -4101,17 +4101,6 @@ function tcInterim(text){   // the recognizer's words so far, in Hebrew letters 
     t.interimBusy=false;
   })();
 }
-function tcMeterStream(){   // the browser's recognition has no level: a second look at the microphone, where it is already allowed
-  const t=tc; if(!t||IS_IOS||!navigator.mediaDevices||!navigator.permissions) return;
-  navigator.permissions.query({name:"microphone"}).then(p=>{
-    if(p.state!=="granted"||tc!==t||!t.rec) return;
-    return navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
-      if(tc!==t||!t.rec){ stream.getTracks().forEach(x=>x.stop()); return; }
-      const off=tcVad(stream,()=>{},true), r=t.rec;
-      const watch=setInterval(()=>{ if(tc!==t||t.rec!==r){ clearInterval(watch); off(); stream.getTracks().forEach(x=>x.stop()); if(tc) tcMeter(0); } },200);
-    });
-  }).catch(()=>{});
-}
 function tcDialogNext(){   // the student's turn: listen, and what is heard goes to the tutor
   if(!tc||!tc.dialog||tc.dialogPaused||tc.busy) return;
   if(tc.done){ tcDialogState("done"); return; }
@@ -4446,7 +4435,7 @@ function tcListen(){   // a tap starts listening; the recognition ends by itself
     watchLong=setTimeout(()=>{ if(tc===t&&t.rec===r){ try{ r.stop(); }catch{} } },20000);
   }
   tc.mic.classList.add("live"); tc.live.textContent="מקשיב… דברו בערבית"; tc.live.hidden=false;
-  tc.interim=tc.interimDone=""; tc.interimShown=false; tcMeterStream();
+  tc.interim=tc.interimDone=""; tc.interimShown=false;   // no second look at the microphone here: on Android it takes it from the recognition
 }
 /* ---- מרוץ גמלים: the teacher picks the last lesson, the teams answer aloud, the teacher taps what they said ---- */
 let cr=null;
