@@ -2540,6 +2540,7 @@ window.fetch=(url,opts={})=>{ const u=String(url);
   if(u.includes("/api/tutor/turn")){ sent.push(JSON.parse(opts.body).text); const last=sent.length>=2;
     return Promise.resolve(new Response(JSON.stringify({heard:"מְנִיח",reply:{ar:"تمام",tr:"תַמַאם",he:"מצוין",words:[]},fix:null,
       summary:last?"כל הכבוד":null,turn:sent.length,turns:10,done:last}),{status:200})); }
+  if(u.includes("/api/tutor/letters")) return Promise.resolve(new Response(JSON.stringify({tr:"מְנִיח"}),{status:200}));
   return real(url,opts); };
 const played=[]; window.Audio=function(){ this.play=()=>{ played.push(1); setTimeout(()=>this.onended&&this.onended(),50); return Promise.resolve(); }; this.pause=()=>{}; };
 localStorage.setItem("ihki.tutorGender",JSON.stringify("m"));
@@ -2550,7 +2551,10 @@ out.modes=[...document.querySelectorAll(".tc .tc-mode button")].map(b=>b.textCon
 [...document.querySelectorAll(".tc .tc-mode button")].find(b=>b.textContent.includes("דו־שיח")).click();
 await until(()=>window.__browser.length===1,5000);   // the opening was said, and the student's turn began
 out.box=document.querySelector(".tc .tc-type").hidden; out.state=document.querySelector(".tc .tc-dialog-state").textContent;
-window.__browser[0].onresult({results:[[{transcript:"منيح"}]]}); window.__browser[0].onend();   // the student spoke
+const heard=()=>document.querySelector(".tc .tc-dialog-heard").textContent, dlg=document.querySelector(".tc .tc-dialog");
+out.waiting=heard(); window.__browser[0].onspeechstart(); out.hearing=[heard(),dlg.classList.contains("hearing")];
+window.__browser[0].onresult({results:[[{transcript:"منيح"}]]}); await until(()=>heard()==="מְנִיח",5000);   // the words so far
+out.words=heard(); window.__browser[0].onend();   // the student spoke
 await until(()=>window.__browser.length===2,5000);   // the answer was said, and it listens again
 window.__browser[1].onresult({results:[[{transcript:"شكرا"}]]}); window.__browser[1].onend();
 await until(()=>/הסתיימה/.test(document.querySelector(".tc .tc-dialog-state").textContent),5000);
@@ -2562,6 +2566,8 @@ def test_the_voice_dialogue_says_listens_and_answers_without_the_text_box(site):
     r = site("boss@x.com", TUTOR_DIALOG, preload="window.__wizardOwn=true;"+FAKE_BROWSER_RECOGNITION)
     assert r["modes"][0].startswith("💬") and "דו־שיח" in r["modes"][1]   # the last choice first (none yet: the chat)
     assert r["box"] and "תורכם" in r["state"]   # no text box; the student's turn
+    assert r["waiting"] == "מחכה שתדברו…" and r["hearing"] == ["שומע אתכם…", True]   # it shows that it hears
+    assert r["words"] == "מְנִיח"   # and what it heard so far, in Hebrew letters (not Arabic)
     assert r["sent"] == ["منيح", "شكرا"] and r["boxAtEnd"] == ""   # what was heard went straight to the tutor
     assert r["played"] == 3 and r["listened"] == 2   # the opening and both answers said; no listening after the end
 

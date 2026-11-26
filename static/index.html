@@ -413,6 +413,28 @@ body.tutor-chat{overflow:hidden}
 .tc-mic:disabled{opacity:.45;cursor:default}
 @keyframes tcPulse{50%{transform:scale(1.08)}}
 @media (prefers-reduced-motion: reduce){.tc-mic.live{animation:none}}
+/* the student's voice as it is heard: bars that follow the microphone (or move while the recognizer hears speech) */
+.tc-orb{position:relative;width:92px;height:92px;display:grid;place-items:center}
+.tc-orb::before{content:"";position:absolute;inset:0;border-radius:50%;background:var(--olive-soft);transform:scale(calc(.86 + .3*var(--lv,0)));transition:transform .1s}
+.tc-orb-bars{position:relative;display:flex;align-items:center;gap:5px;height:48px}
+.tc-orb-bars i{display:block;width:7px;height:calc(8px + 38px*var(--lv,0));border-radius:4px;background:var(--muted);transition:height .1s}
+.tc-dialog[data-state=listen] .tc-orb-bars i{background:var(--olive)}
+.tc-dialog[data-state=listen] .tc-orb:not(.metered)::before{animation:tcBreath 1.6s ease-in-out infinite}
+.tc-dialog[data-state=listen].hearing .tc-orb:not(.metered) i{animation:tcWave .7s ease-in-out infinite}
+.tc-dialog[data-state=listen].hearing .tc-orb:not(.metered) i:nth-child(2n){animation-delay:-.35s}
+.tc-dialog[data-state=listen].hearing .tc-orb:not(.metered) i:nth-child(3){animation-delay:-.2s}
+.tc-dialog[data-state=speak] .tc-orb-bars i{background:var(--sumac);animation:tcWave .9s ease-in-out infinite}
+.tc-dialog[data-state=speak] .tc-orb-bars i:nth-child(2n){animation-delay:-.45s}
+.tc-dialog[data-state=think] .tc-orb-bars i{height:8px;animation:tcDot 1s ease-in-out infinite}
+.tc-dialog[data-state=think] .tc-orb-bars i:nth-child(2){animation-delay:.15s}.tc-dialog[data-state=think] .tc-orb-bars i:nth-child(3){animation-delay:.3s}
+.tc-dialog[data-state=think] .tc-orb-bars i:nth-child(4){animation-delay:.45s}.tc-dialog[data-state=think] .tc-orb-bars i:nth-child(5){animation-delay:.6s}
+@keyframes tcWave{0%,100%{height:10px}50%{height:42px}}
+@keyframes tcBreath{0%,100%{transform:scale(.86)}50%{transform:scale(1)}}
+@keyframes tcDot{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.tc-dialog-heard{margin:0;min-height:1.5em;max-width:100%;font:600 18px/1.5 var(--f-tr);color:var(--ink);text-align:center;overflow-wrap:anywhere}
+.tc-dialog-heard.wait{color:var(--muted);font-weight:400;font-size:15px}
+.tc-mic.live{box-shadow:0 0 0 calc(3px + 12px*var(--lv,0)) var(--olive-soft)}
+@media (prefers-reduced-motion: reduce){.tc-orb::before,.tc-orb-bars i{animation:none!important}}
 body.memory-game{overflow:hidden}
 .mg{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;background:#101510 url("/static/assets/arabic-calligraphy-path.webp?v=7") top center/100% auto repeat-y;color:#f7faef;user-select:none;-webkit-user-select:none;touch-action:manipulation;overflow:hidden}
 .mg-hud{position:relative;z-index:3;display:flex;align-items:center;gap:8px;padding:max(10px,env(safe-area-inset-top)) 12px 4px}
@@ -3976,7 +3998,9 @@ function tcDialogOn(){
   let box=tc.root.querySelector(".tc-dialog");
   if(!box){
     box=mark("tc-dialog",""); const state=mark("tc-dialog-state","","p"), stop=mark("btn","⏸ עצירה","button"), chat=mark("btn","⌨ מעבר לצ'אט","button");
-    stop.type=chat.type="button"; box.append(state,stop,chat); tc.type.after(box);
+    const orb=mark("tc-orb",""); orb.setAttribute("aria-hidden","true"); orb.innerHTML='<span class="tc-orb-bars"><i></i><i></i><i></i><i></i><i></i></span>';
+    const heard=mark("tc-dialog-heard","","p"); heard.setAttribute("aria-live","polite");
+    stop.type=chat.type="button"; box.append(orb,state,heard,stop,chat); tc.type.after(box);
     stop.onclick=()=>{
       if(!tc.dialogPaused) return tcDialogPause();
       tc.dialogPaused=false;
@@ -3993,7 +4017,51 @@ function tcDialogState(k){   // what the dialogue is doing now, in big letters
   box.querySelector(".tc-dialog-state").textContent={speak:`🔊 ${who}…`,listen:"🎧 תורכם: דברו בערבית",think:`⏳ ${tc.s.who} ${tc.s.she?"חושבת":"חושב"}…`,
     pause:"⏸ הדו־שיח עצור",wait:"⏳ רגע…",done:"✓ השיחה הסתיימה"}[k]||"";
   box.querySelector("button").textContent=k==="pause"?"▶ המשך":"⏸ עצירה";
-  box.dataset.state=k;
+  box.dataset.state=k; box.classList.remove("hearing");
+  const orb=box.querySelector(".tc-orb"); orb.classList.remove("metered"); tcBars(orb,0);
+  tcShowHeard(k==="listen"?"מחכה שתדברו…":"",true);
+}
+/* What the student is saying, as it is heard: the voice's loudness on the bars (and on the mic's ring), and the words
+   the recognizer has so far in the course's Hebrew letters, so it is plain that the app hears them. */
+const TC_BARS=[.5,.8,1,.8,.5];
+function tcBars(orb,level){ if(orb) orb.querySelectorAll("i").forEach((b,k)=>b.style.setProperty("--lv",level?Math.min(1,level*TC_BARS[k]*(.75+Math.random()*.5)).toFixed(2):"0")); if(orb) orb.style.setProperty("--lv",level.toFixed(2)); }
+function tcMeter(level){   // 0..1: the microphone's level now
+  if(!tc) return; tc.mic.style.setProperty("--lv",level.toFixed(2));
+  const box=tc.root.querySelector(".tc-dialog"); if(!box||box.dataset.state!=="listen") return;
+  const orb=box.querySelector(".tc-orb"); orb.classList.add("metered"); tcBars(orb,level);
+  if(level>.3) tcHearing();
+}
+function tcHearing(){   // the recognizer (or the meter) hears speech
+  if(!tc) return; const box=tc.root.querySelector(".tc-dialog");
+  if(box&&box.dataset.state==="listen"&&!box.classList.contains("hearing")){ box.classList.add("hearing"); if(!tc.interimShown) tcShowHeard("שומע אתכם…",true); }
+}
+function tcShowHeard(text,wait=false){
+  if(!tc) return; const h=tc.root.querySelector(".tc-dialog-heard");
+  if(h){ h.textContent=text; h.classList.toggle("wait",wait); }
+  if(!wait&&text&&!tc.dialog) tc.live.textContent="שומע: "+text;
+}
+function tcInterim(text){   // the recognizer's words so far, in Hebrew letters (one request at a time, the latest words)
+  const t=tc; if(!t||!text) return; t.interim=text; tcHearing(); if(t.interimBusy) return; t.interimBusy=true;
+  (async()=>{
+    while(tc===t&&t.rec&&t.interim!==t.interimDone){
+      const said=t.interimDone=t.interim; let tr="";
+      try{ const r=await api("/api/tutor/letters",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:said})}); tr=r.ok?(await r.json()).tr:""; }catch{}
+      if(tc!==t||!t.rec) break;
+      if(tr){ t.interimShown=true; tcShowHeard(tr.replace(/\u0651/g,"")); }
+    }
+    t.interimBusy=false;
+  })();
+}
+function tcMeterStream(){   // the browser's recognition has no level: a second look at the microphone, where it is already allowed
+  const t=tc; if(!t||IS_IOS||!navigator.mediaDevices||!navigator.permissions) return;
+  navigator.permissions.query({name:"microphone"}).then(p=>{
+    if(p.state!=="granted"||tc!==t||!t.rec) return;
+    return navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+      if(tc!==t||!t.rec){ stream.getTracks().forEach(x=>x.stop()); return; }
+      const off=tcVad(stream,()=>{},true), r=t.rec;
+      const watch=setInterval(()=>{ if(tc!==t||t.rec!==r){ clearInterval(watch); off(); stream.getTracks().forEach(x=>x.stop()); if(tc) tcMeter(0); } },200);
+    });
+  }).catch(()=>{});
 }
 function tcDialogNext(){   // the student's turn: listen, and what is heard goes to the tutor
   if(!tc||!tc.dialog||tc.dialogPaused||tc.busy) return;
@@ -4201,7 +4269,7 @@ const tcComparing=()=>tcCanChoose()&&tcHearsChoice()==="both"&&!(tc&&(tc.dialog|
    browser's recognition (if there is one). */
 /* The end of what the student says, heard as the browser's recognition hears it: once they have spoken, 1.3 s of quiet
    (against the room's own noise, measured at the start) ends the recording; no speech in 8 s ends it too. */
-function tcVad(stream,stop){
+function tcVad(stream,stop,meterOnly=false){
   const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return ()=>{};
   let ctx; try{ ctx=new AC(); }catch{ return ()=>{}; }
   let an; try{ const src=ctx.createMediaStreamSource(stream); an=ctx.createAnalyser(); an.fftSize=1024; src.connect(an); }
@@ -4211,12 +4279,14 @@ function tcVad(stream,stop){
     an.getFloatTimeDomainData(buf); let sum=0; for(const v of buf) sum+=v*v; const rms=Math.sqrt(sum/buf.length), now=performance.now();
     if(now-t0<300){ floor+=rms; n++; return; }   // the room, before speech
     const base=n?floor/n:0.005, loud=Math.max(0.02,base*3), quiet=Math.max(0.012,base*1.8);
+    tcMeter(Math.max(0,Math.min(1,(rms-base)/(loud*3))));
+    if(meterOnly) return;
     if(rms>loud){ spoke=true; quietSince=0; }
     else if(spoke&&rms<quiet){ quietSince=quietSince||now; if(now-quietSince>1300) end(); }
     if(!spoke&&now-t0>8000) end();
   },100);
-  function end(){ if(done) return; done=true; clearInterval(tick); try{ ctx.close(); }catch{} stop(); }
-  return ()=>{ if(done) return; done=true; clearInterval(tick); try{ ctx.close(); }catch{} };
+  function end(){ if(done) return; done=true; clearInterval(tick); try{ ctx.close(); }catch{} tcMeter(0); stop(); }
+  return ()=>{ if(done) return; done=true; clearInterval(tick); try{ ctx.close(); }catch{} tcMeter(0); };
 }
 async function tcRecord(compare=false){
   if(!tc||tc.busy||tc.done) return;
@@ -4296,7 +4366,8 @@ function tcListen(){   // a tap starts listening; the recognition ends by itself
   if(tc.rec){ try{ tc.rec.stop(); }catch{} return; }
   const r=tc.rec=new SR(); let said="", err="";
   r.lang=tc.lang; r.continuous=false; r.interimResults=true;
-  r.onresult=e=>{ said=[...e.results].map(x=>x[0].transcript).join(" ").trim(); if(said) tc.live.textContent="שומע… לחצו שוב לסיום"; };   // its Arabic script is not shown: the tutor answers with it in Hebrew letters
+  r.onresult=e=>{ said=[...e.results].map(x=>x[0].transcript).join(" ").trim(); if(said){ if(!tc.interimShown) tc.live.textContent="שומע… לחצו שוב לסיום"; tcInterim(said); } };   // its Arabic script is not shown: the words so far, in Hebrew letters
+  r.onspeechstart=r.onsoundstart=()=>tcHearing();
   r.onerror=e=>{ err=e.error; };
   r.onend=()=>{
     clearTimeout(watchStart); clearTimeout(watchLong);
@@ -4326,6 +4397,7 @@ function tcListen(){   // a tap starts listening; the recognition ends by itself
     watchLong=setTimeout(()=>{ if(tc===t&&t.rec===r){ try{ r.stop(); }catch{} } },20000);
   }
   tc.mic.classList.add("live"); tc.live.textContent="מקשיב… דברו בערבית"; tc.live.hidden=false;
+  tc.interim=tc.interimDone=""; tc.interimShown=false; tcMeterStream();
 }
 /* ---- מרוץ גמלים: the teacher picks the last lesson, the teams answer aloud, the teacher taps what they said ---- */
 let cr=null;
