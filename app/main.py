@@ -3791,11 +3791,12 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         chats = app.state.auth.tutor_chats_of(user["id"], morning.RECENT_CHATS) if user and app.state.auth else []
         start = datetime.now(LOCAL_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
         done = any(c.get("scenario") == morning.ID and utc(c["created_at"]) >= start for c in chats if c.get("created_at"))
-        if fresh or key not in morning_plans or (lesson and morning_plans[key]["lesson"] != lesson):
+        old = key in morning_plans and time.monotonic() - morning_plans[key].get("at", 0) > 15 * 60   # new practice counts
+        if fresh or old or key not in morning_plans or (lesson and morning_plans[key]["lesson"] != lesson):
             attempts = app.state.auth.attempts(user["token"]) if user and app.state.auth else []
             for k in [k for k in morning_plans if k[1] != day]:
                 del morning_plans[k]
-            morning_plans[key] = morning.plan(attempts, chats, lesson)
+            morning_plans[key] = {**morning.plan(attempts, chats, lesson), "at": time.monotonic()}
         return morning_plans[key], done
 
     @app.get("/api/tutor/morning", dependencies=[Depends(require("tutor.use")), Depends(require("tutor.morning"))])
