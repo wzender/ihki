@@ -353,7 +353,7 @@ and lead the conversation toward it; every answer of yours moves the scenario on
 {student.split(":")[0]}."""
 
 
-def spoken(chat, n: int) -> str:
+def spoken(chat, n: int, part: str = "") -> str:
     """What the tutor says aloud for its `n`th message: the message's Arabic, and before it, when the student's sentence
     it answers was corrected, the right sentence alone (no word the student has not learnt), so it is heard said right.
     The morning talk's teacher corrects in its own message, in Arabic (the voice speaks Arabic only), so it is said as
@@ -364,8 +364,12 @@ def spoken(chat, n: int) -> str:
     fix = (before.get("fix") or {}) if before.get("from") == "student" else {}
     right = str(fix.get("ar") or "").strip().rstrip(".!?؟")
     if not right:
-        return text
+        return "" if part == "fix" else text
     if chat.sc and chat.sc.get("id") == "morning":
+        # the teacher's correction, said apart and slowly ("no." and the right sentence, a pause after each word), then
+        # its message; the page plays them one after the other, with a chime before the correction
+        if part == "fix":
+            return "لا. " + "، ".join(right.split()) + "."
         return text
     return f"{right}. {text}"
 

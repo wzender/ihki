@@ -3939,25 +3939,35 @@ function tcUnlock(){
   const no=()=>{ t.unlocking=false; };
   try{ p.src=TC_SILENT; const go=p.play(); if(go&&go.then) go.then(()=>{ t.unlocked=true; no(); }).catch(no); else no(); }catch{ no(); }
 }
+const TC_CHIME="data:audio/wav;base64,UklGRvQMAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YdAMAACAgIGBgYB+fHt8f4KFh4WBfHd2d32EioyKhHt0cHJ5hI2SkIh8cWtsdYKPl5aNfm9mZm9/kJuck4JvYl9pe4+fo5qHcV9ZYnWNoamhjXNdVFpviaGsppN4YFRXaoSdq6mYfmRVVWV+mKmrnINpV1RheZOnrKCJblpTXXOOpKykjnNdU1puiaCsp5N5YVRXaYOcq6mYfmVVVWR+mKmrnYRqV1RgeJOmrKGJb1pTXXOOo6ykj3RdU1luiKCsp5R5YVRXaYOcqqmZf2VVVWR9l6mrnYVqWFRgeJKmrKGKb1pTXHKNo6ykj3ReU1ltiKCrp5R6YVRXaIKbqqmZgGZWVWR9l6irnoVrWFRfd5KmrKGLcFtTXHKNo6ylkHVeU1lth5+rp5V6YlRWaIKbqqqagGZWVWN8lqirnoZrWFNfd5GmrKKLcFtTXHGMoqylkHZeU1lsh5+rqJV7YlRWZ4GbqqqagWdWVGN8lqirnoZsWFNfdpGlrKKMcVtTW3GMoqylkXZfU1hshp6rqJZ8Y1RWZ4GaqqqbgWdWVGJ7lairn4dsWVNedpClrKKMcVxTW3CLoqymkXdfU1hrhp6rqJZ8Y1VWZoCaqqqbgmhWVGJ6laern4dtWVNedZClrKONclxTW3CLoaymkndfVFhrhZ6rqJd9ZFVWZn+ZqaqbgmhXVGF6lKeroIhtWVNedI+krKONclxTWm+KoaymknhgVFhqhZ2rqZd9ZFVVZX+Zqaqcg2lXVGF5lKesoIhuWVNddI+krKOOc11TWm+Joaymk3hgVFdqhJ2rqZh+ZFVVZX6Yqaucg2lXVGF5k6esoIluWlNdc46krKSOc11TWm6JoKynk3lhVFdpg5yrqZh+ZVVVZH6YqaudhGpXVGB4k6asoYlvWlNdc46jrKSPdF1TWW6IoKynlHlhVFdpg5yqqZl/ZVVVZH2XqaudhWpYVGB4kqasoYpvWlNcco2jq6SPdV9VWm6Inqqlk3pjVllqgpqnppeAaFlYZn2VpaebhW1cWGN4kKGmnYlyX1lhdIuepZ+Nd2NaX3CGmqShkXtnXF5sgZaioZSAa15eaX2Rn6GXhHBhXmd5jZyhmYh0ZF9ldYmZoJuMeGhgZHKFlp6cj3xrYmNvgZKcnJGAb2RjbX2OmpyThHNmY2t6ipeblYd2aWRpd4eUmpaKemxmaXSDkZmXjH1vZ2hygI6Xl46AcmlocH2LlZaQg3VsaW96iJKWkYZ5bmpueIWQlJGIe3FrbXaCjZOSin5zbW11gIuRkYuAdm9udH2Ij5GMg3hxb3N8ho2QjIR7c3ByeoOLj42GfXVxcnmBiY2Mh393cnN4f4eMjIiAeXRzd36FiouIgnt2dHd9g4mKiIN8d3V3fIKHiYiEfnl3d3uAhYiHhH96eHh7f4SGh4SAfHl5e3+ChYaEgX17ent+gYSFhIF+fHt8foCDg4OBf318fH6AgYKCgX9+fX1+f4GBgYGAf35+f3+AgICAgH9/gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGCgoKBf317enl6fH6ChoiKioiEf3p1cnFydnuCiY+Sko+Kgnlxa2hpbneBi5Sam5iRhnpuZWBgZnB9i5egpKGZjH1uYVlXXGh3iZmlrKqik4JwYVZTV2JyhJWjq6ulmId1ZVlTVV5tfpCfqaynnI16aVxUVFtoeYubp6yqoJKAbl9WU1hjc4aXpKurpJaFc2NYU1ZfboCSoKqsp5uLeGhbVFRcanuNnaisqZ+QfmxeVVNZZXWImKWrq6KVg3FiV1NXYXCClKKqrKaZiXZmWVNVXWt9j56orKidjnxqXVRUWmd3ipqmrKqhk4FvYFZTV2JyhJWjq6ukmId0ZFhTVV5tf5GgqaynnIx6aVtUVFtoeYucp6ypoJF/bV9VU1hkdIaXpKuro5aFc2NYU1Zgb4GSoaqsppqKeGdaVFRcanuNnaisqZ6PfWxdVVNZZnaImaWsqqKUg3FhV1NXYXGDlKKqq6WZiHZlWVNVXmx9j5+prKidjXtqXFRUWmd4ipumrKqhkoFvYFZTWGNzhZajq6ukl4Z0ZFhTVl9uf5Ggqaynm4t5aFtUVFtpeoycp6ypn5B/bV5VU1lkdYeYpauro5WEcmJXU1ZgcIGToaqsppqJd2ZaVFVda3yOnqisqJ6OfGtdVVNaZneJmaasqqKTgnBhVlNXYnGElaOrq6WYh3VlWVNVXmx+kJ+prKecjXppXFRUW2h5i5unrKqgkoBuX1ZTWGNzhpekq6ukloVzY1hTVl9ugJKgqqynm4t4aFtUVFxpe42dqKypn5B+bF5VU1lldYiYpauropWDcWJXU1dhcIKUoqqsppmJdmZZU1Vda32PnqisqJ2OfGpdVFRaZ3eKmqasqqGTgW9gVlNXYnKElaOrq6SYh3VkWFNVXm1/kaCprKecjHppW1RUW2h5i5ynrKmgkX9tX1VTWGR0hpekq6ujloVzY1hTVmBvgZKhqqymmop4Z1pUVFxqe42dqKypno99bF1VU1lldoiZpayqopSDcWFXU1dhcYOUoqqrpZmIdmVZU1VebH2Pn6msqJ2Ne2pcVFRaZ3iKmqasqqGSgW9gVlNYY3OFlqOrq6SXhnRkWFNWX25/kaCprKebi3loW1RUW2l6jJynrKmfkH9tXlVTWWR1h5ilq6ujlYRyYldTVmBwgZOhqqymmol3ZlpUVV1rfI6eqKyono59a11VU1pmd4mZpqyqopOCcGFWU1dicYOVo6urpZiHdWVZU1VebH6Qn6msqJyNe2lcVFRbaHmLm6esqqCSgG5fVlNYY3OFl6Srq6SWhXNjWFNWX26AkqCqrKebi3loW1RUXGl7jZ2orKmfkH5sXlVTWWV1h5ilq6ujlYNxYldTV2FwgpSiqqymmYl3ZlpTVV1rfY+eqKyonY58al1VVFpnd4mapqyqoZOBb2BWU1dicoSVo6urpJiHdWRYU1VebX+RoKmsp5yMemlbVFRbaHmLnKesqaCRf25fVVNYZHSGl6Srq6OWhXNjWFNWYG+BkqGqrKaainhnWlRUXGp7jZ2orKmej31sXVVTWWV2iJmlq6qilINxYVdTV2Fxg5SiqqulmYh2ZVlTVV5sfY+fqayonY17alxUVFpneIqapqyqoZKBb2BWU1hjc4WWo6urpJeGdGRYU1Zfbn+RoKmsp5uLeWhbVFRbaXqMnKesqZ+Qf21eVVNZZHWHmKWrq6OVhHJiV1NWYHCBk6GqrKaaiXdmWlRVXWt8jp6orKiej31rXVVTWmZ3iZmmrKqik4JwYVZTV2Jxg5Wjq6ulmId1ZVlTVV5sfpCfqayonI17aVxUVFtoeYubpqupoJGAb2BXVVlkdIWWoqmpopWFdGVbVllicICQnqaoo5iKeWpeWFlgbHuLmaOmpJuOfm9jW1pfaXeGlJ+ko52Rg3RnXlteZ3OCkJuio56Uh3hrYl1eZXB9i5efoZ6Win1wZmBfZG16h5Obn56YjYF0aWJgY2t2g4+YnZ2ZkIR4bWZiZGpzf4uUmpyZkod8cWlkZGlxfIeRl5qZk4p/dWxnZmlveYONlJiYlIyCeHBqZ2lud4CKkZaXlI6FfHNsaWpudX2GjpOVlI+HfnZva2tuc3uDi5GTk4+JgXlybmxuc3mBiI6Rko+Kg3x1cG5vcnh/houPkI+KhX54c3Bwcnd9g4mNjo6LhoB6dXJxc3d8gYaKjYyKhoF8eHRzdHd7f4SIiouKh4J+end1dXd6foKGiImJhoN/fHl3d3h6fYGEhoiHhoOAfXt5eHl7fYCChYaGhYOBfnx7enp7fX+Bg4SEhIOBf358fHx8fX+AgYKDgoKBgH9+fX1+fn+AgIGBgYGAgH9/f39/f39/";   // two falling notes: what follows is a correction
+function tcPlayUrl(t,url,keep=false){   // one sound in the conversation's player; true when it played to its end (not stopped)
+  tcStopVoice(); const a=IS_IOS&&t.player?t.player:new Audio(url); if(a===t.player) a.src=url; t.playing=a;
+  let began=a!==t.player;   // the shared player's late "pause" from the sound before is not this one's end
+  const said=new Promise(done=>{ a.onplaying=()=>{ began=true; };
+    a.onended=a.onerror=a.onpause=e=>{ if(!began) return; if(!keep) URL.revokeObjectURL(url); done(!e||e.type==="ended"); }; });
+  return a.play().then(()=>Promise.race([said,new Promise(r=>setTimeout(()=>r(true),60000))]));   // a minute at most
+}
 async function tcSay(n,btn){   // the tutor's nth message in his own voice: said anew each time (no cache), one sound at a time
   if(!tc||!tc.id) return;
   if(tc.loadingSay===n) return;   // this message is on its way already: a second tap would play it twice (an echo)
   tcStopVoice();
   const t=tc, mine=t.sayTurn=(t.sayTurn||0)+1;   // only the latest call plays: an earlier one that was still loading does not
+  // the morning teacher's correction is its own sound: a chime, "no", the right sentence slowly, a pause, then the message
+  const fixed=!!(t.fixed&&t.fixed.has(n));
+  const part=async p=>{ const res=await api(`/api/tutor/say/${encodeURIComponent(t.id)}/${n}${p?`?part=${p}`:""}`,{cache:"no-store"});
+    if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status); return URL.createObjectURL(await res.blob()); };
   try{
-    let url;
+    let urls;
     btn&&btn.classList.add("loading"); t.loadingSay=n;
-    try{
-      const model="";   // the server's ElevenLabs model
-      const res=await api(`/api/tutor/say/${encodeURIComponent(t.id)}/${n}${model?`?model=${encodeURIComponent(model)}`:""}`,{cache:"no-store"});
-      if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
-      url=URL.createObjectURL(await res.blob());
-    }finally{ if(t.loadingSay===n) t.loadingSay=null; }
-    if(tc!==t||t.sayTurn!==mine){ URL.revokeObjectURL(url); return; }
-    tcStopVoice(); const a=IS_IOS&&t.player?t.player:new Audio(url); if(a===t.player) a.src=url; t.playing=a;
-    let began=a!==t.player;   // the shared player's late "pause" from the message before is not this one's end
-    const said=new Promise(done=>{ a.onplaying=()=>{ began=true; }; a.onended=a.onerror=a.onpause=()=>{ if(!began) return; URL.revokeObjectURL(url); done(); }; });
-    await a.play(); await Promise.race([said,new Promise(r=>setTimeout(r,60000))]);   // the dialogue goes on once it was said (a minute at most)
+    try{ urls=fixed?await Promise.all([part("fix"),part("reply")]):[await part("")]; }
+    finally{ if(t.loadingSay===n) t.loadingSay=null; }
+    if(tc!==t||t.sayTurn!==mine){ urls.forEach(u=>URL.revokeObjectURL(u)); return; }
+    if(!fixed){ await tcPlayUrl(t,urls[0]); return; }
+    const go=()=>tc===t&&t.sayTurn===mine;
+    if(!await tcPlayUrl(t,TC_CHIME,true)||!go()||!await tcPlayUrl(t,urls[0])||!go()){ URL.revokeObjectURL(urls[1]); return; }
+    await new Promise(r=>setTimeout(r,800));
+    if(!go()){ URL.revokeObjectURL(urls[1]); return; }
+    await tcPlayUrl(t,urls[1]);
   }catch(err){
     if(tc!==t) return;
     const blocked=err&&err.name==="NotAllowedError";   // the browser holds back sound it was not asked for by a tap
@@ -4008,7 +4018,7 @@ function tcCount(turn,turns){
 }
 function tcTutor(m,fix){   // the tutor's message: the Arabic in Hebrew letters, word by word, and the translation behind a tap
   const b=mark("tc-msg in","","div"), he=mark("tc-he",m.he,"p"), show=mark("tc-show","תרגום","button");
-  if(fix&&fix.tr&&!tc.s.morning){   // a corrected sentence (the morning teacher says it in its own message): the tutor says it right first (the server's voice does too), and it is shown so
+  if(fix&&fix.tr){   // a corrected sentence: the tutor says it right first (the server's voice does too), and it is shown so
     const said=mark("tc-said-right","","p"); said.append(mark("","✓ נכון לומר: ","b")); const r=mark("","","span"); setTr(r,fix.tr); said.append(r);
     b.append(said);
   }
@@ -4022,6 +4032,7 @@ function tcTutor(m,fix){   // the tutor's message: the Arabic in Hebrew letters,
   else setTr(tr,m.tr||"");
   he.hidden=true; show.type="button"; show.onclick=()=>{ he.hidden=!he.hidden; show.textContent=he.hidden?"תרגום":"הסתרה"; };
   const n=tc.said++, voiced=!!(TUTOR_INFO&&TUTOR_INFO.voice);
+  if(fix&&fix.ar&&tc.s.morning) (tc.fixed=tc.fixed||new Set()).add(n);   // the teacher's correction is said apart
   const hear=mark("tc-hear",voiced?"🔊":"🔇","button"); hear.type="button"; hear.setAttribute("aria-label",voiced?"השמעת ההודעה":"ההודעה לא מושמעת: למה?");
   hear.onclick=()=>{ if(voiced) tcSay(n,hear); else tcNote("🔇 "+tcNoVoice(),"bad trial"); };
   b.append(tr,he,show,hear,mark("tc-time",tcTime(),"small")); tc.log.append(b); tcScroll();

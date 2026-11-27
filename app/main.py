@@ -4712,7 +4712,8 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         return voice_samples[(key, voice)]
 
     @app.get("/api/tutor/say/{chat_id}/{n}", dependencies=[Depends(require("tutor.use"))])
-    def tutor_say(chat_id: str, n: int, user: dict | None = Depends(signed_in), model: str = Query("")):
+    def tutor_say(chat_id: str, n: int, user: dict | None = Depends(signed_in), model: str = Query(""),
+                  part: str = Query("")):
         """The tutor's `n`th message (from 0) in the student's conversation, spoken by ElevenLabs in the part's
         voice. 503 when יאללה נדבר has no voice; only this conversation's own messages are said."""
         t = tutor_for(user)
@@ -4732,7 +4733,10 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         # the trial's choice of model (one of TUTOR_MODELS), else the server's
         model = model if model in TUTOR_MODELS else os.environ.get("ELEVEN_LABS_TUTOR_MODEL", "") or TUTOR_MODEL
         try:   # said anew each time, in the voice chosen now: nothing is kept (each play is a new ElevenLabs request)
-            spoken = ElevenLabsTTS(key, model=model).speak_clear(tutor_spoken(chat, n), voice, model)
+            text = tutor_spoken(chat, n, part if part in ("fix", "reply") else "")
+            if not text:
+                raise HTTPException(404, "אין תיקון בהודעה הזו")
+            spoken = ElevenLabsTTS(key, model=model).speak_clear(text, voice, model)
         except TTSUnavailable as e:
             record_failure(app.state.auth, "text_to_speech")
             raise HTTPException(503, eleven_trouble(e, model))

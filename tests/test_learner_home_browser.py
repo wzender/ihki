@@ -2771,3 +2771,27 @@ out.first=(msgs[0].querySelector(".tc-said-right")||{}).textContent||""; out.sec
 def test_the_tutors_message_after_a_correction_begins_with_the_sentence_said_right(site):
     r = site("boss@x.com", SAID_RIGHT)
     assert r["first"].startswith("✓ נכון לומר:") and "אַכַּלְנַא" in r["first"] and not r["second"]
+
+
+MORNING_FIX_SAID = """
+await sleep(800);
+const asked=[], played=[];
+window.Audio=function(src){ this.src=src||""; this.play=()=>{ played.push(this.src.slice(0,10)); setTimeout(()=>{ this.onplaying&&this.onplaying(); setTimeout(()=>this.onended&&this.onended({type:"ended"}),20); },10); return Promise.resolve(); }; this.pause=()=>{}; };
+const real=window.fetch;
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/say/")){ asked.push(u.split("/api/tutor/say/")[1]); return Promise.resolve(new Response(new Blob(["ID3"]),{status:200})); }
+  return real(url,opts); };
+TUTOR_INFO={available:true,voice:true,stt:false,turns:10,left:null,scenarios:[]};
+localStorage.setItem("ihki.tutorMode",JSON.stringify("chat"));
+openTutorChat({id:"morning",lesson:"1",title:"השיחה של הבוקר",who:"ראמי",ar:"رامي",she:false,morning:{weak:[],new:[],fixes:[]}});
+tc.id="chat1"; tc.said=1;
+tcTutor({tr:"מַרַּה תַאנְיֵה!",he:"עוד פעם!",words:[]},{ar:"احنا اكلنا شاورما",tr:"אִחְנַא אַכַּלְנַא שַׁאוּרְמַה",note:"..."});
+await until(()=>played.length>=3,5000); await sleep(100);   // said on its own as it came
+out.asked=asked; out.played=played;
+"""
+
+
+def test_the_morning_teachers_correction_is_a_sound_of_its_own(site):
+    r = site("boss@x.com", MORNING_FIX_SAID, preload="window.__wizardOwn=true;")
+    assert r["asked"] == ["chat1/1?part=fix", "chat1/1?part=reply"]
+    assert r["played"][0].startswith("data:audio") and len(r["played"]) == 3   # the chime, the correction, the message
