@@ -2659,7 +2659,8 @@ out.arabic=/[\\u0600-\\u06FF]/.test(card.textContent);
 localStorage.setItem("ihki.tutorGender",JSON.stringify("f"));
 card.querySelector(".mc-go").click();
 await until(()=>sent.length&&document.querySelector(".tc .tc-msg.in"),5000);
-out.sent=sent[0]; out.plan=[...document.querySelectorAll(".tc .tc-note")].map(n=>n.textContent).find(t=>t.includes("היום נתרגל"))||"";
+out.sent=sent[0]; const plan=document.querySelector(".tc .tc-plan"); out.plan=plan?plan.textContent:"";
+out.planFirst=document.querySelector(".tc .tc-log").firstElementChild===plan; out.notes=document.querySelectorAll(".tc .tc-note:not(.bad)").length;   // (no voice here: that one is said)
 """
 
 
@@ -2668,7 +2669,8 @@ def test_the_morning_talk_card_opens_a_talk_built_for_the_student(site):
     assert r["title"] == "ח'ליל מחכה לך" and not r["arabic"]   # Hebrew letters only
     assert r["chips"] == ["חוזרים: אַנַא בַּדִּי", "תיקון משיחה קודמת", "מילה חדשה אחת"]
     assert r["sent"]["scenario"] == "morning" and r["sent"]["lesson"] == "2"
-    assert "אַנַא בַּדִּי" in r["plan"] and "פֻסְטַאן" in r["plan"]
+    assert "אַנַא בַּדִּי" in r["plan"] and "פֻסְטַאן" in r["plan"] and r["planFirst"]   # the plan first, above the talk
+    assert r["notes"] == 0   # and the talk itself clean
 
 
 MORNING_LIST = """

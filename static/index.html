@@ -391,6 +391,11 @@ body.tutor-chat{overflow:hidden}
 .tc-time{align-self:flex-end;font-size:11px;color:var(--muted)}
 .tc-fix{align-self:flex-end;max-width:min(82%,520px);background:var(--tc-fix);border-radius:8px;padding:6px 10px;margin-top:-2px}
 .tc-fix small{color:var(--amber);font-weight:700}.tc-fix .tc-tr{font-size:18px}.tc-why{font-size:14px;margin:4px 0 0}
+.tc-plan{align-self:stretch;margin:4px 0 10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.tc-plan-head{display:block;margin-bottom:6px;font:700 15px/1.3 var(--f-body);color:var(--amber)}
+.tc-plan-list{display:flex;flex-wrap:wrap;gap:6px}.tc-plan-none{color:var(--muted)}
+.tc-plan-chip{padding:4px 10px;border-radius:999px;font:600 15px/1.4 var(--f-tr)}.tc-plan-chip.again{background:var(--amber-bg);color:var(--amber)}
+.tc-plan-chip.fresh{background:var(--ok-bg);color:var(--ok)}.tc-plan-he{font:400 13px var(--f-body);opacity:.85}
 .tc-fix-line{display:flex;align-items:baseline;gap:6px;margin:4px 0}.tc-fix-sign{font-weight:800}.tc-fix-label{font:700 13px/1 var(--f-body);white-space:nowrap}
 .tc-fix-line.wrong{color:var(--sumac)}.tc-fix-line.wrong .tc-tr{text-decoration:line-through;text-decoration-thickness:1.5px;opacity:.9}
 .tc-fix-line.right{color:var(--ok)}.tc-fix-line.right .tc-tr{font-weight:700}
@@ -3888,6 +3893,7 @@ function openTutorChat(s){
   window.visualViewport?.addEventListener("resize",tc.fit); window.visualViewport?.addEventListener("scroll",tc.fit); tc.fit();
   if(!tc.speaks) tcNote("הדפדפן הזה לא מזהה דיבור. אפשר להקליד בערבית באותיות עבריות, או לפתוח את האפליקציה ב-Chrome.");
   tcUnlock();   // the tap that opened it lets the voice play (iPhone)
+  if(s.morning) tcPlan(s.morning);
   // the morning talk starts at once: a voice dialogue, the device hearing (the dialogue's ⌨ goes to the chat any time)
   if(s.morning&&TUTOR_INFO&&TUTOR_INFO.voice&&(SR||tcEleven())){ if(SR) tc.hears="browser"; tcDialogOn(); tcAskGender(s); return; }
   tcAskMode(()=>{ if(tc&&tc.root===root) tcAskGender(s); });
@@ -4057,6 +4063,15 @@ function tcStudent(){   // the student's message, waiting for the tutor to say w
   const b=mark("tc-msg out","","div"), p=mark("tc-tr heard","…","p");
   b.append(p,mark("tc-time",tcTime()+" ✓","small")); tc.log.append(b); tcScroll(); return b;
 }
+function tcPlan(m){   // the morning talk's plan, first, before the teacher speaks: what is practised today
+  const box=mark("tc-plan","","section"); box.setAttribute("aria-label","מה נתרגל היום");
+  box.append(mark("tc-plan-head","☀️ מה נתרגל היום","b"));
+  const list=mark("tc-plan-list","","div");
+  for(const w of m.weak||[]){ const c=mark("tc-plan-chip again","","span"); setTr(c,w.tr); list.append(c); }
+  for(const w of m.new||[]){ const c=mark("tc-plan-chip fresh","","span"), t=mark("","","span"); setTr(t,w.tr); c.append("✦ ",t,mark("tc-plan-he",` ${w.he}`,"small")); list.append(c); }
+  if(list.childElementCount) box.append(list); else box.append(mark("tc-plan-none","שיחה חופשית על מה שלמדתם בשיעור","small"));
+  tc.log.append(box);
+}
 function tcFix(after,fix){   // under the student's message, once: what they said (red), the right sentence (green), why
   const n=mark("tc-fix","","div"), said=(after.querySelector(".heard")||{}).textContent||"";
   const line=(cls,sign,label,text)=>{ const p=mark("tc-fix-line "+cls,"","p"), t=mark("tc-tr","","span"); setTr(t,text);
@@ -4075,10 +4090,9 @@ async function tcStart(gender){
     if(!r.ok){ tcNote(d.detail||"השיחה לא נפתחה. נסו שוב.","bad"); return; }
     tc.id=d.id; if(TUTOR_INFO&&d.left!=null) TUTOR_INFO.left=d.left;
     tcCount(0,d.turns); tcTutor(d.message); tcLock(false);
-    tcNote("לחצו על מילה כדי לראות מה היא אומרת · ✦ מסמן מילה שעוד לא למדתם");
-    if(tc.s.morning){ const m=tc.s.morning, parts=[...m.weak.map(w=>w.tr),...m.new.map(w=>`✦ ${w.tr} (${w.he})`)];
-      if(parts.length) tcNote("☀️ היום נתרגל: "+parts.join(" · "),"trial");
-      morningCard={...m,done:true}; }
+    // the conversation stays clean: the tip on words once on this device, never in the morning talk (its plan is above)
+    if(!tc.s.morning&&!store.get("ihki.tcTipSeen",false)){ tcNote("לחצו על מילה כדי לראות מה היא אומרת · ✦ מסמן מילה שעוד לא למדתם"); store.set("ihki.tcTipSeen",true); }
+    if(tc.s.morning) morningCard={...tc.s.morning,done:true};
     tcTrialNote();
   }catch{ if(tc){ wait.remove(); tcNote("השרת לא זמין. נסו שוב.","bad"); } }
 }
