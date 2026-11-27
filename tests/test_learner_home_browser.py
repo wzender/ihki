@@ -2053,12 +2053,7 @@ out.all=await notes({available:true,voice:true,stt:false,voice_missing:[]},man);
 """
 
 
-def test_the_trial_note_says_what_is_missing_and_what_hears(site):
-    r = site("boss@x.com", TUTOR_TRIAL, preload=PICK_CHAT)
-    assert r["noKey"][1] and "אין מפתח ElevenLabs" in r["noKey"][0] and "מפתחות API" in r["noKey"][0]
-    assert r["noVoice"][1] and "לא נבחר קול ליאללה נדבר" in r["noVoice"][0]
-    assert r["noFemale"][1] and "בקול הגבר" in r["noFemale"][0] and "זיהוי הדיבור: הדפדפן (ElevenLabs כגיבוי)" in r["noFemale"][0]   # the browser hears by default, ElevenLabs its backup
-    assert not r["all"][1] and r["all"][0].startswith("🧪 גרסת ניסיון") and "מפתחות API" not in r["all"][0]
+# (test_the_trial_note_says_what_is_missing_and_what_hears: the trial's controls were taken out of the conversation)
 
 
 TUTOR_BLOCKED = """
@@ -2333,7 +2328,6 @@ FAKE_BROWSER_RECOGNITION = """addEventListener("DOMContentLoaded",()=>new Mutati
 
 def test_the_browser_hears_where_it_can_and_elevenlabs_where_it_cannot(site):
     r = site("boss@x.com", TUTOR_HYBRID, preload=FAKE_BROWSER_RECOGNITION+'localStorage.setItem("ihki.tutorHears",JSON.stringify("browser"));')
-    assert "זיהוי הדיבור: הדפדפן" in r["note"]
     assert r["first"] == 1 and r["sentFirst"] == 0   # Chrome: its own recognition, nothing sent to ElevenLabs
     assert r["switched"] and r["sent"] == ["hear"] and r["browserAfter"] == 1   # it failed: ElevenLabs from then on
 
@@ -2352,12 +2346,7 @@ mic.click(); await sleep(50); out.browserAfter=window.__browser.length;
 """
 
 
-def test_the_student_chooses_who_hears_and_the_device_keeps_it(site):
-    r = site("boss@x.com", TUTOR_CHOOSE, preload=FAKE_BROWSER_RECOGNITION)
-    assert r["before"] == ["browser", ["השוואה: שניהם", "הדפדפן", "ElevenLabs"]]   # the browser hears by default
-    assert r["chosen"] == [True, '"eleven"']
-    assert r["sent"] == ["hear"] and r["browser"] == 0   # ElevenLabs heard it, not the browser
-    assert r["back"] == '"browser"' and r["browserAfter"] == 1
+# (test_the_student_chooses_who_hears_and_the_device_keeps_it: the trial's controls were taken out of the conversation)
 
 
 
@@ -2449,15 +2438,7 @@ out.choice=choices[0]; out.box=document.querySelector(".tc .tc-type input").valu
 """
 
 
-def test_the_trial_compares_both_recognizers_and_keeps_the_students_choice(site):
-    r = site("boss@x.com", TUTOR_COMPARE, preload=FAKE_BROWSER_RECOGNITION+'localStorage.setItem("ihki.tutorHears",JSON.stringify("both"));')
-    assert "השוואה" in r["note"] and r["both"]
-    assert [p[:len(x)] for p, x in zip(r["picks"], ("🌐 הדפדפן", "ElevenLabs", "שניהם לא נכונים"))] == ["🌐 הדפדפן", "ElevenLabs", "שניהם לא נכונים"]
-    assert "מְנִיח" in r["picks"][0] and "אֵלְחַמְדֻ" in r["picks"][1]   # each as it heard it, in Hebrew letters
-    c = r["choice"]
-    assert c["chosen"] == "eleven" and c["browser"]["text"] == "منيح" and "ar-PS" in c["browser"]["engine"]
-    assert c["eleven"] == {"text": "منيح الحمد لله", "tr": "מְנִיח אֵלְחַמְדֻ לִלַّה", "model": "scribe_v3", "language": "ajp", "hints": 57}
-    assert r["box"] == "מְנִיח אֵלְחַמְדֻ לִלַה" and r["gone"]   # ElevenLabs' sentence waits in the box (no shadda in a box)
+# (test_the_trial_compares_both_recognizers_and_keeps_the_students_choice: the trial's controls were taken out of the conversation)
 
 
 ACCESS_MANY = """
@@ -2523,11 +2504,7 @@ await until(()=>says.length,5000); out.say=says[0]; out.kept=localStorage.getIte
 """
 
 
-def test_the_tutor_plays_the_chosen_voices_own_sample(site):
-    r = site("boss@x.com", TUTOR_SAMPLE, preload=PICK_CHAT)
-    assert r["button"] and r["played"] == ["https://x/bader.mp3"] and r["she"] is True   # the woman's part's voice
-    assert r["models"] == ["", "eleven_multilingual_v2", "eleven_v4", "eleven_v4_turbo"]   # "": v3, the default
-    assert r["say"].endswith("/0?model=eleven_v4") and r["kept"] == '"eleven_v4"'   # the message again, in the chosen model
+# (test_the_tutor_plays_the_chosen_voices_own_sample: the trial's controls were taken out of the conversation)
 
 
 TUTOR_DIALOG = """
@@ -2604,7 +2581,7 @@ def test_the_conversation_starts_with_a_wizard_how_it_goes_and_who_hears(site):
     r = site("boss@x.com", TUTOR_WIZARD, preload="window.__wizardOwn=true;"+FAKE_BROWSER_RECOGNITION)
     assert r["one"] == ["שלב 1 מתוך 2", "איך מדברים הפעם?", ["chat", "dialog"]] and r["startedEarly"] == 0
     assert r["two"] == ["שלב 2 מתוך 2", "מי מזהה את הדיבור שלכם?", ["browser", "eleven"]]   # the device first by default
-    assert r["kept"] == ['"chat"', '"eleven"'] and "זיהוי הדיבור: ElevenLabs" in r["note"]   # the conversation, as chosen
+    assert r["kept"] == ['"chat"', '"eleven"']   # the conversation, as chosen
 
 
 TUTOR_DIALOG_STUCK = """
@@ -2626,7 +2603,7 @@ await until(()=>document.querySelector(".tc .tc-mode"),5000);
 document.querySelector('.tc .tc-mode button[data-value="dialog"]').click();
 await until(()=>/חסם/.test(document.querySelector(".tc").textContent),5000);
 const state=()=>document.querySelector(".tc .tc-dialog-state").textContent, btn=()=>document.querySelector(".tc .tc-dialog button");
-out.blocked=state(); out.button=btn().textContent;
+out.blocked=state(); out.button=btn().getAttribute("aria-label");
 window.__noStart=true;   // the device's recognition will not start (as Safari without a tap)
 btn().click();   // ▶ המשך: says the held-back message again, then listens
 await until(()=>/לא התחיל להקשיב/.test(document.querySelector(".tc").textContent),8000);

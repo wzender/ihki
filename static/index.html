@@ -405,19 +405,22 @@ body.tutor-chat{overflow:hidden}
 .tc-call.on{background:var(--sumac);color:#fff}
 .tc-engine{border:1px solid currentColor;background:none;color:inherit;font:600 13px/1.3 var(--f-body);border-radius:999px;padding:2px 10px;margin-inline-start:4px;cursor:pointer}
 .tc-step{color:var(--muted);font-size:13px}.tc-step:empty{display:none}
-.tc-dialog{display:flex;flex-direction:column;align-items:center;gap:8px;padding:6px 0}.tc-dialog[hidden]{display:none}
-.tc-dialog-state{margin:0;font:700 22px/1.4 var(--f-body);text-align:center}.tc-dialog[data-state=listen] .tc-dialog-state{color:var(--olive)}
-.tc-dialog .btn{min-width:180px;min-height:48px;font-size:18px}
+.tc-dialog{display:flex;flex-direction:column;gap:2px;padding:2px 0}.tc-dialog[hidden]{display:none}
+.tc-dialog-row{display:flex;align-items:center;gap:12px}
+.tc-dialog-state{flex:1;min-width:0;margin:0;font:700 16px/1.3 var(--f-body)}.tc-dialog[data-state=listen] .tc-dialog-state{color:var(--olive)}
+.tc-dialog-chat{flex:none;min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:22px;background:var(--surface);color:var(--ink);font:600 15px/1 var(--f-body);cursor:pointer}
 .tc-cmp{gap:6px}.tc-cmp-pick{display:flex;flex-direction:column;align-items:stretch;gap:2px;text-align:start;white-space:normal}.tc-cmp-pick small{color:var(--muted)}
 .tc-mic.live{background:var(--sumac);animation:tcPulse 1.2s ease-in-out infinite}
 .tc-mic:disabled{opacity:.45;cursor:default}
 @keyframes tcPulse{50%{transform:scale(1.08)}}
 @media (prefers-reduced-motion: reduce){.tc-mic.live{animation:none}}
 /* the student's voice as it is heard: bars that follow the microphone (or move while the recognizer hears speech) */
-.tc-orb{position:relative;width:92px;height:92px;display:grid;place-items:center}
+.tc-orb{position:relative;flex:none;width:64px;height:64px;padding:0;border:0;border-radius:50%;background:none;display:grid;place-items:center;cursor:pointer;color:var(--ink)}
+.tc-orb-play{position:relative;display:none;font-size:24px}
+.tc-dialog[data-state=pause] .tc-orb-bars{display:none}.tc-dialog[data-state=pause] .tc-orb-play{display:block}
 .tc-orb::before{content:"";position:absolute;inset:0;border-radius:50%;background:var(--olive-soft);transform:scale(calc(.86 + .3*var(--lv,0)));transition:transform .1s}
-.tc-orb-bars{position:relative;display:flex;align-items:center;gap:5px;height:48px}
-.tc-orb-bars i{display:block;width:7px;height:calc(8px + 38px*var(--lv,0));border-radius:4px;background:var(--muted);transition:height .1s}
+.tc-orb-bars{position:relative;display:flex;align-items:center;gap:4px;height:36px}
+.tc-orb-bars i{display:block;width:5px;height:calc(6px + 28px*var(--lv,0));border-radius:3px;background:var(--muted);transition:height .1s}
 .tc-dialog[data-state=listen] .tc-orb-bars i{background:var(--olive)}
 .tc-dialog[data-state=listen] .tc-orb:not(.metered)::before{animation:tcBreath 1.6s ease-in-out infinite}
 .tc-dialog[data-state=listen].hearing .tc-orb:not(.metered) i{animation:tcWave .7s ease-in-out infinite}
@@ -428,7 +431,7 @@ body.tutor-chat{overflow:hidden}
 .tc-dialog[data-state=think] .tc-orb-bars i{height:8px;animation:tcDot 1s ease-in-out infinite}
 .tc-dialog[data-state=think] .tc-orb-bars i:nth-child(2){animation-delay:.15s}.tc-dialog[data-state=think] .tc-orb-bars i:nth-child(3){animation-delay:.3s}
 .tc-dialog[data-state=think] .tc-orb-bars i:nth-child(4){animation-delay:.45s}.tc-dialog[data-state=think] .tc-orb-bars i:nth-child(5){animation-delay:.6s}
-@keyframes tcWave{0%,100%{height:10px}50%{height:42px}}
+@keyframes tcWave{0%,100%{height:8px}50%{height:32px}}
 @keyframes tcBreath{0%,100%{transform:scale(.86)}50%{transform:scale(1)}}
 @keyframes tcDot{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 .morning-card{display:flex;flex-direction:column;gap:10px;margin:10px 0;padding:14px;border:2px solid var(--olive);border-radius:16px;background:var(--surface);color:var(--ink)}
@@ -443,8 +446,8 @@ body.tutor-chat{overflow:hidden}
 .mc-chip.again{background:var(--amber-bg);color:var(--amber)}.mc-chip.fresh{background:var(--ok-bg);color:var(--ok)}
 .mc-go{min-height:48px;font-size:17px}.mc-foot{text-align:center}
 .tc-said-right{margin:0 0 6px;padding-bottom:6px;border-bottom:1px dashed var(--line);font:600 17px/1.5 var(--f-tr);color:var(--amber)}
-.tc-dialog-heard{margin:0;min-height:1.5em;max-width:100%;font:600 18px/1.5 var(--f-tr);color:var(--ink);text-align:center;overflow-wrap:anywhere}
-.tc-dialog-heard.wait{color:var(--muted);font-weight:400;font-size:15px}
+.tc-dialog-heard{margin:0;max-width:100%;font:600 16px/1.4 var(--f-tr);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tc-dialog-heard:empty{display:none}
+.tc-dialog-heard.wait{display:none}
 .tc-mic.live{box-shadow:0 0 0 calc(3px + 12px*var(--lv,0)) var(--olive-soft)}
 @media (prefers-reduced-motion: reduce){.tc-orb::before,.tc-orb-bars i{animation:none!important}}
 body.memory-game{overflow:hidden}
@@ -3945,7 +3948,7 @@ async function tcSay(n,btn){   // the tutor's nth message in his own voice: said
     let url;
     btn&&btn.classList.add("loading"); t.loadingSay=n;
     try{
-      const model=store.get("ihki.tutorVoiceModel","");   // the trial's choice of ElevenLabs model ("": the server's)
+      const model="";   // the server's ElevenLabs model
       const res=await api(`/api/tutor/say/${encodeURIComponent(t.id)}/${n}${model?`?model=${encodeURIComponent(model)}`:""}`,{cache:"no-store"});
       if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail||res.status);
       url=URL.createObjectURL(await res.blob());
@@ -3958,7 +3961,7 @@ async function tcSay(n,btn){   // the tutor's nth message in his own voice: said
   }catch(err){
     if(tc!==t) return;
     const blocked=err&&err.name==="NotAllowedError";   // the browser holds back sound it was not asked for by a tap
-    if(t.dialog){ t.dialogReplay=n; tcDialogStuck(blocked?"הדפדפן חסם את השמעת הדובר. לחצו ▶ המשך כדי לשמוע.":`הדובר לא הושמע (${err.message||err}). לחצו ▶ המשך לנסות שוב, או עברו לצ'אט.`); return; }
+    if(t.dialog){ t.dialogReplay=n; tcDialogStuck(blocked?"הדפדפן חסם את השמעת הדובר. הקישו על המיקרופון כדי לשמוע.":`הדובר לא הושמע (${err.message||err}). הקישו על המיקרופון לנסות שוב, או עברו לצ'אט.`); return; }
     const why=blocked?"הדפדפן חסם השמעה אוטומטית. לחצו 🔊 כדי לשמוע.":(err.message||String(err));
     if(btn){ btn.title=why; btn.textContent=blocked?"🔊":"⚠"; }
     if(!t.told||!t.told.has(why)){ (t.told=t.told||new Set()).add(why); tcNote("🔇 "+why,"bad trial"); }   // said once per conversation
@@ -4065,10 +4068,14 @@ function tcDialogOn(){
   tc.dialog=true; tc.dialogMiss=0; tc.dialogPaused=false; tc.type.hidden=true;
   let box=tc.root.querySelector(".tc-dialog");
   if(!box){
-    box=mark("tc-dialog",""); const state=mark("tc-dialog-state","","p"), stop=mark("btn","⏸ עצירה","button"), chat=mark("btn","⌨ מעבר לצ'אט","button");
-    const orb=mark("tc-orb",""); orb.setAttribute("aria-hidden","true"); orb.innerHTML='<span class="tc-orb-bars"><i></i><i></i><i></i><i></i><i></i></span>';
-    const heard=mark("tc-dialog-heard","","p"); heard.setAttribute("aria-live","polite");
-    stop.type=chat.type="button"; box.append(orb,state,heard,stop,chat); tc.type.after(box);
+    // one row under the conversation: the microphone (its bars show who speaks; a tap pauses or goes on), what it is
+    // doing in a few words, and the way to the chat; above it, the words being heard
+    box=mark("tc-dialog",""); const state=mark("tc-dialog-state","","p"), chat=mark("tc-dialog-chat","⌨ צ'אט","button");
+    const stop=mark("tc-orb","","button"); stop.innerHTML='<span class="tc-orb-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="tc-orb-play" aria-hidden="true">▶</span>';
+    const heard=mark("tc-dialog-heard","","p"); heard.setAttribute("aria-live","polite"); state.setAttribute("aria-live","polite");
+    chat.setAttribute("aria-label","מעבר לצ'אט כתוב"); chat.title="מעבר לצ'אט כתוב (עם הודעות קוליות)";
+    const row=mark("tc-dialog-row",""); row.append(stop,state,chat);
+    stop.type=chat.type="button"; box.append(heard,row); tc.type.after(box);
     stop.onclick=()=>{
       if(!tc.dialogPaused) return tcDialogPause();
       tc.dialogPaused=false;
@@ -4082,9 +4089,9 @@ function tcDialogOn(){
 function tcDialogState(k){   // what the dialogue is doing now, in big letters
   const box=tc&&tc.root.querySelector(".tc-dialog"); if(!box) return;
   const who=`${tc.s.who} ${tc.s.she?"מדברת":"מדבר"}`;
-  box.querySelector(".tc-dialog-state").textContent={speak:`🔊 ${who}…`,listen:"🎧 תורכם: דברו בערבית",think:`⏳ ${tc.s.who} ${tc.s.she?"חושבת":"חושב"}…`,
-    pause:"⏸ הדו־שיח עצור",wait:"⏳ רגע…",done:"✓ השיחה הסתיימה"}[k]||"";
-  box.querySelector("button").textContent=k==="pause"?"▶ המשך":"⏸ עצירה";
+  box.querySelector(".tc-dialog-state").textContent={speak:`${who}…`,listen:"תורכם: דברו בערבית",think:`${tc.s.who} ${tc.s.she?"חושבת":"חושב"}…`,
+    pause:"עצור · הקישו להמשך",wait:"רגע…",done:"✓ השיחה הסתיימה"}[k]||"";
+  const orbBtn=box.querySelector(".tc-orb"); orbBtn.setAttribute("aria-label",k==="pause"?"▶ המשך":"⏸ עצירה"); orbBtn.title=orbBtn.getAttribute("aria-label");
   box.dataset.state=k; box.classList.remove("hearing");
   const orb=box.querySelector(".tc-orb"); orb.classList.remove("metered"); tcBars(orb,0);
   tcShowHeard(k==="listen"?"מחכה שתדברו…":"",true);
@@ -4130,7 +4137,7 @@ function tcDialogMiss(why=""){   // nothing was heard: listen again, and after t
   if(!tc||!tc.dialog) return;
   tc.dialogMiss=(tc.dialogMiss||0)+1;
   if(why) try{ rumTrack("tutor-dialog-miss",{why,ios:IS_IOS,n:tc.dialogMiss}); }catch{}
-  if(tc.dialogMiss>=3){ tcDialogPause(); tcNote("לא שמעתי אתכם. לחצו ▶ המשך כשתרצו להמשיך."+(why?` (${why})`:"")); return; }
+  if(tc.dialogMiss>=3){ tcDialogPause(); tcNote("לא שמעתי אתכם. הקישו על המיקרופון כשתרצו להמשיך."); return; }
   setTimeout(()=>tcDialogNext(),400);
 }
 function tcDialogStuck(why){   // the dialogue cannot go on by itself: why, in the conversation, and it waits for ▶
@@ -4145,40 +4152,9 @@ function tcDialogPause(){
   tcDialogState("pause");
 }
 /* גרסת ניסיון: what the conversation runs on, and what of ElevenLabs is missing, so a silent tutor says why. */
-function tcTrialNote(){
-  if(!tc||!TUTOR_INFO) return;
-  const miss=new Set(TUTOR_INFO.voice_missing||[]), she=!!tc.s.she, parts=[];
-  if(miss.has("ELEVEN_LABS_API_KEY")) parts.push("אין מפתח ElevenLabs, ולכן הדובר לא מושמע");
-  else if(!TUTOR_INFO.voice) parts.push("לא נבחר קול ליאללה נדבר, ולכן הדובר לא מושמע");
-  else if(she&&miss.has("ELEVEN_LABS_TUTOR_FEMALE_VOICE_ID")) parts.push("לא נבחר קול לדמות אישה: היא מדברת בקול הגבר");
-  else if(!she&&miss.has("ELEVEN_LABS_TUTOR_VOICE_ID")) parts.push("לא נבחר קול לדמות גבר: הוא מדבר בקול האישה");
-  const head=parts.length?"⚠️ גרסת ניסיון · ":"🧪 גרסת ניסיון · ";
-  const fix=parts.length?" · ההגדרה: ניהול ← ניטור ← \"מפתחות API ומודל\" (למפתחים), או בהגדרות ה־Space":"";
-  const note=tcNote(head+[...parts,tcHearsWith()].join(" · ")+fix,parts.length?"bad trial":"trial");
-  if(TUTOR_INFO.voice){   // the trial: the chosen voice's own sample (as the voice picker plays it), beside the tutor's
-    const sample=mark("tc-engine","🎧 דוגמית הקול","button"); sample.type="button"; sample.title="הדוגמית של הקול שנבחר, כמו בבחירת הקול";
-    sample.onclick=async()=>{
-      tcStopVoice(); sample.disabled=true;
-      try{ const r=await api(`/api/tutor/voice-sample?she=${tc.s.she?"true":"false"}`), d=await r.json().catch(()=>({}));
-        if(!r.ok||!d.preview_url) throw new Error(d.detail||"אין דוגמית לקול הזה");
-        const a=new Audio(d.preview_url); tc.playing=a; sample.title=d.name||sample.title; await a.play(); }
-      catch(e){ tcNote("🎧 "+(e.message||e),"bad trial"); }
-      finally{ sample.disabled=false; }
-    };
-    // the trial: which ElevenLabs model says the tutor's messages (kept on the device); 🔊 again hears the change
-    const models=mark("tc-engine","","select"); models.setAttribute("aria-label","מודל הקול");
-    for(const [v,label] of [["","מודל הקול: v3 (ברירת המחדל)"],["eleven_multilingual_v2","מודל הקול: multilingual v2"],["eleven_v4","מודל הקול: v4"],["eleven_v4_turbo","מודל הקול: v4 turbo"]]) models.add(new Option(label,v));
-    models.value=store.get("ihki.tutorVoiceModel","");
-    models.onchange=()=>{ store.set("ihki.tutorVoiceModel",models.value); tcStopVoice(); const last=[...tc.log.querySelectorAll(".tc-msg.in .tc-hear")].pop(); if(last) last.click(); };
-    note.append(sample,models);
-  }
-  if(tcCanChoose()){   // the trial: the student picks who hears, now and in later conversations (kept on the device)
-    const pick=document.createElement("select"); pick.className="tc-engine"; pick.setAttribute("aria-label","מי מזהה את הדיבור");
-    for(const [v,label] of [["both","השוואה: שניהם"],["browser","הדפדפן"],["eleven","ElevenLabs"]]) pick.add(new Option(label,v));
-    const paint=()=>{ note.firstChild.textContent=head+[...parts,tcHearsWith()].join(" · ")+fix+" "; pick.value=tcHearsChoice(); };
-    pick.onchange=()=>{ if(tc.rec||tc.recorder) tcListen(); store.set("ihki.tutorHears",pick.value); tc.browserFailed=false; tc.sttFailed=0; paint(); };
-    note.append(pick); paint();
-  }
+function tcTrialNote(){   // a silent tutor says why; where to set it, to a developer only
+  if(!tc||!TUTOR_INFO||TUTOR_INFO.voice) return;
+  tcNote("⚠️ הדובר לא מושמע כרגע. אפשר לקרוא ולהקליד."+(ME_PERMISSIONS.has("*")?" (ההגדרה: ניהול ← ניטור ← \"מפתחות API ומודל\")":""),"bad");
 }
 // who hears the student: the trial lets them choose when both can (ihki.tutorHears: "browser" or "eleven", else the hybrid)
 const tcCanChoose=()=>!!(SR&&TUTOR_INFO&&TUTOR_INFO.stt&&window.MediaRecorder&&navigator.mediaDevices);
@@ -4321,7 +4297,7 @@ const IS_IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||/Macintosh/.test(navi
 const tcEleven=()=>!!(TUTOR_INFO&&TUTOR_INFO.stt&&window.MediaRecorder&&navigator.mediaDevices&&(!SR||(tc&&tc.browserFailed)||["eleven","both"].includes(tcHearsChoice())||(tc&&tc.dialog&&IS_IOS))&&!(tc&&tc.sttFailed>=2));
 // browser (the default where it can hear; ElevenLabs where it cannot, or once it fails), eleven, or both: the trial's comparison
 const tcHearsChoice=()=>{ const v=(tc&&tc.hears)||store.get("ihki.tutorHears",""); return ["browser","eleven","both"].includes(v)?v:tcCanChoose()?"browser":""; };
-const tcComparing=()=>tcCanChoose()&&tcHearsChoice()==="both"&&!(tc&&(tc.dialog||tc.browserFailed||tc.sttFailed>=2));
+const tcComparing=()=>false;   // the trial's side-by-side of the two recognizers is over
 /* ElevenLabs hears the student: a tap records, a second tap (or 15 s) ends it, the server recognizes it with the
    lesson's words, and the text goes on as the browser's would. Failing twice in a conversation, it goes back to the
    browser's recognition (if there is one). */
@@ -4351,7 +4327,7 @@ async function tcRecord(compare=false){
   if(tc.recorder){ if(tc.recorder.state==="recording") tc.recorder.stop(); return; }
   let stream;
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }
-  catch{ if(tc&&tc.dialog) return tcDialogStuck("אין גישה למיקרופון: אשרו גישה בהגדרות הדפדפן (באייפון: הגדרות ← Safari ← מיקרופון), ולחצו ▶ המשך.");
+  catch{ if(tc&&tc.dialog) return tcDialogStuck("אין גישה למיקרופון: אשרו גישה בהגדרות הדפדפן (באייפון: הגדרות ← Safari ← מיקרופון), והקישו על המיקרופון.");
     tcNote("אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן, או הקלידו.","bad"); tc.type.hidden=false; return; }
   if(!tc){ stream.getTracks().forEach(t=>t.stop()); return; }
   const type=["audio/webm;codecs=opus","audio/webm","audio/mp4","audio/ogg;codecs=opus"].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||"";
@@ -4389,7 +4365,7 @@ async function tcRecord(compare=false){
     }catch(err){
       if(tc!==t) return;
       tcLock(false); t.live.hidden=true; t.sttFailed=(t.sttFailed||0)+1;
-      if(t.dialog) return tcDialogStuck(`זיהוי הדיבור של ElevenLabs נכשל (${err.message||err}). לחצו ▶ המשך ונסו שוב.`);
+      if(t.dialog) return tcDialogStuck(`זיהוי הדיבור של ElevenLabs נכשל (${err.message||err}). הקישו על המיקרופון ונסו שוב.`);
       tcNote(`זיהוי הדיבור לא הצליח (${err.message||err}). `+(t.sttFailed>=2&&SR?"עוברים לזיהוי של הדפדפן: לחצו שוב ודברו.":"לחצו שוב ודברו, או הקלידו."),"bad");
       if(t.sttFailed>=2&&!SR) t.type.hidden=false;
     }
@@ -4433,7 +4409,7 @@ function tcListen(){   // a tap starts listening; the recognition ends by itself
     if(!tc||tc.rec!==r) return;
     tc.rec=null; tc.mic.classList.remove("live"); tc.live.hidden=true; tc.live.textContent="";
     if(err==="language-not-supported"&&tc.lang!=="ar-JO"){ tc.lang="ar-JO"; tcListen(); return; }   // the nearest Arabic the device has
-    if(err==="not-allowed"){ if(tc.dialog) return tcDialogStuck("אין גישה למיקרופון: אשרו גישה בהגדרות הדפדפן (באייפון: הגדרות ← Safari ← מיקרופון), ולחצו ▶ המשך.");
+    if(err==="not-allowed"){ if(tc.dialog) return tcDialogStuck("אין גישה למיקרופון: אשרו גישה בהגדרות הדפדפן (באייפון: הגדרות ← Safari ← מיקרופון), והקישו על המיקרופון.");
       tcNote("אין גישה למיקרופון. אשרו גישה בהגדרות הדפדפן, או הקלידו.","bad"); tc.type.hidden=false; return; }
     if(["network","service-not-allowed","language-not-supported","audio-capture"].includes(err)&&TUTOR_INFO&&TUTOR_INFO.stt&&!tc.browserFailed){
       tc.browserFailed=true;   // the browser cannot hear here: ElevenLabs from now on in this conversation
@@ -4450,10 +4426,10 @@ function tcListen(){   // a tap starts listening; the recognition ends by itself
   };
   // the dialogue's watch: listening that does not start in 3 s (Safari, without a tap) or does not end in 20 s
   const t=tc; let started=false, watchStart=0, watchLong=0; r.onstart=()=>{ started=true; };
-  try{ r.start(); }catch{ tc.rec=null; if(tc.dialog) return tcDialogStuck("המכשיר לא התחיל להקשיב. לחצו ▶ המשך ודברו."); tcNote("זיהוי הדיבור לא זמין כרגע. אפשר להקליד.","bad"); tc.type.hidden=false; return; }
+  try{ r.start(); }catch{ tc.rec=null; if(tc.dialog) return tcDialogStuck("המכשיר לא התחיל להקשיב. הקישו על המיקרופון ודברו."); tcNote("זיהוי הדיבור לא זמין כרגע. אפשר להקליד.","bad"); tc.type.hidden=false; return; }
   if(tc.dialog){
     watchStart=setTimeout(()=>{ if(tc===t&&t.rec===r&&!started){ t.rec=null; try{ r.abort(); }catch{}   // its end then finds another rec: nothing goes
-      tcDialogStuck("המכשיר לא התחיל להקשיב (באייפון זה קורה בלי לחיצה). לחצו ▶ המשך ודברו."); } },3000);
+      tcDialogStuck("המכשיר לא התחיל להקשיב (באייפון זה קורה בלי לחיצה). הקישו על המיקרופון ודברו."); } },3000);
     watchLong=setTimeout(()=>{ if(tc===t&&t.rec===r){ try{ r.stop(); }catch{} } },20000);
   }
   tc.mic.classList.add("live"); tc.live.textContent="מקשיב… דברו בערבית"; tc.live.hidden=false;
