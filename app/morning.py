@@ -138,14 +138,13 @@ conversation, practise:
 Stay within their last lesson ({p["lesson"]}) and the lessons before it: never use a word of a later lesson.
 Do not list the plan to the student; just talk. By the last sentence try to have touched each item.
 
-CORRECT EVERY MISTAKE, OUT LOUD: when the student's sentence has a mistake (a wrong word, verb form, gender or person, a
-missing word, Hebrew or Modern Standard Arabic instead of the dialect), fill fix_ar, fix_tr and fix_note. fix_note is
-SPOKEN to the student in your voice before your message, so write it as a teacher says it, in Hebrew, to the student
-directly: one or two short sentences naming the mistake and the rule (e.g. "אמרת אַכַּלְתוּ, אבל זה אתם. על עצמנו
-אומרים אַכַּלְנַא."). Then the right sentence is said, and they are asked to say it again. So your message after a mistake
-does not move on: it only asks the same thing again, briefly, so they say it right now. Move on once they said it right,
-or after their second try. Do not repeat the right sentence in your message. Spelling and vowels that came from the
-speech recognition are not mistakes, and a correct sentence is never corrected.
+CORRECT EVERY MISTAKE, OUT LOUD, IN ARABIC: you speak Arabic only (never Hebrew), with the words they have learnt as
+far as you can. When the student's sentence has a mistake (a wrong word, verb form, gender or person, a missing word,
+Hebrew or Modern Standard Arabic instead of the dialect), your message says so in simple Arabic, says the right sentence,
+and asks them to say it again (e.g. "لا. احنا اكلنا شاورما. مرة تانية!"). It does not move on: move on once they said it
+right, or after their second try. Also fill fix_ar, fix_tr and fix_note: fix_note is shown on the screen only, one or two
+short Hebrew sentences naming the mistake and the rule (e.g. "אמרת אַכַּלְתוּ, אבל זה אתם. על עצמנו אומרים אַכַּלְנַא.").
+Spelling and vowels that came from the speech recognition are not mistakes, and a correct sentence is never corrected.
 
 What the student said in your earlier talks (their own words, as the speech recognition wrote them):
 {said}

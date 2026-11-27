@@ -117,8 +117,8 @@ def test_the_morning_teacher_says_the_mistake_and_asks_for_it_again(monkeypatch)
             "fix": {"ar": "احنا اكلنا شاورما", "tr": "x", "note": "אמרת אַכַּלְתוּ, אבל על עצמנו אומרים אַכַּלְנַא."}},
            {"from": "tutor", "ar": "شو اكلتو؟"}]
     teacher = SimpleNamespace(log=log, sc={"id": "morning"}, gender="f")
-    assert spoken(teacher, 1) == "אמרת אַכַּלְתוּ, אבל על עצמנו אומרים אַכַּלְנַא. תגידי את זה נכון: احنا اكلنا شاورما. شو اكلتو؟"
+    assert spoken(teacher, 1) == "شو اكلتو؟"   # the teacher corrects in its own Arabic message: said as it is, no Hebrew
     role_play = SimpleNamespace(log=log, sc=None, gender="m")
     assert spoken(role_play, 1) == "احنا اكلنا شاورما. شو اكلتو؟"   # a scenario's character: the right sentence alone
     prompt = system_prompt(morning.scenario(morning.plan([], [])), "m")
-    assert "TEACHER, not their friend" in prompt and "OUT LOUD" in prompt
+    assert "TEACHER, not their friend" in prompt and "IN ARABIC" in prompt and "never Hebrew" in prompt

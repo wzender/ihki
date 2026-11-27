@@ -356,8 +356,8 @@ and lead the conversation toward it; every answer of yours moves the scenario on
 def spoken(chat, n: int) -> str:
     """What the tutor says aloud for its `n`th message: the message's Arabic, and before it, when the student's sentence
     it answers was corrected, the right sentence alone (no word the student has not learnt), so it is heard said right.
-    The morning talk's teacher says the mistake itself too, in Hebrew, and has the student say it again: the student
-    may only listen and speak, the screen is second."""
+    The morning talk's teacher corrects in its own message, in Arabic (the voice speaks Arabic only), so it is said as
+    it is."""
     i = [k for k, e in enumerate(chat.log) if e.get("from") == "tutor"][n]
     text = str(chat.log[i].get("ar") or "").strip()
     before = chat.log[i - 1] if i else {}
@@ -365,10 +365,8 @@ def spoken(chat, n: int) -> str:
     right = str(fix.get("ar") or "").strip().rstrip(".!?؟")
     if not right:
         return text
-    note = str(fix.get("note") or "").strip().rstrip(".")
-    if chat.sc and chat.sc.get("id") == "morning" and note:
-        again = "תגידי" if chat.gender == "f" else "תגיד"
-        return f"{note}. {again} את זה נכון: {right}. {text}"
+    if chat.sc and chat.sc.get("id") == "morning":
+        return text
     return f"{right}. {text}"
 
 
