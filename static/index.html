@@ -4371,7 +4371,7 @@ async function tcRecord(compare=false){
     }
   };
   rec.start(); t.vadOff=tcVad(stream,()=>{ if(rec.state==="recording") rec.stop(); });
-  tc.mic.classList.add("live"); tc.live.textContent=compare?"מקשיב (הדפדפן ו־ElevenLabs)… דברו בערבית":"מקליט… דברו בערבית"; tc.live.hidden=false;
+  tc.mic.classList.add("live"); tc.live.textContent=compare?"מקשיב (הדפדפן ו־ElevenLabs)… דברו בערבית":"מקליט… דברו בערבית"; tc.live.hidden=!!tc.dialog;   // the dialogue's own row says it
 }
 /* The trial's comparison of one sentence: what the browser heard and what ElevenLabs heard, side by side in Hebrew
    letters; the student says which is right (or that both are, or neither), it is kept with the conversation
@@ -4432,7 +4432,7 @@ function tcListen(){   // a tap starts listening; the recognition ends by itself
       tcDialogStuck("המכשיר לא התחיל להקשיב (באייפון זה קורה בלי לחיצה). הקישו על המיקרופון ודברו."); } },3000);
     watchLong=setTimeout(()=>{ if(tc===t&&t.rec===r){ try{ r.stop(); }catch{} } },20000);
   }
-  tc.mic.classList.add("live"); tc.live.textContent="מקשיב… דברו בערבית"; tc.live.hidden=false;
+  tc.mic.classList.add("live"); tc.live.textContent="מקשיב… דברו בערבית"; tc.live.hidden=!!tc.dialog;   // the dialogue's own row says it
   tc.interim=tc.interimDone=""; tc.interimShown=false;   // no second look at the microphone here: on Android it takes it from the recognition
 }
 /* ---- מרוץ גמלים: the teacher picks the last lesson, the teams answer aloud, the teacher taps what they said ---- */
