@@ -4003,7 +4003,7 @@ function tcTutor(m){   // the tutor's message: the Arabic in Hebrew letters, wor
   const hear=mark("tc-hear",voiced?"🔊":"🔇","button"); hear.type="button"; hear.setAttribute("aria-label",voiced?"השמעת ההודעה":"ההודעה לא מושמעת: למה?");
   hear.onclick=()=>{ if(voiced) tcSay(n,hear); else tcNote("🔇 "+tcNoVoice(),"bad trial"); };
   b.append(tr,he,show,hear,mark("tc-time",tcTime(),"small")); tc.log.append(b); tcScroll();
-  if(tc.dialog){ const t=tc; tcDialogState("speak"); tcSay(n,hear).finally(()=>{ if(tc===t) tcDialogNext(); }); }   // the voice dialogue: said, then the student's turn
+  if(tc.dialog){ const t=tc; tcDialogState("speak"); tcSay(n,hear).finally(()=>{ if(tc===t) setTimeout(()=>{ if(tc===t) tcDialogNext(); },500); }); }   // the voice dialogue: said, then the student's turn
   else if(voiced&&tcAutoplay()&&!tc.call) tcSay(n,hear);   // in a live call the agent says it
 }
 function tcWord(el,w){   // a word's meaning in a bubble over it; a new word says so
@@ -4107,10 +4107,11 @@ function tcDialogNext(){   // the student's turn: listen, and what is heard goes
   tcDialogState("listen"); tcListen();
 }
 function tcDialogSay(text){ tc.dialogMiss=0; tcDialogState("think"); if(!tcSend(text)) tcDialogNext(); }
-function tcDialogMiss(){   // nothing was heard: listen again, and after two silences wait for "המשך"
+function tcDialogMiss(why=""){   // nothing was heard: listen again, and after two silences wait for "המשך" (why: what the recognizer did, for us)
   if(!tc||!tc.dialog) return;
   tc.dialogMiss=(tc.dialogMiss||0)+1;
-  if(tc.dialogMiss>=3){ tcDialogPause(); tcNote("לא שמעתי אתכם. לחצו ▶ המשך כשתרצו להמשיך."); return; }
+  if(why) try{ rumTrack("tutor-dialog-miss",{why,ios:IS_IOS,n:tc.dialogMiss}); }catch{}
+  if(tc.dialogMiss>=3){ tcDialogPause(); tcNote("לא שמעתי אתכם. לחצו ▶ המשך כשתרצו להמשיך."+(why?` (${why})`:"")); return; }
   setTimeout(()=>tcDialogNext(),400);
 }
 function tcDialogStuck(why){   // the dialogue cannot go on by itself: why, in the conversation, and it waits for ▶
@@ -4405,7 +4406,8 @@ function tcListen(){   // a tap starts listening; the recognition ends by itself
   const r=tc.rec=new SR(); let said="", err="";
   r.lang=tc.lang; r.continuous=false; r.interimResults=true;
   r.onresult=e=>{ said=[...e.results].map(x=>x[0].transcript).join(" ").trim(); if(said){ if(!tc.interimShown) tc.live.textContent="שומע… לחצו שוב לסיום"; tcInterim(said); } };   // its Arabic script is not shown: the words so far, in Hebrew letters
-  r.onspeechstart=r.onsoundstart=()=>tcHearing();
+  const t0=Date.now(); let sound=false;   // how long it listened, and whether it heard a sound: why nothing came, when nothing does
+  r.onspeechstart=r.onsoundstart=()=>{ sound=true; tcHearing(); };
   r.onerror=e=>{ err=e.error; };
   r.onend=()=>{
     clearTimeout(watchStart); clearTimeout(watchLong);
@@ -4422,7 +4424,8 @@ function tcListen(){   // a tap starts listening; the recognition ends by itself
       return tcDialogStuck({network:"אין חיבור לשירות זיהוי הדיבור של המכשיר.","audio-capture":"המיקרופון לא זמין (אולי אפליקציה אחרת משתמשת בו).",
         "service-not-allowed":"המכשיר לא מאפשר זיהוי דיבור כאן.","language-not-supported":"המכשיר לא מזהה ערבית."}[err]||`זיהוי הדיבור נכשל (${err}).`);
     if(tc.dialogDrop){ tc.dialogDrop=false; return; }   // the dialogue was paused: nothing goes
-    if(!said){ if(tc.dialog&&(!err||err==="no-speech"||err==="aborted")) return tcDialogMiss(); tcNote(err&&err!=="no-speech"?"זיהוי הדיבור לא זמין כרגע. נסו שוב, או הקלידו.":"לא נשמע דיבור. לחצו ודברו, קרוב יותר למיקרופון."); return; }
+    if(!said){ if(tc.dialog&&(!err||err==="no-speech"||err==="aborted"))
+        return tcDialogMiss(`${err||"בלי שגיאה"} · ${((Date.now()-t0)/1000).toFixed(1)} שנ' · ${sound?"נשמע קול":"לא נשמע קול"}`); tcNote(err&&err!=="no-speech"?"זיהוי הדיבור לא זמין כרגע. נסו שוב, או הקלידו.":"לא נשמע דיבור. לחצו ודברו, קרוב יותר למיקרופון."); return; }
     if(tc.dialog) return tcDialogSay(said);
     tcHeard(said);
   };
