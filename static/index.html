@@ -442,6 +442,7 @@ body.tutor-chat{overflow:hidden}
 .mc-chip{padding:5px 10px;border-radius:999px;font:600 14px/1.3 var(--f-tr)}
 .mc-chip.again{background:var(--amber-bg);color:var(--amber)}.mc-chip.fresh{background:var(--ok-bg);color:var(--ok)}
 .mc-go{min-height:48px;font-size:17px}.mc-foot{text-align:center}
+.tc-said-right{margin:0 0 6px;padding-bottom:6px;border-bottom:1px dashed var(--line);font:600 17px/1.5 var(--f-tr);color:var(--amber)}
 .tc-dialog-heard{margin:0;min-height:1.5em;max-width:100%;font:600 18px/1.5 var(--f-tr);color:var(--ink);text-align:center;overflow-wrap:anywhere}
 .tc-dialog-heard.wait{color:var(--muted);font-weight:400;font-size:15px}
 .tc-mic.live{box-shadow:0 0 0 calc(3px + 12px*var(--lv,0)) var(--olive-soft)}
@@ -4002,8 +4003,12 @@ function tcCount(turn,turns){
   const left=Math.max(0,turns-turn), count=tc.root.querySelector(".tc-count");
   count.textContent=`${left} הודעות נותרו`; count.setAttribute("aria-label",`${left} אינטראקציות נותרו בשיחה`);
 }
-function tcTutor(m){   // the tutor's message: the Arabic in Hebrew letters, word by word, and the translation behind a tap
+function tcTutor(m,fix){   // the tutor's message: the Arabic in Hebrew letters, word by word, and the translation behind a tap
   const b=mark("tc-msg in","","div"), he=mark("tc-he",m.he,"p"), show=mark("tc-show","תרגום","button");
+  if(fix&&fix.tr){   // a corrected sentence: the tutor says it right first (the server's voice does too), and it is shown so
+    const said=mark("tc-said-right","","p"); said.append(mark("","קַצְדַכּ: ","b")); const r=mark("","","span"); setTr(r,fix.tr); said.append(r);
+    b.append(said);
+  }
   const tr=mark("tc-tr","","p");
   if(m.words&&m.words.length) m.words.forEach((w,i)=>{   // as Duolingo does: each word underlined, a tap shows its meaning
     const el=mark("tc-w"+(w.new?" new":""),"","span"); setTr(el,w.tr); el.tabIndex=0; el.setAttribute("role","button");
@@ -4196,7 +4201,7 @@ function tcSend(text){   // the student's sentence goes at once; false when it c
       }
       setTr(mine.querySelector(".heard"),d.heard||text);
       if(d.fix) tcFix(mine,d.fix);
-      tcTutor(d.reply); tcCount(d.turn,d.turns);
+      tcTutor(d.reply,d.fix); tcCount(d.turn,d.turns);
       if(d.done) tcEnd(d.summary);
       tcLock(false);
     })
@@ -4268,7 +4273,7 @@ async function tcCallPull(){   // the call's turns the page has not shown yet
       t.since=(t.since||0)+1;
       if(turn.error){ tcNote(`${turn.error} (${turn.said})`,"bad"); continue; }
       const mine=tcStudent(); setTr(mine.querySelector(".heard"),turn.heard); if(turn.fix) tcFix(mine,turn.fix);
-      tcTutor(turn.reply); tcCount(turn.turn,turn.turns);
+      tcTutor(turn.reply,turn.fix); tcCount(turn.turn,turn.turns);
       if(turn.done&&!t.done){ tcEnd(turn.summary); setTimeout(()=>{ if(tc===t&&t.call) tcHangUp(); },6000); }   // after the goodbye is said
     }
   }finally{ t.pulling=false; if(t.pullAgain){ t.pullAgain=false; tcCallPull(); } }

@@ -2777,3 +2777,20 @@ def test_the_morning_talk_starts_at_once_as_a_voice_dialogue_the_device_hearing(
     r = site("boss@x.com", MORNING_AT_ONCE, preload=FAKE_BROWSER_RECOGNITION)
     assert not r["asked"] and r["dialog"] and r["hears"] == "browser" and r["box"]   # no wizard; ⌨ goes to the chat
     assert r["sent"]["scenario"] == "morning"
+
+
+SAID_RIGHT = """
+await sleep(800);
+TUTOR_INFO={available:true,voice:false,stt:false,turns:10,left:null,scenarios:[]};
+localStorage.setItem("ihki.tutorMode",JSON.stringify("chat"));
+openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
+tcTutor({tr:"וֵין אַכַּלְתוּ?",he:"איפה אכלתם?",words:[]},{tr:"אִחְנַא אַכַּלְנַא שַׁאוּרְמַה",note:"..."});
+tcTutor({tr:"תַמַאם",he:"מצוין",words:[]},null);
+const msgs=[...document.querySelectorAll(".tc .tc-msg.in")];
+out.first=(msgs[0].querySelector(".tc-said-right")||{}).textContent||""; out.second=!!msgs[1].querySelector(".tc-said-right");
+"""
+
+
+def test_the_tutors_message_after_a_correction_begins_with_the_sentence_said_right(site):
+    r = site("boss@x.com", SAID_RIGHT)
+    assert r["first"].startswith("קַצְדַכּ:") and "אַכַּלְנַא" in r["first"] and not r["second"]
