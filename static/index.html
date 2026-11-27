@@ -3862,6 +3862,7 @@ function openTutorChat(s){
   const call=root.querySelector(".tc-call");   // the live voice call (a trial, the switch tutor.eleven_agent)
   if(TUTOR_INFO&&TUTOR_INFO.live){ call.hidden=false; call.onclick=tcCall; }
   root.addEventListener("click",e=>{ if(!e.target.closest(".tc-w")) pop.hidden=true; });
+  root.addEventListener("pointerdown",tcUnlock,true); root.addEventListener("click",tcUnlock,true);   // iPhone: the voice's player, allowed by a tap
   tc.log.addEventListener("scroll",()=>{ pop.hidden=true; });
   root.querySelector(".tc-close").onclick=closeTutorChat;
   tc.onkey=e=>{ if(e.key==="Escape") closeTutorChat(); }; addEventListener("keydown",tc.onkey);
@@ -3922,6 +3923,14 @@ function tcAskGender(s){
 }
 const tcAutoplay=()=>store.get("ihki.tutorAutoplay",true)!==false;
 function tcStopVoice(){ if(tc&&tc.playing){ tc.playing.pause(); tc.playing=null; } }
+/* iPhone: Safari plays a sound only from a tap, and a new player each time is never allowed. So the conversation keeps one
+   player, which the first tap in it plays (a moment of silence); the tutor's messages then play in it with no tap. */
+const TC_SILENT="data:audio/wav;base64,UklGRsQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YaAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";
+function tcUnlock(){
+  if(!tc||!IS_IOS||tc.unlocked) return;
+  const p=tc.player||(tc.player=new Audio());
+  try{ p.src=TC_SILENT; const go=p.play(); if(go&&go.then) go.then(()=>{ if(tc&&tc.player===p) tc.unlocked=true; }).catch(()=>{}); }catch{}
+}
 async function tcSay(n,btn){   // the tutor's nth message in his own voice: said anew each time (no cache), one sound at a time
   if(!tc||!tc.id) return;
   if(tc.loadingSay===n) return;   // this message is on its way already: a second tap would play it twice (an echo)
@@ -3937,8 +3946,9 @@ async function tcSay(n,btn){   // the tutor's nth message in his own voice: said
       url=URL.createObjectURL(await res.blob());
     }finally{ if(t.loadingSay===n) t.loadingSay=null; }
     if(tc!==t||t.sayTurn!==mine){ URL.revokeObjectURL(url); return; }
-    tcStopVoice(); const a=new Audio(url); t.playing=a;
-    const said=new Promise(done=>{ a.onended=a.onerror=a.onpause=()=>{ URL.revokeObjectURL(url); done(); }; });
+    tcStopVoice(); const a=IS_IOS&&t.player?t.player:new Audio(url); if(a===t.player) a.src=url; t.playing=a;
+    let began=a!==t.player;   // the shared player's late "pause" from the message before is not this one's end
+    const said=new Promise(done=>{ a.onplaying=()=>{ began=true; }; a.onended=a.onerror=a.onpause=()=>{ if(!began) return; URL.revokeObjectURL(url); done(); }; });
     await a.play(); await Promise.race([said,new Promise(r=>setTimeout(r,60000))]);   // the dialogue goes on once it was said (a minute at most)
   }catch(err){
     if(tc!==t) return;

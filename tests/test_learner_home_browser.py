@@ -2744,3 +2744,26 @@ def test_a_lesson_question_with_no_lesson_to_offer_has_a_way_out(site):
     site.auth.layout = site.auth.layout + [{"id": 32, "name": "רפאים", "emails": [], "lessons": ["1", "2"]}]
     r = site("boss@x.com", NO_LESSONS_ASK)
     assert r["options"] == 0 and "לא נבחרו שיעורים" in r["err"] and r["way"], r
+
+
+IPHONE_VOICE = """
+await sleep(800);
+const made=[], played=[];
+window.Audio=function(src){ made.push(this); this.src=src||""; this.play=()=>{ played.push(this.src.slice(0,15)); setTimeout(()=>{ this.onplaying&&this.onplaying(); setTimeout(()=>this.onended&&this.onended(),30); },10); return Promise.resolve(); }; this.pause=()=>{}; };
+const real=window.fetch;
+window.fetch=(url,opts={})=>{ const u=String(url);
+  if(u.includes("/api/tutor/say/")) return Promise.resolve(new Response(new Blob(["ID3"]),{status:200}));
+  return real(url,opts); };
+TUTOR_INFO={available:true,voice:true,stt:false,turns:10,left:null,scenarios:[]};
+openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
+tc.id="chat1"; tc.root.querySelector(".tc-log").dispatchEvent(new PointerEvent("pointerdown",{bubbles:true}));   // a tap in the conversation
+await sleep(100);
+await tcSay(0); await tcSay(0);
+out.made=made.length; out.played=played;
+"""
+
+
+def test_on_an_iphone_the_tutor_speaks_in_the_player_a_tap_allowed(site):
+    r = site("boss@x.com", IPHONE_VOICE, preload="Object.defineProperty(navigator,'userAgent',{get:()=>'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'});")
+    assert r["made"] == 1   # one player for the whole conversation
+    assert r["played"][0].startswith("data:audio/wav") and all(p.startswith("blob:") for p in r["played"][1:]) and len(r["played"]) == 3
