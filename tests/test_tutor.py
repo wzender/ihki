@@ -617,5 +617,5 @@ def test_a_corrected_sentence_is_said_right_before_the_reply(voices):
         c.post("/api/tutor/turn", json={"id": chat["id"], "text": "شكرا"}, headers=bearer("teacher"))
         c.get(f"/api/tutor/say/{chat['id']}/1", headers=bearer("teacher"))
         c.get(f"/api/tutor/say/{chat['id']}/2", headers=bearer("teacher"))
-    assert voices[0][0] == "قصدك: انا اكلت شاورما. كيف حالك؟"   # the correction heard, then the reply
+    assert voices[0][0] == "انا اكلت شاورما. كيف حالك؟"   # the correction heard, then the reply
     assert voices[1][0] == "كيف حالك؟"   # a sentence without a mistake: the reply alone

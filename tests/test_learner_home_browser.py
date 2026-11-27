@@ -2793,4 +2793,4 @@ out.first=(msgs[0].querySelector(".tc-said-right")||{}).textContent||""; out.sec
 
 def test_the_tutors_message_after_a_correction_begins_with_the_sentence_said_right(site):
     r = site("boss@x.com", SAID_RIGHT)
-    assert r["first"].startswith("קַצְדַכּ:") and "אַכַּלְנַא" in r["first"] and not r["second"]
+    assert r["first"].startswith("✓ נכון לומר:") and "אַכַּלְנַא" in r["first"] and not r["second"]

@@ -4006,7 +4006,7 @@ function tcCount(turn,turns){
 function tcTutor(m,fix){   // the tutor's message: the Arabic in Hebrew letters, word by word, and the translation behind a tap
   const b=mark("tc-msg in","","div"), he=mark("tc-he",m.he,"p"), show=mark("tc-show","תרגום","button");
   if(fix&&fix.tr){   // a corrected sentence: the tutor says it right first (the server's voice does too), and it is shown so
-    const said=mark("tc-said-right","","p"); said.append(mark("","קַצְדַכּ: ","b")); const r=mark("","","span"); setTr(r,fix.tr); said.append(r);
+    const said=mark("tc-said-right","","p"); said.append(mark("","✓ נכון לומר: ","b")); const r=mark("","","span"); setTr(r,fix.tr); said.append(r);
     b.append(said);
   }
   const tr=mark("tc-tr","","p");
