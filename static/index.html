@@ -390,7 +390,11 @@ body.tutor-chat{overflow:hidden}
 .tc-show{align-self:flex-start;border:0;background:none;color:var(--olive);font:600 14px/1 var(--f-body);padding:4px 0;cursor:pointer}
 .tc-time{align-self:flex-end;font-size:11px;color:var(--muted)}
 .tc-fix{align-self:flex-end;max-width:min(82%,520px);background:var(--tc-fix);border-radius:8px;padding:6px 10px;margin-top:-2px}
-.tc-fix small{color:var(--amber);font-weight:700}.tc-fix .tc-tr{font-size:18px}.tc-why{font-size:14px}
+.tc-fix small{color:var(--amber);font-weight:700}.tc-fix .tc-tr{font-size:18px}.tc-why{font-size:14px;margin:4px 0 0}
+.tc-fix-line{display:flex;align-items:baseline;gap:6px;margin:4px 0}.tc-fix-sign{font-weight:800}.tc-fix-label{font:700 13px/1 var(--f-body);white-space:nowrap}
+.tc-fix-line.wrong{color:var(--sumac)}.tc-fix-line.wrong .tc-tr{text-decoration:line-through;text-decoration-thickness:1.5px;opacity:.9}
+.tc-fix-line.right{color:var(--ok)}.tc-fix-line.right .tc-tr{font-weight:700}
+.tc-msg.out.fixed{box-shadow:inset -4px 0 0 var(--sumac)}
 .tc-note{align-self:center;margin:2px 0;padding:4px 10px;border-radius:8px;background:var(--surface);color:var(--muted);font-size:14px;text-align:center}
 .tc-note.bad{color:var(--sumac);background:var(--sumac-bg)}
 .tc-note.typing{font-style:italic}
@@ -4019,12 +4023,8 @@ function tcCount(turn,turns){
   const left=Math.max(0,turns-turn), count=tc.root.querySelector(".tc-count");
   count.textContent=`${left} הודעות נותרו`; count.setAttribute("aria-label",`${left} אינטראקציות נותרו בשיחה`);
 }
-function tcTutor(m,fix){   // the tutor's message: the Arabic in Hebrew letters, word by word, and the translation behind a tap
+function tcTutor(m){   // the tutor's message: the Arabic in Hebrew letters, word by word, and the translation behind a tap
   const b=mark("tc-msg in","","div"), he=mark("tc-he",m.he,"p"), show=mark("tc-show","תרגום","button");
-  if(fix&&fix.tr){   // a corrected sentence: the tutor says it right first (the server's voice does too), and it is shown so
-    const said=mark("tc-said-right","","p"); said.append(mark("","✓ נכון לומר: ","b")); const r=mark("","","span"); setTr(r,fix.tr); said.append(r);
-    b.append(said);
-  }
   const tr=mark("tc-tr","","p");
   if(m.words&&m.words.length) m.words.forEach((w,i)=>{   // as Duolingo does: each word underlined, a tap shows its meaning
     const el=mark("tc-w"+(w.new?" new":""),"","span"); setTr(el,w.tr); el.tabIndex=0; el.setAttribute("role","button");
@@ -4035,7 +4035,7 @@ function tcTutor(m,fix){   // the tutor's message: the Arabic in Hebrew letters,
   else setTr(tr,m.tr||"");
   he.hidden=true; show.type="button"; show.onclick=()=>{ he.hidden=!he.hidden; show.textContent=he.hidden?"תרגום":"הסתרה"; };
   const n=tc.said++, voiced=!!(TUTOR_INFO&&TUTOR_INFO.voice);
-  if(fix&&fix.ar&&tc.s.morning) (tc.fixed=tc.fixed||new Set()).add(n);   // the teacher's correction is said apart
+  if(m.fix&&m.fix.ar&&tc.s.morning) (tc.fixed=tc.fixed||new Set()).add(n);   // the teacher's correction is said apart
   const hear=mark("tc-hear",voiced?"🔊":"🔇","button"); hear.type="button"; hear.setAttribute("aria-label",voiced?"השמעת ההודעה":"ההודעה לא מושמעת: למה?");
   hear.onclick=()=>{ if(voiced) tcSay(n,hear); else tcNote("🔇 "+tcNoVoice(),"bad trial"); };
   b.append(tr,he,show,hear,mark("tc-time",tcTime(),"small")); tc.log.append(b); tcScroll();
@@ -4057,10 +4057,15 @@ function tcStudent(){   // the student's message, waiting for the tutor to say w
   const b=mark("tc-msg out","","div"), p=mark("tc-tr heard","…","p");
   b.append(p,mark("tc-time",tcTime()+" ✓","small")); tc.log.append(b); tcScroll(); return b;
 }
-function tcFix(after,fix){   // under the student's message: how to say it, explained in Hebrew
-  const n=mark("tc-fix","","div"), tr=mark("tc-tr","","p"); setTr(tr,fix.tr||"");
-  n.append(mark("","✎ אפשר לומר כך:","small"),tr); if(fix.note) n.append(mark("tc-why",fix.note,"p"));
-  after.after(n);
+function tcFix(after,fix){   // under the student's message, once: what they said (red), the right sentence (green), why
+  const n=mark("tc-fix","","div"), said=(after.querySelector(".heard")||{}).textContent||"";
+  const line=(cls,sign,label,text)=>{ const p=mark("tc-fix-line "+cls,"","p"), t=mark("tc-tr","","span"); setTr(t,text);
+    p.append(mark("tc-fix-sign",sign,"span"),mark("tc-fix-label",label,"span"),t); return p; };
+  n.append(mark("tc-fix-head","✎ תיקון","small"));
+  if(said) n.append(line("wrong","✗","אמרתם:",said));
+  n.append(line("right","✓","נכון:",fix.tr||""));
+  if(fix.note) n.append(mark("tc-why",fix.note,"p"));
+  after.classList.add("fixed"); after.after(n);
 }
 async function tcStart(gender){
   tcLock(true); const wait=tcNote("פותחים את השיחה…","typing");
@@ -4191,7 +4196,7 @@ function tcSend(text){   // the student's sentence goes at once; false when it c
       }
       setTr(mine.querySelector(".heard"),d.heard||text);
       if(d.fix) tcFix(mine,d.fix);
-      tcTutor(d.reply,d.fix); tcCount(d.turn,d.turns);
+      tcTutor({...d.reply,fix:d.fix}); tcCount(d.turn,d.turns);
       if(d.done) tcEnd(d.summary);
       tcLock(false);
     })
@@ -4263,7 +4268,7 @@ async function tcCallPull(){   // the call's turns the page has not shown yet
       t.since=(t.since||0)+1;
       if(turn.error){ tcNote(`${turn.error} (${turn.said})`,"bad"); continue; }
       const mine=tcStudent(); setTr(mine.querySelector(".heard"),turn.heard); if(turn.fix) tcFix(mine,turn.fix);
-      tcTutor(turn.reply,turn.fix); tcCount(turn.turn,turn.turns);
+      tcTutor({...turn.reply,fix:turn.fix}); tcCount(turn.turn,turn.turns);
       if(turn.done&&!t.done){ tcEnd(turn.summary); setTimeout(()=>{ if(tc===t&&t.call) tcHangUp(); },6000); }   // after the goodbye is said
     }
   }finally{ t.pulling=false; if(t.pullAgain){ t.pullAgain=false; tcCallPull(); } }

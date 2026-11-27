@@ -2761,16 +2761,20 @@ await sleep(800);
 TUTOR_INFO={available:true,voice:false,stt:false,turns:10,left:null,scenarios:[]};
 localStorage.setItem("ihki.tutorMode",JSON.stringify("chat"));
 openTutorChat({id:"l2",lesson:"2",title:"היכרות",who:"ח'ליל",ar:"خليل",she:false});
-tcTutor({tr:"וֵין אַכַּלְתוּ?",he:"איפה אכלתם?",words:[]},{tr:"אִחְנַא אַכַּלְנַא שַׁאוּרְמַה",note:"..."});
-tcTutor({tr:"תַמַאם",he:"מצוין",words:[]},null);
-const msgs=[...document.querySelectorAll(".tc .tc-msg.in")];
-out.first=(msgs[0].querySelector(".tc-said-right")||{}).textContent||""; out.second=!!msgs[1].querySelector(".tc-said-right");
+const mine=tcStudent(); setTr(mine.querySelector(".heard"),"אִחְנַא אַכַּלְתוּ שַׁאוּרְמַה");
+tcFix(mine,{tr:"אִחְנַא אַכַּלְנַא שַׁאוּרְמַה",note:"על עצמנו אומרים אַכַּלְנַא."});
+tcTutor({tr:"וֵין אַכַּלְתוּ?",he:"איפה אכלתם?",words:[],fix:{tr:"אִחְנַא אַכַּלְנַא שַׁאוּרְמַה"}});
+const fix=document.querySelector(".tc .tc-fix");
+out.wrong=fix.querySelector(".tc-fix-line.wrong").textContent; out.right=fix.querySelector(".tc-fix-line.right").textContent;
+out.colors=[getComputedStyle(fix.querySelector(".wrong")).color,getComputedStyle(fix.querySelector(".right")).color];
+out.again=document.querySelector(".tc .tc-msg.in:last-child").textContent.includes("אַכַּלְנַא");
 """
 
 
-def test_the_tutors_message_after_a_correction_begins_with_the_sentence_said_right(site):
+def test_a_correction_shows_once_what_was_said_in_red_and_the_right_sentence_in_green(site):
     r = site("boss@x.com", SAID_RIGHT)
-    assert r["first"].startswith("✓ נכון לומר:") and "אַכַּלְנַא" in r["first"] and not r["second"]
+    assert "אמרתם:" in r["wrong"] and "אַכַּלְתוּ" in r["wrong"] and "נכון:" in r["right"] and "אַכַּלְנַא" in r["right"]
+    assert r["colors"][0] != r["colors"][1] and not r["again"]   # two colours; the tutor's message does not repeat it
 
 
 MORNING_FIX_SAID = """
@@ -2786,7 +2790,7 @@ TUTOR_INFO={available:true,voice:true,stt:false,turns:10,left:null,scenarios:[]}
 localStorage.setItem("ihki.tutorMode",JSON.stringify("chat"));
 openTutorChat({id:"morning",lesson:"1",title:"השיחה של הבוקר",who:"ראמי",ar:"رامي",she:false,morning:{weak:[],new:[],fixes:[]}});
 tc.id="chat1"; tc.said=1;
-tcTutor({tr:"מַרַּה תַאנְיֵה!",he:"עוד פעם!",words:[]},{ar:"احنا اكلنا شاورما",tr:"אִחְנַא אַכַּלְנַא שַׁאוּרְמַה",note:"..."});
+tcTutor({tr:"מַרַּה תַאנְיֵה!",he:"עוד פעם!",words:[],fix:{ar:"احنا اكلنا شاورما",tr:"אִחְנַא אַכַּלְנַא שַׁאוּרְמַה",note:"..."}});
 await until(()=>played.length>=3,5000); await sleep(100);   // said on its own as it came
 out.asked=asked; out.played=played;
 """
