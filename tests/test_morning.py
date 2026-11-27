@@ -118,7 +118,9 @@ def test_the_morning_teacher_says_the_mistake_and_asks_for_it_again(monkeypatch)
            {"from": "tutor", "ar": "شو اكلتو؟"}]
     teacher = SimpleNamespace(log=log, sc={"id": "morning"}, gender="f")
     assert spoken(teacher, 1) == "شو اكلتو؟" == spoken(teacher, 1, "reply")   # its message, no Hebrew
-    assert spoken(teacher, 1, "fix") == "لا. احنا، اكلنا، شاورما."   # the correction apart: "no", the sentence slowly
+    assert spoken(teacher, 1, "fix") == "لا. انتِ قلتي: احنا اكلتو شاورما. لازم تقولي: احنا، اكلنا، شاورما."   # apart, slowly
+    he = SimpleNamespace(log=log, sc={"id": "morning"}, gender="m")
+    assert spoken(he, 1, "fix") == "لا. انتَ قلت: احنا اكلتو شاورما. لازم تقول: احنا، اكلنا، شاورما."
     assert spoken(teacher, 0, "fix") == ""   # no correction before the opening
     role_play = SimpleNamespace(log=log, sc=None, gender="m")
     assert spoken(role_play, 1) == "احنا اكلنا شاورما. شو اكلتو؟"   # a scenario's character: the right sentence alone

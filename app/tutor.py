@@ -368,8 +368,11 @@ def spoken(chat, n: int, part: str = "") -> str:
     if chat.sc and chat.sc.get("id") == "morning":
         # the teacher's correction, said apart and slowly ("no." and the right sentence, a pause after each word), then
         # its message; the page plays them one after the other, with a chime before the correction
-        if part == "fix":
-            return "لا. " + "، ".join(right.split()) + "."
+        if part == "fix":   # "no. you said: <what they said>. you should say: <the right sentence, slowly>."
+            she = chat.gender == "f"
+            wrong = str(before.get("text") or "").strip().rstrip(".!?؟")
+            said = f"{'انتِ قلتي' if she else 'انتَ قلت'}: {wrong}. " if wrong else ""
+            return f"لا. {said}{'لازم تقولي' if she else 'لازم تقول'}: " + "، ".join(right.split()) + "."
         return text
     return f"{right}. {text}"
 
