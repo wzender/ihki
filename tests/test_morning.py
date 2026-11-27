@@ -52,7 +52,7 @@ def test_a_first_morning_gets_to_know_the_student():
     p = morning.plan([], [])
     assert not p["knows"] and p["weak"] == [] and p["fixes"] == []
     prompt = system_prompt(morning.scenario(p), "f")
-    assert "MORNING TALK" in prompt and "first talk" in prompt
+    assert "MORNING LESSON" in prompt and "first talk" in prompt
 
 
 def test_the_tutor_is_told_the_plan():
@@ -107,3 +107,18 @@ def test_the_words_are_of_the_last_lesson_only():
     assert [w["tr"] for w in p["weak"]] == [L2[1]["tr"]]   # the last lesson's hard sentences, not an earlier one's
     prompt = system_prompt(morning.scenario(p), "m")
     assert "CORRECT EVERY MISTAKE" in prompt and "never use a word of a later lesson" in prompt
+
+
+def test_the_morning_teacher_says_the_mistake_and_asks_for_it_again(monkeypatch):
+    from types import SimpleNamespace
+    from app.tutor import spoken
+    log = [{"from": "tutor", "ar": "شو اكلتو؟"},
+           {"from": "student", "text": "احنا اكلتو شاورما",
+            "fix": {"ar": "احنا اكلنا شاورما", "tr": "x", "note": "אמרת אַכַּלְתוּ, אבל על עצמנו אומרים אַכַּלְנַא."}},
+           {"from": "tutor", "ar": "شو اكلتو؟"}]
+    teacher = SimpleNamespace(log=log, sc={"id": "morning"}, gender="f")
+    assert spoken(teacher, 1) == "אמרת אַכַּלְתוּ, אבל על עצמנו אומרים אַכַּלְנַא. תגידי את זה נכון: احنا اكلنا شاورما. شو اكلتو؟"
+    role_play = SimpleNamespace(log=log, sc=None, gender="m")
+    assert spoken(role_play, 1) == "احنا اكلنا شاورما. شو اكلتو؟"   # a scenario's character: the right sentence alone
+    prompt = system_prompt(morning.scenario(morning.plan([], [])), "m")
+    assert "TEACHER, not their friend" in prompt and "OUT LOUD" in prompt
