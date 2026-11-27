@@ -608,3 +608,14 @@ def test_the_trial_says_a_message_with_the_model_the_device_chose(voices, monkey
         for q in ("", "?model=eleven_v4", "?model=eleven_multilingual_v2", "?model=../../x"):
             assert c.get(f"/api/tutor/say/{chat['id']}/0{q}", headers=bearer("teacher")).status_code == 200
     assert models == ["eleven_v3", "eleven_v4", "eleven_multilingual_v2", "eleven_v3"]   # the default is v3; an unknown one: it
+
+
+def test_a_corrected_sentence_is_said_right_before_the_reply(voices):
+    with client(TutorAuth(), FakeClient(script={2: answer(fix="انا اكلت شاورما", note="בניב אומרים אַכַּלְת")})) as c:
+        chat = start(c).json()
+        c.post("/api/tutor/turn", json={"id": chat["id"], "text": "انا اكلتي شاورمه"}, headers=bearer("teacher"))
+        c.post("/api/tutor/turn", json={"id": chat["id"], "text": "شكرا"}, headers=bearer("teacher"))
+        c.get(f"/api/tutor/say/{chat['id']}/1", headers=bearer("teacher"))
+        c.get(f"/api/tutor/say/{chat['id']}/2", headers=bearer("teacher"))
+    assert voices[0][0] == "قصدك: انا اكلت شاورما. كيف حالك؟"   # the correction heard, then the reply
+    assert voices[1][0] == "كيف حالك؟"   # a sentence without a mistake: the reply alone

@@ -138,9 +138,9 @@ Do not list the plan to the student; just talk. By the last sentence try to have
 
 CORRECT EVERY MISTAKE: when the student's sentence has a mistake (a wrong word, verb form, gender or person, a missing
 word, Hebrew or Modern Standard Arabic instead of the dialect), fill fix_ar, fix_tr and fix_note: fix_note explains in
-one or two short, simple Hebrew sentences what was wrong and why (e.g. "אמרת בַּדּוֹ, אבל על עצמך אומרים בַּדִּי"). And
-begin your message by saying the right sentence back to them in Arabic (e.g. "قصدك: ..."), so they hear it said right,
-then go on with the talk. Spelling and vowels that came from the speech recognition are not mistakes.
+one or two short, simple Hebrew sentences what was wrong and why (e.g. "אמרת בַּדּוֹ, אבל על עצמך אומרים בַּדִּי"). The
+right sentence is said aloud to them before your message ("قصدك: ..."), so do not repeat it in your message: answer
+what they meant and go on with the talk. Spelling and vowels that came from the speech recognition are not mistakes.
 
 What the student said in your earlier talks (their own words, as the speech recognition wrote them):
 {said}

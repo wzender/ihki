@@ -74,7 +74,7 @@ from .tts import (BASELINE_VOICES, ELEVEN_MODEL, FALLBACK_OFF, ELEVEN_PREFIX, ST
 from .tutor import letters as tutor_letters
 from .tutor import (BY_ID, DAILY_LIMIT, MAX_TEXT, MAX_TURNS, SCENARIOS, Tutor, TutorLimit,
                     TutorUnavailable, CREATE_TUTOR_CHATS, default_model as default_tutor_model, load_tutor,
-                    vocabulary as tutor_vocabulary, scenario_of)
+                    vocabulary as tutor_vocabulary, scenario_of, spoken as tutor_spoken)
 from . import morning
 from .verb_game import VerbExerciseGenerator
 from .camel_race import race_items as camel_race_items, speech_of as camel_race_speech
@@ -4732,7 +4732,7 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
         # the trial's choice of model (one of TUTOR_MODELS), else the server's
         model = model if model in TUTOR_MODELS else os.environ.get("ELEVEN_LABS_TUTOR_MODEL", "") or TUTOR_MODEL
         try:   # said anew each time, in the voice chosen now: nothing is kept (each play is a new ElevenLabs request)
-            spoken = ElevenLabsTTS(key, model=model).speak_clear(said[n]["ar"].strip(), voice, model)
+            spoken = ElevenLabsTTS(key, model=model).speak_clear(tutor_spoken(chat, n), voice, model)
         except TTSUnavailable as e:
             record_failure(app.state.auth, "text_to_speech")
             raise HTTPException(503, eleven_trouble(e, model))
