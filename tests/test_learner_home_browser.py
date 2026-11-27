@@ -2767,3 +2767,13 @@ def test_on_an_iphone_the_tutor_speaks_in_the_player_a_tap_allowed(site):
     r = site("boss@x.com", IPHONE_VOICE, preload="Object.defineProperty(navigator,'userAgent',{get:()=>'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'});")
     assert r["made"] == 1   # one player for the whole conversation
     assert r["played"][0].startswith("data:audio/wav") and all(p.startswith("blob:") for p in r["played"][1:]) and len(r["played"]) == 3
+
+
+MORNING_AT_ONCE = MORNING.replace('TUTOR_INFO={available:true,voice:false,', 'TUTOR_INFO={available:true,voice:true,').replace(
+    'out.sent=sent[0];', 'out.sent=sent[0]; out.asked=!!document.querySelector(".tc .tc-mode"); out.dialog=!document.querySelector(".tc .tc-dialog").hidden; out.hears=tc.hears; out.box=tc.type.hidden;')
+
+
+def test_the_morning_talk_starts_at_once_as_a_voice_dialogue_the_device_hearing(site):
+    r = site("boss@x.com", MORNING_AT_ONCE, preload=FAKE_BROWSER_RECOGNITION)
+    assert not r["asked"] and r["dialog"] and r["hears"] == "browser" and r["box"]   # no wizard; ⌨ goes to the chat
+    assert r["sent"]["scenario"] == "morning"

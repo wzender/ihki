@@ -3879,6 +3879,9 @@ function openTutorChat(s){
     root.style.setProperty("--vvh",`${vv.height}px`); root.style.setProperty("--vvt",`${vv.offsetTop}px`); tc.log.scrollTop=tc.log.scrollHeight; };
   window.visualViewport?.addEventListener("resize",tc.fit); window.visualViewport?.addEventListener("scroll",tc.fit); tc.fit();
   if(!tc.speaks) tcNote("הדפדפן הזה לא מזהה דיבור. אפשר להקליד בערבית באותיות עבריות, או לפתוח את האפליקציה ב-Chrome.");
+  tcUnlock();   // the tap that opened it lets the voice play (iPhone)
+  // the morning talk starts at once: a voice dialogue, the device hearing (the dialogue's ⌨ goes to the chat any time)
+  if(s.morning&&TUTOR_INFO&&TUTOR_INFO.voice&&(SR||tcEleven())){ if(SR) tc.hears="browser"; tcDialogOn(); tcAskGender(s); return; }
   tcAskMode(()=>{ if(tc&&tc.root===root) tcAskGender(s); });
 }
 /* Each conversation starts with how it goes: a chat (written and recorded, as before), or a voice dialogue (in the car:
@@ -3927,9 +3930,10 @@ function tcStopVoice(){ if(tc&&tc.playing){ tc.playing.pause(); tc.playing=null;
    player, which the first tap in it plays (a moment of silence); the tutor's messages then play in it with no tap. */
 const TC_SILENT="data:audio/wav;base64,UklGRsQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YaAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";
 function tcUnlock(){
-  if(!tc||!IS_IOS||tc.unlocked) return;
-  const p=tc.player||(tc.player=new Audio());
-  try{ p.src=TC_SILENT; const go=p.play(); if(go&&go.then) go.then(()=>{ if(tc&&tc.player===p) tc.unlocked=true; }).catch(()=>{}); }catch{}
+  if(!tc||!IS_IOS||tc.unlocked||tc.unlocking) return;
+  const p=tc.player||(tc.player=new Audio()), t=tc; t.unlocking=true;   // once: a tap while it plays does not play it again
+  const no=()=>{ t.unlocking=false; };
+  try{ p.src=TC_SILENT; const go=p.play(); if(go&&go.then) go.then(()=>{ t.unlocked=true; no(); }).catch(no); else no(); }catch{ no(); }
 }
 async function tcSay(n,btn){   // the tutor's nth message in his own voice: said anew each time (no cache), one sound at a time
   if(!tc||!tc.id) return;
@@ -4311,7 +4315,7 @@ function tcFeedback(){
 const IS_IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1;
 const tcEleven=()=>!!(TUTOR_INFO&&TUTOR_INFO.stt&&window.MediaRecorder&&navigator.mediaDevices&&(!SR||(tc&&tc.browserFailed)||["eleven","both"].includes(tcHearsChoice())||(tc&&tc.dialog&&IS_IOS))&&!(tc&&tc.sttFailed>=2));
 // browser (the default where it can hear; ElevenLabs where it cannot, or once it fails), eleven, or both: the trial's comparison
-const tcHearsChoice=()=>{ const v=store.get("ihki.tutorHears",""); return ["browser","eleven","both"].includes(v)?v:tcCanChoose()?"browser":""; };
+const tcHearsChoice=()=>{ const v=(tc&&tc.hears)||store.get("ihki.tutorHears",""); return ["browser","eleven","both"].includes(v)?v:tcCanChoose()?"browser":""; };
 const tcComparing=()=>tcCanChoose()&&tcHearsChoice()==="both"&&!(tc&&(tc.dialog||tc.browserFailed||tc.sttFailed>=2));
 /* ElevenLabs hears the student: a tap records, a second tap (or 15 s) ends it, the server recognizes it with the
    lesson's words, and the text goes on as the browser's would. Failing twice in a conversation, it goes back to the

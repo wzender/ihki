@@ -42,10 +42,9 @@ def current_lesson(asked: str | None, attempts: list[dict]) -> str:
 
 
 def weak_sentences(attempts: list[dict], lesson: str) -> list[dict]:
-    """The sentences of the lessons up to this one that the student has tried and not yet said well: the lowest best
-    score first, then the most tries."""
-    ready = [l["id"] for l in LESSONS if not l.get("soon")]
-    upto = set(ready[:ready.index(lesson) + 1]) if lesson in ready else set()
+    """The sentences of the student's last lesson that they have tried and not yet said well: the lowest best score
+    first, then the most tries."""
+    upto = {lesson}
     of = _lesson_of_cat()
     best: dict[tuple, int] = {}
     tries: dict[tuple, int] = {}
@@ -63,17 +62,12 @@ def weak_sentences(attempts: list[dict], lesson: str) -> list[dict]:
 
 
 def new_words(attempts: list[dict], lesson: str) -> list[dict]:
-    """A few words of the lesson's word lists the student has not practised yet; when they have practised all of
-    them, the next lesson's."""
-    ready = [l["id"] for l in LESSONS if not l.get("soon")]
+    """A few words of the lesson's word lists the student has not practised yet; never a later lesson's (none, once
+    they have practised them all)."""
     tried = {(r.get("cat"), r.get("phrase")) for r in attempts}
     learn = {c["id"]: c["lesson"] for c in CATEGORIES if c.get("learn")}
-    order = ready[ready.index(lesson):] if lesson in ready else ready
-    for l in order[:2]:
-        words = [p for p in PHRASES if learn.get(p["cat"]) == l and _key(p) not in tried and len(p["tr"].split()) <= 3]
-        if words:
-            return [{"ar": p["variants"][0][0], "tr": p["tr"], "he": p["he"]} for p in words[:MAX_NEW]]
-    return []
+    words = [p for p in PHRASES if learn.get(p["cat"]) == lesson and _key(p) not in tried and len(p["tr"].split()) <= 3]
+    return [{"ar": p["variants"][0][0], "tr": p["tr"], "he": p["he"]} for p in words[:MAX_NEW]]
 
 
 def memory(chats: list[dict]) -> dict:
@@ -137,10 +131,16 @@ conversation, practise:
 {lines(p["weak"])}
 2. The mistakes they made in earlier talks: give them a chance to say it right this time.
 {fixes}
-3. These new words, which they have not learnt yet: bring in one at a time, say what it means in a few Hebrew words in
-   your message's translation, and get them to use it.
+3. These words of their lesson, which they have not practised yet: bring in one at a time and get them to use it.
 {lines(p["new"])}
+Stay within their last lesson ({p["lesson"]}) and the lessons before it: never use a word of a later lesson.
 Do not list the plan to the student; just talk. By the last sentence try to have touched each item.
+
+CORRECT EVERY MISTAKE: when the student's sentence has a mistake (a wrong word, verb form, gender or person, a missing
+word, Hebrew or Modern Standard Arabic instead of the dialect), fill fix_ar, fix_tr and fix_note: fix_note explains in
+one or two short, simple Hebrew sentences what was wrong and why (e.g. "אמרת בַּדּוֹ, אבל על עצמך אומרים בַּדִּי"). And
+begin your message by saying the right sentence back to them in Arabic (e.g. "قصدك: ..."), so they hear it said right,
+then go on with the talk. Spelling and vowels that came from the speech recognition are not mistakes.
 
 What the student said in your earlier talks (their own words, as the speech recognition wrote them):
 {said}

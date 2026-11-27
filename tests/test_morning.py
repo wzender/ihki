@@ -96,3 +96,14 @@ def test_a_student_without_the_switch_has_no_morning_talk():
         assert c.get("/api/tutor/morning", headers=bearer("dana")).status_code == 403
         r = c.post("/api/tutor/start", json={"scenario": "morning", "gender": "f"}, headers=bearer("dana"))
         assert r.status_code == 403
+
+
+def test_the_words_are_of_the_last_lesson_only():
+    from app.morning import new_words
+    learn = {c["id"] for c in CATEGORIES if c.get("learn") and c["lesson"] == "2"}
+    every = [said(p, 90) for p in PHRASES if p["cat"] in learn]
+    assert new_words(every, "2") == []   # all practised: none from the next lesson
+    p = morning.plan([said(L2[1], 40), said(lesson_phrases("1")[0], 20)], [], "2")
+    assert [w["tr"] for w in p["weak"]] == [L2[1]["tr"]]   # the last lesson's hard sentences, not an earlier one's
+    prompt = system_prompt(morning.scenario(p), "m")
+    assert "CORRECT EVERY MISTAKE" in prompt and "never use a word of a later lesson" in prompt
