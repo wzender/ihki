@@ -3944,7 +3944,10 @@ function tcPlayUrl(t,url,keep=false){   // one sound in the conversation's playe
   tcStopVoice(); const a=IS_IOS&&t.player?t.player:new Audio(url); if(a===t.player) a.src=url; t.playing=a;
   let began=a!==t.player;   // the shared player's late "pause" from the sound before is not this one's end
   const said=new Promise(done=>{ a.onplaying=()=>{ began=true; };
-    a.onended=a.onerror=a.onpause=e=>{ if(!began) return; if(!keep) URL.revokeObjectURL(url); done(!e||e.type==="ended"); }; });
+    a.onended=a.onerror=a.onpause=e=>{ if(!began) return;
+      // Chrome sends "pause" just before "ended" when a sound plays to its end: that pause is not a stop
+      if(e&&e.type==="pause"&&(a.ended||a.duration&&a.currentTime>=a.duration-0.05)) return;
+      if(!keep) URL.revokeObjectURL(url); done(!e||e.type==="ended"); }; });
   return a.play().then(()=>Promise.race([said,new Promise(r=>setTimeout(()=>r(true),60000))]));   // a minute at most
 }
 async function tcSay(n,btn){   // the tutor's nth message in his own voice: said anew each time (no cache), one sound at a time

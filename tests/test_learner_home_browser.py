@@ -2776,7 +2776,8 @@ def test_the_tutors_message_after_a_correction_begins_with_the_sentence_said_rig
 MORNING_FIX_SAID = """
 await sleep(800);
 const asked=[], played=[];
-window.Audio=function(src){ this.src=src||""; this.play=()=>{ played.push(this.src.slice(0,10)); setTimeout(()=>{ this.onplaying&&this.onplaying(); setTimeout(()=>this.onended&&this.onended({type:"ended"}),20); },10); return Promise.resolve(); }; this.pause=()=>{}; };
+window.Audio=function(src){ this.src=src||""; this.duration=1; this.currentTime=0; this.play=()=>{ played.push(this.src.slice(0,10)); setTimeout(()=>{ this.onplaying&&this.onplaying();
+  setTimeout(()=>{ this.currentTime=1; this.ended=true; this.onpause&&this.onpause({type:"pause"}); this.onended&&this.onended({type:"ended"}); },20); },10); return Promise.resolve(); }; this.pause=()=>{}; };   // as Chrome: "pause", then "ended"
 const real=window.fetch;
 window.fetch=(url,opts={})=>{ const u=String(url);
   if(u.includes("/api/tutor/say/")){ asked.push(u.split("/api/tutor/say/")[1]); return Promise.resolve(new Response(new Blob(["ID3"]),{status:200})); }
