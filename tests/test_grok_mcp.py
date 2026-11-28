@@ -1143,3 +1143,37 @@ def test_server_version_reports_the_build_and_its_update_time():
     assert answer["ok"] is True
     assert set(answer) == {"ok", "version", "updated_at", "revision", "running_since"}
     assert "get_server_version" in server.instructions
+
+
+def test_a_pdf_link_stands_in_the_library_beside_the_videos(monkeypatch):
+    from app.library import doc_link
+    assert doc_link("https://example.com/files/song.PDF") == "https://example.com/files/song.PDF"
+    assert doc_link(" https://drive.google.com/file/d/1AbC/view?usp=sharing ") == "https://drive.google.com/file/d/1AbC/view?usp=sharing"
+    assert doc_link("https://www.dropbox.com/s/x/words.docx") and doc_link("https://x.sharepoint.com/:b:/g/y")
+    assert doc_link("http://example.com/a.pdf") is None and doc_link("https://example.com/page") is None
+    assert doc_link("javascript:alert(1)//.pdf") is None and doc_link("https://e.com/a b.pdf") is None
+    server, _ = connector(LibraryAuth())
+    prepared = call(server, "prepare_library_video", {"title": "מילות השיר", "url": "https://drive.google.com/file/d/1AbC/view",
+                                                      "section": "village"})
+    assert prepared["ok"] and prepared["url"] == "https://drive.google.com/file/d/1AbC/view"
+    assert not call(server, "prepare_library_video", {"title": "x", "url": "https://example.com/page", "section": "village"})["ok"]
+
+    monkeypatch.setenv("MCP_PUBLIC_URL", "http://test/mcp/")
+    for key in ("SAWTAK_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        monkeypatch.setenv(key, "")
+    auth = LibraryAuth()
+    app = create_app(scorer_for(emissions(["w"])), auth=auth)
+
+    async def request():
+        async with app.router.lifespan_context(app):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                teacher = {"Authorization": "Bearer teacher-session"}
+                added = await client.post("/api/library", headers=teacher, json={
+                    "title": "דף תרגול", "url": "https://example.com/worksheet.pdf"})
+                bad = await client.post("/api/library", headers=teacher, json={"title": "x", "url": "https://example.com/x"})
+                return added, bad, (await client.get("/api/library", headers=teacher)).json()
+
+    added, bad, listed = asyncio.run(request())
+    assert added.status_code == 200 and bad.status_code == 400 and "PDF" in bad.json()["detail"]
+    doc = next(r for r in listed["library"] if r["title"] == "דף תרגול")
+    assert doc["doc"] == "https://example.com/worksheet.pdf" and "embed" not in doc   # opened as it is, no player

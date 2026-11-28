@@ -2825,3 +2825,19 @@ def test_the_feedback_is_copied_as_text_without_who_sent_it(site):
     assert "#1" in r["all"] and "#2" in r["all"] and "רעיון יפה" in r["all"]
     assert "@" not in r["all"]   # never who sent it
     assert r["one"].startswith("#")
+
+
+LIB_DOC = """
+await sleep(1200);
+const sec=(LIB_VISIBLE[0])||"d1";
+LIBRARY=[...LIBRARY,{id:901,section:sec,title:"מילות השיר",doc:"https://example.com/words.pdf"}];
+showView("library"); await sleep(300);
+const a=document.querySelector('#vids a.lib-doc');
+out.doc=a?[a.getAttribute("href"),a.target,a.rel,a.textContent]:null;
+"""
+
+
+def test_a_library_document_opens_as_a_file_in_a_new_tab(site):
+    r = site("boss@x.com", LIB_DOC)
+    assert r["doc"] and r["doc"][0] == "https://example.com/words.pdf" and r["doc"][1] == "_blank" and r["doc"][2] == "noopener"
+    assert "מילות השיר" in r["doc"][3] and "📄" in r["doc"][3]

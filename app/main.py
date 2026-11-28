@@ -3226,8 +3226,10 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             rows = app.state.auth.level_videos("library")
         except AuthUnavailable as e:
             raise HTTPException(503, f"library not available: {e}")
+        # a video has its player; a document (a PDF's link) is opened as it is
         return {"library": [{"id": v["id"], "section": video_library.section_of(v), "title": v["title"],
-                             **({"url": v["url"]} if user["teacher"] else {}), "embed": video_embed(v["url"])}
+                             **({"url": v["url"]} if user["teacher"] else {}),
+                             **({"embed": video_embed(v["url"])} if video_link(v["url"]) else {"doc": v["url"]})}
                             for v in rows if video_library.section_of(v) in visible],
                 "sections": sections, "visible": visible}
 
@@ -3296,8 +3298,9 @@ def create_app(scorer: Scorer | None = None, tts: SawtakTTS | None = None,
             if isinstance(e, video_library.LibraryUnavailable):
                 raise HTTPException(503, level_store_error("library", AuthUnavailable(str(e))))
             detail = str(e)
-            if detail == "זה לא קישור לסרטון ב-Vimeo או ב-YouTube":
-                detail += ". הדביקו קישור כמו https://vimeo.com/1233611297/d46ac373c8 או https://youtu.be/dQw4w9WgXcQ"
+            if detail == video_library.NOT_A_LINK:
+                detail += (". הדביקו קישור כמו https://vimeo.com/1233611297/d46ac373c8 או https://youtu.be/dQw4w9WgXcQ, "
+                           "או קישור לקובץ PDF (שמסתיים ב-.pdf, או קובץ משותף ב-Google Drive)")
             raise HTTPException(400, detail)
         a.log_event("content", user, title, {"type": "library", "level": section})
         return {"ok": True}

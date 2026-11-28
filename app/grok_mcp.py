@@ -501,7 +501,9 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         return {"video_id": created.get("id") if created else None, "title": item.title, "url": item.url,
                 "section": item.section, "section_name": library.label(item.section), "published": True}
 
-    @tool(description=("Validate a YouTube or Vimeo video for one library section and create a ten-minute approval. "
+    @tool(description=("Validate a YouTube or Vimeo video, or a link to a PDF (a .pdf address, or a file shared on "
+                       "Google Drive, Dropbox or OneDrive: a worksheet, a song's words), for one library section and "
+                       "create a ten-minute approval. "
                        "This does not publish it. `section` is required: if the teacher did not name one, ask which "
                        "section (see list_library_sections) before calling. Use this when a teacher asks to add a "
                        "video to a section by its name; the sections are those of list_library_sections."), structured_output=True)
@@ -510,7 +512,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
             return prepare_one(title, url, section)
         return result("prepare_library_video", prepare)
 
-    @tool(description=("Validate a list of YouTube or Vimeo videos for one library section and create a ten-minute "
+    @tool(description=("Validate a list of YouTube or Vimeo videos (or links to PDF files) for one library section and create a ten-minute "
                        "approval for each. This does not publish them. Each item is {\"title\", \"url\"}. `section` "
                        "is required: if the teacher did not name one, ask which section (see list_library_sections)."),
           structured_output=True)

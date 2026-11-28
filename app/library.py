@@ -469,10 +469,33 @@ def normalize_title(value: object) -> str:
     return title
 
 
+NOT_A_LINK = "זה לא קישור לסרטון ב-Vimeo או ב-YouTube, או לקובץ PDF"
+# where a document is kept online: a file whose address ends in .pdf anywhere, or a shared file of these services
+DOC_HOSTS = ("drive.google.com", "docs.google.com", "dropbox.com", "onedrive.live.com", "1drv.ms", "sharepoint.com")
+
+
+def doc_link(text: str) -> str | None:
+    """A link to a document (a worksheet, a song's words) as it is kept: the https address as it was given. None when
+    it is not one: neither a .pdf file nor a shared file of Google Drive, Dropbox or OneDrive."""
+    import urllib.parse as up
+    url = str(text or "").strip()
+    try:
+        parts = up.urlsplit(url)
+    except ValueError:
+        return None
+    host = (parts.hostname or "").lower()
+    if parts.scheme != "https" or not host or len(url) > 1000 or any(c.isspace() for c in url):
+        return None
+    if parts.path.lower().endswith(".pdf") or any(host == h or host.endswith("." + h) for h in DOC_HOSTS):
+        return url
+    return None
+
+
 def normalize_url(value: object, parse: Callable[[str], str | None]) -> str:
-    url = parse(str(value or ""))
+    """A video's link (`parse`: YouTube or Vimeo, as kept), else a document's (see `doc_link`)."""
+    url = parse(str(value or "")) or doc_link(str(value or ""))
     if not url:
-        raise LibraryError("זה לא קישור לסרטון ב-Vimeo או ב-YouTube")
+        raise LibraryError(NOT_A_LINK)
     return url
 
 
