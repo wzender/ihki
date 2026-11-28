@@ -119,6 +119,7 @@ body.home:not([data-view]) #feedbackBtn{display:none}
 .tc-fb-scale button[aria-pressed=true]{background:var(--olive);border-color:var(--olive);color:#fff}
 .tc-fb-ends{display:flex;justify-content:space-between;color:var(--muted)}.tc-fb textarea{font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink);resize:vertical}
 .tc-fb-note:empty{display:none}
+.fb-copy{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
 .fb-board{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px;margin:8px 0}
 .fb-col{scroll-snap-align:start;display:flex;flex-direction:column;gap:8px;min-width:0;padding:8px;border-radius:14px;background:var(--olive-soft);border:2px solid transparent}
 .sql-block{display:flex;flex-direction:column;gap:6px;align-items:flex-start;margin:6px 0}.sql-block code{display:block;direction:ltr;text-align:left;unicode-bidi:isolate;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;padding:8px 10px;border-radius:8px;background:var(--surface);border:1px solid var(--line);width:100%;box-sizing:border-box}
@@ -8137,6 +8138,7 @@ function drawFeedbackInbox(box){
   const all=FEEDBACK.feedback||[], rows=all.filter(r=>r.screen!=="tutor"), talks=all.filter(r=>r.screen==="tutor");
   const open=rows.filter(r=>r.status==="new").length;
   card.append(mark("meta",rows.length?`${open} חדשים מתוך ${rows.length}`:"עדיין לא התקבל משוב.","p"));
+  if(rows.length) card.append(feedbackCopyButtons(rows));
   // the general notes as a board: a column for each status, newest first; a card is dragged to another column (on a
   // computer) or moved with its buttons (on a phone)
   if(rows.length){
@@ -8158,7 +8160,7 @@ function drawFeedbackInbox(box){
   box.append(card);
   // the notes on יאללה נדבר's conversations: apart, grouped by status as before, with the model each one ran on
   if(talks.length){
-    const part=mark("card fb-inbox fb-talks",""); part.append(mark("","💬 משוב על שיחות ביאללה נדבר","h2"),tutorNotesSummary(talks));
+    const part=mark("card fb-inbox fb-talks",""); part.append(mark("","💬 משוב על שיחות ביאללה נדבר","h2"),tutorNotesSummary(talks),feedbackCopyButtons(talks));
     for(const [status,label] of FEEDBACK_GROUPS){
       const mine=talks.filter(r=>r.status===status); if(!mine.length) continue;
       const group=mark("fb-group","","details"), sum=mark("",`${label} (${mine.length})`,"summary");
@@ -8199,6 +8201,35 @@ async function feedbackSetStatus(r,status,button){
   else accessToast?.("המשוב לא הועבר. נסו שוב.",true);
 }
 const FEEDBACK_GROUPS=[["new","חדשים"],["read","נקראו"],["done","טופלו"]], feedbackOpen={};
+/* Notes as plain text, to paste elsewhere (to Claude, to a colleague): what, where, when, the text and the replies;
+   never who sent them (no e-mail address). */
+function feedbackText(rows){
+  return rows.map(r=>{
+    const kind=r.screen==="login"?"בעיית כניסה":r.screen==="join"?"בקשת הצטרפות":(FEEDBACK_KINDS[r.kind]||r.kind||"").replace(/^\S+\s/,"");
+    const status=(FEEDBACK_GROUPS.find(g=>g[0]===r.status)||[,""])[1];
+    const head=[`#${r.id}`,kind,status,new Date(r.created_at).toLocaleString("he-IL"),r.rating?`${r.rating}/5`:"",[r.screen,r.item].filter(Boolean).join(" · "),r.version?`גרסה ${r.version}`:""].filter(Boolean).join(" | ");
+    const lines=[head];
+    if(r.message) lines.push(r.message);
+    if(r.image) lines.push("[מצורף צילום מסך]");
+    for(const m of r.replies||[]) lines.push(`  ↳ ${m.from==="team"?"הצוות":"המשתמש"}: ${m.text}`);
+    return lines.join("\n");
+  }).join("\n\n");
+}
+async function feedbackCopy(rows,button){   // the notes to the clipboard; the button says it was done
+  const text=feedbackText(rows), was=button.textContent;
+  try{ await navigator.clipboard.writeText(text); }
+  catch{ const t=document.createElement("textarea"); t.value=text; t.setAttribute("readonly",""); t.style.cssText="position:fixed;opacity:0";
+    document.body.append(t); t.select(); try{ document.execCommand("copy"); }catch{} t.remove(); }
+  button.textContent=`✓ הועתקו ${rows.length}`; setTimeout(()=>{ button.textContent=was; },2000);
+}
+function feedbackCopyButtons(rows){   // copy the new notes, or every one shown
+  const bar=mark("fb-copy",""), fresh=rows.filter(r=>r.status==="new");
+  for(const [label,list] of [["📋 העתקת החדשים",fresh],["📋 העתקת הכל",rows]]){
+    if(!list.length) continue;
+    const b=mark("btn",label,"button"); b.type="button"; b.title="העתקה כטקסט, בלי פרטי השולחים"; b.onclick=()=>feedbackCopy(list,b); bar.append(b);
+  }
+  return bar;
+}
 function feedbackItem(r,onBoard){   // one note: who and where, the message, the conversation, its status buttons and an answer box
   const item=mark("fb-item"+(r.status==="done"&&!onBoard?" done":""),""), head=mark("fb-head","");
   if(onBoard){   // a card of the board: dragged by itself, its answer box folded until it is wanted
@@ -8220,6 +8251,8 @@ function feedbackItem(r,onBoard){   // one note: who and where, the message, the
     b.onclick=()=>feedbackSetStatus(r,status,b);
     actions.append(b);
   }
+  const copy=mark("btn","📋","button"); copy.type="button"; copy.title="העתקת המשוב כטקסט"; copy.setAttribute("aria-label","העתקת המשוב");
+  copy.onclick=()=>feedbackCopy([r],copy); actions.append(copy);
   // to the office: the note as a mail from the manager's own mail app (the address is put together on the press)
   const office=mark("btn","✉️ למשרד","button"); office.type="button"; office.title="שליחת המשוב במייל למשרד";
   office.onclick=()=>{

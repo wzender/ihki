@@ -2802,3 +2802,26 @@ def test_the_morning_teachers_correction_is_a_sound_of_its_own(site):
     r = site("boss@x.com", MORNING_FIX_SAID, preload="window.__wizardOwn=true;")
     assert r["asked"] == ["chat1/1?part=fix", "chat1/1?part=reply"]
     assert r["played"][0].startswith("data:audio") and len(r["played"]) == 3   # the chime, the correction, the message
+
+
+FEEDBACK_COPY = """
+await sleep(800); const copied=[]; Object.defineProperty(navigator,"clipboard",{value:{writeText:async t=>{ copied.push(t); }}});
+showManage(); await sleep(300);
+document.querySelector('#mModes [data-mode="feedback"]').click();
+await until(()=>document.querySelector("#mFeedback .fb-copy"),6000);
+const buttons=[...document.querySelectorAll("#mFeedback .fb-inbox:not(.fb-talks) .fb-copy button")];
+out.labels=buttons.map(b=>b.textContent);
+buttons[0].click(); await sleep(100); out.fresh=copied[0];
+buttons[1].click(); await sleep(100); out.all=copied[1];
+document.querySelector('#mFeedback .fb-board .fb-actions button[aria-label="העתקת המשוב"]').click(); await sleep(100); out.one=copied[2];
+"""
+
+
+def test_the_feedback_is_copied_as_text_without_who_sent_it(site):
+    site.auth.notes = [note(id=1, message="הכפתור לא עובד"), note(id=2, message="רעיון יפה", status="read", kind="idea")]
+    r = site("boss@x.com", FEEDBACK_COPY)
+    assert r["labels"] == ["📋 העתקת החדשים", "📋 העתקת הכל"]
+    assert "#1" in r["fresh"] and "הכפתור לא עובד" in r["fresh"] and "רעיון יפה" not in r["fresh"]
+    assert "#1" in r["all"] and "#2" in r["all"] and "רעיון יפה" in r["all"]
+    assert "@" not in r["all"]   # never who sent it
+    assert r["one"].startswith("#")
