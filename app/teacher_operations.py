@@ -167,8 +167,10 @@ def _normalized_row(row: dict[str, Any]) -> dict[str, Any]:
         if unknown:
             raise TeacherOperationError("אין בספרייה מדור כזה. " + library.choices(), code="library_section_unknown",
                                         detail=f"unknown={','.join(unknown)[:200]}")
-        added = [item for item in sections if item not in library.SEED_IDS]
-        if added:   # a sub-section has no permission of its own: whoever opens its parent opens it
+        # a main section added later (קורס הלוחמים, העשרה) is opened to a class as the built-in ones are; a sub-section
+        # has no permission of its own: whoever opens its parent opens it
+        added = [item for item in sections if item not in library.SEED_IDS and library.tree().nodes[item]["parent"]]
+        if added:
             raise TeacherOperationError("תת-מדור שנוסף לספרייה נפתח עם המדור שהוא נמצא בו. בחרו את המדור הראשי: "
                                         + ", ".join(library.label(library.tree().nodes[item]["parent"]) for item in added),
                                         code="library_section_inherited", detail=f"sub_sections={','.join(added)[:200]}")

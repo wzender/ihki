@@ -486,7 +486,7 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         section = library.resolve_section(section)
         clean_title = library.normalize_title(title)
         clean_url = library.normalize_url(url, app.state.video_link)
-        library.ensure_unique(auth(), clean_url, fresh=True)
+        library.ensure_unique(auth(), clean_url, section=section, fresh=True)
         approval_id, item = approvals.prepare(clean_title, clean_url, section)
         return {"approval_id": approval_id, "title": item.title, "url": item.url, "section": section,
                 "section_name": library.label(section), "expires_in_seconds": APPROVAL_TTL, "published": False}
@@ -496,7 +496,8 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         if item is None:
             raise library.LibraryError("האישור אינו תקף, פג תוקף או כבר נוצל. הכינו את הסרטון מחדש.")
         library.add(auth(), item.title, item.url, section=item.section)
-        created = next((video for video in library.rows(auth(), fresh=True) if video.get("url") == item.url), None)
+        created = next((video for video in reversed(library.rows(auth(), fresh=True)) if video.get("url") == item.url
+                        and library.section_of(video) == item.section), None)   # (the same video may stand elsewhere too)
         return {"video_id": created.get("id") if created else None, "title": item.title, "url": item.url,
                 "section": item.section, "section_name": library.label(item.section), "published": True}
 

@@ -486,10 +486,13 @@ def rows(auth: SupabaseAuth | None, *, fresh: bool = False) -> list[dict]:
         raise LibraryUnavailable(f"ספריית הסרטונים אינה זמינה: {exc}") from exc
 
 
-def ensure_unique(auth: SupabaseAuth | None, url: str, *, fresh: bool = True) -> None:
-    same = next((video for video in rows(auth, fresh=fresh) if video.get("url") == url), None)
+def ensure_unique(auth: SupabaseAuth | None, url: str, *, section: str | None = None, fresh: bool = True) -> None:
+    """A video may stand in several sections (a course's video beside the level's): only twice in one section is
+    refused. Without a section, anywhere in the library."""
+    same = next((video for video in rows(auth, fresh=fresh) if video.get("url") == url
+                 and (section is None or section_of(video) == section)), None)
     if same is not None:
-        raise LibraryError(f"הסרטון כבר נמצא בספרייה, במדור {label(section_of(same))}")
+        raise LibraryError(f"הסרטון כבר נמצא במדור {label(section_of(same))}")
 
 
 def add(auth: SupabaseAuth | None, title: str, url: str, *, section: str = LEGACY_SECTION,
@@ -499,7 +502,7 @@ def add(auth: SupabaseAuth | None, title: str, url: str, *, section: str = LEGAC
     if section not in holders():
         raise LibraryError("לאיזה מדור להעלות? " + choices())
     if reject_duplicate:
-        ensure_unique(auth, url, fresh=True)
+        ensure_unique(auth, url, section=section, fresh=True)
     try:
         assert auth is not None
         auth.add_level_video("library", section, title, url)

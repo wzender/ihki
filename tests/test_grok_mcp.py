@@ -221,8 +221,8 @@ def test_prepare_publish_is_expiring_single_use_and_rechecks_duplicates():
 
     other = call(server, "prepare_library_video", {"title": "אחר", "url": "https://vimeo.com/1233611297/d46ac373c8",
                                                    "section": "village"})
-    auth.library_videos.append({"id": 2, "level": "", "title": "נוסף במקביל", "url": other["url"]})
-    assert call(server, "publish_library_video", {"approval_id": other["approval_id"]})["ok"] is False
+    auth.library_videos.append({"id": 2, "level": "village", "title": "נוסף במקביל", "url": other["url"]})
+    assert call(server, "publish_library_video", {"approval_id": other["approval_id"]})["ok"] is False   # same section
 
     expiring = call(server, "prepare_library_video", {"title": "פג", "url": "https://youtu.be/abc12345678",
                                                       "section": "village"})
@@ -253,16 +253,17 @@ def test_a_list_of_videos_is_prepared_and_published_into_one_section():
     prepared = call(server, "prepare_library_videos", {"section": "טיולים בכפר", "videos": [
         {"title": "הכפר הראשון", "url": "https://youtu.be/bbbbbbbbbbb"},
         {"title": "הכפר השני", "url": "https://vimeo.com/76979871"},
-        {"title": "כבר בספרייה", "url": "https://youtu.be/aaaaaaaaaaa"},
+        {"title": "כבר בשלב א", "url": "https://youtu.be/aaaaaaaaaaa"},
         {"title": "פעמיים", "url": "https://youtu.be/bbbbbbbbbbb"},
         {"title": "לא קישור", "url": "https://example.com/x"}]})
-    assert prepared["ok"] and prepared["section"] == "village" and len(prepared["prepared"]) == 2
-    assert [r["item"] for r in prepared["refused"]] == [3, 4, 5]
-    assert "שלב א" in prepared["refused"][0]["error"]   # where the duplicate already stands
+    assert prepared["ok"] and prepared["section"] == "village" and len(prepared["prepared"]) == 3
+    assert [r["item"] for r in prepared["refused"]] == [4, 5]   # a video in another section may stand here too
     assert len(auth.library_videos) == 1   # nothing published yet
     published = call(server, "publish_library_videos", {"approval_ids": [p["approval_id"] for p in prepared["prepared"]]})
-    assert published["ok"] and len(published["published"]) == 2 and not published["refused"]
-    assert [v["level"] for v in auth.library_videos] == ["", "village", "village"]
+    assert published["ok"] and len(published["published"]) == 3 and not published["refused"]
+    assert [v["level"] for v in auth.library_videos] == ["", "village", "village", "village"]
+    again = call(server, "prepare_library_video", {"title": "שוב", "url": "https://youtu.be/aaaaaaaaaaa", "section": "village"})
+    assert again["ok"] is False and "טיולים בכפר" in again["error"]   # but not twice in one section
     assert call(server, "prepare_library_videos", {"videos": [{"title": "x", "url": "https://youtu.be/ccccccccccc"}]})["ok"] is False
 
 

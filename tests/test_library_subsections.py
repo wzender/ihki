@@ -290,3 +290,19 @@ def test_the_learner_api_shows_the_sub_section_and_its_videos(monkeypatch):
     assert d1["id"] == "d1" and d1["holds_videos"] and d1["children"][0]["id"] == new_id
     assert seen["visible"] == ["d1", new_id]
     assert sorted(v["section"] for v in seen["library"]) == sorted(["d1", new_id])
+
+
+def test_a_main_section_added_later_is_opened_to_a_class_as_a_built_in_one():
+    auth = Auth()
+    server, _ = connector(auth, actor=MANAGER)
+    call(server, "list_library_sections")   # the table is seeded with the built-in sections
+    new_id = "lohamim"   # a main section added in the panel, beside the built-in ones
+    auth.table.append({"id": new_id, "parent_id": None, "name": "קורס הלוחמים", "ord": 99, "level": "", "holds_videos": True})
+    library.refresh(auth, fresh=True)
+    assert library.tree().nodes[new_id]["parent"] == ""
+    from app import teacher_operations
+    base = {"name": "א", "emails": ["student@example.com"], "lessons": ["1"]}
+    row = teacher_operations._normalized_row(base | {"library_sections": ["d1", new_id]})
+    assert row["library_sections"] == ["d1", new_id]
+    from app.access import class_library
+    assert new_id in class_library(row)   # its students see it
