@@ -2841,3 +2841,21 @@ def test_a_library_document_opens_as_a_file_in_a_new_tab(site):
     r = site("boss@x.com", LIB_DOC)
     assert r["doc"] and r["doc"][0] == "https://example.com/words.pdf" and r["doc"][1] == "_blank" and r["doc"][2] == "noopener"
     assert "מילות השיר" in r["doc"][3] and "📄" in r["doc"][3]
+
+
+FEEDBACK_HANGS = """
+await sleep(800); FEEDBACK_WAIT=1500; const real=window.fetch; let hang=true;
+window.fetch=(url,opts={})=>String(url).includes("/api/feedback")&&hang?new Promise(()=>{}):real(url,opts);
+showManage(); await sleep(300);
+document.querySelector('#mModes [data-mode="feedback"]').click();
+await until(()=>/לא ניתן לטעון/.test(document.getElementById("mFeedback").textContent),8000);
+out.err=document.getElementById("mFeedback").textContent; hang=false;
+[...document.querySelectorAll("#mFeedback button")].find(b=>b.textContent==="נסו שוב").click();
+await until(()=>document.querySelector("#mFeedback .fb-board"),6000); out.board=true;
+"""
+
+
+def test_feedback_that_does_not_come_says_so_and_can_be_asked_again(site):
+    site.auth.notes = [note(id=1)]
+    r = site("boss@x.com", FEEDBACK_HANGS)
+    assert "השרת לא ענה בזמן" in r["err"] and r["board"]   # never "loading" for ever

@@ -8127,18 +8127,31 @@ function shrinkImage(file,side,quality){
 }
 let FEEDBACK=null, feedbackError="";
 let feedbackLoad=0;   // a read that started before a note was changed here is stale: its answer is dropped
-async function loadFeedback(){
+let feedbackLoading=null, FEEDBACK_WAIT=20000;   // the request on its way (a second draw waits for it); how long it may take
+function loadFeedback(){
+  if(feedbackLoading) return feedbackLoading;
   const n=++feedbackLoad;
-  try{
-    const res=await api("/api/feedback"), data=await res.json().catch(()=>({}));
-    if(!res.ok) throw new Error(data.detail||res.status);
-    if(n===feedbackLoad){ FEEDBACK=data; feedbackError=""; }
-  }catch(err){ if(n===feedbackLoad){ FEEDBACK=null; feedbackError=err.message; } }
+  const timeout=new Promise((_,no)=>setTimeout(()=>no(new Error("השרת לא ענה בזמן")),FEEDBACK_WAIT));   // never "loading" for ever
+  feedbackLoading=(async()=>{
+    try{
+      const res=await Promise.race([api("/api/feedback"),timeout]), data=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(data.detail||res.status);
+      if(n===feedbackLoad){ FEEDBACK=data; feedbackError=""; }
+    }catch(err){ if(n===feedbackLoad){ FEEDBACK=null; feedbackError=err.message||String(err); } }
+    finally{ feedbackLoading=null; }
+  })();
+  return feedbackLoading;
 }
 function drawFeedbackInbox(box){
   const card=mark("card fb-inbox",""); card.append(mark("","משוב ממשתמשים","h2"));
-  if(feedbackError){ card.append(mark("meta","לא ניתן לטעון: "+feedbackError,"p")); box.append(card); return; }
-  if(!FEEDBACK){ card.append(mark("meta","טוען…","p")); box.append(card); loadFeedback().then(()=>{ if(mMode==="feedback"&&document.body.classList.contains("manage")) drawFeedbackTab(); }); return; }
+  if(feedbackError){   // said, with a way to try again
+    const again=mark("btn","נסו שוב","button"); again.type="button"; again.onclick=()=>{ feedbackError=""; drawFeedbackTab(); };
+    card.append(mark("meta","לא ניתן לטעון: "+feedbackError,"p"),again); box.append(card); return;
+  }
+  if(!FEEDBACK){   // loading: drawn again when it comes, wherever the tab was opened from
+    card.append(mark("meta","טוען…","p")); box.append(card);
+    loadFeedback().then(()=>{ if(card.isConnected) drawFeedbackTab(); }); return;
+  }
   if(FEEDBACK.setup){ card.append(mark("meta","הטבלה feedback עדיין לא קיימת. הריצו ב-SQL Editor של Supabase:","p"),mark("meta",FEEDBACK.setup,"p")); box.append(card); return; }
   if(FEEDBACK.tutor_setup) card.append(mark("meta","משובים על יאללה נדבר נשמרים כרגע כ„רעיון”. כדי שיישמרו כסוג משלהם, הריצו פעם אחת ב-SQL Editor של Supabase:","p"),sqlBlock(FEEDBACK.tutor_setup));
   if(FEEDBACK.image_setup) card.append(mark("meta","כדי לשמור צילומי מסך עם המשוב, הריצו פעם אחת ב-SQL Editor של Supabase:","p"),mark("meta",FEEDBACK.image_setup,"p"));
