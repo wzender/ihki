@@ -27,7 +27,8 @@ GLIDE_KIN = {"j": ("i", "iː", "e", "eː"), "w": ("u", "uː", "o", "oː")}
 log = logging.getLogger("ihki.scorer")
 
 SAMPLE_RATE = 16_000
-MAX_SECONDS = 32  # the recording includes the time to read the sentence and think (the page stops at 30 s)
+MAX_SECONDS = 70  # the recording includes the time to read the sentence and think (the page stops at 65 s at most, for
+# the longest sentence: 20 s to begin and 1.2 s a word, see vadFor in the page)
 
 # Fallbacks when the model vocab lacks a phoneme. The first symbol found in the vocab wins.
 FALLBACKS = {

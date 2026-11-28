@@ -2859,3 +2859,18 @@ def test_feedback_that_does_not_come_says_so_and_can_be_asked_again(site):
     site.auth.notes = [note(id=1)]
     r = site("boss@x.com", FEEDBACK_HANGS)
     assert "השרת לא ענה בזמן" in r["err"] and r["board"]   # never "loading" for ever
+
+
+VAD_FIT = """
+await sleep(800);
+out.short=vadFor({tr:"מַרְחַבַּא כִּיף חַאלַכּ"});
+out.long=vadFor({tr:Array(20).fill("כַּלִמֵה").join(" ")});
+out.huge=vadFor({tr:Array(80).fill("כַּלִמֵה").join(" ")});
+"""
+
+
+def test_a_long_sentence_gets_the_time_and_the_pauses_it_takes_to_say(site):
+    r = site("dana@x.com", VAD_FIT)
+    assert r["short"] == {"maxSpeech": 10000, "endSilence": 1000}   # as before
+    assert r["long"] == {"maxSpeech": 28000, "endSilence": 2000}   # 20 words: 28 s to say it, 2 s pauses between them
+    assert r["huge"]["maxSpeech"] == 45000   # and never more than the server scores

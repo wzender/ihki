@@ -6799,6 +6799,13 @@ const finishRec=out=>{ const f=recDone; recDone=null; if(f) f(out); };
 // endSilence: the quiet that ends the recording. A sentence translated from Hebrew to Arabic (endSilenceTranslate) gets
 // more: the student stops between the words to recall the next one, and that is not the end of the answer.
 const VAD={frame:50, startFrames:3, endSilence:1000, endSilenceTranslate:2500, noSpeech:12000, noSpeechAuto:20000, maxSpeech:10000, minLevel:.012, ratio:3};
+// a long sentence gets the time it takes to say: 1.2 s a word (a learner reads slowly), and longer pauses between its
+// words before the recording ends (reading the next word is not the end of the sentence)
+function vadFor(p){
+  const words=String(p&&(p.tr||(p.variants&&p.variants[0]&&p.variants[0][0]))||"").split(/\s+/).filter(Boolean).length;
+  return {maxSpeech:Math.min(45000,Math.max(VAD.maxSpeech,words*1200+4000)),
+          endSilence:words>=12?2000:words>=7?1500:VAD.endSilence};
+}
 function startVad(stream, onEnd, noSpeech, endSilence=VAD.endSilence){
   const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null;   // no Web Audio: manual stop only
   const ctx=new AC(), an=ctx.createAnalyser(); an.fftSize=1024;
@@ -6872,9 +6879,9 @@ async function startRec(auto){   // auto: started by the page for the sentence o
     starting=false;
     lastPhone=null; $("phoneBtn").disabled=true;
     mic.classList.add("live"); $("result").hidden=true;
-    const noSpeech=auto?VAD.noSpeechAuto:VAD.noSpeech;
-    stopTimer=setTimeout(()=>rec.state==="recording"&&rec.stop(),noSpeech+VAD.maxSpeech);
-    vad=startVad(stream, spoke=>{ heardSpeech=spoke; if(rec.state==="recording") rec.stop(); }, noSpeech, translating?VAD.endSilenceTranslate:VAD.endSilence);
+    const noSpeech=auto?VAD.noSpeechAuto:VAD.noSpeech, fit=vadFor(cur);
+    stopTimer=setTimeout(()=>rec.state==="recording"&&rec.stop(),noSpeech+fit.maxSpeech);
+    vad=startVad(stream, spoke=>{ heardSpeech=spoke; if(rec.state==="recording") rec.stop(); }, noSpeech, Math.max(fit.endSilence,translating?VAD.endSilenceTranslate:0));
     $("status").textContent=vad?"מקליט… דברו, ההקלטה תיעצר לבד (או לחצו לסיום)":"מקליט… לחצו שוב לסיום";
   };
   rec.onstop=async()=>{
