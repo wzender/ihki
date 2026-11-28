@@ -46,6 +46,9 @@ def _ms(started: float) -> int:
     return int((time.monotonic() - started) * 1000)
 
 
+EMAIL_IN_TEXT = __import__("re").compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+
+
 async def _bounded_read(fn: Callable[[], Any]) -> Any:
     """Run a synchronous, read-only storage operation without blocking MCP's event loop.
 
@@ -297,6 +300,8 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
                       "read with get_user_feature_access and given, taken away or removed with "
                       "prepare_user_feature_access_change and publish_user_feature_access_change; it wins over the "
                       "tier and leaves every other account as it was. "
+                      "The users' feedback notes (the panel's משוב board) are read with list_feedback, newest first, "
+                      "without who sent them; it only reads. "
                       "Digital-library videos go into one section (list_library_sections): when the teacher does not "
                       "name the section, ask which one before preparing; for a list, use prepare_library_videos. "
                       "The sections and their ids are whatever list_library_sections returns now (its upload_targets "
@@ -1650,6 +1655,42 @@ def build(app, *, approvals: ApprovalStore | None = None, limiter: MutationLimit
         except monitoring.MonitoringError as exc:
             diagnostics.note_refusal(exc)
             return {"ok": False, "error": str(exc)}
+
+    @tool(description=("Read the users' feedback notes (what the panel's משוב board shows), newest first: each "
+                       "note's id, kind (problem, idea, score, praise, tutor = a note on a יאללה נדבר conversation), "
+                       "rating, text, the screen and item it is about, the app version, its status (new, read, done), "
+                       "when it was sent, whether it has a screenshot, and its conversation with the team. Who sent it "
+                       "is never returned, and e-mail addresses in the text are masked. Managers only; read-only."),
+          structured_output=True)
+    async def list_feedback(status: Literal["new", "read", "done"] | None = None,
+                            kind: Literal["problem", "idea", "score", "praise", "tutor"] | None = None,
+                            since: str | None = None, limit: int = 30) -> dict[str, Any]:
+        current, store = actor(), auth()
+        if current is None or store is None or not hasattr(store, "list_feedback"):
+            return {"ok": False, "error": "המשובים אינם זמינים", "feedback": []}
+        if not has_permission(current, "management.access"):
+            return {"ok": False, "error": "רק מנהלים יכולים לקרוא משובים", "feedback": []}
+        limit = max(1, min(int(limit or 30), 200))
+        try:
+            rows = await _bounded_read(lambda: store.list_feedback(status, 200))
+        except AuthUnavailable as exc:
+            return {"ok": False, "error": f"המשובים לא נקראו: {exc}", "feedback": []}
+        mask = lambda text: EMAIL_IN_TEXT.sub("[email]", str(text or ""))
+        out = []
+        for r in rows or []:
+            # a note on a יאללה נדבר conversation kept as an idea before its kind existed is one, as the panel shows it
+            k = "tutor" if r.get("kind") == "idea" and r.get("screen") == "tutor" else r.get("kind")
+            if kind and k != kind or since and str(r.get("created_at") or "") < since:
+                continue
+            out.append({"id": r.get("id"), "kind": k, "rating": r.get("rating"), "message": mask(r.get("message")),
+                        "screen": r.get("screen") or "", "item": mask(r.get("item")), "version": r.get("version") or "",
+                        "status": r.get("status"), "created_at": r.get("created_at"), "has_image": bool(r.get("image")),
+                        "replies": [{"from": m.get("from"), "text": mask(m.get("text")), "at": m.get("at")}
+                                    for m in r.get("replies") or [] if isinstance(m, dict)]})
+            if len(out) >= limit:
+                break
+        log.info("MCP feedback read actor_id=%s status=%s kind=%s returned=%s", current.get("id"), status, kind, len(out))
+        return {"ok": True, "feedback": out, "returned": len(out)}
 
     @tool(description=("Return measured pronunciation errors from stored phoneme diagnostics for one "
                               "authorized class or all visible classes. Returns aggregates only and never infers "

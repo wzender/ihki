@@ -287,3 +287,33 @@ def test_the_panels_summary_is_kept_a_while_and_read_afresh_after_a_change(monke
 
     out = run(auth, steps, monkeypatch)
     assert out == {"kept": 1, "after_practice": 1, "after_change": 2, "fresh": 3}
+
+
+class FeedbackAuth(TierAuth):
+    def list_feedback(self, status=None, limit=200):
+        rows = [
+            {"id": 3, "user_id": "u3", "email": "dana@x.com", "kind": "idea", "screen": "tutor", "rating": 4,
+             "message": "המורה מהיר מדי", "item": "השיחה של הבוקר · ערבית מדוברת 5/5 · claude-haiku-5-5",
+             "version": "1.2", "status": "new", "created_at": "2026-11-27T10:00:00+00:00", "image": "",
+             "replies": [{"from": "team", "by": "boss@x.com", "text": "תודה!", "at": "2026-11-27T11:00:00+00:00"}]},
+            {"id": 2, "user_id": None, "email": "", "kind": "problem", "screen": "login", "rating": None,
+             "message": "ניסיתי עם rina@gmail.com ולא הגיע קישור", "item": "", "version": "", "status": "read",
+             "created_at": "2026-11-26T10:00:00+00:00", "image": "abc.jpg", "replies": []},
+        ]
+        return [r for r in rows if not status or r["status"] == status]
+
+
+def test_a_manager_reads_the_feedback_through_the_mcp_without_who_sent_it():
+    server, _ = connector(FeedbackAuth(), actor={**MCP_MANAGER})
+    out = call(server, "list_feedback", {})
+    assert out["ok"] and [f["id"] for f in out["feedback"]] == [3, 2]
+    tutor, login = out["feedback"]
+    assert tutor["kind"] == "tutor" and tutor["message"] == "המורה מהיר מדי" and tutor["replies"][0] == {
+        "from": "team", "text": "תודה!", "at": "2026-11-27T11:00:00+00:00"}
+    assert "rina@gmail.com" not in login["message"] and "[email]" in login["message"] and login["has_image"]
+    assert "dana@x.com" not in str(out) and "boss@x.com" not in str(out) and "u3" not in str(out)
+    assert [f["id"] for f in call(server, "list_feedback", {"kind": "tutor"})["feedback"]] == [3]
+    assert [f["id"] for f in call(server, "list_feedback", {"status": "read"})["feedback"]] == [2]
+    assert [f["id"] for f in call(server, "list_feedback", {"since": "2026-11-27"})["feedback"]] == [3]
+    student = {**MCP_MANAGER, "roles": ["student"], "permissions": ["mcp.use"]}
+    assert not call(connector(FeedbackAuth(), actor=student)[0], "list_feedback", {})["ok"]
